@@ -1,0 +1,668 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
+		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
+		9B480664297EBD930040F5D4 /* Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* Decoder.swift */; };
+		9B480666297ECC170040F5D4 /* LocalVideoPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480665297ECC170040F5D4 /* LocalVideoPreview.swift */; };
+		9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480667297EFEE20040F5D4 /* PipelineManager.swift */; };
+		9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480669297EFF040040F5D4 /* DecoderElement.swift */; };
+		9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* EncoderElement.swift */; };
+		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
+		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
+		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
+		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
+		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
+		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
+		9BA27FD7297D7271007013B2 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FD6297D7271007013B2 /* DecimusTests.swift */; };
+		9BA27FE1297D7271007013B2 /* DecimusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE0297D7271007013B2 /* DecimusUITests.swift */; };
+		9BA27FE3297D7271007013B2 /* DecimusUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */; };
+		9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF2297D7562007013B2 /* SidebarView.swift */; };
+		9BA27FF5297D787F007013B2 /* CallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF4297D787F007013B2 /* CallView.swift */; };
+		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
+		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9BA27FD3297D7271007013B2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9BA27FBA297D7270007013B2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9BA27FC1297D7270007013B2;
+			remoteInfo = Decimus;
+		};
+		9BA27FDD297D7271007013B2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9BA27FBA297D7270007013B2 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9BA27FC1297D7270007013B2;
+			remoteInfo = Decimus;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
+		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
+		9B480663297EBD930040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
+		9B480665297ECC170040F5D4 /* LocalVideoPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalVideoPreview.swift; sourceTree = "<group>"; };
+		9B480667297EFEE20040F5D4 /* PipelineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineManager.swift; sourceTree = "<group>"; };
+		9B480669297EFF040040F5D4 /* DecoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecoderElement.swift; sourceTree = "<group>"; };
+		9B48066B297F051D0040F5D4 /* EncoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncoderElement.swift; sourceTree = "<group>"; };
+		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
+		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
+		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		9BA27FD2297D7271007013B2 /* DecimusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BA27FD6297D7271007013B2 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
+		9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BA27FE0297D7271007013B2 /* DecimusUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusUITests.swift; sourceTree = "<group>"; };
+		9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		9BA27FEF297D7352007013B2 /* Decimus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Decimus.entitlements; sourceTree = "<group>"; };
+		9BA27FF2297D7562007013B2 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		9BA27FF4297D787F007013B2 /* CallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallView.swift; sourceTree = "<group>"; };
+		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
+		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9BA27FBF297D7270007013B2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FCF297D7271007013B2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FD9297D7271007013B2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		9BA27FB9297D7270007013B2 = {
+			isa = PBXGroup;
+			children = (
+				9BA27FC4297D7270007013B2 /* Decimus */,
+				9BA27FD5297D7271007013B2 /* DecimusTests */,
+				9BA27FDF297D7271007013B2 /* DecimusUITests */,
+				9BA27FC3297D7270007013B2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9BA27FC3297D7270007013B2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FC2297D7270007013B2 /* Decimus.app */,
+				9BA27FD2297D7271007013B2 /* DecimusTests.xctest */,
+				9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9BA27FC4297D7270007013B2 /* Decimus */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FF9297DD8CA007013B2 /* Models */,
+				9BA27FF6297D7D61007013B2 /* Views */,
+				9BA27FEF297D7352007013B2 /* Decimus.entitlements */,
+				9BA27FC5297D7270007013B2 /* DecimusApp.swift */,
+				9BA27FC9297D7271007013B2 /* Assets.xcassets */,
+				9BA27FCB297D7271007013B2 /* Preview Content */,
+				9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */,
+				9B480667297EFEE20040F5D4 /* PipelineManager.swift */,
+				9B480669297EFF040040F5D4 /* DecoderElement.swift */,
+				9B48066B297F051D0040F5D4 /* EncoderElement.swift */,
+				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
+			);
+			path = Decimus;
+			sourceTree = "<group>";
+		};
+		9BA27FCB297D7271007013B2 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		9BA27FD5297D7271007013B2 /* DecimusTests */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FD6297D7271007013B2 /* DecimusTests.swift */,
+			);
+			path = DecimusTests;
+			sourceTree = "<group>";
+		};
+		9BA27FDF297D7271007013B2 /* DecimusUITests */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FE0297D7271007013B2 /* DecimusUITests.swift */,
+				9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */,
+			);
+			path = DecimusUITests;
+			sourceTree = "<group>";
+		};
+		9BA27FF6297D7D61007013B2 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				9B480670297F320E0040F5D4 /* PreviewView.swift */,
+				9B480665297ECC170040F5D4 /* LocalVideoPreview.swift */,
+				9BA27FC7297D7270007013B2 /* ContentView.swift */,
+				9BA27FF2297D7562007013B2 /* SidebarView.swift */,
+				9BA27FF4297D787F007013B2 /* CallView.swift */,
+				9B480663297EBD930040F5D4 /* Decoder.swift */,
+				9B480661297EAF170040F5D4 /* InCallView.swift */,
+				9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		9BA27FF9297DD8CA007013B2 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9BA27FC1297D7270007013B2 /* Decimus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */;
+			buildPhases = (
+				9BA27FBE297D7270007013B2 /* Sources */,
+				9BA27FBF297D7270007013B2 /* Frameworks */,
+				9BA27FC0297D7270007013B2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Decimus;
+			productName = Decimus;
+			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9BA27FD1297D7271007013B2 /* DecimusTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BA27FE9297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusTests" */;
+			buildPhases = (
+				9BA27FCE297D7271007013B2 /* Sources */,
+				9BA27FCF297D7271007013B2 /* Frameworks */,
+				9BA27FD0297D7271007013B2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9BA27FD4297D7271007013B2 /* PBXTargetDependency */,
+			);
+			name = DecimusTests;
+			productName = DecimusTests;
+			productReference = 9BA27FD2297D7271007013B2 /* DecimusTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		9BA27FDB297D7271007013B2 /* DecimusUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9BA27FEC297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusUITests" */;
+			buildPhases = (
+				9BA27FD8297D7271007013B2 /* Sources */,
+				9BA27FD9297D7271007013B2 /* Frameworks */,
+				9BA27FDA297D7271007013B2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9BA27FDE297D7271007013B2 /* PBXTargetDependency */,
+			);
+			name = DecimusUITests;
+			productName = DecimusUITests;
+			productReference = 9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9BA27FBA297D7270007013B2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1410;
+				LastUpgradeCheck = 1410;
+				TargetAttributes = {
+					9BA27FC1297D7270007013B2 = {
+						CreatedOnToolsVersion = 14.1;
+					};
+					9BA27FD1297D7271007013B2 = {
+						CreatedOnToolsVersion = 14.1;
+						TestTargetID = 9BA27FC1297D7270007013B2;
+					};
+					9BA27FDB297D7271007013B2 = {
+						CreatedOnToolsVersion = 14.1;
+						TestTargetID = 9BA27FC1297D7270007013B2;
+					};
+				};
+			};
+			buildConfigurationList = 9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "Decimus" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9BA27FB9297D7270007013B2;
+			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9BA27FC1297D7270007013B2 /* Decimus */,
+				9BA27FD1297D7271007013B2 /* DecimusTests */,
+				9BA27FDB297D7271007013B2 /* DecimusUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		9BA27FC0297D7270007013B2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */,
+				9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FD0297D7271007013B2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FDA297D7271007013B2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9BA27FBE297D7270007013B2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */,
+				9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */,
+				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
+				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
+				9BA27FF5297D787F007013B2 /* CallView.swift in Sources */,
+				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
+				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
+				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
+				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
+				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
+				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
+				9B480664297EBD930040F5D4 /* Decoder.swift in Sources */,
+				9B480666297ECC170040F5D4 /* LocalVideoPreview.swift in Sources */,
+				9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */,
+				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FCE297D7271007013B2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BA27FD7297D7271007013B2 /* DecimusTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA27FD8297D7271007013B2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BA27FE1297D7271007013B2 /* DecimusUITests.swift in Sources */,
+				9BA27FE3297D7271007013B2 /* DecimusUITestsLaunchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9BA27FD4297D7271007013B2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9BA27FC1297D7270007013B2 /* Decimus */;
+			targetProxy = 9BA27FD3297D7271007013B2 /* PBXContainerItemProxy */;
+		};
+		9BA27FDE297D7271007013B2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9BA27FC1297D7270007013B2 /* Decimus */;
+			targetProxy = 9BA27FDD297D7271007013B2 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		9BA27FE4297D7271007013B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		9BA27FE5297D7271007013B2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		9BA27FE7297D7271007013B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Decimus/Decimus.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
+				DEVELOPMENT_TEAM = R77C67VW87;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		9BA27FE8297D7271007013B2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Decimus/Decimus.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
+				DEVELOPMENT_TEAM = R77C67VW87;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		9BA27FEA297D7271007013B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R77C67VW87;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+			};
+			name = Debug;
+		};
+		9BA27FEB297D7271007013B2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R77C67VW87;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+			};
+			name = Release;
+		};
+		9BA27FED297D7271007013B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R77C67VW87;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Decimus;
+			};
+			name = Debug;
+		};
+		9BA27FEE297D7271007013B2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = R77C67VW87;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Decimus;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "Decimus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BA27FE4297D7271007013B2 /* Debug */,
+				9BA27FE5297D7271007013B2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BA27FE7297D7271007013B2 /* Debug */,
+				9BA27FE8297D7271007013B2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BA27FE9297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BA27FEA297D7271007013B2 /* Debug */,
+				9BA27FEB297D7271007013B2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9BA27FEC297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9BA27FED297D7271007013B2 /* Debug */,
+				9BA27FEE297D7271007013B2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9BA27FBA297D7270007013B2 /* Project object */;
+}
