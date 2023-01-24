@@ -16,6 +16,7 @@
 		9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* EncoderElement.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
+		9B48067C297FF9450040F5D4 /* Neo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48067B297FF9450040F5D4 /* Neo.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -46,16 +47,31 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		9B480678297FF4F90040F5D4 /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
-		9B480663297EBD930040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
+		9B480663297EBD930040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Decoder.swift; path = Views/Decoder.swift; sourceTree = "<group>"; };
 		9B480665297ECC170040F5D4 /* LocalVideoPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalVideoPreview.swift; sourceTree = "<group>"; };
 		9B480667297EFEE20040F5D4 /* PipelineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineManager.swift; sourceTree = "<group>"; };
 		9B480669297EFF040040F5D4 /* DecoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecoderElement.swift; sourceTree = "<group>"; };
 		9B48066B297F051D0040F5D4 /* EncoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncoderElement.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		9B48067A297FF68F0040F5D4 /* neo_media_client.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = neo_media_client.hh; sourceTree = "<group>"; };
+		9B48067B297FF9450040F5D4 /* Neo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Neo.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -98,6 +114,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		9B480674297FF4840040F5D4 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				9B48067A297FF68F0040F5D4 /* neo_media_client.hh */,
+				9B48067B297FF9450040F5D4 /* Neo.swift */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
@@ -121,6 +146,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B480674297FF4840040F5D4 /* lib */,
 				9BA27FF9297DD8CA007013B2 /* Models */,
 				9BA27FF6297D7D61007013B2 /* Views */,
 				9BA27FEF297D7352007013B2 /* Decimus.entitlements */,
@@ -128,6 +154,7 @@
 				9BA27FC9297D7271007013B2 /* Assets.xcassets */,
 				9BA27FCB297D7271007013B2 /* Preview Content */,
 				9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */,
+				9B480663297EBD930040F5D4 /* Decoder.swift */,
 				9B480667297EFEE20040F5D4 /* PipelineManager.swift */,
 				9B480669297EFF040040F5D4 /* DecoderElement.swift */,
 				9B48066B297F051D0040F5D4 /* EncoderElement.swift */,
@@ -169,7 +196,6 @@
 				9BA27FC7297D7270007013B2 /* ContentView.swift */,
 				9BA27FF2297D7562007013B2 /* SidebarView.swift */,
 				9BA27FF4297D787F007013B2 /* CallView.swift */,
-				9B480663297EBD930040F5D4 /* Decoder.swift */,
 				9B480661297EAF170040F5D4 /* InCallView.swift */,
 				9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */,
 			);
@@ -194,6 +220,7 @@
 				9BA27FBE297D7270007013B2 /* Sources */,
 				9BA27FBF297D7270007013B2 /* Frameworks */,
 				9BA27FC0297D7270007013B2 /* Resources */,
+				9B480678297FF4F90040F5D4 /* Embed Libraries */,
 			);
 			buildRules = (
 			);
@@ -320,6 +347,7 @@
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* CallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
+				9B48067C297FF9450040F5D4 /* Neo.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
@@ -501,6 +529,10 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/DecimusUITests",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -508,6 +540,7 @@
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_NAME)/lib/neo_media_client.hh";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -535,6 +568,10 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/DecimusUITests",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -542,6 +579,7 @@
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "$(PROJECT_NAME)/lib/neo_media_client.hh";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
