@@ -49,8 +49,9 @@ struct InCallView: View {
                     ForEach(devices.cameras, id: \.self) { camera in
                         Text(camera.localizedName).tag(camera)
                     }
-                }.onChange(of: selectedCamera) { _ in
-                    capture.manager.selectCamera(camera: selectedCamera)
+                }.onChange(of: selectedCamera) { [selectedCamera] newCamera in
+                    capture.manager.removeInput(device: selectedCamera)
+                    capture.manager.selectCamera(camera: newCamera)
                 }.onAppear() {
                     capture.manager.selectCamera(camera: selectedCamera)
                 }
@@ -65,9 +66,18 @@ struct InCallView: View {
                 }
                 
                 // Leave.
-                Button("Leave", action: onLeave)
+                Button("Leave", action: leaveCall)
             }
         }
+    }
+    
+    func leaveCall() {
+        // Stop capturing.
+        capture.manager.removeInput(device: selectedCamera)
+        capture.manager.stopCapturing()
+        
+        // Report left.
+        onLeave()
     }
 }
 
