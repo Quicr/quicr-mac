@@ -1,3 +1,10 @@
+import CoreMedia
+
+protocol Encoder {
+    typealias EncodedDataCallback = (CMSampleBuffer)->()
+    func write(sample: CMSampleBuffer)
+}
+
 /// Represents a single encoder in the pipeline.
 class EncoderElement {
     /// Identifier of this stream.

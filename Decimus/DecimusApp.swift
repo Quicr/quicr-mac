@@ -1,30 +1,59 @@
 import SwiftUI
 import CoreMedia
 
-let LOCAL_STREAM_ID: UInt32 = 1
+let LOCAL_VIDEO_STREAM_ID: UInt32 = 1
+let LOCAL_AUDIO_STREAM_ID: UInt32 = 2
 
 /// Wrapper for pipeline as observable object.
 class ObservablePipeline: ObservableObject {
     var callback: PipelineManager.DecodedImageCallback? = nil
     var pipeline: PipelineManager? = nil
     
-    init(image: ObservableImage) {
+    init(image: ObservableImage, player: AudioPlayer) {
         pipeline = .init(
-            decodedCallback: { identifier, decoded, timestamp in
-                // Push the image to the output.
-                DispatchQueue.main.async {
-                    image.image = .init(cgImage: decoded)
-                }
+            decodedCallback: { _, decoded, _ in
+                Self.showDecodedImage(image: image, decoded: decoded)
             },
             encodedCallback: { identifier, data in
-                // Loopback: Write encoded data to decoder.
-                try! data.dataBuffer!.withUnsafeMutableBytes { ptr in
-                    let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
-                    let timestamp = try! data.sampleTimingInfo(at: 0).presentationTimeStamp
-                    let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
-                    self.pipeline!.decode(identifier: identifier, data: unsafe, length: data.dataBuffer!.dataLength, timestamp: timestampMs)
-                }
-            }, debugging: false)
+                Self.sendEncodedImage(identifier: identifier, data: data, pipeline: self.pipeline!)
+            },
+            decodedAudioCallback: { _, sample in
+                Self.playDecodedAudio(sample: sample, player: player)
+            },
+            encodedAudioCallback: { identifier, data in
+                Self.sendEncodedAudio(identifier: identifier, data: data, pipeline: self.pipeline!)
+            },
+            debugging: false)
+    }
+    
+    static func showDecodedImage(image: ObservableImage, decoded: CGImage) {
+        // Push the image to the output.
+        DispatchQueue.main.async {
+            image.image = .init(cgImage: decoded)
+        }
+    }
+    
+    static func playDecodedAudio(sample: CMSampleBuffer, player: AudioPlayer) {
+        player.write(sample: sample)
+    }
+    
+    static func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer, pipeline: PipelineManager) {
+        // Loopback: Write encoded data to decoder.
+        try! data.dataBuffer!.withUnsafeMutableBytes { ptr in
+            let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
+            let timestamp = try! data.sampleTimingInfo(at: 0).presentationTimeStamp
+            let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
+            pipeline.decode(identifier: identifier, data: unsafe, length: data.dataBuffer!.dataLength, timestamp: timestampMs)
+        }
+    }
+    
+    
+    
+    static func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer, pipeline: PipelineManager) {
+        // Loopback: Write encoded data to decoder.
+        var memory = data
+        let address = withUnsafePointer(to: &memory, {UnsafeRawPointer($0)})
+        pipeline.decode(identifier: identifier, data: address.assumingMemoryBound(to: UInt8.self), length: 0, timestamp: 0)
     }
 }
 
@@ -36,25 +65,39 @@ class ObservableCaptureManager: ObservableObject {
     var done: Bool = false
     
     init(pipeline: ObservablePipeline) {
-        manager = .init(callback: { frame in
+        manager = .init(
+            cameraCallback: { frame in
+                Self.encodeCameraFrame(frame: frame, pipeline: pipeline.pipeline!)
+            },
+            audioCallback: { sample in
+                Self.encodeAudioSample(sample: sample, pipeline: pipeline.pipeline!)
+            })
+    }
+    
+    static func encodeSample(identifier: UInt32, frame: CMSampleBuffer, pipeline: PipelineManager, type: PipelineManager.MediaType, register: () -> ()) {
+        // Make a encoder for this stream.
+        if pipeline.encoders[identifier] == nil {
+            register()
             
-            let manager = pipeline.pipeline!
-            
-            // Make a encoder for this stream.
-            if manager.encoders[1] == nil {
-                let size = frame.formatDescription!.dimensions
-                manager.registerEncoder(identifier: LOCAL_STREAM_ID, width: size.width, height: size.height)
-                
-                // TODO: Since we're in loopback, we can make a decoder upfront too.
-                manager.registerDecoder(identifier: LOCAL_STREAM_ID)
-            }
-            
-            // Write camera frame to pipeline.
-            let buffer: CVImageBuffer? = CMSampleBufferGetImageBuffer(frame)
-            guard buffer != nil else { fatalError("Bad camera data?") }
-            let timestamp = try! frame.sampleTimingInfo(at:0).presentationTimeStamp
-            manager.encode(identifier: LOCAL_STREAM_ID, image: buffer!, timestamp: timestamp)
-        })
+            // TODO: Since we're in loopback, we can make a decoder upfront too.
+            pipeline.registerDecoder(identifier: identifier, type: type)
+        }
+        
+        // Write camera frame to pipeline.
+        pipeline.encode(identifier: identifier, sample: frame)
+    }
+        
+    static func encodeCameraFrame(frame: CMSampleBuffer, pipeline: PipelineManager) {
+        encodeSample(identifier: LOCAL_VIDEO_STREAM_ID, frame: frame, pipeline: pipeline, type: .video) {
+            let size = frame.formatDescription!.dimensions
+            pipeline.registerEncoder(identifier: LOCAL_VIDEO_STREAM_ID, width: size.width, height: size.height)
+        }
+    }
+    
+    static func encodeAudioSample(sample: CMSampleBuffer, pipeline: PipelineManager) {
+        encodeSample(identifier: LOCAL_AUDIO_STREAM_ID, frame: sample, pipeline: pipeline, type: .audio) {
+            pipeline.registerEncoder(identifier: LOCAL_AUDIO_STREAM_ID)
+        }
     }
 }
 
@@ -76,7 +119,7 @@ struct DecimusApp: App {
     init() {
         let internalImage = ObservableImage()
         _image = StateObject(wrappedValue: internalImage)
-        let line = ObservablePipeline(image: internalImage)
+        let line = ObservablePipeline(image: internalImage, player: .init())
         _pipeline = StateObject(wrappedValue: line)
         _captureManager = StateObject(wrappedValue: ObservableCaptureManager(pipeline: line))
     }
