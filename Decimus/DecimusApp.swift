@@ -8,10 +8,13 @@ class ObservablePipeline: ObservableObject {
     var callback: PipelineManager.DecodedImageCallback? = nil
     var pipeline: PipelineManager? = nil
     
-    init() {
+    init(image: ObservableImage) {
         pipeline = .init(
-            decodedCallback: { identifier, image, timestamp in
-                self.callback?(identifier, image, timestamp)
+            decodedCallback: { identifier, decoded, timestamp in
+                // Push the image to the output.
+                DispatchQueue.main.async {
+                    image.image = .init(cgImage: decoded)
+                }
             },
             encodedCallback: { identifier, data in
                 // Loopback: Write encoded data to decoder.
@@ -55,14 +58,25 @@ class ObservableCaptureManager: ObservableObject {
     }
 }
 
+class ObservableImage: ObservableObject {
+    @Published var image: UIImage
+    
+    init() {
+        self.image = .init(systemName: "phone")!
+    }
+}
+
 @main
 struct DecimusApp: App {
+    @StateObject private var image: ObservableImage
     @StateObject private var pipeline: ObservablePipeline
     @StateObject private var devices: AudioVideoDevices = .init()
     @StateObject private var captureManager: ObservableCaptureManager
     
     init() {
-        let line = ObservablePipeline()
+        let internalImage = ObservableImage()
+        _image = StateObject(wrappedValue: internalImage)
+        let line = ObservablePipeline(image: internalImage)
         _pipeline = StateObject(wrappedValue: line)
         _captureManager = StateObject(wrappedValue: ObservableCaptureManager(pipeline: line))
     }
@@ -74,6 +88,7 @@ struct DecimusApp: App {
                 .environmentObject(devices)
                 .environmentObject(pipeline)
                 .environmentObject(captureManager)
+                .environmentObject(image)
         }
     }
 }
