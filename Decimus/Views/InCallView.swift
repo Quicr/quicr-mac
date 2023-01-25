@@ -9,6 +9,8 @@ struct InCallView: View {
     @EnvironmentObject var devices: AudioVideoDevices
     /// Local capture manager.
     @EnvironmentObject var capture: ObservableCaptureManager
+    /// Images to render.
+    @EnvironmentObject var render: ObservableImage
     
     /// Currently selected camera.
     @State private var selectedCamera: AVCaptureDevice
@@ -32,6 +34,9 @@ struct InCallView: View {
             // Remote videos.
             HStack {
                 // TODO: Remote views go here.
+                Image(uiImage: render.image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
             }
             
             // Local video preview.

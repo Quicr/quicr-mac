@@ -125,8 +125,10 @@ class Encoder {
             
             // TODO: Why?
             try! buffer!.withUnsafeMutableBytes { ptr in
-                ptr[3] = 0x01
-                ptr[18] = 0x01
+                let firstAlterIndex = START_CODE_LENGTH - 1
+                ptr[firstAlterIndex] = 0x01
+                let secondAlterIndex = START_CODE_LENGTH * 2 + parameterSetLengths[0] - 1
+                ptr[secondAlterIndex] = 0x01
             }
             
             // TODO: Faked a sample for easy callback.
