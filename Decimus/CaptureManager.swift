@@ -9,21 +9,22 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let session: AVCaptureSession = .init()
     let callback: CameraFrameCallback
     private let sessionQueue: DispatchQueue = .init(label: "CaptureManager")
+    private var inputs: [AVCaptureDevice : AVCaptureDeviceInput] = [:]
 
     init(callback: @escaping CameraFrameCallback) {
         self.callback = callback
         super.init()
         session.beginConfiguration()
         let videoOutput: AVCaptureVideoDataOutput = .init()
-        videoOutput.alwaysDiscardsLateVideoFrames = true
-        // videoOutput.connection(with: .video)?.isEnabled = true
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
-        // TODO: Do we need to specify this?
-        // videoOutput.videoSettings = [ kCVPixelBufferPixelFormatTypeKey as String: videoOutput.availableVideoPixelFormatTypes[0]]
         guard session.canAddOutput(videoOutput) else { return }
-        session.sessionPreset = .medium
         session.addOutput(videoOutput)
         session.commitConfiguration()
+    }
+    
+    func stopCapturing() {
+        guard session.isRunning else { fatalError("Shouldn't call stopCapturing when not running") }
+        session.stopRunning()
     }
     
     /// Start capturing from the target camera.
@@ -34,6 +35,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Add this device to the session.
         session.beginConfiguration()
         let input: AVCaptureDeviceInput = try! .init(device: camera)
+        inputs[camera] = input
         guard session.canAddInput(input) else {
             print("Input already added?")
             return
@@ -48,6 +50,13 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
             return
         }
+    }
+    
+    func removeInput(device: AVCaptureDevice) {
+        let input = inputs[device]
+        guard input != nil else { return }
+        print("CaptureManager => Removing input for \(device.localizedName)")
+        self.session.removeInput(input!)
     }
     
     /// Fires when a frame is available.
