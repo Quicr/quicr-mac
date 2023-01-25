@@ -1,27 +1,72 @@
 import SwiftUI
+import CoreMedia
+
+let LOCAL_STREAM_ID: UInt32 = 1
 
 /// Wrapper for pipeline as observable object.
 class ObservablePipeline: ObservableObject {
-    var callback: PipelineManager.PipelineCallback? = nil
+    var callback: PipelineManager.DecodedImageCallback? = nil
     var pipeline: PipelineManager? = nil
     
     init() {
-        pipeline = .init(callback: { identifier, image, timestamp in
-            self.callback?(identifier, image, timestamp)
+        pipeline = .init(
+            decodedCallback: { identifier, image, timestamp in
+                self.callback?(identifier, image, timestamp)
+            },
+            encodedCallback: { identifier, data in
+                // Loopback: Write encoded data to decoder.
+                try! data.dataBuffer!.withUnsafeMutableBytes { ptr in
+                    let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
+                    let timestamp = try! data.sampleTimingInfo(at: 0).presentationTimeStamp
+                    let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
+                    self.pipeline!.decode(identifier: identifier, data: unsafe, length: data.dataBuffer!.dataLength, timestamp: timestampMs)
+                }
         })
     }
 }
 
 /// Wrapper for capture manager as observable object.
 class ObservableCaptureManager: ObservableObject {
-    var manager: CaptureManager = .init()
+    
+    let manager: CaptureManager
+    
+    var done: Bool = false
+    
+    init(pipeline: ObservablePipeline) {
+        manager = .init(callback: { frame in
+            
+            let manager = pipeline.pipeline!
+            
+            // Make a encoder for this stream.
+            if manager.encoders[1] == nil {
+                let size = frame.formatDescription!.dimensions
+                manager.registerEncoder(identifier: LOCAL_STREAM_ID, width: size.width, height: size.height)
+                
+                // TODO: Since we're in loopback, we can make a decoder upfront too.
+                manager.registerDecoder(identifier: LOCAL_STREAM_ID)
+            }
+            
+            // Write camera frame to pipeline.
+            let buffer: CVImageBuffer? = CMSampleBufferGetImageBuffer(frame)
+            guard buffer != nil else { fatalError("Bad camera data?") }
+            let timestamp = try! frame.sampleTimingInfo(at:0).presentationTimeStamp
+            manager.encode(identifier: LOCAL_STREAM_ID, image: buffer!, timestamp: timestamp)
+        })
+    }
 }
 
 @main
 struct DecimusApp: App {
-    @StateObject private var pipeline = ObservablePipeline()
-    @StateObject private var devices = AudioVideoDevices()
-    @StateObject private var captureManager = ObservableCaptureManager()
+    @StateObject private var pipeline: ObservablePipeline
+    @StateObject private var devices: AudioVideoDevices = .init()
+    @StateObject private var captureManager: ObservableCaptureManager
+    
+    init() {
+        let line = ObservablePipeline()
+        _pipeline = StateObject(wrappedValue: line)
+        _captureManager = StateObject(wrappedValue: ObservableCaptureManager(pipeline: line))
+    }
+    
     
     var body: some Scene {
         WindowGroup {

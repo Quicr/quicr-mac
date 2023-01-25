@@ -1,9 +1,5 @@
-import Foundation
-
-class Encoder {}
-
 /// Represents a single encoder in the pipeline.
-class EncoderElement: Identifiable {
+class EncoderElement {
     /// Identifier of this stream.
     let identifier: UInt32
     /// Instance of the decoder.
