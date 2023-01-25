@@ -24,7 +24,7 @@ class ObservablePipeline: ObservableObject {
                     let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
                     self.pipeline!.decode(identifier: identifier, data: unsafe, length: data.dataBuffer!.dataLength, timestamp: timestampMs)
                 }
-        })
+            }, debugging: false)
     }
 }
 
