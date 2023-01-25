@@ -170,8 +170,6 @@ class Decoder {
             fatalError("CMVideoFormatDescriptionCreateFromH264ParameterSets failed: \(error)")
         }
         
-        print("DONE SPS/PPS")
-        
         // Create the decoder with the given format.
         session = makeDecoder(format: self.currentFormat!)
         
