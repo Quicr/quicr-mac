@@ -148,7 +148,6 @@ class Encoder {
                 sampleSizeArray: &totalLength,
                 sampleBufferOut: &parameterSample)
             guard sampleError == .zero else { fatalError("Couldn't create parameter sample") }
-            print("SENT SPS/PPS")
             callback(parameterSample!)
         }
         
