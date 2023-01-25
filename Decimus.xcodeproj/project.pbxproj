@@ -9,13 +9,16 @@
 /* Begin PBXBuildFile section */
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
-		9B480664297EBD930040F5D4 /* Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* Decoder.swift */; };
+		9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* H264Decoder.swift */; };
 		9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480667297EFEE20040F5D4 /* PipelineManager.swift */; };
 		9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480669297EFF040040F5D4 /* DecoderElement.swift */; };
 		9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* EncoderElement.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
-		9B4806812980170B0040F5D4 /* Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* Encoder.swift */; };
+		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
+		9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806822981D4400040F5D4 /* OpusEncoder.swift */; };
+		9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480684298284F40040F5D4 /* OpusDecoder.swift */; };
+		9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AudioPlayer.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -49,13 +52,16 @@
 /* Begin PBXFileReference section */
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
-		9B480663297EBD930040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
+		9B480663297EBD930040F5D4 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 		9B480667297EFEE20040F5D4 /* PipelineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineManager.swift; sourceTree = "<group>"; };
 		9B480669297EFF040040F5D4 /* DecoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecoderElement.swift; sourceTree = "<group>"; };
 		9B48066B297F051D0040F5D4 /* EncoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncoderElement.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
-		9B4806802980170B0040F5D4 /* Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Encoder.swift; sourceTree = "<group>"; };
+		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
+		9B4806822981D4400040F5D4 /* OpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusEncoder.swift; sourceTree = "<group>"; };
+		9B480684298284F40040F5D4 /* OpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusDecoder.swift; sourceTree = "<group>"; };
+		9B480686298289910040F5D4 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -101,8 +107,10 @@
 		9B48067F298016FD0040F5D4 /* Codec */ = {
 			isa = PBXGroup;
 			children = (
-				9B480663297EBD930040F5D4 /* Decoder.swift */,
-				9B4806802980170B0040F5D4 /* Encoder.swift */,
+				9B480663297EBD930040F5D4 /* H264Decoder.swift */,
+				9B4806802980170B0040F5D4 /* H264Encoder.swift */,
+				9B4806822981D4400040F5D4 /* OpusEncoder.swift */,
+				9B480684298284F40040F5D4 /* OpusDecoder.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -142,6 +150,7 @@
 				9B480669297EFF040040F5D4 /* DecoderElement.swift */,
 				9B48066B297F051D0040F5D4 /* EncoderElement.swift */,
 				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
+				9B480686298289910040F5D4 /* AudioPlayer.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -323,18 +332,21 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */,
+				9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */,
 				9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
+				9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* CallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
-				9B4806812980170B0040F5D4 /* Encoder.swift in Sources */,
+				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
+				9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
-				9B480664297EBD930040F5D4 /* Decoder.swift in Sources */,
+				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
 				9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */,
 				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
 			);
@@ -500,6 +512,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -534,6 +547,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

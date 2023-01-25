@@ -5,7 +5,7 @@ import VideoToolbox
 typealias DecodedImageCallback = (CGImage, CMTimeValue)->()
 
 /// Provides hardware accelerated H264 decoding.
-class Decoder {
+class H264Decoder: Decoder {
     
     // H264 constants.
     private let SPS_TYPE: UInt8 = 7

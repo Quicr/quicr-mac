@@ -62,7 +62,9 @@ struct InCallView: View {
                         Text(microphone.localizedName).tag(microphone)
                     }
                 }.onChange(of: selectedMicrophone) { _ in
-                    capture.manager.selectMicrophone(microphone: selectedMicrophone)
+                    capture.manager.addMicrophone(microphone: selectedMicrophone)
+                }.onTapGesture() {
+                    capture.manager.addMicrophone(microphone: selectedMicrophone)
                 }
                 
                 // Leave.

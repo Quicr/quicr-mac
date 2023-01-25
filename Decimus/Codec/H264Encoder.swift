@@ -1,10 +1,8 @@
 import VideoToolbox
 import CoreVideo
 
-class Encoder {
-    
-    typealias EncodedDataCallback = (CMSampleBuffer)->()
-    
+class H264Encoder: Encoder {
+
     private var encoder: VTCompressionSession?
     private let callback: EncodedDataCallback
     
@@ -31,11 +29,11 @@ class Encoder {
         guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
     }
     
-    func write(image: CVImageBuffer, timestamp: CMTime) {
+    func write(sample: CMSampleBuffer) {
         VTCompressionSessionEncodeFrame(
             encoder!,
-            imageBuffer: image,
-            presentationTimeStamp: timestamp,
+            imageBuffer: sample.imageBuffer!,
+            presentationTimeStamp: sample.presentationTimeStamp,
             duration: .invalid,
             frameProperties: nil,
             infoFlagsOut: nil,

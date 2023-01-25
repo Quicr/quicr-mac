@@ -1,5 +1,9 @@
 import Foundation
 
+protocol Decoder {
+    func write(data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32)
+}
+
 /// Represents a single element in the pipeline.
 class DecoderElement {
     /// Identifier of this stream.
