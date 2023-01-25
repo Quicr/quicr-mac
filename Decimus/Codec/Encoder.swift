@@ -26,6 +26,9 @@ class Encoder {
         guard error == .zero else {
             fatalError("Encoder creation failed")
         }
+        
+        let realtimeError = VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
+        guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
     }
     
     func write(image: CVImageBuffer, timestamp: CMTime) {
