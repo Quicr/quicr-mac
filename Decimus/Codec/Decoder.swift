@@ -35,12 +35,16 @@ class Decoder {
         }
         
         // Extract SPS/PPS if available.
-        offset = checkParameterSets(data: data)
+        offset = checkParameterSets(data: data, length: length)
+        
+        // There might not be any more data left.
+        guard offset < length else { return }
         
         // Normal frame handling.
         type = data[offset + 4] & 0x1F
         if type != 1 && type != 5 {
-            fatalError("Unhandled NALU type: \(type)")
+            print("Unhandled NALU type: \(type)")
+            return
         }
         
         // Construct the block buffer from the rest of the frame.
@@ -100,7 +104,7 @@ class Decoder {
     }
     
     /// Extracts parameter sets from the given pointer, if any.
-    private func checkParameterSets(data: UnsafePointer<UInt8>) -> Int {
+    private func checkParameterSets(data: UnsafePointer<UInt8>, length: Int) -> Int {
         
         // Get current frame type.
         let type = data[4] & 0x1F
@@ -109,7 +113,7 @@ class Decoder {
         var ppsStartCodeIndex: Int = 0
         var spsLength: Int = 0
         if type == SPS_TYPE {
-            for byte in 4...40 {
+            for byte in 4...length - 1 {
                 // Find the next start code.
                 if isAtStartCode(pointer: data, startIndex: byte) {
                     ppsStartCodeIndex = byte
@@ -117,14 +121,15 @@ class Decoder {
                     break
                 }
             }
+            
+            guard ppsStartCodeIndex != 0 else { fatalError("Expected to find PPS start code after SPS") }
         }
         
+        // Check for PPS.
         var idrStartCodeIndex: Int = 0
         let secondType = data[ppsStartCodeIndex + 4] & 0x1F
         var ppsLength: Int = 0
-        if secondType != PPS_TYPE {
-            return 0
-        }
+        guard secondType == PPS_TYPE else { return idrStartCodeIndex }
         
         // Get PPS.
         for byte in (ppsStartCodeIndex + 4)...(ppsStartCodeIndex + 30) {
@@ -135,9 +140,15 @@ class Decoder {
             }
         }
         
+        if idrStartCodeIndex == 0 {
+            // We made it to the end, PPS must run to end.
+            ppsLength = length - ppsStartCodeIndex
+            idrStartCodeIndex = length
+        }
+        
         // Collate SPS & PPS.
         let parameterSetsData: UnsafeMutablePointer<UnsafePointer<UInt8>> = .allocate(capacity: 2)
-        let parameterSetsSizes: UnsafeMutablePointer<Int> = .allocate(capacity: 2)
+        var parameterSetsSizes: [Int] = .init(repeating: 0, count: 2)
         
         // SPS.
         let spsSrc: UnsafeRawPointer = .init(data) + 4
@@ -158,6 +169,8 @@ class Decoder {
         if error != 0 {
             fatalError("CMVideoFormatDescriptionCreateFromH264ParameterSets failed: \(error)")
         }
+        
+        print("DONE SPS/PPS")
         
         // Create the decoder with the given format.
         session = makeDecoder(format: self.currentFormat!)

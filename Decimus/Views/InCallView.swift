@@ -35,7 +35,7 @@ struct InCallView: View {
             }
             
             // Local video preview.
-            PreviewView(device: $selectedCamera)
+            // PreviewView(device: $selectedCamera)
             
             // Controls.
             HStack {
