@@ -34,7 +34,6 @@ class CaptureManager: NSObject,
         guard session.canAddOutput(audioOutput) else { return }
         session.addOutput(audioOutput)
         
-        // Audio output.
         session.commitConfiguration()
     }
     

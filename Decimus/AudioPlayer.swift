@@ -4,9 +4,7 @@ import AVFoundation
 /// Single stream right now.
 class AudioPlayer {
     private let synchronizer: AVSampleBufferRenderSynchronizer = .init()
-    private let audioRenderQueue: DispatchQueue = .init(label: "AudioPlayer")
     private let renderer: AVSampleBufferAudioRenderer = .init()
-    private var samples: [CMSampleBuffer] = []
     
     /// Create a new `AudioPlayer`
     init() {

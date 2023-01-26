@@ -5,33 +5,39 @@ import CoreMedia
 /// Manages pipeline elements.
 class PipelineManager {
     
+    /// Possible media types that the pipeline understands.
     enum MediaType { case audio; case video }
     
-    /// Decoded image with source callback.
-    typealias DecodedImageCallback = (UInt32, CGImage, CMTimeValue)->()
+    /// Represents a decoded image.
+    /// - Parameter identifier: The source identifier for this decoded image.
+    /// - Parameter image: The decoded image data.
+    /// - Parameter timestamp: The timestamp for this image.
+    typealias DecodedImageCallback = (_ identifier: UInt32, _ image: CGImage, _ timestamp: CMTimeValue)->()
     
-    /// Encoded data with source callback.
-    typealias EncodedImageCallback = (UInt32, CMSampleBuffer) -> ()
+    /// Represents an encoded sample.
+    /// - Parameter identifier: The source identifier for this encoded sample.
+    /// - Parameter sample: The encoded sample data.
+    typealias EncodedSampleCallback = (_ identifier: UInt32, _ sample: CMSampleBuffer) -> ()
     
-    typealias EncodedAudioCallback = (UInt32, CMSampleBuffer) -> ()
-    typealias DecodedAudioCallback = (UInt32, CMSampleBuffer) -> ()
+    /// Represents a decoded audio sample.
+    typealias DecodedAudioCallback = EncodedSampleCallback
     
-    let imageCallback: DecodedImageCallback
-    let encodedCallback: EncodedImageCallback
-    let audioCallback: DecodedAudioCallback
-    let encodedAudioCallback: EncodedAudioCallback
-    let debugging: Bool
+    private let imageCallback: DecodedImageCallback
+    private let encodedCallback: EncodedSampleCallback
+    private let audioCallback: DecodedAudioCallback
+    private let encodedAudioCallback: EncodedSampleCallback
+    private let debugging: Bool
     
     /// Managed pipeline elements.
     var encoders: [UInt32: EncoderElement] = .init()
-    var decoders: [UInt32: DecoderElement] = .init()
+    private var decoders: [UInt32: DecoderElement] = .init()
     
     /// Create a new PipelineManager.
     init(
         decodedCallback: @escaping DecodedImageCallback,
-        encodedCallback: @escaping EncodedImageCallback,
+        encodedCallback: @escaping EncodedSampleCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
-        encodedAudioCallback: @escaping EncodedAudioCallback,
+        encodedAudioCallback: @escaping EncodedSampleCallback,
         debugging: Bool) {
         self.imageCallback = decodedCallback
         self.encodedCallback = encodedCallback
@@ -40,7 +46,7 @@ class PipelineManager {
         self.debugging = debugging
     }
     
-    func debugPrint(message: String) {
+    private func debugPrint(message: String) {
         guard debugging else { return }
         print("Pipeline => \(message)")
     }
@@ -74,7 +80,7 @@ class PipelineManager {
         registerEncoder(identifier: identifier, encoder: encoder)
     }
     
-    func registerEncoder(identifier: UInt32, encoder: Encoder) {
+    private func registerEncoder(identifier: UInt32, encoder: Encoder) {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
         debugPrint(message: "[\(identifier)] Registered encoder")
