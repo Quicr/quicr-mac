@@ -47,8 +47,6 @@ class ObservablePipeline: ObservableObject {
         }
     }
     
-    
-    
     static func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer, pipeline: PipelineManager) {
         // Loopback: Write encoded data to decoder.
         var memory = data
