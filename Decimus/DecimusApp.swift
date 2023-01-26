@@ -2,17 +2,18 @@ import SwiftUI
 import CoreMedia
 
 let LOCAL_VIDEO_STREAM_ID: UInt32 = 1
-let LOCAL_AUDIO_STREAM_ID: UInt32 = 2
+let LOCAL_AUDIO_STREAM_ID: UInt32 = 99
+let LOCAL_MIRROR_PARTICIPANTS: UInt32 = 1
 
 /// Wrapper for pipeline as observable object.
 class ObservablePipeline: ObservableObject {
     var callback: PipelineManager.DecodedImageCallback? = nil
     var pipeline: PipelineManager? = nil
     
-    init(image: ObservableImage, player: AudioPlayer) {
+    init(participants: VideoParticipants, player: AudioPlayer) {
         pipeline = .init(
-            decodedCallback: { _, decoded, _ in
-                Self.showDecodedImage(image: image, decoded: decoded)
+            decodedCallback: { identifier, decoded, _ in
+                Self.showDecodedImage(identifier: identifier, participants: participants, decoded: decoded)
             },
             encodedCallback: { identifier, data in
                 Self.sendEncodedImage(identifier: identifier, data: data, pipeline: self.pipeline!)
@@ -26,10 +27,11 @@ class ObservablePipeline: ObservableObject {
             debugging: false)
     }
     
-    static func showDecodedImage(image: ObservableImage, decoded: CGImage) {
+    static func showDecodedImage(identifier: UInt32, participants: VideoParticipants, decoded: CGImage) {
         // Push the image to the output.
         DispatchQueue.main.async {
-            image.image = .init(cgImage: decoded)
+            let participant = participants.getOrMake(identifier: identifier)
+            participant.decodedImage = .init(cgImage: decoded)
         }
     }
     
@@ -86,9 +88,11 @@ class ObservableCaptureManager: ObservableObject {
     }
         
     static func encodeCameraFrame(frame: CMSampleBuffer, pipeline: PipelineManager) {
-        encodeSample(identifier: LOCAL_VIDEO_STREAM_ID, frame: frame, pipeline: pipeline, type: .video) {
-            let size = frame.formatDescription!.dimensions
-            pipeline.registerEncoder(identifier: LOCAL_VIDEO_STREAM_ID, width: size.width, height: size.height)
+        for id in LOCAL_VIDEO_STREAM_ID...LOCAL_MIRROR_PARTICIPANTS + 1 {
+            encodeSample(identifier: id, frame: frame, pipeline: pipeline, type: .video) {
+                let size = frame.formatDescription!.dimensions
+                pipeline.registerEncoder(identifier: id, width: size.width, height: size.height)
+            }
         }
     }
     
@@ -99,25 +103,17 @@ class ObservableCaptureManager: ObservableObject {
     }
 }
 
-class ObservableImage: ObservableObject {
-    @Published var image: UIImage
-    
-    init() {
-        self.image = .init(systemName: "phone")!
-    }
-}
-
 @main
 struct DecimusApp: App {
-    @StateObject private var image: ObservableImage
+    @StateObject private var participants: VideoParticipants
     @StateObject private var pipeline: ObservablePipeline
     @StateObject private var devices: AudioVideoDevices = .init()
     @StateObject private var captureManager: ObservableCaptureManager
     
     init() {
-        let internalImage = ObservableImage()
-        _image = StateObject(wrappedValue: internalImage)
-        let line = ObservablePipeline(image: internalImage, player: .init())
+        let internalParticipants = VideoParticipants()
+        _participants = StateObject(wrappedValue: internalParticipants)
+        let line = ObservablePipeline(participants: internalParticipants, player: .init())
         _pipeline = StateObject(wrappedValue: line)
         _captureManager = StateObject(wrappedValue: ObservableCaptureManager(pipeline: line))
     }
@@ -129,7 +125,7 @@ struct DecimusApp: App {
                 .environmentObject(devices)
                 .environmentObject(pipeline)
                 .environmentObject(captureManager)
-                .environmentObject(image)
+                .environmentObject(participants)
         }
     }
 }

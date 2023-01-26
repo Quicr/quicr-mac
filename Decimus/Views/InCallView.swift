@@ -10,7 +10,7 @@ struct InCallView: View {
     /// Local capture manager.
     @EnvironmentObject var capture: ObservableCaptureManager
     /// Images to render.
-    @EnvironmentObject var render: ObservableImage
+    @EnvironmentObject var render: VideoParticipants
     
     /// Currently selected camera.
     @State private var selectedCamera: AVCaptureDevice
@@ -28,15 +28,22 @@ struct InCallView: View {
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
     }
     
+    // Remote grid config to use.
+    var columns: [GridItem] { Array(repeating: .init(.flexible()), count: 1) }
+    
     // Show a video player.
     var body: some View {
         VStack {
             // Remote videos.
-            HStack {
-                // TODO: Remote views go here.
-                Image(uiImage: render.image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+            ScrollView() {
+                LazyVGrid(columns: columns) {
+                    ForEach (Array(render.participants.values)) { participant in
+                        Image(uiImage: participant.decodedImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(.horizontal)
+                    }
+                }
             }
             
             // Local video preview.
