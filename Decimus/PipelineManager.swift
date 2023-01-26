@@ -30,7 +30,7 @@ class PipelineManager {
     
     /// Managed pipeline elements.
     var encoders: [UInt32: EncoderElement] = .init()
-    private var decoders: [UInt32: DecoderElement] = .init()
+    var decoders: [UInt32: DecoderElement] = .init()
     
     /// Create a new PipelineManager.
     init(
@@ -54,14 +54,14 @@ class PipelineManager {
     func encode(identifier: UInt32, sample: CMSampleBuffer) {
         debugPrint(message: "[\(identifier)] (\(UInt32(sample.presentationTimeStamp.seconds * 1000))) Encode write")
         let encoder: EncoderElement? = encoders[identifier]
-        guard encoder != nil else { fatalError("Tried to write for unregistered identifier: \(identifier)") }
+        guard encoder != nil else { fatalError("Tried to encode for unregistered identifier: \(identifier)") }
         encoder!.encoder.write(sample: sample)
     }
     
     func decode(identifier: UInt32, data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
         debugPrint(message: "[\(identifier)] (\(timestamp)) Decode write")
         let decoder: DecoderElement? = decoders[identifier]
-        guard decoder != nil else { fatalError("Tried to write for unregistered identifier: \(identifier)") }
+        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(identifier)") }
         decoder?.decoder.write(data: data, length: length, timestamp: timestamp)
     }
     

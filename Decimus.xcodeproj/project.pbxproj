@@ -19,6 +19,7 @@
 		9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806822981D4400040F5D4 /* OpusEncoder.swift */; };
 		9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480684298284F40040F5D4 /* OpusDecoder.swift */; };
 		9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AudioPlayer.swift */; };
+		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -62,6 +63,7 @@
 		9B4806822981D4400040F5D4 /* OpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusEncoder.swift; sourceTree = "<group>"; };
 		9B480684298284F40040F5D4 /* OpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusDecoder.swift; sourceTree = "<group>"; };
 		9B480686298289910040F5D4 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
+		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -197,6 +199,7 @@
 			isa = PBXGroup;
 			children = (
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
+				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -344,6 +347,7 @@
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
+				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
