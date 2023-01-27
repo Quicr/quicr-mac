@@ -1,11 +1,17 @@
 import CoreGraphics
 import CoreMedia
+import SwiftUI
 
 class Loopback : ApplicationModeBase {
     
     let LOCAL_VIDEO_STREAM_ID: UInt32 = 1
     let LOCAL_AUDIO_STREAM_ID: UInt32 = 99
     let LOCAL_MIRROR_PARTICIPANTS: UInt32 = 0
+    
+    override var root: AnyView {
+        set { }
+        get { return .init(LoopbackView())}
+    }
     
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.

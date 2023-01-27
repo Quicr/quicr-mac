@@ -1,8 +1,14 @@
 import SwiftUI
 
-struct CallView: View {
+struct QMediaConfigCall: View {
     
     @State private var inCall: Bool = false
+    
+    private let callback: ConfigCallback
+    
+    init(callback: @escaping ConfigCallback) {
+        self.callback = callback
+    }
     
     var body: some View {
         if (inCall) {
@@ -19,11 +25,12 @@ struct CallView: View {
     
     func joinCall(config: CallConfig) {
         inCall = true
+        callback(config)
     }
 }
 
-struct CallView_Previews: PreviewProvider {
+struct QMediaConfigCall_Previews: PreviewProvider {
     static var previews: some View {
-        CallView()
+        QMediaConfigCall(callback: { config in })
     }
 }

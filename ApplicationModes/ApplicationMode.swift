@@ -1,10 +1,12 @@
 import CoreGraphics
 import CoreMedia
+import SwiftUI
 
 /// The core of the application.
 protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
     var captureManager: CaptureManager? { get }
+    var root: AnyView { get }
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -15,6 +17,7 @@ class ApplicationModeBase: ApplicationMode {
     
     var pipeline: PipelineManager?
     var captureManager: CaptureManager?
+    var root: AnyView = .init(EmptyView())
     
     init(participants: VideoParticipants, player: AudioPlayer) {
         pipeline = .init(
