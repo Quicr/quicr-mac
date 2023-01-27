@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		9B165A112983E5C10017079F /* Loopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A102983E5C10017079F /* Loopback.swift */; };
 		9B165A132984012D0017079F /* ApplicationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A122984012D0017079F /* ApplicationMode.swift */; };
+		9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* QMediaPubSub.swift */; };
+		9B165A17298417CC0017079F /* LoopbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A16298417CC0017079F /* LoopbackView.swift */; };
 		9B19563429831E4900BDE95F /* libneo_media_client.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
@@ -33,7 +35,7 @@
 		9BA27FE1297D7271007013B2 /* DecimusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE0297D7271007013B2 /* DecimusUITests.swift */; };
 		9BA27FE3297D7271007013B2 /* DecimusUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */; };
 		9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF2297D7562007013B2 /* SidebarView.swift */; };
-		9BA27FF5297D787F007013B2 /* CallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF4297D787F007013B2 /* CallView.swift */; };
+		9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */; };
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 /* End PBXBuildFile section */
@@ -72,6 +74,8 @@
 /* Begin PBXFileReference section */
 		9B165A102983E5C10017079F /* Loopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loopback.swift; sourceTree = "<group>"; };
 		9B165A122984012D0017079F /* ApplicationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMode.swift; sourceTree = "<group>"; };
+		9B165A1429840B610017079F /* QMediaPubSub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaPubSub.swift; sourceTree = "<group>"; };
+		9B165A16298417CC0017079F /* LoopbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoopbackView.swift; sourceTree = "<group>"; };
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B480663297EBD930040F5D4 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
@@ -101,7 +105,7 @@
 		9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		9BA27FEF297D7352007013B2 /* Decimus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Decimus.entitlements; sourceTree = "<group>"; };
 		9BA27FF2297D7562007013B2 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
-		9BA27FF4297D787F007013B2 /* CallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallView.swift; sourceTree = "<group>"; };
+		9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaConfigCall.swift; sourceTree = "<group>"; };
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -137,6 +141,7 @@
 			children = (
 				9B165A102983E5C10017079F /* Loopback.swift */,
 				9B165A122984012D0017079F /* ApplicationMode.swift */,
+				9B165A1429840B610017079F /* QMediaPubSub.swift */,
 			);
 			path = ApplicationModes;
 			sourceTree = "<group>";
@@ -244,9 +249,10 @@
 				9B480670297F320E0040F5D4 /* PreviewView.swift */,
 				9BA27FC7297D7270007013B2 /* ContentView.swift */,
 				9BA27FF2297D7562007013B2 /* SidebarView.swift */,
-				9BA27FF4297D787F007013B2 /* CallView.swift */,
+				9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */,
 				9B480661297EAF170040F5D4 /* InCallView.swift */,
 				9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */,
+				9B165A16298417CC0017079F /* LoopbackView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -399,10 +405,11 @@
 				9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */,
 				9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
-				9BA27FF5297D787F007013B2 /* CallView.swift in Sources */,
+				9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
+				9B165A17298417CC0017079F /* LoopbackView.swift in Sources */,
 				9B165A132984012D0017079F /* ApplicationMode.swift in Sources */,
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */,
@@ -413,6 +420,7 @@
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
 				9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */,
+				9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */,
 				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

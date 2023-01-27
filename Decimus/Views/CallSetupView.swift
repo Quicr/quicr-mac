@@ -1,10 +1,3 @@
-//
-//  CallSetupView.swift
-//  Decimus
-//
-//  Created by Richard Logan on 22/01/2023.
-//
-
 import SwiftUI
 
 typealias ConfigCallback = (_ config: CallConfig) -> (Void)
@@ -12,9 +5,7 @@ typealias ConfigCallback = (_ config: CallConfig) -> (Void)
 struct CallSetupView: View {
     
     @State private var address: String = ""
-    @State private var publishName: String = ""
-    @State private var subscribeName: String = ""
-    
+    @State private var port: UInt16 = 0
     
     private var configCallback: ConfigCallback
     
@@ -26,9 +17,8 @@ struct CallSetupView: View {
         Text("Real Time Media Client").font(.title)
         Form {
             Section(header: Text("Join a meeting")) {
-                TextField("Address", text: $address)
-                TextField("Publish Name", text: $publishName)
-                TextField("Subscribe Name", text: $subscribeName)
+                TextField("Address", text: $address, prompt: Text("Server Address"))
+                TextField("Port", value: $port, format: .number.grouping(.never), prompt: Text("Server Port"))
                 Button(action: join) {
                     Label("Join", systemImage: "phone")
                 }
@@ -37,11 +27,7 @@ struct CallSetupView: View {
     }
     
     func join() -> Void {
-        configCallback(
-            .init(
-                address: address,
-                publishName: publishName,
-                subscribeName: subscribeName))
+        configCallback(.init(address: address, port: port))
     }
 }
 

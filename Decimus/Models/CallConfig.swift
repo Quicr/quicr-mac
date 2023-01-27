@@ -4,8 +4,6 @@ import Foundation
 struct CallConfig {
     /// Address of the server.
     var address: String
-    /// Publish name, if any.
-    var publishName: String?
-    ///  Subscribe name, if any.
-    var subscribeName: String?
+    /// Port to connect on.
+    var port: UInt16
 }

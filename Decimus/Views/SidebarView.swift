@@ -11,11 +11,17 @@ struct SidebarView: View {
     
     @EnvironmentObject private var devices: AudioVideoDevices
     
+    private let rootView: AnyView
+    
+    init(rootView: AnyView) {
+        self.rootView = rootView
+    }
+    
     var body: some View {
         NavigationView {
             List {
                 NavigationLink {
-                    CallView().environmentObject(devices)
+                    rootView.environmentObject(devices)
                 } label: {
                     Label("Call", systemImage: "phone.circle")
                 }
@@ -27,6 +33,6 @@ struct SidebarView: View {
 
 struct SidebarViewController_Previews: PreviewProvider {
     static var previews: some View {
-        SidebarView()
+        SidebarView(rootView: .init(EmptyView()))
     }
 }
