@@ -10,7 +10,7 @@ class Loopback : ApplicationModeBase {
     
     override var root: AnyView {
         set { }
-        get { return .init(LoopbackView())}
+        get { return .init(InCallView{}) }
     }
     
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
