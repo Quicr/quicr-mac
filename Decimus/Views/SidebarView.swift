@@ -13,7 +13,7 @@ struct SidebarView: View {
                     Label("QMedia", systemImage: "phone.circle")
                 }
                 NavigationLink(value: Loopback(participants: participants, player: .init()) as ApplicationModeBase) {
-                    Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                    Label("Loopback", systemImage: "arrow.clockwise.circle")
                 }
             }.navigationDestination(for: ApplicationModeBase.self) { mode in
                 setMode(mode: mode)

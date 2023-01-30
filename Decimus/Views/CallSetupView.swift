@@ -31,12 +31,8 @@ struct CallSetupView: View {
     }
 }
 
-struct CallSetupView_Previews: PreviewProvider {
-    
-    static func null(_ config: CallConfig) {
-    }
-    
+struct CallSetupView_Previews: PreviewProvider {    
     static var previews: some View {
-        CallSetupView(null)
+        CallSetupView{ _ in }
     }
 }
