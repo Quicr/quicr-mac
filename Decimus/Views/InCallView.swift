@@ -57,10 +57,10 @@ struct InCallView: View {
                         Text(camera.localizedName).tag(camera)
                     }
                 }.onChange(of: selectedCamera) { [selectedCamera] newCamera in
-                    capture.manager.removeInput(device: selectedCamera)
-                    capture.manager.selectCamera(camera: newCamera)
+                    capture.manager!.removeInput(device: selectedCamera)
+                    capture.manager!.selectCamera(camera: newCamera)
                 }.onAppear() {
-                    capture.manager.selectCamera(camera: selectedCamera)
+                    capture.manager!.selectCamera(camera: selectedCamera)
                 }
                 
                 // Microphone control.
@@ -69,9 +69,9 @@ struct InCallView: View {
                         Text(microphone.localizedName).tag(microphone)
                     }
                 }.onChange(of: selectedMicrophone) { _ in
-                    capture.manager.addMicrophone(microphone: selectedMicrophone)
+                    capture.manager!.addMicrophone(microphone: selectedMicrophone)
                 }.onTapGesture() {
-                    capture.manager.addMicrophone(microphone: selectedMicrophone)
+                    capture.manager!.addMicrophone(microphone: selectedMicrophone)
                 }
                 
                 // Leave.
@@ -82,8 +82,8 @@ struct InCallView: View {
     
     func leaveCall() {
         // Stop capturing.
-        capture.manager.removeInput(device: selectedCamera)
-        capture.manager.stopCapturing()
+        capture.manager!.removeInput(device: selectedCamera)
+        capture.manager!.stopCapturing()
         
         // Report left.
         onLeave()
