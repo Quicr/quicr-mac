@@ -10,7 +10,7 @@ class DecoderElement {
     let identifier: UInt32
     /// Instance of the decoder.
     let decoder: Decoder
-    
+
     /// Create a new pipeline element
     init(identifier: UInt32, decoder: Decoder) {
         self.identifier = identifier

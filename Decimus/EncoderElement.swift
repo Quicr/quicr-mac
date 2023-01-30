@@ -1,7 +1,7 @@
 import CoreMedia
 
 protocol Encoder {
-    typealias EncodedDataCallback = (CMSampleBuffer)->()
+    typealias EncodedDataCallback = (CMSampleBuffer) -> Void
     func write(sample: CMSampleBuffer)
 }
 
@@ -11,7 +11,7 @@ class EncoderElement {
     let identifier: UInt32
     /// Instance of the decoder.
     let encoder: Encoder
-    
+
     /// Create a new encoder pipeline element.
     init(identifier: UInt32, encoder: Encoder) {
         self.identifier = identifier

@@ -278,6 +278,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				9B165A21298807AF0017079F /* PBXTargetDependency */,
 			);
 			name = Decimus;
 			productName = Decimus;
@@ -353,6 +354,9 @@
 				Base,
 			);
 			mainGroup = 9BA27FB9297D7270007013B2;
+			packageReferences = (
+				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
+			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -441,6 +445,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		9B165A21298807AF0017079F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 9B165A20298807AF0017079F /* SwiftLintPlugin */;
+		};
 		9BA27FD4297D7271007013B2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
@@ -775,6 +783,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/evfemist/SwiftLint";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9B165A20298807AF0017079F /* SwiftLintPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
+			productName = "plugin:SwiftLintPlugin";
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9BA27FBA297D7270007013B2 /* Project object */;
 }
