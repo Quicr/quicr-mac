@@ -1,38 +1,41 @@
-//
-//  SidebarView.swift
-//  Decimus
-//
-//  Navigation sidebar.
-//
-
 import SwiftUI
 
 struct SidebarView: View {
     
     @EnvironmentObject private var devices: AudioVideoDevices
-    
-    private let rootView: AnyView
-    
-    init(rootView: AnyView) {
-        self.rootView = rootView
-    }
+    @EnvironmentObject private var participants: VideoParticipants
+    @EnvironmentObject private var captureManager: ObservableCaptureManager
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
-                NavigationLink {
-                    rootView.environmentObject(devices)
-                } label: {
-                    Label("Call", systemImage: "phone.circle")
+                NavigationLink(value: QMediaPubSub(participants: participants, player: .init()) as ApplicationModeBase) {
+                    Label("QMedia", systemImage: "phone.circle")
                 }
+                NavigationLink(value: Loopback(participants: participants, player: .init()) as ApplicationModeBase) {
+                    Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                }
+            }.navigationDestination(for: ApplicationModeBase.self) { mode in
+                setMode(mode: mode)
             }
-            .listStyle(SidebarListStyle())
+        }.navigationTitle("Application Modes")
+    }
+    
+    func setMode(mode: ApplicationModeBase) -> AnyView {
+        captureManager.videoCallback = { sample in
+            mode.encodeCameraFrame(frame: sample)
         }
+        captureManager.audioCallback = { sample in
+            mode.encodeAudioSample(sample: sample)
+        }
+        return mode.root
     }
 }
-
+            
 struct SidebarViewController_Previews: PreviewProvider {
     static var previews: some View {
-        SidebarView(rootView: .init(EmptyView()))
+        SidebarView()
+            .environmentObject(VideoParticipants())
+            .environmentObject(ObservableCaptureManager())
     }
 }

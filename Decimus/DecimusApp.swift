@@ -3,40 +3,35 @@ import CoreMedia
 
 /// Wrapper for capture manager as observable object.
 class ObservableCaptureManager: ObservableObject {
-    let manager: CaptureManager
-    init(manager: CaptureManager) {
-        self.manager = manager
+    
+    var videoCallback: CaptureManager.MediaCallback? = nil
+    var audioCallback: CaptureManager.MediaCallback? = nil
+    var manager: CaptureManager? = nil
+    
+    init() {
+        manager = .init(
+            cameraCallback: { sample in
+                self.videoCallback?(sample)
+            },
+            audioCallback: { sample in
+                self.audioCallback?(sample)
+            })
     }
 }
 
 @main
 struct DecimusApp: App {
-    @StateObject private var participants: VideoParticipants
+    
+    @StateObject private var participants: VideoParticipants = .init()
     @StateObject private var devices: AudioVideoDevices = .init()
-    @StateObject private var captureManager: ObservableCaptureManager
-    
-    private let app: ApplicationMode
-    
-    init() {
-        // Create an observable object that will track video participants.
-        let internalParticipants : VideoParticipants = .init()
-        _participants = StateObject(wrappedValue: internalParticipants)
-        
-        // Application mode to run in.
-        // let mode = Loopback(participants: internalParticipants, player: .init())
-        let mode = QMediaPubSub(participants: internalParticipants, player: .init())
-        
-        // Create an observable for the capture device.
-        _captureManager = StateObject(wrappedValue: .init(manager: mode.captureManager!))
-        app = mode
-    }
+    @StateObject private var captureManager: ObservableCaptureManager  = .init()
     
     var body: some Scene {
         WindowGroup {
-            SidebarView(rootView: app.root)
+            SidebarView()
                 .environmentObject(devices)
-                .environmentObject(captureManager)
                 .environmentObject(participants)
+                .environmentObject(captureManager)
         }
     }
 }

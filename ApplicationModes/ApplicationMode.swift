@@ -7,17 +7,24 @@ protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
     var captureManager: CaptureManager? { get }
     var root: AnyView { get }
+    func encodeCameraFrame(frame: CMSampleBuffer)
+    func encodeAudioSample(sample: CMSampleBuffer)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
 /// Uncompressed data is passed to the pipeline to encode, encoded data is passed out to be rendered.
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
-class ApplicationModeBase: ApplicationMode {
+class ApplicationModeBase: ApplicationMode, Hashable {
+    
+    static func == (lhs: ApplicationModeBase, rhs: ApplicationModeBase) -> Bool {
+        false
+    }
     
     var pipeline: PipelineManager?
     var captureManager: CaptureManager?
     var root: AnyView = .init(EmptyView())
+    private let id = UUID()
     
     init(participants: VideoParticipants, player: AudioPlayer) {
         pipeline = .init(
@@ -41,6 +48,10 @@ class ApplicationModeBase: ApplicationMode {
             audioCallback: { sample in
                 self.encodeAudioSample(sample: sample)
             })
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
     
     func showDecodedImage(identifier: UInt32, participants: VideoParticipants, decoded: CGImage) {
