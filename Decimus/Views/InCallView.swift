@@ -4,22 +4,22 @@ import AVFoundation
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView: View {
-    
+
     /// Available input devices.
     @EnvironmentObject var devices: AudioVideoDevices
     /// Local capture manager.
     @EnvironmentObject var capture: ObservableCaptureManager
     /// Images to render.
     @EnvironmentObject var render: VideoParticipants
-    
+
     /// Currently selected camera.
     @State private var selectedCamera: AVCaptureDevice
     /// Currently selected input microphone.
     @State private var selectedMicrophone: AVCaptureDevice
-    
+
     /// Callback when call is left.
     private var onLeave: () -> Void
-    
+
     /// Create a new in call view.
     /// - Parameter onLeave: Callback fired when user asks to leave the call.
     init(onLeave: @escaping () -> Void) {
@@ -27,17 +27,17 @@ struct InCallView: View {
         selectedCamera = AVCaptureDevice.default(for: .video)!
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
     }
-    
+
     // Remote grid config to use.
     var columns: [GridItem] { Array(repeating: .init(.flexible()), count: 1) }
-    
+
     // Show a video player.
     var body: some View {
         VStack {
             // Remote videos.
-            ScrollView() {
+            ScrollView {
                 LazyVGrid(columns: columns) {
-                    ForEach (Array(render.participants.values)) { participant in
+                    ForEach(Array(render.participants.values)) { participant in
                         Image(uiImage: participant.decodedImage)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -45,10 +45,10 @@ struct InCallView: View {
                     }
                 }
             }
-            
+
             // Local video preview.
             // PreviewView(device: $selectedCamera)
-            
+
             // Controls.
             HStack {
                 // Local camera control.
@@ -58,33 +58,33 @@ struct InCallView: View {
                     }
                 }.onChange(of: selectedCamera) { [selectedCamera] newCamera in
                     capture.manager!.removeInput(device: selectedCamera)
-                    capture.manager!.selectCamera(camera: newCamera)
-                }.onAppear() {
-                    capture.manager!.selectCamera(camera: selectedCamera)
+                    capture.manager!.addInput(device: newCamera)
+                }.onAppear {
+                    capture.manager!.addInput(device: selectedCamera)
                 }
-                
+
                 // Microphone control.
                 Picker("Microphone", selection: $selectedMicrophone) {
                     ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
                         Text(microphone.localizedName).tag(microphone)
                     }
                 }.onChange(of: selectedMicrophone) { _ in
-                    capture.manager!.addMicrophone(microphone: selectedMicrophone)
-                }.onTapGesture() {
-                    capture.manager!.addMicrophone(microphone: selectedMicrophone)
+                    capture.manager!.addInput(device: selectedMicrophone)
+                }.onTapGesture {
+                    capture.manager!.addInput(device: selectedMicrophone)
                 }
-                
+
                 // Leave.
                 Button("Leave", action: leaveCall)
             }
         }
     }
-    
+
     func leaveCall() {
         // Stop capturing.
         capture.manager!.removeInput(device: selectedCamera)
         capture.manager!.stopCapturing()
-        
+
         // Report left.
         onLeave()
     }

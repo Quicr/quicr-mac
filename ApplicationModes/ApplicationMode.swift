@@ -16,16 +16,16 @@ protocol ApplicationMode {
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
 class ApplicationModeBase: ApplicationMode, Hashable {
-    
+
     static func == (lhs: ApplicationModeBase, rhs: ApplicationModeBase) -> Bool {
         false
     }
-    
+
     var pipeline: PipelineManager?
     var captureManager: CaptureManager?
     var root: AnyView = .init(EmptyView())
     private let id = UUID()
-    
+
     init(participants: VideoParticipants, player: AudioPlayer) {
         pipeline = .init(
             decodedCallback: { identifier, decoded, _ in
@@ -49,11 +49,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 self.encodeAudioSample(sample: sample)
             })
     }
-    
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-    
+
     func showDecodedImage(identifier: UInt32, participants: VideoParticipants, decoded: CGImage) {
         // Push the image to the output.
         DispatchQueue.main.async {
@@ -61,11 +61,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             participant.decodedImage = .init(cgImage: decoded)
         }
     }
-    
+
     func playDecodedAudio(sample: CMSampleBuffer, player: AudioPlayer) {
         player.write(sample: sample)
     }
-    
+
     func encodeCameraFrame(frame: CMSampleBuffer) {}
     func encodeAudioSample(sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}

@@ -3,175 +3,190 @@ import CoreVideo
 
 class H264Encoder: Encoder {
 
+    private let startCodeLength = 4
+    private let startCode = [ 0x00, 0x00, 0x00, 0x01 ]
+
     private var encoder: VTCompressionSession?
     private let callback: EncodedDataCallback
-    
-    // TODO: Maximum H265.
-    
+
     init(width: Int32, height: Int32, callback: @escaping EncodedDataCallback) {
         self.callback = callback
-        let error = VTCompressionSessionCreate(
-            allocator: nil,
-            width: width,
-            height: height,
-            codecType: kCMVideoCodecType_H264,
-            encoderSpecification: nil,
-            imageBufferAttributes: nil,
-            compressedDataAllocator: nil,
-            outputCallback: nil,
-            refcon: nil,
-            compressionSessionOut: &encoder)
-        guard error == .zero else {
-            fatalError("Encoder creation failed")
-        }
-        
-        let realtimeError = VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_RealTime, value: kCFBooleanTrue)
+        let error = VTCompressionSessionCreate(allocator: nil,
+                                               width: width,
+                                               height: height,
+                                               codecType: kCMVideoCodecType_H264,
+                                               encoderSpecification: nil,
+                                               imageBufferAttributes: nil,
+                                               compressedDataAllocator: nil,
+                                               outputCallback: nil,
+                                               refcon: nil,
+                                               compressionSessionOut: &encoder)
+        guard error == .zero else { fatalError("Encoder creation failed")}
+
+        let realtimeError = VTSessionSetProperty(encoder!,
+                                                 key: kVTCompressionPropertyKey_RealTime,
+                                                 value: kCFBooleanTrue)
         guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
     }
-    
+
     func write(sample: CMSampleBuffer) {
-        VTCompressionSessionEncodeFrame(
-            encoder!,
-            imageBuffer: sample.imageBuffer!,
-            presentationTimeStamp: sample.presentationTimeStamp,
-            duration: .invalid,
-            frameProperties: nil,
-            infoFlagsOut: nil,
-            outputHandler: self.encoded)
+        let error = VTCompressionSessionEncodeFrame(encoder!,
+                                                    imageBuffer: sample.imageBuffer!,
+                                                    presentationTimeStamp: sample.presentationTimeStamp,
+                                                    duration: .invalid,
+                                                    frameProperties: nil,
+                                                    infoFlagsOut: nil,
+                                                    outputHandler: self.encoded)
+        guard error == .zero else { fatalError("Encode write failure: \(error)")}
     }
-    
+
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
-        guard status == .zero else { fatalError("Encode failure")}
-        guard sample != nil else { fatalError("Encode returned nil sample?")}
-        
+        guard status == .zero else { fatalError("Encode failure: \(status)")}
+        guard let sample = sample else { fatalError("Encode returned nil sample?") }
+
         // Annex B time.
-        let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample!, createIfNecessary: false)! as NSArray
+        let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
         var idr = false
-        let sampleAttachments = attachments[0] as! NSDictionary
+        guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
         let key = kCMSampleAttachmentKey_NotSync as NSString
         if let found = sampleAttachments[key] as? Bool? {
             idr = !(found != nil && found == true)
         }
-        
-        let START_CODE_LENGTH = 4
-        let START_CODE = [ 0x00, 0x00, 0x00, 0x01 ]
-        
+
         if idr {
-            // Get number of parameter sets.
-            var sets: Int = 0
-            let format = CMSampleBufferGetFormatDescription(sample!)
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(
-                format!,
-                parameterSetIndex: 0,
-                parameterSetPointerOut: nil,
-                parameterSetSizeOut: nil,
-                parameterSetCountOut: &sets,
-                nalUnitHeaderLengthOut: nil)
-            
-            // Get actual parameter sets.
-            var parameterSetPointers: [UnsafePointer<UInt8>] = .init()
-            var parameterSetLengths: [Int] = .init()
-            for i in 0...sets-1  {
-                var parameterSet: UnsafePointer<UInt8>?
-                var parameterSize: Int = 0
-                var naluSizeOut: Int32 = 0
-                
-                let formatError = CMVideoFormatDescriptionGetH264ParameterSetAtIndex(
-                    format!,
-                    parameterSetIndex: i,
-                    parameterSetPointerOut: &parameterSet,
-                    parameterSetSizeOut: &parameterSize,
-                    parameterSetCountOut: nil,
-                    nalUnitHeaderLengthOut: &naluSizeOut)
-                guard formatError == .zero else { fatalError("Couldn't get description: \(formatError) [] \(i)") }
-    
-                parameterSetPointers.append(parameterSet!)
-                parameterSetLengths.append(parameterSize)
-                
-                guard naluSizeOut == START_CODE_LENGTH else { fatalError("Unexpected start code length?") }
+            do {
+                let parameterSets = try handleParameterSets(sample: sample)
+                callback(parameterSets)
+            } catch {
+                print("Failed to handle parameter sets")
+                return
             }
-            
-            // Compute total ANNEX B parameter set size.
-            var totalLength = START_CODE_LENGTH * sets
-            for length in parameterSetLengths {
-                totalLength += length
-            }
-            
-            // Make a block buffer for PPS/SPS.
-            var buffer: CMBlockBuffer?
-            let blockError = CMBlockBufferCreateWithMemoryBlock(
-                allocator: nil,
-                memoryBlock: nil,
-                blockLength: totalLength,
-                blockAllocator: nil,
-                customBlockSource: nil,
-                offsetToData: 0,
-                dataLength: totalLength,
-                flags: 0,
-                blockBufferOut: &buffer)
-            guard blockError == .zero else { fatalError("Failed to create parameter set block") }
-            
-            let allocateError = CMBlockBufferAssureBlockMemory(buffer!)
-            guard allocateError == .zero else { fatalError("Failed to allocate parameter set block") }
-            
-            var offset = 0
-            for i in 0...sets-1  {
-                let startCodeError = CMBlockBufferReplaceDataBytes(with: START_CODE, blockBuffer: buffer!, offsetIntoDestination: offset, dataLength: START_CODE_LENGTH)
-                guard startCodeError == .zero else { fatalError("Couldn't copy start code") }
-                offset += START_CODE_LENGTH
-                let parameterDataError = CMBlockBufferReplaceDataBytes(with: parameterSetPointers[i], blockBuffer: buffer!, offsetIntoDestination: offset, dataLength: parameterSetLengths[i])
-                guard parameterDataError == .zero else { fatalError("Couldn't copy parameter data") }
-                offset += parameterSetLengths[i]
-            }
-            
-            // TODO: Why?
-            try! buffer!.withUnsafeMutableBytes { ptr in
-                let firstAlterIndex = START_CODE_LENGTH - 1
-                ptr[firstAlterIndex] = 0x01
-                let secondAlterIndex = START_CODE_LENGTH * 2 + parameterSetLengths[0] - 1
-                ptr[secondAlterIndex] = 0x01
-            }
-            
-            // TODO: Faked a sample for easy callback.
-            var time = try! sample!.sampleTimingInfo(at: 0)
-            var parameterSample: CMSampleBuffer?
-            let sampleError = CMSampleBufferCreateReady(
-                allocator: kCFAllocatorDefault,
-                dataBuffer: buffer,
-                formatDescription: nil,
-                sampleCount: 1,
-                sampleTimingEntryCount: 1,
-                sampleTimingArray: &time,
-                sampleSizeEntryCount: 1,
-                sampleSizeArray: &totalLength,
-                sampleBufferOut: &parameterSample)
-            guard sampleError == .zero else { fatalError("Couldn't create parameter sample") }
-            callback(parameterSample!)
         }
-        
-        let buffer = sample!.dataBuffer!
+
+        let buffer = sample.dataBuffer!
         var offset = 0
-        while offset < buffer.dataLength - START_CODE_LENGTH {
-            guard let memory = malloc(START_CODE_LENGTH) else { fatalError("malloc fail") }
-            var data: UnsafeMutablePointer<CChar>? = nil
-            let accessError = CMBlockBufferAccessDataBytes(buffer, atOffset: offset, length: 4, temporaryBlock: memory, returnedPointerOut: &data)
+        while offset < buffer.dataLength - startCodeLength {
+            guard let memory = malloc(startCodeLength) else { fatalError("malloc fail") }
+            var data: UnsafeMutablePointer<CChar>?
+            let accessError = CMBlockBufferAccessDataBytes(buffer,
+                                                           atOffset: offset,
+                                                           length: startCodeLength,
+                                                           temporaryBlock: memory,
+                                                           returnedPointerOut: &data)
             guard accessError == .zero else { fatalError("Bad access") }
             guard data != nil else { fatalError("Bad access") }
-            
+
             var naluLength: UInt32 = 0
-            memcpy(&naluLength, data, START_CODE_LENGTH)
+            memcpy(&naluLength, data, startCodeLength)
             free(memory)
             naluLength = CFSwapInt32BigToHost(naluLength)
-            
+
             // Replace with start code.
-            let replaceError = CMBlockBufferReplaceDataBytes(with: START_CODE, blockBuffer: buffer, offsetIntoDestination: offset, dataLength: 4)
+            let replaceError = CMBlockBufferReplaceDataBytes(with: startCode,
+                                                             blockBuffer: buffer,
+                                                             offsetIntoDestination: offset,
+                                                             dataLength: startCodeLength)
             guard replaceError == .zero else { fatalError("Replace") }
-            
+
             // Carry on.
-            offset += START_CODE_LENGTH + Int(naluLength)
+            offset += startCodeLength + Int(naluLength)
         }
-        
+
         // Callback the Annex-B sample.
-        callback(sample!)
+        callback(sample)
     }
+
+    func handleParameterSets(sample: CMSampleBuffer) throws -> CMSampleBuffer {
+        // Get number of parameter sets.
+        var sets: Int = 0
+        let format = CMSampleBufferGetFormatDescription(sample)
+        CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                                                           parameterSetIndex: 0,
+                                                           parameterSetPointerOut: nil,
+                                                           parameterSetSizeOut: nil,
+                                                           parameterSetCountOut: &sets,
+                                                           nalUnitHeaderLengthOut: nil)
+
+        // Get actual parameter sets.
+        var parameterSetPointers: [UnsafePointer<UInt8>] = .init()
+        var parameterSetLengths: [Int] = .init()
+        for parameterSetIndex in 0...sets-1 {
+            var parameterSet: UnsafePointer<UInt8>?
+            var parameterSize: Int = 0
+            var naluSizeOut: Int32 = 0
+            let formatError = CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                                                                                 parameterSetIndex: parameterSetIndex,
+                                                                                 parameterSetPointerOut: &parameterSet,
+                                                                                 parameterSetSizeOut: &parameterSize,
+                                                                                 parameterSetCountOut: nil,
+                                                                                 nalUnitHeaderLengthOut: &naluSizeOut)
+            guard formatError == .zero else { fatalError("Couldn't get description: \(formatError)") }
+            guard naluSizeOut == startCodeLength else { fatalError("Unexpected start code length?") }
+            parameterSetPointers.append(parameterSet!)
+            parameterSetLengths.append(parameterSize)
+        }
+
+        // Compute total ANNEX B parameter set size.
+        var totalLength = startCodeLength * sets
+        totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
+
+        // Make a block buffer for PPS/SPS.
+        var buffer: CMBlockBuffer?
+        let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
+                                                            memoryBlock: nil,
+                                                            blockLength: totalLength,
+                                                            blockAllocator: nil,
+                                                            customBlockSource: nil,
+                                                            offsetToData: 0,
+                                                            dataLength: totalLength,
+                                                            flags: 0,
+                                                            blockBufferOut: &buffer)
+        guard blockError == .zero else { throw("Failed to create parameter set block") }
+
+        let allocateError = CMBlockBufferAssureBlockMemory(buffer!)
+        guard allocateError == .zero else { throw("Failed to allocate parameter set block") }
+
+        var offset = 0
+        for parameterSetIndex in 0...sets-1 {
+            let startCodeError = CMBlockBufferReplaceDataBytes(with: startCode,
+                                                               blockBuffer: buffer!,
+                                                               offsetIntoDestination: offset,
+                                                               dataLength: startCodeLength)
+            guard startCodeError == .zero else { throw("Couldn't copy start code") }
+            offset += startCodeLength
+            let parameterDataError = CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
+                                                                   blockBuffer: buffer!,
+                                                                   offsetIntoDestination: offset,
+                                                                   dataLength: parameterSetLengths[parameterSetIndex])
+            guard parameterDataError == .zero else { throw("Couldn't copy parameter data") }
+            offset += parameterSetLengths[parameterSetIndex]
+        }
+
+        // FIXME: Why does the above not work?
+        try buffer!.withUnsafeMutableBytes { ptr in
+            let firstAlterIndex = startCodeLength - 1
+            ptr[firstAlterIndex] = 0x01
+            let secondAlterIndex = startCodeLength * 2 + parameterSetLengths[0] - 1
+            ptr[secondAlterIndex] = 0x01
+        }
+
+        // Return as a sample for easy callback.
+        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
+        var parameterSample: CMSampleBuffer?
+        let sampleError = CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
+                                                    dataBuffer: buffer,
+                                                    formatDescription: nil,
+                                                    sampleCount: 1,
+                                                    sampleTimingEntryCount: 1,
+                                                    sampleTimingArray: &time,
+                                                    sampleSizeEntryCount: 1,
+                                                    sampleSizeArray: &totalLength,
+                                                    sampleBufferOut: &parameterSample)
+        guard sampleError == .zero else { throw("Couldn't create parameter sample") }
+        return parameterSample!
+    }
+}
+
+extension String: LocalizedError {
+    public var message: String? { return self }
 }
