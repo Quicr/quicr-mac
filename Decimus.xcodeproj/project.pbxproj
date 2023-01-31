@@ -196,19 +196,11 @@
 			path = QMedia;
 			sourceTree = "<group>";
 		};
-		9B48069529831B200040F5D4 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
 				9B165A2229895DD50017079F /* Frameworks */,
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
-				9B48069529831B200040F5D4 /* Frameworks */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
 				9BA27FD5297D7271007013B2 /* DecimusTests */,
 				9BA27FDF297D7271007013B2 /* DecimusUITests */,
