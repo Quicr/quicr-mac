@@ -10,7 +10,10 @@
 		9B165A112983E5C10017079F /* Loopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A102983E5C10017079F /* Loopback.swift */; };
 		9B165A132984012D0017079F /* ApplicationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A122984012D0017079F /* ApplicationMode.swift */; };
 		9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* QMediaPubSub.swift */; };
-		9B19563429831E4900BDE95F /* libneo_media_client.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; };
+		9B165A362989604D0017079F /* libneo_media_client.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; platformFilter = maccatalyst; };
+		9B165A39298960570017079F /* libneo_media_client.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B165A2529895E1C0017079F /* libneo_media_client.dylib */; platformFilter = ios; };
+		9B165A3D2989611A0017079F /* libneo_media_client.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B165A2529895E1C0017079F /* libneo_media_client.dylib */; platformFilter = ios; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		9B165A3E2989611A0017079F /* libneo_media_client.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; platformFilter = maccatalyst; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* H264Decoder.swift */; };
@@ -25,7 +28,6 @@
 		9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AudioPlayer.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
-		9B48069329830E350040F5D4 /* libneo_media_client.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -57,13 +59,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		9B48069429830E350040F5D4 /* Embed Libraries */ = {
+		9B165A382989604D0017079F /* Embed Libraries */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				9B48069329830E350040F5D4 /* libneo_media_client.dylib in Embed Libraries */,
+				9B165A3D2989611A0017079F /* libneo_media_client.dylib in Embed Libraries */,
+				9B165A3E2989611A0017079F /* libneo_media_client.dylib in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -74,6 +77,8 @@
 		9B165A102983E5C10017079F /* Loopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loopback.swift; sourceTree = "<group>"; };
 		9B165A122984012D0017079F /* ApplicationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMode.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* QMediaPubSub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaPubSub.swift; sourceTree = "<group>"; };
+		9B165A2529895E1C0017079F /* libneo_media_client.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libneo_media_client.dylib; sourceTree = "<group>"; };
+		9B165A35298960430017079F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B480663297EBD930040F5D4 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
@@ -113,7 +118,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9B19563429831E4900BDE95F /* libneo_media_client.dylib in Frameworks */,
+				9B165A362989604D0017079F /* libneo_media_client.dylib in Frameworks */,
+				9B165A39298960570017079F /* libneo_media_client.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +150,31 @@
 			path = ApplicationModes;
 			sourceTree = "<group>";
 		};
+		9B165A2229895DD50017079F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9B165A2429895DED0017079F /* iOS */,
+				9B165A2329895DE10017079F /* Catalyst */,
+			);
+			path = Frameworks;
+			sourceTree = "<group>";
+		};
+		9B165A2329895DE10017079F /* Catalyst */ = {
+			isa = PBXGroup;
+			children = (
+				9B48069129830E270040F5D4 /* libneo_media_client.dylib */,
+			);
+			path = Catalyst;
+			sourceTree = "<group>";
+		};
+		9B165A2429895DED0017079F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				9B165A2529895E1C0017079F /* libneo_media_client.dylib */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
 		9B48067F298016FD0040F5D4 /* Codec */ = {
 			isa = PBXGroup;
 			children = (
@@ -168,7 +199,6 @@
 		9B48069529831B200040F5D4 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				9B48069129830E270040F5D4 /* libneo_media_client.dylib */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -176,6 +206,7 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				9B165A2229895DD50017079F /* Frameworks */,
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
 				9B48069529831B200040F5D4 /* Frameworks */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
@@ -198,6 +229,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B165A35298960430017079F /* Info.plist */,
 				9B48068A298301ED0040F5D4 /* QMedia */,
 				9B48067F298016FD0040F5D4 /* Codec */,
 				9BA27FF9297DD8CA007013B2 /* Models */,
@@ -273,12 +305,12 @@
 				9BA27FBE297D7270007013B2 /* Sources */,
 				9BA27FBF297D7270007013B2 /* Frameworks */,
 				9BA27FC0297D7270007013B2 /* Resources */,
-				9B48069429830E350040F5D4 /* Embed Libraries */,
+				9B165A382989604D0017079F /* Embed Libraries */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				9B165A21298807AF0017079F /* PBXTargetDependency */,
+				9B165A3429895FC40017079F /* PBXTargetDependency */,
 			);
 			name = Decimus;
 			productName = Decimus;
@@ -445,9 +477,9 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		9B165A21298807AF0017079F /* PBXTargetDependency */ = {
+		9B165A3429895FC40017079F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			productRef = 9B165A20298807AF0017079F /* SwiftLintPlugin */;
+			productRef = 9B165A3329895FC40017079F /* SwiftLintPlugin */;
 		};
 		9BA27FD4297D7271007013B2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -592,8 +624,9 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -603,9 +636,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)",
+					"$(PROJECT_DIR)/Frameworks/iOS",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks/Catalyst",
 				);
 				MARKETING_VERSION = 1.0;
 				ONLY_ACTIVE_ARCH = YES;
@@ -638,8 +676,9 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -649,12 +688,17 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)",
+					"$(PROJECT_DIR)/Frameworks/iOS",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Frameworks/Catalyst",
 				);
 				MARKETING_VERSION = 1.0;
-				ONLY_ACTIVE_ARCH = NO;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -796,7 +840,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		9B165A20298807AF0017079F /* SwiftLintPlugin */ = {
+		9B165A3329895FC40017079F /* SwiftLintPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
 			productName = "plugin:SwiftLintPlugin";

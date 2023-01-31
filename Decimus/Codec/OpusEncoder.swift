@@ -25,7 +25,7 @@ class OpusEncoder: Encoder {
         var opusSettings: [String: Any] = [:]
         opusSettings[AVFormatIDKey] = kAudioFormatOpus
         let opus: AVAudioFormat = .init(settings: opusSettings)!
-        converter = .init(from: native, to: opus)!
+        converter = .init(from: native, to: opus)
 
 //        let output: AVAudioBuffer = .init()
 //        var error: NSError?
