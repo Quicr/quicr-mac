@@ -88,6 +88,11 @@ class H264Encoder: Encoder {
                                                              dataLength: startCodeLength)
             guard replaceError == .zero else { fatalError("Replace") }
 
+            // TODO: This is broken.
+            try? buffer.withUnsafeMutableBytes(atOffset: offset) { ptr in
+                ptr[3] = 0x01
+            }
+
             // Carry on.
             offset += startCodeLength + Int(naluLength)
         }

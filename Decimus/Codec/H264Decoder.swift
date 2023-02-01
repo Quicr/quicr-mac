@@ -38,65 +38,82 @@ class H264Decoder: Decoder {
         // There might not be any more data left.
         guard offset < length else { return }
 
-        // Normal frame handling.
-        type = data[offset + startCodeLength] & 0x1F
-        guard type == pFrame || type == idr else { print("Unhandled NALU type: \(type)"); return }
+        // Get indexes for all start codes.
+        var startCodeIndices: [Int] = []
+        for byte in offset...length - startCodeLength where isAtStartCode(pointer: data, startIndex: byte) {
+            startCodeIndices.append(byte)
+        }
 
-        // Change start code to length
-        let ptr: UnsafeMutableRawPointer = .init(mutating: data)
-        let picDataLength = UInt32(length - offset - startCodeLength).bigEndian
-        var embedLength = picDataLength
-        memcpy(ptr, &embedLength, startCodeLength)
+        // Handle all remaining NALUs.
+        for index in startCodeIndices.indices {
+            // Get NALU attributes.
+            let thisNaluOffset = startCodeIndices[index]
+            var naluTotalLength = length - index
+            if startCodeIndices.count < index + 1 {
+                naluTotalLength = startCodeIndices[index + 1] - thisNaluOffset
+            }
+            let naluPtr: UnsafeMutableRawPointer = .init(mutating: data + thisNaluOffset)
 
-        // Construct the block buffer from the rest of the frame.
-        var buffer: CMBlockBuffer?
-        var error = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                                       memoryBlock: ptr,
-                                                       blockLength: length - offset,
-                                                       blockAllocator: kCFAllocatorNull,
-                                                       customBlockSource: nil,
-                                                       offsetToData: 0,
-                                                       dataLength: length - offset,
-                                                       flags: 0,
-                                                       blockBufferOut: &buffer)
-        guard error == .zero else { fatalError("CMBlockBufferCreateWithMemoryBlock failed: \(error)") }
+            // What type is this NALU?
+            type = data[thisNaluOffset + startCodeLength] & 0x1F
+            guard type == pFrame || type == idr else { print("Unhandled NALU type: \(type)"); continue }
 
-        // CMTime presentation.
-        let time = CMTimeMake(value: Int64(timestamp), timescale: 1000)
-        var timeInfo = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: time, decodeTimeStamp: .invalid)
+            // Change start code to length
+            var naluDataLength = UInt32(naluTotalLength - startCodeLength).bigEndian
+            memcpy(naluPtr, &naluDataLength, startCodeLength)
 
-        // Create sample buffer.
-        var sampleSize = length - offset
-        var sampleBuffer: CMSampleBuffer?
-        error = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
-                                     dataBuffer: buffer,
-                                     dataReady: true,
-                                     makeDataReadyCallback: nil,
-                                     refcon: nil,
-                                     formatDescription: self.currentFormat,
-                                     sampleCount: 1,
-                                     sampleTimingEntryCount: 1,
-                                     sampleTimingArray: &timeInfo,
-                                     sampleSizeEntryCount: 1,
-                                     sampleSizeArray: &sampleSize,
-                                     sampleBufferOut: &sampleBuffer)
-        guard error == .zero else { fatalError("CMSampleBufferCreate failed: \(error)") }
+            // Construct a block buffer from this NALU.
+            var buffer: CMBlockBuffer?
+            var error = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
+                                                           memoryBlock: naluPtr,
+                                                           blockLength: naluTotalLength,
+                                                           blockAllocator: kCFAllocatorNull,
+                                                           customBlockSource: nil,
+                                                           offsetToData: 0,
+                                                           dataLength: naluTotalLength,
+                                                           flags: 0,
+                                                           blockBufferOut: &buffer)
+            guard error == .zero else { fatalError("CMBlockBufferCreateWithMemoryBlock failed: \(error)") }
 
-        // Set to display immediately
-        let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer!, createIfNecessary: true)
-        let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
-        CFDictionarySetValue(dict,
-                             unsafeBitCast(kCMSampleAttachmentKey_DisplayImmediately, to: UnsafeRawPointer.self),
-                             unsafeBitCast(kCFBooleanTrue, to: UnsafeRawPointer.self))
+            // CMTime presentation.
+            let time = CMTimeMake(value: Int64(timestamp), timescale: 1000)
+            var timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                              presentationTimeStamp: time,
+                                              decodeTimeStamp: .invalid)
 
-        // Pass sample to decoder.
-        var outputFlags: VTDecodeInfoFlags = .init()
-        let decodeError = VTDecompressionSessionDecodeFrame(session!,
-                                                            sampleBuffer: sampleBuffer!,
-                                                            flags: .init(),
-                                                            infoFlagsOut: &outputFlags,
-                                                            outputHandler: self.frameCallback)
-        guard decodeError == .zero else { fatalError("Failed to decode frame: \(error)") }
+            // Create sample buffer.
+            var sampleSize = naluTotalLength
+            var sampleBuffer: CMSampleBuffer?
+            error = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
+                                         dataBuffer: buffer,
+                                         dataReady: true,
+                                         makeDataReadyCallback: nil,
+                                         refcon: nil,
+                                         formatDescription: self.currentFormat,
+                                         sampleCount: 1,
+                                         sampleTimingEntryCount: 1,
+                                         sampleTimingArray: &timeInfo,
+                                         sampleSizeEntryCount: 1,
+                                         sampleSizeArray: &sampleSize,
+                                         sampleBufferOut: &sampleBuffer)
+            guard error == .zero else { fatalError("CMSampleBufferCreate failed: \(error)") }
+
+            // Set to display immediately
+            let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer!, createIfNecessary: true)
+            let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+            CFDictionarySetValue(dict,
+                                 unsafeBitCast(kCMSampleAttachmentKey_DisplayImmediately, to: UnsafeRawPointer.self),
+                                 unsafeBitCast(kCFBooleanTrue, to: UnsafeRawPointer.self))
+
+            // Pass sample to decoder.
+            var outputFlags: VTDecodeInfoFlags = .init()
+            let decodeError = VTDecompressionSessionDecodeFrame(session!,
+                                                                sampleBuffer: sampleBuffer!,
+                                                                flags: .init(),
+                                                                infoFlagsOut: &outputFlags,
+                                                                outputHandler: self.frameCallback)
+            guard decodeError == .zero else { fatalError("Failed to decode frame: \(error)") }
+        }
     }
 
     /// Extracts parameter sets from the given pointer, if any.
