@@ -10,11 +10,11 @@ class ObservableCaptureManager: ObservableObject {
 
     init() {
         manager = .init(
-            cameraCallback: { sample in
-                self.videoCallback?(sample)
+            cameraCallback: { identifier, sample in
+                self.videoCallback?(identifier, sample)
             },
-            audioCallback: { sample in
-                self.audioCallback?(sample)
+            audioCallback: { identifier, sample in
+                self.audioCallback?(identifier, sample)
             })
     }
 }

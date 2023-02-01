@@ -45,7 +45,7 @@ class Loopback: ApplicationModeBase {
                          timestamp: 0)
     }
 
-    override func encodeCameraFrame(frame: CMSampleBuffer) {
+    override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
         for id in localVideoStreamId...localMirrorParticipants + 1 {
             encodeSample(identifier: id, frame: frame, type: .video) {
                 let size = frame.formatDescription!.dimensions
@@ -54,7 +54,7 @@ class Loopback: ApplicationModeBase {
         }
     }
 
-    override func encodeAudioSample(sample: CMSampleBuffer) {
+    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: localAudioStreamId, frame: sample, type: .audio) {
             pipeline!.registerEncoder(identifier: localAudioStreamId)
         }

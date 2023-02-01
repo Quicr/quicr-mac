@@ -7,8 +7,8 @@ protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
     var captureManager: CaptureManager? { get }
     var root: AnyView { get }
-    func encodeCameraFrame(frame: CMSampleBuffer)
-    func encodeAudioSample(sample: CMSampleBuffer)
+    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer)
+    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -42,11 +42,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             },
             debugging: false)
         captureManager = .init(
-            cameraCallback: { frame in
-                self.encodeCameraFrame(frame: frame)
+            cameraCallback: { identifier, frame in
+                self.encodeCameraFrame(identifier: identifier, frame: frame)
             },
-            audioCallback: { sample in
-                self.encodeAudioSample(sample: sample)
+            audioCallback: { identifier, sample in
+                self.encodeAudioSample(identifier: identifier, sample: sample)
             })
     }
 
@@ -66,8 +66,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         player.write(sample: sample)
     }
 
-    func encodeCameraFrame(frame: CMSampleBuffer) {}
-    func encodeAudioSample(sample: CMSampleBuffer) {}
+    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
+    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
     func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {}
 }

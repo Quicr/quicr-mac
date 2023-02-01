@@ -81,11 +81,11 @@ struct InCallView: View {
             }
         }.onAppear {
             // Bind pipeline to capture manager.
-            capture.videoCallback = { sample in
-                mode?.encodeCameraFrame(frame: sample)
+            capture.videoCallback = { identifier, sample in
+                mode?.encodeCameraFrame(identifier: identifier, frame: sample)
             }
-            capture.audioCallback = { sample in
-                mode?.encodeAudioSample(sample: sample)
+            capture.audioCallback = { identifier, sample in
+                mode?.encodeAudioSample(identifier: identifier, sample: sample)
             }
         }
     }

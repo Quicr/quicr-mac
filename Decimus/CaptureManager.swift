@@ -6,13 +6,14 @@ class CaptureManager: NSObject,
                       AVCaptureAudioDataOutputSampleBufferDelegate {
 
     /// Callback of raw camera frames.
-    typealias MediaCallback = (CMSampleBuffer) -> Void
+    typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
 
     let session: AVCaptureSession = .init()
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
     private let sessionQueue: DispatchQueue = .init(label: "CaptureManager")
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
+    private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
 
     private let videoOutput: AVCaptureVideoDataOutput = .init()
     private let audioOutput: AVCaptureAudioDataOutput = .init()
@@ -79,11 +80,20 @@ class CaptureManager: NSObject,
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        var device: AVCaptureDevice?
+        for input in connection.inputPorts {
+            if let inputDevice = input.input as? AVCaptureDeviceInput {
+                device = inputDevice.device
+            } else {
+                fatalError("Bad device id?")
+            }
+        }
+
         switch output {
         case videoOutput:
-            cameraFrameCallback(sampleBuffer)
+            cameraFrameCallback(UInt32(truncatingIfNeeded: device?.uniqueID.hash ?? 0), sampleBuffer)
         case audioOutput:
-            audioFrameCallback(sampleBuffer)
+            audioFrameCallback(UInt32(truncatingIfNeeded: device?.uniqueID.hash ?? 0), sampleBuffer)
         default:
             fatalError("Unexpected output in CaptureManager")
         }
