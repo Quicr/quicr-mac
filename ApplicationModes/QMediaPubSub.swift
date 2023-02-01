@@ -3,10 +3,8 @@ import CoreMedia
 
 class QMediaPubSub: ApplicationModeBase {
 
-    var qMedia: QMedia?
-
-    let tempVideoId = 1
-    let tempAudioId = 2
+    private var qMedia: QMedia?
+    private var identifierMapping: [UInt32: UInt64] = .init()
 
     override var root: AnyView {
         get { return .init(QMediaConfigCall(mode: self, callback: connect))}
@@ -28,8 +26,11 @@ class QMediaPubSub: ApplicationModeBase {
                     print("[QMediaPubSub] Failed to fetch timestamp")
                 }
                 let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
-                // TODO: Add IDR flag.
-                qMedia!.sendVideoFrame(mediaStreamId: UInt64(0),
+                guard let streamId = self.identifierMapping[identifier] else {
+                    print("[QMediaPubSub] Couldn't lookup stream id for media id: \(identifier)")
+                    return
+                }
+                qMedia!.sendVideoFrame(mediaStreamId: streamId,
                                        buffer: unsafe,
                                        length: UInt32(data.dataBuffer!.dataLength),
                                        timestamp: UInt64(timestampMs),
@@ -43,19 +44,22 @@ class QMediaPubSub: ApplicationModeBase {
     override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
     }
 
-    override func encodeCameraFrame(frame: CMSampleBuffer) {
-        encodeSample(identifier: 1, frame: frame, type: .video) {
+    override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
+        encodeSample(identifier: identifier, frame: frame, type: .video) {
             let size = frame.formatDescription!.dimensions
             let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: .h264)
-            pipeline!.registerEncoder(identifier: UInt32(subscriptionId), width: size.width, height: size.height)
-
+            print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
+            identifierMapping[identifier] = subscriptionId
+            pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
         }
     }
 
-    override func encodeAudioSample(sample: CMSampleBuffer) {
-        encodeSample(identifier: 2, frame: sample, type: .audio) {
+    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
+        encodeSample(identifier: identifier, frame: sample, type: .audio) {
             let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
-            pipeline!.registerEncoder(identifier: UInt32(subscriptionId))
+            print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
+            identifierMapping[identifier] = subscriptionId
+            pipeline!.registerEncoder(identifier: identifier)
         }
     }
 
