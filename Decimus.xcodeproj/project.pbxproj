@@ -10,7 +10,6 @@
 		9B165A112983E5C10017079F /* Loopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A102983E5C10017079F /* Loopback.swift */; };
 		9B165A132984012D0017079F /* ApplicationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A122984012D0017079F /* ApplicationMode.swift */; };
 		9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* QMediaPubSub.swift */; };
-		9B19563429831E4900BDE95F /* libneo_media_client.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* H264Decoder.swift */; };
@@ -25,7 +24,8 @@
 		9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AudioPlayer.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
-		9B48069329830E350040F5D4 /* libneo_media_client.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B48069129830E270040F5D4 /* libneo_media_client.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
+		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -63,7 +63,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				9B48069329830E350040F5D4 /* libneo_media_client.dylib in Embed Libraries */,
+				9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -90,7 +90,7 @@
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
 		9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		9B48069029830CDD0040F5D4 /* neo_media_client.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = neo_media_client.hh; sourceTree = "<group>"; };
-		9B48069129830E270040F5D4 /* libneo_media_client.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libneo_media_client.dylib; sourceTree = "<group>"; };
+		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -113,7 +113,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9B19563429831E4900BDE95F /* libneo_media_client.dylib in Frameworks */,
+				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -165,10 +165,10 @@
 			path = QMedia;
 			sourceTree = "<group>";
 		};
-		9B48069529831B200040F5D4 /* Frameworks */ = {
+		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				9B48069129830E270040F5D4 /* libneo_media_client.dylib */,
+				9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -177,11 +177,11 @@
 			isa = PBXGroup;
 			children = (
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
-				9B48069529831B200040F5D4 /* Frameworks */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
 				9BA27FD5297D7271007013B2 /* DecimusTests */,
 				9BA27FDF297D7271007013B2 /* DecimusUITests */,
 				9BA27FC3297D7270007013B2 /* Products */,
+				9B76FFE0298D5566006B5267 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -270,6 +270,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */;
 			buildPhases = (
+				9B76FFD9298D4836006B5267 /* Build QMedia */,
 				9BA27FBE297D7270007013B2 /* Sources */,
 				9BA27FBF297D7270007013B2 /* Frameworks */,
 				9BA27FC0297D7270007013B2 /* Resources */,
@@ -393,6 +394,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9B76FFD9298D4836006B5267 /* Build QMedia */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build QMedia";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(PROJECT_DIR)/dependencies/neo_media_client.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		9BA27FBE297D7270007013B2 /* Sources */ = {
@@ -609,6 +632,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -655,6 +679,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.Decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

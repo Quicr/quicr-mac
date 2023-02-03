@@ -1,4 +1,8 @@
-# Xcode
+# WxQ Specific ignores.
+dependencies/build-*/
+dependencies/neo_media_client.xcframework
+
+#Xcode
 #
 # gitignore contributors: remember to update Global/Xcode.gitignore, Objective-C.gitignore & Swift.gitignore
 
@@ -67,7 +71,7 @@ playground.xcworkspace
 Carthage/Build/
 
 # Accio dependency management
-Dependencies/
+# Dependencies/
 .accio/
 
 # fastlane
