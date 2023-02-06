@@ -7,19 +7,26 @@ struct SidebarView: View {
     @EnvironmentObject private var captureManager: ObservableCaptureManager
 
     var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink(value: QMediaPubSub(participants: participants,
+
+        if #available(iOS 16, *) {
+            NavigationStack {
+                List {
+                    NavigationLink(value: QMediaPubSub(participants: participants,
+                                                       player: .init()) as ApplicationModeBase) {
+                        Label("QMedia", systemImage: "phone.circle")
+                    }
+                    NavigationLink(value: Loopback(participants: participants,
                                                    player: .init()) as ApplicationModeBase) {
-                    Label("QMedia", systemImage: "phone.circle")
+                        Label("Loopback", systemImage: "arrow.clockwise.circle")
+                    }
+                }.navigationDestination(for: ApplicationModeBase.self) { mode in
+                    setMode(mode: mode)
                 }
-                NavigationLink(value: Loopback(participants: participants, player: .init()) as ApplicationModeBase) {
-                    Label("Loopback", systemImage: "arrow.clockwise.circle")
-                }
-            }.navigationDestination(for: ApplicationModeBase.self) { mode in
-                setMode(mode: mode)
-            }
-        }.navigationTitle("Application Modes")
+            }.navigationTitle("Application Modes")
+        } else {
+            setMode(mode: QMediaPubSub(participants: participants,
+                                              player: .init()))
+        }
     }
 
     func setMode(mode: ApplicationModeBase) -> AnyView {
