@@ -4,8 +4,6 @@ import SwiftUI
 
 class Loopback: ApplicationModeBase {
 
-    let localVideoStreamId: UInt32 = 1
-    let localAudioStreamId: UInt32 = 99
     let localMirrorParticipants: UInt32 = 0
 
     override var root: AnyView {
@@ -46,17 +44,18 @@ class Loopback: ApplicationModeBase {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        for id in localVideoStreamId...localMirrorParticipants + 1 {
-            encodeSample(identifier: id, frame: frame, type: .video) {
+        for offset in 0...localMirrorParticipants {
+            let mirrorIdentifier = identifier + offset
+            encodeSample(identifier: mirrorIdentifier, frame: frame, type: .video) {
                 let size = frame.formatDescription!.dimensions
-                pipeline!.registerEncoder(identifier: id, width: size.width, height: size.height)
+                pipeline!.registerEncoder(identifier: mirrorIdentifier, width: size.width, height: size.height)
             }
         }
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        encodeSample(identifier: localAudioStreamId, frame: sample, type: .audio) {
-            pipeline!.registerEncoder(identifier: localAudioStreamId)
+        encodeSample(identifier: identifier, frame: sample, type: .audio) {
+            pipeline!.registerEncoder(identifier: identifier)
         }
     }
 
