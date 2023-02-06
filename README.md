@@ -1,4 +1,5 @@
 # WxQ
+
 QuicR RealTime Osx Media Client
 
 ## Building
@@ -8,11 +9,19 @@ QuicR RealTime Osx Media Client
 2. Build QMedia on first time build or post repo clean:
     - `./dependencies/build-qmedia-framework.sh`
     - Note: This script assumes CMake provided by homebrew.
-3. Open the XCode project and build for any Apple Silicon target.
+3. Open the XCode project and build for any Apple Silicon target
+    - Build for Mac Catalyst, iOS device, simulator.
+    - Intel / rosetta builds currently not supported.
 
 If you need to build for iOS devices, you will need to specify a valid team and certificate in the Project's `Signing and Capabilities` page. Your own personal certificate should work well enough for this.
 
-### QMedia / Troubleshooting
+### Troubleshooting
+
+#### iOS Toolchain
+
+If you see a CMake error `get_filename_component called with incorrect number of arguments`, it may be that CMake is using the wrong SDK. You can override this by setting the `SDKROOT` environment variable to an SDK listed by `xcrun`. You may need to remove the QMedia build directories for this to apply, `git clean -f -d -x` is an easy (but nuclear) way to do this.
+
+#### XCFramework
 
 If you see the following error in XCode: `There is no XCFramework found at '.../Decimus/dependencies/neo_media_client.xcframework'` then (re)run step 2 above. You may need to clean your XCode build for it to notice the change if you had already opened the project, you can do this from `Product->Clean Build Folder` or `cmd+shift+k`
 
