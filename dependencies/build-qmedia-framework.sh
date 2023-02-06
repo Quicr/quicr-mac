@@ -2,7 +2,7 @@
 set -e
 
 # Get correct directory
-DIR="$(dirname "$(realpath "$0")")"
+DIR="$(dirname "$0")"
 
 # Currently assumes we're using cmake from homebrew.
 export PATH=$PATH:/opt/homebrew/bin/
