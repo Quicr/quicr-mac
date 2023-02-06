@@ -7,32 +7,23 @@ DIR="$(dirname "$(realpath "$0")")"
 # Currently assumes we're using cmake from homebrew.
 export PATH=$PATH:/opt/homebrew/bin/
 
+# Get core count
+CORES=$(getconf _NPROCESSORS_ONLN)
+
 # Build for catalyst
-if [ -d "$DIR/build-catalyst" ]
-then
-    rm -r $DIR/build-catalyst
-fi
-mkdir $DIR/build-catalyst
+mkdir -p $DIR/build-catalyst
 cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-catalyst -DPLATFORM=MAC_CATALYST_ARM64 -DENABLE_VISIBILITY=ON
-cmake --build $DIR/build-catalyst --target neo_media_client
+cmake --build $DIR/build-catalyst --target neo_media_client -j$CORES
 
 # Build for iOS
-if [ -d "$DIR/build-ios" ]
-then
-    rm -r $DIR/build-ios
-fi
-mkdir $DIR/build-ios
+mkdir -p $DIR/build-ios
 cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-ios -DPLATFORM=OS64 -DENABLE_VISIBILITY=ON
-cmake --build $DIR/build-ios --target neo_media_client
+cmake --build $DIR/build-ios --target neo_media_client -j$CORES
 
 # Build for simulator
-if [ -d "$DIR/build-iossim" ]
-then
-    rm -r $DIR/build-iossim
-fi
-mkdir $DIR/build-iossim
+mkdir -p $DIR/build-iossim
 cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-iossim -DPLATFORM=SIMULATORARM64 -DENABLE_VISIBILITY=ON
-cmake --build $DIR/build-iossim --target neo_media_client
+cmake --build $DIR/build-iossim --target neo_media_client -j$CORES
 
 # Create xcframework
 if [ -d "$DIR/neo_media_client.xcframework" ]
