@@ -83,6 +83,7 @@ class CaptureManager: NSObject,
         var device: AVCaptureDevice?
         for input in connection.inputPorts {
             if let inputDevice = input.input as? AVCaptureDeviceInput {
+                guard device == nil else { fatalError("Found more than one matching device") }
                 device = inputDevice.device
             } else {
                 fatalError("Bad device id?")
