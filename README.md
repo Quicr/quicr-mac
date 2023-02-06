@@ -10,6 +10,8 @@ QuicR RealTime Osx Media Client
     - Note: This script assumes CMake provided by homebrew.
 3. Open the XCode project and build for any Apple Silicon target.
 
+If you need to build for iOS devices, you will need to specify a valid team and certificate in the Project's `Signing and Capabilities` page. Your own personal certificate should work well enough for this.
+
 ### QMedia / Troubleshooting
 
 If you see the following error in XCode: `There is no XCFramework found at '.../Decimus/dependencies/neo_media_client.xcframework'` then (re)run step 2 above. You may need to clean your XCode build for it to notice the change if you had already opened the project, you can do this from `Product->Clean Build Folder` or `cmd+shift+k`
