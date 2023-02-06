@@ -2,7 +2,7 @@
 set -e
 
 # Get correct directory
-DIR="$(dirname "$0")"
+DIR="$(cd "$(dirname "$0")";pwd -P)"
 
 # Currently assumes we're using cmake from homebrew.
 export PATH=$PATH:/opt/homebrew/bin/
