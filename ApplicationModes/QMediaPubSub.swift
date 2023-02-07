@@ -9,7 +9,7 @@ class QMediaPubSub: ApplicationModeBase {
     let tempAudioId = 2
 
     override var root: AnyView {
-        get { return .init(QMediaConfigCall(callback: connect))}
+        get { return .init(QMediaConfigCall(mode: self, callback: connect))}
         set { }
     }
 

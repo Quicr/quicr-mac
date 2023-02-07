@@ -5,15 +5,17 @@ struct QMediaConfigCall: View {
     @State private var inCall: Bool = false
 
     private let callback: ConfigCallback
+    private let mode: ApplicationModeBase?
 
-    init(callback: @escaping ConfigCallback) {
+    init(mode: ApplicationModeBase?, callback: @escaping ConfigCallback) {
         self.callback = callback
+        self.mode = mode
     }
 
     var body: some View {
         if inCall {
             // Show the call page.
-            InCallView {
+            InCallView(mode: mode) {
                 inCall = false
             }
         } else {
@@ -30,6 +32,6 @@ struct QMediaConfigCall: View {
 
 struct QMediaConfigCall_Previews: PreviewProvider {
     static var previews: some View {
-        QMediaConfigCall(callback: { _ in })
+        QMediaConfigCall(mode: nil) { _ in }
     }
 }
