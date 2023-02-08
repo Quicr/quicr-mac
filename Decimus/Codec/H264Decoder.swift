@@ -33,7 +33,9 @@ class H264Decoder: Decoder {
         guard self.currentFormat != nil || type == spsType else { return }
 
         // Extract SPS/PPS if available.
-        let offset = checkParameterSets(data: data, length: length)
+        let paramOutput = checkParameterSets(data: data, length: length)
+        let offset = paramOutput.0
+        let newFormat = paramOutput.1
 
         // There might not be any more data left.
         guard offset < length else { return }
@@ -89,7 +91,7 @@ class H264Decoder: Decoder {
                                          dataReady: true,
                                          makeDataReadyCallback: nil,
                                          refcon: nil,
-                                         formatDescription: self.currentFormat,
+                                         formatDescription: newFormat,
                                          sampleCount: 1,
                                          sampleTimingEntryCount: 1,
                                          sampleTimingArray: &timeInfo,
@@ -112,12 +114,23 @@ class H264Decoder: Decoder {
                                                                 flags: .init(),
                                                                 infoFlagsOut: &outputFlags,
                                                                 outputHandler: self.frameCallback)
-            guard decodeError == .zero else { fatalError("Failed to decode frame: \(error)") }
+
+            switch decodeError {
+            case kVTFormatDescriptionChangeNotSupportedErr:
+                // We need to recreate the decoder because of a format change.
+                print("H264Decoder => Recreating due to format change")
+                session = makeDecoder(format: newFormat!)
+                write(data: data, length: length, timestamp: timestamp)
+            case .zero:
+                break
+            default:
+                fatalError("Failed to decode frame: \(error)")
+            }
         }
     }
 
     /// Extracts parameter sets from the given pointer, if any.
-    private func checkParameterSets(data: UnsafePointer<UInt8>, length: Int) -> Int {
+    private func checkParameterSets(data: UnsafePointer<UInt8>, length: Int) -> (Int, CMFormatDescription?) {
 
         // Get current frame type.
         let type = data[4] & 0x1F
@@ -140,7 +153,7 @@ class H264Decoder: Decoder {
         var idrStartCodeIndex: Int = 0
         let secondType = data[ppsStartCodeIndex + 4] & 0x1F
         var ppsLength: Int = 0
-        guard secondType == ppsType else { return idrStartCodeIndex }
+        guard secondType == ppsType else { return (idrStartCodeIndex, self.currentFormat) }
 
         // Get PPS.
         for byte in (ppsStartCodeIndex + 4)...(ppsStartCodeIndex + 30) where
@@ -175,19 +188,22 @@ class H264Decoder: Decoder {
         parameterSetsSizes[1] = ppsLength
 
         // Create format from parameter sets.
+        var format: CMFormatDescription?
         let error = CMVideoFormatDescriptionCreateFromH264ParameterSets(allocator: nil,
                                                                         parameterSetCount: 2,
                                                                         parameterSetPointers: parameterSetsData,
                                                                         parameterSetSizes: parameterSetsSizes,
                                                                         nalUnitHeaderLength: 4,
-                                                                        formatDescriptionOut: &self.currentFormat)
+                                                                        formatDescriptionOut: &format)
         guard error == .zero else { fatalError("CMVideoFormatDescriptionCreateFromH264ParameterSets failed: \(error)") }
 
         // Create the decoder with the given format.
-        session = makeDecoder(format: self.currentFormat!)
+        if session == nil {
+            session = makeDecoder(format: format!)
+        }
 
         // Return new pointer index.
-        return idrStartCodeIndex
+        return (idrStartCodeIndex, format)
     }
 
     /// Makes a new decoder for the given format.
@@ -209,6 +225,7 @@ class H264Decoder: Decoder {
                                                  outputCallback: nil,
                                                  decompressionSessionOut: &session)
         guard error == .zero else { fatalError("Failed to create VTDecompressionSession: \(error)") }
+        self.currentFormat = format
 
         // Configure for realtime.
         VTSessionSetProperty(session!, key: kVTDecompressionPropertyKey_RealTime, value: kCFBooleanTrue)

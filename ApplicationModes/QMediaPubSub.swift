@@ -3,6 +3,8 @@ import CoreMedia
 
 class QMediaPubSub: ApplicationModeBase {
 
+    private static var streamIdMap: [UInt64: QMediaPubSub] = .init()
+
     private var qMedia: QMedia?
     private var identifierMapping: [UInt32: UInt64] = .init()
 
@@ -11,8 +13,25 @@ class QMediaPubSub: ApplicationModeBase {
         set { }
     }
 
+    let streamCallback: SubscribeCallback = { streamId, data, length in
+        guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
+            fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
+        }
+        guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
+        print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
+        publisher.pipeline?.decode(identifier: UInt32(streamId), data: data!, length: Int(length), timestamp: 0)
+    }
+
     func connect(config: CallConfig) {
         qMedia = .init(address: .init(string: config.address)!, port: config.port)
+
+        // TODO: Where should the subscriptions go?
+        let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
+        Self.streamIdMap[videoSubscription] = self
+        pipeline!.registerDecoder(identifier: UInt32(videoSubscription), type: .video)
+        let audioSubscription = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+        Self.streamIdMap[audioSubscription] = self
+        pipeline!.registerDecoder(identifier: UInt32(audioSubscription), type: .audio)
     }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -51,6 +70,7 @@ class QMediaPubSub: ApplicationModeBase {
             print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
+            identifierMapping[identifier] = qMedia!.addVideoStreamPublishIntent(codec: .h264)
         }
     }
 
@@ -60,6 +80,7 @@ class QMediaPubSub: ApplicationModeBase {
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             pipeline!.registerEncoder(identifier: identifier)
+            identifierMapping[identifier] = qMedia!.addAudioStreamPublishIntent(codec: .opus)
         }
     }
 
