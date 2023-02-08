@@ -9,7 +9,7 @@ class QMediaPubSub: ApplicationModeBase {
     let tempAudioId = 2
 
     override var root: AnyView {
-        get { return .init(QMediaConfigCall(callback: connect))}
+        get { return .init(QMediaConfigCall(mode: self, callback: connect))}
         set { }
     }
 
@@ -31,7 +31,7 @@ class QMediaPubSub: ApplicationModeBase {
                 // TODO: Add IDR flag.
                 qMedia!.sendVideoFrame(mediaStreamId: UInt64(0),
                                        buffer: unsafe,
-                                       length: UInt16(data.dataBuffer!.dataLength),
+                                       length: UInt32(data.dataBuffer!.dataLength),
                                        timestamp: UInt64(timestampMs),
                                        flag: false)
             }

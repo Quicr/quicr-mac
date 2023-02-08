@@ -1,0 +1,3 @@
+[submodule "dependencies/new-qmedia"]
+	path = dependencies/new-qmedia
+	url = git@github.com:Quicr/new-qmedia.git

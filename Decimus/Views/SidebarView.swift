@@ -4,32 +4,54 @@ struct SidebarView: View {
 
     @EnvironmentObject private var devices: AudioVideoDevices
     @EnvironmentObject private var participants: VideoParticipants
-    @EnvironmentObject private var captureManager: ObservableCaptureManager
 
-    var body: some View {
-        NavigationStack {
-            List {
-                NavigationLink(value: QMediaPubSub(participants: participants,
-                                                   player: .init()) as ApplicationModeBase) {
-                    Label("QMedia", systemImage: "phone.circle")
-                }
-                NavigationLink(value: Loopback(participants: participants, player: .init()) as ApplicationModeBase) {
-                    Label("Loopback", systemImage: "arrow.clockwise.circle")
-                }
-            }.navigationDestination(for: ApplicationModeBase.self) { mode in
-                setMode(mode: mode)
+    // iOS 15 fallback.
+    struct SafeNavigationStack<T>: View where T: View {
+        @ViewBuilder var result: () -> T
+        var body: some View {
+            if #available(iOS 16, *) {
+                NavigationStack(root: result)
+            } else {
+                NavigationView(content: result)
             }
-        }.navigationTitle("Application Modes")
+        }
     }
 
-    func setMode(mode: ApplicationModeBase) -> AnyView {
-        captureManager.videoCallback = { sample in
-            mode.encodeCameraFrame(frame: sample)
+    // iOS 15 fallback.
+    struct SafeNavigationLink<T>: View where T: View {
+        @ViewBuilder var label: () -> T
+        let mode: ApplicationModeBase
+
+        init(mode: ApplicationModeBase, label: @escaping () -> T) {
+            self.mode = mode
+            self.label = label
         }
-        captureManager.audioCallback = { sample in
-            mode.encodeAudioSample(sample: sample)
+
+        var body: some View {
+            if #available(iOS 16, *) {
+               NavigationLink(value: mode, label: label)
+            } else {
+                NavigationLink(destination: mode.root, label: label)
+            }
         }
-        return mode.root
+    }
+
+    var body: some View {
+        SafeNavigationStack {
+            let list = List {
+                SafeNavigationLink(mode: QMediaPubSub(participants: participants, player: .init())) {
+                    Label("QMedia", systemImage: "phone.circle")
+                }
+                SafeNavigationLink(mode: Loopback(participants: participants, player: .init())) {
+                    Label("Loopback", systemImage: "arrow.clockwise.circle")
+                }
+            }
+            if #available(iOS 16, *) {
+                list.navigationDestination(for: ApplicationModeBase.self) { mode in
+                    mode.root
+                }
+            }
+        }.navigationTitle("Application Modes")
     }
 }
 

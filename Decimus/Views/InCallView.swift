@@ -19,11 +19,13 @@ struct InCallView: View {
 
     /// Callback when call is left.
     private var onLeave: () -> Void
+    private let mode: ApplicationModeBase?
 
     /// Create a new in call view.
     /// - Parameter onLeave: Callback fired when user asks to leave the call.
-    init(onLeave: @escaping () -> Void) {
+    init(mode: ApplicationModeBase?, onLeave: @escaping () -> Void) {
         self.onLeave = onLeave
+        self.mode = mode
         selectedCamera = AVCaptureDevice.default(for: .video)!
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
     }
@@ -77,6 +79,14 @@ struct InCallView: View {
                 // Leave.
                 Button("Leave", action: leaveCall)
             }
+        }.onAppear {
+            // Bind pipeline to capture manager.
+            capture.videoCallback = { sample in
+                mode?.encodeCameraFrame(frame: sample)
+            }
+            capture.audioCallback = { sample in
+                mode?.encodeAudioSample(sample: sample)
+            }
         }
     }
 
@@ -92,6 +102,6 @@ struct InCallView: View {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(onLeave: {})
+        InCallView(mode: nil) {}
     }
 }

@@ -9,17 +9,22 @@ class AudioVideoDevices: ObservableObject {
 
     init() {
         // Get all microphones and cameras.
+        var types: [AVCaptureDevice.DeviceType] = [
+            .builtInDualWideCamera,
+            .builtInDualCamera,
+            .builtInTelephotoCamera,
+            .builtInTripleCamera,
+            .builtInTrueDepthCamera,
+            .builtInDualCamera,
+            .builtInUltraWideCamera,
+            .builtInWideAngleCamera
+        ]
+        if #available(iOS 15.4, *) {
+            types.append(.builtInLiDARDepthCamera)
+        }
+
         let cameraDiscovery: AVCaptureDevice.DiscoverySession = .init(
-            deviceTypes: [
-                .builtInDualWideCamera,
-                .builtInDualCamera,
-                .builtInLiDARDepthCamera,
-                .builtInTelephotoCamera,
-                .builtInTripleCamera,
-                .builtInTrueDepthCamera,
-                .builtInDualCamera,
-                .builtInUltraWideCamera,
-                .builtInWideAngleCamera],
+            deviceTypes: types,
             mediaType: .video,
             position: .unspecified)
         cameras = cameraDiscovery.devices
