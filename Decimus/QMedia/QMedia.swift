@@ -55,7 +55,7 @@ class QMedia {
     /// - Parameter buffer: Pointer to the audio data.
     /// - Parameter length: Length of the data in `buffer`.
     /// - Parameter timestamp: Timestamp of this audio data.
-    func sendAudio(mediaStreamId: UInt64, buffer: UnsafePointer<UInt8>, length: UInt16, timestamp: UInt64) {
+    func sendAudio(mediaStreamId: UInt64, buffer: UnsafePointer<UInt8>, length: UInt32, timestamp: UInt64) {
         MediaClient_sendAudio(instance, mediaStreamId, buffer, length, timestamp)
     }
 
@@ -67,10 +67,10 @@ class QMedia {
     /// - Parameter flag: True if the video frame being submitted is a keyframe.
     func sendVideoFrame(mediaStreamId: UInt64,
                         buffer: UnsafePointer<UInt8>,
-                        length: UInt16,
+                        length: UInt32,
                         timestamp: UInt64,
                         flag: Bool) {
-        MediaClient_sendVideoFrame(instance, mediaStreamId, buffer, length, timestamp, flag ? 1 : 0)
+        MediaClient_sendVideoFrame(instance, mediaStreamId, buffer, length, timestamp, flag)
     }
 
     deinit {
