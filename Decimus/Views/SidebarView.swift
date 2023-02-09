@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SidebarView: View {
 
-    @EnvironmentObject private var devices: AudioVideoDevices
     @EnvironmentObject private var participants: VideoParticipants
 
     // iOS 15 fallback.
@@ -65,7 +64,6 @@ struct SidebarViewController_Previews: PreviewProvider {
     static var previews: some View {
         SidebarView()
             .environmentObject(VideoParticipants())
-            .environmentObject(ObservableCaptureManager())
     }
 }
 
