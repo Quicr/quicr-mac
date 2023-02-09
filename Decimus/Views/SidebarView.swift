@@ -36,21 +36,27 @@ struct SidebarView: View {
         }
     }
 
+    // iOS 15 fallback
+    @available(iOS 16, *)
+    struct NavigationDestinationModifier: ViewModifier {
+        func body(content: Content) -> some View {
+            content
+                .navigationDestination(for: ApplicationModeBase.self) { mode in
+                    mode.root
+                }
+        }
+    }
+
     var body: some View {
         SafeNavigationStack {
-            let list = List {
+            List {
                 SafeNavigationLink(mode: QMediaPubSub(participants: participants, player: .init())) {
                     Label("QMedia", systemImage: "phone.circle")
                 }
                 SafeNavigationLink(mode: Loopback(participants: participants, player: .init())) {
                     Label("Loopback", systemImage: "arrow.clockwise.circle")
                 }
-            }
-            if #available(iOS 16, *) {
-                list.navigationDestination(for: ApplicationModeBase.self) { mode in
-                    mode.root
-                }
-            }
+            }.safeNavigationDestination()
         }.navigationTitle("Application Modes")
     }
 }
@@ -60,5 +66,16 @@ struct SidebarViewController_Previews: PreviewProvider {
         SidebarView()
             .environmentObject(VideoParticipants())
             .environmentObject(ObservableCaptureManager())
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func safeNavigationDestination() -> some View {
+        if #available(iOS 16, *) {
+            self.modifier(SidebarView.NavigationDestinationModifier())
+        } else {
+            self
+        }
     }
 }
