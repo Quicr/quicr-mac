@@ -39,7 +39,7 @@ class Loopback: ApplicationModeBase {
         let address = withUnsafePointer(to: &memory, {UnsafeRawPointer($0)})
         pipeline!.decode(identifier: identifier,
                          data: address.assumingMemoryBound(to: UInt8.self),
-                         length: 0,
+                         length: data.dataBuffer!.dataLength,
                          timestamp: 0)
     }
 
