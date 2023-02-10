@@ -8,7 +8,7 @@ class AudioEncoder: Encoder {
     // A frame is a collection of samples for the same time value (i.e frames = sample * channels).
     // A packet is the smallest possible collection of frames for given format. PCM=1, Opus=20ms?
 
-    private static let audioBufferSize = 1000
+    private static let audioBufferSize = 10
     private var converter: AVAudioConverter?
     private let callback: EncodedDataCallback
     private var currentFormat: AVAudioFormat?
@@ -118,9 +118,9 @@ class AudioEncoder: Encoder {
         var submissionList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: submissionBuffer)
 
         // Try and collect the required data from available input.
-        for _ in 0...Self.audioBufferSize {
+        while requiredBytes > 0 {
             // Get some data from the next read buffer.
-            let target = self.inputBuffers[self.readIndex]
+            let target = inputBuffers[readIndex]
             var bytesLeft: Int = Int(target.mDataByteSize)
             if readByteOffset != 0 {
                 bytesLeft -= readByteOffset
@@ -134,22 +134,19 @@ class AudioEncoder: Encoder {
             self.inputBytesAvailable -= bytesToTake
 
             // Handle partial reads.
-            if bytesToTake != target.mDataByteSize {
-                readByteOffset = bytesToTake
+            let totalBufferReadBytes = bytesToTake + readByteOffset
+            if totalBufferReadBytes != target.mDataByteSize {
+                // Partially read a buffer. Record offset for next reader.
+                readByteOffset = totalBufferReadBytes
             } else {
+                // Read a full buffer, move to the next one.
                 readByteOffset = 0
                 self.readIndex += 1
                 if self.readIndex == Self.audioBufferSize {
                     self.readIndex = 0
                 }
             }
-
-            // Check if we've got enough.
-            if requiredBytes == 0 {
-                break
-            }
         }
-        guard requiredBytes == 0 else { fatalError() }
 
         let submissionPackage: AVAudioPCMBuffer = .init(pcmFormat: format, bufferListNoCopy: &submissionList) {_ in
             data.deallocate()
@@ -159,55 +156,54 @@ class AudioEncoder: Encoder {
     }
 
     func sampleFromAudio(buffer: AVAudioCompressedBuffer) -> CMSampleBuffer {
-        var sample: CMSampleBuffer?
-        let sampleError = CMSampleBufferCreate(allocator: nil,
-                                               dataBuffer: nil,
-                                               dataReady: true,
-                                               makeDataReadyCallback: nil,
-                                               refcon: nil,
-                                               formatDescription: nil,
-                                               sampleCount: CMItemCount(buffer.packetCount),
-                                               sampleTimingEntryCount: 0,
-                                               sampleTimingArray: nil,
-                                               sampleSizeEntryCount: 0,
-                                               sampleSizeArray: nil,
-                                               sampleBufferOut: &sample)
-        guard sampleError == .zero else { fatalError() }
 
+        // Sanity checks.
+        guard buffer.packetCount == 1 else {
+            fatalError("Compressed audio expected to be 1 packet")
+        }
+
+        guard targetFormat == buffer.format else {
+            fatalError("Received buffer had unexpected format")
+        }
+
+        // FIXME: Copying here while debugging, should be able to skip.
+        var length: Int = Int(buffer.byteLength)
+        let ptr: UnsafeMutableRawBufferPointer = .allocate(byteCount: length,
+                                                           alignment: MemoryLayout<UInt8>.alignment)
+        let data: UnsafeMutableRawPointer = buffer.data
+        let uint8Data: UnsafePointer<UInt8> = .init(data.assumingMemoryBound(to: UInt8.self))
+        let src: UnsafeRawBufferPointer = .init(start: .init(uint8Data), count: length)
+        ptr.copyMemory(from: src)
+
+        // Make a block buffer for the encoded data.
         var block: CMBlockBuffer?
-        let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                                            memoryBlock: buffer.data,
-                                                            blockLength: Int(buffer.byteLength),
+        let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: kCFAllocatorDefault,
+                                                            memoryBlock: ptr.baseAddress!,
+                                                            blockLength: length,
                                                             blockAllocator: kCFAllocatorNull,
                                                             customBlockSource: nil,
                                                             offsetToData: 0,
-                                                            dataLength: Int(buffer.byteLength),
+                                                            dataLength: length,
                                                             flags: 0,
                                                             blockBufferOut: &block)
         guard blockError == .zero else { fatalError() }
 
-        let setError = CMSampleBufferSetDataBuffer(sample!, newValue: block!)
-        guard setError == .zero else { fatalError() }
+        // Create the sample.
+        var sample: CMSampleBuffer?
+        let sampleError = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
+                                               dataBuffer: block,
+                                               dataReady: true,
+                                               makeDataReadyCallback: nil,
+                                               refcon: nil,
+                                               formatDescription: targetFormat.formatDescription,
+                                               sampleCount: 1,
+                                               sampleTimingEntryCount: 0,
+                                               sampleTimingArray: nil,
+                                               sampleSizeEntryCount: 1,
+                                               sampleSizeArray: &length,
+                                               sampleBufferOut: &sample)
+        guard sampleError == .zero else { fatalError() }
 
         return sample!
     }
-
-//    func makeConverter(native: AVAudioFormat) -> AVAudioConverter {
-//        // Setup a converter from native to Opus.
-//        let opusFrameSize: UInt32 = 960
-//        let opusSampleRate: Float64 = 48000.0
-//        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
-//                                                          mFormatID: kAudioFormatOpus,
-//                                                          mFormatFlags: 0,
-//                                                          mBytesPerPacket: 0,
-//                                                          mFramesPerPacket: opusFrameSize,
-//                                                          mBytesPerFrame: 0,
-//                                                          mChannelsPerFrame: 1,
-//                                                          mBitsPerChannel: 0,
-//                                                          mReserved: 0)
-//        opus = .init(streamDescription: &opusDesc)!
-//        let converter: AVAudioConverter? = .init(from: native, to: format)
-//        guard converter != nil else { fatalError("Conversion not supported") }
-//        return converter!
-//    }
 }
