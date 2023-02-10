@@ -12,6 +12,6 @@ class PassthroughDecoder: Decoder {
 
     func write(data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
         let buffer: MediaBuffer = .init(identifier: 0, buffer: data, length: length, timestampMs: timestamp)
-        callback(buffer.toSample(format: format, samples: Int(timestamp)))
+        callback(buffer.toSample(format: format))
     }
 }

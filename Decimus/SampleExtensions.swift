@@ -8,12 +8,6 @@ extension CMSampleBuffer {
         // Timestamp.
         let timestampMs: UInt32 = UInt32(self.presentationTimeStamp.convertScale(1000, method: .default).value)
 
-        
-        // Pass through the actual block buffer.
-        // var memory = self.dataBuffer!
-        // let blockBufferAddress = withUnsafePointer(to: &memory, {UnsafeRawPointer($0)})
-        // return .init(identifier: identifier, buffer: blockBufferAddress.assumingMemoryBound(to: UInt8.self), length: 0, timestampMs: UInt32(self.numSamples))
-
         // Copy.
         let copy: UnsafeMutableRawBufferPointer = .allocate(byteCount: self.dataBuffer!.dataLength,
                                                             alignment: MemoryLayout<UInt8>.alignment)
@@ -38,12 +32,12 @@ extension CMSampleBuffer {
         // Pointer casts.
         // let raw: UnsafeRawPointer = .init(charPtr!)
         // let uint8Ptr: UnsafePointer<UInt8> = raw.assumingMemoryBound(to: UInt8.self)
-        return .init(identifier: identifier, buffer: uint8Ptr, length: dataBuffer!.dataLength, timestampMs: UInt32(self.numSamples))
+        return .init(identifier: identifier, buffer: uint8Ptr, length: dataBuffer!.dataLength, timestampMs: timestampMs)
     }
 }
 
 extension MediaBuffer {
-    func toSample(format: CMFormatDescription, samples: Int) -> CMSampleBuffer {
+    func toSample(format: CMFormatDescription) -> CMSampleBuffer {
         var buffer: CMBlockBuffer?
         let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: kCFAllocatorDefault,
                                                             memoryBlock: .init(mutating: self.buffer),
