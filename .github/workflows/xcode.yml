@@ -28,7 +28,7 @@ jobs:
         run: ./dependencies/build-qmedia-framework.sh
 
       - name: Build Decimus
-        run: xcodebuild clean build -scheme Decimus CONFIGURATION_BUILD_DIR=./artifact
+        run: xcodebuild clean build -skipPackagePluginValidation -scheme Decimus CONFIGURATION_BUILD_DIR=./artifact
 
       - name: Archive Artifacts
         uses: actions/upload-artifact@v3
