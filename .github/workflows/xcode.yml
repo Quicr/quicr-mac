@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
           
       - name: Show XCode Version
         run: xcode-select -p
