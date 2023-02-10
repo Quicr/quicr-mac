@@ -2,7 +2,7 @@ import CoreMedia
 import AVFoundation
 import CoreAudio
 
-class OpusEncoder: Encoder {
+class AudioEncoder: Encoder {
 
     // A sample is a single value
     // A frame is a collection of samples for the same time value (i.e frames = sample * channels).
@@ -15,12 +15,13 @@ class OpusEncoder: Encoder {
     private var inputBuffers: UnsafeMutableAudioBufferListPointer =
         AudioBufferList.allocate(maximumBuffers: audioBufferSize)
     private var inputBytesAvailable = 0
-    private var opus: AVAudioFormat?
+    private let targetFormat: AVAudioFormat
     private var writeIndex = 0
     private var readIndex = 0
     private var readByteOffset = 0
 
-    init(callback: @escaping EncodedDataCallback) {
+    init(to targetFormat: AVAudioFormat, callback: @escaping EncodedDataCallback) {
+        self.targetFormat = targetFormat
         self.callback = callback
     }
 
@@ -34,7 +35,9 @@ class OpusEncoder: Encoder {
 
         // Make a converter if we need one.
         if converter == nil {
-            converter = makeConverter(native: format)
+            let created: AVAudioConverter? = .init(from: format, to: targetFormat)
+            guard created != nil else { fatalError("Conversion not supported") }
+            converter = created!
         }
 
         // Call once to get the required size.
@@ -75,25 +78,26 @@ class OpusEncoder: Encoder {
         inputBytesAvailable += Int(list.mBuffers.mDataByteSize)
 
         // Try and convert.
-        let outputBuffer: AVAudioCompressedBuffer = .init(format: opus!,
+        let outputBuffer: AVAudioCompressedBuffer = .init(format: targetFormat,
                                                           packetCapacity: 1,
                                                           maximumPacketSize: converter!.maximumOutputPacketSize)
+
         var error: NSError?
         let status = converter!.convert(to: outputBuffer,
                                         error: &error) { packetCount, outStatus in
-            return self.doConversion(format: format, packetCount: packetCount, outStatus: outStatus)
+            return self.doConversion(from: format, packetCount: packetCount, outStatus: outStatus)
         }
         guard error == nil else { fatalError() }
 
         // Conversion status.
         if status == .haveData || status == .inputRanDry && outputBuffer.byteLength > 0 {
-            // Callback the opus data.
+            // Callback the encoded data.
             callback(sampleFromAudio(buffer: outputBuffer))
             return
         }
     }
 
-    func doConversion(format: AVAudioFormat,
+    func doConversion(from format: AVAudioFormat,
                       packetCount: AVAudioPacketCount,
                       outStatus: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
         let bytesPerPacket = format.formatDescription.audioStreamBasicDescription!.mBytesPerPacket
@@ -188,22 +192,22 @@ class OpusEncoder: Encoder {
         return sample!
     }
 
-    func makeConverter(native: AVAudioFormat) -> AVAudioConverter {
-        // Setup a converter from native to Opus.
-        let opusFrameSize: UInt32 = 960
-        let opusSampleRate: Float64 = 48000.0
-        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
-                                                          mFormatID: kAudioFormatOpus,
-                                                          mFormatFlags: 0,
-                                                          mBytesPerPacket: 0,
-                                                          mFramesPerPacket: opusFrameSize,
-                                                          mBytesPerFrame: 0,
-                                                          mChannelsPerFrame: 1,
-                                                          mBitsPerChannel: 0,
-                                                          mReserved: 0)
-        opus = .init(streamDescription: &opusDesc)!
-        let converter: AVAudioConverter? = .init(from: native, to: opus!)
-        guard converter != nil else { fatalError("Conversion not supported") }
-        return converter!
-    }
+//    func makeConverter(native: AVAudioFormat) -> AVAudioConverter {
+//        // Setup a converter from native to Opus.
+//        let opusFrameSize: UInt32 = 960
+//        let opusSampleRate: Float64 = 48000.0
+//        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+//                                                          mFormatID: kAudioFormatOpus,
+//                                                          mFormatFlags: 0,
+//                                                          mBytesPerPacket: 0,
+//                                                          mFramesPerPacket: opusFrameSize,
+//                                                          mBytesPerFrame: 0,
+//                                                          mChannelsPerFrame: 1,
+//                                                          mBitsPerChannel: 0,
+//                                                          mReserved: 0)
+//        opus = .init(streamDescription: &opusDesc)!
+//        let converter: AVAudioConverter? = .init(from: native, to: format)
+//        guard converter != nil else { fatalError("Conversion not supported") }
+//        return converter!
+//    }
 }

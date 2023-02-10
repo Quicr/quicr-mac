@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import CoreMedia
+import AVFoundation
 
 /// Manages pipeline elements.
 class PipelineManager {
@@ -58,11 +59,11 @@ class PipelineManager {
         encoder!.encoder.write(sample: sample)
     }
 
-    func decode(identifier: UInt32, data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
-        debugPrint(message: "[\(identifier)] (\(timestamp)) Decode write")
-        let decoder: DecoderElement? = decoders[identifier]
-        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(identifier)") }
-        decoder?.decoder.write(data: data, length: length, timestamp: timestamp)
+    func decode(mediaBuffer: MediaBuffer) {
+        debugPrint(message: "[\(mediaBuffer.identifier)] (\(mediaBuffer.timestampMs)) Decode write")
+        let decoder: DecoderElement? = decoders[mediaBuffer.identifier]
+        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.identifier)") }
+        decoder?.decoder.write(data: mediaBuffer.buffer, length: mediaBuffer.length, timestamp: mediaBuffer.timestampMs)
     }
 
     func registerEncoder(identifier: UInt32, width: Int32, height: Int32) {
@@ -74,9 +75,24 @@ class PipelineManager {
     }
 
     func registerEncoder(identifier: UInt32) {
-        let encoder = OpusEncoder { sample in
+//        let opusFrameSize: UInt32 = 960
+//        let opusSampleRate: Float64 = 48000.0
+//        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+//                                                          mFormatID: kAudioFormatOpus,
+//                                                          mFormatFlags: 0,
+//                                                          mBytesPerPacket: 0,
+//                                                          mFramesPerPacket: opusFrameSize,
+//                                                          mBytesPerFrame: 0,
+//                                                          mChannelsPerFrame: 1,
+//                                                          mBitsPerChannel: 0,
+//                                                          mReserved: 0)
+//        let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
+        let encoder = PassthroughEncoder { sample in
             self.encodedAudioCallback(identifier, sample)
         }
+        // let encoder = AudioEncoder(to: opus) { sample in
+           //  self.encodedAudioCallback(identifier, sample)
+        // }
         registerEncoder(identifier: identifier, encoder: encoder)
     }
 
@@ -95,7 +111,18 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation)
             })
         case .audio:
-            decoder = OpusDecoder(callback: { sample in
+            // TODO: We need to know the format upfront.
+            var encodedFormat = PassthroughEncoder.format!
+            var format: CMFormatDescription?
+            CMAudioFormatDescriptionCreate(allocator: kCFAllocatorDefault,
+                                           asbd: &encodedFormat,
+                                           layoutSize: 0,
+                                           layout: nil,
+                                           magicCookieSize: 0,
+                                           magicCookie: nil,
+                                           extensions: nil,
+                                           formatDescriptionOut: &format)
+            decoder = PassthroughDecoder(format: format!, callback: { sample in
                 self.audioCallback(identifier, sample)
             })
         }

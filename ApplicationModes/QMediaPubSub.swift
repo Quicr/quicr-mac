@@ -19,7 +19,11 @@ class QMediaPubSub: ApplicationModeBase {
         }
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
-        publisher.pipeline?.decode(identifier: UInt32(streamId), data: data!, length: Int(length), timestamp: 0)
+        let buffer: MediaBuffer = .init(identifier: UInt32(streamId),
+                                        buffer: data!,
+                                        length: Int(length),
+                                        timestampMs: 0)
+        publisher.pipeline!.decode(mediaBuffer: buffer)
     }
 
     func connect(config: CallConfig) {

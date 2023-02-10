@@ -24,7 +24,7 @@ class CaptureManager: NSObject,
         super.init()
 
         session.beginConfiguration()
-        session.sessionPreset = .low
+        // session.sessionPreset = .low
 
         // Video output.
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
