@@ -1,6 +1,12 @@
 import CoreMedia
+import AVFoundation
 
 extension CMSampleBuffer {
+
+    func getMediaBuffer() -> MediaBuffer {
+        getMediaBuffer(identifier: 0)
+    }
+
     func getMediaBuffer(identifier: UInt32) -> MediaBuffer {
         // Requires contiguous buffers.
         guard self.dataBuffer!.isContiguous else { fatalError() }
@@ -17,22 +23,7 @@ extension CMSampleBuffer {
             copy.deallocate()
             fatalError()
         }
-        let uint8Ptr: UnsafePointer<UInt8> = .init(copy.baseAddress!.assumingMemoryBound(to: UInt8.self))
-
-        // Length & data.
-//        var length: Int = 0
-//        var charPtr: UnsafeMutablePointer<CChar>?
-//        let getPointerError = CMBlockBufferGetDataPointer(self.dataBuffer!,
-//                                                          atOffset: 0,
-//                                                          lengthAtOffsetOut: nil,
-//                                                          totalLengthOut: &length,
-//                                                          dataPointerOut: &charPtr)
-//        guard getPointerError == .zero else { fatalError() }
-
-        // Pointer casts.
-        // let raw: UnsafeRawPointer = .init(charPtr!)
-        // let uint8Ptr: UnsafePointer<UInt8> = raw.assumingMemoryBound(to: UInt8.self)
-        return .init(identifier: identifier, buffer: uint8Ptr, length: dataBuffer!.dataLength, timestampMs: timestampMs)
+        return .init(identifier: identifier, buffer: .init(copy), timestampMs: timestampMs)
     }
 }
 
@@ -40,20 +31,19 @@ extension MediaBuffer {
     func toSample(format: CMFormatDescription) -> CMSampleBuffer {
         var buffer: CMBlockBuffer?
         let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: kCFAllocatorDefault,
-                                                            memoryBlock: .init(mutating: self.buffer),
-                                                            blockLength: self.length,
+                                                            memoryBlock: .init(mutating: self.buffer.baseAddress),
+                                                            blockLength: self.buffer.count,
                                                             blockAllocator: kCFAllocatorNull,
                                                             customBlockSource: nil,
                                                             offsetToData: 0,
-                                                            dataLength: self.length,
+                                                            dataLength: self.buffer.count,
                                                             flags: 0,
                                                             blockBufferOut: &buffer)
         guard blockError == .zero else { fatalError() }
 
         var timing: CMSampleTimingInfo = .init(duration: .init(value: 1,
                                                                timescale: CMTimeScale(
-                                                                format.audioStreamBasicDescription!.mSampleRate
-                                                               )),
+                                                                format.audioStreamBasicDescription!.mSampleRate)),
                                                presentationTimeStamp: CMTime.invalid,
                                                decodeTimeStamp: CMTime.invalid)
 
@@ -74,5 +64,32 @@ extension MediaBuffer {
                                                sampleBufferOut: &sampleBuffer)
         guard sampleError == .zero else { fatalError() }
         return sampleBuffer!
+    }
+}
+
+extension AVAudioPCMBuffer {
+    static func fromSample(sample: CMSampleBuffer) -> AVAudioPCMBuffer {
+        let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
+        let frames = AVAudioFrameCount(sample.numSamples)
+        let buffer: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let error = CMSampleBufferCopyPCMDataIntoAudioBufferList(sample,
+                                                                 at: 0,
+                                                                 frameCount: Int32(frames),
+                                                                 into: buffer.mutableAudioBufferList)
+        guard error == .zero else { fatalError() }
+        return buffer
+    }
+
+    var mediaBuffer: MediaBuffer {
+        guard format.channelCount == 1 else { fatalError() }
+        let bpf = self.format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
+        let lengthInBytes: Int = Int(bpf * self.frameLength)
+        let data: Data = .init(bytes: self.int16ChannelData!.pointee, count: lengthInBytes)
+        var buffer: MediaBuffer?
+        data.withUnsafeBytes { ptr in
+            buffer = .init(identifier: 0, buffer: ptr, timestampMs: 0)
+        }
+        return buffer!
     }
 }

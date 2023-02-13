@@ -3,12 +3,12 @@ import AVFoundation
 
 class OpusDecoder: Decoder {
 
-    private let callback: Encoder.EncodedDataCallback
+    private let callback: Encoder.EncodedSampleCallback
     private let converter: AVAudioConverter
     private let outputFormat: AVAudioFormat
     private let opus: AVAudioFormat
 
-    init(callback: @escaping Encoder.EncodedDataCallback) {
+    init(callback: @escaping Encoder.EncodedSampleCallback) {
         self.callback = callback
         let opusFrameSize: UInt32 = 960
         let opusSampleRate: Float64 = 48000.0
@@ -29,7 +29,7 @@ class OpusDecoder: Decoder {
         converter = .init(from: opus, to: outputFormat)!
     }
 
-    func write(data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         let opusAsbd = opus.formatDescription.audioStreamBasicDescription!
         let pcm: AVAudioPCMBuffer = .init(pcmFormat: outputFormat, frameCapacity: opusAsbd.mFramesPerPacket)!
         var error: NSError?
@@ -39,10 +39,10 @@ class OpusDecoder: Decoder {
             outStatus.pointee = .haveData
             let compressed: AVAudioCompressedBuffer = .init(format: self.opus,
                                                             packetCapacity: 1,
-                                                            maximumPacketSize: length)
+                                                            maximumPacketSize: data.count)
             compressed.packetCount = 1
-            compressed.byteLength = UInt32(length)
-            compressed.data.copyMemory(from: data, byteCount: length)
+            compressed.byteLength = UInt32(data.count)
+            compressed.data.copyMemory(from: data.baseAddress!, byteCount: data.count)
             return compressed
         }
         guard error == nil else { fatalError() }
@@ -62,12 +62,12 @@ class OpusDecoder: Decoder {
 
         if pcm.frameLength > 0 {
             let presentationTime: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
-            callback(sampleFromAudio(buffer: pcm, timestamp: presentationTime))
+            callback(Self.sampleFromAudio(buffer: pcm, timestamp: presentationTime))
             return
         }
     }
 
-    func sampleFromAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime) -> CMSampleBuffer {
+    static func sampleFromAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime) -> CMSampleBuffer {
         // Calculate timing info.
         var time: CMSampleTimingInfo = .init(duration: .init(value: 1,
                                                              timescale: Int32(buffer.format.sampleRate)),

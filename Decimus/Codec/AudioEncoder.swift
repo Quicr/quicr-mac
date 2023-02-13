@@ -1,6 +1,7 @@
 import CoreMedia
 import AVFoundation
 import CoreAudio
+import DequeModule
 
 class AudioEncoder: Encoder {
 
@@ -8,19 +9,14 @@ class AudioEncoder: Encoder {
     // A frame is a collection of samples for the same time value (i.e frames = sample * channels).
     // A packet is the smallest possible collection of frames for given format. PCM=1, Opus=20ms?
 
-    private static let audioBufferSize = 10
     private var converter: AVAudioConverter?
-    private let callback: EncodedDataCallback
+    private let callback: EncodedSampleCallback
     private var currentFormat: AVAudioFormat?
-    private var inputBuffers: UnsafeMutableAudioBufferListPointer =
-        AudioBufferList.allocate(maximumBuffers: audioBufferSize)
-    private var inputBytesAvailable = 0
+    private var inputBuffers: Deque<CMSampleBuffer> = .init(minimumCapacity: 5)
     private let targetFormat: AVAudioFormat
-    private var writeIndex = 0
-    private var readIndex = 0
     private var readByteOffset = 0
 
-    init(to targetFormat: AVAudioFormat, callback: @escaping EncodedDataCallback) {
+    init(to targetFormat: AVAudioFormat, callback: @escaping EncodedSampleCallback) {
         self.targetFormat = targetFormat
         self.callback = callback
     }
@@ -40,42 +36,7 @@ class AudioEncoder: Encoder {
             converter = created!
         }
 
-        // Call once to get the required size.
-        var bufferListSize: Int = 0
-        let getSizeError = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-            sample,
-            bufferListSizeNeededOut: &bufferListSize,
-            bufferListOut: nil,
-            bufferListSize: 0,
-            blockBufferAllocator: nil,
-            blockBufferMemoryAllocator: nil,
-            flags: 0,
-            blockBufferOut: nil)
-        guard getSizeError == .zero else { fatalError() }
-
-        // Call again for the actual audio list.
-        let listPtr = AudioBufferList.allocate(maximumBuffers: bufferListSize)
-        var list = listPtr.unsafeMutablePointer.pointee
-        var buffer: CMBlockBuffer?
-        let getListError = CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer(
-            sample,
-            bufferListSizeNeededOut: nil,
-            bufferListOut: &list,
-            bufferListSize: bufferListSize,
-            blockBufferAllocator: kCFAllocatorDefault,
-            blockBufferMemoryAllocator: kCFAllocatorDefault,
-            flags: 0,
-            blockBufferOut: &buffer)
-        guard getListError == .zero else { fatalError() }
-
-        // Iterate through the new list, and add it to the current list.
-        guard list.mNumberBuffers == 1 else { fatalError() }
-        if writeIndex == Self.audioBufferSize {
-            writeIndex = 0
-        }
-        inputBuffers[writeIndex] = list.mBuffers
-        writeIndex += 1
-        inputBytesAvailable += Int(list.mBuffers.mDataByteSize)
+        inputBuffers.append(sample)
 
         // Try and convert.
         let outputBuffer: AVAudioCompressedBuffer = .init(format: targetFormat,
@@ -101,56 +62,82 @@ class AudioEncoder: Encoder {
                       packetCount: AVAudioPacketCount,
                       outStatus: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
         let bytesPerPacket = format.formatDescription.audioStreamBasicDescription!.mBytesPerPacket
-        var requiredBytes = packetCount * bytesPerPacket
-
-        // Ensure we have enough data.
-        guard self.inputBytesAvailable >= requiredBytes else {
-            outStatus.pointee = .noDataNow
-            return .init()
-        }
+        let requiredBytesTotal = packetCount * bytesPerPacket
+        var requiredBytes = requiredBytesTotal
 
         // Collect the required data.
-        let data: UnsafeMutableRawPointer = .allocate(byteCount: Int(requiredBytes),
+        let data: UnsafeMutableRawPointer = .allocate(byteCount: Int(requiredBytesTotal),
                                                       alignment: MemoryLayout<UInt8>.alignment)
         let submissionBuffer: AudioBuffer = .init(mNumberChannels: format.channelCount,
-                                                  mDataByteSize: requiredBytes,
+                                                  mDataByteSize: requiredBytesTotal,
                                                   mData: data)
         var submissionList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: submissionBuffer)
-
-        // Try and collect the required data from available input.
-        while requiredBytes > 0 {
-            // Get some data from the next read buffer.
-            let target = inputBuffers[readIndex]
-            var bytesLeft: Int = Int(target.mDataByteSize)
-            if readByteOffset != 0 {
-                bytesLeft -= readByteOffset
-            }
-            let bytesToTake = min(Int(requiredBytes), bytesLeft)
-            let ptr: UnsafePointer<UInt8> = UnsafePointer<UInt8>(target.mData!.assumingMemoryBound(to: UInt8.self))
-            data.copyMemory(from: ptr + readByteOffset, byteCount: bytesToTake)
-
-            // Record what we took.
-            requiredBytes -= UInt32(bytesToTake)
-            self.inputBytesAvailable -= bytesToTake
-
-            // Handle partial reads.
-            let totalBufferReadBytes = bytesToTake + readByteOffset
-            if totalBufferReadBytes != target.mDataByteSize {
-                // Partially read a buffer. Record offset for next reader.
-                readByteOffset = totalBufferReadBytes
-            } else {
-                // Read a full buffer, move to the next one.
-                readByteOffset = 0
-                self.readIndex += 1
-                if self.readIndex == Self.audioBufferSize {
-                    self.readIndex = 0
-                }
-            }
-        }
-
         let submissionPackage: AVAudioPCMBuffer = .init(pcmFormat: format, bufferListNoCopy: &submissionList) {_ in
             data.deallocate()
         }!
+
+        // Try and collect the required data from available input.
+        var buffersToDrop = 0
+        var indexToUse = 0
+        var dataOffset = 0
+        while requiredBytes > 0 {
+            // Get some data from the first available sample.
+            if inputBuffers.isEmpty || inputBuffers.endIndex == indexToUse {
+                // When it's opus (at least?) we will not get
+                // any encoded data out for partial reads.
+                outStatus.pointee = .noDataNow
+                return submissionPackage
+            }
+            let target: CMSampleBuffer = inputBuffers[indexToUse]
+            var lengthAtOffset: Int = 0
+            var totalLength: Int = 0
+            var ptr: UnsafeMutablePointer<CChar>?
+            let getPtr = CMBlockBufferGetDataPointer(target.dataBuffer!,
+                                                     atOffset: readByteOffset,
+                                                     lengthAtOffsetOut: &lengthAtOffset,
+                                                     totalLengthOut: &totalLength,
+                                                     dataPointerOut: &ptr)
+            guard getPtr == .zero else {
+                print("Asked for offset \(readByteOffset). Total length was: \(totalLength)")
+                fatalError(getPtr.description)
+            }
+
+            // Get as much data as we need/can.
+            let bytesToTake = min(Int(requiredBytes), lengthAtOffset)
+            print("Bytes to take: \(bytesToTake)")
+            guard lengthAtOffset >= bytesToTake else { fatalError() }
+            let spaceLeft = Int(requiredBytesTotal) - dataOffset
+            guard spaceLeft >= Int(bytesToTake) else { fatalError() }
+            memcpy(data + dataOffset, ptr!, bytesToTake)
+            dataOffset += bytesToTake
+            if bytesToTake == lengthAtOffset {
+                // We've taken all that's left, we need
+                // to drop this buffer if we complete the full data.
+                // But if not, we need to retain it for next reader.
+                buffersToDrop += 1
+                indexToUse += 1
+                readByteOffset = 0
+                print("Full read: \(bytesToTake)/\(lengthAtOffset)")
+            } else if bytesToTake < lengthAtOffset {
+                // We only partially read this buffer.
+                print("Partial read of: \(bytesToTake)/\(lengthAtOffset)")
+                print("Existing offset was: \(readByteOffset)/\(lengthAtOffset)")
+                readByteOffset += bytesToTake
+                print("Offset now: \(readByteOffset)/\(lengthAtOffset)")
+            } else {
+                fatalError("RICH CANT DO MATHS")
+            }
+
+            // Record what we took.
+            requiredBytes -= UInt32(bytesToTake)
+        }
+
+        // Drop all the buffers we used up.
+        for _ in 0...buffersToDrop {
+            _ = inputBuffers.popFirst()!
+        }
+
+        // We managed to supply enough data.
         outStatus.pointee = .haveData
         return submissionPackage
     }

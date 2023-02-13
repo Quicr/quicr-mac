@@ -39,6 +39,10 @@
 		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
 		9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */; };
 		9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */; };
+		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
+		9BDD5B162996A84B00C01D54 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B152996A84B00C01D54 /* Opus */; };
+		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
+		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +105,8 @@
 		9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleExtensions.swift; sourceTree = "<group>"; };
 		9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
+		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
+		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +115,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
+				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
+				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,6 +149,8 @@
 				9B480684298284F40040F5D4 /* OpusDecoder.swift */,
 				9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */,
 				9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */,
+				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
+				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -262,6 +272,10 @@
 				9B165A21298807AF0017079F /* PBXTargetDependency */,
 			);
 			name = Decimus;
+			packageProductDependencies = (
+				9BDD5B12299697DE00C01D54 /* DequeModule */,
+				9BDD5B152996A84B00C01D54 /* Opus */,
+			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
 			productType = "com.apple.product-type.application";
@@ -315,6 +329,8 @@
 			mainGroup = 9BA27FB9297D7270007013B2;
 			packageReferences = (
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
+				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
+				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -391,6 +407,7 @@
 				9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */,
 				9B165A112983E5C10017079F /* Loopback.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
 				9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
@@ -399,6 +416,7 @@
 				9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */,
 				9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */,
 				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
+				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -727,6 +745,22 @@
 				kind = branch;
 			};
 		};
+		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "git@github.com:alta/swift-opus.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -734,6 +768,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
 			productName = "plugin:SwiftLintPlugin";
+		};
+		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = DequeModule;
+		};
+		9BDD5B152996A84B00C01D54 /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

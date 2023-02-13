@@ -1,7 +1,8 @@
 import CoreMedia
 
 protocol Encoder {
-    typealias EncodedDataCallback = (CMSampleBuffer) -> Void
+    typealias EncodedSampleCallback = (CMSampleBuffer) -> Void
+    typealias EncodedBufferCallback = (MediaBuffer) -> Void
     func write(sample: CMSampleBuffer)
 }
 

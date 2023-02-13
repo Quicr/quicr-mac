@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreMedia
 import SwiftUI
+import AVFoundation
 
 class Loopback: ApplicationModeBase {
 
@@ -19,12 +20,12 @@ class Loopback: ApplicationModeBase {
         pipeline!.decode(mediaBuffer: data.getMediaBuffer(identifier: identifier))
     }
 
-    override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedAudio(data: MediaBuffer) {
         // Loopback: Write encoded data to decoder.
-        if pipeline!.decoders[identifier] == nil {
-            pipeline!.registerDecoder(identifier: identifier, type: .audio)
+        if pipeline!.decoders[data.identifier] == nil {
+            pipeline!.registerDecoder(identifier: data.identifier, type: .audio)
         }
-        pipeline!.decode(mediaBuffer: data.getMediaBuffer(identifier: identifier))
+        pipeline!.decode(mediaBuffer: data)
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -39,7 +40,11 @@ class Loopback: ApplicationModeBase {
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            pipeline!.registerEncoder(identifier: identifier)
+            let encoder: PassthroughEncoder = .init { media in
+                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+                self.sendEncodedAudio(data: identified)
+            }
+            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
         }
     }
 

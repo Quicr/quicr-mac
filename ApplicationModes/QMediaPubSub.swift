@@ -20,8 +20,7 @@ class QMediaPubSub: ApplicationModeBase {
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
         let buffer: MediaBuffer = .init(identifier: UInt32(streamId),
-                                        buffer: data!,
-                                        length: Int(length),
+                                        buffer: .init(start: .init(data), count: Int(length)),
                                         timestampMs: 0)
         publisher.pipeline!.decode(mediaBuffer: buffer)
     }
@@ -64,7 +63,7 @@ class QMediaPubSub: ApplicationModeBase {
         }
     }
 
-    override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedAudio(data: MediaBuffer) {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -83,7 +82,7 @@ class QMediaPubSub: ApplicationModeBase {
             let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
-            pipeline!.registerEncoder(identifier: identifier)
+            // pipeline!.registerEncoder(identifier: identifier)
             identifierMapping[identifier] = qMedia!.addAudioStreamPublishIntent(codec: .opus)
         }
     }

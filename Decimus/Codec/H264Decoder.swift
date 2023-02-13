@@ -25,7 +25,7 @@ class H264Decoder: Decoder {
     }
 
     /// Write a new frame to the decoder.
-    func write(data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         // Get NALU type.
         var type = data[startCodeLength] & 0x1F
 
@@ -33,16 +33,16 @@ class H264Decoder: Decoder {
         guard self.currentFormat != nil || type == spsType else { return }
 
         // Extract SPS/PPS if available.
-        let paramOutput = checkParameterSets(data: data, length: length)
+        let paramOutput = checkParameterSets(data: data, length: data.count)
         let offset = paramOutput.0
         let newFormat = paramOutput.1
 
         // There might not be any more data left.
-        guard offset < length else { return }
+        guard offset < data.count else { return }
 
         // Get indexes for all start codes.
         var startCodeIndices: [Int] = []
-        for byte in offset...length - startCodeLength where isAtStartCode(pointer: data, startIndex: byte) {
+        for byte in offset...data.count - startCodeLength where isAtStartCode(pointer: data, startIndex: byte) {
             startCodeIndices.append(byte)
         }
 
@@ -50,11 +50,11 @@ class H264Decoder: Decoder {
         for index in startCodeIndices.indices {
             // Get NALU attributes.
             let thisNaluOffset = startCodeIndices[index]
-            var naluTotalLength = length - index
+            var naluTotalLength = data.count - index
             if startCodeIndices.count < index + 1 {
                 naluTotalLength = startCodeIndices[index + 1] - thisNaluOffset
             }
-            let naluPtr: UnsafeMutableRawPointer = .init(mutating: data + thisNaluOffset)
+            let naluPtr: UnsafeMutableRawPointer = .init(mutating: data.baseAddress! + thisNaluOffset)
 
             // What type is this NALU?
             type = data[thisNaluOffset + startCodeLength] & 0x1F
@@ -120,7 +120,7 @@ class H264Decoder: Decoder {
                 // We need to recreate the decoder because of a format change.
                 print("H264Decoder => Recreating due to format change")
                 session = makeDecoder(format: newFormat!)
-                write(data: data, length: length, timestamp: timestamp)
+                write(data: data, timestamp: timestamp)
             case .zero:
                 break
             default:
@@ -130,7 +130,7 @@ class H264Decoder: Decoder {
     }
 
     /// Extracts parameter sets from the given pointer, if any.
-    private func checkParameterSets(data: UnsafePointer<UInt8>, length: Int) -> (Int, CMFormatDescription?) {
+    private func checkParameterSets(data: UnsafeRawBufferPointer, length: Int) -> (Int, CMFormatDescription?) {
 
         // Get current frame type.
         let type = data[4] & 0x1F
@@ -174,14 +174,14 @@ class H264Decoder: Decoder {
         var parameterSetsSizes: [Int] = .init(repeating: 0, count: 2)
 
         // SPS.
-        let spsSrc: UnsafeRawPointer = .init(data) + 4
+        let spsSrc: UnsafeRawPointer = data.baseAddress! + 4
         let spsDest = malloc(spsLength)
         memcpy(spsDest, spsSrc, spsLength)
         parameterSetsData[0] = .init(.init(spsDest!))
         parameterSetsSizes[0] = spsLength
 
         // PPS.
-        let ppsSrc: UnsafeRawPointer = .init(data) + ppsStartCodeIndex + 4
+        let ppsSrc: UnsafeRawPointer = data.baseAddress! + ppsStartCodeIndex + 4
         let ppsDest = malloc(ppsLength)
         memcpy(ppsDest, ppsSrc, ppsLength)
         parameterSetsData[1] = .init(.init(ppsDest!))
@@ -251,10 +251,12 @@ class H264Decoder: Decoder {
     }
 
     /// Determines if the current pointer is pointing to the start of a NALU start code.
-    func isAtStartCode(pointer: UnsafePointer<UInt8>, startIndex: Int) -> Bool {
-        pointer[startIndex] == 0x00 &&
-        pointer[startIndex + 1] == 0x00 &&
-        pointer[startIndex + 2] == 0x00 &&
-        pointer[startIndex + 3] == 0x01
+    func isAtStartCode(pointer: UnsafeRawBufferPointer, startIndex: Int) -> Bool {
+        guard startIndex <= pointer.count - startCodeLength else { return false }
+        return
+            pointer[startIndex] == 0x00 &&
+            pointer[startIndex + 1] == 0x00 &&
+            pointer[startIndex + 2] == 0x00 &&
+            pointer[startIndex + 3] == 0x01
     }
 }
