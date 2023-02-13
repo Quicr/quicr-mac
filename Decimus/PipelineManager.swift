@@ -62,6 +62,7 @@ class PipelineManager {
     func decode(mediaBuffer: MediaBuffer) {
         debugPrint(message: "[\(mediaBuffer.identifier)] (\(mediaBuffer.timestampMs)) Decode write")
         let decoder: DecoderElement? = decoders[mediaBuffer.identifier]
+        guard decoder != nil else { return }
         guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.identifier)") }
         decoder?.decoder.write(data: mediaBuffer.buffer, timestamp: mediaBuffer.timestampMs)
     }
@@ -109,33 +110,20 @@ class PipelineManager {
         let decoder: Decoder
         switch type {
         case .video:
-            decoder = H264Decoder(callback: { decodedImage, presentation in
-                self.debugPrint(message: "[\(identifier)] (\(presentation)) Decoded")
-                self.imageCallback(identifier, decodedImage, presentation)
-            })
+//            decoder = H264Decoder(callback: { decodedImage, presentation in
+//                self.debugPrint(message: "[\(identifier)] (\(presentation)) Decoded")
+//                self.imageCallback(identifier, decodedImage, presentation)
+//            })
+            return
         case .audio:
-            // TODO: We need to know the format upfront.
-            var asbd: AudioStreamBasicDescription
-            // When it's comes from audio encoder it's opus.
-            let opusFrameSize: UInt32 = 960
-            let opusSampleRate: Float64 = 48000.0
-            asbd = .init(mSampleRate: opusSampleRate,
-                         mFormatID: kAudioFormatOpus,
-                         mFormatFlags: 0,
-                         mBytesPerPacket: 0,
-                         mFramesPerPacket: opusFrameSize,
-                         mBytesPerFrame: 0,
-                         mChannelsPerFrame: 1,
-                         mBitsPerChannel: 0,
-                         mReserved: 0)
             // When it comes from passthrough encoder, we need to look it up.
-            asbd = PassthroughEncoder.format!
-
-            // Make a passthrough decoder.
-            let format: CMFormatDescription? = try? .init(audioStreamBasicDescription: asbd)
-            decoder = PassthroughDecoder(format: format!) { sample in
-//                decoder = LibOpusDecoder { sample in
-                    self.audioCallback(identifier, sample)
+            // asbd = PassthroughEncoder.format!
+            let playoutFormat: AVAudioFormat = .init(commonFormat: .pcmFormatInt16,
+                                                     sampleRate: Double(48000),
+                                                     channels: 1,
+                                                     interleaved: false)!
+            decoder = LibOpusDecoder { buffer in
+                self.audioCallback(identifier, buffer.toSample(format: playoutFormat.formatDescription))
             }
         }
 

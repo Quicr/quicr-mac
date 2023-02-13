@@ -3,12 +3,12 @@ import AVFoundation
 
 class OpusDecoder: Decoder {
 
-    private let callback: Encoder.EncodedSampleCallback
+    private let callback: Encoder.EncodedBufferCallback
     private let converter: AVAudioConverter
     private let outputFormat: AVAudioFormat
     private let opus: AVAudioFormat
 
-    init(callback: @escaping Encoder.EncodedSampleCallback) {
+    init(callback: @escaping Encoder.EncodedBufferCallback) {
         self.callback = callback
         let opusFrameSize: UInt32 = 960
         let opusSampleRate: Float64 = 48000.0
@@ -22,7 +22,7 @@ class OpusDecoder: Decoder {
                                                           mBitsPerChannel: 0,
                                                           mReserved: 0)
         opus = .init(streamDescription: &opusDesc)!
-        outputFormat = .init(commonFormat: .pcmFormatFloat32,
+        outputFormat = .init(commonFormat: .pcmFormatInt16,
                              sampleRate: Double(48000),
                              channels: 1,
                              interleaved: false)!
@@ -49,7 +49,7 @@ class OpusDecoder: Decoder {
 
         switch status {
         case .haveData:
-            break
+            print("Decoded Opus")
         case .error:
             fatalError()
         case .endOfStream:
@@ -61,43 +61,7 @@ class OpusDecoder: Decoder {
         }
 
         if pcm.frameLength > 0 {
-            let presentationTime: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
-            callback(Self.sampleFromAudio(buffer: pcm, timestamp: presentationTime))
-            return
+            callback(pcm.asMediaBuffer(timestampMs: timestamp))
         }
-    }
-
-    static func sampleFromAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime) -> CMSampleBuffer {
-        // Calculate timing info.
-        var time: CMSampleTimingInfo = .init(duration: .init(value: 1,
-                                                             timescale: Int32(buffer.format.sampleRate)),
-                                             presentationTimeStamp: timestamp,
-                                             decodeTimeStamp: CMTime.invalid)
-
-        // Create new sample.
-        var sample: CMSampleBuffer?
-        let sampleError = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
-                                               dataBuffer: nil,
-                                               dataReady: false,
-                                               makeDataReadyCallback: nil,
-                                               refcon: nil,
-                                               formatDescription: buffer.format.formatDescription,
-                                               sampleCount: CMItemCount(buffer.frameLength),
-                                               sampleTimingEntryCount: 1,
-                                               sampleTimingArray: &time,
-                                               sampleSizeEntryCount: 0,
-                                               sampleSizeArray: nil,
-                                               sampleBufferOut: &sample)
-        guard sampleError == .zero else { fatalError() }
-
-        // Set sample's data from audio buffer.
-        let setError = CMSampleBufferSetDataBufferFromAudioBufferList(sample!,
-                                                       blockBufferAllocator: kCFAllocatorDefault,
-                                                       blockBufferMemoryAllocator: kCFAllocatorDefault,
-                                                       flags: 0,
-                                                       bufferList: buffer.mutableAudioBufferList)
-        guard setError == .zero else { fatalError() }
-
-        return sample!
     }
 }

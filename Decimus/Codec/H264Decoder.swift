@@ -133,16 +133,16 @@ class H264Decoder: Decoder {
     private func checkParameterSets(data: UnsafeRawBufferPointer, length: Int) -> (Int, CMFormatDescription?) {
 
         // Get current frame type.
-        let type = data[4] & 0x1F
+        let type = data[startCodeLength] & 0x1F
 
         // Is this SPS?
         var ppsStartCodeIndex: Int = 0
         var spsLength: Int = 0
         if type == spsType {
-            for byte in 4...length - 1 where isAtStartCode(pointer: data, startIndex: byte) {
+            for byte in startCodeLength...length - 1 where isAtStartCode(pointer: data, startIndex: byte) {
                 // Find the next start code.
                 ppsStartCodeIndex = byte
-                spsLength = ppsStartCodeIndex - 4
+                spsLength = ppsStartCodeIndex - startCodeLength
                 break
             }
 
@@ -151,21 +151,21 @@ class H264Decoder: Decoder {
 
         // Check for PPS.
         var idrStartCodeIndex: Int = 0
-        let secondType = data[ppsStartCodeIndex + 4] & 0x1F
+        let secondType = data[ppsStartCodeIndex + startCodeLength] & 0x1F
         var ppsLength: Int = 0
         guard secondType == ppsType else { return (idrStartCodeIndex, self.currentFormat) }
 
         // Get PPS.
-        for byte in (ppsStartCodeIndex + 4)...(ppsStartCodeIndex + 30) where
+        for byte in ppsStartCodeIndex + startCodeLength...length + startCodeLength where
             isAtStartCode(pointer: data, startIndex: byte) {
                 idrStartCodeIndex = byte
-                ppsLength = idrStartCodeIndex - spsLength - 8
+                ppsLength = idrStartCodeIndex - spsLength - (startCodeLength * 2)
                 break
         }
 
         if idrStartCodeIndex == 0 {
             // We made it to the end, PPS must run to end.
-            ppsLength = length - ppsStartCodeIndex
+            ppsLength = length - ppsStartCodeIndex - startCodeLength
             idrStartCodeIndex = length
         }
 
@@ -174,14 +174,14 @@ class H264Decoder: Decoder {
         var parameterSetsSizes: [Int] = .init(repeating: 0, count: 2)
 
         // SPS.
-        let spsSrc: UnsafeRawPointer = data.baseAddress! + 4
+        let spsSrc: UnsafeRawPointer = data.baseAddress! + startCodeLength
         let spsDest = malloc(spsLength)
         memcpy(spsDest, spsSrc, spsLength)
         parameterSetsData[0] = .init(.init(spsDest!))
         parameterSetsSizes[0] = spsLength
 
         // PPS.
-        let ppsSrc: UnsafeRawPointer = data.baseAddress! + ppsStartCodeIndex + 4
+        let ppsSrc: UnsafeRawPointer = data.baseAddress! + ppsStartCodeIndex + startCodeLength
         let ppsDest = malloc(ppsLength)
         memcpy(ppsDest, ppsSrc, ppsLength)
         parameterSetsData[1] = .init(.init(ppsDest!))
@@ -193,7 +193,7 @@ class H264Decoder: Decoder {
                                                                         parameterSetCount: 2,
                                                                         parameterSetPointers: parameterSetsData,
                                                                         parameterSetSizes: parameterSetsSizes,
-                                                                        nalUnitHeaderLength: 4,
+                                                                        nalUnitHeaderLength: Int32(startCodeLength),
                                                                         formatDescriptionOut: &format)
         guard error == .zero else { fatalError("CMVideoFormatDescriptionCreateFromH264ParameterSets failed: \(error)") }
 

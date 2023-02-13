@@ -40,10 +40,17 @@ class Loopback: ApplicationModeBase {
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            let encoder: PassthroughEncoder = .init { media in
+//            let encoder: PassthroughEncoder = .init { media in
+//                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+//                self.sendEncodedAudio(data: identified)
+//            }
+
+            let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
+            let encoder: LibOpusEncoder = .init(format: format) { media in
                 let identified: MediaBuffer = .init(identifier: identifier, other: media)
                 self.sendEncodedAudio(data: identified)
             }
+
             pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
         }
     }

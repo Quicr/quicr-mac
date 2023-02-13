@@ -12,69 +12,27 @@ class LibOpusDecoder: Decoder {
         do {
             decoder = try .init(format: format)
         } catch {
-            fatalError()
+            fatalError("Opus => Unsupported format?")
         }
     }
 
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
-        do {
-            let unsafe: UnsafePointer<UInt8> = data.baseAddress!.assumingMemoryBound(to: UInt8.self)
-            let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)
-            let outputFormat: AVAudioFormat = .init(commonFormat: .pcmFormatInt16,
-                                                    sampleRate: Double(48000),
-                                                    channels: 1,
-                                                    interleaved: false)!
-            let pcm: AVAudioPCMBuffer = .init(pcmFormat: outputFormat, frameCapacity: 1000)!
-            try decoder.decode(ubp, to: pcm)
-            let decodedBytes: Int = Int(pcm.frameLength * 2)
-            guard pcm.mutableAudioBufferList.pointee.mNumberBuffers == 1 else { fatalError() }
-//            pcm.int16ChannelData!.pointee.withMemoryRebound(to: UInt8.self, capacity: decodedBytes) { remapped in
-//                let unsafeRawBufferPointer: UnsafeRawBufferPointer = .
-//                
-//                let buffer: MediaBuffer = .init(identifier: 0,
-//                                                buffer: remapped,
-//                                                length: Int(pcm.frameLength),
-//                                                timestampMs: 0)
-//                callback(buffer)
-//            }
+        // Get to the right pointer type.
+        let unsafe: UnsafePointer<UInt8> = data.baseAddress!.assumingMemoryBound(to: UInt8.self)
+        let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)
 
-            // let sample = OpusDecoder.sampleFromAudio(buffer: pcm, timestamp: .invalid)
-            print("Opus: Decoded \(pcm.frameLength)")
+        // Create buffer for the decoded data.
+        let outputFormat: AVAudioFormat = .init(commonFormat: .pcmFormatInt16,
+                                                sampleRate: Double(48000),
+                                                channels: 1,
+                                                interleaved: false)!
+        let decoded: AVAudioPCMBuffer = .init(pcmFormat: outputFormat, frameCapacity: LibOpusEncoder.opusFrameSize)!
+        do {
+            try decoder.decode(ubp, to: decoded)
         } catch {
-            print("Opus: Failed to decode")
+            fatalError("Opus => Failed to decode: \(error)")
         }
+        print("Opus => Decoded: \(decoded.frameLength) samples")
+        callback(decoded.asMediaBuffer(timestampMs: timestamp))
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

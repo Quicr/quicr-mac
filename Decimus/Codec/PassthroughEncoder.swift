@@ -15,7 +15,8 @@ class PassthroughEncoder: Encoder {
     func write(sample: CMSampleBuffer) {
         Self.samples = sample.numSamples
         Self.format = sample.formatDescription!.audioStreamBasicDescription!
+        // Proves to/from sample buffer and media buffer works.
         let pcm: AVAudioPCMBuffer = .fromSample(sample: sample)
-        callback(pcm.mediaBuffer)
+        callback(pcm.toSampleBuffer(presentationTime: sample.presentationTimeStamp).getMediaBuffer())
     }
 }

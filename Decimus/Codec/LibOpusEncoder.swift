@@ -3,11 +3,12 @@ import AVFoundation
 import DequeModule
 
 class LibOpusEncoder: Encoder {
+    static let opusFrameSize: AVAudioFrameCount = 960
+
     private let encoder: Opus.Encoder
     private let callback: EncodedBufferCallback
     private let format: AVAudioFormat
     private var queue: Deque<AVAudioPCMBuffer> = .init()
-    private let opusFrameSize: AVAudioFrameCount = 240
     private var readIndex = 0
     private var sampleOffset: AVAudioFrameCount = 0
 
@@ -24,70 +25,91 @@ class LibOpusEncoder: Encoder {
     func write(sample: CMSampleBuffer) {
         let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
         guard sampleFormat == format else { fatalError("Format mismatch") }
+        guard sampleFormat.channelCount == 1 else { fatalError() }
 
         let pcm: AVAudioPCMBuffer = .fromSample(sample: sample)
         queue.append(pcm)
 
-        var requiredSamples = opusFrameSize
+        // What do we need?
+        var requiredSamples = Self.opusFrameSize
         let bytesPerSample = sampleFormat.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
-        let toEncodeBytes: Int = Int(requiredSamples * bytesPerSample)
-        var toEncode: Data = .init(count: toEncodeBytes)
-        var toEncodeOffset = 0
+        let requiredBytes: Int = Int(requiredSamples * bytesPerSample)
+
+        // Prepare for encoded data.
+        var selectedInputData: Data = .init(count: requiredBytes)
+        var selectedInputDataOffset = 0
+
+        // Collate input data.
         var toPop = 0
         while requiredSamples > 0 {
-            guard !queue.isEmpty || queue.endIndex == readIndex else { return }
+            guard !queue.isEmpty, queue.endIndex > readIndex else {
+                // Ran out of data, reset and wait for more.
+                readIndex = 0
+                sampleOffset = 0
+                return
+            }
 
-            let buffer: AVAudioPCMBuffer = queue[readIndex]
-            let samplesLeft = buffer.frameLength - sampleOffset
+            // Get some data.
+            let input: AVAudioPCMBuffer = queue[readIndex]
+            let samplesLeft = input.frameLength - sampleOffset
             let samplesToTake = min(requiredSamples, samplesLeft)
             let bytesToTake = samplesToTake * bytesPerSample
-            do {
-                try toEncode.withUnsafeMutableBytes { dest in
-                    memcpy(dest + toEncodeOffset, buffer.int16ChannelData!.pointee, Int(bytesToTake))
+
+            // Copy the audio data to the encode buffer.
+            let int16Data = input.int16ChannelData![0]
+            selectedInputData.withUnsafeMutableBytes { dest in
+                int16Data.withMemoryRebound(to: UInt8.self, capacity: Int(bytesToTake)) { src in
+                    memcpy(dest + selectedInputDataOffset, src, Int(bytesToTake))
                 }
-            } catch {
-                fatalError()
             }
-            toEncodeOffset += Int(bytesToTake)
+            selectedInputDataOffset += Int(bytesToTake)
             requiredSamples -= samplesToTake
 
             if samplesToTake == samplesLeft {
                 // Full read.
                 readIndex += 1
-                toPop += 1
                 sampleOffset = 0
+                toPop += 1
             } else {
                 sampleOffset += samplesToTake
             }
         }
 
+        // Remove any used up input buffers from the queue.
         if toPop > 0 {
-            for pop in 0...toPop {
+            for _ in 0...toPop {
                 _ = queue.popFirst()
             }
         }
         readIndex = 0
 
-        // Make PCM buffer with this data.
-        let encodeBuffer: AVAudioPCMBuffer = .init(pcmFormat: sampleFormat, frameCapacity: opusFrameSize)!
-        toEncode.withUnsafeBytes { ptr in
-            memcpy(encodeBuffer.int16ChannelData!.pointee, ptr, toEncodeBytes)
+        // Put selected input data into PCM buffer.
+        let encodeBuffer: AVAudioPCMBuffer = .init(pcmFormat: sampleFormat, frameCapacity: Self.opusFrameSize)!
+        selectedInputData.withUnsafeBytes { src in
+            encodeBuffer.int16ChannelData![0].withMemoryRebound(to: UInt8.self, capacity: requiredBytes) { dest in
+                memcpy(dest, src, requiredBytes)
+            }
         }
-        encodeBuffer.frameLength = opusFrameSize
+        encodeBuffer.frameLength = Self.opusFrameSize
 
-        var encoded: Data = .init(count: 1500)
-        var encodedCount = 0
+        // Encode to Opus.
+        let maxOpusEncodeBytes = 1500
+        var encoded: Data = .init(count: maxOpusEncodeBytes)
+        var encodedBytes = 0
         do {
-            encodedCount = try encoder.encode(encodeBuffer, to: &encoded)
-            print("Encoded: \(encodedCount)")
+            encodedBytes = try encoder.encode(encodeBuffer, to: &encoded)
+            print("Encoded: \(encodedBytes) bytes")
         } catch {
             fatalError("Failed to encode opus: \(error)")
         }
-        
-        encoded.withUnsafeBytes { ptr in
-            let ptr: UnsafeRawBufferPointer = .init(start: ptr, count: encodedCount)
-            let mediaBuffer: MediaBuffer = .init(identifier: 0, buffer: ptr, timestampMs: 0)
-            callback(mediaBuffer)
+
+        // Timestamp.
+        let timeMs = sample.presentationTimeStamp.convertScale(1000, method: .default)
+        print(timeMs)
+
+        // Callback encoded data.
+        encoded.withUnsafeBytes { opus in
+            callback(.init(identifier: 0, buffer: .init(start: opus, count: encodedBytes), timestampMs: UInt32(timeMs.value)))
         }
     }
 }
