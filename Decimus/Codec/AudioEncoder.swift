@@ -85,6 +85,7 @@ class AudioEncoder: Encoder {
             if inputBuffers.isEmpty || inputBuffers.endIndex == indexToUse {
                 // When it's opus (at least?) we will not get
                 // any encoded data out for partial reads.
+                readByteOffset = 0
                 outStatus.pointee = .noDataNow
                 return submissionPackage
             }

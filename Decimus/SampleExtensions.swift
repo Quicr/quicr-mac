@@ -49,8 +49,8 @@ extension MediaBuffer {
                                                presentationTimeStamp: presentation,
                                                decodeTimeStamp: CMTime.invalid)
 
-        // TODO: How can this work when the samples etc. are wrong?
-        var sampleLength = buffer!.dataLength
+        var bpp = Int(format.audioStreamBasicDescription!.mBytesPerPacket)
+        let sampleCount = buffer!.dataLength / bpp
         var sampleBuffer: CMSampleBuffer?
         let sampleError = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
                                                dataBuffer: buffer!,
@@ -58,11 +58,11 @@ extension MediaBuffer {
                                                makeDataReadyCallback: nil,
                                                refcon: nil,
                                                formatDescription: format,
-                                               sampleCount: 1,
+                                               sampleCount: sampleCount,
                                                sampleTimingEntryCount: 1,
                                                sampleTimingArray: &timing,
                                                sampleSizeEntryCount: 1,
-                                               sampleSizeArray: &sampleLength,
+                                               sampleSizeArray: &bpp,
                                                sampleBufferOut: &sampleBuffer)
         guard sampleError == .zero else { fatalError() }
         return sampleBuffer!
@@ -112,12 +112,6 @@ extension AVAudioPCMBuffer {
         guard format.channelCount == 1 else { fatalError() }
         let bpf = self.format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
         let lengthInBytes: Int = Int(bpf * self.frameLength)
-
-        let formatId = format.formatDescription.audioStreamBasicDescription!.mFormatID
-        if format.formatDescription.audioStreamBasicDescription!.mFormatID == kAudioFormatOpus {
-            print("GOT SOME OPUS")
-        }
-
         let data: Data = .init(bytes: self.int16ChannelData!.pointee, count: lengthInBytes)
         var buffer: MediaBuffer?
         data.withUnsafeBytes { ptr in

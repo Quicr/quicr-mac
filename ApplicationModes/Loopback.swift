@@ -40,13 +40,35 @@ class Loopback: ApplicationModeBase {
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-//            let encoder: PassthroughEncoder = .init { media in
+            let encoder: Encoder
+
+            // Passthrough.
+//            encoder = PassthroughEncoder { media in
 //                let identified: MediaBuffer = .init(identifier: identifier, other: media)
 //                self.sendEncodedAudio(data: identified)
 //            }
 
+            // Apple API.
+//            let opusFrameSize: UInt32 = 960
+//            let opusSampleRate: Float64 = 48000.0
+//            var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+//                                                              mFormatID: kAudioFormatOpus,
+//                                                              mFormatFlags: 0,
+//                                                              mBytesPerPacket: 0,
+//                                                              mFramesPerPacket: opusFrameSize,
+//                                                              mBytesPerFrame: 0,
+//                                                              mChannelsPerFrame: 1,
+//                                                              mBitsPerChannel: 0,
+//                                                              mReserved: 0)
+//            let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
+//            encoder = AudioEncoder(to: opus) { sample in
+//                let buffer = sample.getMediaBuffer(identifier: identifier)
+//                self.sendEncodedAudio(data: buffer)
+//            }
+
+            // libopus
             let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
-            let encoder: LibOpusEncoder = .init(format: format) { media in
+            encoder = LibOpusEncoder(format: format) { media in
                 let identified: MediaBuffer = .init(identifier: identifier, other: media)
                 self.sendEncodedAudio(data: identified)
             }
