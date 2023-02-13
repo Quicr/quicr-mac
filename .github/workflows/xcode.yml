@@ -1,0 +1,41 @@
+name: Xcode - Build and Analyze
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [  macos-latest, macos-12 ]
+
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          
+      - name: Show XCode Version
+        run: xcode-select -p
+
+      - name: Build QMedia Framework
+        run: ./dependencies/build-qmedia-framework.sh
+
+      - name: Build Decimus
+        run: xcodebuild clean build ARCHS=arm64 ONLY_ACTIVE_ARCH=NO -skipPackagePluginValidation -scheme Decimus CONFIGURATION_BUILD_DIR=./artifact
+      
+      - name: Tar Artifact
+        run: tar -cvf Decimus.tar artifact/Decimus.app
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Decimus
+          path: Decimus.tar
+
