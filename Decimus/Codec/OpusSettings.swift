@@ -5,5 +5,5 @@ struct OpusSettings {
                                                  sampleRate: Double(48000),
                                                  channels: 1,
                                                  interleaved: false)!
-    static let opusFrameSize: AVAudioFrameCount = 960
+    static let opusFrameSize: AVAudioFrameCount = 480
 }

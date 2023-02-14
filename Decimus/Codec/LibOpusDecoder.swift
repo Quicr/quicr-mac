@@ -11,6 +11,7 @@ class LibOpusDecoder: Decoder {
         self.callback = callback
         self.format = format
         do {
+            guard format.isValidOpusPCMFormat else { fatalError() }
             decoder = try .init(format: format, application: .voip)
         } catch {
             fatalError("Opus => Unsupported format?")
@@ -27,9 +28,10 @@ class LibOpusDecoder: Decoder {
                                               frameCapacity: .opusMax)!
         do {
             try decoder.decode(ubp, to: decoded)
+            print("Decoded: \(decoded.frameLength)")
+            callback(decoded)
         } catch {
             fatalError("Opus => Failed to decode: \(error)")
         }
-        callback(decoded)
     }
 }

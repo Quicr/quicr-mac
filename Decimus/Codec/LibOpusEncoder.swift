@@ -7,7 +7,7 @@ class LibOpusEncoder: Encoder {
     private let callback: EncodedBufferCallback
     private var queue: Deque<(AVAudioPCMBuffer, CMTime)> = .init()
     private var readIndex = 0
-    private var sampleOffset: AVAudioFrameCount = 0
+    private var frameOffset: AVAudioFrameCount = 0
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
     private var currentFormat: AVAudioFormat?
 
@@ -26,21 +26,24 @@ class LibOpusEncoder: Encoder {
         if currentFormat != nil && currentFormat != sampleFormat {
             fatalError("Opus encoder can't change format")
         }
-        guard sampleFormat.channelCount == 1 else { fatalError() }
         if encoder == nil {
+            currentFormat = sampleFormat
+            // Only the type of the incoming format is important for opus.
+            // Encoder is safe to always be 2 channel @ 48kHz.
+            let type: AVAudioFormat.OpusPCMFormat
+            switch sampleFormat.commonFormat {
+            case .pcmFormatFloat32:
+                type = .float32
+            case .pcmFormatInt16:
+                type = .int16
+            default:
+                fatalError()
+            }
+            let opusFormat: AVAudioFormat = .init(opusPCMFormat: type,
+                                                  sampleRate: .opus48khz,
+                                                  channels: sampleFormat.channelCount)!
             do {
-                currentFormat = sampleFormat
-//                let type: AVAudioFormat.OpusPCMFormat
-//                switch sampleFormat.commonFormat {
-//                case .pcmFormatFloat32:
-//                    type = .float32
-//                case .pcmFormatInt16:
-//                    type = .int16
-//                default:
-//                    fatalError()
-//                }
-//                let opusFormat: AVAudioFormat = .init(opusPCMFormat: type, sampleRate: .opus48khz, channels: 1)!
-                encoder = try .init(format: OpusSettings.targetFormat, application: .voip)
+                encoder = try .init(format: opusFormat, application: .voip)
             } catch {
                 fatalError(error.localizedDescription)
             }
@@ -57,22 +60,22 @@ class LibOpusEncoder: Encoder {
 
     func tryEncode(format: AVAudioFormat) {
         // What do we need to encode?
-        var requiredSamples = OpusSettings.opusFrameSize
-        let bytesPerSample = format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
+        var requiredFrames = OpusSettings.opusFrameSize
+        let bytesPerFrame = format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
 
         // Prepare storage for encoded data.
-        let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: requiredSamples)!
-        selectedInput.frameLength = requiredSamples
+        let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: requiredFrames)!
+        selectedInput.frameLength = requiredFrames
         var selectedInputDataOffset = 0
 
         // Collate input data.
         var earliestTimestamp: CMTime?
         var toPop = 0
-        while requiredSamples > 0 {
+        while requiredFrames > 0 {
             guard !queue.isEmpty, queue.endIndex > readIndex else {
                 // Ran out of data, reset and wait for more.
                 readIndex = 0
-                sampleOffset = 0
+                frameOffset = 0
                 return
             }
 
@@ -82,9 +85,9 @@ class LibOpusEncoder: Encoder {
             if earliestTimestamp == nil {
                 earliestTimestamp = queued.1
             }
-            let samplesLeft = input.frameLength - sampleOffset
-            let samplesToTake = min(requiredSamples, samplesLeft)
-            let bytesToTake = samplesToTake * bytesPerSample
+            let framesLeft = input.frameLength - frameOffset
+            let framesToTake = min(requiredFrames, framesLeft)
+            let bytesToTake = framesToTake * bytesPerFrame
 
             // Copy the audio data to the encode buffer.
             let src: UnsafeRawPointer
@@ -101,15 +104,15 @@ class LibOpusEncoder: Encoder {
 
             dest.copyMemory(from: src, byteCount: Int(bytesToTake))
             selectedInputDataOffset += Int(bytesToTake)
-            requiredSamples -= samplesToTake
+            requiredFrames -= framesToTake
 
-            if samplesToTake == samplesLeft {
+            if framesToTake == framesLeft {
                 // Full read.
                 readIndex += 1
-                sampleOffset = 0
+                frameOffset = 0
                 toPop += 1
             } else {
-                sampleOffset += samplesToTake
+                frameOffset += framesToTake
             }
         }
 
@@ -122,15 +125,16 @@ class LibOpusEncoder: Encoder {
         readIndex = 0
 
         // Encode to Opus.
-        let maxOpusEncodeBytes = 1500 * 10
+        let maxOpusEncodeBytes = 64000
         var encoded: Data = .init(count: maxOpusEncodeBytes)
         var encodedBytes = 0
         do {
             encodedBytes = try encoder!.encode(selectedInput, to: &encoded)
-            encodesDone += 1
         } catch {
-            fatalError("Failed to encode opus: \(error)")
+            fatalError("Failed to encode opus: \(error). Format: \(format)")
         }
+        encodesDone += 1
+
         // Timestamp.
         let timeMs = earliestTimestamp!.convertScale(1000, method: .default)
         // Callback encoded data.

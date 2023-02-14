@@ -13,16 +13,16 @@ class AudioPlayer {
         // Use AVSampleBufferAudioRenderer for sample playout.
         synchronizer.addRenderer(renderer)
 
-        // Use AVAudioPlayerNode for PCM playout.
-        _ = engine.mainMixerNode
-        do {
-            try engine.start()
-        } catch {
-            fatalError()
-        }
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: OpusSettings.targetFormat)
-        player.play()
+//        // Use AVAudioPlayerNode for PCM playout.
+//        _ = engine.mainMixerNode
+//        do {
+//            try engine.start()
+//        } catch {
+//            fatalError()
+//        }
+//        engine.attach(player)
+//        engine.connect(player, to: engine.mainMixerNode, format: OpusSettings.targetFormat)
+//        player.play()
     }
 
     /// Write a sample to be played out.
@@ -40,11 +40,14 @@ class AudioPlayer {
         }
         self.renderer.enqueue(sample)
         if self.synchronizer.rate == 0 {
-            self.synchronizer.setRate(1, time: sample.presentationTimeStamp)
+            let calendar: Calendar = .current
+            let nanoseconds = calendar.component(.nanosecond, from: .now)
+            self.synchronizer.setRate(1, time: .init(value: CMTimeValue(nanoseconds), timescale: 1000000))
         }
     }
 
     func write(buffer: AVAudioPCMBuffer) {
-        player.scheduleBuffer(buffer)
+        write(sample: buffer.toSampleBuffer(presentationTime: .invalid))
+        // player.scheduleBuffer(buffer)
     }
 }
