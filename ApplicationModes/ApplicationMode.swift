@@ -25,8 +25,12 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     var captureManager: CaptureManager?
     var root: AnyView = .init(EmptyView())
     private let id = UUID()
+    let participants: VideoParticipants
+    let player: AudioPlayer
 
     init(participants: VideoParticipants, player: AudioPlayer) {
+        self.participants = participants
+        self.player = player
         pipeline = .init(
             decodedCallback: { identifier, decoded, _ in
                 self.showDecodedImage(identifier: identifier, participants: participants, decoded: decoded)
