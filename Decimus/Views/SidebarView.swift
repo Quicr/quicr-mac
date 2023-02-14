@@ -53,7 +53,10 @@ struct SidebarView: View {
                     Label("QMedia", systemImage: "phone.circle")
                 }
                 SafeNavigationLink(mode: Loopback(participants: participants, player: .init())) {
-                    Label("Loopback", systemImage: "arrow.clockwise.circle")
+                    Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                }
+                SafeNavigationLink(mode: RawLoopback(participants: participants, player: .init())) {
+                    Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
                 }
             }.safeNavigationDestination()
         }.navigationTitle("Application Modes")
