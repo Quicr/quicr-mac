@@ -3,7 +3,6 @@ import AVFoundation
 import DequeModule
 
 class LibOpusEncoder: Encoder {
-    static var encodingFormat: AVAudioFormat?
     private var encoder: Opus.Encoder?
     private let callback: EncodedBufferCallback
     private var queue: Deque<(AVAudioPCMBuffer, CMTime)> = .init()
@@ -36,15 +35,16 @@ class LibOpusEncoder: Encoder {
             switch sampleFormat.commonFormat {
             case .pcmFormatFloat32:
                 type = .float32
+                print("Float")
             case .pcmFormatInt16:
                 type = .int16
+                print("Int")
             default:
                 fatalError()
             }
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: type,
                                                   sampleRate: .opus48khz,
                                                   channels: sampleFormat.channelCount)!
-            Self.encodingFormat = opusFormat
             do {
                 encoder = try .init(format: opusFormat, application: .voip)
             } catch {

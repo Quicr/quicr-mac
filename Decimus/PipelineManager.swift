@@ -90,8 +90,10 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation)
             })
         case .audio:
-            // When it comes from passthrough encoder, we need to look it up.
-            decoder = LibOpusDecoder(format: LibOpusEncoder.encodingFormat!) { pcm, timestamp in
+            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .int16,
+                                                  sampleRate: .opus48khz,
+                                                  channels: 1)!
+            decoder = LibOpusDecoder(format: opusFormat) { pcm, timestamp in
                 self.audioCallback(identifier, pcm.toSampleBuffer(presentationTime: timestamp))
             }
         }

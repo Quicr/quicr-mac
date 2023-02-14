@@ -367,6 +367,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		9B76FFD9298D4836006B5267 /* Build QMedia */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);

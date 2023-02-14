@@ -26,15 +26,22 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     func connect(config: CallConfig) {
+        guard qMedia == nil else { fatalError("Already connected") }
         qMedia = .init(address: .init(string: config.address)!, port: config.port)
 
         // TODO: Where should the subscriptions go?
+
+        // Video.
         let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
         Self.streamIdMap[videoSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(videoSubscription), type: .video)
-        let audioSubscription = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+        print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
+
+        // Audio.
+        let audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
         Self.streamIdMap[audioSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(audioSubscription), type: .audio)
+        print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -64,6 +71,15 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     override func sendEncodedAudio(data: MediaBuffer) {
+        guard let streamId = identifierMapping[data.identifier] else {
+            print("[QMediaPubSub] Couldn't lookup stream id for media id: \(data.identifier)")
+            return
+        }
+        guard data.buffer.count > 0 else { fatalError() }
+        qMedia!.sendAudio(mediaStreamId: streamId,
+                          buffer: data.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                          length: UInt32(data.buffer.count),
+                          timestamp: UInt64(data.timestampMs))
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -73,7 +89,6 @@ class QMediaPubSub: ApplicationModeBase {
             print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
-            identifierMapping[identifier] = qMedia!.addVideoStreamPublishIntent(codec: .h264)
         }
     }
 
@@ -87,7 +102,7 @@ class QMediaPubSub: ApplicationModeBase {
                 self.sendEncodedAudio(data: identified)
             }
             pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
-            identifierMapping[identifier] = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+            identifierMapping[identifier] = subscriptionId
         }
     }
 
