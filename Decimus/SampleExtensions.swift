@@ -75,11 +75,11 @@ extension AVAudioPCMBuffer {
         let frames = AVAudioFrameCount(sample.numSamples)
         let buffer: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: frames)!
         buffer.frameLength = frames
-        let error = CMSampleBufferCopyPCMDataIntoAudioBufferList(sample,
-                                                                 at: 0,
-                                                                 frameCount: Int32(frames),
-                                                                 into: buffer.mutableAudioBufferList)
-        guard error == .zero else { fatalError() }
+        do {
+            try sample.copyPCMData(fromRange: 0..<sample.numSamples, into: buffer.mutableAudioBufferList)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
         return buffer
     }
 
@@ -112,11 +112,40 @@ extension AVAudioPCMBuffer {
         guard format.channelCount == 1 else { fatalError() }
         let bpf = self.format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
         let lengthInBytes: Int = Int(bpf * self.frameLength)
-        let data: Data = .init(bytes: self.int16ChannelData!.pointee, count: lengthInBytes)
+
+        let data: Data
+        if format.commonFormat == .pcmFormatFloat32 {
+            data = .init(bytes: self.floatChannelData!.pointee, count: lengthInBytes)
+        } else if format.commonFormat == .pcmFormatInt16 {
+            data = .init(bytes: self.int16ChannelData!.pointee, count: lengthInBytes)
+        } else {
+            fatalError()
+        }
+
         var buffer: MediaBuffer?
         data.withUnsafeBytes { ptr in
             buffer = .init(identifier: 0, buffer: ptr, timestampMs: timestampMs)
         }
         return buffer!
+    }
+
+    static func fromMediaBuffer(buffer: MediaBuffer, format: AVAudioFormat) -> AVAudioPCMBuffer {
+        let bytesPerFrame = format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
+        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format,
+                                          frameCapacity: UInt32(buffer.buffer.count) / bytesPerFrame)!
+        let unsafePcm: UnsafeRawBufferPointer
+        if format.commonFormat == .pcmFormatInt16 {
+            let pcmPointer: UnsafeMutablePointer<Int16> = pcm.int16ChannelData![0]
+            unsafePcm = .init(start: pcmPointer, count: buffer.buffer.count)
+        } else if format.commonFormat == .pcmFormatFloat32 {
+            let pcmPointer: UnsafeMutablePointer<Float> = pcm.floatChannelData![0]
+            unsafePcm = .init(start: pcmPointer, count: buffer.buffer.count)
+        } else {
+            fatalError()
+        }
+
+        let pcmRawBuffer: UnsafeMutableRawBufferPointer = .init(mutating: unsafePcm)
+        buffer.buffer.copyBytes(to: pcmRawBuffer)
+        return pcm
     }
 }

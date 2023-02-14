@@ -4,13 +4,14 @@ import AVFoundation
 class LibOpusDecoder: Decoder {
 
     let decoder: Opus.Decoder
-    let callback: Encoder.EncodedBufferCallback
+    let callback: PipelineManager.DecodedAudio
+    let format: AVAudioFormat
 
-    init(callback: @escaping Encoder.EncodedBufferCallback) {
+    init(format: AVAudioFormat, callback: @escaping PipelineManager.DecodedAudio) {
         self.callback = callback
-        let format: AVAudioFormat = .init(opusPCMFormat: .int16, sampleRate: .opus48khz, channels: 1)!
+        self.format = format
         do {
-            decoder = try .init(format: format)
+            decoder = try .init(format: format, application: .voip)
         } catch {
             fatalError("Opus => Unsupported format?")
         }
@@ -22,17 +23,13 @@ class LibOpusDecoder: Decoder {
         let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)
 
         // Create buffer for the decoded data.
-        let outputFormat: AVAudioFormat = .init(commonFormat: .pcmFormatInt16,
-                                                sampleRate: Double(48000),
-                                                channels: 1,
-                                                interleaved: false)!
-        let decoded: AVAudioPCMBuffer = .init(pcmFormat: outputFormat, frameCapacity: LibOpusEncoder.opusFrameSize)!
+        let decoded: AVAudioPCMBuffer = .init(pcmFormat: format,
+                                              frameCapacity: .opusMax)!
         do {
             try decoder.decode(ubp, to: decoded)
         } catch {
             fatalError("Opus => Failed to decode: \(error)")
         }
-        print("Opus => Decoded: \(decoded.frameLength) samples")
-        callback(decoded.asMediaBuffer(timestampMs: timestamp))
+        callback(decoded)
     }
 }

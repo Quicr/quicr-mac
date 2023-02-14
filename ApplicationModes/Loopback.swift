@@ -67,8 +67,7 @@ class Loopback: ApplicationModeBase {
 //            }
 
             // libopus
-            let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
-            encoder = LibOpusEncoder(format: format) { media in
+            encoder = LibOpusEncoder { media in
                 let identified: MediaBuffer = .init(identifier: identifier, other: media)
                 self.sendEncodedAudio(data: identified)
             }

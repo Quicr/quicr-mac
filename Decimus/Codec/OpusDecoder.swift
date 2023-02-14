@@ -3,35 +3,30 @@ import AVFoundation
 
 class OpusDecoder: Decoder {
 
-    private let callback: Encoder.EncodedBufferCallback
+    private let callback: PipelineManager.DecodedAudio
     private let converter: AVAudioConverter
-    private let outputFormat: AVAudioFormat
     private let opus: AVAudioFormat
+    private let output: AVAudioFormat
 
-    init(callback: @escaping Encoder.EncodedBufferCallback) {
+    init(output: AVAudioFormat, callback: @escaping PipelineManager.DecodedAudio) {
         self.callback = callback
-        let opusFrameSize: UInt32 = 960
-        let opusSampleRate: Float64 = 48000.0
-        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+        self.output = output
+        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: output.sampleRate,
                                                           mFormatID: kAudioFormatOpus,
                                                           mFormatFlags: 0,
                                                           mBytesPerPacket: 0,
-                                                          mFramesPerPacket: opusFrameSize,
+                                                          mFramesPerPacket: 1,
                                                           mBytesPerFrame: 0,
                                                           mChannelsPerFrame: 1,
                                                           mBitsPerChannel: 0,
                                                           mReserved: 0)
         opus = .init(streamDescription: &opusDesc)!
-        outputFormat = .init(commonFormat: .pcmFormatInt16,
-                             sampleRate: Double(48000),
-                             channels: 1,
-                             interleaved: false)!
-        converter = .init(from: opus, to: outputFormat)!
+        converter = .init(from: opus, to: output)!
     }
 
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
-        let opusAsbd = opus.formatDescription.audioStreamBasicDescription!
-        let pcm: AVAudioPCMBuffer = .init(pcmFormat: outputFormat, frameCapacity: opusAsbd.mFramesPerPacket)!
+        let pcm: AVAudioPCMBuffer = .init(pcmFormat: output,
+                                          frameCapacity: OpusSettings.opusFrameSize)!
         var error: NSError?
         let status = converter.convert(to: pcm, error: &error) { packetCount, outStatus in
             // Do conversion.
@@ -61,7 +56,7 @@ class OpusDecoder: Decoder {
         }
 
         if pcm.frameLength > 0 {
-            callback(pcm.asMediaBuffer(timestampMs: timestamp))
+            callback(pcm)
         }
     }
 }
