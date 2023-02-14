@@ -8,7 +8,6 @@ class AudioPlayer {
 
     /// Create a new `AudioPlayer`
     init() {
-        // Use AVSampleBufferAudioRenderer for sample playout.
         synchronizer.addRenderer(renderer)
     }
 

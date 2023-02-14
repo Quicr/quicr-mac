@@ -39,8 +39,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             encodedCallback: { identifier, data in
                 self.sendEncodedImage(identifier: identifier, data: data)
             },
-            decodedAudioCallback: { _, buffer in
-                self.playDecodedAudio(buffer: buffer, player: player)
+            decodedAudioCallback: { _, sample in
+                self.playDecodedAudio(sample: sample, player: player)
             },
             encodedAudioCallback: { data in
                 self.sendEncodedAudio(data: data)
@@ -67,8 +67,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func playDecodedAudio(buffer: CMSampleBuffer, player: AudioPlayer) {
-        player.write(sample: buffer)
+    func playDecodedAudio(sample: CMSampleBuffer, player: AudioPlayer) {
+        player.write(sample: sample)
     }
 
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}

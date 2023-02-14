@@ -63,7 +63,6 @@ class PipelineManager {
     func decode(mediaBuffer: MediaBuffer) {
         debugPrint(message: "[\(mediaBuffer.identifier)] (\(mediaBuffer.timestampMs)) Decode write")
         let decoder: DecoderElement? = decoders[mediaBuffer.identifier]
-        guard decoder != nil else { return }
         guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.identifier)") }
         decoder!.decoder.write(data: mediaBuffer.buffer, timestamp: mediaBuffer.timestampMs)
     }
@@ -90,7 +89,6 @@ class PipelineManager {
                 self.debugPrint(message: "[\(identifier)] (\(presentation)) Decoded")
                 self.imageCallback(identifier, decodedImage, presentation)
             })
-            return
         case .audio:
             // When it comes from passthrough encoder, we need to look it up.
             decoder = LibOpusDecoder(format: LibOpusEncoder.encodingFormat!) { pcm, timestamp in

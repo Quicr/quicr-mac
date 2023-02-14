@@ -82,7 +82,11 @@ class QMediaPubSub: ApplicationModeBase {
             let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
-            // pipeline!.registerEncoder(identifier: identifier)
+            let encoder = LibOpusEncoder { media in
+                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+                self.sendEncodedAudio(data: identified)
+            }
+            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
             identifierMapping[identifier] = qMedia!.addAudioStreamPublishIntent(codec: .opus)
         }
     }

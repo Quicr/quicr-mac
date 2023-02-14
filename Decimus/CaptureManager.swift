@@ -29,11 +29,11 @@ class CaptureManager: NSObject,
         } catch {
             fatalError(error.localizedDescription)
         }
-        // session.sessionPreset = .low
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         super.init()
         session.beginConfiguration()
+        session.sessionPreset = .low
 
         // Video output.
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
