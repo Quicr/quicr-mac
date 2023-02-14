@@ -25,6 +25,7 @@
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
 		9B555196299ADC130025906D /* OpusSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B555195299ADC130025906D /* OpusSettings.swift */; };
+		9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B555197299B8B4F0025906D /* RawLoopback.swift */; };
 		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
 		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
@@ -90,6 +91,7 @@
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
 		9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		9B555195299ADC130025906D /* OpusSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSettings.swift; sourceTree = "<group>"; };
+		9B555197299B8B4F0025906D /* RawLoopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawLoopback.swift; sourceTree = "<group>"; };
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				9B165A102983E5C10017079F /* Loopback.swift */,
 				9B165A122984012D0017079F /* ApplicationMode.swift */,
 				9B165A1429840B610017079F /* QMediaPubSub.swift */,
+				9B555197299B8B4F0025906D /* RawLoopback.swift */,
 			);
 			path = ApplicationModes;
 			sourceTree = "<group>";
@@ -414,6 +417,7 @@
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
 				9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */,
+				9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
