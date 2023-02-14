@@ -21,8 +21,8 @@ class PipelineManager {
     typealias EncodedSampleCallback = (_ identifier: UInt32, _ sample: CMSampleBuffer) -> Void
 
     /// Represents a decoded audio sample.
-    typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: AVAudioPCMBuffer) -> Void
-    typealias DecodedAudio = (_ buffer: AVAudioPCMBuffer) -> Void
+    typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: CMSampleBuffer) -> Void
+    typealias DecodedAudio = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
 
     private let imageCallback: DecodedImageCallback
     private let encodedCallback: EncodedSampleCallback
@@ -93,9 +93,8 @@ class PipelineManager {
             return
         case .audio:
             // When it comes from passthrough encoder, we need to look it up.
-            // asbd = PassthroughEncoder.format!
-            decoder = LibOpusDecoder(format: OpusSettings.targetFormat) { pcm in
-                self.audioCallback(identifier, pcm)
+            decoder = LibOpusDecoder(format: LibOpusEncoder.encodingFormat!) { pcm, timestamp in
+                self.audioCallback(identifier, pcm.toSampleBuffer(presentationTime: timestamp))
             }
         }
 

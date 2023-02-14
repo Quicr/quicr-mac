@@ -3,6 +3,7 @@ import AVFoundation
 import DequeModule
 
 class LibOpusEncoder: Encoder {
+    static var encodingFormat: AVAudioFormat?
     private var encoder: Opus.Encoder?
     private let callback: EncodedBufferCallback
     private var queue: Deque<(AVAudioPCMBuffer, CMTime)> = .init()
@@ -13,6 +14,7 @@ class LibOpusEncoder: Encoder {
 
     private var samplesHit = 0
     private var encodesDone = 0
+    private let opusFrameSize: AVAudioFrameCount = 960
 
     init(callback: @escaping EncodedBufferCallback) {
         self.callback = callback
@@ -42,6 +44,7 @@ class LibOpusEncoder: Encoder {
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: type,
                                                   sampleRate: .opus48khz,
                                                   channels: sampleFormat.channelCount)!
+            Self.encodingFormat = opusFormat
             do {
                 encoder = try .init(format: opusFormat, application: .voip)
             } catch {
@@ -59,13 +62,14 @@ class LibOpusEncoder: Encoder {
     }
 
     func tryEncode(format: AVAudioFormat) {
+        guard self.currentFormat == format else {fatalError()}
+
         // What do we need to encode?
-        var requiredFrames = OpusSettings.opusFrameSize
+        var requiredFrames = opusFrameSize
         let bytesPerFrame = format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
 
         // Prepare storage for encoded data.
         let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: requiredFrames)!
-        selectedInput.frameLength = requiredFrames
         var selectedInputDataOffset = 0
 
         // Collate input data.
@@ -103,6 +107,7 @@ class LibOpusEncoder: Encoder {
             }
 
             dest.copyMemory(from: src, byteCount: Int(bytesToTake))
+            selectedInput.frameLength += framesToTake
             selectedInputDataOffset += Int(bytesToTake)
             requiredFrames -= framesToTake
 

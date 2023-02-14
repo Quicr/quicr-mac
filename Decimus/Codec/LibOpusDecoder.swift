@@ -29,7 +29,8 @@ class LibOpusDecoder: Decoder {
         do {
             try decoder.decode(ubp, to: decoded)
             print("Decoded: \(decoded.frameLength)")
-            callback(decoded)
+            let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
+            callback(decoded, timestamp)
         } catch {
             fatalError("Opus => Failed to decode: \(error)")
         }

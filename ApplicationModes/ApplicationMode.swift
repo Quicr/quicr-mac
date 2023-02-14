@@ -67,8 +67,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func playDecodedAudio(buffer: AVAudioPCMBuffer, player: AudioPlayer) {
-        player.write(buffer: buffer)
+    func playDecodedAudio(buffer: CMSampleBuffer, player: AudioPlayer) {
+        player.write(sample: buffer)
     }
 
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}

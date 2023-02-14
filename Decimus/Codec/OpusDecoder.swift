@@ -26,7 +26,7 @@ class OpusDecoder: Decoder {
 
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         let pcm: AVAudioPCMBuffer = .init(pcmFormat: output,
-                                          frameCapacity: OpusSettings.opusFrameSize)!
+                                          frameCapacity: 960)!
         var error: NSError?
         let status = converter.convert(to: pcm, error: &error) { packetCount, outStatus in
             // Do conversion.
@@ -56,7 +56,8 @@ class OpusDecoder: Decoder {
         }
 
         if pcm.frameLength > 0 {
-            callback(pcm)
+            let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
+            callback(pcm, timestamp)
         }
     }
 }
