@@ -147,7 +147,7 @@ class LibOpusEncoder: Encoder {
             callback(.init(identifier: 0,
                            buffer: .init(start: opus, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
-            print("Delta: \(samplesHit - encodesDone)")
+            // print("Delta: \(samplesHit - encodesDone)")
         }
     }
 }
