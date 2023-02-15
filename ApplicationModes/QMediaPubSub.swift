@@ -13,7 +13,7 @@ class QMediaPubSub: ApplicationModeBase {
         set { }
     }
 
-    let streamCallback: SubscribeCallback = { streamId, data, length in
+    let streamCallback: SubscribeCallback = { streamId, data, length, timestamp in
         guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
