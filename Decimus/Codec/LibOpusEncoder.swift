@@ -15,7 +15,13 @@ class LibOpusEncoder: Encoder {
     private var encodesDone = 0
     private let opusFrameSize: AVAudioFrameCount = 960
 
-    init(callback: @escaping EncodedBufferCallback) {
+    // Debug file output.
+    private let fileWrite: Bool
+    private var inputPcm: AVAudioFile?
+    private var collatedPcm: AVAudioFile?
+
+    init(fileWrite: Bool, callback: @escaping EncodedBufferCallback) {
+        self.fileWrite = fileWrite
         self.callback = callback
     }
 
@@ -28,6 +34,9 @@ class LibOpusEncoder: Encoder {
             fatalError("Opus encoder can't change format")
         }
         if encoder == nil {
+            if fileWrite {
+                makeOutputFiles(sampleFormat: sampleFormat)
+            }
             currentFormat = sampleFormat
             // Only the type of the incoming format is important for opus.
             // Encoder is safe to always be 2 channel @ 48kHz.
@@ -54,14 +63,19 @@ class LibOpusEncoder: Encoder {
 
         // Add the incoming PCM to the queue.
         let pcm: AVAudioPCMBuffer = .fromSample(sample: sample)
-        queue.append((pcm, sample.presentationTimeStamp))
 
-        encodeQueue.async {
-            self.tryEncode(format: sampleFormat)
+        if fileWrite {
+            do {
+                try inputPcm!.write(from: pcm)
+            } catch {
+                fatalError(error.localizedDescription)
+            }
         }
+        queue.append((pcm, sample.presentationTimeStamp))
+        tryEncode(format: sampleFormat)
     }
 
-    func tryEncode(format: AVAudioFormat) {
+    private func tryEncode(format: AVAudioFormat) {
         guard self.currentFormat == format else {fatalError()}
 
         // What do we need to encode?
@@ -91,24 +105,26 @@ class LibOpusEncoder: Encoder {
             }
             let framesLeft = input.frameLength - frameOffset
             let framesToTake = min(requiredFrames, framesLeft)
-            let bytesToTake = framesToTake * bytesPerFrame
+            let bytesToTake: Int = .init(framesToTake * bytesPerFrame)
+            let inputDataOffset: Int = .init(frameOffset * bytesPerFrame)
 
             // Copy the audio data to the encode buffer.
             let src: UnsafeRawPointer
             let dest: UnsafeMutableRawPointer
             if input.format.commonFormat == .pcmFormatInt16 {
-                src = .init(input.int16ChannelData![0])
-                dest = .init(selectedInput.int16ChannelData![0])
+                src = .init(input.int16ChannelData![0]).advanced(by: inputDataOffset)
+                dest = .init(selectedInput.int16ChannelData![0]).advanced(by: selectedInputDataOffset)
             } else if input.format.commonFormat == .pcmFormatFloat32 {
-                src = .init(input.floatChannelData![0])
-                dest = .init(selectedInput.floatChannelData![0])
+                src = .init(input.floatChannelData![0]).advanced(by: inputDataOffset)
+                dest = .init(selectedInput.floatChannelData![0]).advanced(by: selectedInputDataOffset)
             } else {
                 fatalError()
             }
+            dest.copyMemory(from: src, byteCount: bytesToTake)
 
-            dest.copyMemory(from: src, byteCount: Int(bytesToTake))
+            // Update offsets to reflect data capture.
             selectedInput.frameLength += framesToTake
-            selectedInputDataOffset += Int(bytesToTake)
+            selectedInputDataOffset += bytesToTake
             requiredFrames -= framesToTake
 
             if framesToTake == framesLeft {
@@ -129,6 +145,15 @@ class LibOpusEncoder: Encoder {
         }
         readIndex = 0
 
+        // Write selected input to wav.
+        if fileWrite {
+            do {
+                try collatedPcm!.write(from: selectedInput)
+            } catch {
+                fatalError(error.localizedDescription)
+            }
+        }
+
         // Encode to Opus.
         let maxOpusEncodeBytes = 64000
         var encoded: Data = .init(count: maxOpusEncodeBytes)
@@ -147,7 +172,33 @@ class LibOpusEncoder: Encoder {
             callback(.init(identifier: 0,
                            buffer: .init(start: opus, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
-            // print("Delta: \(samplesHit - encodesDone)")
+            print("Delta: \(samplesHit - encodesDone)")
+        }
+    }
+
+    private func makeOutputFiles(sampleFormat: AVAudioFormat) {
+        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).last
+        let file = dir!.appendingPathComponent("collated.wav")
+        FileManager.default.createFile(atPath: file.path(), contents: nil)
+        do {
+            inputPcm = try .init(forWriting: dir!.appendingPathComponent("input.wav"),
+                                 settings: [
+                                    "AVFormatIdKey": kAudioFormatLinearPCM,
+                                    "AVSampleRateKey": sampleFormat.sampleRate,
+                                    "AVNumberOfChannelsKey": sampleFormat.channelCount
+                                 ],
+                                 commonFormat: sampleFormat.commonFormat,
+                                 interleaved: sampleFormat.isInterleaved)
+            collatedPcm = try .init(forWriting: dir!.appendingPathComponent("collated.wav"),
+                                    settings: [
+                                        "AVFormatIdKey": kAudioFormatLinearPCM,
+                                        "AVSampleRateKey": sampleFormat.sampleRate,
+                                        "AVNumberOfChannelsKey": sampleFormat.channelCount
+                                    ],
+                                    commonFormat: sampleFormat.commonFormat,
+                                    interleaved: sampleFormat.isInterleaved)
+        } catch {
+            fatalError(error.localizedDescription)
         }
     }
 }

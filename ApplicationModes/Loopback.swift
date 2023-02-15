@@ -67,7 +67,7 @@ class Loopback: ApplicationModeBase {
 //            }
 
             // libopus
-            encoder = LibOpusEncoder { media in
+            encoder = LibOpusEncoder(fileWrite: false) { media in
                 let identified: MediaBuffer = .init(identifier: identifier, other: media)
                 self.sendEncodedAudio(data: identified)
             }
