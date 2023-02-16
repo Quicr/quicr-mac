@@ -171,7 +171,7 @@ class LibOpusEncoder: Encoder {
         encoded.withUnsafeBytes { opus in
             callback(.init(buffer: .init(start: opus, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
-            print("Delta: \(samplesHit - encodesDone)")
+            // print("Delta: \(samplesHit - encodesDone)")
         }
     }
 

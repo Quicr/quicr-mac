@@ -35,7 +35,6 @@ class LibOpusDecoder: Decoder {
                                               frameCapacity: .opusMax)!
         do {
             try decoder.decode(ubp, to: decoded)
-            print("Opus => (\(timestamp)) Decoded: \(decoded.frameLength) frames")
             let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
             callback(decoded, timestamp)
         } catch {

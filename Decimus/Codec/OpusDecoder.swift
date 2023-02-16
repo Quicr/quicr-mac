@@ -11,13 +11,13 @@ class OpusDecoder: Decoder {
     init(output: AVAudioFormat, callback: @escaping PipelineManager.DecodedAudio) {
         self.callback = callback
         self.output = output
-        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: output.sampleRate,
+        var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: Double(48000),
                                                           mFormatID: kAudioFormatOpus,
                                                           mFormatFlags: 0,
                                                           mBytesPerPacket: 0,
                                                           mFramesPerPacket: 1,
                                                           mBytesPerFrame: 0,
-                                                          mChannelsPerFrame: 1,
+                                                          mChannelsPerFrame: 2,
                                                           mBitsPerChannel: 0,
                                                           mReserved: 0)
         opus = .init(streamDescription: &opusDesc)!
