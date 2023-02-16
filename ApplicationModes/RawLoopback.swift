@@ -1,6 +1,5 @@
 import CoreMedia
 import SwiftUI
-import AVFAudio
 
 class RawLoopback: ApplicationModeBase {
 
