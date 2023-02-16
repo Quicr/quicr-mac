@@ -74,5 +74,5 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
-    func sendEncodedAudio(data: MediaBuffer) {}
+    func sendEncodedAudio(data: MediaBufferFromSource) {}
 }

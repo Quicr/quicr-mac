@@ -17,13 +17,13 @@ class Loopback: ApplicationModeBase {
         if pipeline!.decoders[identifier] == nil {
             pipeline!.registerDecoder(identifier: identifier, type: .video)
         }
-        pipeline!.decode(mediaBuffer: data.getMediaBuffer(identifier: identifier))
+        pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
     }
 
-    override func sendEncodedAudio(data: MediaBuffer) {
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
         // Loopback: Write encoded data to decoder.
-        if pipeline!.decoders[data.identifier] == nil {
-            pipeline!.registerDecoder(identifier: data.identifier, type: .audio)
+        if pipeline!.decoders[data.source] == nil {
+            pipeline!.registerDecoder(identifier: data.source, type: .audio)
         }
         pipeline!.decode(mediaBuffer: data)
     }
@@ -68,7 +68,7 @@ class Loopback: ApplicationModeBase {
 
             // libopus
             encoder = LibOpusEncoder(fileWrite: false) { media in
-                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
                 self.sendEncodedAudio(data: identified)
             }
 

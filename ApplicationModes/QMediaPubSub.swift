@@ -19,9 +19,9 @@ class QMediaPubSub: ApplicationModeBase {
         }
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
-        let buffer: MediaBuffer = .init(identifier: UInt32(streamId),
-                                        buffer: .init(start: .init(data), count: Int(length)),
-                                        timestampMs: 0)
+        let buffer: MediaBufferFromSource = .init(source: UInt32(streamId),
+                                                  media: .init(buffer: .init(start: data, count: Int(length)),
+                                                               timestampMs: 0))
         publisher.pipeline!.decode(mediaBuffer: buffer)
     }
 
@@ -70,16 +70,16 @@ class QMediaPubSub: ApplicationModeBase {
         }
     }
 
-    override func sendEncodedAudio(data: MediaBuffer) {
-        guard let streamId = identifierMapping[data.identifier] else {
-            print("[QMediaPubSub] Couldn't lookup stream id for media id: \(data.identifier)")
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
+        guard let streamId = identifierMapping[data.source] else {
+            print("[QMediaPubSub] Couldn't lookup stream id for media id: \(data.source)")
             return
         }
-        guard data.buffer.count > 0 else { fatalError() }
+        guard data.media.buffer.count > 0 else { fatalError() }
         qMedia!.sendAudio(mediaStreamId: streamId,
-                          buffer: data.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                          length: UInt32(data.buffer.count),
-                          timestamp: UInt64(data.timestampMs))
+                          buffer: data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                          length: UInt32(data.media.buffer.count),
+                          timestamp: UInt64(data.media.timestampMs))
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -98,7 +98,7 @@ class QMediaPubSub: ApplicationModeBase {
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             let encoder = LibOpusEncoder(fileWrite: false) { media in
-                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
                 self.sendEncodedAudio(data: identified)
             }
             pipeline!.registerEncoder(identifier: identifier, encoder: encoder)

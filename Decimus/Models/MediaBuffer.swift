@@ -1,17 +1,15 @@
+/// Represents some media data.
 struct MediaBuffer {
-    let identifier: UInt32
+    /// Pointer to the media data.
     let buffer: UnsafeRawBufferPointer
+    /// Timestamp of this media data, in milliseconds.
     let timestampMs: UInt32
+}
 
-    init(identifier: UInt32, other: MediaBuffer) {
-        self.identifier = identifier
-        buffer = other.buffer
-        timestampMs = other.timestampMs
-    }
-
-    init(identifier: UInt32, buffer: UnsafeRawBufferPointer, timestampMs: UInt32) {
-        self.identifier = identifier
-        self.buffer = buffer
-        self.timestampMs = timestampMs
-    }
+/// Represents some media data from a source.
+struct MediaBufferFromSource {
+    /// The source identifier this media comes from.
+    let source: UInt32
+    /// The media data.
+    let media: MediaBuffer
 }

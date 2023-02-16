@@ -27,7 +27,7 @@ class PipelineManager {
     private let imageCallback: DecodedImageCallback
     private let encodedCallback: EncodedSampleCallback
     private let audioCallback: DecodedAudioCallback
-    private let encodedAudioCallback: Encoder.EncodedBufferCallback
+    private let encodedAudioCallback: Encoder.SourcedMediaCallback
     private let debugging: Bool
 
     /// Managed pipeline elements.
@@ -39,7 +39,7 @@ class PipelineManager {
         decodedCallback: @escaping DecodedImageCallback,
         encodedCallback: @escaping EncodedSampleCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
-        encodedAudioCallback: @escaping Encoder.EncodedBufferCallback,
+        encodedAudioCallback: @escaping Encoder.SourcedMediaCallback,
         debugging: Bool) {
         self.imageCallback = decodedCallback
         self.encodedCallback = encodedCallback
@@ -60,11 +60,11 @@ class PipelineManager {
         encoder!.encoder.write(sample: sample)
     }
 
-    func decode(mediaBuffer: MediaBuffer) {
-        debugPrint(message: "[\(mediaBuffer.identifier)] (\(mediaBuffer.timestampMs)) Decode write")
-        let decoder: DecoderElement? = decoders[mediaBuffer.identifier]
-        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.identifier)") }
-        decoder!.decoder.write(data: mediaBuffer.buffer, timestamp: mediaBuffer.timestampMs)
+    func decode(mediaBuffer: MediaBufferFromSource) {
+        debugPrint(message: "[\(mediaBuffer.source)] (\(mediaBuffer.media.timestampMs)) Decode write")
+        let decoder: DecoderElement? = decoders[mediaBuffer.source]
+        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.source)") }
+        decoder!.decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 
     func registerEncoder(identifier: UInt32, width: Int32, height: Int32) {
@@ -90,9 +90,10 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation)
             })
         case .audio:
+            // TODO: Opus int vs float needs to be derived.
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: .int16,
                                                   sampleRate: .opus48khz,
-                                                  channels: 1)!
+                                                  channels: 2)!
             decoder = LibOpusDecoder(format: opusFormat) { pcm, timestamp in
                 self.audioCallback(identifier, pcm.toSampleBuffer(presentationTime: timestamp))
             }

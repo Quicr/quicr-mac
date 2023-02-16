@@ -15,7 +15,7 @@ class RawLoopback: ApplicationModeBase {
         // NOOP.
     }
 
-    override func sendEncodedAudio(data: MediaBuffer) {
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
         // NOOP.
     }
 

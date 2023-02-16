@@ -3,11 +3,11 @@ import AVFoundation
 
 extension CMSampleBuffer {
 
-    func getMediaBuffer() -> MediaBuffer {
-        getMediaBuffer(identifier: 0)
+    func getMediaBuffer(source: UInt32) -> MediaBufferFromSource {
+        .init(source: source, media: self.getMediaBuffer())
     }
 
-    func getMediaBuffer(identifier: UInt32) -> MediaBuffer {
+    func getMediaBuffer() -> MediaBuffer {
         // Requires contiguous buffers.
         guard self.dataBuffer!.isContiguous else { fatalError() }
 
@@ -23,7 +23,7 @@ extension CMSampleBuffer {
             copy.deallocate()
             fatalError()
         }
-        return .init(identifier: identifier, buffer: .init(copy), timestampMs: timestampMs)
+        return .init(buffer: .init(copy), timestampMs: timestampMs)
     }
 }
 
@@ -124,7 +124,7 @@ extension AVAudioPCMBuffer {
 
         var buffer: MediaBuffer?
         data.withUnsafeBytes { ptr in
-            buffer = .init(identifier: 0, buffer: ptr, timestampMs: timestampMs)
+            buffer = .init(buffer: ptr, timestampMs: timestampMs)
         }
         return buffer!
     }

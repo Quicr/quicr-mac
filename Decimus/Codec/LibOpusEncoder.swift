@@ -4,7 +4,7 @@ import DequeModule
 
 class LibOpusEncoder: Encoder {
     private var encoder: Opus.Encoder?
-    private let callback: EncodedBufferCallback
+    private let callback: MediaCallback
     private var queue: Deque<(AVAudioPCMBuffer, CMTime)> = .init()
     private var readIndex = 0
     private var frameOffset: AVAudioFrameCount = 0
@@ -20,7 +20,7 @@ class LibOpusEncoder: Encoder {
     private var inputPcm: AVAudioFile?
     private var collatedPcm: AVAudioFile?
 
-    init(fileWrite: Bool, callback: @escaping EncodedBufferCallback) {
+    init(fileWrite: Bool, callback: @escaping MediaCallback) {
         self.fileWrite = fileWrite
         self.callback = callback
     }
@@ -169,8 +169,7 @@ class LibOpusEncoder: Encoder {
         let timeMs = earliestTimestamp!.convertScale(1000, method: .default)
         // Callback encoded data.
         encoded.withUnsafeBytes { opus in
-            callback(.init(identifier: 0,
-                           buffer: .init(start: opus, count: encodedBytes),
+            callback(.init(buffer: .init(start: opus, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
             print("Delta: \(samplesHit - encodesDone)")
         }
