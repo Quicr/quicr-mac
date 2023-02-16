@@ -54,7 +54,7 @@ class H264Decoder: Decoder {
             if startCodeIndices.count < index + 1 {
                 naluTotalLength = startCodeIndices[index + 1] - thisNaluOffset
             }
-            let naluPtr: UnsafeMutableRawPointer = .init(mutating: data.baseAddress! + thisNaluOffset)
+            let naluPtr: UnsafeMutableRawPointer = .init(mutating: data.baseAddress!.advanced(by: thisNaluOffset))
 
             // What type is this NALU?
             type = data[thisNaluOffset + startCodeLength] & 0x1F
@@ -174,14 +174,14 @@ class H264Decoder: Decoder {
         var parameterSetsSizes: [Int] = .init(repeating: 0, count: 2)
 
         // SPS.
-        let spsSrc: UnsafeRawPointer = data.baseAddress! + startCodeLength
+        let spsSrc: UnsafeRawPointer = data.baseAddress!.advanced(by: startCodeLength)
         let spsDest = malloc(spsLength)
         memcpy(spsDest, spsSrc, spsLength)
         parameterSetsData[0] = .init(.init(spsDest!))
         parameterSetsSizes[0] = spsLength
 
         // PPS.
-        let ppsSrc: UnsafeRawPointer = data.baseAddress! + ppsStartCodeIndex + startCodeLength
+        let ppsSrc: UnsafeRawPointer = data.baseAddress!.advanced(by: ppsStartCodeIndex + startCodeLength)
         let ppsDest = malloc(ppsLength)
         memcpy(ppsDest, ppsSrc, ppsLength)
         parameterSetsData[1] = .init(.init(ppsDest!))
