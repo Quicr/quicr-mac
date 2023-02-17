@@ -13,7 +13,7 @@ class QMediaPubSub: ApplicationModeBase {
         set { }
     }
 
-    let streamCallback: SubscribeCallback = { streamId, data, length in
+    let streamCallback: SubscribeCallback = { streamId, data, length, timestamp in
         guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
@@ -21,7 +21,7 @@ class QMediaPubSub: ApplicationModeBase {
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
         let buffer: MediaBufferFromSource = .init(source: UInt32(streamId),
                                                   media: .init(buffer: .init(start: data, count: Int(length)),
-                                                               timestampMs: 0))
+                                                               timestampMs: UInt32(timestamp)))
         publisher.pipeline!.decode(mediaBuffer: buffer)
     }
 
