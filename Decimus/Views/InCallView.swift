@@ -31,38 +31,38 @@ struct InCallView: View {
     }
 
     // Remote grid config to use.
-    var columns: [GridItem] { Array(repeating: .init(.flexible()), count: 1) }
+    var columns: [GridItem] { Array(repeating: .init(.flexible()), count: 3) }
 
     // Show a video player.
     var body: some View {
         VStack {
             // Remote videos.
-            ScrollView {
-                LazyVGrid(columns: columns) {
-                    ForEach(Array(render.participants.values)) { participant in
-                        Image(uiImage: participant.decodedImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .padding(.horizontal)
-                    }
+            LazyVGrid(columns: columns) {
+                ForEach(Array(render.participants.values)) { participant in
+                    Image(uiImage: participant.decodedImage)
+                        .resizable()
+                        .scaledToFit()
                 }
             }
+            .padding()
 
             // Local video preview.
             // PreviewView(device: $selectedCamera)
 
             // Controls.
-            HStack {
-                // Local camera control.
-                Picker("Camera", selection: $selectedCamera) {
-                    ForEach(devices.cameras, id: \.self) { camera in
-                        Text(camera.localizedName).tag(camera)
+            List {
+                ForEach(devices.cameras, id: \.self) { camera in
+                    Button(camera.localizedName,
+                           role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
+                        capture.manager!.toggleInput(device: camera)
                     }
-                }.onChange(of: selectedCamera) { [selectedCamera] newCamera in
-                    capture.manager!.removeInput(device: selectedCamera)
-                    capture.manager!.addInput(device: newCamera)
                 }
+            }
+            .onAppear {
+                capture.manager!.addInput(device: selectedCamera)
+            }
 
+            HStack {
                 // Microphone control.
                 Picker("Microphone", selection: $selectedMicrophone) {
                     ForEach(devices.audioInputs, id: \.uniqueID) { microphone in

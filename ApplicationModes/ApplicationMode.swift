@@ -42,9 +42,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             decodedAudioCallback: { identifier, sample in
                 self.playDecodedAudio(identifier: identifier, buffer: sample, player: player)
             },
-            encodedAudioCallback: { data in
-                self.sendEncodedAudio(data: data)
-            },
+            encodedAudioCallback: self.sendEncodedAudio,
             debugging: false)
     }
 
