@@ -50,6 +50,9 @@ extension MediaBuffer {
                                                decodeTimeStamp: CMTime.invalid)
 
         var bpp = Int(format.audioStreamBasicDescription!.mBytesPerPacket)
+        if bpp == 0 {
+            bpp = buffer!.dataLength
+        }
         let sampleCount = buffer!.dataLength / bpp
         var sampleBuffer: CMSampleBuffer?
         let sampleError = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
