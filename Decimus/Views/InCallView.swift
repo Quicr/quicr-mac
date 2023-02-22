@@ -61,8 +61,6 @@ struct InCallView: View {
                 }.onChange(of: selectedCamera) { [selectedCamera] newCamera in
                     capture.manager!.removeInput(device: selectedCamera)
                     capture.manager!.addInput(device: newCamera)
-                }.onAppear {
-                    capture.manager!.addInput(device: selectedCamera)
                 }
 
                 // Microphone control.
@@ -72,28 +70,38 @@ struct InCallView: View {
                     }
                 }.onChange(of: selectedMicrophone) { _ in
                     capture.manager!.addInput(device: selectedMicrophone)
-                }.onTapGesture {
-                    capture.manager!.addInput(device: selectedMicrophone)
                 }
 
                 // Leave.
                 Button("Leave", action: leaveCall)
             }
         }.onAppear {
-            // Bind pipeline to capture manager.
-            capture.videoCallback = { identifier, sample in
-                mode?.encodeCameraFrame(identifier: identifier, frame: sample)
-            }
-            capture.audioCallback = { identifier, sample in
-                mode?.encodeAudioSample(identifier: identifier, sample: sample)
-            }
+            joinCall()
+        }.onDisappear {
+            leaveCall()
         }
     }
 
-    func leaveCall() {
+    private func joinCall() {
+        // Bind pipeline to capture manager.
+        capture.videoCallback = mode!.encodeCameraFrame
+        capture.audioCallback = mode!.encodeAudioSample
+        capture.deviceChangeCallback = mode!.onDeviceChange
+
+        // Use default devices.
+        capture.manager!.addInput(device: selectedCamera)
+        capture.manager!.addInput(device: selectedMicrophone)
+    }
+
+    private func leaveCall() {
         // Stop capturing.
         capture.manager!.removeInput(device: selectedCamera)
         capture.manager!.stopCapturing()
+
+        // Unbind pipeline.
+        capture.videoCallback = nil
+        capture.audioCallback = nil
+        capture.deviceChangeCallback = nil
 
         // Report left.
         onLeave()
