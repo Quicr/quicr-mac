@@ -13,7 +13,7 @@ class LibOpusEncoder: Encoder {
 
     private var samplesHit = 0
     private var encodesDone = 0
-    private let opusFrameSize: AVAudioFrameCount = 960
+    private let opusFrameSize: AVAudioFrameCount = 480
 
     // Debug file output.
     private let fileWrite: Bool
@@ -177,8 +177,6 @@ class LibOpusEncoder: Encoder {
 
     private func makeOutputFiles(sampleFormat: AVAudioFormat) {
         let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).last
-        let file = dir!.appendingPathComponent("collated.wav")
-        FileManager.default.createFile(atPath: file.path(), contents: nil)
         do {
             inputPcm = try .init(forWriting: dir!.appendingPathComponent("input.wav"),
                                  settings: [

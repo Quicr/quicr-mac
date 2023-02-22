@@ -21,7 +21,7 @@ class PipelineManager {
     typealias EncodedSampleCallback = (_ identifier: UInt32, _ sample: CMSampleBuffer) -> Void
 
     /// Represents a decoded audio sample.
-    typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: CMSampleBuffer) -> Void
+    typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: AVAudioPCMBuffer) -> Void
     typealias DecodedAudio = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
 
     private let imageCallback: DecodedImageCallback
@@ -90,12 +90,11 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation)
             })
         case .audio:
-            // TODO: Opus int vs float needs to be derived.
-            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .int16,
+            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,
                                                   sampleRate: .opus48khz,
-                                                  channels: 2)!
-            decoder = LibOpusDecoder(format: opusFormat) { pcm, timestamp in
-                self.audioCallback(identifier, pcm.toSampleBuffer(presentationTime: timestamp))
+                                                  channels: 1)!
+            decoder = LibOpusDecoder(format: opusFormat, fileWrite: false) { pcm, _ in
+                self.audioCallback(identifier, pcm)
             }
         }
 
