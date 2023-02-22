@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreMedia
 import SwiftUI
+import AVFAudio
 
 /// The core of the application.
 protocol ApplicationMode {
@@ -38,11 +39,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             encodedCallback: { identifier, data in
                 self.sendEncodedImage(identifier: identifier, data: data)
             },
-            decodedAudioCallback: { _, sample in
-                self.playDecodedAudio(sample: sample, player: player)
+            decodedAudioCallback: { identifier, sample in
+                self.playDecodedAudio(identifier: identifier, buffer: sample, player: player)
             },
-            encodedAudioCallback: { identifier, data in
-                self.sendEncodedAudio(identifier: identifier, data: data)
+            encodedAudioCallback: { data in
+                self.sendEncodedAudio(data: data)
             },
             debugging: false)
         captureManager = .init(
@@ -66,12 +67,12 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func playDecodedAudio(sample: CMSampleBuffer, player: AudioPlayer) {
-        player.write(sample: sample)
+    func playDecodedAudio(identifier: UInt32, buffer: AVAudioPCMBuffer, player: AudioPlayer) {
+        player.write(identifier: identifier, buffer: buffer)
     }
 
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
-    func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {}
+    func sendEncodedAudio(data: MediaBufferFromSource) {}
 }

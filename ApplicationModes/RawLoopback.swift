@@ -14,7 +14,7 @@ class RawLoopback: ApplicationModeBase {
         // NOOP.
     }
 
-    override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
         // NOOP.
     }
 
@@ -30,6 +30,6 @@ class RawLoopback: ApplicationModeBase {
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        playDecodedAudio(sample: sample, player: player)
+        playDecodedAudio(identifier: identifier, buffer: .fromSample(sample: sample), player: player)
     }
 }

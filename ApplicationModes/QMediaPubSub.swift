@@ -19,22 +19,29 @@ class QMediaPubSub: ApplicationModeBase {
         }
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
-        publisher.pipeline!.decode(identifier: UInt32(streamId),
-                                   data: data!,
-                                   length: Int(length),
-                                   timestamp: UInt32(timestamp))
+        let buffer: MediaBufferFromSource = .init(source: UInt32(streamId),
+                                                  media: .init(buffer: .init(start: data, count: Int(length)),
+                                                               timestampMs: UInt32(timestamp)))
+        publisher.pipeline!.decode(mediaBuffer: buffer)
     }
 
     func connect(config: CallConfig) {
+        guard qMedia == nil else { fatalError("Already connected") }
         qMedia = .init(address: .init(string: config.address)!, port: config.port)
 
         // TODO: Where should the subscriptions go?
+
+        // Video.
         let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
         Self.streamIdMap[videoSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(videoSubscription), type: .video)
-        let audioSubscription = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+        print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
+
+        // Audio.
+        let audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
         Self.streamIdMap[audioSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(audioSubscription), type: .audio)
+        print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -63,7 +70,16 @@ class QMediaPubSub: ApplicationModeBase {
         }
     }
 
-    override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
+        guard let streamId = identifierMapping[data.source] else {
+            print("[QMediaPubSub] Couldn't lookup stream id for media id: \(data.source)")
+            return
+        }
+        guard data.media.buffer.count > 0 else { fatalError() }
+        qMedia!.sendAudio(mediaStreamId: streamId,
+                          buffer: data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                          length: UInt32(data.media.buffer.count),
+                          timestamp: UInt64(data.media.timestampMs))
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -73,7 +89,6 @@ class QMediaPubSub: ApplicationModeBase {
             print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
-            identifierMapping[identifier] = qMedia!.addVideoStreamPublishIntent(codec: .h264)
         }
     }
 
@@ -82,8 +97,12 @@ class QMediaPubSub: ApplicationModeBase {
             let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
-            pipeline!.registerEncoder(identifier: identifier)
-            identifierMapping[identifier] = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+            let encoder = LibOpusEncoder(fileWrite: false) { media in
+                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
+                self.sendEncodedAudio(data: identified)
+            }
+            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
+            identifierMapping[identifier] = subscriptionId
         }
     }
 

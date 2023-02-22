@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreMedia
 import SwiftUI
+import AVFoundation
 
 class Loopback: ApplicationModeBase {
 
@@ -13,34 +14,18 @@ class Loopback: ApplicationModeBase {
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.
-        do {
-            try data.dataBuffer!.withUnsafeMutableBytes { ptr in
-                let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
-                var timestamp: CMTime = .init()
-                do {
-                    timestamp = try data.sampleTimingInfo(at: 0).presentationTimeStamp
-                } catch {
-                    print("[Loopback] Failed to get timestamp")
-                }
-                let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
-                pipeline!.decode(identifier: identifier,
-                                 data: unsafe,
-                                 length: data.dataBuffer!.dataLength,
-                                 timestamp: timestampMs)
-            }
-        } catch {
-            print("[Loopback] Failed to get bytes of encoded data")
+        if pipeline!.decoders[identifier] == nil {
+            pipeline!.registerDecoder(identifier: identifier, type: .video)
         }
+        pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
     }
 
-    override func sendEncodedAudio(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedAudio(data: MediaBufferFromSource) {
         // Loopback: Write encoded data to decoder.
-        var memory = data
-        let address = withUnsafePointer(to: &memory, {UnsafeRawPointer($0)})
-        pipeline!.decode(identifier: identifier,
-                         data: address.assumingMemoryBound(to: UInt8.self),
-                         length: 0,
-                         timestamp: 0)
+        if pipeline!.decoders[data.source] == nil {
+            pipeline!.registerDecoder(identifier: data.source, type: .audio)
+        }
+        pipeline!.decode(mediaBuffer: data)
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
@@ -55,7 +40,39 @@ class Loopback: ApplicationModeBase {
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            pipeline!.registerEncoder(identifier: identifier)
+            let encoder: Encoder
+
+            // Passthrough.
+//            encoder = PassthroughEncoder { media in
+//                let identified: MediaBuffer = .init(identifier: identifier, other: media)
+//                self.sendEncodedAudio(data: identified)
+//            }
+
+            // Apple API.
+//            let opusFrameSize: UInt32 = 960
+//            let opusSampleRate: Float64 = 48000.0
+//            var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+//                                                              mFormatID: kAudioFormatOpus,
+//                                                              mFormatFlags: 0,
+//                                                              mBytesPerPacket: 0,
+//                                                              mFramesPerPacket: opusFrameSize,
+//                                                              mBytesPerFrame: 0,
+//                                                              mChannelsPerFrame: 1,
+//                                                              mBitsPerChannel: 0,
+//                                                              mReserved: 0)
+//            let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
+//            encoder = AudioEncoder(to: opus) { sample in
+//                let buffer = sample.getMediaBuffer(identifier: identifier)
+//                self.sendEncodedAudio(data: buffer)
+//            }
+
+            // libopus
+            encoder = LibOpusEncoder(fileWrite: false) { media in
+                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
+                self.sendEncodedAudio(data: identified)
+            }
+
+            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
         }
     }
 
@@ -66,9 +83,6 @@ class Loopback: ApplicationModeBase {
         // Make a encoder for this stream.
         if pipeline!.encoders[identifier] == nil {
             register()
-
-            // Since we're in loopback, we can make a decoder upfront too.
-            pipeline!.registerDecoder(identifier: identifier, type: type)
         }
 
         // Write camera frame to pipeline.

@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics
 import CoreMedia
+import AVFoundation
 
 /// Manages pipeline elements.
 class PipelineManager {
@@ -20,12 +21,13 @@ class PipelineManager {
     typealias EncodedSampleCallback = (_ identifier: UInt32, _ sample: CMSampleBuffer) -> Void
 
     /// Represents a decoded audio sample.
-    typealias DecodedAudioCallback = EncodedSampleCallback
+    typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: AVAudioPCMBuffer) -> Void
+    typealias DecodedAudio = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
 
     private let imageCallback: DecodedImageCallback
     private let encodedCallback: EncodedSampleCallback
     private let audioCallback: DecodedAudioCallback
-    private let encodedAudioCallback: EncodedSampleCallback
+    private let encodedAudioCallback: Encoder.SourcedMediaCallback
     private let debugging: Bool
 
     /// Managed pipeline elements.
@@ -37,7 +39,7 @@ class PipelineManager {
         decodedCallback: @escaping DecodedImageCallback,
         encodedCallback: @escaping EncodedSampleCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
-        encodedAudioCallback: @escaping EncodedSampleCallback,
+        encodedAudioCallback: @escaping Encoder.SourcedMediaCallback,
         debugging: Bool) {
         self.imageCallback = decodedCallback
         self.encodedCallback = encodedCallback
@@ -58,11 +60,11 @@ class PipelineManager {
         encoder!.encoder.write(sample: sample)
     }
 
-    func decode(identifier: UInt32, data: UnsafePointer<UInt8>, length: Int, timestamp: UInt32) {
-        debugPrint(message: "[\(identifier)] (\(timestamp)) Decode write")
-        let decoder: DecoderElement? = decoders[identifier]
-        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(identifier)") }
-        decoder?.decoder.write(data: data, length: length, timestamp: timestamp)
+    func decode(mediaBuffer: MediaBufferFromSource) {
+        debugPrint(message: "[\(mediaBuffer.source)] (\(mediaBuffer.media.timestampMs)) Decode write")
+        let decoder: DecoderElement? = decoders[mediaBuffer.source]
+        guard decoder != nil else { fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.source)") }
+        decoder!.decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 
     func registerEncoder(identifier: UInt32, width: Int32, height: Int32) {
@@ -73,14 +75,7 @@ class PipelineManager {
         registerEncoder(identifier: identifier, encoder: encoder)
     }
 
-    func registerEncoder(identifier: UInt32) {
-        let encoder = OpusEncoder { sample in
-            self.encodedAudioCallback(identifier, sample)
-        }
-        registerEncoder(identifier: identifier, encoder: encoder)
-    }
-
-    private func registerEncoder(identifier: UInt32, encoder: Encoder) {
+     func registerEncoder(identifier: UInt32, encoder: Encoder) {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
         debugPrint(message: "[\(identifier)] Registered encoder")
@@ -95,9 +90,12 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation)
             })
         case .audio:
-            decoder = OpusDecoder(callback: { sample in
-                self.audioCallback(identifier, sample)
-            })
+            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,
+                                                  sampleRate: .opus48khz,
+                                                  channels: 1)!
+            decoder = LibOpusDecoder(format: opusFormat, fileWrite: false) { pcm, _ in
+                self.audioCallback(identifier, pcm)
+            }
         }
 
         let element: DecoderElement = .init(identifier: identifier, decoder: decoder)

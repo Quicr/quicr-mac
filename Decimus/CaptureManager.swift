@@ -8,7 +8,7 @@ class CaptureManager: NSObject,
     /// Callback of raw camera frames.
     typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
 
-    let session: AVCaptureSession = .init()
+    let session: AVCaptureSession
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
     private let sessionQueue: DispatchQueue = .init(label: "CaptureManager")
@@ -21,10 +21,19 @@ class CaptureManager: NSObject,
     init(cameraCallback: @escaping MediaCallback, audioCallback: @escaping MediaCallback) {
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
-        super.init()
 
+        // Audio configuration.
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .videoChat)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
+        session = .init()
+        session.automaticallyConfiguresApplicationAudioSession = false
+        super.init()
         session.beginConfiguration()
-        session.sessionPreset = .low
+        session.sessionPreset = .medium
 
         // Video output.
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)

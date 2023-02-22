@@ -2,11 +2,10 @@
 //  DecimusTests.swift
 //  DecimusTests
 //
-//  Created by Richard Logan on 22/01/2023.
+//  Created by Richard Logan on 10/02/2023.
 //
 
 import XCTest
-@testable import Decimus
 
 final class DecimusTests: XCTestCase {
 
@@ -28,7 +27,7 @@ final class DecimusTests: XCTestCase {
 
     func testPerformanceExample() throws {
         // This is an example of a performance test case.
-        self.measure {
+        measure {
             // Put the code you want to measure the time of here.
         }
     }

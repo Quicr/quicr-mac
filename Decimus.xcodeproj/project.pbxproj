@@ -19,36 +19,36 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
 		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
-		9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806822981D4400040F5D4 /* OpusEncoder.swift */; };
+		9B4806832981D4400040F5D4 /* AudioEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806822981D4400040F5D4 /* AudioEncoder.swift */; };
 		9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480684298284F40040F5D4 /* OpusDecoder.swift */; };
 		9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AudioPlayer.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
 		9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B555197299B8B4F0025906D /* RawLoopback.swift */; };
+		9B647C9C29A6267B000AD358 /* PcmIntToFloat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PcmIntToFloat.swift */; };
 		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
 		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
 		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
-		9BA27FD7297D7271007013B2 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FD6297D7271007013B2 /* DecimusTests.swift */; };
-		9BA27FE1297D7271007013B2 /* DecimusUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE0297D7271007013B2 /* DecimusUITests.swift */; };
-		9BA27FE3297D7271007013B2 /* DecimusUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */; };
 		9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF2297D7562007013B2 /* SidebarView.swift */; };
 		9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */; };
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
+		9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */; };
+		9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */; };
+		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
+		9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */; };
+		9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */; };
+		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
+		9BDD5B162996A84B00C01D54 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B152996A84B00C01D54 /* Opus */; };
+		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
+		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		9BA27FD3297D7271007013B2 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 9BA27FBA297D7270007013B2 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 9BA27FC1297D7270007013B2;
-			remoteInfo = Decimus;
-		};
-		9BA27FDD297D7271007013B2 /* PBXContainerItemProxy */ = {
+		9BDD5B0C29967C9600C01D54 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 9BA27FBA297D7270007013B2 /* Project object */;
 			proxyType = 1;
@@ -84,29 +84,33 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
-		9B4806822981D4400040F5D4 /* OpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusEncoder.swift; sourceTree = "<group>"; };
+		9B4806822981D4400040F5D4 /* AudioEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEncoder.swift; sourceTree = "<group>"; };
 		9B480684298284F40040F5D4 /* OpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusDecoder.swift; sourceTree = "<group>"; };
 		9B480686298289910040F5D4 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
 		9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		9B555197299B8B4F0025906D /* RawLoopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawLoopback.swift; sourceTree = "<group>"; };
+		9B647C9B29A6267B000AD358 /* PcmIntToFloat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PcmIntToFloat.swift; sourceTree = "<group>"; };
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		9BA27FD2297D7271007013B2 /* DecimusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9BA27FD6297D7271007013B2 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
-		9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9BA27FE0297D7271007013B2 /* DecimusUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusUITests.swift; sourceTree = "<group>"; };
-		9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		9BA27FEF297D7352007013B2 /* Decimus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Decimus.entitlements; sourceTree = "<group>"; };
 		9BA27FF2297D7562007013B2 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaConfigCall.swift; sourceTree = "<group>"; };
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
+		9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughDecoder.swift; sourceTree = "<group>"; };
+		9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughEncoder.swift; sourceTree = "<group>"; };
+		9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaBuffer.swift; sourceTree = "<group>"; };
+		9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleExtensions.swift; sourceTree = "<group>"; };
+		9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
+		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
+		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,17 +119,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
+				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
+				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9BA27FCF297D7271007013B2 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9BA27FD9297D7271007013B2 /* Frameworks */ = {
+		9BDD5B0529967C9600C01D54 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -151,8 +150,13 @@
 			children = (
 				9B480663297EBD930040F5D4 /* H264Decoder.swift */,
 				9B4806802980170B0040F5D4 /* H264Encoder.swift */,
-				9B4806822981D4400040F5D4 /* OpusEncoder.swift */,
+				9B4806822981D4400040F5D4 /* AudioEncoder.swift */,
 				9B480684298284F40040F5D4 /* OpusDecoder.swift */,
+				9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */,
+				9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */,
+				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
+				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
+				9B647C9B29A6267B000AD358 /* PcmIntToFloat.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -179,8 +183,7 @@
 			children = (
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
-				9BA27FD5297D7271007013B2 /* DecimusTests */,
-				9BA27FDF297D7271007013B2 /* DecimusUITests */,
+				9BDD5B0929967C9600C01D54 /* DecimusTests */,
 				9BA27FC3297D7270007013B2 /* Products */,
 				9B76FFE0298D5566006B5267 /* Frameworks */,
 			);
@@ -190,8 +193,7 @@
 			isa = PBXGroup;
 			children = (
 				9BA27FC2297D7270007013B2 /* Decimus.app */,
-				9BA27FD2297D7271007013B2 /* DecimusTests.xctest */,
-				9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */,
+				9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -213,6 +215,7 @@
 				9B48066B297F051D0040F5D4 /* EncoderElement.swift */,
 				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
 				9B480686298289910040F5D4 /* AudioPlayer.swift */,
+				9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -223,23 +226,6 @@
 				9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
-			sourceTree = "<group>";
-		};
-		9BA27FD5297D7271007013B2 /* DecimusTests */ = {
-			isa = PBXGroup;
-			children = (
-				9BA27FD6297D7271007013B2 /* DecimusTests.swift */,
-			);
-			path = DecimusTests;
-			sourceTree = "<group>";
-		};
-		9BA27FDF297D7271007013B2 /* DecimusUITests */ = {
-			isa = PBXGroup;
-			children = (
-				9BA27FE0297D7271007013B2 /* DecimusUITests.swift */,
-				9BA27FE2297D7271007013B2 /* DecimusUITestsLaunchTests.swift */,
-			);
-			path = DecimusUITests;
 			sourceTree = "<group>";
 		};
 		9BA27FF6297D7D61007013B2 /* Views */ = {
@@ -260,8 +246,17 @@
 			children = (
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
+				9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		9BDD5B0929967C9600C01D54 /* DecimusTests */ = {
+			isa = PBXGroup;
+			children = (
+				9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */,
+			);
+			path = DecimusTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -283,45 +278,31 @@
 				9B165A21298807AF0017079F /* PBXTargetDependency */,
 			);
 			name = Decimus;
+			packageProductDependencies = (
+				9BDD5B12299697DE00C01D54 /* DequeModule */,
+				9BDD5B152996A84B00C01D54 /* Opus */,
+			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
 			productType = "com.apple.product-type.application";
 		};
-		9BA27FD1297D7271007013B2 /* DecimusTests */ = {
+		9BDD5B0729967C9600C01D54 /* DecimusTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9BA27FE9297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusTests" */;
+			buildConfigurationList = 9BDD5B0E29967C9600C01D54 /* Build configuration list for PBXNativeTarget "DecimusTests" */;
 			buildPhases = (
-				9BA27FCE297D7271007013B2 /* Sources */,
-				9BA27FCF297D7271007013B2 /* Frameworks */,
-				9BA27FD0297D7271007013B2 /* Resources */,
+				9BDD5B0429967C9600C01D54 /* Sources */,
+				9BDD5B0529967C9600C01D54 /* Frameworks */,
+				9BDD5B0629967C9600C01D54 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				9BA27FD4297D7271007013B2 /* PBXTargetDependency */,
+				9BDD5B0D29967C9600C01D54 /* PBXTargetDependency */,
 			);
 			name = DecimusTests;
 			productName = DecimusTests;
-			productReference = 9BA27FD2297D7271007013B2 /* DecimusTests.xctest */;
+			productReference = 9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		9BA27FDB297D7271007013B2 /* DecimusUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 9BA27FEC297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusUITests" */;
-			buildPhases = (
-				9BA27FD8297D7271007013B2 /* Sources */,
-				9BA27FD9297D7271007013B2 /* Frameworks */,
-				9BA27FDA297D7271007013B2 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				9BA27FDE297D7271007013B2 /* PBXTargetDependency */,
-			);
-			name = DecimusUITests;
-			productName = DecimusUITests;
-			productReference = 9BA27FDC297D7271007013B2 /* DecimusUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -337,11 +318,7 @@
 						CreatedOnToolsVersion = 14.1;
 						LastSwiftMigration = 1410;
 					};
-					9BA27FD1297D7271007013B2 = {
-						CreatedOnToolsVersion = 14.1;
-						TestTargetID = 9BA27FC1297D7270007013B2;
-					};
-					9BA27FDB297D7271007013B2 = {
+					9BDD5B0729967C9600C01D54 = {
 						CreatedOnToolsVersion = 14.1;
 						TestTargetID = 9BA27FC1297D7270007013B2;
 					};
@@ -358,14 +335,15 @@
 			mainGroup = 9BA27FB9297D7270007013B2;
 			packageReferences = (
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
+				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
+				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				9BA27FC1297D7270007013B2 /* Decimus */,
-				9BA27FD1297D7271007013B2 /* DecimusTests */,
-				9BA27FDB297D7271007013B2 /* DecimusUITests */,
+				9BDD5B0729967C9600C01D54 /* DecimusTests */,
 			);
 		};
 /* End PBXProject section */
@@ -380,14 +358,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9BA27FD0297D7271007013B2 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9BA27FDA297D7271007013B2 /* Resources */ = {
+		9BDD5B0629967C9600C01D54 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -399,6 +370,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		9B76FFD9298D4836006B5267 /* Build QMedia */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -428,42 +400,40 @@
 				9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */,
-				9B4806832981D4400040F5D4 /* OpusEncoder.swift in Sources */,
+				9B4806832981D4400040F5D4 /* AudioEncoder.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
+				9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				9B165A132984012D0017079F /* ApplicationMode.swift in Sources */,
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				9B480687298289910040F5D4 /* AudioPlayer.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
+				9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */,
 				9B165A112983E5C10017079F /* Loopback.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
+				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
+				9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */,
 				9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
 				9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */,
+				9B647C9C29A6267B000AD358 /* PcmIntToFloat.swift in Sources */,
 				9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */,
 				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
+				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9BA27FCE297D7271007013B2 /* Sources */ = {
+		9BDD5B0429967C9600C01D54 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9BA27FD7297D7271007013B2 /* DecimusTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9BA27FD8297D7271007013B2 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				9BA27FE1297D7271007013B2 /* DecimusUITests.swift in Sources */,
-				9BA27FE3297D7271007013B2 /* DecimusUITestsLaunchTests.swift in Sources */,
+				9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -474,15 +444,10 @@
 			isa = PBXTargetDependency;
 			productRef = 9B165A20298807AF0017079F /* SwiftLintPlugin */;
 		};
-		9BA27FD4297D7271007013B2 /* PBXTargetDependency */ = {
+		9BDD5B0D29967C9600C01D54 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
-			targetProxy = 9BA27FD3297D7271007013B2 /* PBXContainerItemProxy */;
-		};
-		9BA27FDE297D7271007013B2 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 9BA27FC1297D7270007013B2 /* Decimus */;
-			targetProxy = 9BA27FDD297D7271007013B2 /* PBXContainerItemProxy */;
+			targetProxy = 9BDD5B0C29967C9600C01D54 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -625,7 +590,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -675,7 +640,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -700,19 +665,23 @@
 			};
 			name = Release;
 		};
-		9BA27FEA297D7271007013B2 /* Debug */ = {
+		9BDD5B0F29967C9600C01D54 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -720,59 +689,27 @@
 			};
 			name = Debug;
 		};
-		9BA27FEB297D7271007013B2 /* Release */ = {
+		9BDD5B1029967C9600C01D54 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
-			};
-			name = Release;
-		};
-		9BA27FED297D7271007013B2 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Decimus;
-			};
-			name = Debug;
-		};
-		9BA27FEE297D7271007013B2 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = Decimus;
 			};
 			name = Release;
 		};
@@ -797,20 +734,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9BA27FE9297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusTests" */ = {
+		9BDD5B0E29967C9600C01D54 /* Build configuration list for PBXNativeTarget "DecimusTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9BA27FEA297D7271007013B2 /* Debug */,
-				9BA27FEB297D7271007013B2 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		9BA27FEC297D7271007013B2 /* Build configuration list for PBXNativeTarget "DecimusUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				9BA27FED297D7271007013B2 /* Debug */,
-				9BA27FEE297D7271007013B2 /* Release */,
+				9BDD5B0F29967C9600C01D54 /* Debug */,
+				9BDD5B1029967C9600C01D54 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -826,6 +754,22 @@
 				kind = branch;
 			};
 		};
+		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-collections.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "git@github.com:alta/swift-opus.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -833,6 +777,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
 			productName = "plugin:SwiftLintPlugin";
+		};
+		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = DequeModule;
+		};
+		9BDD5B152996A84B00C01D54 /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

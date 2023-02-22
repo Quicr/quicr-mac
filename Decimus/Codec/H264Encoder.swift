@@ -7,9 +7,9 @@ class H264Encoder: Encoder {
     private let startCode = [ 0x00, 0x00, 0x00, 0x01 ]
 
     private var encoder: VTCompressionSession?
-    private let callback: EncodedDataCallback
+    private let callback: EncodedSampleCallback
 
-    init(width: Int32, height: Int32, callback: @escaping EncodedDataCallback) {
+    init(width: Int32, height: Int32, callback: @escaping EncodedSampleCallback) {
         self.callback = callback
         let error = VTCompressionSessionCreate(allocator: nil,
                                                width: width,
