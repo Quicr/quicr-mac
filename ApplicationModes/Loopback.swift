@@ -88,4 +88,13 @@ class Loopback: ApplicationModeBase {
         // Write camera frame to pipeline.
         pipeline!.encode(identifier: identifier, sample: frame)
     }
+
+    override func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {
+        switch event {
+        case .removed:
+            removeRemoteSource(identifier: identifier)
+        default:
+            return
+        }
+    }
 }
