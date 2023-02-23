@@ -64,9 +64,15 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func removeRemoteSource(identifier: UInt32) {
-        print("Doing remove now")
+        // Remove decoder for this source.
         _ = pipeline!.decoders.removeValue(forKey: identifier)
-        participants.removeParticipant(identifier: identifier)
+
+        // Remove video renderer.
+        if participants.participants[identifier] != nil {
+            participants.removeParticipant(identifier: identifier)
+        }
+
+        // TODO: Remove audio player here.
     }
 
     func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {}

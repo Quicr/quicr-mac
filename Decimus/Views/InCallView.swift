@@ -96,6 +96,7 @@ struct InCallView: View {
     private func leaveCall() {
         // Stop capturing.
         capture.manager!.removeInput(device: selectedCamera)
+        capture.manager!.removeInput(device: selectedMicrophone)
         capture.manager!.stopCapturing()
 
         // Unbind pipeline.
