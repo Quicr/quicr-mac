@@ -19,8 +19,8 @@ class QMedia {
     /// Signal the intent to publish an audio stream.
     /// - Parameter codec: The `CodecType` being published.
     /// - Returns Stream identifier to use for `sendAudio`.
-    func addAudioStreamPublishIntent(codec: CodecType) -> UInt64 {
-         MediaClient_AddAudioStreamPublishIntent(instance, codec.rawValue)
+    func addAudioStreamPublishIntent(codec: CodecType, clientIdentifier: UInt16) -> UInt64 {
+         MediaClient_AddAudioStreamPublishIntent(instance, codec.rawValue, clientIdentifier)
     }
 
     /// Subscribe to an audio stream.
@@ -34,8 +34,8 @@ class QMedia {
     /// Signal the intent to publish a video stream.
     /// - Parameter codec: The `CodecType` being published.
     /// - Returns Stream identifier to use for `sendVideoFrame`.
-    func addVideoStreamPublishIntent(codec: CodecType) -> UInt64 {
-        MediaClient_AddVideoStreamPublishIntent(instance, codec.rawValue)
+    func addVideoStreamPublishIntent(codec: CodecType, clientIdentifier: UInt16) -> UInt64 {
+        MediaClient_AddVideoStreamPublishIntent(instance, codec.rawValue, clientIdentifier)
     }
 
     /// Subscribe to a video stream.

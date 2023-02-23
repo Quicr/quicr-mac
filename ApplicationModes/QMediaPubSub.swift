@@ -13,7 +13,7 @@ class QMediaPubSub: ApplicationModeBase {
         set { }
     }
 
-    let streamCallback: SubscribeCallback = { streamId, data, length, timestamp in
+    let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
         guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
@@ -85,7 +85,7 @@ class QMediaPubSub: ApplicationModeBase {
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: frame, type: .video) {
             let size = frame.formatDescription!.dimensions
-            let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: .h264)
+            let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: .h264, clientIdentifier: clientId)
             print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
@@ -94,7 +94,7 @@ class QMediaPubSub: ApplicationModeBase {
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+            let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus, clientIdentifier: clientId)
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             let encoder = LibOpusEncoder(fileWrite: false) { media in
