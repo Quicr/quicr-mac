@@ -8,6 +8,9 @@ class QMediaPubSub: ApplicationModeBase {
     private var qMedia: QMedia?
     private var identifierMapping: [UInt32: UInt64] = .init()
 
+    private var videoSubscription: UInt64 = 0
+    private var audioSubscription: UInt64 = 0
+
     override var root: AnyView {
         get { return .init(QMediaConfigCall(mode: self, callback: connect))}
         set { }
@@ -18,8 +21,13 @@ class QMediaPubSub: ApplicationModeBase {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
+        let unique: UInt32 = .init(clientId) << 16 | .init(mediaId)
+        if publisher.pipeline!.decoders[unique] == nil {
+            publisher.pipeline!.registerDecoder(identifier: unique, type: .video)
+        }
+
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
-        let buffer: MediaBufferFromSource = .init(source: UInt32(streamId),
+        let buffer: MediaBufferFromSource = .init(source: UInt32(unique),
                                                   media: .init(buffer: .init(start: data, count: Int(length)),
                                                                timestampMs: UInt32(timestamp)))
         publisher.pipeline!.decode(mediaBuffer: buffer)
@@ -32,13 +40,13 @@ class QMediaPubSub: ApplicationModeBase {
         // TODO: Where should the subscriptions go?
 
         // Video.
-        let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
+        videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
         Self.streamIdMap[videoSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(videoSubscription), type: .video)
         print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
 
         // Audio.
-        let audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
+        audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
         Self.streamIdMap[audioSubscription] = self
         pipeline!.registerDecoder(identifier: UInt32(audioSubscription), type: .audio)
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
