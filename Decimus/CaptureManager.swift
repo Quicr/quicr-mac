@@ -37,6 +37,14 @@ class CaptureManager: NSObject,
         self.audioFrameCallback = audioCallback
         self.deviceChangedCallback = deviceChangeCallback
 
+        session = .init()
+        super.init()
+        sessionQueue.async {
+            self.setup()
+        }
+    }
+
+    private func setup() {
         // Audio configuration.
         let audioSession = AVAudioSession.sharedInstance()
         do {
@@ -50,9 +58,7 @@ class CaptureManager: NSObject,
         }
 
         // Create the capture session.
-        session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
-        super.init()
         session.beginConfiguration()
 
         // Audio output.
@@ -74,7 +80,9 @@ class CaptureManager: NSObject,
 
     func stopCapturing() {
         guard session.isRunning else { fatalError("Shouldn't call stopCapturing when not running") }
-        session.stopRunning()
+        sessionQueue.async {
+            self.session.stopRunning()
+        }
     }
 
     func toggleInput(device: AVCaptureDevice) {
@@ -138,6 +146,8 @@ class CaptureManager: NSObject,
             let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
             session.addConnection(connection)
             connections[device] = connection
+        } else {
+            fatalError("Failed to create AVCaptureDeviceInput")
         }
     }
 
@@ -145,37 +155,44 @@ class CaptureManager: NSObject,
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice) {
         print("CaptureManager => Adding capture device: \(device.localizedName)")
-        session.beginConfiguration()
+        sessionQueue.async { [self] in
+            session.beginConfiguration()
+            if device.deviceType == .builtInMicrophone {
+                addMicrophone(device: device)
+            } else {
+                addCamera(device: device)
+            }
+            session.commitConfiguration()
 
-        if device.deviceType == .builtInMicrophone {
-            addMicrophone(device: device)
-        } else {
-            addCamera(device: device)
-        }
+            // Run the session
+            guard session.isRunning else {
+                session.startRunning()
+                return
+            }
 
-        session.commitConfiguration()
-
-        sessionQueue.async {
-            self.deviceChangedCallback(device, .added)
+            // Notify.
+            deviceChangedCallback(device, .added)
         }
     }
 
     func removeInput(device: AVCaptureDevice) {
         let input = inputs.removeValue(forKey: device)
         guard input != nil else { return }
-        session.beginConfiguration()
-        let connection = connections.removeValue(forKey: device)
-        if connection != nil {
-            session.removeConnection(connection!)
+        sessionQueue.async { [self] in
+            session.beginConfiguration()
+            let connection = connections.removeValue(forKey: device)
+            if connection != nil {
+                session.removeConnection(connection!)
+            }
+            session.removeInput(input!)
+            for output in outputs where output.value == device {
+                outputs.removeValue(forKey: output.key)
+                output.key.setSampleBufferDelegate(nil, queue: nil)
+            }
+            session.commitConfiguration()
+            print("CaptureManager => Removing input for \(device.localizedName)")
+            deviceChangedCallback(device, .removed)
         }
-        session.removeInput(input!)
-        for output in outputs where output.value == device {
-            outputs.removeValue(forKey: output.key)
-            output.key.setSampleBufferDelegate(nil, queue: nil)
-        }
-        session.commitConfiguration()
-        print("CaptureManager => Removed input for \(device.localizedName)")
-        deviceChangedCallback(device, .removed)
     }
 
     /// Fires when a frame is available.
