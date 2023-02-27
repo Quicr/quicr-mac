@@ -20,6 +20,7 @@ struct InCallView: View {
     /// Callback when call is left.
     private var onLeave: () -> Void
     private let mode: ApplicationModeBase?
+    private let maxColumns: Int = 4
 
     /// Create a new in call view.
     /// - Parameter onLeave: Callback fired when user asks to leave the call.
@@ -30,16 +31,15 @@ struct InCallView: View {
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
     }
 
-    // Remote grid config to use.
-    var columns: [GridItem] { Array(repeating: .init(.flexible()), count: 3) }
-
     // Show a video player.
     var body: some View {
         GeometryReader { geo in
             VStack {
                 // Remote videos.
                 ScrollView {
-                    LazyVGrid(columns: columns) {
+                    let denom: CGFloat = .init(min(maxColumns, render.participants.count))
+                    let width = geo.size.width / denom
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: width, maximum: width))]) {
                         ForEach(Array(render.participants.values)) { participant in
                             Image(uiImage: participant.decodedImage)
                                 .resizable()
@@ -47,7 +47,7 @@ struct InCallView: View {
                         }
                     }
                 }
-                .frame(height: geo.size.height * 0.75)
+                .frame(height: geo.size.height * 0.8)
 
                 // Controls.
                 VStack {
@@ -70,7 +70,7 @@ struct InCallView: View {
                     }
                 }
                 .padding()
-                .frame(height: geo.size.height * 0.25, alignment: .bottom)
+                .frame(height: geo.size.height * 0.2, alignment: .bottom)
 
                 // Local video preview.
                 // PreviewView(device: $selectedCamera)
