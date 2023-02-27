@@ -35,50 +35,52 @@ struct InCallView: View {
 
     // Show a video player.
     var body: some View {
-        VStack {
-            // Remote videos.
-            LazyVGrid(columns: columns) {
-                ForEach(Array(render.participants.values)) { participant in
-                    Image(uiImage: participant.decodedImage)
-                        .resizable()
-                        .scaledToFit()
-                }
-            }
-            .padding()
-
-            // Local video preview.
-            // PreviewView(device: $selectedCamera)
-
-            // Controls.
-            List {
-                ForEach(devices.cameras, id: \.self) { camera in
-                    Button(camera.localizedName,
-                           role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
-                        capture.manager!.toggleInput(device: camera)
+        GeometryReader { geo in
+            VStack {
+                // Remote videos.
+                ScrollView {
+                    LazyVGrid(columns: columns) {
+                        ForEach(Array(render.participants.values)) { participant in
+                            Image(uiImage: participant.decodedImage)
+                                .resizable()
+                                .scaledToFit()
+                        }
                     }
                 }
+                .frame(height: geo.size.height * 0.75)
+
+                // Controls.
+                VStack {
+                    List {
+                        ForEach(devices.cameras, id: \.self) { camera in
+                            Button(camera.localizedName,
+                                   role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
+                                capture.manager!.toggleInput(device: camera)
+                            }
+                        }
+                    }
+
+                    // Microphone control.
+                    Picker("Microphone", selection: $selectedMicrophone) {
+                        ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
+                            Text(microphone.localizedName).tag(microphone)
+                        }
+                    }.onChange(of: selectedMicrophone) { _ in
+                        capture.manager!.addInput(device: selectedMicrophone)
+                    }
+                }
+                .padding()
+                .frame(height: geo.size.height * 0.25, alignment: .bottom)
+
+                // Local video preview.
+                // PreviewView(device: $selectedCamera)
             }
             .onAppear {
-                capture.manager!.addInput(device: selectedCamera)
+                joinCall()
             }
-
-            HStack {
-                // Microphone control.
-                Picker("Microphone", selection: $selectedMicrophone) {
-                    ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
-                        Text(microphone.localizedName).tag(microphone)
-                    }
-                }.onChange(of: selectedMicrophone) { _ in
-                    capture.manager!.addInput(device: selectedMicrophone)
-                }
-
-                // Leave.
-                Button("Leave", action: leaveCall)
+            .onDisappear {
+                leaveCall()
             }
-        }.onAppear {
-            joinCall()
-        }.onDisappear {
-            leaveCall()
         }
     }
 

@@ -80,28 +80,36 @@ class CaptureManager: NSObject,
         addInput(device: device)
     }
 
-    /// Start capturing from the target device.
-    /// - Parameter device: The target capture device.
-    func addInput(device: AVCaptureDevice) {
-        print("CaptureManager => Adding capture device: \(device.localizedName)")
-        session.beginConfiguration()
-
-        // Device config.
-        if device.deviceType != .builtInMicrophone {
-            do {
-                try device.lockForConfiguration()
-            } catch {
-                fatalError(error.localizedDescription)
-            }
-
-            // Pick the highest quality multi-cam format.
-            for format in device.formats.reversed() where format.isMultiCamSupported {
-                device.activeFormat = format
-                break
-            }
-
-            device.unlockForConfiguration()
+    private func addMicrophone(device: AVCaptureDevice) {
+        guard device.deviceType == .builtInMicrophone else {
+            fatalError("addMicrophone must be called on a microphone")
         }
+
+        do {
+            let microphone: AVCaptureDeviceInput = try .init(device: device)
+            guard session.canAddInput(microphone) else {
+                fatalError("Can't add microphone")
+            }
+            session.addInput(microphone)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
+    }
+
+    private func addCamera(device: AVCaptureDevice) {
+        // Device config.
+        do {
+            try device.lockForConfiguration()
+        } catch {
+            fatalError(error.localizedDescription)
+        }
+
+        // Pick the highest quality multi-cam format.
+        for format in device.formats.reversed() where format.isMultiCamSupported {
+            device.activeFormat = format
+            break
+        }
+        device.unlockForConfiguration()
 
         // Add an output for this device.
         let videoOutput: AVCaptureVideoDataOutput = .init()
@@ -124,6 +132,19 @@ class CaptureManager: NSObject,
             session.addConnection(connection)
             connections[device] = connection
         }
+    }
+
+    /// Start capturing from the target device.
+    /// - Parameter device: The target capture device.
+    func addInput(device: AVCaptureDevice) {
+        print("CaptureManager => Adding capture device: \(device.localizedName)")
+        session.beginConfiguration()
+
+        if device.deviceType == .builtInMicrophone {
+            addMicrophone(device: device)
+        } else {
+            addCamera(device: device)
+        }
 
         session.commitConfiguration()
 
@@ -144,8 +165,9 @@ class CaptureManager: NSObject,
         guard input != nil else { return }
         session.beginConfiguration()
         let connection = connections.removeValue(forKey: device)
-        guard connection != nil else { fatalError() }
-        session.removeConnection(connection!)
+        if connection != nil {
+            session.removeConnection(connection!)
+        }
         session.removeInput(input!)
         for output in outputs where output.value == device {
             outputs.removeValue(forKey: output.key)
