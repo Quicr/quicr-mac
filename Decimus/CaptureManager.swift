@@ -48,7 +48,6 @@ class CaptureManager: NSObject,
         session.automaticallyConfiguresApplicationAudioSession = false
         super.init()
         session.beginConfiguration()
-        session.sessionPreset = .medium
 
         // Video output.
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
