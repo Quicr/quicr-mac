@@ -6,10 +6,10 @@ import AVFAudio
 /// The core of the application.
 protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
-    var captureManager: CaptureManager? { get }
     var root: AnyView { get }
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer)
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
+    func removeRemoteSource(identifier: UInt32)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -23,7 +23,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     var pipeline: PipelineManager?
-    var captureManager: CaptureManager?
     var root: AnyView = .init(EmptyView())
     private let id = UUID()
     let clientId = UInt16.random(in: 0..<UInt16.max)
@@ -47,13 +46,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 self.sendEncodedAudio(data: data)
             },
             debugging: false)
-        captureManager = .init(
-            cameraCallback: { identifier, frame in
-                self.encodeCameraFrame(identifier: identifier, frame: frame)
-            },
-            audioCallback: { identifier, sample in
-                self.encodeAudioSample(identifier: identifier, sample: sample)
-            })
     }
 
     func hash(into hasher: inout Hasher) {
@@ -72,6 +64,19 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         player.write(identifier: identifier, buffer: buffer)
     }
 
+    func removeRemoteSource(identifier: UInt32) {
+        // Remove decoder for this source.
+        _ = pipeline!.decoders.removeValue(forKey: identifier)
+
+        // Remove video renderer.
+        if participants.participants[identifier] != nil {
+            participants.removeParticipant(identifier: identifier)
+        }
+
+        // TODO: Remove audio player here.
+    }
+
+    func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {}
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}

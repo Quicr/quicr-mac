@@ -6,6 +6,7 @@ class ObservableCaptureManager: ObservableObject {
 
     var videoCallback: CaptureManager.MediaCallback?
     var audioCallback: CaptureManager.MediaCallback?
+    var deviceChangeCallback: CaptureManager.DeviceChangeCallback?
     var manager: CaptureManager?
 
     init() {
@@ -15,6 +16,9 @@ class ObservableCaptureManager: ObservableObject {
             },
             audioCallback: { identifier, sample in
                 self.audioCallback?(identifier, sample)
+            },
+            deviceChangeCallback: { identifier, event in
+                self.deviceChangeCallback?(identifier, event)
             })
     }
 }

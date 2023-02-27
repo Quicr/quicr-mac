@@ -1,16 +1,28 @@
 import AVFoundation
 
+private extension AVCaptureDevice {
+    var id: UInt32 {
+        .init(truncatingIfNeeded: uniqueID.hashValue)
+    }
+}
+
 /// Manages local media capture.
 class CaptureManager: NSObject,
                       AVCaptureVideoDataOutputSampleBufferDelegate,
                       AVCaptureAudioDataOutputSampleBufferDelegate {
 
+    /// Describe events that can happen to devices.
+    enum DeviceEvent { case added; case removed }
+
     /// Callback of raw camera frames.
     typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
+    /// Callback of a device event.
+    typealias DeviceChangeCallback = (UInt32, DeviceEvent) -> Void
 
     let session: AVCaptureSession
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
+    let deviceChangedCallback: DeviceChangeCallback
     private let sessionQueue: DispatchQueue = .init(label: "CaptureManager")
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
@@ -18,9 +30,12 @@ class CaptureManager: NSObject,
     private let videoOutput: AVCaptureVideoDataOutput = .init()
     private let audioOutput: AVCaptureAudioDataOutput = .init()
 
-    init(cameraCallback: @escaping MediaCallback, audioCallback: @escaping MediaCallback) {
+    init(cameraCallback: @escaping MediaCallback,
+         audioCallback: @escaping MediaCallback,
+         deviceChangeCallback: @escaping DeviceChangeCallback) {
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
+        self.deviceChangedCallback = deviceChangeCallback
 
         // Audio configuration.
         let audioSession = AVAudioSession.sharedInstance()
@@ -70,6 +85,8 @@ class CaptureManager: NSObject,
         }
         session.commitConfiguration()
 
+        deviceChangedCallback(device.id, .added)
+
         // Run the session.
         guard session.isRunning else {
             sessionQueue.async {
@@ -84,6 +101,7 @@ class CaptureManager: NSObject,
         guard input != nil else { return }
         print("CaptureManager => Removing input for \(device.localizedName)")
         self.session.removeInput(input!)
+        deviceChangedCallback(device.id, .removed)
     }
 
     /// Fires when a frame is available.
@@ -102,9 +120,9 @@ class CaptureManager: NSObject,
 
         switch output {
         case videoOutput:
-            cameraFrameCallback(UInt32(truncatingIfNeeded: device?.uniqueID.hash ?? 0), sampleBuffer)
+            cameraFrameCallback(device!.id, sampleBuffer)
         case audioOutput:
-            audioFrameCallback(UInt32(truncatingIfNeeded: device?.uniqueID.hash ?? 0), sampleBuffer)
+            audioFrameCallback(device!.id, sampleBuffer)
         default:
             fatalError("Unexpected output in CaptureManager")
         }

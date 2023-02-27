@@ -32,4 +32,13 @@ class RawLoopback: ApplicationModeBase {
     override func encodeAudioSample(identifier: UInt32,  sample: CMSampleBuffer) {
         playDecodedAudio(identifier: identifier, buffer: .fromSample(sample: sample), player: player)
     }
+
+    override func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {
+        switch event {
+        case .removed:
+            removeRemoteSource(identifier: identifier)
+        default:
+            return
+        }
+    }
 }
