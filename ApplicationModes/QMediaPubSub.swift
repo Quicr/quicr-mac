@@ -8,18 +8,44 @@ class QMediaPubSub: ApplicationModeBase {
     private var qMedia: QMedia?
     private var identifierMapping: [UInt32: UInt64] = .init()
 
+    private var videoSubscription: UInt64 = 0
+    private var audioSubscription: UInt64 = 0
+
+    private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
+
     override var root: AnyView {
         get { return .init(QMediaConfigCall(mode: self, callback: connect))}
         set { }
     }
 
-    let streamCallback: SubscribeCallback = { streamId, data, length, timestamp in
+    let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
         guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
         guard data != nil else { print("[QMediaPubSub] [Subscription \(streamId)] Data was nil"); return }
+
+        // Get the codec out of the media ID.
+        let rawCodec = mediaId >> 4
+        guard let codec = QMedia.CodecType(rawValue: rawCodec) else {
+            print("Unexpected codec type: \(rawCodec)")
+            return
+        }
+
+        let mediaType: PipelineManager.MediaType
+        switch codec {
+        case .h264:
+            mediaType = .video
+        case .opus:
+            mediaType = .audio
+        }
+
+        let unique: UInt32 = .init(clientId) << 24 | .init(mediaId)
+        if publisher.pipeline!.decoders[unique] == nil {
+            publisher.pipeline!.registerDecoder(identifier: unique, type: mediaType)
+        }
+
         print("[QMediaPubSub] [Subscription \(streamId)] Got \(length) bytes")
-        let buffer: MediaBufferFromSource = .init(source: UInt32(streamId),
+        let buffer: MediaBufferFromSource = .init(source: UInt32(unique),
                                                   media: .init(buffer: .init(start: data, count: Int(length)),
                                                                timestampMs: UInt32(timestamp)))
         publisher.pipeline!.decode(mediaBuffer: buffer)
@@ -29,18 +55,14 @@ class QMediaPubSub: ApplicationModeBase {
         guard qMedia == nil else { fatalError("Already connected") }
         qMedia = .init(address: .init(string: config.address)!, port: config.port)
 
-        // TODO: Where should the subscriptions go?
-
         // Video.
-        let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
+        videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
         Self.streamIdMap[videoSubscription] = self
-        pipeline!.registerDecoder(identifier: UInt32(videoSubscription), type: .video)
         print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
 
         // Audio.
-        let audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
+        audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
         Self.streamIdMap[audioSubscription] = self
-        pipeline!.registerDecoder(identifier: UInt32(audioSubscription), type: .audio)
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
@@ -84,17 +106,19 @@ class QMediaPubSub: ApplicationModeBase {
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: frame, type: .video) {
-            let size = frame.formatDescription!.dimensions
-            let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: .h264)
+            let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
+                                                                     clientIdentifier: clientId)
             print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
+            let size = frame.formatDescription!.dimensions
             pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
         }
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
         encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: .opus)
+            let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: getUniqueCodecType(type: .opus),
+                                                                     clientIdentifier: clientId)
             print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
             identifierMapping[identifier] = subscriptionId
             let encoder = LibOpusEncoder(fileWrite: false) { media in
@@ -117,5 +141,14 @@ class QMediaPubSub: ApplicationModeBase {
 
         // Write camera frame to pipeline.
         pipeline!.encode(identifier: identifier, sample: frame)
+    }
+
+    private func getUniqueCodecType(type: QMedia.CodecType) -> UInt8 {
+        if sourcesByMediaType[type] == nil {
+            sourcesByMediaType[type] = 0
+        } else {
+            sourcesByMediaType[type]! += 1
+        }
+        return type.rawValue << 4 | sourcesByMediaType[type]!
     }
 }

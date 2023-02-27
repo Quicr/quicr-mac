@@ -29,7 +29,7 @@ class RawLoopback: ApplicationModeBase {
         }
     }
 
-    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
+    override func encodeAudioSample(identifier: UInt32,  sample: CMSampleBuffer) {
         playDecodedAudio(identifier: identifier, buffer: .fromSample(sample: sample), player: player)
     }
 

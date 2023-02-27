@@ -25,6 +25,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     var pipeline: PipelineManager?
     var root: AnyView = .init(EmptyView())
     private let id = UUID()
+    let clientId = UInt16.random(in: 0..<UInt16.max)
     let participants: VideoParticipants
     let player: AudioPlayer
 
