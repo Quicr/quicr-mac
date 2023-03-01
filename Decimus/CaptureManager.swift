@@ -98,16 +98,17 @@ class CaptureManager: NSObject,
             fatalError("addMicrophone must be called on a microphone")
         }
 
-        do {
-            let microphone: AVCaptureDeviceInput = try .init(device: device)
-            guard session.canAddInput(microphone) else {
-                fatalError("Can't add microphone")
-            }
-            session.addInput(microphone)
-            inputs[device] = microphone
-        } catch {
-            fatalError(error.localizedDescription)
+        guard let microphone: AVCaptureDeviceInput = try? .init(device: device) else {
+            print("CaptureManager => Couldn't create input for microphone")
+            return
         }
+
+        guard session.canAddInput(microphone) else {
+            print("CaptureManager => Couldn't add microphone")
+            return
+        }
+        session.addInput(microphone)
+        inputs[device] = microphone
     }
 
     private func addCamera(device: AVCaptureDevice) {
@@ -129,33 +130,37 @@ class CaptureManager: NSObject,
         // Add an output for this device.
         let videoOutput: AVCaptureVideoDataOutput = .init()
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
-        guard session.canAddOutput(videoOutput) else { return }
+        guard session.canAddOutput(videoOutput) else {
+            print("CaptureManager => Output already added: \(device)")
+            return
+        }
         session.addOutputWithNoConnections(videoOutput)
         outputs[videoOutput] = device
 
         // Add this device to the session.
-        if let input: AVCaptureDeviceInput = try? .init(device: device) {
-            inputs[device] = input
-            guard session.canAddInput(input) else {
-                print("[CaptureManager] Input already added: \(device)")
-                return
-            }
-            session.addInputWithNoConnections(input)
-
-            // Setup the connection.
-            let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
-            session.addConnection(connection)
-            connections[device] = connection
-        } else {
-            fatalError("Failed to create AVCaptureDeviceInput")
+        guard let input: AVCaptureDeviceInput = try? .init(device: device) else {
+            print("CaptureManager => Couldn't create input for camera: \(device.localizedName)")
+            return
         }
+
+        inputs[device] = input
+        guard session.canAddInput(input) else {
+            print("CaptureManager => Input already added: \(device)")
+            return
+        }
+        session.addInputWithNoConnections(input)
+
+        // Setup the connection.
+        let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
+        session.addConnection(connection)
+        connections[device] = connection
     }
 
     /// Start capturing from the target device.
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice) {
-        print("CaptureManager => Adding capture device: \(device.localizedName)")
         sessionQueue.async { [self] in
+            print("CaptureManager => Adding capture device: \(device.localizedName)")
             session.beginConfiguration()
             if device.deviceType == .builtInMicrophone {
                 addMicrophone(device: device)
@@ -165,9 +170,8 @@ class CaptureManager: NSObject,
             session.commitConfiguration()
 
             // Run the session
-            guard session.isRunning else {
+            if !session.isRunning {
                 session.startRunning()
-                return
             }
 
             // Notify.
@@ -176,9 +180,12 @@ class CaptureManager: NSObject,
     }
 
     func removeInput(device: AVCaptureDevice) {
-        let input = inputs.removeValue(forKey: device)
-        guard input != nil else { return }
         sessionQueue.async { [self] in
+            let input = inputs.removeValue(forKey: device)
+            guard input != nil else {
+                print("CaptureManager => Unexpectedly removed input that couldn't be found")
+                return
+            }
             session.beginConfiguration()
             let connection = connections.removeValue(forKey: device)
             if connection != nil {
@@ -225,6 +232,7 @@ class CaptureManager: NSObject,
     func captureOutput(_ output: AVCaptureOutput,
                        didDrop sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        // TODO: Get reason.
         print("CaptureManager => Frame dropped!")
     }
 }
