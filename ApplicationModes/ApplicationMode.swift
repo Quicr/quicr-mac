@@ -58,10 +58,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     func showDecodedImage(identifier: UInt32, participants: VideoParticipants, decoded: CGImage) {
         // Push the image to the output.
-        DispatchQueue.main.async {
-            let participant = participants.getOrMake(identifier: identifier)
-            participant.decodedImage = .init(cgImage: decoded)
-        }
+        let participant = participants.getOrMake(identifier: identifier)
+        participant.decodedImage = .init(cgImage: decoded)
     }
 
     func playDecodedAudio(identifier: UInt32, buffer: AVAudioPCMBuffer, player: AudioPlayer) {

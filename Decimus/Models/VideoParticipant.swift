@@ -22,7 +22,11 @@ class VideoParticipants: ObservableObject {
         }
 
         let new: VideoParticipant = .init(id: identifier)
-        let cancellable = new.objectWillChange.sink(receiveValue: { self.objectWillChange.send() })
+        let cancellable = new.objectWillChange.sink(receiveValue: {
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+            }
+        })
         cancellables[identifier] = cancellable
         participants[identifier] = new
         return new
@@ -34,7 +38,9 @@ class VideoParticipants: ObservableObject {
         removed!.objectWillChange.send()
         let cancellable = cancellables[identifier]
         cancellable!.cancel()
-        objectWillChange.send()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
         print("VideoParticipants => [\(identifier)] Removed participant")
     }
 }
