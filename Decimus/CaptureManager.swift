@@ -23,7 +23,7 @@ class CaptureManager: NSObject,
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
     let deviceChangedCallback: DeviceChangeCallback
-    private let sessionQueue: DispatchQueue = .init(label: "CaptureManager")
+    private let sessionQueue: DispatchQueue = .init(label: "CaptureManager", target: .global(qos: .userInitiated))
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureVideoDataOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
