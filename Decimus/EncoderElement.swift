@@ -4,7 +4,9 @@ protocol Encoder {
     typealias EncodedSampleCallback = (CMSampleBuffer) -> Void
     typealias MediaCallback = (MediaBuffer) -> Void
     typealias SourcedMediaCallback = (MediaBufferFromSource) -> Void
+    func prepare()
     func write(sample: CMSampleBuffer)
+    func stop()
 }
 
 /// Represents a single encoder in the pipeline.
@@ -18,5 +20,9 @@ class EncoderElement {
     init(identifier: UInt32, encoder: Encoder) {
         self.identifier = identifier
         self.encoder = encoder
+    }
+
+    deinit {
+        self.encoder.stop()
     }
 }

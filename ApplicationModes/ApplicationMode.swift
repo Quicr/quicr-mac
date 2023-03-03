@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreMedia
 import SwiftUI
 import AVFAudio
+import AVFoundation
 
 /// The core of the application.
 protocol ApplicationMode {
@@ -10,6 +11,11 @@ protocol ApplicationMode {
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer)
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
     func removeRemoteSource(identifier: UInt32)
+
+    func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32)
+    func createAudioEncoder(identifier: UInt32)
+
+    func removeEncoder(identifier: UInt32)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -74,7 +80,65 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         // TODO: Remove audio player here.
     }
 
-    func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {}
+    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
+        switch event {
+        case .added:
+            switch device.deviceType {
+            case .builtInMicrophone:
+                createAudioEncoder(identifier: device.id)
+            default:
+                let size = device.activeFormat.formatDescription.dimensions
+                createVideoEncoder(identifier: device.id, width: size.width, height: size.height)
+            }
+        case .removed:
+            removeEncoder(identifier: device.id)
+        }
+    }
+
+    func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {
+        pipeline!.registerEncoder(identifier: identifier, width: width, height: height).prepare()
+    }
+
+    func createAudioEncoder(identifier: UInt32) {
+        let encoder: Encoder
+
+        // // Passthrough.
+        // encoder = PassthroughEncoder { media in
+        //     let identified: MediaBuffer = .init(identifier: identifier, other: media)
+        //     self.sendEncodedAudio(data: identified)
+        // }
+
+        // // Apple API.
+        // let opusFrameSize: UInt32 = 960
+        // let opusSampleRate: Float64 = 48000.0
+        // var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
+        //                                                     mFormatID: kAudioFormatOpus,
+        //                                                     mFormatFlags: 0,
+        //                                                     mBytesPerPacket: 0,
+        //                                                     mFramesPerPacket: opusFrameSize,
+        //                                                     mBytesPerFrame: 0,
+        //                                                     mChannelsPerFrame: 1,
+        //                                                     mBitsPerChannel: 0,
+        //                                                     mReserved: 0)
+        // let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
+        // encoder = AudioEncoder(to: opus) { sample in
+        //     let buffer = sample.getMediaBuffer(identifier: identifier)
+        //     self.sendEncodedAudio(data: buffer)
+        // }
+
+        // libopus
+        encoder = LibOpusEncoder(fileWrite: false) { media in
+            let identified: MediaBufferFromSource = .init(source: identifier, media: media)
+            self.sendEncodedAudio(data: identified)
+        }
+
+        pipeline!.registerEncoder(identifier: identifier, encoder: encoder).prepare()
+    }
+
+    func removeEncoder(identifier: UInt32) {
+        pipeline!.encoders.removeValue(forKey: identifier)
+    }
+
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}

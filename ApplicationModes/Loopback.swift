@@ -31,68 +31,32 @@ class Loopback: ApplicationModeBase {
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
-            encodeSample(identifier: mirrorIdentifier, frame: frame, type: .video) {
-                let size = frame.formatDescription!.dimensions
-                pipeline!.registerEncoder(identifier: mirrorIdentifier, width: size.width, height: size.height)
-            }
+            encodeSample(identifier: mirrorIdentifier, frame: frame, type: .video)
         }
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            let encoder: Encoder
-
-            // Passthrough.
-//            encoder = PassthroughEncoder { media in
-//                let identified: MediaBuffer = .init(identifier: identifier, other: media)
-//                self.sendEncodedAudio(data: identified)
-//            }
-
-            // Apple API.
-//            let opusFrameSize: UInt32 = 960
-//            let opusSampleRate: Float64 = 48000.0
-//            var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
-//                                                              mFormatID: kAudioFormatOpus,
-//                                                              mFormatFlags: 0,
-//                                                              mBytesPerPacket: 0,
-//                                                              mFramesPerPacket: opusFrameSize,
-//                                                              mBytesPerFrame: 0,
-//                                                              mChannelsPerFrame: 1,
-//                                                              mBitsPerChannel: 0,
-//                                                              mReserved: 0)
-//            let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
-//            encoder = AudioEncoder(to: opus) { sample in
-//                let buffer = sample.getMediaBuffer(identifier: identifier)
-//                self.sendEncodedAudio(data: buffer)
-//            }
-
-            // libopus
-            encoder = LibOpusEncoder(fileWrite: false) { media in
-                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
-                self.sendEncodedAudio(data: identified)
-            }
-
-            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
-        }
+        encodeSample(identifier: identifier, frame: sample, type: .audio)
     }
 
     private func encodeSample(identifier: UInt32,
                               frame: CMSampleBuffer,
-                              type: PipelineManager.MediaType,
-                              register: () -> Void) {
+                              type: PipelineManager.MediaType) {
         // Make a encoder for this stream.
         if pipeline!.encoders[identifier] == nil {
-            register()
+            return
         }
 
         // Write camera frame to pipeline.
         pipeline!.encode(identifier: identifier, sample: frame)
     }
 
-    override func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {
+    override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
+        super.onDeviceChange(device: device, event: event)
+
         switch event {
         case .removed:
-            removeRemoteSource(identifier: identifier)
+            removeRemoteSource(identifier: device.id)
         default:
             return
         }

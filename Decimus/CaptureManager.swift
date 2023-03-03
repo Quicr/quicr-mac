@@ -1,6 +1,6 @@
 import AVFoundation
 
-private extension AVCaptureDevice {
+public extension AVCaptureDevice {
     var id: UInt32 {
         .init(truncatingIfNeeded: uniqueID.hashValue)
     }
@@ -17,7 +17,7 @@ class CaptureManager: NSObject,
     /// Callback of raw camera frames.
     typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
     /// Callback of a device event.
-    typealias DeviceChangeCallback = (UInt32, DeviceEvent) -> Void
+    typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
     let session: AVCaptureMultiCamSession
     let cameraFrameCallback: MediaCallback
@@ -67,6 +67,11 @@ class CaptureManager: NSObject,
         inputs[device] != nil
     }
 
+    func startCapturing() {
+        if session.isRunning { return }
+        self.session.startRunning()
+    }
+
     func stopCapturing() {
         guard session.isRunning else { fatalError("Shouldn't call stopCapturing when not running") }
         session.stopRunning()
@@ -91,6 +96,7 @@ class CaptureManager: NSObject,
                 fatalError("Can't add microphone")
             }
             session.addInput(microphone)
+            inputs[device] = microphone
         } catch {
             fatalError(error.localizedDescription)
         }
@@ -148,16 +154,9 @@ class CaptureManager: NSObject,
 
         session.commitConfiguration()
 
-        deviceChangedCallback(device.id, .added)
-
-        // Run the session.
-        if !session.isRunning {
-            sessionQueue.async {
-                self.session.startRunning()
-            }
+        sessionQueue.async {
+            self.deviceChangedCallback(device, .added)
         }
-
-        deviceChangedCallback(device.id, .added)
     }
 
     func removeInput(device: AVCaptureDevice) {
@@ -175,7 +174,7 @@ class CaptureManager: NSObject,
         }
         session.commitConfiguration()
         print("CaptureManager => Removed input for \(device.localizedName)")
-        deviceChangedCallback(device.id, .removed)
+        deviceChangedCallback(device, .removed)
     }
 
     /// Fires when a frame is available.

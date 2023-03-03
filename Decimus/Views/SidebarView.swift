@@ -3,7 +3,6 @@ import SwiftUI
 struct SidebarView: View {
 
     @EnvironmentObject private var participants: VideoParticipants
-    @EnvironmentObject private var modes: Modes
 
     // iOS 15 fallback.
     struct SafeNavigationStack<T>: View where T: View {
@@ -50,13 +49,13 @@ struct SidebarView: View {
     var body: some View {
         SafeNavigationStack {
             List {
-                SafeNavigationLink(mode: modes.qMedia) {
+                SafeNavigationLink(mode: QMediaPubSub(participants: participants, player: .init(fileWrite: false))) {
                     Label("QMedia", systemImage: "phone.circle")
                 }
-                SafeNavigationLink(mode: modes.loopback) {
+                SafeNavigationLink(mode: Loopback(participants: participants, player: .init(fileWrite: false))) {
                     Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
                 }
-                SafeNavigationLink(mode: modes.rawLoopback) {
+                SafeNavigationLink(mode: RawLoopback(participants: participants, player: .init(fileWrite: false))) {
                     Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
                 }
             }.safeNavigationDestination()

@@ -25,6 +25,9 @@ class LibOpusEncoder: Encoder {
         self.callback = callback
     }
 
+    func prepare() {}
+    func stop() {}
+
     func write(sample: CMSampleBuffer) {
         samplesHit += 1
 

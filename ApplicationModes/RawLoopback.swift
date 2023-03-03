@@ -1,5 +1,6 @@
 import CoreMedia
 import SwiftUI
+import AVFoundation
 
 class RawLoopback: ApplicationModeBase {
 
@@ -9,6 +10,9 @@ class RawLoopback: ApplicationModeBase {
         get { return .init(InCallView(mode: self) {}) }
         set { }
     }
+
+    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {}
+    override func createAudioEncoder(identifier: UInt32) {}
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // NOOP.
@@ -33,10 +37,12 @@ class RawLoopback: ApplicationModeBase {
         playDecodedAudio(identifier: identifier, buffer: .fromSample(sample: sample), player: player)
     }
 
-    override func onDeviceChange(identifier: UInt32, event: CaptureManager.DeviceEvent) {
+    override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
+        super.onDeviceChange(device: device, event: event)
+
         switch event {
         case .removed:
-            removeRemoteSource(identifier: identifier)
+            removeRemoteSource(identifier: device.id)
         default:
             return
         }

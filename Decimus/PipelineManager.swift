@@ -67,18 +67,21 @@ class PipelineManager {
         decoder!.decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 
-    func registerEncoder(identifier: UInt32, width: Int32, height: Int32) {
+    func registerEncoder(identifier: UInt32, width: Int32, height: Int32) -> Encoder {
         let encoder = H264Encoder(width: width, height: height, callback: { sample in
             self.debugPrint(message: "[\(identifier)] (timestamp) Encoded")
             self.encodedCallback(identifier, sample)
         })
-        registerEncoder(identifier: identifier, encoder: encoder)
+
+        return registerEncoder(identifier: identifier, encoder: encoder)
     }
 
-     func registerEncoder(identifier: UInt32, encoder: Encoder) {
+    func registerEncoder(identifier: UInt32, encoder: Encoder) -> Encoder {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
         debugPrint(message: "[\(identifier)] Registered encoder")
+
+        return encoder
     }
 
     func registerDecoder(identifier: UInt32, type: MediaType) {

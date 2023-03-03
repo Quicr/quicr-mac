@@ -93,13 +93,17 @@ struct InCallView: View {
         // Use default devices.
         capture.manager!.addInput(device: selectedCamera)
         capture.manager!.addInput(device: selectedMicrophone)
+
+        capture.manager!.startCapturing()
     }
 
     private func leaveCall() {
         // Stop capturing.
+        capture.manager!.stopCapturing()
+
+        // Remove devices.
         capture.manager!.removeInput(device: selectedCamera)
         capture.manager!.removeInput(device: selectedMicrophone)
-        capture.manager!.stopCapturing()
 
         // Unbind pipeline.
         capture.videoCallback = nil
