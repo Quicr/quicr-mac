@@ -111,7 +111,8 @@ class CaptureManager: NSObject,
         }
 
         // Pick the highest quality multi-cam format.
-        for format in device.formats.reversed() where format.isMultiCamSupported {
+        for format in device.formats.reversed() where format.isMultiCamSupported &&
+                                                      format.isHighestPhotoQualitySupported {
             device.activeFormat = format
             break
         }
