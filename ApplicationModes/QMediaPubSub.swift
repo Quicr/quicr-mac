@@ -1,6 +1,10 @@
 import SwiftUI
 import CoreMedia
 
+enum ApplicationError : Error {
+    case emptyEncoder
+}
+
 class QMediaPubSub: ApplicationModeBase {
 
     private static var streamIdMap: [UInt64: QMediaPubSub] = .init()
@@ -123,19 +127,27 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: frame, type: .video)
+        do {
+            try encodeSample(identifier: identifier, frame: frame, type: .video)
+        } catch {
+            print("Failed to encode: \(error)")
+        }
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: sample, type: .audio)
+        do {
+            try encodeSample(identifier: identifier, frame: sample, type: .audio)
+        } catch {
+            print("Failed to encode: \(error)")
+        }
     }
 
     private func encodeSample(identifier: UInt32,
                               frame: CMSampleBuffer,
-                              type: PipelineManager.MediaType) {
+                              type: PipelineManager.MediaType) throws {
         // Make a encoder for this stream.
         if pipeline!.encoders[identifier] == nil {
-            return
+            throw ApplicationError.emptyEncoder
         }
 
         // Write camera frame to pipeline.
