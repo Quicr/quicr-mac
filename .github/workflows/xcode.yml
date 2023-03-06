@@ -28,7 +28,7 @@ jobs:
         run: ./dependencies/build-qmedia-framework.sh
 
       - name: Build Decimus
-        run: xcodebuild clean build ARCHS=arm64 -scheme Decimus CONFIGURATION_BUILD_DIR=./artifact
+        run: xcodebuild clean build ARCHS=arm64 ONLY_ACTIVE_ARCH=NO -skipPackagePluginValidation -scheme Decimus CONFIGURATION_BUILD_DIR=./artifact
       
       - name: Tar Artifact
         run: tar -cvf Decimus.tar artifact/Decimus.app
