@@ -9,23 +9,12 @@ class H264Encoder: Encoder {
     private var encoder: VTCompressionSession?
     private let callback: EncodedSampleCallback
 
-    private let width: Int32
-    private let height: Int32
-
     private let fps: Int32 = 60
     private let bitrate: Int32 = 12
 
     init(width: Int32, height: Int32, callback: @escaping EncodedSampleCallback) {
         self.callback = callback
-        self.width = width
-        self.height = height
-    }
 
-    deinit {
-        stop()
-    }
-
-    func prepare() {
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
         ] as CFDictionary
@@ -56,7 +45,7 @@ class H264Encoder: Encoder {
         VTCompressionSessionPrepareToEncodeFrames(encoder!)
     }
 
-    func stop() {
+    deinit {
         guard let session = encoder else { return }
         VTCompressionSessionInvalidate(session)
         self.encoder = nil

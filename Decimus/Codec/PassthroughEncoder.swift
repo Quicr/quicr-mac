@@ -9,9 +9,6 @@ class PassthroughEncoder: Encoder {
         self.callback = callback
     }
 
-    func prepare() {}
-    func stop() {}
-
     func write(sample: CMSampleBuffer) {
         callback(sample)
     }

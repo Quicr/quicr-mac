@@ -21,9 +21,6 @@ class AudioEncoder: Encoder {
         self.callback = callback
     }
 
-    func prepare() {}
-    func stop() {}
-
     func write(sample: CMSampleBuffer) {
         // Ensure format exists and no change.
         guard sample.formatDescription != nil else { fatalError() }

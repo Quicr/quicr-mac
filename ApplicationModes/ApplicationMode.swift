@@ -83,10 +83,9 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
         switch event {
         case .added:
-            switch device.deviceType {
-            case .builtInMicrophone:
+            if device.hasMediaType(.audio) {
                 createAudioEncoder(identifier: device.id)
-            default:
+            } else if device.hasMediaType(.video) {
                 let size = device.activeFormat.formatDescription.dimensions
                 createVideoEncoder(identifier: device.id, width: size.width, height: size.height)
             }
@@ -96,7 +95,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {
-        pipeline!.registerEncoder(identifier: identifier, width: width, height: height).prepare()
+        pipeline!.registerEncoder(identifier: identifier, width: width, height: height)
     }
 
     func createAudioEncoder(identifier: UInt32) {
@@ -132,7 +131,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             self.sendEncodedAudio(data: identified)
         }
 
-        pipeline!.registerEncoder(identifier: identifier, encoder: encoder).prepare()
+        pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
     }
 
     func removeEncoder(identifier: UInt32) {
