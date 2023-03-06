@@ -1,6 +1,10 @@
 import SwiftUI
 import CoreMedia
 
+enum ApplicationError : Error {
+    case emptyEncoder
+}
+
 class QMediaPubSub: ApplicationModeBase {
 
     private static var streamIdMap: [UInt64: QMediaPubSub] = .init()
@@ -66,6 +70,24 @@ class QMediaPubSub: ApplicationModeBase {
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
+    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {
+        super.createVideoEncoder(identifier: identifier, width: width, height: height)
+
+        let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
+                                                                 clientIdentifier: clientId)
+        print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
+        identifierMapping[identifier] = subscriptionId
+    }
+
+    override func createAudioEncoder(identifier: UInt32) {
+        super.createAudioEncoder(identifier: identifier)
+
+        let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: getUniqueCodecType(type: .opus),
+                                                                 clientIdentifier: clientId)
+        print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
+        identifierMapping[identifier] = subscriptionId
+    }
+
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         do {
             try data.dataBuffer!.withUnsafeMutableBytes { ptr in
@@ -105,38 +127,27 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: frame, type: .video) {
-            let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
-                                                                     clientIdentifier: clientId)
-            print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
-            identifierMapping[identifier] = subscriptionId
-            let size = frame.formatDescription!.dimensions
-            pipeline!.registerEncoder(identifier: identifier, width: size.width, height: size.height)
+        do {
+            try encodeSample(identifier: identifier, frame: frame, type: .video)
+        } catch {
+            print("Failed to encode: \(error)")
         }
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: sample, type: .audio) {
-            let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: getUniqueCodecType(type: .opus),
-                                                                     clientIdentifier: clientId)
-            print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
-            identifierMapping[identifier] = subscriptionId
-            let encoder = LibOpusEncoder(fileWrite: false) { media in
-                let identified: MediaBufferFromSource = .init(source: identifier, media: media)
-                self.sendEncodedAudio(data: identified)
-            }
-            pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
-            identifierMapping[identifier] = subscriptionId
+        do {
+            try encodeSample(identifier: identifier, frame: sample, type: .audio)
+        } catch {
+            print("Failed to encode: \(error)")
         }
     }
 
     private func encodeSample(identifier: UInt32,
                               frame: CMSampleBuffer,
-                              type: PipelineManager.MediaType,
-                              register: () -> Void) {
+                              type: PipelineManager.MediaType) throws {
         // Make a encoder for this stream.
         if pipeline!.encoders[identifier] == nil {
-            register()
+            throw ApplicationError.emptyEncoder
         }
 
         // Write camera frame to pipeline.

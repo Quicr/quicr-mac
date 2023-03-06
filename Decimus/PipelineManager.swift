@@ -72,10 +72,11 @@ class PipelineManager {
             self.debugPrint(message: "[\(identifier)] (timestamp) Encoded")
             self.encodedCallback(identifier, sample)
         })
+
         registerEncoder(identifier: identifier, encoder: encoder)
     }
 
-     func registerEncoder(identifier: UInt32, encoder: Encoder) {
+    func registerEncoder(identifier: UInt32, encoder: Encoder) {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
         debugPrint(message: "[\(identifier)] Registered encoder")

@@ -9,30 +9,55 @@ class H264Encoder: Encoder {
     private var encoder: VTCompressionSession?
     private let callback: EncodedSampleCallback
 
+    private let fps: Int32 = 60
+    private let bitrate: Int32 = 12
+
     init(width: Int32, height: Int32, callback: @escaping EncodedSampleCallback) {
         self.callback = callback
+
+        let encoderSpecification = [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
+        ] as CFDictionary
+
         let error = VTCompressionSessionCreate(allocator: nil,
                                                width: width,
                                                height: height,
                                                codecType: kCMVideoCodecType_H264,
-                                               encoderSpecification: nil,
+                                               encoderSpecification: encoderSpecification,
                                                imageBufferAttributes: nil,
                                                compressedDataAllocator: nil,
                                                outputCallback: nil,
                                                refcon: nil,
                                                compressionSessionOut: &encoder)
+
         guard error == .zero else { fatalError("Encoder creation failed")}
 
         let realtimeError = VTSessionSetProperty(encoder!,
                                                  key: kVTCompressionPropertyKey_RealTime,
                                                  value: kCFBooleanTrue)
         guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
+
+        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: kCFBooleanTrue)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_DataRateLimits, value: self.bitrate as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: self.fps as CFNumber)
+
+        VTCompressionSessionPrepareToEncodeFrames(encoder!)
+    }
+
+    deinit {
+        guard let session = encoder else { return }
+        VTCompressionSessionInvalidate(session)
+        self.encoder = nil
     }
 
     func write(sample: CMSampleBuffer) {
-        let error = VTCompressionSessionEncodeFrame(encoder!,
-                                                    imageBuffer: sample.imageBuffer!,
-                                                    presentationTimeStamp: sample.presentationTimeStamp,
+        guard let compressionSession = encoder,
+              let imageBuffer = CMSampleBufferGetImageBuffer(sample) else { return }
+        let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
+        let error = VTCompressionSessionEncodeFrame(compressionSession,
+                                                    imageBuffer: imageBuffer,
+                                                    presentationTimeStamp: timestamp,
                                                     duration: .invalid,
                                                     frameProperties: nil,
                                                     infoFlagsOut: nil,
@@ -42,7 +67,7 @@ class H264Encoder: Encoder {
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         guard status == .zero else { fatalError("Encode failure: \(status)")}
-        guard let sample = sample else { fatalError("Encode returned nil sample?") }
+        guard let sample = sample else { return; }
 
         // Annex B time.
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
