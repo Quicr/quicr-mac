@@ -12,7 +12,7 @@ class AudioEncoder: Encoder {
     private var converter: AVAudioConverter?
     private let callback: EncodedSampleCallback
     private var currentFormat: AVAudioFormat?
-    private var inputBuffers: Deque<CMSampleBuffer> = .init(minimumCapacity: 5)
+    // private var inputBuffers: Deque<CMSampleBuffer> = .init(minimumCapacity: 5)
     private let targetFormat: AVAudioFormat
     private var readByteOffset = 0
 
@@ -36,7 +36,7 @@ class AudioEncoder: Encoder {
             converter = created!
         }
 
-        inputBuffers.append(sample)
+        // inputBuffers.append(sample)
 
         // Try and convert.
         let outputBuffer: AVAudioCompressedBuffer = .init(format: targetFormat,
@@ -82,26 +82,26 @@ class AudioEncoder: Encoder {
         var dataOffset = 0
         while requiredBytes > 0 {
             // Get some data from the first available sample.
-            if inputBuffers.isEmpty || inputBuffers.endIndex == indexToUse {
-                // When it's opus (at least?) we will not get
-                // any encoded data out for partial reads.
-                readByteOffset = 0
-                outStatus.pointee = .noDataNow
-                return submissionPackage
-            }
-            let target: CMSampleBuffer = inputBuffers[indexToUse]
+//            if inputBuffers.isEmpty || inputBuffers.endIndex == indexToUse {
+//                // When it's opus (at least?) we will not get
+//                // any encoded data out for partial reads.
+//                readByteOffset = 0
+//                outStatus.pointee = .noDataNow
+//                return submissionPackage
+//            }
+//            let target: CMSampleBuffer = inputBuffers[indexToUse]
             var lengthAtOffset: Int = 0
             var totalLength: Int = 0
             var ptr: UnsafeMutablePointer<CChar>?
-            let getPtr = CMBlockBufferGetDataPointer(target.dataBuffer!,
-                                                     atOffset: readByteOffset,
-                                                     lengthAtOffsetOut: &lengthAtOffset,
-                                                     totalLengthOut: &totalLength,
-                                                     dataPointerOut: &ptr)
-            guard getPtr == .zero else {
-                print("Asked for offset \(readByteOffset). Total length was: \(totalLength)")
-                fatalError(getPtr.description)
-            }
+//            let getPtr = CMBlockBufferGetDataPointer(target.dataBuffer!,
+//                                                     atOffset: readByteOffset,
+//                                                     lengthAtOffsetOut: &lengthAtOffset,
+//                                                     totalLengthOut: &totalLength,
+//                                                     dataPointerOut: &ptr)
+//            guard getPtr == .zero else {
+//                print("Asked for offset \(readByteOffset). Total length was: \(totalLength)")
+//                fatalError(getPtr.description)
+//            }
 
             // Get as much data as we need/can.
             let bytesToTake = min(Int(requiredBytes), lengthAtOffset)
@@ -135,7 +135,7 @@ class AudioEncoder: Encoder {
 
         // Drop all the buffers we used up.
         for _ in 0...buffersToDrop {
-            _ = inputBuffers.popFirst()!
+            // _ = inputBuffers.popFirst()!
         }
 
         // We managed to supply enough data.

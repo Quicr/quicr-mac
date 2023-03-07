@@ -14,8 +14,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/SourceKitten.git",
       "state" : {
-        "revision" : "fc12c0f182c5cf80781dd933b17a82eb98bd7c61",
-        "version" : "0.33.1"
+        "revision" : "b6dc09ee51dfb0c66e042d2328c017483a1a5d56",
+        "version" : "0.34.1"
       }
     },
     {
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "4ad606ba5d7673ea60679a61ff867cc1ff8c8e86",
-        "version" : "1.2.1"
+        "revision" : "fee6933f37fde9a5e12a1e4aeaa93fe60116ff2a",
+        "version" : "1.2.2"
       }
     },
     {
@@ -39,7 +39,7 @@
     {
       "identity" : "swift-opus",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/alta/swift-opus.git",
+      "location" : "git@github.com:alta/swift-opus.git",
       "state" : {
         "revision" : "5f0164b8915fb9001265c54413aa0f0efbd3df06",
         "version" : "0.0.2"
@@ -60,7 +60,7 @@
       "location" : "https://github.com/evfemist/SwiftLint",
       "state" : {
         "branch" : "main",
-        "revision" : "a780f2e563d7402f078951c2a0fae0a208548196"
+        "revision" : "cdc051d242a821e65c3f723c8b5b77634fee33f0"
       }
     },
     {
@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams.git",
       "state" : {
-        "revision" : "c7facc5ccb8c5a4577ea8c491aa875762cdee57a",
-        "version" : "5.0.3"
+        "revision" : "f47ba4838c30dbd59998a4e4c87ab620ff959e8a",
+        "version" : "5.0.5"
       }
     }
   ],
