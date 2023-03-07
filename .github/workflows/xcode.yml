@@ -28,5 +28,5 @@ jobs:
         run: ./dependencies/build-qmedia-framework.sh
 
       - name: Build Decimus
-        run: xcodebuild clean build -configuration Release -skipPackagePluginValidation -scheme Decimus -destination "generic/platform=iOS"
+        run: xcodebuild clean build -configuration Release -skipPackagePluginValidation -scheme Decimus -destination "platform=macOS,variant=Mac Catalyst,arch=arm64"
 
