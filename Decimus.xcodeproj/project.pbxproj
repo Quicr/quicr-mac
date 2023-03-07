@@ -36,13 +36,13 @@
 		9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */; };
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
+		9BAD55C029B7385C00D9B65F /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BAD55BF29B7385C00D9B65F /* Opus */; };
 		9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */; };
 		9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */; };
 		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
 		9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */; };
 		9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
-		9BDD5B162996A84B00C01D54 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B152996A84B00C01D54 /* Opus */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 /* End PBXBuildFile section */
@@ -120,7 +120,7 @@
 			files = (
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
-				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
+				9BAD55C029B7385C00D9B65F /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -280,7 +280,7 @@
 			name = Decimus;
 			packageProductDependencies = (
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
-				9BDD5B152996A84B00C01D54 /* Opus */,
+				9BAD55BF29B7385C00D9B65F /* Opus */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -336,7 +336,7 @@
 			packageReferences = (
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
 				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
-				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
+				9BAD55BE29B7385C00D9B65F /* XCRemoteSwiftPackageReference "swift-opus" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -754,20 +754,20 @@
 				kind = branch;
 			};
 		};
+		9BAD55BE29B7385C00D9B65F /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alta/swift-opus.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.2;
+			};
+		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
-			};
-		};
-		9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@github.com:alta/swift-opus.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.0.2;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -778,15 +778,15 @@
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
 			productName = "plugin:SwiftLintPlugin";
 		};
+		9BAD55BF29B7385C00D9B65F /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BAD55BE29B7385C00D9B65F /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
+		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
-		};
-		9BDD5B152996A84B00C01D54 /* Opus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Opus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
