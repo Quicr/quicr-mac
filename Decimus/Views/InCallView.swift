@@ -50,7 +50,7 @@ struct InCallView: View {
                             }
                         }
                     }
-                    .frame(height: geo.size.height * 0.8)
+                    .frame(height: geo.size.height * 0.7)
 
                     // Controls.
                     VStack {
@@ -63,12 +63,6 @@ struct InCallView: View {
                             }
                         }
 
-                        Button {
-                            errors.writeError(message: "Example")
-                        } label: {
-                            Text("Example")
-                        }
-
                         // Microphone control.
                         Picker("Microphone", selection: $selectedMicrophone) {
                             ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
@@ -79,7 +73,7 @@ struct InCallView: View {
                         }
                     }
                     .padding()
-                    .frame(height: geo.size.height * 0.2, alignment: .bottom)
+                    .frame(height: geo.size.height * 0.3, alignment: .top)
 
                     // Local video preview.
                     // PreviewView(device: $selectedCamera)
@@ -89,25 +83,26 @@ struct InCallView: View {
             // Error messages.
             VStack {
                 if !errors.messages.isEmpty {
-                    // Show the error messages.
-                    Group {
-                        Text("Errors:")
-                            .font(.title)
-                            .foregroundColor(.red)
-                        ForEach(errors.messages) { message in
-                            Text(message.message)
-                                .padding()
-                        }
-                    }
-                    .background(Color.red)
+                    Text("Errors:")
+                        .font(.title)
+                        .foregroundColor(.red)
 
                     // Clear all.
                     Button {
                         errors.messages.removeAll()
                     } label: {
-                        Text("Clear")
+                        Text("Clear Errors")
                     }
                     .buttonStyle(.borderedProminent)
+
+                    // Show the messages.
+                    ScrollView {
+                        ForEach(errors.messages) { message in
+                            Text(message.message)
+                                .padding()
+                                .background(Color.red)
+                        }
+                    }
                 }
             }
         }
