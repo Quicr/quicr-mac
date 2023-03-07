@@ -9,14 +9,18 @@ class LibOpusDecoder: Decoder {
     private let format: AVAudioFormat
     private let fileWrite: Bool
     private var outputPcm: AVAudioFile?
+    private let errorWriter: ErrorWriter
 
     /// Create an opus decoder with the given input format.
     /// - Parameter format: The incoming opus format.
+    /// - Parameter fileWrite: True to write decoded audio to a file (debugging).
+    /// - Parameter errorWriter: Protocol to report errors to.
     /// - Parameter callback: A callback fired when decoded data becomes available.
-    init(format: AVAudioFormat, fileWrite: Bool, callback: @escaping PipelineManager.DecodedAudio) {
+    init(format: AVAudioFormat, fileWrite: Bool, errorWriter: ErrorWriter, callback: @escaping PipelineManager.DecodedAudio) {
         self.callback = callback
         self.format = format
         self.fileWrite = fileWrite
+        self.errorWriter = errorWriter
         do {
             guard format.isValidOpusPCMFormat else { fatalError() }
             decoder = try .init(format: format, application: .voip)
@@ -51,7 +55,7 @@ class LibOpusDecoder: Decoder {
             }
             callback(decoded, timestamp)
         } catch {
-            fatalError("Opus => Failed to decode: \(error)")
+            errorWriter.writeError(message: "Opus => Failed to decode: \(error)")
         }
     }
 
