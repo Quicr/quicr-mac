@@ -1,6 +1,10 @@
 import SwiftUI
 import Combine
 
+enum ParticipantError: Error {
+    case notFound
+}
+
 class VideoParticipant: ObservableObject, Identifiable {
     var id: UInt32
     @Published var decodedImage: UIImage
@@ -32,9 +36,9 @@ class VideoParticipants: ObservableObject {
         return new
     }
 
-    func removeParticipant(identifier: UInt32) {
+    func removeParticipant(identifier: UInt32) throws {
         let removed = participants.removeValue(forKey: identifier)
-        guard removed != nil else { fatalError("Participant \(identifier) doesn't exist") }
+        guard removed != nil else { throw ParticipantError.notFound }
         removed!.objectWillChange.send()
         let cancellable = cancellables[identifier]
         cancellable!.cancel()

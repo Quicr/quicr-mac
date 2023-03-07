@@ -11,6 +11,8 @@ struct InCallView: View {
     @EnvironmentObject var capture: ObservableCaptureManager
     /// Images to render.
     @EnvironmentObject var render: VideoParticipants
+    /// Error messages.
+    @EnvironmentObject var errors: ObservableError
 
     /// Currently selected camera.
     @State private var selectedCamera: AVCaptureDevice
@@ -33,54 +35,87 @@ struct InCallView: View {
 
     // Show a video player.
     var body: some View {
-        GeometryReader { geo in
-            VStack {
-                // Remote videos.
-                ScrollView {
-                    let denom: CGFloat = .init(min(maxColumns, render.participants.count))
-                    let width = geo.size.width / denom
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: width, maximum: width))]) {
-                        ForEach(Array(render.participants.values)) { participant in
-                            Image(uiImage: participant.decodedImage)
-                                .resizable()
-                                .scaledToFit()
-                        }
-                    }
-                }
-                .frame(height: geo.size.height * 0.8)
-
-                // Controls.
+        ZStack {
+            GeometryReader { geo in
                 VStack {
-                    List {
-                        ForEach(devices.cameras, id: \.self) { camera in
-                            Button(camera.localizedName,
-                                   role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
-                                capture.manager!.toggleInput(device: camera)
+                    // Remote videos.
+                    ScrollView {
+                        let denom: CGFloat = .init(min(maxColumns, render.participants.count))
+                        let width = geo.size.width / denom
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: width, maximum: width))]) {
+                            ForEach(Array(render.participants.values)) { participant in
+                                Image(uiImage: participant.decodedImage)
+                                    .resizable()
+                                    .scaledToFit()
                             }
                         }
                     }
+                    .frame(height: geo.size.height * 0.8)
 
-                    // Microphone control.
-                    Picker("Microphone", selection: $selectedMicrophone) {
-                        ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
-                            Text(microphone.localizedName).tag(microphone)
+                    // Controls.
+                    VStack {
+                        List {
+                            ForEach(devices.cameras, id: \.self) { camera in
+                                Button(camera.localizedName,
+                                       role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
+                                    capture.manager!.toggleInput(device: camera)
+                                }
+                            }
                         }
-                    }.onChange(of: selectedMicrophone) { _ in
-                        capture.manager!.addInput(device: selectedMicrophone)
-                    }
-                }
-                .padding()
-                .frame(height: geo.size.height * 0.2, alignment: .bottom)
 
-                // Local video preview.
-                // PreviewView(device: $selectedCamera)
+                        Button {
+                            errors.writeError(message: "Example")
+                        } label: {
+                            Text("Example")
+                        }
+
+                        // Microphone control.
+                        Picker("Microphone", selection: $selectedMicrophone) {
+                            ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
+                                Text(microphone.localizedName).tag(microphone)
+                            }
+                        }.onChange(of: selectedMicrophone) { _ in
+                            capture.manager!.addInput(device: selectedMicrophone)
+                        }
+                    }
+                    .padding()
+                    .frame(height: geo.size.height * 0.2, alignment: .bottom)
+
+                    // Local video preview.
+                    // PreviewView(device: $selectedCamera)
+                }
             }
-            .onAppear {
-                joinCall()
+
+            // Error messages.
+            VStack {
+                if !errors.messages.isEmpty {
+                    // Show the error messages.
+                    Group {
+                        Text("Errors:")
+                            .font(.title)
+                            .foregroundColor(.red)
+                        ForEach(errors.messages) { message in
+                            Text(message.message)
+                                .padding()
+                        }
+                    }
+                    .background(Color.red)
+
+                    // Clear all.
+                    Button {
+                        errors.messages.removeAll()
+                    } label: {
+                        Text("Clear")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
-            .onDisappear {
-                leaveCall()
-            }
+        }
+        .onAppear {
+            joinCall()
+        }
+        .onDisappear {
+            leaveCall()
         }
     }
 

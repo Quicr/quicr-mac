@@ -34,10 +34,12 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     let clientId = UInt16.random(in: 0..<UInt16.max)
     let participants: VideoParticipants
     let player: AudioPlayer
+    let errorHandler: ErrorWriter
 
-    init(participants: VideoParticipants, player: AudioPlayer) {
+    init(participants: VideoParticipants, player: AudioPlayer, errorWriter: ErrorWriter) {
         self.participants = participants
         self.player = player
+        self.errorHandler = errorWriter
         pipeline = .init(
             decodedCallback: { identifier, decoded, _ in
                 self.showDecodedImage(identifier: identifier, participants: participants, decoded: decoded)
@@ -49,7 +51,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 self.playDecodedAudio(identifier: identifier, buffer: sample, player: player)
             },
             encodedAudioCallback: self.sendEncodedAudio,
-            debugging: false)
+            debugging: false,
+            errorWriter: errorWriter)
     }
 
     func hash(into hasher: inout Hasher) {
@@ -72,7 +75,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
         // Remove video renderer.
         if participants.participants[identifier] != nil {
-            participants.removeParticipant(identifier: identifier)
+            do {
+                try participants.removeParticipant(identifier: identifier)
+            } catch {
+                errorHandler.writeError(message: "Failed to remove remote participant: \(error)")
+            }
         }
 
         // TODO: Remove audio player here.

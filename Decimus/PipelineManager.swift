@@ -29,6 +29,7 @@ class PipelineManager {
     private let audioCallback: DecodedAudioCallback
     private let encodedAudioCallback: Encoder.SourcedMediaCallback
     private let debugging: Bool
+    private let errorWriter: ErrorWriter
 
     /// Managed pipeline elements.
     var encoders: [UInt32: EncoderElement] = .init()
@@ -40,12 +41,14 @@ class PipelineManager {
         encodedCallback: @escaping EncodedSampleCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
         encodedAudioCallback: @escaping Encoder.SourcedMediaCallback,
-        debugging: Bool) {
+        debugging: Bool,
+        errorWriter: ErrorWriter) {
         self.imageCallback = decodedCallback
         self.encodedCallback = encodedCallback
         self.encodedAudioCallback = encodedAudioCallback
         self.audioCallback = decodedAudioCallback
         self.debugging = debugging
+        self.errorWriter = errorWriter
     }
 
     private func debugPrint(message: String) {
@@ -94,7 +97,7 @@ class PipelineManager {
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,
                                                   sampleRate: .opus48khz,
                                                   channels: 1)!
-            decoder = LibOpusDecoder(format: opusFormat, fileWrite: false) { pcm, _ in
+            decoder = LibOpusDecoder(format: opusFormat, fileWrite: false, errorWriter: errorWriter) { pcm, _ in
                 self.audioCallback(identifier, pcm)
             }
         }

@@ -29,13 +29,20 @@ class CaptureManager: NSObject,
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
 
     private let audioOutput: AVCaptureAudioDataOutput = .init()
+    private let errorHandler: ErrorWriter
 
     init(cameraCallback: @escaping MediaCallback,
          audioCallback: @escaping MediaCallback,
-         deviceChangeCallback: @escaping DeviceChangeCallback) {
+         deviceChangeCallback: @escaping DeviceChangeCallback,
+         errorHandler: ErrorWriter) {
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
         self.deviceChangedCallback = deviceChangeCallback
+        self.errorHandler = errorHandler
+
+        guard AVCaptureMultiCamSession.isMultiCamSupported else {
+            fatalError("Multicam not supported on this device")
+        }
 
         session = .init()
         super.init()
@@ -50,11 +57,7 @@ class CaptureManager: NSObject,
         do {
             try audioSession.setCategory(.playAndRecord, mode: .videoChat)
         } catch {
-            fatalError(error.localizedDescription)
-        }
-
-        guard AVCaptureMultiCamSession.isMultiCamSupported else {
-            fatalError("Multicam not supported on this device")
+            errorHandler.writeError(message: error.localizedDescription)
         }
 
         // Create the capture session.
@@ -79,7 +82,10 @@ class CaptureManager: NSObject,
     }
 
     func stopCapturing() {
-        guard session.isRunning else { fatalError("Shouldn't call stopCapturing when not running") }
+        guard session.isRunning else {
+            errorHandler.writeError(message: "Shouldn't call StopCapturing when not running")
+            return
+        }
         sessionQueue.async {
             self.session.stopRunning()
         }
@@ -95,16 +101,17 @@ class CaptureManager: NSObject,
 
     private func addMicrophone(device: AVCaptureDevice) {
         guard device.deviceType == .builtInMicrophone else {
-            fatalError("addMicrophone must be called on a microphone")
+            errorHandler.writeError(message: "addMicrophone must be called on a microphone")
+            return
         }
 
         guard let microphone: AVCaptureDeviceInput = try? .init(device: device) else {
-            print("CaptureManager => Couldn't create input for microphone")
+            errorHandler.writeError(message: "Couldn't create input for microphone")
             return
         }
 
         guard session.canAddInput(microphone) else {
-            print("CaptureManager => Couldn't add microphone")
+            errorHandler.writeError(message: "Couldn't add microphone")
             return
         }
         session.addInput(microphone)
@@ -112,26 +119,26 @@ class CaptureManager: NSObject,
     }
 
     private func addCamera(device: AVCaptureDevice) {
-        // Device config.
         do {
+            // Device config.
             try device.lockForConfiguration()
-        } catch {
-            fatalError(error.localizedDescription)
-        }
 
-        // Pick the highest quality multi-cam format.
-        for format in device.formats.reversed() where format.isMultiCamSupported &&
+            // Pick the highest quality multi-cam format.
+            for format in device.formats.reversed() where format.isMultiCamSupported &&
                                                       format.isHighestPhotoQualitySupported {
-            device.activeFormat = format
-            break
+                device.activeFormat = format
+                break
+            }
+            device.unlockForConfiguration()
+        } catch {
+            errorHandler.writeError(message: "Couldn't configure camera: \(error.localizedDescription)")
         }
-        device.unlockForConfiguration()
 
         // Add an output for this device.
         let videoOutput: AVCaptureVideoDataOutput = .init()
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
         guard session.canAddOutput(videoOutput) else {
-            print("CaptureManager => Output already added: \(device)")
+            errorHandler.writeError(message: "Output already added: \(device.localizedName)")
             return
         }
         session.addOutputWithNoConnections(videoOutput)
@@ -139,13 +146,13 @@ class CaptureManager: NSObject,
 
         // Add this device to the session.
         guard let input: AVCaptureDeviceInput = try? .init(device: device) else {
-            print("CaptureManager => Couldn't create input for camera: \(device.localizedName)")
+            errorHandler.writeError(message: "Couldn't create input for camera: \(device.localizedName)")
             return
         }
 
         inputs[device] = input
         guard session.canAddInput(input) else {
-            print("CaptureManager => Input already added: \(device)")
+            errorHandler.writeError(message: "Couldn't add input for camera: \(device.localizedName)")
             return
         }
         session.addInputWithNoConnections(input)
@@ -183,7 +190,7 @@ class CaptureManager: NSObject,
         sessionQueue.async { [self] in
             let input = inputs.removeValue(forKey: device)
             guard input != nil else {
-                print("CaptureManager => Unexpectedly removed input that couldn't be found")
+                errorHandler.writeError(message: "Unexpectedly asked to remove missing input: \(device.localizedName)")
                 return
             }
             session.beginConfiguration()
@@ -214,7 +221,8 @@ class CaptureManager: NSObject,
                 continue
             }
             guard let inputDevice = input.input as? AVCaptureDeviceInput else {
-                fatalError("Bad device id?")
+                errorHandler.writeError(message: "Couldn't find device for output")
+                return
             }
             device = inputDevice.device
             break
