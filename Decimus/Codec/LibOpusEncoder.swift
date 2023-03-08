@@ -122,6 +122,8 @@ class LibOpusEncoder: Encoder {
         let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: currentFormat!, frameCapacity: requiredFrames)!
         var selectedInputDataOffset = 0
 
+        var readIndex = 0
+
         // Collate input data.
         var earliestTimestamp: CMTime?
         while requiredFrames > 0 {
@@ -132,7 +134,7 @@ class LibOpusEncoder: Encoder {
             }
 
             // Get some data.
-            let queued = queue.first!
+            let queued = queue[readIndex]
             let input: AVAudioPCMBuffer = queued.0
             if earliestTimestamp == nil {
                 earliestTimestamp = queued.1
@@ -163,10 +165,16 @@ class LibOpusEncoder: Encoder {
 
             if framesToTake == framesLeft {
                 // Full read.
+                readIndex += 1
                 frameOffset = 0
-                _ = queue.popFirst()
             } else {
                 frameOffset += framesToTake
+            }
+        }
+
+        if readIndex > 0 {
+            for _ in 0...readIndex-1 {
+                _ = queue.popFirst()
             }
         }
 
