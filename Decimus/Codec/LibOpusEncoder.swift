@@ -6,14 +6,11 @@ class LibOpusEncoder: Encoder {
     private var encoder: Opus.Encoder?
     private let callback: MediaCallback
     private var queue: Deque<(AVAudioPCMBuffer, CMTime)> = .init()
-    private var readIndex = 0
     private var frameOffset: AVAudioFrameCount = 0
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
     private var currentFormat: AVAudioFormat?
-
-    private var samplesHit = 0
-    private var encodesDone = 0
     private let opusFrameSize: AVAudioFrameCount = 480
+    private let maxOpusEncodeBytes = 64000
 
     // Debug file output.
     private let fileWrite: Bool
@@ -25,80 +22,117 @@ class LibOpusEncoder: Encoder {
         self.callback = callback
     }
 
-    func write(sample: CMSampleBuffer) {
-        samplesHit += 1
-
+    private func createEncoder(format: CMFormatDescription) {
         // Initialize an encoder if we haven't already.
-        let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
+        let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: format)
         if currentFormat != nil && currentFormat != sampleFormat {
             fatalError("Opus encoder can't change format")
         }
+
+        if fileWrite {
+            makeOutputFiles(sampleFormat: sampleFormat)
+        }
+        currentFormat = sampleFormat
+        // Only the type of the incoming format is important for opus.
+        // Encoder is safe to always be 2 channel @ 48kHz.
+        let type: AVAudioFormat.OpusPCMFormat
+        switch sampleFormat.commonFormat {
+        case .pcmFormatFloat32:
+            type = .float32
+            print("Float")
+        case .pcmFormatInt16:
+            type = .int16
+            print("Int")
+        default:
+            fatalError()
+        }
+        let opusFormat: AVAudioFormat = .init(opusPCMFormat: type,
+                                              sampleRate: .opus48khz,
+                                              channels: sampleFormat.channelCount)!
+        do {
+            encoder = try .init(format: opusFormat, application: .voip)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
+    }
+
+    func write(sample: CMSampleBuffer) {
         if encoder == nil {
-            if fileWrite {
-                makeOutputFiles(sampleFormat: sampleFormat)
-            }
-            currentFormat = sampleFormat
-            // Only the type of the incoming format is important for opus.
-            // Encoder is safe to always be 2 channel @ 48kHz.
-            let type: AVAudioFormat.OpusPCMFormat
-            switch sampleFormat.commonFormat {
-            case .pcmFormatFloat32:
-                type = .float32
-                print("Float")
-            case .pcmFormatInt16:
-                type = .int16
-                print("Int")
-            default:
-                fatalError()
-            }
-            let opusFormat: AVAudioFormat = .init(opusPCMFormat: type,
-                                                  sampleRate: .opus48khz,
-                                                  channels: sampleFormat.channelCount)!
-            do {
-                encoder = try .init(format: opusFormat, application: .voip)
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+            createEncoder(format: sample.formatDescription!)
         }
 
         // Add the incoming PCM to the queue.
         let pcm: AVAudioPCMBuffer = .fromSample(sample: sample)
+        queue.append((pcm, sample.presentationTimeStamp))
 
         if fileWrite {
-            do {
-                try inputPcm!.write(from: pcm)
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+            writeToFile(file: inputPcm, pcm: pcm)
         }
-        queue.append((pcm, sample.presentationTimeStamp))
-        tryEncode(format: sampleFormat)
+
+        tryEncode()
     }
 
-    private func tryEncode(format: AVAudioFormat) {
-        guard self.currentFormat == format else {fatalError()}
+    private func writeToFile(file: AVAudioFile?, pcm: AVAudioPCMBuffer) {
+        guard let file = file else { return }
 
+        do {
+            try file.write(from: pcm)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
+    }
+
+    private func tryEncode() {
+        let (earliestTimestamp, collatedInput) = collateInputData()
+        if earliestTimestamp == nil { return }
+
+        // Write selected input to wav.
+        if fileWrite {
+            writeToFile(file: collatedPcm, pcm: collatedInput)
+        }
+
+        // Encode to Opus.
+        var encoded: Data = .init(count: maxOpusEncodeBytes)
+        var encodedBytes = 0
+        do {
+            encodedBytes = try encoder!.encode(collatedInput, to: &encoded)
+        } catch {
+             fatalError("Failed to encode opus: \(error). Format: \(currentFormat!)")
+        }
+
+        // Timestamp.
+        let timeMs = earliestTimestamp!.convertScale(1000, method: .default)
+
+        // Callback encoded data.
+        encoded.withUnsafeBytes { opus in
+            callback(.init(buffer: .init(start: opus, count: encodedBytes),
+                           timestampMs: UInt32(timeMs.value)))
+        }
+
+        // We're not quite done, finish encoding.
+        if queue.count > 1 { tryEncode() }
+    }
+
+    private func collateInputData() -> (CMTime?, AVAudioPCMBuffer) {
         // What do we need to encode?
         var requiredFrames = opusFrameSize
-        let bytesPerFrame = format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
+        let bytesPerFrame = currentFormat!.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
 
         // Prepare storage for encoded data.
-        let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: requiredFrames)!
+        let selectedInput: AVAudioPCMBuffer = .init(pcmFormat: currentFormat!, frameCapacity: requiredFrames)!
         var selectedInputDataOffset = 0
 
         // Collate input data.
         var earliestTimestamp: CMTime?
-        var toPop = 0
         while requiredFrames > 0 {
-            guard !queue.isEmpty, queue.endIndex > readIndex else {
+            guard !queue.isEmpty else {
                 // Ran out of data, reset and wait for more.
-                readIndex = 0
                 frameOffset = 0
-                return
+                return (nil, selectedInput)
             }
 
             // Get some data.
-            let queued = queue[readIndex]
+            let queued = queue.first!
             let input: AVAudioPCMBuffer = queued.0
             if earliestTimestamp == nil {
                 earliestTimestamp = queued.1
@@ -129,50 +163,14 @@ class LibOpusEncoder: Encoder {
 
             if framesToTake == framesLeft {
                 // Full read.
-                readIndex += 1
                 frameOffset = 0
-                toPop += 1
+                _ = queue.popFirst()
             } else {
                 frameOffset += framesToTake
             }
         }
 
-        // Remove any used up input buffers from the queue.
-        if toPop > 0 {
-            for _ in 0...toPop-1 {
-                _ = queue.popFirst()
-            }
-        }
-        readIndex = 0
-
-        // Write selected input to wav.
-        if fileWrite {
-            do {
-                try collatedPcm!.write(from: selectedInput)
-            } catch {
-                fatalError(error.localizedDescription)
-            }
-        }
-
-        // Encode to Opus.
-        let maxOpusEncodeBytes = 64000
-        var encoded: Data = .init(count: maxOpusEncodeBytes)
-        var encodedBytes = 0
-        do {
-            encodedBytes = try encoder!.encode(selectedInput, to: &encoded)
-        } catch {
-            fatalError("Failed to encode opus: \(error). Format: \(format)")
-        }
-        encodesDone += 1
-
-        // Timestamp.
-        let timeMs = earliestTimestamp!.convertScale(1000, method: .default)
-        // Callback encoded data.
-        encoded.withUnsafeBytes { opus in
-            callback(.init(buffer: .init(start: opus, count: encodedBytes),
-                           timestampMs: UInt32(timeMs.value)))
-            // print("Delta: \(samplesHit - encodesDone)")
-        }
+        return (earliestTimestamp, selectedInput)
     }
 
     private func makeOutputFiles(sampleFormat: AVAudioFormat) {
