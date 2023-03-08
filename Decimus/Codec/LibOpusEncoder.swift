@@ -22,9 +22,9 @@ class LibOpusEncoder: Encoder {
         self.callback = callback
     }
 
-    private func createEncoder(format: CMFormatDescription) {
+    private func createEncoder(formatDescription: CMFormatDescription) {
         // Initialize an encoder if we haven't already.
-        let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: format)
+        let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
         if currentFormat != nil && currentFormat != sampleFormat {
             fatalError("Opus encoder can't change format")
         }
@@ -58,7 +58,7 @@ class LibOpusEncoder: Encoder {
 
     func write(sample: CMSampleBuffer) {
         if encoder == nil {
-            createEncoder(format: sample.formatDescription!)
+            createEncoder(formatDescription: sample.formatDescription!)
         }
 
         // Add the incoming PCM to the queue.
