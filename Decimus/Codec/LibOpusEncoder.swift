@@ -128,7 +128,7 @@ class LibOpusEncoder: Encoder {
             guard !queue.isEmpty else {
                 // Ran out of data, reset and wait for more.
                 frameOffset = 0
-                return (nil, selectedInput)
+                return (earliestTimestamp, selectedInput)
             }
 
             // Get some data.
