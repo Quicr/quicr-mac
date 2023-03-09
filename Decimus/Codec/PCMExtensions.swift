@@ -1,14 +1,5 @@
 import AVFAudio
 
-extension AudioBuffer {
-    func array() -> [Float] {
-        return Array(UnsafeBufferPointer(self))
-    }
-    func array() -> [Int16] {
-        return Array(UnsafeBufferPointer(self))
-    }
-}
-
 extension AVAudioPCMBuffer {
     func asFloat() -> AVAudioPCMBuffer {
         guard format.commonFormat == .pcmFormatInt16 else { fatalError("Must be of type Int16") }
@@ -26,7 +17,22 @@ extension AVAudioPCMBuffer {
         return float
     }
 
-    func array() -> [Float] {
-        return self.audioBufferList.pointee.mBuffers.array()
+    func bytes() -> [UInt8] {
+        return Array(UnsafeBufferPointer(self.audioBufferList.pointee.mBuffers))
+    }
+}
+
+extension Array<UInt8> {
+    mutating func toPCM(size: UInt32, format: AVAudioFormat) -> AVAudioPCMBuffer {
+        return self.withUnsafeMutableBufferPointer { bytes -> AVAudioPCMBuffer in
+            let buffer = AudioBuffer(
+                mNumberChannels: format.channelCount,
+                mDataByteSize: size * format.streamDescription.pointee.mBytesPerFrame,
+                mData: bytes.baseAddress)
+            var bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: buffer)
+            return .init(pcmFormat: format, bufferListNoCopy: &bufferList)!
+        }
     }
 }
