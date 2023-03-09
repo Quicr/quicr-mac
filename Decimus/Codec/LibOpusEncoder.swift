@@ -12,7 +12,7 @@ class LibOpusEncoder: Encoder {
     private let opusFrameSize: AVAudioFrameCount = 480
     private let maxOpusEncodeBytes = 64000
 
-    private var buffer: [Float] = []
+    private var buffer: [UInt8] = []
     private var timestamps: [CMTime] = []
 
     // Debug file output.
@@ -72,38 +72,35 @@ class LibOpusEncoder: Encoder {
         }
 
         // Write our samples to the buffer
-        buffer.append(contentsOf: pcm.array())
+        buffer.append(contentsOf: pcm.bytes())
         timestamps.append(sample.presentationTimeStamp)
 
+        let opusFrameSizeBytes = opusFrameSize * currentFormat!.streamDescription.pointee.mBytesPerFrame
+
         // Try to encode and empty the buffer
-        while UInt32(buffer.count) / opusFrameSize >= 1 {
+        while UInt32(buffer.count) * currentFormat!.channelCount / opusFrameSizeBytes >= 1 {
             tryEncode()
-            buffer.removeSubrange(0...Int(opusFrameSize - 1))
-            timestamps.removeFirst()
+
+            buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
+            if buffer.count > 0 && timestamps.count != 1 {
+                timestamps.removeFirst()
+            }
         }
     }
 
     private func tryEncode() {
-        let collatedInput = buffer.withUnsafeMutableBufferPointer { bytes -> AVAudioPCMBuffer in
-            var bufferList = AudioBufferList(
-                mNumberBuffers: 1,
-                mBuffers: AudioBuffer(
-                    mNumberChannels: currentFormat!.channelCount,
-                    mDataByteSize: opusFrameSize * UInt32(MemoryLayout<Float>.size),
-                    mData: bytes.baseAddress))
-            return .init(pcmFormat: currentFormat!, bufferListNoCopy: &bufferList)!
-        }
+        let pcm = buffer.toPCM(size: opusFrameSize, format: currentFormat!)
 
         // Write selected input to wav.
         if fileWrite {
-            writeToFile(file: collatedPcm, pcm: collatedInput)
+            writeToFile(file: collatedPcm, pcm: pcm)
         }
 
         // Encode to Opus.
         var encoded: Data = .init(count: maxOpusEncodeBytes)
         var encodedBytes = 0
         do {
-            encodedBytes = try encoder!.encode(collatedInput, to: &encoded)
+            encodedBytes = try encoder!.encode(pcm, to: &encoded)
         } catch {
             fatalError("Failed to encode opus: \(error). Format: \(currentFormat!)")
         }
@@ -112,8 +109,8 @@ class LibOpusEncoder: Encoder {
         let timeMs = timestamps.first!.convertScale(1000, method: .default)
 
         // Callback encoded data.
-        encoded.withUnsafeBytes { opus in
-            callback(.init(buffer: .init(start: opus.baseAddress, count: encodedBytes),
+        encoded.withUnsafeBytes { bytes in
+            callback(.init(buffer: .init(start: bytes.baseAddress, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
         }
     }
