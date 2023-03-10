@@ -1,4 +1,5 @@
 import AVFoundation
+import UIKit
 
 public extension AVCaptureDevice {
     var id: UInt32 {
@@ -159,6 +160,7 @@ class CaptureManager: NSObject,
 
         // Setup the connection.
         let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
+        connection.videoOrientation = UIDevice.current.orientation.videoOrientation
         session.addConnection(connection)
         connections[device] = connection
     }
@@ -228,6 +230,13 @@ class CaptureManager: NSObject,
             break
         }
 
+        // Update the video orientation.
+        // This probably takes effect next frame,
+        // but doing it here skips the need for change notifications.
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = UIDevice.current.orientation.videoOrientation
+        }
+
         // Callback this media sample.
         if output == audioOutput {
             audioFrameCallback(UInt32(truncatingIfNeeded: device!.id), sampleBuffer)
@@ -242,5 +251,22 @@ class CaptureManager: NSObject,
                        from connection: AVCaptureConnection) {
         // TODO: Get reason.
         print("CaptureManager => Frame dropped!")
+    }
+}
+
+extension UIDeviceOrientation {
+    var videoOrientation: AVCaptureVideoOrientation {
+        switch self {
+        case .portrait:
+            return .portrait
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            return .landscapeRight
+        case .landscapeRight:
+            return .landscapeLeft
+        default:
+            return .portrait
+        }
     }
 }
