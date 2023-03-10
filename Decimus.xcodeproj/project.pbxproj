@@ -113,6 +113,7 @@
 		9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
+		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +184,7 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
 				9BDD5B0929967C9600C01D54 /* DecimusTests */,
@@ -260,6 +262,14 @@
 				9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */,
 			);
 			path = DecimusTests;
+			sourceTree = "<group>";
+		};
+		9BEFCC4F29BB89D9001A780A /* ci_scripts */ = {
+			isa = PBXGroup;
+			children = (
+				9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */,
+			);
+			path = ci_scripts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
