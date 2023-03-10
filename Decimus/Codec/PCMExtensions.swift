@@ -16,4 +16,23 @@ extension AVAudioPCMBuffer {
         float.frameLength = frameLength
         return float
     }
+
+    func bytes() -> [UInt8] {
+        return Array(UnsafeBufferPointer(self.audioBufferList.pointee.mBuffers))
+    }
+}
+
+extension Array<UInt8> {
+    mutating func toPCM(size: UInt32, format: AVAudioFormat) -> AVAudioPCMBuffer {
+        return self.withUnsafeMutableBufferPointer { bytes -> AVAudioPCMBuffer in
+            let buffer = AudioBuffer(
+                mNumberChannels: format.channelCount,
+                mDataByteSize: size * format.streamDescription.pointee.mBytesPerFrame,
+                mData: bytes.baseAddress)
+            var bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: buffer)
+            return .init(pcmFormat: format, bufferListNoCopy: &bufferList)!
+        }
+    }
 }
