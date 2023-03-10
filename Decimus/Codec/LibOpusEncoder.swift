@@ -1,16 +1,14 @@
 import Opus
 import AVFoundation
-import DequeModule
 
 class LibOpusEncoder: Encoder {
     private var encoder: Opus.Encoder?
     private let callback: MediaCallback
 
-    private var frameOffset: AVAudioFrameCount = 0
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
     private var currentFormat: AVAudioFormat?
     private let opusFrameSize: AVAudioFrameCount = 480
-    private let maxOpusEncodeBytes = 64000
+    private var encoded: Data = .init(count: 64000)
 
     private var buffer: [UInt8] = []
     private var timestamps: [CMTime] = []
@@ -97,7 +95,6 @@ class LibOpusEncoder: Encoder {
         }
 
         // Encode to Opus.
-        var encoded: Data = .init(count: maxOpusEncodeBytes)
         var encodedBytes = 0
         do {
             encodedBytes = try encoder!.encode(pcm, to: &encoded)
