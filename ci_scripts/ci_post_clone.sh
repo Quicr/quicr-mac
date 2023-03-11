@@ -3,5 +3,8 @@
 # Skip package validation for build plugins.
 defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
 
+# CMake
+brew install cmake
+
 # Build QMedia.
-./$CI_PROJECT_FILE_PATH/dependencies/build-qmedia-framework.sh
+sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh
