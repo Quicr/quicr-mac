@@ -17,9 +17,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>${MACOSX_FRAMEWORK_BUNDLE_VERSION}</string>
+	<string>1.0.${BUILD_NUMBER}</string>
 	<key>CFBundleShortVersionString</key>
-	<string>${MACOSX_FRAMEWORK_SHORT_VERSION_STRING}</string>
+	<string>1.0.${BUILD_NUMBER}</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
     <key>MinimumOSVersion</key>
