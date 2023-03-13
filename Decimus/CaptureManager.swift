@@ -160,7 +160,9 @@ class CaptureManager: NSObject,
 
         // Setup the connection.
         let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
-        connection.videoOrientation = UIDevice.current.orientation.videoOrientation
+        if connection.isVideoOrientationSupported {
+            connection.videoOrientation = UIDevice.current.orientation.videoOrientation
+        }
         session.addConnection(connection)
         connections[device] = connection
     }
