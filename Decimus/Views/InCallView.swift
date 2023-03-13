@@ -121,8 +121,8 @@ struct InCallView: View {
         capture.deviceChangeCallback = mode!.onDeviceChange
 
         // Use default devices.
-        capture.manager!.addInput(device: selectedCamera)
         capture.manager!.addInput(device: selectedMicrophone)
+        capture.manager!.addInput(device: selectedCamera)
 
         capture.manager!.startCapturing()
     }

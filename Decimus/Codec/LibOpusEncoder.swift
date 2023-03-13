@@ -12,14 +12,9 @@ class LibOpusEncoder: Encoder {
 
     private var buffer: [UInt8] = []
     private var timestamps: [CMTime] = []
+    private var opusFrameSizeBytes: UInt32 = 0
 
-    // Debug file output.
-    private let fileWrite: Bool
-    private var inputPcm: AVAudioFile?
-    private var collatedPcm: AVAudioFile?
-
-    init(fileWrite: Bool, callback: @escaping MediaCallback) {
-        self.fileWrite = fileWrite
+    init(callback: @escaping MediaCallback) {
         self.callback = callback
     }
 
@@ -30,9 +25,6 @@ class LibOpusEncoder: Encoder {
             fatalError("Opus encoder can't change format")
         }
 
-        if fileWrite {
-            makeOutputFiles(sampleFormat: sampleFormat)
-        }
         currentFormat = sampleFormat
         // Only the type of the incoming format is important for opus.
         // Encoder is safe to always be 2 channel @ 48kHz.
@@ -55,6 +47,8 @@ class LibOpusEncoder: Encoder {
         } catch {
             fatalError(error.localizedDescription)
         }
+
+        opusFrameSizeBytes = opusFrameSize * currentFormat!.streamDescription.pointee.mBytesPerFrame
     }
 
     func write(sample: CMSampleBuffer) {
@@ -62,18 +56,16 @@ class LibOpusEncoder: Encoder {
             createEncoder(formatDescription: sample.formatDescription!)
         }
 
-        // Add the incoming PCM to the queue.
-        let pcm: AVAudioPCMBuffer = .fromSample(sample: sample)
-
-        if fileWrite {
-            writeToFile(file: inputPcm, pcm: pcm)
+        // Write our samples to the buffer
+        do {
+            try sample.dataBuffer?.withUnsafeMutableBytes {
+                buffer.append(contentsOf: $0)
+            }
+        } catch {
+            fatalError("Failed to write samples to encoder buffer")
         }
 
-        // Write our samples to the buffer
-        buffer.append(contentsOf: pcm.bytes())
         timestamps.append(sample.presentationTimeStamp)
-
-        let opusFrameSizeBytes = opusFrameSize * currentFormat!.streamDescription.pointee.mBytesPerFrame
 
         // Try to encode and empty the buffer
         while UInt32(buffer.count) * currentFormat!.channelCount / opusFrameSizeBytes >= 1 {
@@ -88,11 +80,6 @@ class LibOpusEncoder: Encoder {
 
     private func tryEncode() {
         let pcm = buffer.toPCM(size: opusFrameSize, format: currentFormat!)
-
-        // Write selected input to wav.
-        if fileWrite {
-            writeToFile(file: collatedPcm, pcm: pcm)
-        }
 
         // Encode to Opus.
         var encodedBytes = 0
@@ -109,40 +96,6 @@ class LibOpusEncoder: Encoder {
         encoded.withUnsafeBytes { bytes in
             callback(.init(buffer: .init(start: bytes.baseAddress, count: encodedBytes),
                            timestampMs: UInt32(timeMs.value)))
-        }
-    }
-
-    private func writeToFile(file: AVAudioFile?, pcm: AVAudioPCMBuffer) {
-        guard let file = file else { return }
-
-        do {
-            try file.write(from: pcm)
-        } catch {
-            fatalError(error.localizedDescription)
-        }
-    }
-
-    private func makeOutputFiles(sampleFormat: AVAudioFormat) {
-        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).last
-        do {
-            inputPcm = try .init(forWriting: dir!.appendingPathComponent("input.wav"),
-                                 settings: [
-                                    "AVFormatIdKey": kAudioFormatLinearPCM,
-                                    "AVSampleRateKey": sampleFormat.sampleRate,
-                                    "AVNumberOfChannelsKey": sampleFormat.channelCount
-                                 ],
-                                 commonFormat: sampleFormat.commonFormat,
-                                 interleaved: sampleFormat.isInterleaved)
-            collatedPcm = try .init(forWriting: dir!.appendingPathComponent("collated.wav"),
-                                    settings: [
-                                        "AVFormatIdKey": kAudioFormatLinearPCM,
-                                        "AVSampleRateKey": sampleFormat.sampleRate,
-                                        "AVNumberOfChannelsKey": sampleFormat.channelCount
-                                    ],
-                                    commonFormat: sampleFormat.commonFormat,
-                                    interleaved: sampleFormat.isInterleaved)
-        } catch {
-            fatalError(error.localizedDescription)
         }
     }
 }
