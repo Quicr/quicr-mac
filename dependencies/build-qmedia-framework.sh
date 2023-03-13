@@ -24,12 +24,17 @@ cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S 
 cmake --build $DIR/build-catalyst-x86 --target neo_media_client -j$CORES
 
 # Univeral catalyst binary
-lipo -create -output $DIR/neo_media_client $DIR/build-catalyst/src/extern/neo_media_client.framework/neo_media_client $DIR/build-catalyst-x86/src/extern/neo_media_client.framework/neo_media_client
-mv $DIR/neo_media_client $DIR/build-catalyst/src/extern/neo_media_client.framework/neo_media_client
+ORIGINAL=$(readlink -f $DIR/build-catalyst/src/extern/neo_media_client.framework/neo_media_client)
+ARCHS=$(lipo -archs $ORIGINAL)
+if [ "$ARCHS" == "arm64" ]
+then
+  lipo -create -output $DIR/neo_media_client $ORIGINAL $DIR/build-catalyst-x86/src/extern/neo_media_client.framework/neo_media_client
+  mv $DIR/neo_media_client $ORIGINAL
+fi
 
 # Build for iOS
 mkdir -p $DIR/build-ios
-cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-ios -DPLATFORM=OS64 -DENABLE_VISIBILITY=ON -DMACOSX_FRAMEWORK_IDENTIFIER=com.cisco.quicr.qmedia -DCMAKE_MODULE_PATH=$DIR  -DBUILD_NUMBER=$BUILD_NUMBER
+cmake -DCMAKE_FRAMEWORK=TRUE -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-ios -DPLATFORM=OS64 -DENABLE_VISIBILITY=ON -DMACOSX_FRAMEWORK_IDENTIFIER=com.cisco.quicr.qmedia -DCMAKE_MODULE_PATH=$DIR -DBUILD_NUMBER=$BUILD_NUMBER
 cmake --build $DIR/build-ios --target neo_media_client -j$CORES
 
 # Build for simulator

@@ -603,6 +603,8 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -654,6 +656,8 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
