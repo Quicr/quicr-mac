@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		185D628C29BF37640011E634 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 185D628B29BF37640011E634 /* Info.plist */; };
 		9B165A112983E5C10017079F /* Loopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A102983E5C10017079F /* Loopback.swift */; };
 		9B165A132984012D0017079F /* ApplicationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A122984012D0017079F /* ApplicationMode.swift */; };
 		9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* QMediaPubSub.swift */; };
@@ -74,7 +73,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		185D628B29BF37640011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9B165A102983E5C10017079F /* Loopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loopback.swift; sourceTree = "<group>"; };
 		9B165A122984012D0017079F /* ApplicationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMode.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* QMediaPubSub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaPubSub.swift; sourceTree = "<group>"; };
@@ -223,7 +221,6 @@
 				9B480686298289910040F5D4 /* AudioPlayer.swift */,
 				9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */,
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
-				185D628B29BF37640011E634 /* Info.plist */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -371,7 +368,6 @@
 			files = (
 				9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */,
 				9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */,
-				185D628C29BF37640011E634 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
