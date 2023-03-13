@@ -73,6 +73,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		9B165A102983E5C10017079F /* Loopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loopback.swift; sourceTree = "<group>"; };
 		9B165A122984012D0017079F /* ApplicationMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationMode.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* QMediaPubSub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaPubSub.swift; sourceTree = "<group>"; };
@@ -205,6 +206,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				185D628E29BF3C5A0011E634 /* Info.plist */,
 				9B48068A298301ED0040F5D4 /* QMedia */,
 				9B48067F298016FD0040F5D4 /* Codec */,
 				9BA27FF9297DD8CA007013B2 /* Models */,
@@ -600,8 +602,9 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -650,8 +653,9 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "$(PRODUCT_NAME) needs your camera in order for others to see you in calls";
+				INFOPLIST_FILE = Decimus/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
