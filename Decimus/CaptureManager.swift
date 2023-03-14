@@ -8,7 +8,7 @@ public extension AVCaptureDevice {
 }
 
 /// Manages local media capture.
-class CaptureManager: NSObject,
+actor CaptureManager: NSObject,
                       AVCaptureVideoDataOutputSampleBufferDelegate,
                       AVCaptureAudioDataOutputSampleBufferDelegate {
 
@@ -19,7 +19,11 @@ class CaptureManager: NSObject,
     typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
+    /// Available callback.
+    typealias AvailableCallback = (Bool) -> Void
 
+    let availableForSession: AvailableCallback
+    let availableForInputChange: AvailableCallback
     let session: AVCaptureMultiCamSession
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
@@ -35,10 +39,14 @@ class CaptureManager: NSObject,
     init(cameraCallback: @escaping MediaCallback,
          audioCallback: @escaping MediaCallback,
          deviceChangeCallback: @escaping DeviceChangeCallback,
+         availableForSesion: @escaping AvailableCallback,
+         availableForInputChange: @escaping AvailableCallback,
          errorHandler: ErrorWriter) {
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
         self.deviceChangedCallback = deviceChangeCallback
+        self.availableForSession = availableForSesion
+        self.availableForInputChange = availableForInputChange
         self.errorHandler = errorHandler
 
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -47,12 +55,7 @@ class CaptureManager: NSObject,
 
         session = .init()
         super.init()
-        sessionQueue.async {
-            self.setup()
-        }
-    }
 
-    private func setup() {
         // Audio configuration.
         let audioSession = AVAudioSession.sharedInstance()
         do {
@@ -71,6 +74,7 @@ class CaptureManager: NSObject,
         session.addOutputWithNoConnections(audioOutput)
 
         session.commitConfiguration()
+        availableForSession(true)
     }
 
     func usingInput(device: AVCaptureDevice) -> Bool {
@@ -78,8 +82,10 @@ class CaptureManager: NSObject,
     }
 
     func startCapturing() {
+        availableForSession(false)
         if session.isRunning { return }
         self.session.startRunning()
+        availableForSession(true)
     }
 
     func stopCapturing() {
@@ -87,9 +93,9 @@ class CaptureManager: NSObject,
             errorHandler.writeError(message: "Shouldn't call StopCapturing when not running")
             return
         }
-        sessionQueue.async {
-            self.session.stopRunning()
-        }
+        availableForSession(false)
+        self.session.stopRunning()
+        availableForSession(true)
     }
 
     func toggleInput(device: AVCaptureDevice) {
@@ -161,7 +167,7 @@ class CaptureManager: NSObject,
         // Setup the connection.
         let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
         if connection.isVideoOrientationSupported {
-            connection.videoOrientation = UIDevice.current.orientation.videoOrientation
+            // connection.videoOrientation = UIDevice.current.orientation.videoOrientation
         }
         session.addConnection(connection)
         connections[device] = connection
@@ -170,53 +176,54 @@ class CaptureManager: NSObject,
     /// Start capturing from the target device.
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice) {
-        sessionQueue.async { [self] in
-            print("CaptureManager => Adding capture device: \(device.localizedName)")
-            session.beginConfiguration()
-            if device.deviceType == .builtInMicrophone {
-                addMicrophone(device: device)
-            } else {
-                addCamera(device: device)
-            }
-            session.commitConfiguration()
-
-            // Run the session
-            if !session.isRunning {
-                session.startRunning()
-            }
-
-            // Notify.
-            deviceChangedCallback(device, .added)
+        availableForInputChange(false)
+        defer { availableForInputChange(true) }
+        print("CaptureManager => Adding capture device: \(device.localizedName)")
+        session.beginConfiguration()
+        if device.deviceType == .builtInMicrophone {
+            addMicrophone(device: device)
+        } else {
+            addCamera(device: device)
         }
+        session.commitConfiguration()
+
+        // Run the session
+        if !session.isRunning {
+            session.startRunning()
+        }
+
+        // Notify.
+        deviceChangedCallback(device, .added)
     }
 
     func removeInput(device: AVCaptureDevice) {
-        sessionQueue.async { [self] in
-            let input = inputs.removeValue(forKey: device)
-            guard input != nil else {
-                errorHandler.writeError(message: "Unexpectedly asked to remove missing input: \(device.localizedName)")
-                return
-            }
-            session.beginConfiguration()
-            let connection = connections.removeValue(forKey: device)
-            if connection != nil {
-                session.removeConnection(connection!)
-            }
-            session.removeInput(input!)
-            for output in outputs where output.value == device {
-                outputs.removeValue(forKey: output.key)
-                output.key.setSampleBufferDelegate(nil, queue: nil)
-            }
-            session.commitConfiguration()
-            print("CaptureManager => Removing input for \(device.localizedName)")
-            deviceChangedCallback(device, .removed)
+        availableForInputChange(false)
+        defer { availableForInputChange(true) }
+
+        let input = inputs.removeValue(forKey: device)
+        guard input != nil else {
+            errorHandler.writeError(message: "Unexpectedly asked to remove missing input: \(device.localizedName)")
+            return
         }
+        session.beginConfiguration()
+        let connection = connections.removeValue(forKey: device)
+        if connection != nil {
+            session.removeConnection(connection!)
+        }
+        session.removeInput(input!)
+        for output in outputs where output.value == device {
+            outputs.removeValue(forKey: output.key)
+            output.key.setSampleBufferDelegate(nil, queue: nil)
+        }
+        session.commitConfiguration()
+        print("CaptureManager => Removing input for \(device.localizedName)")
+        deviceChangedCallback(device, .removed)
     }
 
     /// Fires when a frame is available.
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didOutput sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
         // Get the device this frame was for.
         var device: AVCaptureDevice?
         for input in connection.inputPorts {
@@ -236,7 +243,7 @@ class CaptureManager: NSObject,
         // This probably takes effect next frame,
         // but doing it here skips the need for change notifications.
         if connection.isVideoOrientationSupported {
-            connection.videoOrientation = UIDevice.current.orientation.videoOrientation
+            // connection.videoOrientation = UIDevice.current.orientation.videoOrientation
         }
 
         // Callback this media sample.
@@ -248,9 +255,9 @@ class CaptureManager: NSObject,
     }
 
     /// This callback fires if a frame was dropped.
-    func captureOutput(_ output: AVCaptureOutput,
-                       didDrop sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didDrop sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
         // TODO: Get reason.
         print("CaptureManager => Frame dropped!")
     }

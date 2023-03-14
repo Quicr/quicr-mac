@@ -4,12 +4,26 @@ import CoreMedia
 /// Wrapper for capture manager as observable object.
 class ObservableCaptureManager: ObservableObject {
 
+    @Published var availableForSession = false
+    @Published var availableForInputChange = false
+
     var videoCallback: CaptureManager.MediaCallback?
     var audioCallback: CaptureManager.MediaCallback?
     var deviceChangeCallback: CaptureManager.DeviceChangeCallback?
     var manager: CaptureManager?
 
     init(errorHandler: ErrorWriter) {
+
+        let session: CaptureManager.AvailableCallback = { available in
+            DispatchQueue.main.async {
+                self.availableForSession = available
+            }
+        }
+        let inputChange: CaptureManager.AvailableCallback = { available in
+            DispatchQueue.main.async {
+                self.availableForInputChange = available
+            }
+        }
         manager = .init(
             cameraCallback: { identifier, sample in
                 self.videoCallback?(identifier, sample)
@@ -20,6 +34,8 @@ class ObservableCaptureManager: ObservableObject {
             deviceChangeCallback: { identifier, event in
                 self.deviceChangeCallback?(identifier, event)
             },
+            availableForSesion: session,
+            availableForInputChange: inputChange,
             errorHandler: errorHandler)
     }
 }

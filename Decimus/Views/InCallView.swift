@@ -57,9 +57,11 @@ struct InCallView: View {
                         List {
                             ForEach(devices.cameras, id: \.self) { camera in
                                 Button(camera.localizedName,
-                                       role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
-                                    capture.manager!.toggleInput(device: camera)
-                                }
+                                       role: nil) {
+                                    Task {
+                                        await capture.manager!.toggleInput(device: camera)
+                                    }
+                                }.disabled(!capture.availableForSession && !capture.availableForInputChange)
                             }
                         }
 
@@ -69,8 +71,10 @@ struct InCallView: View {
                                 Text(microphone.localizedName).tag(microphone)
                             }
                         }.onChange(of: selectedMicrophone) { _ in
-                            capture.manager!.addInput(device: selectedMicrophone)
-                        }
+                            Task {
+                                await capture.manager!.addInput(device: selectedMicrophone)
+                            }
+                        }.disabled(!capture.availableForSession && !capture.availableForInputChange)
                     }
                     .padding()
                     .frame(height: geo.size.height * 0.3, alignment: .top)
@@ -106,34 +110,36 @@ struct InCallView: View {
                 }
             }
         }
-        .onAppear {
-            joinCall()
+        .task {
+            await joinCall()
         }
         .onDisappear {
-            leaveCall()
+            Task {
+                await leaveCall()
+            }
         }
     }
 
-    private func joinCall() {
+    private func joinCall() async {
         // Bind pipeline to capture manager.
         capture.videoCallback = mode!.encodeCameraFrame
         capture.audioCallback = mode!.encodeAudioSample
         capture.deviceChangeCallback = mode!.onDeviceChange
 
         // Use default devices.
-        capture.manager!.addInput(device: selectedCamera)
-        capture.manager!.addInput(device: selectedMicrophone)
+        await capture.manager!.addInput(device: selectedCamera)
+        await capture.manager!.addInput(device: selectedMicrophone)
 
-        capture.manager!.startCapturing()
+        await capture.manager!.startCapturing()
     }
 
-    private func leaveCall() {
+    private func leaveCall() async {
         // Stop capturing.
-        capture.manager!.stopCapturing()
+        await capture.manager!.stopCapturing()
 
         // Remove devices.
-        capture.manager!.removeInput(device: selectedCamera)
-        capture.manager!.removeInput(device: selectedMicrophone)
+        await capture.manager!.removeInput(device: selectedCamera)
+        await capture.manager!.removeInput(device: selectedMicrophone)
 
         // Unbind pipeline.
         capture.videoCallback = nil
