@@ -2,11 +2,62 @@ import SwiftUI
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
-struct CallSetupView: View {
-
+private struct LoginForm: View {
     @State private var address: String = ""
     @State private var port: UInt16 = 0
 
+    private var configCallback: ConfigCallback
+
+    private let buttonColour = StyleColours(background: .white, foreground: .black)
+
+    init(_ onJoin: @escaping ConfigCallback) {
+        configCallback = onJoin
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                FormInput("Address", field: TextField("", text: $address, prompt: Text("")))
+                FormInput("Port", field: TextField("",
+                                                   value: $port,
+                                                   format: .number.grouping(.never),
+                                                   prompt: Text("")))
+                ActionButton("Join Meeting",
+                             disabled: address == "" || port == 0,
+                             colours: buttonColour,
+                             action: join)
+                .frame(maxWidth: .infinity)
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // TODO: For Dev purposes, should be removed eventually
+            Section {
+                HStack {
+                    ActionButton("localhost", colours: buttonColour, action: {
+                        address = "127.0.0.1"
+                        port = 1234
+                    })
+                    ActionButton("AWS", colours: buttonColour, action: {
+                        address = "relay.us-west-2.quicr.ctgpoc.com"
+                        port = 33434
+                    })
+                }
+            }
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+        .background(.clear)
+        .scrollContentBackground(.hidden)
+        .scrollDisabled(true)
+    }
+
+    func join() {
+        configCallback(.init(address: address, port: port))
+    }
+}
+
+struct CallSetupView: View {
     private var configCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -14,37 +65,30 @@ struct CallSetupView: View {
     }
 
     var body: some View {
-        Text("Real Time Media Client").font(.title)
-        Form {
-            Section(header: Text("Join a meeting")) {
-                HStack {
-                    TextField("Address", text: $address, prompt: Text("Server Address")).disableAutocorrection(true)
-                    Divider()
-                    Button(action: {
-                        address = "127.0.0.1"
-                        port = 1234
-                    }, label: {
-                        Text("localhost")
-                    }).buttonStyle(.bordered)
-                    Button(action: {
-                        address = "relay.us-west-2.quicr.ctgpoc.com"
-                        port = 33434
-                    }, label: {
-                        Text("AWS")
-                    }).buttonStyle(.bordered)
-                }.alignmentGuide(.listRowSeparatorLeading) { _ in
-                    return 0
-                }
-                TextField("Port", value: $port, format: .number.grouping(.never), prompt: Text("Server Port"))
-                Button(action: join) {
-                    Label("Join", systemImage: "phone")
+        GeometryReader { geo in
+            ZStack {
+                Image("RTMC-Background")
+                    .resizable()
+                    .scaledToFill()
+                    .edgesIgnoringSafeArea(.all)
+                    .frame(width: geo.size.width,
+                           height: geo.size.height + 50, // see about getting rid of the 50
+                           alignment: .center)
+                VStack {
+                    Image("RTMC-Icon")
+                    Text("Real Time Media Client")
+                        .font(.largeTitle)
+                        .foregroundColor(.white)
+                    Spacer(minLength: 25)
+                    Text("Join a meeting")
+                        .font(.title)
+                        .foregroundColor(.white)
+                    LoginForm(configCallback)
+                        .frame(maxWidth: 350)
+                        .padding(.top, -30)
                 }
             }
         }
-    }
-
-    func join() {
-        configCallback(.init(address: address, port: port))
     }
 }
 
