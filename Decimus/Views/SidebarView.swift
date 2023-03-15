@@ -52,17 +52,34 @@ struct SidebarView: View {
         SafeNavigationStack {
             List {
                 SafeNavigationLink(mode: modes.qMedia) {
-                    Label("QMedia", systemImage: "phone.circle")
-                }
-                    .disabled(!capture.availableForSession)
+                    HStack {
+                        Label("QMedia", systemImage: "phone.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
+
                 SafeNavigationLink(mode: modes.loopback) {
-                    Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
-                }
-                    .disabled(!capture.availableForSession)
+                    HStack {
+                        Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
+
                 SafeNavigationLink(mode: modes.rawLoopback) {
-                    Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
-                }
-                    .disabled(!capture.availableForSession)
+                    HStack {
+                        Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
             }.safeNavigationDestination()
         }.navigationTitle("Application Modes")
     }
