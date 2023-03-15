@@ -4,8 +4,7 @@ import CoreMedia
 /// Wrapper for capture manager as observable object.
 class ObservableCaptureManager: ObservableObject {
 
-    @Published var availableForSession = false
-    @Published var availableForInputChange = false
+    @Published var available = false
 
     var videoCallback: CaptureManager.MediaCallback?
     var audioCallback: CaptureManager.MediaCallback?
@@ -13,17 +12,6 @@ class ObservableCaptureManager: ObservableObject {
     var manager: CaptureManager?
 
     init(errorHandler: ErrorWriter) {
-
-        let session: CaptureManager.AvailableCallback = { available in
-            DispatchQueue.main.async {
-                self.availableForSession = available
-            }
-        }
-        let inputChange: CaptureManager.AvailableCallback = { available in
-            DispatchQueue.main.async {
-                self.availableForInputChange = available
-            }
-        }
         manager = .init(
             cameraCallback: { identifier, sample in
                 self.videoCallback?(identifier, sample)
@@ -34,9 +22,11 @@ class ObservableCaptureManager: ObservableObject {
             deviceChangeCallback: { identifier, event in
                 self.deviceChangeCallback?(identifier, event)
             },
-            availableForSesion: session,
-            availableForInputChange: inputChange,
-            errorHandler: errorHandler)
+            available: { available in
+                DispatchQueue.main.async { self.available = available }
+            },
+            errorHandler: errorHandler,
+            currentOrientation: UIDevice.current.orientation.videoOrientation)
     }
 }
 
@@ -63,7 +53,7 @@ class ObservableError: ObservableObject, ErrorWriter {
     @Published var messages: [StringError] = []
     func writeError(message: String) {
         print("[Decimus Error] => \(message)")
-        messages.append(.init(message: message))
+        self.messages.append(.init(message: message))
     }
 }
 
