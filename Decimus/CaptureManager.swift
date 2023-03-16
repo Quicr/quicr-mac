@@ -185,7 +185,11 @@ actor CaptureManager: NSObject,
     /// Start capturing from the target device.
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice) {
+        // Notify upfront.
         print("CaptureManager => Adding capture device: \(device.localizedName)")
+        deviceChangedCallback(device, .added)
+
+        // Add.
         session.beginConfiguration()
         if device.deviceType == .builtInMicrophone {
             addMicrophone(device: device)
@@ -198,9 +202,6 @@ actor CaptureManager: NSObject,
         if !session.isRunning {
             session.startRunning()
         }
-
-        // Notify.
-        deviceChangedCallback(device, .added)
     }
 
     func removeInput(device: AVCaptureDevice) {
