@@ -2,6 +2,49 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+/// View for display grid of videos
+private struct VideoGrid: View {
+    private let videos: [VideoParticipant]
+    private let maxColumns: Int = 4
+    private let spacing: CGFloat = 10
+
+    init(videos: [VideoParticipant]) {
+        self.videos = videos
+    }
+
+    private func calcColumns() -> CGFloat {
+        return .init(min(maxColumns, max(1, Int(ceil(sqrt(Double(videos.count)))))))
+    }
+
+    private func calcRows(_ columns: CGFloat) -> CGFloat {
+        return .init(ceil(Float(videos.count) / Float(columns)))
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let numColumns = calcColumns()
+            let numRows = calcRows(numColumns)
+
+            let width = (geo.size.width) / numColumns
+            let height = abs(geo.size.height) / numRows
+            let columns = Array(repeating: GridItem(.adaptive(minimum: width, maximum: width)),
+                                count: Int(numColumns))
+            LazyVGrid(columns: columns, spacing: spacing) {
+                ForEach(videos) { participant in
+                    Image(uiImage: participant.decodedImage)
+                        .resizable()
+                        .scaledToFit()
+                        .cornerRadius(12)
+                        .frame(maxHeight: height)
+                }
+            }
+            .cornerRadius(12)
+            .frame(height: geo.size.height)
+        }
+        .padding([.horizontal, .top])
+    }
+}
+
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView: View {
@@ -28,11 +71,16 @@ struct InCallView: View {
 
     @State private var cameraButtonText: String
     @State private var cameraIconName: String
+    @State private var micButtonText: String
+    @State private var micIconName: String
+
+    private let deviceButtonStyleConfig = ActionButtonStyleConfig(background: .black,
+                                                                  foreground: .gray,
+                                                                  hoverColour: .blue)
 
     /// Callback when call is left.
     private var onLeave: () -> Void
     private let mode: ApplicationModeBase?
-    private let maxColumns: Int = 4
     private let orientationChanged = NotificationCenter
         .default
         .publisher(for: UIDevice.orientationDidChangeNotification)
@@ -50,93 +98,104 @@ struct InCallView: View {
 
         cameraButtonText = "Stop Video"
         cameraIconName = "video"
+        micButtonText = "Mute"
+        micIconName = "mic"
     }
 
     // Show a video player.
     var body: some View {
         ZStack {
-            GeometryReader { geo in
-                VStack {
-                    // Remote videos.
-                    let denom: CGFloat = .init(
-                        min(maxColumns, Int(ceil(Float(render.participants.count)/2))
-                        )
-                    )
-                    let width = (geo.size.width - 225) / denom
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: width - 100, maximum: width))]) {
-                        ForEach(Array(render.participants.values)) { participant in
-                            Image(uiImage: participant.decodedImage)
-                                .resizable()
-                                .scaledToFit()
-                                .cornerRadius(12)
-                        }
-                    }
-                    .padding([.horizontal, .top], 50)
-                    .padding(.bottom, 0)
-                    .cornerRadius(12)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(alignment: .center) {
+                VideoGrid(videos: Array(render.participants.values))
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
 
-                    // Controls.
-                    HStack {
-                        Spacer()
-                        ActionPicker("Mute", icon: "mic", input: $selectedMicrophone, action: toggleMute, content: {
-                            ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
-                                Text(microphone.localizedName).tag(microphone)
-                            }
-                        }).onChange(of: selectedMicrophone) { _ in
-                            Task {
-                                alteringDevice[selectedMicrophone] = true
-                                await capture.manager!.addInput(device: selectedMicrophone)
-                                alteringDevice[selectedMicrophone] = false
-                            }
+                // Controls.
+                HStack(alignment: .center) {
+                    ActionPicker(micButtonText,
+                                 icon: micIconName,
+                                 input: $selectedMicrophone,
+                                 action: toggleMute,
+                                 content: {
+                        ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
+                            ActionButton(
+                                cornerRadius: 12,
+                                colours: deviceButtonStyleConfig,
+                                action: toggleMute) {
+                                    HStack {
+                                        Image(systemName: microphone.deviceType == .builtInMicrophone ?
+                                              "mic" : "speaker.wave.2")
+                                        .renderingMode(.original)
+                                        .foregroundColor(.gray)
+                                        Text(microphone.localizedName).tag(microphone)
+                                    }
+                                }
+                                .aspectRatio(contentMode: .fill)
                         }
-                        .disabled(alteringDevice[selectedMicrophone] ?? false)
-                        .frame(width: 150)
-                        ActionPicker(cameraButtonText,
-                                     icon: cameraIconName,
-                                     input: $selectedCamera,
-                                     action: { Task { await toggleVideo() }},
-                                     content: {
-                                        ForEach(devices.cameras, id: \.self) { camera in
-                                            Button(role: usingDevice[camera] ?? false ? .destructive : nil,
-                                                action: {
-                                                    Task {
-                                                        alteringDevice[camera] = true
-                                                        usingDevice[camera] = await capture.manager!.toggleInput(device: camera)
-                                                        alteringDevice[camera] = false
-                                                    }
-                                                },
-                                                label: {
-                                                    HStack {
-                                                        Text(verbatim: camera.localizedName)
-                                                        Spacer()
-                                                        if alteringDevice[camera] ?? false {
-                                                            ProgressView()
-                                                        }
-                                                    }})
-                                            .disabled(alteringDevice[camera] ?? false)
+                    }).onChange(of: selectedMicrophone) { _ in
+                        Task { await toggleMute() }
+                    }
+                    .disabled(alteringDevice[selectedMicrophone] ?? false)
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: 250)
+
+                    ActionPicker(cameraButtonText,
+                                 icon: cameraIconName,
+                                 input: $selectedCamera,
+                                 action: toggleVideo,
+                                 content: {
+                        HStack {
+                            Image(systemName: "video")
+                                .renderingMode(.original)
+                                .foregroundColor(.gray)
+                            Text("Camera")
+                                .foregroundColor(.gray)
+                        }
+                        .padding(.bottom, 5)
+                        ForEach(devices.cameras, id: \.self) { camera in
+                            ActionButton(
+                                cornerRadius: 12,
+                                colours: deviceButtonStyleConfig,
+                                action: toggleVideo) {
+                                    HStack {
+                                        if alteringDevice[camera] ?? false {
+                                            ProgressView()
+                                            Spacer()
+                                        } else if usingDevice[camera] ?? false {
+                                            Image(systemName: "checkmark")
+                                        } else {
+                                            Spacer()
                                         }
-                                     }
-                        )
-                        .frame(width: 200)
-                        Button(action: { Task { await leaveCall() }}, label: {
-                            Image(systemName: "xmark")
-                        })
-                        .disabled(true) // TODO: Get leaveCall working better
-                        .frame(width: 50, height: 50)
-                        .background(.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(50)
-                        Spacer()
-                    }
-                    .aspectRatio(contentMode: .fit)
+                                        Text(verbatim: camera.localizedName)
+                                        Spacer()
+                                    }
+                                }
+                                .disabled(alteringDevice[camera] ?? false)
+                                .aspectRatio(contentMode: .fill)
+                        }
+                        .frame(maxWidth: 300, alignment: .bottomTrailing)
+                    })
+                    .disabled(alteringDevice[selectedCamera] ?? false)
+                    .padding(.horizontal, 10)
+                    .frame(maxWidth: 300)
 
-                    // Local video preview.
-                    // PreviewView(device: $selectedCamera)
+                    Button(action: { Task { await leaveCall() }}, label: {
+                        Image(systemName: "xmark")
+                    })
+                    .frame(width: 50, height: 50)
+                    .background(.red)
+                    .foregroundColor(.white)
+                    .clipShape(Circle())
+                    .padding(.horizontal, 10)
+
                 }
+                .edgesIgnoringSafeArea(.top)
+                .padding(.bottom)
+
+                // Local video preview.
+                // PreviewView(device: $selectedCamera)
             }
-            .edgesIgnoringSafeArea(.top) // Only because of navigation bar forcing whole content down by 50
+            .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             // Error messages.
             VStack {
@@ -215,6 +274,7 @@ struct InCallView: View {
     }
 
     private func toggleVideo() async {
+        alteringDevice[selectedCamera] = true
         usingDevice[selectedCamera] = await capture.manager!.toggleInput(device: selectedCamera)
         if usingDevice[selectedCamera]! {
             cameraButtonText = "Stop Video"
@@ -223,9 +283,21 @@ struct InCallView: View {
             cameraButtonText =  "Start Video"
             cameraIconName = "video.slash"
         }
+        alteringDevice[selectedCamera] = false
     }
 
-    private func toggleMute() {}
+    private func toggleMute() async {
+        alteringDevice[selectedMicrophone] = true
+        usingDevice[selectedMicrophone] = await capture.manager!.toggleInput(device: selectedMicrophone)
+        if usingDevice[selectedMicrophone]! {
+            micButtonText = "Mute"
+            micIconName = "mic"
+        } else {
+            micButtonText = "Unmute"
+            micIconName = "mic.slash"
+        }
+        alteringDevice[selectedMicrophone] = false
+    }
 }
 
 struct InCallView_Previews: PreviewProvider {

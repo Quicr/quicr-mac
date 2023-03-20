@@ -8,7 +8,7 @@ private struct LoginForm: View {
 
     private var configCallback: ConfigCallback
 
-    private let buttonColour = StyleColours(background: .white, foreground: .black)
+    private let buttonColour = ActionButtonStyleConfig(background: .white, foreground: .black)
 
     init(_ onJoin: @escaping ConfigCallback) {
         configCallback = onJoin
@@ -23,10 +23,12 @@ private struct LoginForm: View {
                                                    format: .number.grouping(.never),
                                                    prompt: Text("")))
                 ActionButton("Join Meeting",
+                             font: Font.system(size: 19, weight: .semibold),
                              disabled: address == "" || port == 0,
                              colours: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
+                .font(Font.system(size: 19, weight: .semibold))
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -34,11 +36,16 @@ private struct LoginForm: View {
             // TODO: For Dev purposes, should be removed eventually
             Section {
                 HStack {
-                    ActionButton("localhost", colours: buttonColour, action: {
+                    ActionButton("localhost",
+                                 font: Font.system(size: 19, weight: .semibold),
+                                 colours: buttonColour, action: {
                         address = "127.0.0.1"
                         port = 1234
                     })
-                    ActionButton("AWS", colours: buttonColour, action: {
+                    .font(Font.system(size: 19, weight: .semibold))
+                    ActionButton("AWS",
+                                 font: Font.system(size: 19, weight: .semibold),
+                                 colours: buttonColour, action: {
                         address = "relay.us-west-2.quicr.ctgpoc.com"
                         port = 33434
                     })
@@ -75,7 +82,7 @@ struct CallSetupView: View {
                            height: geo.size.height + 50, // see about getting rid of the 50
                            alignment: .center)
                 VStack {
-                    Image("RTMC-Icon")
+                    Image("RTMC-Icon").padding(-50)
                     Text("Real Time Media Client")
                         .font(.largeTitle)
                         .foregroundColor(.white)
