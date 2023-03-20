@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import UIKit
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
@@ -18,11 +19,22 @@ struct InCallView: View {
     @State private var selectedCamera: AVCaptureDevice
     /// Currently selected input microphone.
     @State private var selectedMicrophone: AVCaptureDevice
+    /// Current altering status.
+    @State private var alteringDevice: [AVCaptureDevice: Bool] = [:]
+    /// Current usage.
+    @State private var usingDevice: [AVCaptureDevice: Bool] = [:]
+    /// Current device orientation.
+    @State private var currentOrientation: AVCaptureVideoOrientation
 
     /// Callback when call is left.
     private var onLeave: () -> Void
     private let mode: ApplicationModeBase?
     private let maxColumns: Int = 4
+    private let orientationChanged = NotificationCenter
+        .default
+        .publisher(for: UIDevice.orientationDidChangeNotification)
+        .makeConnectable()
+        .autoconnect()
 
     /// Create a new in call view.
     /// - Parameter onLeave: Callback fired when user asks to leave the call.
@@ -31,6 +43,7 @@ struct InCallView: View {
         self.mode = mode
         selectedCamera = AVCaptureDevice.default(for: .video)!
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
+        currentOrientation = UIDevice.current.orientation.videoOrientation
     }
 
     // Show a video player.
@@ -56,10 +69,23 @@ struct InCallView: View {
                     VStack {
                         List {
                             ForEach(devices.cameras, id: \.self) { camera in
-                                Button(camera.localizedName,
-                                       role: capture.manager!.usingInput(device: camera) ? .destructive : nil) {
-                                    capture.manager!.toggleInput(device: camera)
-                                }
+                                Button(role: usingDevice[camera] ?? false ? .destructive : nil,
+                                       action: {
+                                           Task {
+                                               alteringDevice[camera] = true
+                                               usingDevice[camera] = await capture.manager!.toggleInput(device: camera)
+                                               alteringDevice[camera] = false
+                                           }
+                                       },
+                                       label: {
+                                            HStack {
+                                                Text(verbatim: camera.localizedName)
+                                                Spacer()
+                                                if alteringDevice[camera] ?? false {
+                                                    ProgressView()
+                                                }
+                                            }})
+                                .disabled(alteringDevice[camera] ?? false)
                             }
                         }
 
@@ -69,8 +95,12 @@ struct InCallView: View {
                                 Text(microphone.localizedName).tag(microphone)
                             }
                         }.onChange(of: selectedMicrophone) { _ in
-                            capture.manager!.addInput(device: selectedMicrophone)
-                        }
+                            Task {
+                                alteringDevice[selectedMicrophone] = true
+                                await capture.manager!.addInput(device: selectedMicrophone)
+                                alteringDevice[selectedMicrophone] = false
+                            }
+                        }.disabled(alteringDevice[selectedMicrophone] ?? false)
                     }
                     .padding()
                     .frame(height: geo.size.height * 0.3, alignment: .top)
@@ -106,34 +136,45 @@ struct InCallView: View {
                 }
             }
         }
-        .onAppear {
-            joinCall()
+        .task {
+            await joinCall()
         }
         .onDisappear {
-            leaveCall()
+            Task {
+                await leaveCall()
+            }
+        }
+        .onReceive(orientationChanged) { _ in
+            self.currentOrientation = UIDevice.current.orientation.videoOrientation
+            Task {
+                await self.capture.manager!.setOrientation(orientation: self.currentOrientation)
+            }
         }
     }
 
-    private func joinCall() {
+    private func joinCall() async {
         // Bind pipeline to capture manager.
         capture.videoCallback = mode!.encodeCameraFrame
         capture.audioCallback = mode!.encodeAudioSample
         capture.deviceChangeCallback = mode!.onDeviceChange
 
         // Use default devices.
-        capture.manager!.addInput(device: selectedMicrophone)
-        capture.manager!.addInput(device: selectedCamera)
+        await capture.manager!.addInput(device: selectedMicrophone)
+        alteringDevice[selectedCamera] = true
+        await capture.manager!.addInput(device: selectedCamera)
+        usingDevice[selectedCamera] = true
+        alteringDevice[selectedCamera] = false
 
-        capture.manager!.startCapturing()
+        await capture.manager!.startCapturing()
     }
 
-    private func leaveCall() {
+    private func leaveCall() async {
         // Stop capturing.
-        capture.manager!.stopCapturing()
+        await capture.manager!.stopCapturing()
 
         // Remove devices.
-        capture.manager!.removeInput(device: selectedCamera)
-        capture.manager!.removeInput(device: selectedMicrophone)
+        await capture.manager!.removeInput(device: selectedCamera)
+        await capture.manager!.removeInput(device: selectedMicrophone)
 
         // Unbind pipeline.
         capture.videoCallback = nil

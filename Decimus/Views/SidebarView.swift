@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
 
+    @EnvironmentObject private var capture: ObservableCaptureManager
     @EnvironmentObject private var participants: VideoParticipants
     @EnvironmentObject private var modes: Modes
 
@@ -51,14 +52,34 @@ struct SidebarView: View {
         SafeNavigationStack {
             List {
                 SafeNavigationLink(mode: modes.qMedia) {
-                    Label("QMedia", systemImage: "phone.circle")
-                }
+                    HStack {
+                        Label("QMedia", systemImage: "phone.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
+
                 SafeNavigationLink(mode: modes.loopback) {
-                    Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
-                }
+                    HStack {
+                        Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
+
                 SafeNavigationLink(mode: modes.rawLoopback) {
-                    Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
-                }
+                    HStack {
+                        Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
+                        Spacer()
+                        if !capture.available {
+                            ProgressView()
+                        }
+                    }
+                }.disabled(!capture.available)
             }.safeNavigationDestination()
         }.navigationTitle("Application Modes")
     }

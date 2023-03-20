@@ -4,7 +4,7 @@ import Foundation
 class QMedia {
 
     /// Codec type mappings.
-    enum CodecType: UInt8 { case h264 = 1; case opus = 2 }
+    enum CodecType: UInt8 { case h264 = 0b1010_0000; case opus = 0b0001_0000 }
 
     /// Managed instance of QMedia.
     private var instance: UnsafeMutableRawPointer?
