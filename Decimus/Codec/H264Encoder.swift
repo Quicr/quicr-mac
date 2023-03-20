@@ -38,12 +38,12 @@ class H264Encoder: Encoder {
 
         VTSessionSetProperty(encoder!,
                              key: kVTCompressionPropertyKey_ProfileLevel,
-                             value: kVTProfileLevel_H264_High_AutoLevel)
+                             value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
 
         VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
         VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: 2048000 as CFNumber)
         VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: fps as CFNumber)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: fps as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: fps * 5 as CFNumber)
 
         VTCompressionSessionPrepareToEncodeFrames(encoder!)
     }
@@ -85,7 +85,6 @@ class H264Encoder: Encoder {
             do {
                 let parameterSets = try handleParameterSets(sample: sample)
                 callback(parameterSets)
-                print ("IDR = true")
             } catch {
                 print("Failed to handle parameter sets")
                 return
