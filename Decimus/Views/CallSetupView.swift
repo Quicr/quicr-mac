@@ -25,7 +25,7 @@ private struct LoginForm: View {
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
                              disabled: address == "" || port == 0,
-                             colours: buttonColour,
+                             styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
                 .font(Font.system(size: 19, weight: .semibold))
@@ -38,14 +38,14 @@ private struct LoginForm: View {
                 HStack {
                     ActionButton("localhost",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 colours: buttonColour, action: {
+                                 styleConfig: buttonColour, action: {
                         address = "127.0.0.1"
                         port = 1234
                     })
                     .font(Font.system(size: 19, weight: .semibold))
                     ActionButton("AWS",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 colours: buttonColour, action: {
+                                 styleConfig: buttonColour, action: {
                         address = "relay.us-west-2.quicr.ctgpoc.com"
                         port = 33434
                     })

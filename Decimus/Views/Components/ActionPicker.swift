@@ -52,62 +52,104 @@ struct MenuModal<Content>: View where Content: View {
 struct ActionPicker<SelectionValue, Content>: View where SelectionValue: Hashable, Content: View {
     private let label: String
     private let icon: String
-    private let input: Binding<SelectionValue>
     private let action: () -> Void
+    private let pickerAction: () -> Void
     private let content: () -> Content
 
-    @State private var expanded: Bool = false
+    @Binding private var input: SelectionValue
+    @Binding private var expanded: Bool
 
     init(_ label: String,
          icon: String,
          input: Binding<SelectionValue>,
+         expanded: Binding<Bool>,
          action: @escaping () -> Void,
+         pickerAction: @escaping () -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.label = label
         self.icon = icon
-        self.input = input
         self.action = action
+        self.pickerAction = pickerAction
         self.content = content
+        self._input = input
+        self._expanded = expanded
     }
 
     init(_ label: String,
          icon: String,
          input: Binding<SelectionValue>,
+         expanded: Binding<Bool>,
+         action: @escaping () -> Void,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.init(label,
+                  icon: icon,
+                  input: input,
+                  expanded: expanded,
+                  action: action,
+                  pickerAction: { expanded.wrappedValue.toggle() },
+                  content: content)
+    }
+
+    init(_ label: String,
+         icon: String,
+         input: Binding<SelectionValue>,
+         expanded: Binding<Bool>,
          action: @escaping () async -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
                   input: input,
+                  expanded: expanded,
                   action: { Task { await action() }},
+                  content: content)
+    }
+
+    init(_ label: String,
+         icon: String,
+         input: Binding<SelectionValue>,
+         expanded: Binding<Bool>,
+         action: @escaping () async -> Void,
+         pickerAction: @escaping () async -> Void,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.init(label,
+                  icon: icon,
+                  input: input,
+                  expanded: expanded,
+                  action: { Task { await action() }},
+                  pickerAction: { Task { await pickerAction() }},
                   content: content)
     }
 
     var body: some View {
         ZStack(alignment: .center) {
-            ActionButton(colours: ActionButtonStyleConfig(background: .black,
-                                                          foreground: .white,
-                                                          borderColour: .gray),
+            ActionButton(styleConfig: ActionButtonStyleConfig(background: .black,
+                                                              foreground: .white,
+                                                              borderColour: .gray),
                          action: action) {
-                HStack {
+                HStack(alignment: .center) {
                     Image(systemName: icon)
-                    Text(label).frame(maxWidth: .infinity)
+                    Text(label)
+                        .font(Font.system(size: 19, weight: .semibold))
+                        .frame(alignment: .center)
+                        .padding(.leading)
                     Spacer()
                 }
             }
             HStack {
                 Spacer().frame(maxWidth: .infinity)
-                Button(action: { withAnimation(.spring()) { expanded.toggle() }},
+                Button(action: { withAnimation(.spring()) { pickerAction() }},
                        label: {
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
                         .renderingMode(.original)
                         .foregroundColor(.white)
                         .frame(alignment: .trailing)
+                        .padding()
                 })
                 .frame(alignment: .trailing)
-                .padding(.trailing, 20)
+                .background(.black)
+                .cornerRadius(30)
             }
         }
-        .font(Font.system(size: 19, weight: .semibold))
-        .float(above: MenuModal(presented: $expanded, content: content))
+        .float(above: MenuModal(presented: $expanded, content: content).padding(.bottom))
     }
 }

@@ -15,26 +15,26 @@ struct ActionButtonStyleConfig {
 }
 
 struct ActionButtonStyle: ButtonStyle {
-    private let colours: ActionButtonStyleConfig
+    private let styleConfig: ActionButtonStyleConfig
     private let cornerRadius: CGFloat
     private let isDisabled: Bool
 
     @State private var borderColour: Color
     @State private var borderSize: CGFloat
 
-    init(colours: ActionButtonStyleConfig, cornerRadius: CGFloat, isDisabled: Bool) {
-        self.colours = colours
+    init(styleConfig: ActionButtonStyleConfig, cornerRadius: CGFloat, isDisabled: Bool) {
+        self.styleConfig = styleConfig
         self.cornerRadius = cornerRadius
         self.isDisabled = isDisabled
 
-        borderColour = colours.borderColour ?? .clear
-        borderSize = colours.borderColour != nil || colours.hoverColour != nil ? 1 : 0
+        borderColour = styleConfig.borderColour ?? .clear
+        borderSize = styleConfig.borderColour != nil || styleConfig.hoverColour != nil ? 1 : 0
     }
 
     func makeBody(configuration: Self.Configuration) -> some View {
-        let foregroundColour = (colours.foreground ?? Color.white).opacity(
+        let foregroundColour = (styleConfig.foreground ?? Color.white).opacity(
             isDisabled || configuration.isPressed ? 0.3 : 1)
-        let backgroundColour = (colours.background ?? Color.black).opacity(
+        let backgroundColour = (styleConfig.background ?? Color.black).opacity(
             isDisabled || configuration.isPressed ? 0.3 : 1)
 
         return configuration.label
@@ -48,13 +48,14 @@ struct ActionButtonStyle: ButtonStyle {
                     .hoverEffect(.highlight)
             )
             .onHover { hovered in
-                borderColour = (hovered ? colours.hoverColour : colours.borderColour) ?? colours.borderColour ?? .clear
+                borderColour = (hovered ? styleConfig.hoverColour : styleConfig.borderColour) ??
+                                                                    styleConfig.borderColour ?? .clear
             }
     }
 }
 
 struct ActionButton<Content>: View where Content: View {
-    private let colours: ActionButtonStyleConfig
+    private let styleConfig: ActionButtonStyleConfig
 
     @ViewBuilder private let title: Content
     private let action: () -> Void
@@ -63,10 +64,10 @@ struct ActionButton<Content>: View where Content: View {
 
     init(disabled: Bool = false,
          cornerRadius: CGFloat = 30,
-         colours: ActionButtonStyleConfig,
+         styleConfig: ActionButtonStyleConfig,
          action: @escaping () -> Void,
          @ViewBuilder title: @escaping () -> Content) {
-        self.colours = colours
+        self.styleConfig = styleConfig
         self.title = title()
         self.action = action
         self.disabled = disabled
@@ -75,12 +76,12 @@ struct ActionButton<Content>: View where Content: View {
 
     init(disabled: Bool = false,
          cornerRadius: CGFloat = 30,
-         colours: ActionButtonStyleConfig,
+         styleConfig: ActionButtonStyleConfig,
          action: @escaping () async -> Void,
          @ViewBuilder title: @escaping () -> Content) {
         self.init(disabled: disabled,
                   cornerRadius: cornerRadius,
-                  colours: colours,
+                  styleConfig: styleConfig,
                   action: { Task { await action() }},
                   title: title)
     }
@@ -91,7 +92,7 @@ struct ActionButton<Content>: View where Content: View {
                 self.title.frame(maxWidth: .infinity)
             }
             .buttonStyle(ActionButtonStyle(
-                colours: self.colours,
+                styleConfig: self.styleConfig,
                 cornerRadius: self.cornerRadius,
                 isDisabled: disabled))
             .disabled(self.disabled)
@@ -104,9 +105,9 @@ extension ActionButton where Content == Text {
          font: Font?,
          disabled: Bool = false,
          cornerRadius: CGFloat = 30,
-         colours: ActionButtonStyleConfig,
+         styleConfig: ActionButtonStyleConfig,
          action: @escaping () -> Void) {
-        self.init(disabled: disabled, cornerRadius: cornerRadius, colours: colours, action: action) {
+        self.init(disabled: disabled, cornerRadius: cornerRadius, styleConfig: styleConfig, action: action) {
             Text(verbatim: title).font(font)
         }
     }
@@ -114,8 +115,8 @@ extension ActionButton where Content == Text {
     init(_ title: String,
          disabled: Bool = false,
          cornerRadius: CGFloat = 30,
-         colours: ActionButtonStyleConfig,
+         styleConfig: ActionButtonStyleConfig,
          action: @escaping () -> Void) {
-        self.init(title, font: nil, disabled: disabled, cornerRadius: cornerRadius, colours: colours, action: action)
+        self.init(title, font: nil, disabled: disabled, cornerRadius: cornerRadius, styleConfig: styleConfig, action: action)
     }
 }

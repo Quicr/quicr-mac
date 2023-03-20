@@ -2,6 +2,56 @@ import SwiftUI
 import AVFoundation
 import UIKit
 
+private struct LeaveModal: View {
+    private let leaveAction: () -> Void
+    private let cancelAction: () -> Void
+
+    init(leaveAction: @escaping () -> Void, cancelAction: @escaping () -> Void) {
+        self.leaveAction = leaveAction
+        self.cancelAction = cancelAction
+    }
+
+    init(leaveAction: @escaping () async -> Void, cancelAction: @escaping () async -> Void) {
+        self.leaveAction = { Task { await leaveAction() }}
+        self.cancelAction = { Task { await cancelAction() }}
+    }
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.gray, lineWidth: 1)
+                .background(.black)
+            VStack(alignment: .leading) {
+                Text("Leave Meeting")
+                    .foregroundColor(.white)
+                    .font(.title)
+                    .padding(.bottom)
+                Text("Do you want to leave this meeting?")
+                    .foregroundColor(.gray)
+                    .font(.body)
+                    .padding(.bottom)
+                HStack {
+                    Spacer().frame(maxWidth: .infinity)
+                    ActionButton("Cancel",
+                                 styleConfig: ActionButtonStyleConfig(
+                                    background: .black,
+                                    foreground: .white,
+                                    borderColour: .gray),
+                                 action: cancelAction)
+                    ActionButton("Leave Meeting",
+                                 styleConfig: ActionButtonStyleConfig(
+                                    background: .white,
+                                    foreground: .black),
+                                 action: leaveAction)
+                }
+                .frame(alignment: .trailing)
+            }
+            .padding()
+        }
+        .cornerRadius(12)
+    }
+}
+
 /// View for display grid of videos
 private struct VideoGrid: View {
     private let videos: [VideoParticipant]
@@ -17,7 +67,7 @@ private struct VideoGrid: View {
     }
 
     private func calcRows(_ columns: CGFloat) -> CGFloat {
-        return .init(ceil(Float(videos.count) / Float(columns)))
+        return .init(round(Float(videos.count) / Float(columns)))
     }
 
     var body: some View {
@@ -29,6 +79,7 @@ private struct VideoGrid: View {
             let height = abs(geo.size.height) / numRows
             let columns = Array(repeating: GridItem(.adaptive(minimum: width, maximum: width)),
                                 count: Int(numColumns))
+
             LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(videos) { participant in
                     Image(uiImage: participant.decodedImage)
@@ -74,6 +125,10 @@ struct InCallView: View {
     @State private var micButtonText: String
     @State private var micIconName: String
 
+    @State private var muteModalExpanded: Bool = false
+    @State private var cameraModalExpanded: Bool = false
+    @State private var leaving: Bool = false
+
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(background: .black,
                                                                   foreground: .gray,
                                                                   hoverColour: .blue)
@@ -105,22 +160,40 @@ struct InCallView: View {
     // Show a video player.
     var body: some View {
         ZStack {
-            VStack(alignment: .center) {
-                VideoGrid(videos: Array(render.participants.values))
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
+            VStack {
+                ZStack {
+                    VideoGrid(videos: Array(render.participants.values))
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity)
+
+                    if leaving {
+                        LeaveModal(leaveAction: leaveCall, cancelAction: { leaving = false })
+                            .frame(maxWidth: 500, maxHeight: 75, alignment: .center)
+                    }
+                }
 
                 // Controls.
                 HStack(alignment: .center) {
                     ActionPicker(micButtonText,
                                  icon: micIconName,
                                  input: $selectedMicrophone,
+                                 expanded: $muteModalExpanded,
                                  action: toggleMute,
+                                 pickerAction: {
+                        muteModalExpanded.toggle()
+                        cameraModalExpanded = false
+                    },
                                  content: {
+                        HStack {
+                            Text("Audio Connection")
+                                .foregroundColor(.gray)
+                        }
+                        .aspectRatio(contentMode: .fill)
+                        .padding([.horizontal, .top])
                         ForEach(devices.audioInputs, id: \.uniqueID) { microphone in
                             ActionButton(
                                 cornerRadius: 12,
-                                colours: deviceButtonStyleConfig,
+                                styleConfig: deviceButtonStyleConfig,
                                 action: toggleMute) {
                                     HStack {
                                         Image(systemName: microphone.deviceType == .builtInMicrophone ?
@@ -132,17 +205,23 @@ struct InCallView: View {
                                 }
                                 .aspectRatio(contentMode: .fill)
                         }
-                    }).onChange(of: selectedMicrophone) { _ in
+                    })
+                    .onChange(of: selectedMicrophone) { _ in
                         Task { await toggleMute() }
                     }
                     .disabled(alteringDevice[selectedMicrophone] ?? false)
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: 250)
+                    .padding(.horizontal)
+                    .frame(maxWidth: 200)
 
                     ActionPicker(cameraButtonText,
                                  icon: cameraIconName,
                                  input: $selectedCamera,
+                                 expanded: $cameraModalExpanded,
                                  action: toggleVideo,
+                                 pickerAction: {
+                        cameraModalExpanded.toggle()
+                        muteModalExpanded = false
+                    },
                                  content: {
                         HStack {
                             Image(systemName: "video")
@@ -151,46 +230,52 @@ struct InCallView: View {
                             Text("Camera")
                                 .foregroundColor(.gray)
                         }
-                        .padding(.bottom, 5)
+                        .padding([.horizontal, .top])
                         ForEach(devices.cameras, id: \.self) { camera in
                             ActionButton(
-                                cornerRadius: 12,
-                                colours: deviceButtonStyleConfig,
+                                cornerRadius: 10,
+                                styleConfig: deviceButtonStyleConfig,
                                 action: toggleVideo) {
                                     HStack {
-                                        if alteringDevice[camera] ?? false {
-                                            ProgressView()
-                                            Spacer()
-                                        } else if usingDevice[camera] ?? false {
-                                            Image(systemName: "checkmark")
-                                        } else {
-                                            Spacer()
+                                        ZStack {
+                                            if alteringDevice[camera] ?? false {
+                                                ProgressView()
+                                                Spacer()
+                                            } else if usingDevice[camera] ?? false {
+                                                Image(systemName: "checkmark")
+                                            }
                                         }
+                                        .frame(width: 20)
                                         Text(verbatim: camera.localizedName)
                                         Spacer()
                                     }
+                                    .padding(.vertical, -10)
                                 }
                                 .disabled(alteringDevice[camera] ?? false)
                                 .aspectRatio(contentMode: .fill)
                         }
                         .frame(maxWidth: 300, alignment: .bottomTrailing)
+                        .padding(.bottom)
                     })
                     .disabled(alteringDevice[selectedCamera] ?? false)
-                    .padding(.horizontal, 10)
-                    .frame(maxWidth: 300)
+                    .padding(.horizontal)
+                    .frame(maxWidth: 250)
 
-                    Button(action: { Task { await leaveCall() }}, label: {
+                    Button(action: {
+                        leaving = true
+                        muteModalExpanded = false
+                        cameraModalExpanded = false
+                    }, label: {
                         Image(systemName: "xmark")
+                            .padding()
+                            .background(.red)
                     })
-                    .frame(width: 50, height: 50)
-                    .background(.red)
+                    .padding(.horizontal)
                     .foregroundColor(.white)
                     .clipShape(Circle())
-                    .padding(.horizontal, 10)
 
                 }
-                .edgesIgnoringSafeArea(.top)
-                .padding(.bottom)
+                .padding(.bottom, 30)
 
                 // Local video preview.
                 // PreviewView(device: $selectedCamera)
