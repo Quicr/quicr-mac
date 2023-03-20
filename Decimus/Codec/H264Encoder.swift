@@ -10,7 +10,6 @@ class H264Encoder: Encoder {
     private let callback: EncodedSampleCallback
 
     private let fps: Int32 = 60
-    private let bitrate: Int32 = 12
 
     init(width: Int32, height: Int32, callback: @escaping EncodedSampleCallback) {
         self.callback = callback
@@ -37,10 +36,14 @@ class H264Encoder: Encoder {
                                                  value: kCFBooleanTrue)
         guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
 
-        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
-        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: kCFBooleanTrue)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_DataRateLimits, value: self.bitrate as CFNumber)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: self.fps as CFNumber)
+        VTSessionSetProperty(encoder!,
+                             key: kVTCompressionPropertyKey_ProfileLevel,
+                             value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: 2048000 as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: fps as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: fps * 5 as CFNumber)
 
         VTCompressionSessionPrepareToEncodeFrames(encoder!)
     }

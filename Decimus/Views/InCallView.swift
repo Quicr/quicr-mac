@@ -159,11 +159,11 @@ struct InCallView: View {
         capture.deviceChangeCallback = mode!.onDeviceChange
 
         // Use default devices.
+        await capture.manager!.addInput(device: selectedMicrophone)
         alteringDevice[selectedCamera] = true
         await capture.manager!.addInput(device: selectedCamera)
         usingDevice[selectedCamera] = true
         alteringDevice[selectedCamera] = false
-        await capture.manager!.addInput(device: selectedMicrophone)
 
         await capture.manager!.startCapturing()
     }
