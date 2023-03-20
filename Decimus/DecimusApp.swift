@@ -57,21 +57,6 @@ class ObservableError: ObservableObject, ErrorWriter {
     }
 }
 
-class SceneDelegate: NSObject, UIWindowSceneDelegate {
-    internal func scene(_ scene: UIScene,
-                        willConnectTo session: UISceneSession,
-                        options connectionOptions: UIScene.ConnectionOptions) {
-        guard let windowScene = (scene as? UIWindowScene) else { return }
-
-        #if targetEnvironment(macCatalyst)
-        if let titlebar = windowScene.titlebar {
-            titlebar.titleVisibility = .hidden
-            titlebar.toolbar = nil
-        }
-        #endif
-    }
-}
-
 @main
 struct DecimusApp: App {
     @StateObject private var participants: VideoParticipants
