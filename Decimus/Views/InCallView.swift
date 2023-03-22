@@ -109,6 +109,7 @@ struct InCallView: View {
     /// Error messages.
     @EnvironmentObject var errors: ObservableError
 
+    // TODO: Is this still needed.
     /// Currently selected camera.
     @State private var selectedCamera: AVCaptureDevice
     /// Currently selected input microphone.
@@ -217,7 +218,9 @@ struct InCallView: View {
                                  icon: cameraIconName,
                                  input: $selectedCamera,
                                  expanded: $cameraModalExpanded,
-                                 action: toggleVideo,
+                                 action: {
+                                    // TODO: Should we disable everything here?
+                                 },
                                  pickerAction: {
                         cameraModalExpanded.toggle()
                         muteModalExpanded = false
@@ -235,7 +238,7 @@ struct InCallView: View {
                             ActionButton(
                                 cornerRadius: 10,
                                 styleConfig: deviceButtonStyleConfig,
-                                action: toggleVideo) {
+                                action: { await toggleVideo(camera: camera)}) {
                                     HStack {
                                         ZStack {
                                             if alteringDevice[camera] ?? false {
@@ -257,7 +260,6 @@ struct InCallView: View {
                         .frame(maxWidth: 300, alignment: .bottomTrailing)
                         .padding(.bottom)
                     })
-                    .disabled(alteringDevice[selectedCamera] ?? false)
                     .padding(.horizontal)
                     .frame(maxWidth: 250)
 
@@ -333,10 +335,11 @@ struct InCallView: View {
 
         // Use default devices.
         await capture.manager!.addInput(device: selectedMicrophone)
-        alteringDevice[selectedCamera] = true
-        await capture.manager!.addInput(device: selectedCamera)
-        usingDevice[selectedCamera] = true
-        alteringDevice[selectedCamera] = false
+        let defaultCamera = AVCaptureDevice.default(for: .video)!
+        alteringDevice[defaultCamera] = true
+        await capture.manager!.addInput(device: defaultCamera)
+        usingDevice[defaultCamera] = true
+        alteringDevice[defaultCamera] = false
 
         await capture.manager!.startCapturing()
     }
@@ -346,7 +349,6 @@ struct InCallView: View {
         await capture.manager!.stopCapturing()
 
         // Remove devices.
-        await capture.manager!.removeInput(device: selectedCamera)
         await capture.manager!.removeInput(device: selectedMicrophone)
 
         // Unbind pipeline.
@@ -358,17 +360,17 @@ struct InCallView: View {
         onLeave()
     }
 
-    private func toggleVideo() async {
-        alteringDevice[selectedCamera] = true
-        usingDevice[selectedCamera] = await capture.manager!.toggleInput(device: selectedCamera)
-        if usingDevice[selectedCamera]! {
+    private func toggleVideo(camera: AVCaptureDevice) async {
+        alteringDevice[camera] = true
+        usingDevice[camera] = await capture.manager!.toggleInput(device: camera)
+        if usingDevice[camera]! {
             cameraButtonText = "Stop Video"
             cameraIconName = "video"
         } else {
             cameraButtonText =  "Start Video"
             cameraIconName = "video.slash"
         }
-        alteringDevice[selectedCamera] = false
+        alteringDevice[camera] = false
     }
 
     private func toggleMute() async {
