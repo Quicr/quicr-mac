@@ -44,6 +44,7 @@ class Modes: ObservableObject {
     }
 }
 
+@MainActor
 class ObservableError: ObservableObject, ErrorWriter {
     struct StringError: Identifiable {
         let id = UUID()
@@ -51,9 +52,11 @@ class ObservableError: ObservableObject, ErrorWriter {
     }
 
     @Published var messages: [StringError] = []
-    func writeError(message: String) {
+    nonisolated func writeError(message: String) {
         print("[Decimus Error] => \(message)")
-        self.messages.append(.init(message: message))
+        DispatchQueue.main.async {
+            self.messages.append(.init(message: message))
+       }
     }
 }
 
