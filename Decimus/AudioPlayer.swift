@@ -23,6 +23,10 @@ class AudioPlayer {
         }
     }
 
+    deinit {
+        engine.stop()
+    }
+
     func write(identifier: UInt32, buffer: AVAudioPCMBuffer) {
         guard mixerFormat.commonFormat == .pcmFormatFloat32 else {
             fatalError("Currently expecting output as F32")
