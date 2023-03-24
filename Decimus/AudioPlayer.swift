@@ -12,15 +12,11 @@ class AudioPlayer {
 
     /// Create a new `AudioPlayer`
     init(fileWrite: Bool) {
-        do {
-            mixerFormat = mixer.inputFormat(forBus: 0)
-            engine.attach(mixer)
-            engine.connect(mixer, to: engine.outputNode, format: mixerFormat)
-            try engine.start()
-            self.fileWrite = fileWrite
-        } catch {
-            fatalError(error.localizedDescription)
-        }
+        mixerFormat = mixer.inputFormat(forBus: 0)
+        engine.attach(mixer)
+        engine.connect(mixer, to: engine.outputNode, format: mixerFormat)
+        engine.prepare()
+        self.fileWrite = fileWrite
     }
 
     deinit {
