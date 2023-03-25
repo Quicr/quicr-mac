@@ -11,7 +11,7 @@ class RawLoopback: ApplicationModeBase {
         set { }
     }
 
-    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {}
+    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32, orientation: AVCaptureVideoOrientation) {}
     override func createAudioEncoder(identifier: UInt32) {}
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -26,10 +26,10 @@ class RawLoopback: ApplicationModeBase {
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
             let ciImage: CIImage = .init(cvImageBuffer: frame.imageBuffer!)
-            let cgImage = CIContext().createCGImage(ciImage, from: ciImage.extent)!
             showDecodedImage(identifier: mirrorIdentifier,
                              participants: participants,
-                             decoded: cgImage)
+                             decoded: ciImage,
+                             orientation: UIDevice.current.orientation.videoOrientation)
         }
     }
 

@@ -57,7 +57,7 @@ struct InCallView: View {
                         let width = geo.size.width / denom
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: width, maximum: width))]) {
                             ForEach(Array(render.participants.values)) { participant in
-                                Image(uiImage: participant.decodedImage)
+                                participant.decodedImage
                                     .resizable()
                                     .scaledToFit()
                             }

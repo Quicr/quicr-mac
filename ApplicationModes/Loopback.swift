@@ -6,6 +6,7 @@ import AVFoundation
 class Loopback: ApplicationModeBase {
 
     let localMirrorParticipants: UInt32 = 0
+    private var h264Encoders: [H264Encoder] = []
 
     override var root: AnyView {
         get { return .init(InCallView(mode: self) {}) }
@@ -29,6 +30,11 @@ class Loopback: ApplicationModeBase {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
+
+        for encoder in h264Encoders {
+            encoder.setOrientation(orientation: UIDevice.current.orientation.videoOrientation)
+        }
+
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
             encodeSample(identifier: mirrorIdentifier, frame: frame, type: .video)
@@ -60,5 +66,16 @@ class Loopback: ApplicationModeBase {
         default:
             return
         }
+    }
+
+    override func createVideoEncoder(identifier: UInt32,
+                                     width: Int32,
+                                     height: Int32,
+                                     orientation: AVCaptureVideoOrientation) {
+        let encoder: H264Encoder = .init(width: width, height: height, orientation: orientation) { sample in
+            self.sendEncodedImage(identifier: identifier, data: sample)
+        }
+        h264Encoders.append(encoder)
+        pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
     }
 }

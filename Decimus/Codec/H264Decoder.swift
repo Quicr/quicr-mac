@@ -1,8 +1,10 @@
 import Foundation
 import VideoToolbox
+import AVFoundation
+import CoreImage
 
 /// Decoder callback of image and timestamp.
-typealias DecodedImageCallback = (CGImage, CMTimeValue) -> Void
+typealias DecodedImageCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?) -> Void
 
 /// Provides hardware accelerated H264 decoding.
 class H264Decoder: Decoder {
@@ -13,11 +15,13 @@ class H264Decoder: Decoder {
     private let startCodeLength = 4
     private let pFrame = 1
     private let idr = 5
+    private let sei = 6
 
     // Members.
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
     private let callback: DecodedImageCallback
+    private var orientation: AVCaptureVideoOrientation?
 
     /// Initialize a new decoder.
     init(callback: @escaping DecodedImageCallback) {
@@ -58,11 +62,17 @@ class H264Decoder: Decoder {
 
             // What type is this NALU?
             type = data[thisNaluOffset + startCodeLength] & 0x1F
-            guard type == pFrame || type == idr else { print("Unhandled NALU type: \(type)"); continue }
+            guard type == pFrame || type == idr || type == sei else { print("Unhandled NALU type: \(type)"); continue }
 
             // Change start code to length
             var naluDataLength = UInt32(naluTotalLength - startCodeLength).bigEndian
             memcpy(naluPtr, &naluDataLength, startCodeLength)
+
+            // Parse any SEIs and move on.
+            if type == sei {
+                parseSEI(pointer: naluPtr)
+                continue
+            }
 
             // Construct a block buffer from this NALU.
             var buffer: CMBlockBuffer?
@@ -241,13 +251,9 @@ class H264Decoder: Decoder {
         // Check status code.
         guard status == .zero else { print("Bad decode: \(status)"); return }
 
-        // Get a CGImage from the decoded pixel buffer.
-        var cgImage: CGImage?
-        let error = VTCreateCGImageFromCVPixelBuffer(image!, options: nil, imageOut: &cgImage)
-        guard error == .zero else { fatalError("Failed to create CGImage: \(error)")}
-
         // Fire callback with the decoded image.
-        callback(cgImage!, presentation.value)
+        let ciImage: CIImage = .init(cvImageBuffer: image!)
+        callback(ciImage, presentation.value, orientation)
     }
 
     /// Determines if the current pointer is pointing to the start of a NALU start code.
@@ -258,5 +264,20 @@ class H264Decoder: Decoder {
             pointer[startIndex + 1] == 0x00 &&
             pointer[startIndex + 2] == 0x00 &&
             pointer[startIndex + 3] == 0x01
+    }
+
+    private func parseSEI(pointer: UnsafeMutableRawPointer) {
+        let typed: UnsafeMutablePointer<UInt8> = pointer.assumingMemoryBound(to: UInt8.self)
+        guard typed[4] == 0x06 else { fatalError("This is not an SEI") }
+        let seiType = typed[5]
+        switch seiType {
+        case 0x2f:
+            // Video orientation.
+            assert(typed[6] == 1)
+            orientation = .init(rawValue: .init(typed[7]))
+            print("Got orientation: \(orientation!)")
+        default:
+            print("H264Decoder => Unhandled SEI type: \(seiType)")
+        }
     }
 }

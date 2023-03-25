@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreMedia
+import AVFoundation
 
 enum ApplicationError: Error {
     case emptyEncoder
@@ -80,8 +81,8 @@ class QMediaPubSub: ApplicationModeBase {
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
-    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {
-        super.createVideoEncoder(identifier: identifier, width: width, height: height)
+    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32, orientation: AVCaptureVideoOrientation) {
+        super.createVideoEncoder(identifier: identifier, width: width, height: height, orientation: orientation)
 
         let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
                                                                  clientIdentifier: clientId)

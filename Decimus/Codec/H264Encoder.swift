@@ -1,5 +1,6 @@
 import VideoToolbox
 import CoreVideo
+import AVFoundation
 
 class H264Encoder: Encoder {
 
@@ -11,9 +12,14 @@ class H264Encoder: Encoder {
 
     private let fps: Int32 = 60
     private let bitrate: Int32 = 12
+    private var orientation: AVCaptureVideoOrientation?
 
-    init(width: Int32, height: Int32, callback: @escaping EncodedSampleCallback) {
+    init(width: Int32,
+         height: Int32,
+         orientation: AVCaptureVideoOrientation?,
+         callback: @escaping EncodedSampleCallback) {
         self.callback = callback
+        self.orientation = orientation
 
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
@@ -51,6 +57,10 @@ class H264Encoder: Encoder {
         self.encoder = nil
     }
 
+    func setOrientation(orientation: AVCaptureVideoOrientation) {
+        self.orientation = orientation
+    }
+
     func write(sample: CMSampleBuffer) {
         guard let compressionSession = encoder,
               let imageBuffer = CMSampleBufferGetImageBuffer(sample) else { return }
@@ -80,12 +90,19 @@ class H264Encoder: Encoder {
 
         if idr {
             do {
+                // SPS + PPS.
                 let parameterSets = try handleParameterSets(sample: sample)
                 callback(parameterSets)
             } catch {
                 print("Failed to handle parameter sets")
                 return
             }
+        }
+
+        // Orientation SEI.
+        if orientation != nil {
+            let orientationSei = makeOrientationSEI(orientation: orientation!)
+            callback(orientationSei)
         }
 
         let buffer = sample.dataBuffer!
@@ -214,6 +231,51 @@ class H264Encoder: Encoder {
                                                     sampleBufferOut: &parameterSample)
         guard sampleError == .zero else { throw("Couldn't create parameter sample") }
         return parameterSample!
+    }
+
+    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation) -> CMSampleBuffer {
+        var bytes: [UInt8] = [
+            // Start Code.
+            0x00, 0x00, 0x00, 0x01,
+
+            // SEI NALU type,
+            0x06,
+
+            // Display orientation
+            0x2f, 0x01,
+
+            // Orientation payload.
+            UInt8(orientation.rawValue),
+
+            // Stop.
+            0x80
+        ]
+
+        let memBlock = malloc(bytes.count)
+        bytes.withUnsafeBytes { buffer in
+            _ = memcpy(memBlock, buffer.baseAddress, bytes.count)
+        }
+
+        do {
+            var block: CMBlockBuffer?
+            let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
+                                                                memoryBlock: memBlock,
+                                                                blockLength: bytes.count,
+                                                                blockAllocator: nil,
+                                                                customBlockSource: nil,
+                                                                offsetToData: 0,
+                                                                dataLength: bytes.count,
+                                                                flags: 0,
+                                                                blockBufferOut: &block)
+            let sample: CMSampleBuffer = try .init(dataBuffer: block,
+                                                   formatDescription: nil,
+                                                   numSamples: 1,
+                                                   sampleTimings: [],
+                                                   sampleSizes: [bytes.count])
+            return sample
+        } catch {
+            fatalError("?")
+        }
     }
 }
 
