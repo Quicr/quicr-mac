@@ -4,7 +4,7 @@ import AVFoundation
 import CoreImage
 
 /// Decoder callback of image and timestamp.
-typealias DecodedImageCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?) -> Void
+typealias DecodedImageCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
 
 /// Provides hardware accelerated H264 decoding.
 class H264Decoder: Decoder {
@@ -22,6 +22,7 @@ class H264Decoder: Decoder {
     private var session: VTDecompressionSession?
     private let callback: DecodedImageCallback
     private var orientation: AVCaptureVideoOrientation?
+    private var verticalMirror: Bool = false
 
     /// Initialize a new decoder.
     init(callback: @escaping DecodedImageCallback) {
@@ -253,7 +254,7 @@ class H264Decoder: Decoder {
 
         // Fire callback with the decoded image.
         let ciImage: CIImage = .init(cvImageBuffer: image!)
-        callback(ciImage, presentation.value, orientation)
+        callback(ciImage, presentation.value, orientation, verticalMirror)
     }
 
     /// Determines if the current pointer is pointing to the start of a NALU start code.
@@ -268,14 +269,14 @@ class H264Decoder: Decoder {
 
     private func parseSEI(pointer: UnsafeMutableRawPointer) {
         let typed: UnsafeMutablePointer<UInt8> = pointer.assumingMemoryBound(to: UInt8.self)
-        guard typed[4] == 0x06 else { fatalError("This is not an SEI") }
+        guard typed[4] == sei else { fatalError("This is not an SEI") }
         let seiType = typed[5]
         switch seiType {
         case 0x2f:
             // Video orientation.
-            assert(typed[6] == 1)
+            assert(typed[6] == 2)
             orientation = .init(rawValue: .init(typed[7]))
-            print("Got orientation: \(orientation!)")
+            verticalMirror = typed[8] == 1
         default:
             print("H264Decoder => Unhandled SEI type: \(seiType)")
         }

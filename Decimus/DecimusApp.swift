@@ -25,8 +25,7 @@ class ObservableCaptureManager: ObservableObject {
             available: { available in
                 DispatchQueue.main.async { self.available = available }
             },
-            errorHandler: errorHandler,
-            currentOrientation: UIDevice.current.orientation.videoOrientation)
+            errorHandler: errorHandler)
     }
 }
 

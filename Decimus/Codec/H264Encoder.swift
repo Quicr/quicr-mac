@@ -13,13 +13,16 @@ class H264Encoder: Encoder {
     private let fps: Int32 = 60
     private let bitrate: Int32 = 12
     private var orientation: AVCaptureVideoOrientation?
+    private let verticalMirror: Bool
 
     init(width: Int32,
          height: Int32,
          orientation: AVCaptureVideoOrientation?,
+         verticalMirror: Bool,
          callback: @escaping EncodedSampleCallback) {
         self.callback = callback
         self.orientation = orientation
+        self.verticalMirror = verticalMirror
 
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
@@ -105,7 +108,7 @@ class H264Encoder: Encoder {
 
         // Orientation SEI.
         if orientation != nil {
-            let orientationSei = makeOrientationSEI(orientation: orientation!)
+            let orientationSei = makeOrientationSEI(orientation: orientation!, verticalMirror: verticalMirror)
             callback(orientationSei)
         }
 
@@ -237,7 +240,7 @@ class H264Encoder: Encoder {
         return parameterSample!
     }
 
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation) -> CMSampleBuffer {
+    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) -> CMSampleBuffer {
         var bytes: [UInt8] = [
             // Start Code.
             0x00, 0x00, 0x00, 0x01,
@@ -246,10 +249,13 @@ class H264Encoder: Encoder {
             0x06,
 
             // Display orientation
-            0x2f, 0x01,
+            0x2f, 0x02,
 
             // Orientation payload.
             UInt8(orientation.rawValue),
+
+            // Device position.
+            verticalMirror ? 0x01 : 0x00,
 
             // Stop.
             0x80

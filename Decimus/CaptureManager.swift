@@ -34,21 +34,18 @@ actor CaptureManager: NSObject,
 
     private let audioOutput: AVCaptureAudioDataOutput = .init()
     private let errorHandler: ErrorWriter
-    private var orientation: AVCaptureVideoOrientation
 
     init(cameraCallback: @escaping MediaCallback,
          audioCallback: @escaping MediaCallback,
          deviceChangeCallback: @escaping DeviceChangeCallback,
          available: @escaping AvailableCallback,
-         errorHandler: ErrorWriter,
-         currentOrientation: AVCaptureVideoOrientation) {
+         errorHandler: ErrorWriter) {
         defer { available(true) }
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
         self.deviceChangedCallback = deviceChangeCallback
         self.available = available
         self.errorHandler = errorHandler
-        orientation = currentOrientation
 
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             fatalError("Multicam not supported on this device")
@@ -75,13 +72,6 @@ actor CaptureManager: NSObject,
         session.addOutputWithNoConnections(audioOutput)
 
         session.commitConfiguration()
-    }
-
-    func setOrientation(orientation: AVCaptureVideoOrientation) {
-        for connection in connections where connection.value.isVideoOrientationSupported {
-            self.orientation = orientation
-            connection.value.videoOrientation = orientation
-        }
     }
 
     func usingInput(device: AVCaptureDevice) -> Bool {
@@ -174,10 +164,6 @@ actor CaptureManager: NSObject,
 
         // Setup the connection.
         let connection: AVCaptureConnection = .init(inputPorts: input.ports, output: videoOutput)
-        if connection.isVideoOrientationSupported {
-            connection.videoOrientation = orientation
-        }
-        connection.isVideoMirrored = device.position == .front
         session.addConnection(connection)
         connections[device] = connection
     }

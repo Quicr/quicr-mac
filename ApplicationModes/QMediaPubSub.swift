@@ -81,8 +81,16 @@ class QMediaPubSub: ApplicationModeBase {
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
-    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32, orientation: AVCaptureVideoOrientation) {
-        super.createVideoEncoder(identifier: identifier, width: width, height: height, orientation: orientation)
+    override func createVideoEncoder(identifier: UInt32,
+                                     width: Int32,
+                                     height: Int32,
+                                     orientation: AVCaptureVideoOrientation?,
+                                     verticalMirror: Bool) {
+        super.createVideoEncoder(identifier: identifier,
+                                 width: width,
+                                 height: height,
+                                 orientation: orientation,
+                                 verticalMirror: verticalMirror)
 
         let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
                                                                  clientIdentifier: clientId)
@@ -103,13 +111,12 @@ class QMediaPubSub: ApplicationModeBase {
         do {
             try data.dataBuffer!.withUnsafeMutableBytes { ptr in
                 let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
-                var timestamp: CMTime = .init()
+                let timestampMs: UInt32
                 do {
-                    timestamp = try data.sampleTimingInfo(at: 0).presentationTimeStamp
+                    timestampMs = UInt32(try data.sampleTimingInfo(at: 0).presentationTimeStamp.seconds * 1000)
                 } catch {
-                    errorHandler.writeError(message: "[QMediaPubSub] Failed to fetch timestamp")
+                    timestampMs = 0
                 }
-                let timestampMs: UInt32 = UInt32(timestamp.seconds * 1000)
                 guard let streamId = self.identifierMapping[identifier] else {
                     errorHandler.writeError(message: "[QMediaPubSub] Couldn't lookup stream id for media id: \(identifier)")
                     return
@@ -138,34 +145,6 @@ class QMediaPubSub: ApplicationModeBase {
                           buffer: data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
                           length: UInt32(data.media.buffer.count),
                           timestamp: UInt64(data.media.timestampMs))
-    }
-
-    override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        do {
-            try encodeSample(identifier: identifier, frame: frame, type: .video)
-        } catch {
-            errorHandler.writeError(message: "Failed to encode: \(error)")
-        }
-    }
-
-    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        do {
-            try encodeSample(identifier: identifier, frame: sample, type: .audio)
-        } catch {
-            errorHandler.writeError(message: "Failed to encode: \(error)")
-        }
-    }
-
-    private func encodeSample(identifier: UInt32,
-                              frame: CMSampleBuffer,
-                              type: PipelineManager.MediaType) throws {
-        // Make a encoder for this stream.
-        if pipeline!.encoders[identifier] == nil {
-            throw ApplicationError.emptyEncoder
-        }
-
-        // Write camera frame to pipeline.
-        pipeline!.encode(identifier: identifier, sample: frame)
     }
 
     private func getUniqueCodecType(type: QMedia.CodecType) -> UInt8 {

@@ -14,10 +14,12 @@ class PipelineManager {
     /// - Parameter image: The decoded image data.
     /// - Parameter timestamp: The timestamp for this image.
     /// - Parameter orientation: The source orientation of this image.
+    /// - Parameter verticalMirror: True if this image is intended to be vertically mirrored.
     typealias DecodedImageCallback = (_ identifier: UInt32,
                                       _ image: CIImage,
                                       _ timestamp: CMTimeValue,
-                                      _ orientation: AVCaptureVideoOrientation?) -> Void
+                                      _ orientation: AVCaptureVideoOrientation?,
+                                      _ verticalMirror: Bool) -> Void
 
     /// Represents an encoded sample.
     /// - Parameter identifier: The source identifier for this encoded sample.
@@ -93,9 +95,9 @@ class PipelineManager {
         let decoder: Decoder
         switch type {
         case .video:
-            decoder = H264Decoder(callback: { decodedImage, presentation, orientation in
+            decoder = H264Decoder(callback: { decodedImage, presentation, orientation, verticalMirror in
                 self.debugPrint(message: "[\(identifier)] (\(presentation)) Decoded")
-                self.imageCallback(identifier, decodedImage, presentation, orientation)
+                self.imageCallback(identifier, decodedImage, presentation, orientation, verticalMirror)
             })
         case .audio:
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,
