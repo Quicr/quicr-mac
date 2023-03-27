@@ -3,6 +3,7 @@ import CoreMedia
 import SwiftUI
 import AVFAudio
 import AVFoundation
+import UIKit
 
 /// The core of the application.
 protocol ApplicationMode {
@@ -12,7 +13,11 @@ protocol ApplicationMode {
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
     func removeRemoteSource(identifier: UInt32)
 
-    func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32)
+    func createVideoEncoder(identifier: UInt32,
+                            width: Int32,
+                            height: Int32,
+                            orientation: AVCaptureVideoOrientation?,
+                            verticalMirror: Bool)
     func createAudioEncoder(identifier: UInt32)
 
     func removeEncoder(identifier: UInt32)
@@ -35,14 +40,19 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     let participants: VideoParticipants
     let player: AudioPlayer
     let errorHandler: ErrorWriter
+    private var h264Encoders: [H264Encoder] = []
 
     init(participants: VideoParticipants, player: AudioPlayer, errorWriter: ErrorWriter) {
         self.participants = participants
         self.player = player
         self.errorHandler = errorWriter
         pipeline = .init(
-            decodedCallback: { identifier, decoded, _ in
-                self.showDecodedImage(identifier: identifier, participants: participants, decoded: decoded)
+            decodedCallback: { identifier, decoded, _, orientation, verticalMirror in
+                self.showDecodedImage(identifier: identifier,
+                                      participants: participants,
+                                      decoded: decoded,
+                                      orientation: orientation,
+                                      verticalMirror: verticalMirror)
             },
             encodedCallback: { identifier, data in
                 self.sendEncodedImage(identifier: identifier, data: data)
@@ -59,10 +69,30 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         hasher.combine(id)
     }
 
-    func showDecodedImage(identifier: UInt32, participants: VideoParticipants, decoded: CGImage) {
+    func showDecodedImage(identifier: UInt32,
+                          participants: VideoParticipants,
+                          decoded: CIImage,
+                          orientation: AVCaptureVideoOrientation?,
+                          verticalMirror: Bool) {
         // Push the image to the output.
         let participant = participants.getOrMake(identifier: identifier)
-        participant.decodedImage = .init(cgImage: decoded)
+
+        // TODO: Why can't we use CIImage directly here?
+        let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
+        let imageOrientation: Image.Orientation
+        switch orientation {
+        case .portrait:
+            imageOrientation = verticalMirror ? .leftMirrored : .right
+        case .landscapeLeft:
+            imageOrientation = verticalMirror ? .upMirrored : .down
+        case .landscapeRight:
+            imageOrientation = verticalMirror ? .downMirrored : .up
+        case .portraitUpsideDown:
+            imageOrientation = verticalMirror ? .rightMirrored : .left
+        default:
+            imageOrientation = .up
+        }
+        participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
     }
 
     func playDecodedAudio(identifier: UInt32, buffer: AVAudioPCMBuffer, player: AudioPlayer) {
@@ -92,15 +122,34 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 createAudioEncoder(identifier: device.id)
             } else if device.hasMediaType(.video) {
                 let size = device.activeFormat.formatDescription.dimensions
-                createVideoEncoder(identifier: device.id, width: size.width, height: size.height)
+                var orientation: AVCaptureVideoOrientation?
+                #if !targetEnvironment(macCatalyst)
+                    orientation = UIDevice.current.orientation.videoOrientation
+                #endif
+                createVideoEncoder(identifier: device.id,
+                                   width: size.width,
+                                   height: size.height,
+                                   orientation: orientation,
+                                   verticalMirror: device.position == .front)
             }
         case .removed:
             removeEncoder(identifier: device.id)
         }
     }
 
-    func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {
-        pipeline!.registerEncoder(identifier: identifier, width: width, height: height)
+    func createVideoEncoder(identifier: UInt32,
+                            width: Int32,
+                            height: Int32,
+                            orientation: AVCaptureVideoOrientation?,
+                            verticalMirror: Bool) {
+        let encoder: H264Encoder = .init(width: width,
+                                         height: height,
+                                         orientation: orientation,
+                                         verticalMirror: verticalMirror) { sample in
+            self.sendEncodedImage(identifier: identifier, data: sample)
+        }
+        h264Encoders.append(encoder)
+        pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
     }
 
     func createAudioEncoder(identifier: UInt32) {
@@ -143,8 +192,20 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         pipeline!.encoders.removeValue(forKey: identifier)
     }
 
-    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {}
-    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {}
+    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
+        #if !targetEnvironment(macCatalyst)
+            for encoder in h264Encoders {
+                encoder.setOrientation(orientation: UIDevice.current.orientation.videoOrientation)
+            }
+        #endif
+
+        pipeline!.encode(identifier: identifier, sample: frame)
+    }
+
+    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
+        pipeline!.encode(identifier: identifier, sample: sample)
+    }
+
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
     func sendEncodedAudio(data: MediaBufferFromSource) {}
 }

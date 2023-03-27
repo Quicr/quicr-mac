@@ -31,24 +31,8 @@ class Loopback: ApplicationModeBase {
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
-            encodeSample(identifier: mirrorIdentifier, frame: frame, type: .video)
+            super.encodeCameraFrame(identifier: mirrorIdentifier, frame: frame)
         }
-    }
-
-    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        encodeSample(identifier: identifier, frame: sample, type: .audio)
-    }
-
-    private func encodeSample(identifier: UInt32,
-                              frame: CMSampleBuffer,
-                              type: PipelineManager.MediaType) {
-        // Make a encoder for this stream.
-        if pipeline!.encoders[identifier] == nil {
-            return
-        }
-
-        // Write camera frame to pipeline.
-        pipeline!.encode(identifier: identifier, sample: frame)
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
@@ -59,6 +43,21 @@ class Loopback: ApplicationModeBase {
             removeRemoteSource(identifier: device.id)
         default:
             return
+        }
+    }
+
+    override func createVideoEncoder(identifier: UInt32,
+                                     width: Int32,
+                                     height: Int32,
+                                     orientation: AVCaptureVideoOrientation?,
+                                     verticalMirror: Bool) {
+        for offset in 0...localMirrorParticipants {
+            let mirrorIdentifier = identifier + offset
+            super.createVideoEncoder(identifier: mirrorIdentifier,
+                                     width: width,
+                                     height: height,
+                                     orientation: orientation,
+                                     verticalMirror: verticalMirror)
         }
     }
 }

@@ -82,7 +82,7 @@ private struct VideoGrid: View {
 
             LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(videos) { participant in
-                    Image(uiImage: participant.decodedImage)
+                    participant.decodedImage
                         .resizable()
                         .scaledToFit()
                         .cornerRadius(12)
@@ -118,8 +118,6 @@ struct InCallView: View {
     @State private var alteringDevice: [AVCaptureDevice: Bool] = [:]
     /// Current usage.
     @State private var usingDevice: [AVCaptureDevice: Bool] = [:]
-    /// Current device orientation.
-    @State private var currentOrientation: AVCaptureVideoOrientation
 
     @State private var cameraButtonText: String
     @State private var cameraIconName: String
@@ -150,7 +148,6 @@ struct InCallView: View {
         self.mode = mode
         selectedCamera = AVCaptureDevice.default(for: .video)!
         selectedMicrophone = AVCaptureDevice.default(for: .audio)!
-        currentOrientation = UIDevice.current.orientation.videoOrientation
 
         cameraButtonText = "Stop Video"
         cameraIconName = "video"
@@ -317,12 +314,6 @@ struct InCallView: View {
         .onDisappear {
             Task {
                 await leaveCall()
-            }
-        }
-        .onReceive(orientationChanged) { _ in
-            self.currentOrientation = UIDevice.current.orientation.videoOrientation
-            Task {
-                await self.capture.manager!.setOrientation(orientation: self.currentOrientation)
             }
         }
     }

@@ -1,5 +1,5 @@
 import Foundation
-import CoreGraphics
+import CoreImage
 import CoreMedia
 import AVFoundation
 
@@ -13,7 +13,13 @@ class PipelineManager {
     /// - Parameter identifier: The source identifier for this decoded image.
     /// - Parameter image: The decoded image data.
     /// - Parameter timestamp: The timestamp for this image.
-    typealias DecodedImageCallback = (_ identifier: UInt32, _ image: CGImage, _ timestamp: CMTimeValue) -> Void
+    /// - Parameter orientation: The source orientation of this image.
+    /// - Parameter verticalMirror: True if this image is intended to be vertically mirrored.
+    typealias DecodedImageCallback = (_ identifier: UInt32,
+                                      _ image: CIImage,
+                                      _ timestamp: CMTimeValue,
+                                      _ orientation: AVCaptureVideoOrientation?,
+                                      _ verticalMirror: Bool) -> Void
 
     /// Represents an encoded sample.
     /// - Parameter identifier: The source identifier for this encoded sample.
@@ -70,15 +76,6 @@ class PipelineManager {
         decoder!.decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 
-    func registerEncoder(identifier: UInt32, width: Int32, height: Int32) {
-        let encoder = H264Encoder(width: width, height: height, callback: { sample in
-            self.debugPrint(message: "[\(identifier)] (timestamp) Encoded")
-            self.encodedCallback(identifier, sample)
-        })
-
-        registerEncoder(identifier: identifier, encoder: encoder)
-    }
-
     func registerEncoder(identifier: UInt32, encoder: Encoder) {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
@@ -89,9 +86,9 @@ class PipelineManager {
         let decoder: Decoder
         switch type {
         case .video:
-            decoder = H264Decoder(callback: { decodedImage, presentation in
+            decoder = H264Decoder(callback: { decodedImage, presentation, orientation, verticalMirror in
                 self.debugPrint(message: "[\(identifier)] (\(presentation)) Decoded")
-                self.imageCallback(identifier, decodedImage, presentation)
+                self.imageCallback(identifier, decodedImage, presentation, orientation, verticalMirror)
             })
         case .audio:
             let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,

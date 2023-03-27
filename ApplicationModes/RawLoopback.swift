@@ -5,13 +5,18 @@ import AVFoundation
 class RawLoopback: ApplicationModeBase {
 
     let localMirrorParticipants: UInt32 = 0
+    private var devices: [UInt32: AVCaptureDevice.Position] = [:]
 
     override var root: AnyView {
         get { return .init(InCallView(mode: self) {}) }
         set { }
     }
 
-    override func createVideoEncoder(identifier: UInt32, width: Int32, height: Int32) {}
+    override func createVideoEncoder(identifier: UInt32,
+                                     width: Int32,
+                                     height: Int32,
+                                     orientation: AVCaptureVideoOrientation?,
+                                     verticalMirror: Bool) {}
     override func createAudioEncoder(identifier: UInt32) {}
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -23,13 +28,19 @@ class RawLoopback: ApplicationModeBase {
     }
 
     override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
+        let mirror = devices[identifier] == .front
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
             let ciImage: CIImage = .init(cvImageBuffer: frame.imageBuffer!)
-            let cgImage = CIContext().createCGImage(ciImage, from: ciImage.extent)!
+            var orientation: AVCaptureVideoOrientation?
+            #if !targetEnvironment(macCatalyst)
+                orientation = UIDevice.current.orientation.videoOrientation
+            #endif
             showDecodedImage(identifier: mirrorIdentifier,
                              participants: participants,
-                             decoded: cgImage)
+                             decoded: ciImage,
+                             orientation: orientation,
+                             verticalMirror: mirror)
         }
     }
 
@@ -38,13 +49,11 @@ class RawLoopback: ApplicationModeBase {
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
-        super.onDeviceChange(device: device, event: event)
-
         switch event {
+        case .added:
+            devices[device.id] = device.position
         case .removed:
             removeRemoteSource(identifier: device.id)
-        default:
-            return
         }
     }
 }

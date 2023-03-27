@@ -7,11 +7,11 @@ enum ParticipantError: Error {
 
 class VideoParticipant: ObservableObject, Identifiable {
     var id: UInt32
-    @Published var decodedImage: UIImage
+    @Published var decodedImage: Image
 
     init(id: UInt32) {
         self.id = id
-        decodedImage = .init(systemName: "phone")!
+        decodedImage = .init(systemName: "phone")
     }
 }
 
