@@ -76,15 +76,6 @@ class PipelineManager {
         decoder!.decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 
-//    func registerEncoder(identifier: UInt32, width: Int32, height: Int32, orientation: AVCaptureVideoOrientation) {
-//        let encoder = H264Encoder(width: width, height: height, orientation: orientation, callback: { sample in
-//            self.debugPrint(message: "[\(identifier)] (timestamp) Encoded")
-//            self.encodedCallback(identifier, sample)
-//        })
-//
-//        registerEncoder(identifier: identifier, encoder: encoder)
-//    }
-
     func registerEncoder(identifier: UInt32, encoder: Encoder) {
         let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
         encoders[identifier] = element
