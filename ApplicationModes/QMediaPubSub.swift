@@ -40,7 +40,7 @@ class QMediaPubSub: ApplicationModeBase {
         }
 
         // Get the codec out of the media ID.
-        let rawCodec = mediaId >> 4
+        let rawCodec = mediaId & 0b1111_0000
         guard let codec = QMedia.CodecType(rawValue: rawCodec) else {
             publisher.errorHandler.writeError(
                 message: "[QMediaPubSub] [Subscription \(streamId)] Unexpected codec type: \(rawCodec)")
@@ -174,6 +174,6 @@ class QMediaPubSub: ApplicationModeBase {
         } else {
             sourcesByMediaType[type]! += 1
         }
-        return type.rawValue << 4 | sourcesByMediaType[type]!
+        return type.rawValue | sourcesByMediaType[type]!
     }
 }

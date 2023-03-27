@@ -44,6 +44,7 @@ class Modes: ObservableObject {
     }
 }
 
+@MainActor
 class ObservableError: ObservableObject, ErrorWriter {
     struct StringError: Identifiable {
         let id = UUID()
@@ -51,15 +52,16 @@ class ObservableError: ObservableObject, ErrorWriter {
     }
 
     @Published var messages: [StringError] = []
-    func writeError(message: String) {
+    nonisolated func writeError(message: String) {
         print("[Decimus Error] => \(message)")
-        self.messages.append(.init(message: message))
+        DispatchQueue.main.async {
+            self.messages.append(.init(message: message))
+       }
     }
 }
 
 @main
 struct DecimusApp: App {
-
     @StateObject private var participants: VideoParticipants
     @StateObject private var devices: AudioVideoDevices = .init()
     @StateObject private var captureManager: ObservableCaptureManager
@@ -84,6 +86,36 @@ struct DecimusApp: App {
                 .environmentObject(captureManager)
                 .environmentObject(modes)
                 .environmentObject(errorHandler)
+                .withHostingWindow { window in
+                    #if targetEnvironment(macCatalyst)
+                    if let titlebar = window?.windowScene?.titlebar {
+                        titlebar.titleVisibility = .hidden
+                        titlebar.toolbar = nil
+                    }
+                    #endif
+                }
+                .preferredColorScheme(.dark)
         }
+    }
+}
+
+extension View {
+    fileprivate func withHostingWindow(_ callback: @escaping (UIWindow?) -> Void) -> some View {
+        self.background(HostingWindowFinder(callback: callback))
+    }
+}
+
+private struct HostingWindowFinder: UIViewRepresentable {
+    var callback: (UIWindow?) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        DispatchQueue.main.async { [weak view] in
+            self.callback(view?.window)
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
     }
 }

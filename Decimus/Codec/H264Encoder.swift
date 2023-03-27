@@ -43,10 +43,14 @@ class H264Encoder: Encoder {
                                                  value: kCFBooleanTrue)
         guard realtimeError == .zero else { fatalError("Failed to set encoder to realtime") }
 
-        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
-        // VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: kCFBooleanTrue)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_DataRateLimits, value: self.bitrate as CFNumber)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: self.fps as CFNumber)
+        VTSessionSetProperty(encoder!,
+                             key: kVTCompressionPropertyKey_ProfileLevel,
+                             value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: 2048000 as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: fps as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: fps * 5 as CFNumber)
 
         VTCompressionSessionPrepareToEncodeFrames(encoder!)
     }

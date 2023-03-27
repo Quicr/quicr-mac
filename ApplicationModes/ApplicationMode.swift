@@ -166,7 +166,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         // }
 
         // libopus
-        encoder = LibOpusEncoder(fileWrite: false) { media in
+        encoder = LibOpusEncoder { media in
             let identified: MediaBufferFromSource = .init(source: identifier, media: media)
             self.sendEncodedAudio(data: identified)
         }
