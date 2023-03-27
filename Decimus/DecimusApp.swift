@@ -37,7 +37,7 @@ class Modes: ObservableObject {
     let rawLoopback: RawLoopback
 
     init(participants: VideoParticipants, errorWriter: ErrorWriter) {
-        let player: AudioPlayer = .init(fileWrite: false)
+        let player: AudioPlayer = .init(fileWrite: false, errorWriter: errorWriter)
         qMedia = .init(participants: participants, player: player, errorWriter: errorWriter)
         loopback = .init(participants: participants, player: player, errorWriter: errorWriter)
         rawLoopback = .init(participants: participants, player: player, errorWriter: errorWriter)
