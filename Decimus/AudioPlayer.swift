@@ -9,9 +9,11 @@ class AudioPlayer {
 
     private let fileWrite: Bool
     private var playPcm: AVAudioFile?
+    private let errorWriter: ErrorWriter
 
     /// Create a new `AudioPlayer`
-    init(fileWrite: Bool) {
+    init(fileWrite: Bool, errorWriter: ErrorWriter) {
+        self.errorWriter = errorWriter
         mixerFormat = mixer.inputFormat(forBus: 0)
         engine.attach(mixer)
         engine.connect(mixer, to: engine.outputNode, format: mixerFormat)
@@ -25,7 +27,8 @@ class AudioPlayer {
 
     func write(identifier: UInt32, buffer: AVAudioPCMBuffer) {
         guard mixerFormat.commonFormat == .pcmFormatFloat32 else {
-            fatalError("Currently expecting output as F32")
+            errorWriter.writeError(message: "Currently expecting output as F32")
+            return
         }
 
         let inputBuffer: AVAudioPCMBuffer
@@ -36,13 +39,19 @@ class AudioPlayer {
             // Mixer cannot handle int16 -> float conversion.
             inputBuffer = buffer.asFloat()
         default:
-            fatalError("Unsupported input format")
+            errorWriter.writeError(message: "Unsupported input format")
+            return
         }
 
         // Get the player node for this stream.
         var node: AVAudioPlayerNode? = players[identifier]
         if node == nil {
-            node = createPlayer(identifier: identifier, inputFormat: inputBuffer.format)
+            do {
+                node = try createPlayer(identifier: identifier, inputFormat: inputBuffer.format)
+            } catch {
+                errorWriter.writeError(message: error.localizedDescription)
+                return
+            }
         }
 
         if fileWrite {
@@ -52,7 +61,8 @@ class AudioPlayer {
                 }
                 try playPcm?.write(from: inputBuffer)
             } catch {
-                fatalError(error.localizedDescription)
+                errorWriter.writeError(message: error.localizedDescription)
+                return
             }
         }
 
@@ -60,15 +70,11 @@ class AudioPlayer {
         node!.scheduleBuffer(inputBuffer)
     }
 
-    private func createPlayer(identifier: UInt32, inputFormat: AVAudioFormat) -> AVAudioPlayerNode {
+    private func createPlayer(identifier: UInt32, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
         guard players[identifier] == nil else { fatalError() }
         print("AudioPlayer => [\(identifier)] New player: \(inputFormat)")
         if !engine.isRunning {
-            do {
-                try engine.start()
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+            try engine.start()
         }
         let node: AVAudioPlayerNode = .init()
         engine.attach(node)
