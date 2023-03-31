@@ -22,6 +22,11 @@ class AudioPlayer {
     }
 
     deinit {
+        players.forEach { _, player in
+            player.stop()
+            engine.detach(player)
+        }
+        players.removeAll()
         engine.stop()
     }
 

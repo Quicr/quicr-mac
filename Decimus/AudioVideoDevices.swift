@@ -23,15 +23,15 @@ class AudioVideoDevices: ObservableObject {
             types.append(.builtInLiDARDepthCamera)
         }
 
-        let cameraDiscovery: AVCaptureDevice.DiscoverySession = .init(
+        let cameraDiscovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: types,
             mediaType: .video,
             position: .unspecified)
         cameras = cameraDiscovery.devices
 
-        let microphoneDiscovery: AVCaptureDevice.DiscoverySession = .init(deviceTypes: [.builtInMicrophone],
-                                                                          mediaType: .audio,
-                                                                          position: .unspecified)
+        let microphoneDiscovery = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInMicrophone],
+                                                                   mediaType: .audio,
+                                                                   position: .unspecified)
         audioInputs = microphoneDiscovery.devices
     }
 }

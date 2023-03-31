@@ -4,12 +4,10 @@ import SwiftUI
 import AVFoundation
 
 class Loopback: ApplicationModeBase {
-
     let localMirrorParticipants: UInt32 = 0
 
-    override var root: AnyView {
-        get { return .init(InCallView(mode: self) {}) }
-        set { }
+    deinit {
+        print("Destroyed Loopback")
     }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {

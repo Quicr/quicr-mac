@@ -19,14 +19,11 @@ actor CaptureManager: NSObject,
     typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
-    /// Available callback.
-    typealias AvailableCallback = (Bool) -> Void
 
     let session: AVCaptureMultiCamSession
     let cameraFrameCallback: MediaCallback
     let audioFrameCallback: MediaCallback
     let deviceChangedCallback: DeviceChangeCallback
-    private let available: AvailableCallback
     private let sessionQueue: DispatchQueue = .init(label: "CaptureManager", target: .global(qos: .userInitiated))
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureVideoDataOutput: AVCaptureDevice] = [:]
@@ -38,13 +35,10 @@ actor CaptureManager: NSObject,
     init(cameraCallback: @escaping MediaCallback,
          audioCallback: @escaping MediaCallback,
          deviceChangeCallback: @escaping DeviceChangeCallback,
-         available: @escaping AvailableCallback,
          errorHandler: ErrorWriter) {
-        defer { available(true) }
         self.cameraFrameCallback = cameraCallback
         self.audioFrameCallback = audioCallback
         self.deviceChangedCallback = deviceChangeCallback
-        self.available = available
         self.errorHandler = errorHandler
 
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -79,8 +73,6 @@ actor CaptureManager: NSObject,
     }
 
     func startCapturing() {
-        available(false)
-        defer { available(true) }
         if session.isRunning { return }
         self.session.startRunning()
     }
@@ -90,8 +82,6 @@ actor CaptureManager: NSObject,
             errorHandler.writeError(message: "Shouldn't call StopCapturing when not running")
             return
         }
-        available(false)
-        defer { available(true) }
         self.session.stopRunning()
     }
 

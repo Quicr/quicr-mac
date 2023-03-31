@@ -14,6 +14,13 @@ class QMedia {
     /// - Parameter port: Port to connect on.
     init(address: URL, port: UInt16) {
         MediaClient_Create(address.absoluteString, port, &instance)
+        print("Created QMedia")
+    }
+
+    deinit {
+        guard instance != nil else {return}
+        MediaClient_Destroy(instance)
+        print("Destroyed QMedia")
     }
 
     /// Signal the intent to publish an audio stream.
@@ -46,8 +53,12 @@ class QMedia {
         MediaClient_AddVideoStreamSubscribe(instance, codec.rawValue, callback)
     }
 
-    func removeMediaStream(mediaStreamId: UInt64) {
-        MediaClient_RemoveMediaStream(instance, mediaStreamId)
+    func removeMediaPublishStream(mediaStreamId: UInt64) {
+        MediaClient_RemoveMediaPublishStream(instance, mediaStreamId)
+    }
+
+    func removeMediaSubscribeStream(mediaStreamId: UInt64) {
+        MediaClient_RemoveMediaSubscribeStream(instance, mediaStreamId)
     }
 
     /// Send some audio data.
@@ -71,10 +82,5 @@ class QMedia {
                         timestamp: UInt64,
                         flag: Bool) {
         MediaClient_sendVideoFrame(instance, mediaStreamId, buffer, length, timestamp, flag)
-    }
-
-    deinit {
-        guard instance != nil else {return}
-        MediaClient_Destroy(instance)
     }
 }

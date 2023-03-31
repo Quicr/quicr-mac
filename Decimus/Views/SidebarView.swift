@@ -1,45 +1,39 @@
 import SwiftUI
 
+struct NavigationLazyView<Content: View>: View {
+    let build: () -> Content
+    init(_ build: @autoclosure @escaping () -> Content) {
+        self.build = build
+    }
+    var body: Content {
+        build()
+    }
+}
+
 struct SidebarView: View {
-
-    @EnvironmentObject private var capture: ObservableCaptureManager
-    @EnvironmentObject private var participants: VideoParticipants
-    @EnvironmentObject private var modes: Modes
-
     var body: some View {
         NavigationStack {
             List {
-                NavigationLink(value: modes.qMedia as ApplicationModeBase) {
+                NavigationLink(destination: QMediaConfigCall(), label: {
                     HStack {
                         Label("QMedia", systemImage: "phone.circle")
                         Spacer()
-                        if !capture.available {
-                            ProgressView()
-                        }
                     }
-                }.disabled(!capture.available)
+                })
 
-                NavigationLink(value: modes.loopback as ApplicationModeBase) {
+                NavigationLink(destination: NavigationLazyView(InCallView<Loopback>()), label: {
                     HStack {
-                        Label("Encoded Loopback", systemImage: "arrow.clockwise.circle")
+                        Label("Encoded Loopback", systemImage: "arrow.clockwise.circle.fill")
                         Spacer()
-                        if !capture.available {
-                            ProgressView()
-                        }
                     }
-                }.disabled(!capture.available)
+                })
 
-                NavigationLink(value: modes.rawLoopback as ApplicationModeBase) {
+                NavigationLink(destination: NavigationLazyView(InCallView<RawLoopback>()), label: {
                     HStack {
                         Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
                         Spacer()
-                        if !capture.available {
-                            ProgressView()
-                        }
                     }
-                }.disabled(!capture.available)
-            }.navigationDestination(for: ApplicationModeBase.self) { mode in
-                mode.root
+                })
             }
         }.navigationTitle("Application Modes")
     }
