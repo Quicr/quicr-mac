@@ -8,10 +8,14 @@ Targets iOS 16.0+ with best effort for >=15.0.
 
 1. Ensure dependencies cloned / up to date:
     - `git submodule update --init --recursive`
-2. Build QMedia on first time build or post repo clean:
+2. Remove build directories
+
+``` rm -rf dependencies/build-catalyst```
+
+3. Build QMedia on first time build or post repo clean:
     - `./dependencies/build-qmedia-framework.sh`
     - Note: This script assumes CMake provided by homebrew.
-3. Open the XCode project and build for any Apple Silicon target
+4. Open the XCode project and build for any Apple Silicon target
     - Build for Mac Catalyst, iOS device or simulator.
     - QMedia intel / rosetta builds currently NOT provided.
 
