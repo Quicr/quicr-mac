@@ -29,7 +29,9 @@ struct LeaveModal: View {
                     .font(.body)
                     .padding(.bottom)
                 HStack {
+                    #if targetEnvironment(macCatalyst)
                     Spacer().frame(maxWidth: .infinity)
+                    #endif
                     ActionButton("Cancel",
                                  styleConfig: ActionButtonStyleConfig(
                                     background: .black,
@@ -42,7 +44,11 @@ struct LeaveModal: View {
                                     foreground: .black),
                                  action: leaveAction)
                 }
+                #if !targetEnvironment(macCatalyst)
+                .frame(alignment: .center)
+                #else
                 .frame(alignment: .trailing)
+                #endif
             }
             .padding()
         }

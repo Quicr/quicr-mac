@@ -36,28 +36,27 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     let player: AudioPlayer
     let clientId = UInt16.random(in: 0..<UInt16.max)
 
-    @Published var participants: VideoParticipants
+    @Published var participants: VideoParticipants = VideoParticipants()
 
     private let id = UUID()
     private var h264Encoders: [H264Encoder] = []
 
     required init(errorWriter: ErrorWriter) {
-        let participants = VideoParticipants()
-        self.participants = participants
-
-        let player = AudioPlayer(fileWrite: false, errorWriter: errorWriter)
-        self.player = player
         self.errorHandler = errorWriter
+        self.player = AudioPlayer(errorWriter: errorWriter)
         self.pipeline = .init(
             decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
                 guard let mode = self else { return }
                 mode.showDecodedImage(identifier: identifier,
-                                      participants: participants,
+                                      participants: mode.participants,
                                       decoded: decoded,
                                       orientation: orientation,
                                       verticalMirror: verticalMirror)
             },
-            decodedAudioCallback: player.write,
+            decodedAudioCallback: { [weak self] id, buffer in
+                guard let mode = self else { return }
+                mode.player.write(identifier: id, buffer: buffer)
+            },
             debugging: false,
             errorWriter: errorWriter)
     }
@@ -105,7 +104,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             }
         }
 
-        // TODO: Remove audio player here.
+        player.removePlayer(identifier: identifier)
     }
 
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {

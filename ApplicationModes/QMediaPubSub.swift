@@ -9,9 +9,9 @@ enum ApplicationError: Error {
 
 class QMediaPubSub: ApplicationModeBase {
     struct WeakQMediaPubSub {
-        weak var publisher: QMediaPubSub?
+        weak var value: QMediaPubSub?
         init(_ publisher: QMediaPubSub?) {
-            self.publisher = publisher
+            self.value = publisher
         }
     }
     private static var streamIdMap: [UInt64: WeakQMediaPubSub] = .init()
@@ -27,12 +27,15 @@ class QMediaPubSub: ApplicationModeBase {
     deinit {
         guard qMedia != nil else { return }
         QMediaPubSub.streamIdMap.forEach { id, _ in
-            qMedia!.removeMediaSubscribeStream(mediaStreamId: id)
+            removeRemoteSource(identifier: UInt32(id))
+        }
+        identifierMapping.forEach { id, _ in
+            qMedia!.removeMediaPublishStream(mediaStreamId: UInt64(id))
         }
     }
 
     let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
-        guard let publisher = QMediaPubSub.streamIdMap[streamId]?.publisher else {
+        guard let publisher = QMediaPubSub.streamIdMap[streamId]?.value else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
         guard data != nil else {
@@ -108,10 +111,15 @@ class QMediaPubSub: ApplicationModeBase {
         identifierMapping[identifier] = subscriptionId
     }
 
+    override func removeRemoteSource(identifier: UInt32) {
+        super.removeRemoteSource(identifier: identifier)
+        qMedia!.removeMediaSubscribeStream(mediaStreamId: UInt64(identifier))
+    }
+
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         do {
             try data.dataBuffer!.withUnsafeMutableBytes { ptr in
-                let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
+                let unsafe = ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)
                 let timestampMs: UInt32
                 do {
                     timestampMs = UInt32(try data.sampleTimingInfo(at: 0).presentationTimeStamp.seconds * 1000)

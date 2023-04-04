@@ -6,10 +6,6 @@ import AVFoundation
 class Loopback: ApplicationModeBase {
     let localMirrorParticipants: UInt32 = 0
 
-    deinit {
-        print("Destroyed Loopback")
-    }
-
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[identifier] == nil {

@@ -14,13 +14,11 @@ class QMedia {
     /// - Parameter port: Port to connect on.
     init(address: URL, port: UInt16) {
         MediaClient_Create(address.absoluteString, port, &instance)
-        print("Created QMedia")
     }
 
     deinit {
-        guard instance != nil else {return}
+        guard instance != nil else { return }
         MediaClient_Destroy(instance)
-        print("Destroyed QMedia")
     }
 
     /// Signal the intent to publish an audio stream.

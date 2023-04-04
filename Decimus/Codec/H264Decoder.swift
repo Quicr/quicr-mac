@@ -29,6 +29,12 @@ class H264Decoder: Decoder {
         self.callback = callback
     }
 
+    deinit {
+        guard let session = self.session else { return }
+        VTDecompressionSessionInvalidate(session)
+        self.session = nil
+    }
+
     /// Write a new frame to the decoder.
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         // Get NALU type.
@@ -181,22 +187,15 @@ class H264Decoder: Decoder {
         }
 
         // Collate SPS & PPS.
-        let parameterSetsData: UnsafeMutablePointer<UnsafePointer<UInt8>> = .allocate(capacity: 2)
-        var parameterSetsSizes: [Int] = .init(repeating: 0, count: 2)
+        let pointerSPS = data.baseAddress!
+            .advanced(by: startCodeLength)
+            .assumingMemoryBound(to: UInt8.self)
+        let pointerPPS = data.baseAddress!
+            .advanced(by: ppsStartCodeIndex + startCodeLength)
+            .assumingMemoryBound(to: UInt8.self)
 
-        // SPS.
-        let spsSrc: UnsafeRawPointer = data.baseAddress!.advanced(by: startCodeLength)
-        let spsDest = malloc(spsLength)
-        memcpy(spsDest, spsSrc, spsLength)
-        parameterSetsData[0] = .init(.init(spsDest!))
-        parameterSetsSizes[0] = spsLength
-
-        // PPS.
-        let ppsSrc: UnsafeRawPointer = data.baseAddress!.advanced(by: ppsStartCodeIndex + startCodeLength)
-        let ppsDest = malloc(ppsLength)
-        memcpy(ppsDest, ppsSrc, ppsLength)
-        parameterSetsData[1] = .init(.init(ppsDest!))
-        parameterSetsSizes[1] = ppsLength
+        let parameterSetsData = [pointerSPS, pointerPPS]
+        let parameterSetsSizes = [spsLength, ppsLength]
 
         // Create format from parameter sets.
         var format: CMFormatDescription?
