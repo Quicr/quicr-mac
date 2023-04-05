@@ -37,11 +37,6 @@ mkdir -p $DIR/build-ios
 cmake -DCMAKE_FRAMEWORK=TRUE -DDEPLOYMENT_TARGET=16.0 -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-ios -DPLATFORM=OS64 -DENABLE_VISIBILITY=ON -DMACOSX_FRAMEWORK_IDENTIFIER=com.cisco.quicr.qmedia -DCMAKE_MODULE_PATH=$DIR -DBUILD_NUMBER=$BUILD_NUMBER
 cmake --build $DIR/build-ios --target neo_media_client -j$CORES
 
-# Build for simulator
-mkdir -p $DIR/build-iossim
-cmake -DCMAKE_FRAMEWORK=TRUE -DDEPLOYMENT_TARGET=16.0 -DCMAKE_TOOLCHAIN_FILE=$DIR/ios.toolchain.cmake -S $DIR/new-qmedia -B $DIR/build-iossim -DPLATFORM=SIMULATORARM64 -DENABLE_VISIBILITY=ON -DMACOSX_FRAMEWORK_IDENTIFIER=com.cisco.quicr.qmedia -DCMAKE_MODULE_PATH=$DIR  -DBUILD_NUMBER=$BUILD_NUMBER
-cmake --build $DIR/build-iossim --target neo_media_client -j$CORES
-
 # Create xcframework
 if [ -d "$DIR/neo_media_client.xcframework" ]
 then
@@ -50,5 +45,4 @@ fi
 xcodebuild -create-xcframework \
   -framework $DIR/build-catalyst/src/extern/neo_media_client.framework \
   -framework $DIR/build-ios/src/extern/neo_media_client.framework \
-  -framework $DIR/build-iossim/src/extern/neo_media_client.framework \
   -output $DIR/neo_media_client.xcframework
