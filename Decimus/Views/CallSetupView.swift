@@ -47,7 +47,7 @@ private struct LoginForm: View {
                                  font: Font.system(size: 19, weight: .semibold),
                                  styleConfig: buttonColour, action: {
                         address = "relay.us-west-2.quicr.ctgpoc.com"
-                        port = 33434
+                        port = 33435
                     })
                 }
             }
