@@ -43,6 +43,6 @@ then
     rm -r $DIR/neo_media_client.xcframework
 fi
 xcodebuild -create-xcframework \
-  -framework $DIR/$CATALYST_BUILD/src/extern/neo_media_client.framework \
+  -framework $DIR/build-catalyst/src/extern/neo_media_client.framework \
   -framework $DIR/build-ios/src/extern/neo_media_client.framework \
   -output $DIR/neo_media_client.xcframework
