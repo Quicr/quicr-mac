@@ -6,12 +6,12 @@ private struct LoginForm: View {
     @State private var address: String = ""
     @State private var port: UInt16 = 0
 
-    private var configCallback: ConfigCallback
+    private var joinMeetingCallback: ConfigCallback
 
     private let buttonColour = ActionButtonStyleConfig(background: .white, foreground: .black)
 
     init(_ onJoin: @escaping ConfigCallback) {
-        configCallback = onJoin
+        joinMeetingCallback = onJoin
     }
 
     var body: some View {
@@ -60,15 +60,15 @@ private struct LoginForm: View {
     }
 
     func join() {
-        configCallback(.init(address: address, port: port))
+        joinMeetingCallback(.init(address: address, port: port))
     }
 }
 
 struct CallSetupView: View {
-    private var configCallback: ConfigCallback
+    private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
-        configCallback = onJoin
+        joinMeetingCallback = onJoin
     }
 
     var body: some View {
@@ -90,7 +90,7 @@ struct CallSetupView: View {
                     Text("Join a meeting")
                         .font(.title)
                         .foregroundColor(.white)
-                    LoginForm(configCallback)
+                    LoginForm(joinMeetingCallback)
                         .frame(maxWidth: 350)
                         .padding(.top, -30)
                 }

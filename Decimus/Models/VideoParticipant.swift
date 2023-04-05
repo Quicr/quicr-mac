@@ -20,7 +20,6 @@ class VideoParticipants: ObservableObject {
     private var cancellables: [UInt32: AnyCancellable] = [:]
 
     func getOrMake(identifier: UInt32) -> VideoParticipant {
-
         if let participant = participants[identifier] {
             return participant
         }

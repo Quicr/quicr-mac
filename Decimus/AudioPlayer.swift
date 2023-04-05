@@ -2,27 +2,39 @@ import AVFoundation
 
 /// Plays audio samples out.
 class AudioPlayer {
-    private let engine: AVAudioEngine = .init()
-    private var players: [UInt32: AVAudioPlayerNode] = [:]
-    private var mixer: AVAudioMixerNode = .init()
+    private var engine: AVAudioEngine! = .init()
+    private var mixer: AVAudioMixerNode! = .init()
     private let mixerFormat: AVAudioFormat
-
-    private let fileWrite: Bool
-    private var playPcm: AVAudioFile?
     private let errorWriter: ErrorWriter
+    private var players: [UInt32: AVAudioPlayerNode] = [:]
 
     /// Create a new `AudioPlayer`
-    init(fileWrite: Bool, errorWriter: ErrorWriter) {
+    init(errorWriter: ErrorWriter) {
         self.errorWriter = errorWriter
+
         mixerFormat = mixer.inputFormat(forBus: 0)
         engine.attach(mixer)
         engine.connect(mixer, to: engine.outputNode, format: mixerFormat)
         engine.prepare()
-        self.fileWrite = fileWrite
     }
 
     deinit {
+        players.forEach { _, player in
+            player.stop()
+        }
         engine.stop()
+
+        players.forEach { _, player in
+            engine.disconnectNodeInput(player)
+            engine.detach(player)
+        }
+        players.removeAll()
+
+        engine.disconnectNodeInput(mixer)
+        engine.detach(mixer)
+
+        mixer = nil
+        engine = nil
     }
 
     func write(identifier: UInt32, buffer: AVAudioPCMBuffer) {
@@ -54,18 +66,6 @@ class AudioPlayer {
             }
         }
 
-        if fileWrite {
-            do {
-                if playPcm == nil {
-                    playPcm = try makeOutputFile(name: "play.wav", sampleFormat: inputBuffer.format)
-                }
-                try playPcm?.write(from: inputBuffer)
-            } catch {
-                errorWriter.writeError(message: error.localizedDescription)
-                return
-            }
-        }
-
         // Play the buffer.
         node!.scheduleBuffer(inputBuffer)
     }
@@ -76,6 +76,7 @@ class AudioPlayer {
         if !engine.isRunning {
             try engine.start()
         }
+
         let node: AVAudioPlayerNode = .init()
         engine.attach(node)
         engine.connect(node, to: mixer, format: inputFormat)
@@ -91,15 +92,12 @@ class AudioPlayer {
         return node
     }
 
-    private func makeOutputFile(name: String, sampleFormat: AVAudioFormat) throws -> AVAudioFile {
-        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).last
-        return try .init(forWriting: dir!.appendingPathComponent(name),
-                         settings: [
-                            "AVFormatIdKey": kAudioFormatLinearPCM,
-                            "AVSampleRateKey": sampleFormat.sampleRate,
-                            "AVNumberOfChannelsKey": sampleFormat.channelCount
-                         ],
-                         commonFormat: sampleFormat.commonFormat,
-                         interleaved: sampleFormat.isInterleaved)
+    func removePlayer(identifier: UInt32) {
+        guard let player = players[identifier] else { return }
+
+        player.stop()
+        engine.disconnectNodeInput(player)
+        engine.detach(player)
+        players.removeValue(forKey: identifier)
     }
 }

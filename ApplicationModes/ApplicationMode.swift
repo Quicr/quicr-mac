@@ -8,7 +8,6 @@ import UIKit
 /// The core of the application.
 protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
-    var root: AnyView { get }
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer)
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
     func removeRemoteSource(identifier: UInt32)
@@ -28,39 +27,36 @@ protocol ApplicationMode {
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
 class ApplicationModeBase: ApplicationMode, Hashable {
-
     static func == (lhs: ApplicationModeBase, rhs: ApplicationModeBase) -> Bool {
         false
     }
 
     var pipeline: PipelineManager?
-    var root: AnyView = .init(EmptyView())
-    private let id = UUID()
-    let clientId = UInt16.random(in: 0..<UInt16.max)
-    let participants: VideoParticipants
-    let player: AudioPlayer
     let errorHandler: ErrorWriter
+    let player: AudioPlayer
+    let clientId = UInt16.random(in: 0..<UInt16.max)
+
+    @Published var participants: VideoParticipants = VideoParticipants()
+
+    private let id = UUID()
     private var h264Encoders: [H264Encoder] = []
 
-    init(participants: VideoParticipants, player: AudioPlayer, errorWriter: ErrorWriter) {
-        self.participants = participants
-        self.player = player
+    required init(errorWriter: ErrorWriter) {
         self.errorHandler = errorWriter
-        pipeline = .init(
-            decodedCallback: { identifier, decoded, _, orientation, verticalMirror in
-                self.showDecodedImage(identifier: identifier,
-                                      participants: participants,
+        self.player = AudioPlayer(errorWriter: errorWriter)
+        self.pipeline = .init(
+            decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
+                guard let mode = self else { return }
+                mode.showDecodedImage(identifier: identifier,
+                                      participants: mode.participants,
                                       decoded: decoded,
                                       orientation: orientation,
                                       verticalMirror: verticalMirror)
             },
-            encodedCallback: { identifier, data in
-                self.sendEncodedImage(identifier: identifier, data: data)
+            decodedAudioCallback: { [weak self] id, buffer in
+                guard let mode = self else { return }
+                mode.player.write(identifier: id, buffer: buffer)
             },
-            decodedAudioCallback: { identifier, sample in
-                self.playDecodedAudio(identifier: identifier, buffer: sample, player: player)
-            },
-            encodedAudioCallback: self.sendEncodedAudio,
             debugging: false,
             errorWriter: errorWriter)
     }
@@ -95,10 +91,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
     }
 
-    func playDecodedAudio(identifier: UInt32, buffer: AVAudioPCMBuffer, player: AudioPlayer) {
-        player.write(identifier: identifier, buffer: buffer)
-    }
-
     func removeRemoteSource(identifier: UInt32) {
         // Remove decoder for this source.
         _ = pipeline!.decoders.removeValue(forKey: identifier)
@@ -112,7 +104,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             }
         }
 
-        // TODO: Remove audio player here.
+        player.removePlayer(identifier: identifier)
     }
 
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
@@ -145,8 +137,9 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         let encoder: H264Encoder = .init(width: width,
                                          height: height,
                                          orientation: orientation,
-                                         verticalMirror: verticalMirror) { sample in
-            self.sendEncodedImage(identifier: identifier, data: sample)
+                                         verticalMirror: verticalMirror) { [weak self] sample in
+            guard let mode = self else { return }
+            mode.sendEncodedImage(identifier: identifier, data: sample)
         }
         h264Encoders.append(encoder)
         pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
@@ -180,9 +173,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         // }
 
         // libopus
-        encoder = LibOpusEncoder { media in
+        encoder = LibOpusEncoder { [weak self] media in
+            guard let mode = self else { return }
             let identified: MediaBufferFromSource = .init(source: identifier, media: media)
-            self.sendEncodedAudio(data: identified)
+            mode.sendEncodedAudio(data: identified)
         }
 
         pipeline!.registerEncoder(identifier: identifier, encoder: encoder)

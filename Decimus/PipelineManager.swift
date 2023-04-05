@@ -21,19 +21,12 @@ class PipelineManager {
                                       _ orientation: AVCaptureVideoOrientation?,
                                       _ verticalMirror: Bool) -> Void
 
-    /// Represents an encoded sample.
-    /// - Parameter identifier: The source identifier for this encoded sample.
-    /// - Parameter sample: The encoded sample data.
-    typealias EncodedSampleCallback = (_ identifier: UInt32, _ sample: CMSampleBuffer) -> Void
-
     /// Represents a decoded audio sample.
     typealias DecodedAudioCallback = (_ identifier: UInt32, _ buffer: AVAudioPCMBuffer) -> Void
     typealias DecodedAudio = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
 
     private let imageCallback: DecodedImageCallback
-    private let encodedCallback: EncodedSampleCallback
     private let audioCallback: DecodedAudioCallback
-    private let encodedAudioCallback: Encoder.SourcedMediaCallback
     private let debugging: Bool
     private let errorWriter: ErrorWriter
 
@@ -44,14 +37,10 @@ class PipelineManager {
     /// Create a new PipelineManager.
     init(
         decodedCallback: @escaping DecodedImageCallback,
-        encodedCallback: @escaping EncodedSampleCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
-        encodedAudioCallback: @escaping Encoder.SourcedMediaCallback,
         debugging: Bool,
         errorWriter: ErrorWriter) {
         self.imageCallback = decodedCallback
-        self.encodedCallback = encodedCallback
-        self.encodedAudioCallback = encodedAudioCallback
         self.audioCallback = decodedAudioCallback
         self.debugging = debugging
         self.errorWriter = errorWriter

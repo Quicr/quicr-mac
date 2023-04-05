@@ -6,6 +6,7 @@ defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -b
 # Build tools
 brew install cmake
 brew install pkg-config
+brew install go
 
 # Build QMedia.
 sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh

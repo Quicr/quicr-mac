@@ -4,13 +4,7 @@ import SwiftUI
 import AVFoundation
 
 class Loopback: ApplicationModeBase {
-
     let localMirrorParticipants: UInt32 = 0
-
-    override var root: AnyView {
-        get { return .init(InCallView(mode: self) {}) }
-        set { }
-    }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.

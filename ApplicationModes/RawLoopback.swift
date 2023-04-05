@@ -7,11 +7,6 @@ class RawLoopback: ApplicationModeBase {
     let localMirrorParticipants: UInt32 = 0
     private var devices: [UInt32: AVCaptureDevice.Position] = [:]
 
-    override var root: AnyView {
-        get { return .init(InCallView(mode: self) {}) }
-        set { }
-    }
-
     override func createVideoEncoder(identifier: UInt32,
                                      width: Int32,
                                      height: Int32,
@@ -45,7 +40,7 @@ class RawLoopback: ApplicationModeBase {
     }
 
     override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        playDecodedAudio(identifier: identifier, buffer: .fromSample(sample: sample), player: player)
+        player.write(identifier: identifier, buffer: .fromSample(sample: sample))
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {

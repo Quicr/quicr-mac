@@ -8,8 +8,13 @@ enum ApplicationError: Error {
 }
 
 class QMediaPubSub: ApplicationModeBase {
-
-    private static var streamIdMap: [UInt64: QMediaPubSub] = .init()
+    struct WeakQMediaPubSub {
+        weak var value: QMediaPubSub?
+        init(_ publisher: QMediaPubSub?) {
+            self.value = publisher
+        }
+    }
+    private static var streamIdMap: [UInt64: WeakQMediaPubSub] = .init()
 
     private var qMedia: QMedia?
     private var identifierMapping: [UInt32: UInt64] = .init()
@@ -19,19 +24,18 @@ class QMediaPubSub: ApplicationModeBase {
 
     private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
 
-    override var root: AnyView {
-        get { return .init(QMediaConfigCall(mode: self, callback: { config in
-            do {
-                try self.connect(config: config)
-            } catch {
-                self.errorHandler.writeError(message: "[QMediaPubSub] Already connected!")
-            }
-        }))}
-        set { }
+    deinit {
+        guard qMedia != nil else { return }
+        QMediaPubSub.streamIdMap.forEach { id, _ in
+            removeRemoteSource(identifier: UInt32(id))
+        }
+        identifierMapping.forEach { id, _ in
+            qMedia!.removeMediaPublishStream(mediaStreamId: UInt64(id))
+        }
     }
 
     let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
-        guard let publisher = QMediaPubSub.streamIdMap[streamId] else {
+        guard let publisher = QMediaPubSub.streamIdMap[streamId]?.value else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
         guard data != nil else {
@@ -72,12 +76,12 @@ class QMediaPubSub: ApplicationModeBase {
 
         // Video.
         videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
-        Self.streamIdMap[videoSubscription] = self
+        Self.streamIdMap[videoSubscription] = .init(self)
         print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
 
         // Audio.
         audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
-        Self.streamIdMap[audioSubscription] = self
+        Self.streamIdMap[audioSubscription] = .init(self)
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
     }
 
@@ -107,10 +111,15 @@ class QMediaPubSub: ApplicationModeBase {
         identifierMapping[identifier] = subscriptionId
     }
 
+    override func removeRemoteSource(identifier: UInt32) {
+        super.removeRemoteSource(identifier: identifier)
+        qMedia!.removeMediaSubscribeStream(mediaStreamId: UInt64(identifier))
+    }
+
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         do {
             try data.dataBuffer!.withUnsafeMutableBytes { ptr in
-                let unsafe: UnsafePointer<UInt8> = .init(ptr.baseAddress!.assumingMemoryBound(to: UInt8.self))
+                let unsafe = ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)
                 let timestampMs: UInt32
                 do {
                     timestampMs = UInt32(try data.sampleTimingInfo(at: 0).presentationTimeStamp.seconds * 1000)
@@ -118,7 +127,9 @@ class QMediaPubSub: ApplicationModeBase {
                     timestampMs = 0
                 }
                 guard let streamId = self.identifierMapping[identifier] else {
-                    errorHandler.writeError(message: "[QMediaPubSub] Couldn't lookup stream id for media id: \(identifier)")
+                    errorHandler.writeError(
+                        message: "[QMediaPubSub] Couldn't lookup stream id for media id: \(identifier)"
+                    )
                     return
                 }
                 qMedia!.sendVideoFrame(mediaStreamId: streamId,

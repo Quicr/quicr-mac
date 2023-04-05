@@ -49,19 +49,17 @@ struct MenuModal<Content>: View where Content: View {
     }
 }
 
-struct ActionPicker<SelectionValue, Content>: View where SelectionValue: Hashable, Content: View {
+struct ActionPicker<Content>: View where Content: View {
     private let label: String
     private let icon: String
     private let action: () -> Void
     private let pickerAction: () -> Void
     private let content: () -> Content
 
-    @Binding private var input: SelectionValue
     @Binding private var expanded: Bool
 
     init(_ label: String,
          icon: String,
-         input: Binding<SelectionValue>,
          expanded: Binding<Bool>,
          action: @escaping () -> Void,
          pickerAction: @escaping () -> Void,
@@ -71,19 +69,16 @@ struct ActionPicker<SelectionValue, Content>: View where SelectionValue: Hashabl
         self.action = action
         self.pickerAction = pickerAction
         self.content = content
-        self._input = input
         self._expanded = expanded
     }
 
     init(_ label: String,
          icon: String,
-         input: Binding<SelectionValue>,
          expanded: Binding<Bool>,
          action: @escaping () -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
-                  input: input,
                   expanded: expanded,
                   action: action,
                   pickerAction: { expanded.wrappedValue.toggle() },
@@ -92,13 +87,11 @@ struct ActionPicker<SelectionValue, Content>: View where SelectionValue: Hashabl
 
     init(_ label: String,
          icon: String,
-         input: Binding<SelectionValue>,
          expanded: Binding<Bool>,
          action: @escaping () async -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
-                  input: input,
                   expanded: expanded,
                   action: { Task { await action() }},
                   content: content)
@@ -106,14 +99,12 @@ struct ActionPicker<SelectionValue, Content>: View where SelectionValue: Hashabl
 
     init(_ label: String,
          icon: String,
-         input: Binding<SelectionValue>,
          expanded: Binding<Bool>,
          action: @escaping () async -> Void,
          pickerAction: @escaping () async -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
-                  input: input,
                   expanded: expanded,
                   action: { Task { await action() }},
                   pickerAction: { Task { await pickerAction() }},
