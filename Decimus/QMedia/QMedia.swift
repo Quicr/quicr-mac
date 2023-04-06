@@ -6,14 +6,17 @@ class QMedia {
     /// Codec type mappings.
     enum CodecType: UInt8 { case h264 = 0b1010_0000; case opus = 0b0001_0000 }
 
+    /// Protocol type mappings
+    enum ProtocolType: UInt8 { case UDP = 0; case QUIC = 1 }
+
     /// Managed instance of QMedia.
     private var instance: UnsafeMutableRawPointer?
 
     /// Initialize a new instance of QMedia.
     /// - Parameter address: Address to connect to.
     /// - Parameter port: Port to connect on.
-    init(address: URL, port: UInt16) {
-        MediaClient_Create(address.absoluteString, port, &instance)
+    init(address: URL, port: UInt16, protocol connectionProtocol: ProtocolType) {
+        MediaClient_Create(address.absoluteString, port, connectionProtocol.rawValue, &instance)
     }
 
     deinit {
