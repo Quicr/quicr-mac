@@ -3,8 +3,16 @@ import SwiftUI
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
 private struct LoginForm: View {
-    @State private var address: String = ""
-    @State private var port: UInt16 = 0
+    private struct AddressPort: Hashable {
+        var address: String
+        var port: UInt16
+        init(address: String, port: UInt16) {
+            self.address = address
+            self.port = port
+        }
+    }
+    @State private var addressPort: AddressPort = .init(address: "", port: 0)
+    @State private var connectionProtocol: QMedia.ProtocolType = QMedia.ProtocolType.QUIC
 
     private var joinMeetingCallback: ConfigCallback
 
@@ -16,40 +24,37 @@ private struct LoginForm: View {
 
     var body: some View {
         Form {
+            // TODO: For Dev purposes, should be removed eventually
             Section {
-                FormInput("Address", field: TextField("", text: $address, prompt: Text("")))
-                FormInput("Port", field: TextField("",
-                                                   value: $port,
-                                                   format: .number.grouping(.never),
-                                                   prompt: Text("")))
-                ActionButton("Join Meeting",
-                             font: Font.system(size: 19, weight: .semibold),
-                             disabled: address == "" || port == 0,
-                             styleConfig: buttonColour,
-                             action: join)
-                .frame(maxWidth: .infinity)
-                .font(Font.system(size: 19, weight: .semibold))
+                Picker(selection: $addressPort, label: Text("Protocol")) {
+                    Text("localhost").tag(AddressPort(address: "127.0.0.1", port: 1234))
+                    Text("AWS").tag(AddressPort(address: "relay.us-west-2.quicr.ctgpoc.com", port: 33435))
+                    .font(Font.system(size: 19, weight: .semibold))
+                }
+                .pickerStyle(.segmented)
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
-            // TODO: For Dev purposes, should be removed eventually
             Section {
-                HStack {
-                    ActionButton("localhost",
-                                 font: Font.system(size: 19, weight: .semibold),
-                                 styleConfig: buttonColour, action: {
-                        address = "127.0.0.1"
-                        port = 1234
-                    })
-                    .font(Font.system(size: 19, weight: .semibold))
-                    ActionButton("AWS",
-                                 font: Font.system(size: 19, weight: .semibold),
-                                 styleConfig: buttonColour, action: {
-                        address = "relay.us-west-2.quicr.ctgpoc.com"
-                        port = 33435
-                    })
+                FormInput("Address", field: TextField("", text: $addressPort.address, prompt: Text("")))
+                FormInput("Port", field: TextField("",
+                                                   value: $addressPort.port,
+                                                   format: .number.grouping(.never),
+                                                   prompt: Text("")))
+                Picker(selection: $connectionProtocol, label: Text("Protocol")) {
+                    Text("UDP").tag(QMedia.ProtocolType.UDP)
+                    Text("QUIC").tag(QMedia.ProtocolType.QUIC)
                 }
+                .pickerStyle(.segmented)
+
+                ActionButton("Join Meeting",
+                             font: Font.system(size: 19, weight: .semibold),
+                             disabled: addressPort.address == "" || addressPort.port == 0,
+                             styleConfig: buttonColour,
+                             action: join)
+                .frame(maxWidth: .infinity)
+                .font(Font.system(size: 19, weight: .semibold))
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -60,7 +65,9 @@ private struct LoginForm: View {
     }
 
     func join() {
-        joinMeetingCallback(.init(address: address, port: port))
+        joinMeetingCallback(.init(address: addressPort.address,
+                                  port: addressPort.port,
+                                  connectionProtocol: connectionProtocol))
     }
 }
 

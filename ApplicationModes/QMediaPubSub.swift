@@ -72,7 +72,9 @@ class QMediaPubSub: ApplicationModeBase {
 
     func connect(config: CallConfig) throws {
         guard qMedia == nil else { throw ApplicationError.alreadyConnected }
-        qMedia = .init(address: .init(string: config.address)!, port: config.port)
+        qMedia = .init(address: .init(string: config.address)!,
+                       port: config.port,
+                       protocol: config.connectionProtocol)
 
         // Video.
         videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
