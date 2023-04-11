@@ -19,9 +19,6 @@ class ObservableError: ObservableObject, ErrorWriter {
 
 @main
 struct DecimusApp: App {
-    init() {
-        UIApplication.shared.isIdleTimerDisabled = true
-    }
 
     var body: some Scene {
         WindowGroup {

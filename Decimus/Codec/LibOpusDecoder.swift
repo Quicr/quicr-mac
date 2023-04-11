@@ -16,7 +16,10 @@ class LibOpusDecoder: Decoder {
     /// - Parameter fileWrite: True to write decoded audio to a file (debugging).
     /// - Parameter errorWriter: Protocol to report errors to.
     /// - Parameter callback: A callback fired when decoded data becomes available.
-    init(format: AVAudioFormat, fileWrite: Bool, errorWriter: ErrorWriter, callback: @escaping PipelineManager.DecodedAudio) {
+    init(format: AVAudioFormat,
+         fileWrite: Bool,
+         errorWriter: ErrorWriter,
+         callback: @escaping PipelineManager.DecodedAudio) {
         self.callback = callback
         self.format = format
         self.fileWrite = fileWrite

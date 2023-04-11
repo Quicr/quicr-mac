@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "RTMC-Icon.png",
+      "filename" : "RTMC-Icon_360 1.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "RTMC-Icon_x2.png",
+      "filename" : "RTMC-Icon_360 2.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "RTMC-Icon_x3.png",
+      "filename" : "RTMC-Icon_360.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

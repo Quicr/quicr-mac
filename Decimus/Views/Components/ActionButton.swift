@@ -117,6 +117,11 @@ extension ActionButton where Content == Text {
          cornerRadius: CGFloat = 30,
          styleConfig: ActionButtonStyleConfig,
          action: @escaping () -> Void) {
-        self.init(title, font: nil, disabled: disabled, cornerRadius: cornerRadius, styleConfig: styleConfig, action: action)
+        self.init(title,
+                  font: nil,
+                  disabled: disabled,
+                  cornerRadius: cornerRadius,
+                  styleConfig: styleConfig,
+                  action: action)
     }
 }

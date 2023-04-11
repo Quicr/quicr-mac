@@ -1,6 +1,6 @@
 import SwiftUI
 
-private struct FormInputStyle: TextFieldStyle {
+struct FormInputStyle: TextFieldStyle {
     // swiftlint:disable identifier_name
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
@@ -17,23 +17,4 @@ private struct FormInputStyle: TextFieldStyle {
             .disableAutocorrection(true)
     }
     // swiftlint:enable identifier_name
-}
-
-struct FormInput<T>: View where T: View {
-    private let field: TextField<T>
-    private let label: String
-
-    init(_ label: String, field: TextField<T>) {
-        self.label = label
-        self.field = field
-    }
-
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text(label)
-                .padding(.horizontal, 15)
-                .foregroundColor(.white)
-            field.textFieldStyle(FormInputStyle())
-        }
-    }
 }
