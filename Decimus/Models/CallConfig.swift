@@ -1,7 +1,7 @@
 import Foundation
 
 /// Configuration for joining a call.
-struct CallConfig {
+struct CallConfig: Hashable {
     /// Address of the server.
     var address: String
     /// Port to connect on.

@@ -7,7 +7,7 @@ class QMedia {
     enum CodecType: UInt8 { case h264 = 0b1010_0000; case opus = 0b0001_0000 }
 
     /// Protocol type mappings
-    enum ProtocolType: UInt8 { case UDP = 0; case QUIC = 1 }
+    enum ProtocolType: UInt8, CaseIterable { case UDP = 0; case QUIC = 1 }
 
     /// Managed instance of QMedia.
     private var instance: UnsafeMutableRawPointer?

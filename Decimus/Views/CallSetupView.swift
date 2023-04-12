@@ -3,20 +3,15 @@ import SwiftUI
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
 private struct LoginForm: View {
-    private struct AddressPort: Hashable {
-        var address: String
-        var port: UInt16
-        init(address: String, port: UInt16) {
-            self.address = address
-            self.port = port
-        }
-    }
-    @State private var addressPort: AddressPort = .init(address: "", port: 0)
-    @State private var connectionProtocol: QMedia.ProtocolType = QMedia.ProtocolType.QUIC
-
+    @State private var callConfig = CallConfig(address: "",
+                                               port: 0,
+                                               connectionProtocol: QMedia.ProtocolType.QUIC)
     private var joinMeetingCallback: ConfigCallback
 
-    private let buttonColour = ActionButtonStyleConfig(background: .white, foreground: .black)
+    private let buttonColour = ActionButtonStyleConfig(
+        background: .white,
+        foreground: .black
+    )
 
     init(_ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
@@ -24,33 +19,42 @@ private struct LoginForm: View {
 
     var body: some View {
         Form {
-            // TODO: For Dev purposes, should be removed eventually
             Section {
-                Picker(selection: $addressPort, label: Text("Protocol")) {
-                    Text("localhost").tag(AddressPort(address: "127.0.0.1", port: 1234))
-                    Text("AWS").tag(AddressPort(address: "relay.us-west-2.quicr.ctgpoc.com", port: 33435))
-                    .font(Font.system(size: 19, weight: .semibold))
-                }
-                .pickerStyle(.segmented)
-            }
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+                RadioButtonGroup("Developer Relays",
+                                 selection: $callConfig,
+                                 labels: ["localhost", "AWS"],
+                                 tags: [
+                    .init(address: "127.0.0.1", port: 1234, connectionProtocol: callConfig.connectionProtocol),
+                    .init(address: "relay.us-west-2.quicr.ctgpoc.com",
+                          port: callConfig.connectionProtocol == QMedia.ProtocolType.UDP ? 33434 : 33435,
+                          connectionProtocol: callConfig.connectionProtocol)
+                ])
 
-            Section {
-                FormInput("Address", field: TextField("", text: $addressPort.address, prompt: Text("")))
-                FormInput("Port", field: TextField("",
-                                                   value: $addressPort.port,
-                                                   format: .number.grouping(.never),
-                                                   prompt: Text("")))
-                Picker(selection: $connectionProtocol, label: Text("Protocol")) {
-                    Text("UDP").tag(QMedia.ProtocolType.UDP)
-                    Text("QUIC").tag(QMedia.ProtocolType.QUIC)
+                VStack(alignment: .leading) {
+                    Text("Address")
+                        .padding(.horizontal)
+                        .foregroundColor(.white)
+                    TextField.init("address", text: $callConfig.address, prompt: Text(""))
+                        .textFieldStyle(FormInputStyle())
                 }
-                .pickerStyle(.segmented)
+                VStack(alignment: .leading) {
+                    Text("Port")
+                        .padding(.horizontal)
+                        .foregroundColor(.white)
+                    TextField.init("port",
+                                   value: $callConfig.port,
+                                   format: .number.grouping(.never),
+                                   prompt: Text(""))
+                        .textFieldStyle(FormInputStyle())
+                }
+
+                RadioButtonGroup("Protocol",
+                                 selection: $callConfig.connectionProtocol,
+                                 tags: QMedia.ProtocolType.allCases)
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
-                             disabled: addressPort.address == "" || addressPort.port == 0,
+                             disabled: callConfig.address == "" || callConfig.port == 0,
                              styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
@@ -65,9 +69,7 @@ private struct LoginForm: View {
     }
 
     func join() {
-        joinMeetingCallback(.init(address: addressPort.address,
-                                  port: addressPort.port,
-                                  connectionProtocol: connectionProtocol))
+        joinMeetingCallback(callConfig)
     }
 }
 
@@ -75,33 +77,41 @@ struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
+        UIApplication.shared.isIdleTimerDisabled = false
         joinMeetingCallback = onJoin
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack {
-                Image("RTMC-Background")
-                    .resizable()
-                    .scaledToFill()
-                    .edgesIgnoringSafeArea(.all)
-                    .frame(width: geo.size.width,
-                           height: geo.size.height + 50, // see about getting rid of the 50
-                           alignment: .center)
-                VStack {
-                    Image("RTMC-Icon").padding(-50)
-                    Text("Real Time Media Client")
-                        .font(.largeTitle)
-                        .foregroundColor(.white)
-                    Spacer(minLength: 25)
-                    Text("Join a meeting")
-                        .font(.title)
-                        .foregroundColor(.white)
-                    LoginForm(joinMeetingCallback)
-                        .frame(maxWidth: 350)
-                        .padding(.top, -30)
-                }
+        ZStack {
+            Image("RTMC-Background")
+                .resizable()
+                .scaledToFill()
+                .edgesIgnoringSafeArea(.all)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+                #if targetEnvironment(macCatalyst)
+                .frame(maxWidth: .infinity,
+                       maxHeight: .infinity,
+                       alignment: .center)
+                #else
+                .frame(width: UIScreen.main.bounds.width,
+                       height: UIScreen.main.bounds.height,
+                       alignment: .center)
+                #endif
+
+            VStack {
+                Image("RTMC-Icon")
+                Text("Real Time Media Client")
+                    .font(.largeTitle)
+                    .bold()
+                    .foregroundColor(.white)
+                Spacer(minLength: 25)
+                Text("Join a meeting")
+                    .font(.title)
+                    .foregroundColor(.white)
+                LoginForm(joinMeetingCallback)
+                    .frame(maxWidth: 350)
             }
+            .scaledToFit()
         }
     }
 }

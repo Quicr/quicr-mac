@@ -17,6 +17,7 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
         .autoconnect()
 
     init(onLeave: @escaping () -> Void = {}) {
+        UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
     }
 

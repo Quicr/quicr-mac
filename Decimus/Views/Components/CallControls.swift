@@ -96,7 +96,7 @@ struct CallControls: View {
                          icon: cameraIconName,
                          expanded: $cameraModalExpanded,
                          action: {
-                            //toggleVideo
+                            // toggleVideo
                          },
                          pickerAction: {
                 cameraModalExpanded.toggle()
