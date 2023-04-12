@@ -28,21 +28,28 @@ struct CallControls: View {
         micIconName = "mic"
     }
 
-    private func toggleVideo(camera: AVCaptureDevice) async {
-        if controller.isUsingDevice(device: camera) {
+    private func toggleVideo() {
+        if controller.devices.cameras.allSatisfy({ camera in
+            return !controller.isUsingCamera(device: camera)
+        }) {
+            guard let camera = AVCaptureDevice.default(for: .video) else { return }
+            Task { await controller.addDevice(device: camera) }
             cameraButtonText = "Stop Video"
             cameraIconName = "video"
-        } else {
-            cameraButtonText =  "Start Video"
-            cameraIconName = "video.slash"
+            return
         }
+
+        controller.devices.cameras.forEach { camera in
+            guard controller.isUsingCamera(device: camera) else { return }
+            Task { await controller.removeDevice(device: camera) }
+        }
+        cameraButtonText =  "Start Video"
+        cameraIconName = "video.slash"
     }
 
     private func toggleMute() async {
-        if controller.selectedMicrophone != nil {
-            await controller.toggleDevice(device: controller.selectedMicrophone!)
-        }
-        if controller.isUsingMicrophone() {
+        await controller.toggleMute()
+        if await controller.isUsingMicrophone() {
             micButtonText = "Mute"
             micIconName = "mic"
         } else {
@@ -86,18 +93,16 @@ struct CallControls: View {
             })
             .onChange(of: controller.selectedMicrophone) { _ in
                 guard controller.selectedMicrophone != nil else { return }
-                Task { await controller.toggleDevice(device: controller.selectedMicrophone!) }
+                Task { await controller.toggleCamera(device: controller.selectedMicrophone!) }
             }
             .disabled(controller.isAlteringMicrophone())
             .padding(.horizontal)
-            .frame(maxWidth: 200)
+            .frame(maxWidth: 210)
 
             ActionPicker(cameraButtonText,
                          icon: cameraIconName,
                          expanded: $cameraModalExpanded,
-                         action: {
-                            // toggleVideo
-                         },
+                         action: toggleVideo,
                          pickerAction: {
                 cameraModalExpanded.toggle()
                 muteModalExpanded = false
@@ -116,15 +121,15 @@ struct CallControls: View {
                         cornerRadius: 10,
                         styleConfig: deviceButtonStyleConfig,
                         action: {
-                            await controller.toggleDevice(device: camera)
+                            await controller.toggleCamera(device: camera)
                         },
                         title: {
                             HStack {
                                 ZStack {
-                                    if controller.isAlteringDevice(device: camera) {
+                                    if controller.alteringDevice[camera] ?? false {
                                         ProgressView()
                                         Spacer()
-                                    } else if controller.isUsingDevice(device: camera) {
+                                    } else if controller.usingDevice[camera] ?? false {
                                         Image(systemName: "checkmark")
                                     }
                                 }
@@ -134,9 +139,12 @@ struct CallControls: View {
                             }
                         }
                     )
-                    .disabled(controller.isUsingDevice(device: camera))
+                    .disabled(controller.isAlteringDevice(device: camera))
                     .aspectRatio(contentMode: .fill)
                 }
+                .disabled(controller.devices.cameras.first(where: { camera in
+                    return controller.isAlteringDevice(device: camera)
+                }) != nil)
                 .frame(maxWidth: 300, alignment: .bottomTrailing)
                 .padding(.bottom)
             })
@@ -161,8 +169,8 @@ struct CallControls: View {
 
 class CallController: ObservableObject {
     @Published private(set) var devices = AudioVideoDevices()
-    @Published private var alteringDevice: [AVCaptureDevice: Bool] = [:]
-    @Published private var usingDevice: [AVCaptureDevice: Bool] = [:]
+    @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
+    @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
     @Published var selectedMicrophone: AVCaptureDevice?
     @Published var capture: CaptureManager?
 
@@ -215,7 +223,7 @@ class CallController: ObservableObject {
         alteringDevice[device] = false
     }
 
-    func toggleDevice(device: AVCaptureDevice) async {
+    func toggleCamera(device: AVCaptureDevice) async {
         alteringDevice[device] = true
         usingDevice[device] = await capture!.toggleInput(device: device)
         alteringDevice[device] = false
@@ -225,7 +233,7 @@ class CallController: ObservableObject {
         return alteringDevice[device] ?? false
     }
 
-    func isUsingDevice(device: AVCaptureDevice) -> Bool {
+    func isUsingCamera(device: AVCaptureDevice) -> Bool {
         return usingDevice[device] ?? false
     }
 
@@ -234,8 +242,12 @@ class CallController: ObservableObject {
         return alteringDevice[selectedMicrophone!] ?? false
     }
 
-    func isUsingMicrophone() -> Bool {
-        guard selectedMicrophone != nil else { return false }
-        return usingDevice[selectedMicrophone!] ?? false
+    func isUsingMicrophone() async -> Bool {
+        return await capture!.isMuted()
+    }
+
+    func toggleMute() async {
+        guard selectedMicrophone != nil else { return }
+        await capture!.toggleAudio()
     }
 }

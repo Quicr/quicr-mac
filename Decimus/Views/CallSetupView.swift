@@ -111,7 +111,6 @@ struct CallSetupView: View {
                 LoginForm(joinMeetingCallback)
                     .frame(maxWidth: 350)
             }
-            .scaledToFit()
         }
     }
 }
