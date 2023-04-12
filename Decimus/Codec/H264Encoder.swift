@@ -107,9 +107,14 @@ class H264Encoder: Encoder {
         }
 
         // Orientation SEI.
-        if orientation != nil {
-            let orientationSei = makeOrientationSEI(orientation: orientation!, verticalMirror: verticalMirror)
-            callback(orientationSei)
+        do {
+            if orientation != nil {
+                let orientationSei = try makeOrientationSEI(orientation: orientation!, verticalMirror: verticalMirror)
+                callback(orientationSei)
+            }
+        } catch {
+            print("Failed to make orientation SEI")
+            return
         }
 
         let buffer = sample.dataBuffer!
@@ -240,8 +245,8 @@ class H264Encoder: Encoder {
         return parameterSample!
     }
 
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) -> CMSampleBuffer {
-        var bytes: [UInt8] = [
+    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) throws -> CMSampleBuffer {
+        let bytes: [UInt8] = [
             // Start Code.
             0x00, 0x00, 0x00, 0x01,
 
@@ -277,6 +282,8 @@ class H264Encoder: Encoder {
                                                                 dataLength: bytes.count,
                                                                 flags: 0,
                                                                 blockBufferOut: &block)
+
+            guard blockError == .zero else { throw("Failed to create SEI memory block") }
             let sample: CMSampleBuffer = try .init(dataBuffer: block,
                                                    formatDescription: nil,
                                                    numSamples: 1,

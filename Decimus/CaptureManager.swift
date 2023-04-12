@@ -201,10 +201,48 @@ actor CaptureManager: NSObject,
         deviceChangedCallback(device, .removed)
     }
 
+    func toggleAudio() {
+        session.connections.forEach { conn in
+            guard conn.audioChannels.count != 0 else { return }
+            conn.isEnabled.toggle()
+        }
+    }
+
+    func isMuted() -> Bool {
+        guard let conn = session.connections.first(where: { conn in
+            return conn.audioChannels.count != 0
+        }) else { return true }
+
+        return conn.isEnabled
+    }
+
+    func toggleVideo(device: AVCaptureDevice) {
+        guard let conn = connections[device] else { return }
+        conn.isEnabled.toggle()
+    }
+
+    func muteVideo(device: AVCaptureDevice) {
+        guard let conn = connections[device] else { return }
+        conn.isEnabled = false
+    }
+
+    func unmuteVideo(device: AVCaptureDevice) {
+        guard let conn = connections[device] else { return }
+        conn.isEnabled = true
+    }
+
+    func isVideoMuted(device: AVCaptureDevice) -> Bool {
+        guard let conn = connections[device] else { return true }
+        return conn.isEnabled
+    }
+
     /// Fires when a frame is available.
     nonisolated func captureOutput(_ output: AVCaptureOutput,
                                    didOutput sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
+
+        if !connection.isEnabled { return }
+
         // Get the device this frame was for.
         var device: AVCaptureDevice?
         for input in connection.inputPorts {
@@ -212,6 +250,7 @@ actor CaptureManager: NSObject,
             if input.mediaType != .video && input.mediaType != .audio {
                 continue
             }
+
             guard let inputDevice = input.input as? AVCaptureDeviceInput else {
                 errorHandler.writeError(message: "Couldn't find device for output")
                 return
@@ -232,8 +271,12 @@ actor CaptureManager: NSObject,
     nonisolated func captureOutput(_ output: AVCaptureOutput,
                                    didDrop sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
-        // TODO: Get reason.
-        print("CaptureManager => Frame dropped!")
+        var mode: CMAttachmentMode = 0
+        let reason = CMGetAttachment(sampleBuffer,
+                                     key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
+                                     attachmentModeOut: &mode)
+
+        print("CaptureManager => Frame dropped! Reason: \(String(describing: reason))")
     }
 }
 
