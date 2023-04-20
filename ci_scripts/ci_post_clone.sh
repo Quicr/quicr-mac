@@ -9,7 +9,8 @@ brew install pkg-config
 brew install go
 
 # Build QMedia.
-mv $CI_DERIVED_DATA_PATH/build-catalyst $CI_WORKSPACE/dependencies/build-catalyst
-mv $CI_DERIVED_DATA_PATH/build-catalyst-x86 $CI_WORKSPACE/dependencies/build-catalyst-x86
-mv $CI_DERIVED_DATA_PATH/build-ios $CI_WORKSPACE/dependencies/build-ios
+mkdir -p $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM
+[ -f $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst ] && mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst $CI_WORKSPACE/dependencies/build-catalyst
+[ -f $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst-x86 ] && mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst-x86 $CI_WORKSPACE/dependencies/build-catalyst-x86
+[ -f $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-ios ] && mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-ios $CI_WORKSPACE/dependencies/build-ios
 sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh
