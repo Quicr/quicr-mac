@@ -8,5 +8,11 @@ brew install cmake
 brew install pkg-config
 brew install go
 
+# Patch entitilements for tests.
+if [ "$CI_WORKFLOW" == "PR" ]
+then
+    cp $CI_WORKSPACE/ci_scripts/Decimus.entitlements $CI_WORKSPACE/Decimus/Decimus.entitlements
+fi
+
 # Build QMedia.
 sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh
