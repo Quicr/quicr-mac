@@ -3,6 +3,10 @@
 # Skip package validation for build plugins.
 defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
 
+# Restore homebrew cache
+export BREW_PATH=$(brew --cache)
+cp -r $CI_DERIVED_DATA_PATH/homebrew $BREW_PATH
+
 # Build tools
 brew install cmake
 brew install pkg-config

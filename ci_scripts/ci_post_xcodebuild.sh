@@ -1,3 +1,7 @@
+# Cache homebrew.
+export BREW_PATH=$(brew --cache)
+cp -r $BREW_PATH $CI_DERIVED_DATA_PATH/homebrew
+
 # Cache native dependency build folders.
 echo "Caching QMedia build-catalyst"
 cp -r $CI_WORKSPACE/dependencies/build-catalyst $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst
