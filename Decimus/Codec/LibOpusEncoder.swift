@@ -79,7 +79,12 @@ class LibOpusEncoder: Encoder {
     }
 
     private func tryEncode() {
-        let pcm = buffer.toPCM(size: opusFrameSize, format: currentFormat!)
+        let pcm: AVAudioPCMBuffer
+        do {
+            pcm = try buffer.toPCM(frames: opusFrameSizeBytes, format: currentFormat!)
+        } catch {
+            fatalError(error.localizedDescription)
+        }
 
         // Encode to Opus.
         var encodedBytes = 0

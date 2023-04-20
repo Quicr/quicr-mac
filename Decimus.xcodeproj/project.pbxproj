@@ -37,7 +37,7 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
-		9BC692DE29F128D700062A2A /* TextExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TextExample.swift */; };
+		9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */; };
 		9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */; };
 		9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */; };
 		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
@@ -115,7 +115,7 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
-		9BC692DD29F128D700062A2A /* TextExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextExample.swift; sourceTree = "<group>"; };
+		9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPCMExtensions.swift; sourceTree = "<group>"; };
 		9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughDecoder.swift; sourceTree = "<group>"; };
 		9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughEncoder.swift; sourceTree = "<group>"; };
 		9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaBuffer.swift; sourceTree = "<group>"; };
@@ -200,7 +200,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
-				9BC692DD29F128D700062A2A /* TextExample.swift */,
+				9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -441,7 +441,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9BC692DE29F128D700062A2A /* TextExample.swift in Sources */,
+				9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
