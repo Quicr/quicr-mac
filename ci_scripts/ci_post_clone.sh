@@ -13,7 +13,7 @@ mkdir -p $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM
 if [ -d $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst ]
 then
     echo "Restoring build-catalyst from derived data"
-    mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst $CI_WORKSPACE/dependencies/build-catalyst
+    cp -r $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst $CI_WORKSPACE/dependencies/build-catalyst
 else
     echo "Couldn't find cached build-catalyst"
 fi
@@ -21,7 +21,7 @@ fi
 if [ -d $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst-x86 ]
 then
     echo "Restoring build-catalyst-x86 from derived data"
-    mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst-x86 $CI_WORKSPACE/dependencies/build-catalyst-x86
+    cp -r $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-catalyst-x86 $CI_WORKSPACE/dependencies/build-catalyst-x86
 else
     echo "Couldn't find cached build-catalyst-x86"
 fi
@@ -29,7 +29,7 @@ fi
 if [ -d $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-ios ]
 then
     echo "Restoring build-ios from derived data"
-    mv $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-ios $CI_WORKSPACE/dependencies/build-ios
+    cp -r $CI_DERIVED_DATA_PATH/$CI_PRODUCT_PLATFORM/build-ios $CI_WORKSPACE/dependencies/build-ios
 else
     echo "Couldn't find cached build-ios"
 fi
