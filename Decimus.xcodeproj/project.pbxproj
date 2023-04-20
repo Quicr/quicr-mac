@@ -37,11 +37,11 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
+		9BC692DE29F128D700062A2A /* TextExample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TextExample.swift */; };
 		9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */; };
 		9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */; };
 		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
 		9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */; };
-		9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B162996A84B00C01D54 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B152996A84B00C01D54 /* Opus */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
@@ -56,7 +56,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		9BDD5B0C29967C9600C01D54 /* PBXContainerItemProxy */ = {
+		9B85951F29F04521008C813C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 9BA27FBA297D7270007013B2 /* Project object */;
 			proxyType = 1;
@@ -102,6 +102,8 @@
 		9B555197299B8B4F0025906D /* RawLoopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawLoopback.swift; sourceTree = "<group>"; };
 		9B647C9B29A6267B000AD358 /* PCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMExtensions.swift; sourceTree = "<group>"; };
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
+		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
+		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -113,12 +115,11 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
+		9BC692DD29F128D700062A2A /* TextExample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextExample.swift; sourceTree = "<group>"; };
 		9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughDecoder.swift; sourceTree = "<group>"; };
 		9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughEncoder.swift; sourceTree = "<group>"; };
 		9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaBuffer.swift; sourceTree = "<group>"; };
 		9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleExtensions.swift; sourceTree = "<group>"; };
-		9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DecimusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusTests.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
@@ -132,6 +133,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		9B85951829F04521008C813C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9BA27FBF297D7270007013B2 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -139,13 +147,6 @@
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9BDD5B0529967C9600C01D54 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,13 +197,22 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		9B85951C29F04521008C813C /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				9BC692DD29F128D700062A2A /* TextExample.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				9B85951429F03147008C813C /* TestPlan.xctestplan */,
 				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
 				9BA27FC4297D7270007013B2 /* Decimus */,
-				9BDD5B0929967C9600C01D54 /* DecimusTests */,
+				9B85951C29F04521008C813C /* Tests */,
 				9BA27FC3297D7270007013B2 /* Products */,
 				9B76FFE0298D5566006B5267 /* Frameworks */,
 			);
@@ -212,7 +222,7 @@
 			isa = PBXGroup;
 			children = (
 				9BA27FC2297D7270007013B2 /* Decimus.app */,
-				9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */,
+				9B85951B29F04521008C813C /* Tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -273,14 +283,6 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		9BDD5B0929967C9600C01D54 /* DecimusTests */ = {
-			isa = PBXGroup;
-			children = (
-				9BDD5B0A29967C9600C01D54 /* DecimusTests.swift */,
-			);
-			path = DecimusTests;
-			sourceTree = "<group>";
-		};
 		9BEFCC4F29BB89D9001A780A /* ci_scripts */ = {
 			isa = PBXGroup;
 			children = (
@@ -306,6 +308,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		9B85951A29F04521008C813C /* Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9B85952129F04522008C813C /* Build configuration list for PBXNativeTarget "Tests" */;
+			buildPhases = (
+				9B85951729F04521008C813C /* Sources */,
+				9B85951829F04521008C813C /* Frameworks */,
+				9B85951929F04521008C813C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9B85952029F04521008C813C /* PBXTargetDependency */,
+			);
+			name = Tests;
+			productName = Tests;
+			productReference = 9B85951B29F04521008C813C /* Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		9BA27FC1297D7270007013B2 /* Decimus */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */;
@@ -330,24 +350,6 @@
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
 			productType = "com.apple.product-type.application";
 		};
-		9BDD5B0729967C9600C01D54 /* DecimusTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 9BDD5B0E29967C9600C01D54 /* Build configuration list for PBXNativeTarget "DecimusTests" */;
-			buildPhases = (
-				9BDD5B0429967C9600C01D54 /* Sources */,
-				9BDD5B0529967C9600C01D54 /* Frameworks */,
-				9BDD5B0629967C9600C01D54 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				9BDD5B0D29967C9600C01D54 /* PBXTargetDependency */,
-			);
-			name = DecimusTests;
-			productName = DecimusTests;
-			productReference = 9BDD5B0829967C9600C01D54 /* DecimusTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -358,13 +360,13 @@
 				LastSwiftUpdateCheck = 1410;
 				LastUpgradeCheck = 1410;
 				TargetAttributes = {
+					9B85951A29F04521008C813C = {
+						CreatedOnToolsVersion = 14.1;
+						TestTargetID = 9BA27FC1297D7270007013B2;
+					};
 					9BA27FC1297D7270007013B2 = {
 						CreatedOnToolsVersion = 14.1;
 						LastSwiftMigration = 1410;
-					};
-					9BDD5B0729967C9600C01D54 = {
-						CreatedOnToolsVersion = 14.1;
-						TestTargetID = 9BA27FC1297D7270007013B2;
 					};
 				};
 			};
@@ -387,25 +389,25 @@
 			projectRoot = "";
 			targets = (
 				9BA27FC1297D7270007013B2 /* Decimus */,
-				9BDD5B0729967C9600C01D54 /* DecimusTests */,
+				9B85951A29F04521008C813C /* Tests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		9B85951929F04521008C813C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9BA27FC0297D7270007013B2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */,
 				9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9BDD5B0629967C9600C01D54 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -435,6 +437,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		9B85951729F04521008C813C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BC692DE29F128D700062A2A /* TextExample.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9BA27FBE297D7270007013B2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -481,14 +491,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9BDD5B0429967C9600C01D54 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				9BDD5B0B29967C9600C01D54 /* DecimusTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -496,14 +498,60 @@
 			isa = PBXTargetDependency;
 			productRef = 9B165A20298807AF0017079F /* SwiftLintPlugin */;
 		};
-		9BDD5B0D29967C9600C01D54 /* PBXTargetDependency */ = {
+		9B85952029F04521008C813C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
-			targetProxy = 9BDD5B0C29967C9600C01D54 /* PBXContainerItemProxy */;
+			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		9B85952229F04522008C813C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+			};
+			name = Debug;
+		};
+		9B85952329F04522008C813C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+			};
+			name = Release;
+		};
 		9BA27FE4297D7271007013B2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -729,57 +777,18 @@
 			};
 			name = Release;
 		};
-		9BDD5B0F29967C9600C01D54 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
-			};
-			name = Debug;
-		};
-		9BDD5B1029967C9600C01D54 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.decimus.DecimusTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		9B85952129F04522008C813C /* Build configuration list for PBXNativeTarget "Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9B85952229F04522008C813C /* Debug */,
+				9B85952329F04522008C813C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "Decimus" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -794,15 +803,6 @@
 			buildConfigurations = (
 				9BA27FE7297D7271007013B2 /* Debug */,
 				9BA27FE8297D7271007013B2 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		9BDD5B0E29967C9600C01D54 /* Build configuration list for PBXNativeTarget "DecimusTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				9BDD5B0F29967C9600C01D54 /* Debug */,
-				9BDD5B1029967C9600C01D54 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

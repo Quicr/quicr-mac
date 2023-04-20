@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "5A5ECCBE-EE9C-49A9-86E4-C4FD6C4F5719",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:Decimus.xcodeproj",
+        "identifier" : "9B85951A29F04521008C813C",
+        "name" : "Tests"
+      }
+    }
+  ],
+  "version" : 1
+}
