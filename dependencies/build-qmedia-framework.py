@@ -138,7 +138,7 @@ if __name__ == "__main__":
         args = parse.parse_args()
         if args.platform:
             # Build requested platforms.
-            platforms = [Platform[platform] for platform in args.platform]
+            platforms = [PlatformType[platform] for platform in args.platform]
         else:
             # Build appropriate platforms for this xcode build.
             if "maccatalyst" in args.effective_platform_name:
