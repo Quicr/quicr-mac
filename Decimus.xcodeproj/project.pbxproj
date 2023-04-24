@@ -29,7 +29,6 @@
 		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
 		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
-		9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC7297D7270007013B2 /* ContentView.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
 		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
 		9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF2297D7562007013B2 /* SidebarView.swift */; };
@@ -104,7 +103,6 @@
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
-		9BA27FC7297D7270007013B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		9BA27FEF297D7352007013B2 /* Decimus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Decimus.entitlements; sourceTree = "<group>"; };
@@ -254,7 +252,6 @@
 			children = (
 				FFBF2FB529BFE47000D769CF /* Components */,
 				9B480670297F320E0040F5D4 /* PreviewView.swift */,
-				9BA27FC7297D7270007013B2 /* ContentView.swift */,
 				9BA27FF2297D7562007013B2 /* SidebarView.swift */,
 				9BA27FF4297D787F007013B2 /* QMediaConfigCall.swift */,
 				9B480661297EAF170040F5D4 /* InCallView.swift */,
@@ -441,7 +438,6 @@
 			files = (
 				9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */,
 				9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */,
-				9BA27FC8297D7270007013B2 /* ContentView.swift in Sources */,
 				FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */,

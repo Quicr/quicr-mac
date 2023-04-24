@@ -167,6 +167,15 @@ struct CallControls: View {
     }
 }
 
+struct CallControls_Previews: PreviewProvider {
+    static var previews: some View {
+        let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
+        let errorWriter: ObservableError = .init()
+        let controller: CallController = .init(mode: RawLoopback(errorWriter: errorWriter), errorHandler: errorWriter)
+        CallControls(controller: controller, leaving: bool)
+    }
+}
+
 class CallController: ObservableObject {
     @Published private(set) var devices = AudioVideoDevices()
     @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]

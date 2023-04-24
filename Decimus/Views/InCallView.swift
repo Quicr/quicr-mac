@@ -114,3 +114,9 @@ extension InCallView.ViewModel where Mode == QMediaPubSub {
         }
     }
 }
+
+struct InCallView_Previews: PreviewProvider {
+    static var previews: some View {
+        InCallView()
+    }
+}

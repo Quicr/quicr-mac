@@ -17,3 +17,9 @@ struct QMediaConfigCall: View {
         self.config = config
     }
 }
+
+struct QMediaConfigCall_Previews: PreviewProvider {
+    static var previews: some View {
+        QMediaConfigCall()
+    }
+}
