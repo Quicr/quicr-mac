@@ -15,12 +15,4 @@ then
 fi
 
 # Build QMedia.
-echo $CI_PRODUCT_PLATFORM
-if [ "$CI_PRODUCT_PLATFORM" == "iOS"]
-then
-    CMD_LINE="--platform IOS"
-elif [ "$CI_PRODUCT_PLATFORM" == "macOS"]
-then
-    CMD_LINE="--platform CATALYST_ARM --platform CATALYST_X86"
-fi
-sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh $CMD_LINE
+sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh

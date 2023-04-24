@@ -5,7 +5,12 @@ set -e
 DIR="$(cd "$(dirname "$0")";pwd -P)"
 
 if [ "$CI" = TRUE ] ; then
-    $DIR/build-qmedia-framework.py --archs "$ARCHS" --effective-platform-name="$EFFECTIVE_PLATFORM_NAME" --build-number="$CI_BUILD_NUMBER"
+    if [ "$CI_PRODUCT_PLATFORM" == "iOS" ] ; then
+        CMD_LINE="--platform IOS"
+    elif [ "$CI_PRODUCT_PLATFORM" == "macOS" ] ; then
+        CMD_LINE="--platform CATALYST_ARM --platform CATALYST_X86"
+    fi
+    $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER"
 else
     $DIR/build-qmedia-framework.py
 fi
