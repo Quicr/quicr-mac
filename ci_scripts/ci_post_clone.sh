@@ -15,6 +15,7 @@ then
 fi
 
 # Build QMedia.
+echo $CI_PRODUCT_PLATFORM
 if [ "$CI_PRODUCT_PLATFORM" == "iOS"]
 then
     CMD_LINE="--platform IOS"
