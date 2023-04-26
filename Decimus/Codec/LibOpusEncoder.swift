@@ -68,7 +68,7 @@ class LibOpusEncoder: Encoder {
         timestamps.append(sample.presentationTimeStamp)
 
         // Try to encode and empty the buffer
-        while UInt32(buffer.count) * currentFormat!.channelCount / opusFrameSizeBytes >= 1 {
+        while UInt32(buffer.count) >= opusFrameSizeBytes {
             tryEncode()
 
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
@@ -81,7 +81,9 @@ class LibOpusEncoder: Encoder {
     private func tryEncode() {
         let pcm: AVAudioPCMBuffer
         do {
-            pcm = try buffer.toPCM(frames: opusFrameSizeBytes, format: currentFormat!)
+            pcm = try buffer.toPCM(frames: opusFrameSize, format: currentFormat!)
+        } catch PcmBufferError.notEnoughData(requestedBytes: let requested, availableBytes: let available) {
+            fatalError("Not enough data: \(requested)/\(available)")
         } catch {
             fatalError(error.localizedDescription)
         }
