@@ -26,16 +26,16 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
             VStack {
                 VideoGrid(participants: viewModel.mode!.participants)
                     .scaledToFit()
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 CallControls(controller: viewModel.callController!, leaving: $leaving)
-                    .padding(.bottom)
+                    .disabled(leaving)
             }
             .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             if leaving {
                 LeaveModal(leaveAction: onLeave, cancelAction: { leaving = false })
-                    .frame(maxWidth: 500, maxHeight: 75, alignment: .center)
+                    .frame(maxWidth: 400, maxHeight: 120, alignment: .center)
             }
 
             // Error messages.
@@ -73,6 +73,12 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
                 await viewModel.leave()
             }
         }
+    }
+}
+
+struct InCallView_Previews: PreviewProvider {
+    static var previews: some View {
+        InCallView()
     }
 }
 

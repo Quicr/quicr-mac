@@ -74,7 +74,6 @@ struct CallControls: View {
                         .foregroundColor(.gray)
                 }
                 .aspectRatio(contentMode: .fill)
-                .padding([.horizontal, .top])
                 ForEach(controller.devices.audioInputs, id: \.uniqueID) { microphone in
                     ActionButton(
                         cornerRadius: 12,
@@ -96,8 +95,6 @@ struct CallControls: View {
                 Task { await controller.toggleCamera(device: controller.selectedMicrophone!) }
             }
             .disabled(controller.isAlteringMicrophone())
-            .padding(.horizontal)
-            .frame(maxWidth: 210)
 
             ActionPicker(cameraButtonText,
                          icon: cameraIconName,
@@ -115,7 +112,6 @@ struct CallControls: View {
                     Text("Camera")
                         .foregroundColor(.gray)
                 }
-                .padding([.horizontal, .top])
                 ForEach(controller.devices.cameras, id: \.self) { camera in
                     ActionButton(
                         cornerRadius: 10,
@@ -148,8 +144,6 @@ struct CallControls: View {
                 .frame(maxWidth: 300, alignment: .bottomTrailing)
                 .padding(.bottom)
             })
-            .padding(.horizontal)
-            .frame(maxWidth: 250)
 
             Button(action: {
                 leaving = true
@@ -160,10 +154,19 @@ struct CallControls: View {
                     .padding()
                     .background(.red)
             })
-            .padding(.horizontal)
             .foregroundColor(.white)
             .clipShape(Circle())
         }
+        .scaledToFit()
+    }
+}
+
+struct CallControls_Previews: PreviewProvider {
+    static var previews: some View {
+        let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
+        let errorWriter: ObservableError = .init()
+        let controller: CallController = .init(mode: RawLoopback(errorWriter: errorWriter), errorHandler: errorWriter)
+        CallControls(controller: controller, leaving: bool)
     }
 }
 
@@ -184,7 +187,7 @@ class CallController: ObservableObject {
     @Published var capture: CaptureManager?
 
     init(mode: ApplicationModeBase, errorHandler: ErrorWriter) {
-        self.selectedMicrophone = AVCaptureDevice.default(for: .audio)!
+        self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = .init(
             cameraCallback: mode.encodeCameraFrame,
             audioCallback: mode.encodeAudioSample,

@@ -1,27 +1,5 @@
 import SwiftUI
 
-private struct Above<AboveContent: View>: ViewModifier {
-    let aboveContent: AboveContent
-
-    func body(content: Content) -> some View {
-        content.overlay(
-            GeometryReader { proxy in
-                Rectangle().fill(.clear).overlay(
-                    self.aboveContent.offset(x: 0, y: -proxy.size.height),
-                    alignment: .bottomTrailing
-                )
-            },
-            alignment: .bottomTrailing
-        )
-    }
-}
-
-private extension View {
-    func float<Content: View>(above: Content) -> ModifiedContent<Self, Above<Content>> {
-        self.modifier(Above(aboveContent: above))
-    }
-}
-
 struct MenuModal<Content>: View where Content: View {
     private let presented: Binding<Bool>
     @ViewBuilder private let content: () -> Content
@@ -112,35 +90,40 @@ struct ActionPicker<Content>: View where Content: View {
     }
 
     var body: some View {
-        ZStack(alignment: .center) {
-            ActionButton(styleConfig: ActionButtonStyleConfig(background: .black,
-                                                              foreground: .white,
-                                                              borderColour: .gray),
-                         action: action) {
+        HStack(spacing: 0) {
+            Button(action: action) {
                 HStack(alignment: .center) {
                     Image(systemName: icon)
-                    Text(label)
-                        .font(Font.system(size: 19, weight: .semibold))
-                        .frame(alignment: .center)
-                        .padding(.leading)
-                    Spacer()
-                }
-            }
-            HStack {
-                Spacer().frame(maxWidth: .infinity)
-                Button(action: { withAnimation(.spring()) { pickerAction() }},
-                       label: {
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .renderingMode(.original)
                         .foregroundColor(.white)
-                        .frame(alignment: .trailing)
-                        .padding()
-                })
-                .frame(alignment: .trailing)
-                .background(.black)
-                .cornerRadius(30)
+                    Text(label)
+                        .font(.body).bold()
+                        .frame(alignment: .center)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+                .padding()
             }
+            .background(.black)
+            .cornerRadius(30, corners: [.topLeft, .bottomLeft])
+            Button(action: pickerAction) {
+                Image(systemName: "chevron.\(expanded ? "up" : "down")")
+                    .renderingMode(.original)
+                    .foregroundColor(.white)
+                    .frame(alignment: .trailing)
+                    .padding(.trailing)
+                    .padding(.vertical, 22)
+            }
+            .background(.black)
+            .cornerRadius(20, corners: [.topRight, .bottomRight])
         }
-        .float(above: MenuModal(presented: $expanded, content: content).padding(.bottom))
+        .overlay(RoundedRectangle(cornerRadius: 30).stroke(.white, lineWidth: 1))
+#if targetEnvironment(macCatalyst)
+        .float(above: MenuModal(presented: $expanded, content: content)
+            .padding(.bottom))
+#else
+        .sheet(isPresented: $expanded) {
+            MenuModal(presented: $expanded, content: content)
+        }
+#endif
     }
 }
