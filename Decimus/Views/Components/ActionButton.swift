@@ -125,3 +125,9 @@ extension ActionButton where Content == Text {
                   action: action)
     }
 }
+
+struct ActionButton_Previews: PreviewProvider {
+    static var previews: some View {
+        ActionButton("Preview", styleConfig: .init(), action: {})
+    }
+}
