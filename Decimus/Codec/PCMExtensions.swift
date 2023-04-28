@@ -22,12 +22,20 @@ extension AVAudioPCMBuffer {
     }
 }
 
+public enum PcmBufferError: Error { case notEnoughData(requestedBytes: UInt32, availableBytes: UInt32) }
+
 extension Array<UInt8> {
-    mutating func toPCM(size: UInt32, format: AVAudioFormat) -> AVAudioPCMBuffer {
+    public mutating func toPCM(frames: UInt32, format: AVAudioFormat) throws -> AVAudioPCMBuffer {
+
+        let requiredBytes = frames * format.streamDescription.pointee.mBytesPerFrame
+        guard requiredBytes <= count else {
+            throw PcmBufferError.notEnoughData(requestedBytes: requiredBytes, availableBytes: UInt32(count))
+        }
+
         return self.withUnsafeMutableBufferPointer { bytes -> AVAudioPCMBuffer in
             let buffer = AudioBuffer(
                 mNumberChannels: format.channelCount,
-                mDataByteSize: size * format.streamDescription.pointee.mBytesPerFrame,
+                mDataByteSize: requiredBytes,
                 mData: bytes.baseAddress)
             var bufferList = AudioBufferList(
                 mNumberBuffers: 1,
