@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "microphone-muted_16.svg",
+      "filename" : "microphone-issue-120.svg",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "microphone-muted_20.svg",
+      "filename" : "microphone-issue-120 1.svg",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "microphone-muted_24.svg",
+      "filename" : "microphone-issue-120 2.svg",
       "idiom" : "universal",
       "scale" : "3x"
     }

@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "microphone-on_16.svg",
+      "filename" : "audio-microphone-on-colored-light.svg",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "microphone-on_20.svg",
+      "filename" : "audio-microphone-on-colored-light 1.svg",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "microphone-on_24.svg",
+      "filename" : "audio-microphone-on-colored-light 2.svg",
       "idiom" : "universal",
       "scale" : "3x"
     }

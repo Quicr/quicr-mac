@@ -99,7 +99,9 @@ struct ActionPicker<Content>: View where Content: View {
                 HStack(alignment: .center) {
                     Image(icon)
                         .renderingMode(.template)
+                        .resizable()
                         .foregroundColor(role == .destructive ? .red : .white)
+                        .frame(width: 20, height: 20)
                     Text(label)
                         .font(.custom("CiscoSansTTRegular", size: 16))
                         .frame(alignment: .center)
