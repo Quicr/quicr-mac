@@ -11,8 +11,7 @@ struct Above<AboveContent: View>: ViewModifier {
                     self.aboveContent.offset(x: 0, y: -proxy.size.height),
                     alignment: .bottomTrailing
                 )
-            },
-            alignment: .bottomTrailing
+            }
         )
     }
 }
@@ -44,7 +43,7 @@ extension View {
         self.modifier(Above(aboveContent: above))
     }
 
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        ModifiedContent(content: self, modifier: CornerRadiusStyle(radius: radius, corners: corners))
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> ModifiedContent<Self, CornerRadiusStyle> {
+        self.modifier(CornerRadiusStyle(radius: radius, corners: corners))
     }
 }

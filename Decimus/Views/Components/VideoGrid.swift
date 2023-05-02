@@ -41,6 +41,7 @@ struct VideoGrid: View {
             .cornerRadius(12)
             .frame(height: geo.size.height)
         }
+        .frame(maxHeight: .infinity)
         .padding([.horizontal, .top])
     }
 }

@@ -1,29 +1,22 @@
 import SwiftUI
 
 struct MenuModal<Content>: View where Content: View {
-    private let presented: Binding<Bool>
-    @ViewBuilder private let content: () -> Content
-
-    init(presented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) {
-        self.presented = presented
-        self.content = content
-    }
+    @Binding var presented: Bool
+    @ViewBuilder let content: () -> Content
 
     var body: some View {
-        ZStack {
-            if presented.wrappedValue {
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(.gray, lineWidth: 1)
-                    .background(.black)
-
-                VStack(alignment: .leading) {
-                    self.content()
-                }
-                .padding()
+        if presented {
+            VStack(alignment: .leading) {
+                self.content()
             }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(.black)
+            .cornerRadius(20)
+            .overlay(RoundedRectangle(cornerRadius: 20)
+                .stroke(.gray, lineWidth: 1)
+            )
         }
-        .cornerRadius(20)
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -33,11 +26,15 @@ struct ActionPicker<Content>: View where Content: View {
     private let action: () -> Void
     private let pickerAction: () -> Void
     private let content: () -> Content
+    private let role: ButtonRole?
+
+    @State var isDisabled: Bool = false
 
     @Binding private var expanded: Bool
 
     init(_ label: String,
          icon: String,
+         role: ButtonRole? = nil,
          expanded: Binding<Bool>,
          action: @escaping () -> Void,
          pickerAction: @escaping () -> Void,
@@ -48,15 +45,18 @@ struct ActionPicker<Content>: View where Content: View {
         self.pickerAction = pickerAction
         self.content = content
         self._expanded = expanded
+        self.role = role
     }
 
     init(_ label: String,
          icon: String,
+         role: ButtonRole? = nil,
          expanded: Binding<Bool>,
          action: @escaping () -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
+                  role: role,
                   expanded: expanded,
                   action: action,
                   pickerAction: { expanded.wrappedValue.toggle() },
@@ -65,11 +65,13 @@ struct ActionPicker<Content>: View where Content: View {
 
     init(_ label: String,
          icon: String,
+         role: ButtonRole? = nil,
          expanded: Binding<Bool>,
          action: @escaping () async -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
+                  role: role,
                   expanded: expanded,
                   action: { Task { await action() }},
                   content: content)
@@ -77,12 +79,14 @@ struct ActionPicker<Content>: View where Content: View {
 
     init(_ label: String,
          icon: String,
+         role: ButtonRole? = nil,
          expanded: Binding<Bool>,
          action: @escaping () async -> Void,
          pickerAction: @escaping () async -> Void,
          @ViewBuilder content: @escaping () -> Content) {
         self.init(label,
                   icon: icon,
+                  role: role,
                   expanded: expanded,
                   action: { Task { await action() }},
                   pickerAction: { Task { await pickerAction() }},
@@ -90,19 +94,21 @@ struct ActionPicker<Content>: View where Content: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .center, spacing: 0) {
             Button(action: action) {
                 HStack(alignment: .center) {
-                    Image(systemName: icon)
-                        .foregroundColor(.white)
+                    Image(icon)
+                        .renderingMode(.template)
+                        .foregroundColor(role == .destructive ? .red : .white)
                     Text(label)
-                        .font(.body).bold()
+                        .font(.custom("CiscoSansTTRegular", size: 18))
                         .frame(alignment: .center)
                         .foregroundColor(.white)
                         .lineLimit(1)
                 }
                 .padding()
             }
+            .disabled(isDisabled)
             .background(.black)
             .cornerRadius(30, corners: [.topLeft, .bottomLeft])
             Button(action: pickerAction) {
@@ -113,17 +119,23 @@ struct ActionPicker<Content>: View where Content: View {
                     .padding(.trailing)
                     .padding(.vertical, 22)
             }
+            .disabled(isDisabled)
             .background(.black)
             .cornerRadius(20, corners: [.topRight, .bottomRight])
         }
-        .overlay(RoundedRectangle(cornerRadius: 30).stroke(.white, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 30).stroke(.gray, lineWidth: 1))
 #if targetEnvironment(macCatalyst)
         .float(above: MenuModal(presented: $expanded, content: content)
             .padding(.bottom))
 #else
-        .sheet(isPresented: $expanded) {
-            MenuModal(presented: $expanded, content: content)
-        }
+        .sheet(isPresented: $expanded, content: content)
 #endif
+    }
+}
+
+extension ActionPicker {
+    func disabled(_ disabled: Bool) -> Self {
+        self.isDisabled = isDisabled
+        return self
     }
 }

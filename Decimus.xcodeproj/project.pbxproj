@@ -50,6 +50,39 @@
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
 		FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2C29DD110600887833 /* VideoGrid.swift */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
+		FF6D6D302A00410400B535DA /* fonts in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D2F2A00410400B535DA /* fonts */; };
+		FF6D6D522A00415300B535DA /* CiscoSansTT-MediumOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */; };
+		FF6D6D532A00415300B535DA /* CiscoSansTTThinOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */; };
+		FF6D6D542A00415300B535DA /* CiscoSansTT-Medium.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D492A00410A00B535DA /* CiscoSansTT-Medium.woff2 */; };
+		FF6D6D552A00415300B535DA /* CiscoSansTTRegular.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3D2A00410A00B535DA /* CiscoSansTTRegular.woff */; };
+		FF6D6D562A00415300B535DA /* CiscoSansTTExtraLight.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D342A00410A00B535DA /* CiscoSansTTExtraLight.woff */; };
+		FF6D6D572A00415300B535DA /* CiscoSansTTHeavy.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D462A00410A00B535DA /* CiscoSansTTHeavy.woff2 */; };
+		FF6D6D582A00415300B535DA /* CiscoSansTTLight.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D372A00410A00B535DA /* CiscoSansTTLight.woff */; };
+		FF6D6D592A00415300B535DA /* CiscoSansTTHeavyOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4B2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff2 */; };
+		FF6D6D5A2A00415300B535DA /* CiscoSansTTBold.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4A2A00410A00B535DA /* CiscoSansTTBold.woff */; };
+		FF6D6D5B2A00415300B535DA /* CiscoSansTTCondBold.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */; };
+		FF6D6D5C2A00415300B535DA /* CiscoSansTTRegularOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4C2A00410A00B535DA /* CiscoSansTTRegularOblique.woff2 */; };
+		FF6D6D5D2A00415300B535DA /* CiscoSansTTExtraLight.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D392A00410A00B535DA /* CiscoSansTTExtraLight.woff2 */; };
+		FF6D6D5E2A00415300B535DA /* CiscoSansTTLightOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D472A00410A00B535DA /* CiscoSansTTLightOblique.woff2 */; };
+		FF6D6D5F2A00415300B535DA /* CiscoSansTTHeavy.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */; };
+		FF6D6D602A00415300B535DA /* CiscoSansTTLight.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D382A00410A00B535DA /* CiscoSansTTLight.woff2 */; };
+		FF6D6D612A00415300B535DA /* CiscoSansTTBoldOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3B2A00410A00B535DA /* CiscoSansTTBoldOblique.woff2 */; };
+		FF6D6D622A00415300B535DA /* CiscoSansTTBold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D402A00410A00B535DA /* CiscoSansTTBold.woff2 */; };
+		FF6D6D632A00415300B535DA /* CiscoSansTTCondRegular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3A2A00410A00B535DA /* CiscoSansTTCondRegular.woff2 */; };
+		FF6D6D642A00415300B535DA /* CiscoSansTTHeavyOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3E2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff */; };
+		FF6D6D652A00415300B535DA /* CiscoSansTT-MediumOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D442A00410A00B535DA /* CiscoSansTT-MediumOblique.woff */; };
+		FF6D6D662A00415300B535DA /* CiscoSansTTRegular.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D452A00410A00B535DA /* CiscoSansTTRegular.woff2 */; };
+		FF6D6D672A00415300B535DA /* CiscoSansTTRegularOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4E2A00410A00B535DA /* CiscoSansTTRegularOblique.woff */; };
+		FF6D6D682A00415300B535DA /* CiscoSansTTCondRegular.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D362A00410A00B535DA /* CiscoSansTTCondRegular.woff */; };
+		FF6D6D692A00415300B535DA /* CiscoSansTTThin.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3C2A00410A00B535DA /* CiscoSansTTThin.woff2 */; };
+		FF6D6D6A2A00415300B535DA /* CiscoSansTTCondBold.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D432A00410A00B535DA /* CiscoSansTTCondBold.woff2 */; };
+		FF6D6D6B2A00415300B535DA /* CiscoSansTTExtraLightOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D352A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff */; };
+		FF6D6D6C2A00415300B535DA /* CiscoSansTTBoldOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D482A00410A00B535DA /* CiscoSansTTBoldOblique.woff */; };
+		FF6D6D6D2A00415300B535DA /* CiscoSansTTLightOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4F2A00410A00B535DA /* CiscoSansTTLightOblique.woff */; };
+		FF6D6D6E2A00415300B535DA /* CiscoSansTTExtraLightOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D502A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff2 */; };
+		FF6D6D6F2A00415300B535DA /* CiscoSansTTThinOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4D2A00410A00B535DA /* CiscoSansTTThinOblique.woff */; };
+		FF6D6D702A00415300B535DA /* CiscoSansTT-Medium.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D412A00410A00B535DA /* CiscoSansTT-Medium.woff */; };
+		FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */; };
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
@@ -127,6 +160,39 @@
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
 		FF1C5C2C29DD110600887833 /* VideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoGrid.swift; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
+		FF6D6D2F2A00410400B535DA /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = "dependencies/momentum-ui/core/fonts"; sourceTree = "<group>"; };
+		FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavy.woff; sourceTree = "<group>"; };
+		FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondBold.woff; sourceTree = "<group>"; };
+		FF6D6D342A00410A00B535DA /* CiscoSansTTExtraLight.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTExtraLight.woff; sourceTree = "<group>"; };
+		FF6D6D352A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTExtraLightOblique.woff; sourceTree = "<group>"; };
+		FF6D6D362A00410A00B535DA /* CiscoSansTTCondRegular.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondRegular.woff; sourceTree = "<group>"; };
+		FF6D6D372A00410A00B535DA /* CiscoSansTTLight.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTLight.woff; sourceTree = "<group>"; };
+		FF6D6D382A00410A00B535DA /* CiscoSansTTLight.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTLight.woff2; sourceTree = "<group>"; };
+		FF6D6D392A00410A00B535DA /* CiscoSansTTExtraLight.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTExtraLight.woff2; sourceTree = "<group>"; };
+		FF6D6D3A2A00410A00B535DA /* CiscoSansTTCondRegular.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondRegular.woff2; sourceTree = "<group>"; };
+		FF6D6D3B2A00410A00B535DA /* CiscoSansTTBoldOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTBoldOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D3C2A00410A00B535DA /* CiscoSansTTThin.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTThin.woff2; sourceTree = "<group>"; };
+		FF6D6D3D2A00410A00B535DA /* CiscoSansTTRegular.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTRegular.woff; sourceTree = "<group>"; };
+		FF6D6D3E2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavyOblique.woff; sourceTree = "<group>"; };
+		FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTThinOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D402A00410A00B535DA /* CiscoSansTTBold.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTBold.woff2; sourceTree = "<group>"; };
+		FF6D6D412A00410A00B535DA /* CiscoSansTT-Medium.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-Medium.woff"; sourceTree = "<group>"; };
+		FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTThin.woff; sourceTree = "<group>"; };
+		FF6D6D432A00410A00B535DA /* CiscoSansTTCondBold.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondBold.woff2; sourceTree = "<group>"; };
+		FF6D6D442A00410A00B535DA /* CiscoSansTT-MediumOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-MediumOblique.woff"; sourceTree = "<group>"; };
+		FF6D6D452A00410A00B535DA /* CiscoSansTTRegular.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTRegular.woff2; sourceTree = "<group>"; };
+		FF6D6D462A00410A00B535DA /* CiscoSansTTHeavy.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavy.woff2; sourceTree = "<group>"; };
+		FF6D6D472A00410A00B535DA /* CiscoSansTTLightOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTLightOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D482A00410A00B535DA /* CiscoSansTTBoldOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTBoldOblique.woff; sourceTree = "<group>"; };
+		FF6D6D492A00410A00B535DA /* CiscoSansTT-Medium.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-Medium.woff2"; sourceTree = "<group>"; };
+		FF6D6D4A2A00410A00B535DA /* CiscoSansTTBold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTBold.woff; sourceTree = "<group>"; };
+		FF6D6D4B2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavyOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D4C2A00410A00B535DA /* CiscoSansTTRegularOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTRegularOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D4D2A00410A00B535DA /* CiscoSansTTThinOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTThinOblique.woff; sourceTree = "<group>"; };
+		FF6D6D4E2A00410A00B535DA /* CiscoSansTTRegularOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTRegularOblique.woff; sourceTree = "<group>"; };
+		FF6D6D4F2A00410A00B535DA /* CiscoSansTTLightOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTLightOblique.woff; sourceTree = "<group>"; };
+		FF6D6D502A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTExtraLightOblique.woff2; sourceTree = "<group>"; };
+		FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-MediumOblique.woff2"; sourceTree = "<group>"; };
 		FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButtonGroup.swift; sourceTree = "<group>"; };
 		FFB8CBE429C148B70093C623 /* ActionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPicker.swift; sourceTree = "<group>"; };
 		FFBF2FB629BFE48100D769CF /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
@@ -208,6 +274,7 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				FF6D6D2F2A00410400B535DA /* fonts */,
 				9B85951429F03147008C813C /* TestPlan.xctestplan */,
 				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
 				9B165A0F2983E5B30017079F /* ApplicationModes */,
@@ -235,6 +302,7 @@
 				9B48067F298016FD0040F5D4 /* Codec */,
 				9BA27FF9297DD8CA007013B2 /* Models */,
 				9BA27FF6297D7D61007013B2 /* Views */,
+				FF6D6D312A00410A00B535DA /* fonts */,
 				9BA27FEF297D7352007013B2 /* Decimus.entitlements */,
 				9BA27FC5297D7270007013B2 /* DecimusApp.swift */,
 				9BA27FC9297D7271007013B2 /* Assets.xcassets */,
@@ -289,6 +357,46 @@
 			);
 			path = ci_scripts;
 			sourceTree = "<group>";
+		};
+		FF6D6D312A00410A00B535DA /* fonts */ = {
+			isa = PBXGroup;
+			children = (
+				FF6D6D412A00410A00B535DA /* CiscoSansTT-Medium.woff */,
+				FF6D6D492A00410A00B535DA /* CiscoSansTT-Medium.woff2 */,
+				FF6D6D442A00410A00B535DA /* CiscoSansTT-MediumOblique.woff */,
+				FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */,
+				FF6D6D4A2A00410A00B535DA /* CiscoSansTTBold.woff */,
+				FF6D6D402A00410A00B535DA /* CiscoSansTTBold.woff2 */,
+				FF6D6D482A00410A00B535DA /* CiscoSansTTBoldOblique.woff */,
+				FF6D6D3B2A00410A00B535DA /* CiscoSansTTBoldOblique.woff2 */,
+				FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */,
+				FF6D6D432A00410A00B535DA /* CiscoSansTTCondBold.woff2 */,
+				FF6D6D362A00410A00B535DA /* CiscoSansTTCondRegular.woff */,
+				FF6D6D3A2A00410A00B535DA /* CiscoSansTTCondRegular.woff2 */,
+				FF6D6D342A00410A00B535DA /* CiscoSansTTExtraLight.woff */,
+				FF6D6D392A00410A00B535DA /* CiscoSansTTExtraLight.woff2 */,
+				FF6D6D352A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff */,
+				FF6D6D502A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff2 */,
+				FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */,
+				FF6D6D462A00410A00B535DA /* CiscoSansTTHeavy.woff2 */,
+				FF6D6D3E2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff */,
+				FF6D6D4B2A00410A00B535DA /* CiscoSansTTHeavyOblique.woff2 */,
+				FF6D6D372A00410A00B535DA /* CiscoSansTTLight.woff */,
+				FF6D6D382A00410A00B535DA /* CiscoSansTTLight.woff2 */,
+				FF6D6D4F2A00410A00B535DA /* CiscoSansTTLightOblique.woff */,
+				FF6D6D472A00410A00B535DA /* CiscoSansTTLightOblique.woff2 */,
+				FF6D6D3D2A00410A00B535DA /* CiscoSansTTRegular.woff */,
+				FF6D6D452A00410A00B535DA /* CiscoSansTTRegular.woff2 */,
+				FF6D6D4E2A00410A00B535DA /* CiscoSansTTRegularOblique.woff */,
+				FF6D6D4C2A00410A00B535DA /* CiscoSansTTRegularOblique.woff2 */,
+				FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */,
+				FF6D6D3C2A00410A00B535DA /* CiscoSansTTThin.woff2 */,
+				FF6D6D4D2A00410A00B535DA /* CiscoSansTTThinOblique.woff */,
+				FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */,
+			);
+			name = fonts;
+			path = "dependencies/momentum-ui/core/fonts";
+			sourceTree = SOURCE_ROOT;
 		};
 		FFBF2FB529BFE47000D769CF /* Components */ = {
 			isa = PBXGroup;
@@ -406,8 +514,41 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF6D6D612A00415300B535DA /* CiscoSansTTBoldOblique.woff2 in Resources */,
+				FF6D6D592A00415300B535DA /* CiscoSansTTHeavyOblique.woff2 in Resources */,
+				FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */,
+				FF6D6D632A00415300B535DA /* CiscoSansTTCondRegular.woff2 in Resources */,
+				FF6D6D572A00415300B535DA /* CiscoSansTTHeavy.woff2 in Resources */,
+				FF6D6D602A00415300B535DA /* CiscoSansTTLight.woff2 in Resources */,
+				FF6D6D652A00415300B535DA /* CiscoSansTT-MediumOblique.woff in Resources */,
+				FF6D6D5F2A00415300B535DA /* CiscoSansTTHeavy.woff in Resources */,
+				FF6D6D682A00415300B535DA /* CiscoSansTTCondRegular.woff in Resources */,
+				FF6D6D582A00415300B535DA /* CiscoSansTTLight.woff in Resources */,
+				FF6D6D532A00415300B535DA /* CiscoSansTTThinOblique.woff2 in Resources */,
+				FF6D6D6A2A00415300B535DA /* CiscoSansTTCondBold.woff2 in Resources */,
+				FF6D6D6E2A00415300B535DA /* CiscoSansTTExtraLightOblique.woff2 in Resources */,
+				FF6D6D302A00410400B535DA /* fonts in Resources */,
+				FF6D6D552A00415300B535DA /* CiscoSansTTRegular.woff in Resources */,
+				FF6D6D642A00415300B535DA /* CiscoSansTTHeavyOblique.woff in Resources */,
+				FF6D6D5E2A00415300B535DA /* CiscoSansTTLightOblique.woff2 in Resources */,
+				FF6D6D6C2A00415300B535DA /* CiscoSansTTBoldOblique.woff in Resources */,
+				FF6D6D5D2A00415300B535DA /* CiscoSansTTExtraLight.woff2 in Resources */,
+				FF6D6D5C2A00415300B535DA /* CiscoSansTTRegularOblique.woff2 in Resources */,
+				FF6D6D542A00415300B535DA /* CiscoSansTT-Medium.woff2 in Resources */,
+				FF6D6D692A00415300B535DA /* CiscoSansTTThin.woff2 in Resources */,
+				FF6D6D5B2A00415300B535DA /* CiscoSansTTCondBold.woff in Resources */,
+				FF6D6D622A00415300B535DA /* CiscoSansTTBold.woff2 in Resources */,
+				FF6D6D6D2A00415300B535DA /* CiscoSansTTLightOblique.woff in Resources */,
+				FF6D6D662A00415300B535DA /* CiscoSansTTRegular.woff2 in Resources */,
+				FF6D6D702A00415300B535DA /* CiscoSansTT-Medium.woff in Resources */,
+				FF6D6D562A00415300B535DA /* CiscoSansTTExtraLight.woff in Resources */,
 				9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */,
+				FF6D6D672A00415300B535DA /* CiscoSansTTRegularOblique.woff in Resources */,
+				FF6D6D522A00415300B535DA /* CiscoSansTT-MediumOblique.woff2 in Resources */,
 				9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */,
+				FF6D6D6B2A00415300B535DA /* CiscoSansTTExtraLightOblique.woff in Resources */,
+				FF6D6D5A2A00415300B535DA /* CiscoSansTTBold.woff in Resources */,
+				FF6D6D6F2A00415300B535DA /* CiscoSansTTThinOblique.woff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -712,7 +853,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.tomas.quicr.decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
