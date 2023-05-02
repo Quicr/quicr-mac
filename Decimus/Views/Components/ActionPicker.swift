@@ -101,7 +101,7 @@ struct ActionPicker<Content>: View where Content: View {
                         .renderingMode(.template)
                         .foregroundColor(role == .destructive ? .red : .white)
                     Text(label)
-                        .font(.custom("CiscoSansTTRegular", size: 18))
+                        .font(.custom("CiscoSansTTRegular", size: 16))
                         .frame(alignment: .center)
                         .foregroundColor(.white)
                         .lineLimit(1)
@@ -128,7 +128,13 @@ struct ActionPicker<Content>: View where Content: View {
         .float(above: MenuModal(presented: $expanded, content: content)
             .padding(.bottom))
 #else
-        .sheet(isPresented: $expanded, content: content)
+        .sheet(isPresented: $expanded, content: {
+            ScrollView {
+                content()
+            }
+            .padding()
+            .presentationDetents([.medium])
+        })
 #endif
     }
 }
