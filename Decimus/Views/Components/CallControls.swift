@@ -8,7 +8,7 @@ struct CallControls: View {
 
     @State private var audioOn: Bool = true
     @State private var videoOn: Bool = true
-    @State private var cameraModalExpanded: Bool = true
+    @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
 
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(
