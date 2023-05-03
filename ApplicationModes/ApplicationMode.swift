@@ -43,7 +43,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     required init(errorWriter: ErrorWriter) {
         self.errorHandler = errorWriter
-        self.player = AudioPlayer(errorWriter: errorWriter)
+        self.player = AVEngineAudioPlayer(errorWriter: errorWriter)
         self.pipeline = .init(
             decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
                 guard let mode = self else { return }
