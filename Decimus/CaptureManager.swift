@@ -201,11 +201,12 @@ actor CaptureManager: NSObject,
         deviceChangedCallback(device, .removed)
     }
 
-    func toggleAudio() {
+    func toggleAudio() -> Bool {
         session.connections.forEach { conn in
             guard conn.audioChannels.count != 0 else { return }
             conn.isEnabled.toggle()
         }
+        return isMuted()
     }
 
     func isMuted() -> Bool {

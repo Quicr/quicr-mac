@@ -25,44 +25,22 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
         ZStack {
             VStack {
                 VideoGrid(participants: viewModel.mode!.participants)
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(controller: viewModel.callController!, leaving: $leaving)
+                CallControls(leaving: $leaving)
+                    .disabled(leaving)
                     .padding(.bottom)
+                    .frame(alignment: .top)
             }
             .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             if leaving {
                 LeaveModal(leaveAction: onLeave, cancelAction: { leaving = false })
-                    .frame(maxWidth: 500, maxHeight: 75, alignment: .center)
+                    .frame(maxWidth: 400, alignment: .center)
             }
 
             // Error messages.
-            VStack {
-                if !viewModel.errorHandler.messages.isEmpty {
-                    Text("Errors:")
-                        .font(.title)
-                        .foregroundColor(.red)
-
-                    // Clear all.
-                    Button {
-                        viewModel.errorHandler.messages.removeAll()
-                    } label: {
-                        Text("Clear Errors")
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    // Show the messages.
-                    ScrollView {
-                        ForEach(viewModel.errorHandler.messages) { message in
-                            Text(message.message)
-                                .padding()
-                                .background(Color.red)
-                        }
-                    }
-                }
-            }
+            ErrorView(errorHandler: viewModel.errorHandler)
         }
         .background(.black)
         .task {
@@ -73,6 +51,7 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
                 await viewModel.leave()
             }
         }
+        .environmentObject(viewModel.callController!)
     }
 }
 

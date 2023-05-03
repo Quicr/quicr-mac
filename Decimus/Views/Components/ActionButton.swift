@@ -42,6 +42,8 @@ struct ActionButtonStyle: ButtonStyle {
             .foregroundColor(foregroundColour)
             .background(backgroundColour)
             .cornerRadius(cornerRadius)
+            .lineLimit(1)
+            .scaledToFit()
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(borderColour, lineWidth: borderSize)

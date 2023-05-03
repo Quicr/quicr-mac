@@ -15,43 +15,38 @@ struct LeaveModal: View {
     }
 
     var body: some View {
-        ZStack {
+        VStack(alignment: .leading) {
+            Text("Leave Meeting")
+                .foregroundColor(.white)
+                .font(.title)
+                .padding(.bottom)
+            Text("Do you want to leave this meeting?")
+                .foregroundColor(.gray)
+                .font(.body)
+                .padding(.bottom)
+            HStack {
+                Spacer().frame(maxWidth: .infinity)
+                ActionButton("Cancel",
+                             styleConfig: .init(
+                                background: .black,
+                                foreground: .white,
+                                borderColour: .gray),
+                             action: cancelAction)
+                .fixedSize()
+                ActionButton("Leave Meeting",
+                             styleConfig: .init(
+                                background: .white,
+                                foreground: .black),
+                             action: leaveAction)
+                .fixedSize()
+            }
+        }
+        .padding()
+        .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.gray, lineWidth: 1)
-                .background(.black)
-            VStack(alignment: .leading) {
-                Text("Leave Meeting")
-                    .foregroundColor(.white)
-                    .font(.title)
-                    .padding(.bottom)
-                Text("Do you want to leave this meeting?")
-                    .foregroundColor(.gray)
-                    .font(.body)
-                    .padding(.bottom)
-                HStack {
-                    #if targetEnvironment(macCatalyst)
-                    Spacer().frame(maxWidth: .infinity)
-                    #endif
-                    ActionButton("Cancel",
-                                 styleConfig: ActionButtonStyleConfig(
-                                    background: .black,
-                                    foreground: .white,
-                                    borderColour: .gray),
-                                 action: cancelAction)
-                    ActionButton("Leave Meeting",
-                                 styleConfig: ActionButtonStyleConfig(
-                                    background: .white,
-                                    foreground: .black),
-                                 action: leaveAction)
-                }
-                #if !targetEnvironment(macCatalyst)
-                .frame(alignment: .center)
-                #else
-                .frame(alignment: .trailing)
-                #endif
-            }
-            .padding()
-        }
+        )
+        .background(.black)
         .cornerRadius(12)
     }
 }
