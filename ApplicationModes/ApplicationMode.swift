@@ -41,9 +41,9 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     private let id = UUID()
     private var h264Encoders: [H264Encoder] = []
 
-    required init(errorWriter: ErrorWriter) {
+    required init(errorWriter: ErrorWriter, player: AudioPlayer) {
         self.errorHandler = errorWriter
-        self.player = AVEngineAudioPlayer(errorWriter: errorWriter)
+        self.player = player
         self.pipeline = .init(
             decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
                 guard let mode = self else { return }
