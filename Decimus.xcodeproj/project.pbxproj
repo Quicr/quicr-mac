@@ -34,6 +34,7 @@
 		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
+		9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
 		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
@@ -148,6 +149,7 @@
 		9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FasterAVEngineAudioPlayer.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -339,6 +341,7 @@
 				9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */,
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
 				9B5992B52A02A2C3009B899E /* AudioPlayer.swift */,
+				9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -645,6 +648,7 @@
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
+				9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */,

@@ -127,6 +127,9 @@ extension InCallView {
             case .avAudioEngine:
                 print("Using AVEngineAudioPlayer")
                 return AVEngineAudioPlayer(errorWriter: errorHandler)
+            case .fasterAvAudioEngine:
+                print("Using FasterAVAudioEnginePlayer")
+                return FasterAVEngineAudioPlayer(errorWriter: errorHandler)
             }
         }
     }

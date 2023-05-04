@@ -1,27 +1,22 @@
 import SwiftUI
 
-enum PlayerType: Int {
+enum PlayerType: Int, CaseIterable, Identifiable {
     case audioUnit = 0
     case avAudioEngine
+    case fasterAvAudioEngine
+    var id: Int { rawValue }
 }
 
 struct SettingsView: View {
     @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
-    @State private var toggle = false
 
     var body: some View {
-        let binding: Binding = .init {
-            playerType == PlayerType.audioUnit.rawValue
-        } set: { value in
-            if value {
-                playerType = PlayerType.audioUnit.rawValue
-            } else {
-                playerType = PlayerType.avAudioEngine.rawValue
-            }
-        }
-
         Form {
-            Toggle("Use AudioUnit Player", isOn: binding)
+            Picker("Player", selection: $playerType) {
+                ForEach(PlayerType.allCases) { option in
+                    Text(String("\(option)"))
+                }
+            }
         }
     }
 }
