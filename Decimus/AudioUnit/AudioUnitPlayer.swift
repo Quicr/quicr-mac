@@ -89,7 +89,6 @@ class AudioUnitPlayer: AudioPlayer {
                                                          kTPCircularBufferCopyAll,
                                                          nil)
         guard copied else {
-            print("Copy fail!")
             copyFails += 1
             return
         }
