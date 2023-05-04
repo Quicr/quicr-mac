@@ -28,12 +28,12 @@ struct SidebarView: View {
                     }
                 })
 
-                NavigationLink(destination: NavigationLazyView(InCallView<RawLoopback>()), label: {
-                    HStack {
-                        Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
-                        Spacer()
-                    }
-                })
+//                NavigationLink(destination: NavigationLazyView(InCallView<RawLoopback>()), label: {
+//                    HStack {
+//                        Label("Raw Loopback", systemImage: "arrow.clockwise.circle")
+//                        Spacer()
+//                    }
+//                })
 
                 NavigationLink(destination: SettingsView(), label: {
                     HStack {
