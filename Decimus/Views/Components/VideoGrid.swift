@@ -48,7 +48,7 @@ struct VideoGrid: View {
 
 struct VideoGrid_Previews: PreviewProvider {
     static var previews: some View {
-        var exampleParticipants: VideoParticipants = .init()
+        let exampleParticipants: VideoParticipants = .init()
         let landscape = exampleParticipants.getOrMake(identifier: 1)
         let portrait = exampleParticipants.getOrMake(identifier: 2)
         VideoGrid(participants: exampleParticipants)

@@ -7,12 +7,7 @@ class RawLoopback: ApplicationModeBase {
     let localMirrorParticipants: UInt32 = 0
     private var devices: [UInt32: AVCaptureDevice.Position] = [:]
 
-    override func createVideoEncoder(identifier: UInt32,
-                                     width: Int32,
-                                     height: Int32,
-                                     orientation: AVCaptureVideoOrientation?,
-                                     verticalMirror: Bool) {}
-    override func createAudioEncoder(identifier: UInt32) {}
+    override func onCreateEncoder(identifier: UInt32, codec: CodecType) {}
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
         // NOOP.
@@ -32,7 +27,6 @@ class RawLoopback: ApplicationModeBase {
                 orientation = UIDevice.current.orientation.videoOrientation
             #endif
             showDecodedImage(identifier: mirrorIdentifier,
-                             participants: participants,
                              decoded: ciImage,
                              orientation: orientation,
                              verticalMirror: mirror)

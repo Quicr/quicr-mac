@@ -15,7 +15,7 @@ class QMediaPubSub: ApplicationModeBase {
     private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
 
     private static weak var weakSelf: QMediaPubSub?
-    private var qMedia: QMedia?
+    private var mediaClient: MediaClient?
 
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
@@ -35,23 +35,17 @@ class QMediaPubSub: ApplicationModeBase {
 
         // Get the codec out of the media ID.
         let rawCodec = mediaId & 0b1111_0000
-        guard let codec = QMedia.CodecType(rawValue: rawCodec) else {
-            QMediaPubSub.weakSelf!.errorHandler.writeError(
+        guard let codec = CodecType(rawValue: rawCodec) else {
+            publisher.errorHandler.writeError(
                 message: "[QMediaPubSub] [Subscription \(streamId)] Unexpected codec type: \(rawCodec)")
             return
         }
 
-        let mediaType: PipelineManager.MediaType
-        switch codec {
-        case .h264:
-            mediaType = .video
-        case .opus:
-            mediaType = .audio
-        }
-
         let unique: UInt32 = .init(clientId) << 24 | .init(mediaId)
-        if QMediaPubSub.weakSelf!.pipeline!.decoders[unique] == nil {
-            QMediaPubSub.weakSelf!.pipeline!.registerDecoder(identifier: unique, type: mediaType)
+        if publisher.pipeline!.decoders[unique] == nil {
+            if publisher.pipeline!.decoders[unique]![mediaId] == nil {
+                publisher.pipeline!.registerDecoder(sourceId: unique, mediaId: mediaId, codec: codec)
+            }
         }
 
         let buffer: MediaBufferFromSource = .init(source: UInt32(unique),
@@ -61,10 +55,15 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     func connect(config: CallConfig) throws {
-        guard qMedia == nil else { throw ApplicationError.alreadyConnected }
-        qMedia = .init(address: .init(string: config.address)!,
-                       port: config.port,
-                       protocol: config.connectionProtocol)
+        guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
+        mediaClient = .init(address: .init(string: config.address)!,
+                            port: config.port,
+                            protocol: config.connectionProtocol)
+
+        // TODO:
+        // - Request manifest
+        // - Give json to qmedia to parse
+        // - Give callbacks for when manifest is processed to create encoder/decoder
 
         // Video.
         let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
@@ -104,24 +103,15 @@ class QMediaPubSub: ApplicationModeBase {
                                  orientation: orientation,
                                  verticalMirror: verticalMirror)
 
-        let subscriptionId = qMedia!.addVideoStreamPublishIntent(codec: getUniqueCodecType(type: .h264),
+        let subscriptionId = mediaClient!.addStreamPublishIntent(codec: getUniqueCodecType(type: codec),
                                                                  clientIdentifier: clientId)
-        print("[QMediaPubSub] (\(identifier)) Video registered to publish stream: \(subscriptionId)")
-        identifierMapping[identifier] = subscriptionId
-    }
-
-    override func createAudioEncoder(identifier: UInt32) {
-        super.createAudioEncoder(identifier: identifier)
-
-        let subscriptionId = qMedia!.addAudioStreamPublishIntent(codec: getUniqueCodecType(type: .opus),
-                                                                 clientIdentifier: clientId)
-        print("[QMediaPubSub] (\(identifier)) Audio registered to publish stream: \(subscriptionId)")
+        print("[QMediaPubSub] (\(identifier)) Registered codec '\(codec)' to publish stream: \(subscriptionId)")
         identifierMapping[identifier] = subscriptionId
     }
 
     override func removeRemoteSource(identifier: UInt32) {
         super.removeRemoteSource(identifier: identifier)
-        qMedia!.removeMediaSubscribeStream(mediaStreamId: UInt64(identifier))
+        mediaClient!.removeMediaSubscribeStream(mediaStreamId: UInt64(identifier))
     }
 
     override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
@@ -140,7 +130,7 @@ class QMediaPubSub: ApplicationModeBase {
                     )
                     return
                 }
-                qMedia!.sendVideoFrame(mediaStreamId: streamId,
+                mediaClient!.sendVideoFrame(mediaStreamId: streamId,
                                        buffer: unsafe,
                                        length: UInt32(data.dataBuffer!.dataLength),
                                        timestamp: UInt64(timestampMs),
@@ -160,13 +150,13 @@ class QMediaPubSub: ApplicationModeBase {
             errorHandler.writeError(message: "[QMediaPubSub] Audio to send had length 0")
             return
         }
-        qMedia!.sendAudio(mediaStreamId: streamId,
+        mediaClient!.sendAudio(mediaStreamId: streamId,
                           buffer: data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
                           length: UInt32(data.media.buffer.count),
                           timestamp: UInt64(data.media.timestampMs))
     }
 
-    private func getUniqueCodecType(type: QMedia.CodecType) -> UInt8 {
+    private func getUniqueCodecType(type: CodecType) -> UInt8 {
         if sourcesByMediaType[type] == nil {
             sourcesByMediaType[type] = 0
         } else {

@@ -1,11 +1,7 @@
 import Foundation
 
 /// Swift Interface for using QMedia stack.
-class QMedia {
-
-    /// Codec type mappings.
-    enum CodecType: UInt8 { case h264 = 0b1010_0000; case opus = 0b0001_0000 }
-
+class MediaClient {
     /// Protocol type mappings
     enum ProtocolType: UInt8, CaseIterable { case UDP = 0; case QUIC = 1 }
 
@@ -19,39 +15,27 @@ class QMedia {
         MediaClient_Create(address.absoluteString, port, connectionProtocol.rawValue, &instance)
     }
 
+    /// Destroy the instance of QMedia
     deinit {
         guard instance != nil else { return }
         MediaClient_Destroy(instance)
     }
 
-    /// Signal the intent to publish an audio stream.
+    /// Signal the intent to publish a stream.
     /// - Parameter codec: The `CodecType` being published.
-    /// - Returns Stream identifier to use for `sendAudio`.
-    func addAudioStreamPublishIntent(codec: UInt8, clientIdentifier: UInt16) -> UInt64 {
-         MediaClient_AddAudioStreamPublishIntent(instance, codec, clientIdentifier)
+    /// - Returns Stream identifier to use for sending.
+    func addStreamPublishIntent(codec: UInt8, clientIdentifier: UInt16) -> UInt64 {
+        // TODO: Update to generically named version of add stream
+        MediaClient_AddAudioStreamPublishIntent(instance, codec, clientIdentifier)
     }
 
     /// Subscribe to an audio stream.
     /// - Parameter codec: The `CodecType` of interest.
-    /// - Parameter callback: Function to run on receipt of audio data.
+    /// - Parameter callback: Function to run on receipt of data.
     /// - Returns The stream identifier subscribed to.
-    func addAudioStreamSubscribe(codec: CodecType, callback: @escaping SubscribeCallback) -> UInt64 {
+    func addStreamSubscribe(codec: CodecType, callback: @escaping SubscribeCallback) -> UInt64 {
+        // TODO: Update to generically named version of add stream
         MediaClient_AddAudioStreamSubscribe(instance, codec.rawValue, callback)
-    }
-
-    /// Signal the intent to publish a video stream.
-    /// - Parameter codec: The `CodecType` being published.
-    /// - Returns Stream identifier to use for `sendVideoFrame`.
-    func addVideoStreamPublishIntent(codec: UInt8, clientIdentifier: UInt16) -> UInt64 {
-        MediaClient_AddVideoStreamPublishIntent(instance, codec, clientIdentifier)
-    }
-
-    /// Subscribe to a video stream.
-    /// - Parameter codec: The `CodecType` of interest.
-    /// - Parameter callback: Function to run on receipt of video data.
-    /// - Returns The stream identifier subscribed to.
-    func addVideoStreamSubscribe(codec: CodecType, callback: SubscribeCallback) -> UInt64 {
-        MediaClient_AddVideoStreamSubscribe(instance, codec.rawValue, callback)
     }
 
     func removeMediaPublishStream(mediaStreamId: UInt64) {

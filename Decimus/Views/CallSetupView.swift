@@ -5,7 +5,7 @@ typealias ConfigCallback = (_ config: CallConfig) -> Void
 private struct LoginForm: View {
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
-                                               connectionProtocol: QMedia.ProtocolType.QUIC)
+                                               connectionProtocol: MediaClient.ProtocolType.QUIC)
     private var joinMeetingCallback: ConfigCallback
 
     private let buttonColour = ActionButtonStyleConfig(
@@ -26,7 +26,7 @@ private struct LoginForm: View {
                                  tags: [
                     .init(address: "127.0.0.1", port: 1234, connectionProtocol: callConfig.connectionProtocol),
                     .init(address: "relay.us-west-2.quicr.ctgpoc.com",
-                          port: callConfig.connectionProtocol == QMedia.ProtocolType.UDP ? 33434 : 33435,
+                          port: callConfig.connectionProtocol == MediaClient.ProtocolType.UDP ? 33434 : 33435,
                           connectionProtocol: callConfig.connectionProtocol)
                 ])
 
@@ -50,7 +50,7 @@ private struct LoginForm: View {
 
                 RadioButtonGroup("Protocol",
                                  selection: $callConfig.connectionProtocol,
-                                 tags: QMedia.ProtocolType.allCases)
+                                 tags: MediaClient.ProtocolType.allCases)
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),

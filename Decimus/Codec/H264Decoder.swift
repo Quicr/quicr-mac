@@ -3,11 +3,8 @@ import VideoToolbox
 import AVFoundation
 import CoreImage
 
-/// Decoder callback of image and timestamp.
-typealias DecodedImageCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
-
 /// Provides hardware accelerated H264 decoding.
-class H264Decoder: Decoder {
+class H264Decoder: SampleDecoder {
 
     // H264 constants.
     private let spsType: UInt8 = 7
@@ -20,19 +17,18 @@ class H264Decoder: Decoder {
     // Members.
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
-    private let callback: DecodedImageCallback
+    internal var callback: DecodedSampleCallback = { _, _, _, _ in }
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool = false
-
-    /// Initialize a new decoder.
-    init(callback: @escaping DecodedImageCallback) {
-        self.callback = callback
-    }
 
     deinit {
         guard let session = self.session else { return }
         VTDecompressionSessionInvalidate(session)
         self.session = nil
+    }
+
+    func registerCallback(callback: @escaping DecodedSampleCallback) {
+        self.callback = callback
     }
 
     /// Write a new frame to the decoder.

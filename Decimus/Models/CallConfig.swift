@@ -7,5 +7,5 @@ struct CallConfig: Hashable {
     /// Port to connect on.
     var port: UInt16
     /// Protocol to use
-    var connectionProtocol: QMedia.ProtocolType
+    var connectionProtocol: MediaClient.ProtocolType
 }

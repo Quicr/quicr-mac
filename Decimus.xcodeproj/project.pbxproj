@@ -22,8 +22,8 @@
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480663297EBD930040F5D4 /* H264Decoder.swift */; };
 		9B480668297EFEE20040F5D4 /* PipelineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480667297EFEE20040F5D4 /* PipelineManager.swift */; };
-		9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480669297EFF040040F5D4 /* DecoderElement.swift */; };
-		9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* EncoderElement.swift */; };
+		9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480669297EFF040040F5D4 /* Decoder.swift */; };
+		9B48066C297F051D0040F5D4 /* Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* Encoder.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
 		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
@@ -99,6 +99,8 @@
 		FF6D6D6F2A00415300B535DA /* CiscoSansTTThinOblique.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D4D2A00410A00B535DA /* CiscoSansTTThinOblique.woff */; };
 		FF6D6D702A00415300B535DA /* CiscoSansTT-Medium.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D412A00410A00B535DA /* CiscoSansTT-Medium.woff */; };
 		FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */; };
+		FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D742A01CCAE00B535DA /* ManifestController.swift */; };
+		FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D782A0422CE00B535DA /* CodecFactory.swift */; };
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
@@ -144,8 +146,8 @@
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B480663297EBD930040F5D4 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 		9B480667297EFEE20040F5D4 /* PipelineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineManager.swift; sourceTree = "<group>"; };
-		9B480669297EFF040040F5D4 /* DecoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecoderElement.swift; sourceTree = "<group>"; };
-		9B48066B297F051D0040F5D4 /* EncoderElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncoderElement.swift; sourceTree = "<group>"; };
+		9B480669297EFF040040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
+		9B48066B297F051D0040F5D4 /* Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Encoder.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
@@ -223,6 +225,8 @@
 		FF6D6D4F2A00410A00B535DA /* CiscoSansTTLightOblique.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTLightOblique.woff; sourceTree = "<group>"; };
 		FF6D6D502A00410A00B535DA /* CiscoSansTTExtraLightOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTExtraLightOblique.woff2; sourceTree = "<group>"; };
 		FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-MediumOblique.woff2"; sourceTree = "<group>"; };
+		FF6D6D742A01CCAE00B535DA /* ManifestController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestController.swift; sourceTree = "<group>"; };
+		FF6D6D782A0422CE00B535DA /* CodecFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodecFactory.swift; sourceTree = "<group>"; };
 		FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButtonGroup.swift; sourceTree = "<group>"; };
 		FFB8CBE429C148B70093C623 /* ActionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPicker.swift; sourceTree = "<group>"; };
 		FFBF2FB629BFE48100D769CF /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
@@ -295,6 +299,7 @@
 				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
 				9B647C9B29A6267B000AD358 /* PCMExtensions.swift */,
+				FF6D6D782A0422CE00B535DA /* CodecFactory.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -376,14 +381,13 @@
 				9BA27FCB297D7271007013B2 /* Preview Content */,
 				9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */,
 				9B480667297EFEE20040F5D4 /* PipelineManager.swift */,
-				9B480669297EFF040040F5D4 /* DecoderElement.swift */,
-				9B48066B297F051D0040F5D4 /* EncoderElement.swift */,
 				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
 				9B480686298289910040F5D4 /* AVEngineAudioPlayer.swift */,
 				9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */,
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
 				9B5992B52A02A2C3009B899E /* AudioPlayer.swift */,
 				9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */,
+				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -412,6 +416,8 @@
 		9BA27FF9297DD8CA007013B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				9B480669297EFF040040F5D4 /* Decoder.swift */,
+				9B48066B297F051D0040F5D4 /* Encoder.swift */,
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */,
@@ -674,7 +680,7 @@
 				9B4806832981D4400040F5D4 /* AudioEncoder.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */,
-				9B48066A297EFF040040F5D4 /* DecoderElement.swift in Sources */,
+				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
 				9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
@@ -683,13 +689,15 @@
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
 				9B480687298289910040F5D4 /* AVEngineAudioPlayer.swift in Sources */,
-				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
+				9B48066C297F051D0040F5D4 /* Encoder.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				9B87FB4E2A02A85100C92DD1 /* AudioUnitPlayer.swift in Sources */,
 				9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */,
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				9B165A112983E5C10017079F /* Loopback.swift in Sources */,
+				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BAE3CC72A0D6E22008AF6A9 /* SourceElement.swift in Sources */,

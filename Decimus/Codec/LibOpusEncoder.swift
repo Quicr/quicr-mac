@@ -1,9 +1,9 @@
 import Opus
 import AVFoundation
 
-class LibOpusEncoder: Encoder {
+class LibOpusEncoder: BufferEncoder {
     private var encoder: Opus.Encoder?
-    private let callback: MediaCallback
+    internal var callback: EncodedBufferCallback = { _ in }
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
     private var currentFormat: AVAudioFormat?
@@ -14,7 +14,7 @@ class LibOpusEncoder: Encoder {
     private var timestamps: [CMTime] = []
     private var opusFrameSizeBytes: UInt32 = 0
 
-    init(callback: @escaping MediaCallback) {
+    func registerCallback(callback: @escaping EncodedBufferCallback) {
         self.callback = callback
     }
 

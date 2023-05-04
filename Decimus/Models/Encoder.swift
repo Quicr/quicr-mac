@@ -1,9 +1,24 @@
 import CoreMedia
+import AVFoundation
 
 protocol Encoder {
+    private let measurement: EncoderMeasurement
+    func write(sample: CMSampleBuffer)
+}
+
+protocol SampleEncoder: Encoder {
     typealias EncodedSampleCallback = (CMSampleBuffer) -> Void
-    typealias MediaCallback = (MediaBuffer) -> Void
-    typealias SourcedMediaCallback = (MediaBufferFromSource) -> Void
+    private var callback: EncodedSampleCallback {get set}
+
+    func registerCallback(callback: @escaping EncodedSampleCallback)
+    func write(sample: CMSampleBuffer)
+}
+
+protocol BufferEncoder: Encoder {
+    typealias EncodedBufferCallback = (MediaBuffer) -> Void
+    private var callback: EncodedBufferCallback {get set}
+
+    func registerCallback(callback: @escaping EncodedBufferCallback)
     func write(sample: CMSampleBuffer)
 }
 
@@ -33,29 +48,5 @@ actor EncoderMeasurement: Measurement {
             fields[timestamp] = [:]
         }
         fields[timestamp]![field] = value
-    }
-}
-
-/// Represents a single encoder in the pipeline.
-class EncoderElement {
-    /// Identifier of this stream.
-    let identifier: UInt32
-    /// Instance of the decoder.
-    private let encoder: Encoder
-    // Metrics.
-    private let measurement: EncoderMeasurement
-
-    /// Create a new encoder pipeline element.
-    init(identifier: UInt32, encoder: Encoder, submitter: MetricsSubmitter) {
-        self.identifier = identifier
-        self.encoder = encoder
-        measurement = .init(identifier: String(identifier), submitter: submitter)
-    }
-
-    func write(sample: CMSampleBuffer) {
-        self.encoder.write(sample: sample)
-        Task {
-            await measurement.write()
-        }
     }
 }

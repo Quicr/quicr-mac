@@ -12,14 +12,7 @@ protocol ApplicationMode {
     func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
     func removeRemoteSource(identifier: UInt32)
 
-    func createVideoEncoder(identifier: UInt32,
-                            width: Int32,
-                            height: Int32,
-                            orientation: AVCaptureVideoOrientation?,
-                            verticalMirror: Bool)
-    func createAudioEncoder(identifier: UInt32)
-
-    func removeEncoder(identifier: UInt32)
+    func onCreateEncoder(identifier: UInt32, codec: CodecType)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -39,27 +32,32 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     @Published var participants: VideoParticipants = VideoParticipants()
 
     private let id = UUID()
-    private var h264Encoders: [H264Encoder] = []
 
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         self.errorHandler = errorWriter
         self.player = player
-        self.pipeline = .init(
-            decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
-                guard let mode = self else { return }
-                mode.showDecodedImage(identifier: identifier,
-                                      participants: mode.participants,
-                                      decoded: decoded,
-                                      orientation: orientation,
-                                      verticalMirror: verticalMirror)
-            },
-            decodedAudioCallback: { [weak self] id, buffer in
-                guard let mode = self else { return }
-                mode.player.write(identifier: id, buffer: buffer)
-            },
-            debugging: false,
-            errorWriter: errorWriter,
-            metricsSubmitter: metricsSubmitter)
+        self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
+
+        CodecFactory.shared.registerEncoderSampleCallback { [weak self] id, sample in
+            guard let mode = self else { return }
+            mode.sendEncodedImage(identifier: id, data: sample)
+        }
+        CodecFactory.shared.registerEncoderBufferCallback { [weak self] id, media in
+            guard let mode = self else { return }
+            let identified: MediaBufferFromSource = .init(source: id, media: media)
+            mode.sendEncodedAudio(data: identified)
+        }
+        CodecFactory.shared.registerDecoderSampleCallback { [weak self] id, decoded, _, orientation, mirror in
+            guard let mode = self else { return }
+            mode.showDecodedImage(identifier: id,
+                                  decoded: decoded,
+                                  orientation: orientation,
+                                  verticalMirror: mirror)
+        }
+        CodecFactory.shared.registerDecoderBufferCallback { [weak self] id, buffer in
+            guard let mode = self else { return }
+            mode.player.write(identifier: id, buffer: buffer)
+        }
     }
 
     func hash(into hasher: inout Hasher) {
@@ -67,7 +65,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func showDecodedImage(identifier: UInt32,
-                          participants: VideoParticipants,
                           decoded: CIImage,
                           orientation: AVCaptureVideoOrientation?,
                           verticalMirror: Bool) {
@@ -93,16 +90,13 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func removeRemoteSource(identifier: UInt32) {
-        // Remove decoder for this source.
-        _ = pipeline!.decoders.removeValue(forKey: identifier)
+        pipeline!.unregisterDecoders(sourceId: identifier)
 
         // Remove video renderer.
-        if participants.participants[identifier] != nil {
-            do {
-                try participants.removeParticipant(identifier: identifier)
-            } catch {
-                errorHandler.writeError(message: "Failed to remove remote participant: \(error)")
-            }
+        do {
+            try participants.removeParticipant(identifier: identifier)
+        } catch {
+            errorHandler.writeError(message: "Failed to remove remote participant (\(identifier)): \(error)")
         }
 
         player.removePlayer(identifier: identifier)
@@ -111,89 +105,32 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
         switch event {
         case .added:
+            let config: CodecConfig
             if device.hasMediaType(.audio) {
-                createAudioEncoder(identifier: device.id)
+                config = AudioCodecConfig(codec: .opus, bitrate: 0)
             } else if device.hasMediaType(.video) {
                 let size = device.activeFormat.formatDescription.dimensions
-                var orientation: AVCaptureVideoOrientation?
-                #if !targetEnvironment(macCatalyst)
-                    orientation = UIDevice.current.orientation.videoOrientation
-                #endif
-                createVideoEncoder(identifier: device.id,
-                                   width: size.width,
-                                   height: size.height,
-                                   orientation: orientation,
-                                   verticalMirror: device.position == .front)
+                config = VideoCodecConfig(codec: .h264,
+                                          bitrate: 2048000,
+                                          fps: 60,
+                                          width: size.width,
+                                          height: size.height
+                )
+            } else {
+                fatalError("MediaType not understood for device: \(device.id)")
             }
+
+            pipeline!.registerEncoder(sourceId: device.id, config: config)
+            onCreateEncoder(identifier: device.id, codec: config.codec)
         case .removed:
-            removeEncoder(identifier: device.id)
+            pipeline!.unregisterEncoders(sourceId: device.id)
         }
     }
 
-    func createVideoEncoder(identifier: UInt32,
-                            width: Int32,
-                            height: Int32,
-                            orientation: AVCaptureVideoOrientation?,
-                            verticalMirror: Bool) {
-        let encoder: H264Encoder = .init(width: width,
-                                         height: height,
-                                         orientation: orientation,
-                                         verticalMirror: verticalMirror) { [weak self] sample in
-            guard let mode = self else { return }
-            mode.sendEncodedImage(identifier: identifier, data: sample)
-        }
-        h264Encoders.append(encoder)
-        pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
-    }
-
-    func createAudioEncoder(identifier: UInt32) {
-        let encoder: Encoder
-
-        // // Passthrough.
-        // encoder = PassthroughEncoder { media in
-        //     let identified: MediaBuffer = .init(identifier: identifier, other: media)
-        //     self.sendEncodedAudio(data: identified)
-        // }
-
-        // // Apple API.
-        // let opusFrameSize: UInt32 = 960
-        // let opusSampleRate: Float64 = 48000.0
-        // var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: opusSampleRate,
-        //                                                     mFormatID: kAudioFormatOpus,
-        //                                                     mFormatFlags: 0,
-        //                                                     mBytesPerPacket: 0,
-        //                                                     mFramesPerPacket: opusFrameSize,
-        //                                                     mBytesPerFrame: 0,
-        //                                                     mChannelsPerFrame: 1,
-        //                                                     mBitsPerChannel: 0,
-        //                                                     mReserved: 0)
-        // let opus: AVAudioFormat = .init(streamDescription: &opusDesc)!
-        // encoder = AudioEncoder(to: opus) { sample in
-        //     let buffer = sample.getMediaBuffer(identifier: identifier)
-        //     self.sendEncodedAudio(data: buffer)
-        // }
-
-        // libopus
-        encoder = LibOpusEncoder { [weak self] media in
-            guard let mode = self else { return }
-            let identified: MediaBufferFromSource = .init(source: identifier, media: media)
-            mode.sendEncodedAudio(data: identified)
-        }
-
-        pipeline!.registerEncoder(identifier: identifier, encoder: encoder)
-    }
-
-    func removeEncoder(identifier: UInt32) {
-        pipeline!.encoders.removeValue(forKey: identifier)
+    func onCreateEncoder(identifier: UInt32, codec: CodecType) {
     }
 
     func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        #if !targetEnvironment(macCatalyst)
-            for encoder in h264Encoders {
-                encoder.setOrientation(orientation: UIDevice.current.orientation.videoOrientation)
-            }
-        #endif
-
         pipeline!.encode(identifier: identifier, sample: frame)
     }
 
