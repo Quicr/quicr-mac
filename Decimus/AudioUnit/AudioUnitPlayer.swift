@@ -45,6 +45,20 @@ class AudioUnitPlayer: AudioPlayer {
                                                     &auPlayer.inputFormat)
             auPlayer.reads += 1
             guard copiedFrames == numFrames else {
+                // Ensure any incomplete data is pure silence.
+                let buffers: UnsafeMutableAudioBufferListPointer = .init(data!)
+                for buffer in buffers {
+                    guard let dataPointer = buffer.mData else {
+                        break
+                    }
+                    let discontinuityStartOffset = Int(copiedFrames * auPlayer.inputFormat.mBytesPerFrame)
+                    let numberOfSilenceBytes = Int((numFrames - copiedFrames) * auPlayer.inputFormat.mBytesPerFrame)
+                    guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {
+                        print("[AudioUnitPlayer] Invalid buffers when calculating silence")
+                        break
+                    }
+                    memset(dataPointer + discontinuityStartOffset, 0, Int(numberOfSilenceBytes))
+                }
                 auPlayer.incompleteFrames += 1
                 return .zero
             }
