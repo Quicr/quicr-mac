@@ -29,6 +29,10 @@
 		9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PCMExtensions.swift */; };
 		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
 		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9B87FB4E2A02A85100C92DD1 /* AudioUnitPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4D2A02A85100C92DD1 /* AudioUnitPlayer.swift */; };
+		9B87FB502A02A8A000C92DD1 /* AudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */; };
+		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
+		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
 		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
@@ -139,6 +143,9 @@
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9B87FB4D2A02A85100C92DD1 /* AudioUnitPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitPlayer.swift; sourceTree = "<group>"; };
+		9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitHelpers.swift; sourceTree = "<group>"; };
+		9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -215,6 +222,7 @@
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
+				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -269,8 +277,18 @@
 			isa = PBXGroup;
 			children = (
 				9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */,
+				9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		9B87FB4C2A02A84000C92DD1 /* AudioUnit */ = {
+			isa = PBXGroup;
+			children = (
+				9B87FB4D2A02A85100C92DD1 /* AudioUnitPlayer.swift */,
+				9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */,
+			);
+			path = AudioUnit;
 			sourceTree = "<group>";
 		};
 		9BA27FB9297D7270007013B2 = {
@@ -299,6 +317,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B87FB4C2A02A84000C92DD1 /* AudioUnit */,
 				185D628E29BF3C5A0011E634 /* Info.plist */,
 				9B48068A298301ED0040F5D4 /* QMedia */,
 				9B48067F298016FD0040F5D4 /* Codec */,
@@ -456,6 +475,7 @@
 			packageProductDependencies = (
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
 				9BDD5B152996A84B00C01D54 /* Opus */,
+				9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -494,6 +514,7 @@
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
 				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
 				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
+				9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -585,6 +606,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */,
 				9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -611,6 +633,7 @@
 				9B480687298289910040F5D4 /* AVEngineAudioPlayer.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* EncoderElement.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
+				9B87FB4E2A02A85100C92DD1 /* AudioUnitPlayer.swift in Sources */,
 				9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */,
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				9B165A112983E5C10017079F /* Loopback.swift in Sources */,
@@ -631,6 +654,7 @@
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
+				9B87FB502A02A8A000C92DD1 /* AudioUnitHelpers.swift in Sources */,
 				9BA27FF3297D7562007013B2 /* SidebarView.swift in Sources */,
 				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);
@@ -963,6 +987,14 @@
 				kind = branch;
 			};
 		};
+		9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "git@github.com:michaeltyson/TPCircularBuffer.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -986,6 +1018,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
 			productName = "plugin:SwiftLintPlugin";
+		};
+		9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */;
+			productName = TPCircularBuffer;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;

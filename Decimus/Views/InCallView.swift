@@ -72,6 +72,8 @@ extension InCallView {
         }
         func leave() async {
             await callController!.leave()
+            callController = nil
+            mode = nil
         }
     }
 }

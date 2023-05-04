@@ -80,7 +80,7 @@ class PipelineManager {
                 self.imageCallback(identifier, decodedImage, presentation, orientation, verticalMirror)
             })
         case .audio:
-            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .float32,
+            let opusFormat: AVAudioFormat = .init(opusPCMFormat: .int16,
                                                   sampleRate: .opus48khz,
                                                   channels: 1)!
             decoder = LibOpusDecoder(format: opusFormat, fileWrite: false, errorWriter: errorWriter) { pcm, _ in

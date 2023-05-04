@@ -82,6 +82,15 @@
       }
     },
     {
+      "identity" : "tpcircularbuffer",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:michaeltyson/TPCircularBuffer.git",
+      "state" : {
+        "revision" : "8833b3a73fab6530cc51e2063a85cced01714cfb",
+        "version" : "1.6.2"
+      }
+    },
+    {
       "identity" : "yams",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jpsim/Yams.git",
