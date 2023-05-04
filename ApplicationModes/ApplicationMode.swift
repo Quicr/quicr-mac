@@ -40,28 +40,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     private let id = UUID()
     private var h264Encoders: [H264Encoder] = []
-    private let unitFactory: AudioUnitFactory = .init()
 
-    required init(errorWriter: ErrorWriter) {
+    required init(errorWriter: ErrorWriter, player: AudioPlayer) {
         self.errorHandler = errorWriter
-        // self.player = AVEngineAudioPlayer(errorWriter: errorWriter)
-        do {
-            let unit = try unitFactory.makeIOUnit(voip: false)
-            // TODO: We need to get the input format to the player upfront.
-            let format: AudioStreamBasicDescription = .init(mSampleRate: 48000,
-                                                            mFormatID: 1819304813,
-                                                            mFormatFlags: 44,
-                                                            mBytesPerPacket: 2,
-                                                            mFramesPerPacket: 1,
-                                                            mBytesPerFrame: 2,
-                                                            mChannelsPerFrame: 1,
-                                                            mBitsPerChannel: 16,
-                                                            mReserved: 0)
-            self.player = try AudioUnitPlayer(audioUnit: unit, inputFormat: format)
-            try unit.initializeAndStart()
-        } catch {
-            fatalError("\(error)")
-        }
+        self.player = player
         self.pipeline = .init(
             decodedCallback: {[weak self] identifier, decoded, _, orientation, verticalMirror in
                 guard let mode = self else { return }
@@ -220,12 +202,4 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
     func sendEncodedAudio(data: MediaBufferFromSource) {}
-
-    deinit {
-        do {
-            try unitFactory.clearIOUnit()
-        } catch {
-            fatalError()
-        }
-    }
 }
