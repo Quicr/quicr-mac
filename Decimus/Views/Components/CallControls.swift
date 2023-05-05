@@ -233,7 +233,9 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let controller: CallController = .init(mode: RawLoopback(errorWriter: errorWriter), errorHandler: errorWriter)
+        let controller: CallController = .init(mode: RawLoopback(errorWriter: errorWriter,
+                                                                 player: AVEngineAudioPlayer(errorWriter: errorWriter)),
+                                               errorHandler: errorWriter)
         CallControls(leaving: bool).environmentObject(controller)
     }
 }

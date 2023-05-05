@@ -62,8 +62,20 @@ extension InCallView {
         @Published private(set) var mode: Mode?
         @Published var callController: CallController?
 
+        @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
+
         init() {
-            self.mode = .init(errorWriter: errorHandler)
+            let player: AudioPlayer
+            let playerType: PlayerType = .init(rawValue: playerType)!
+            switch playerType {
+            case .audioUnit:
+                errorHandler.writeError(message: "AudioUnit player yet not implemented. Using AVEngineAudioPlayer.")
+                player = AVEngineAudioPlayer(errorWriter: errorHandler)
+            case .avAudioEngine:
+                player = AVEngineAudioPlayer(errorWriter: errorHandler)
+            }
+
+            self.mode = .init(errorWriter: errorHandler, player: player)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
         }
 
