@@ -40,12 +40,6 @@ struct SidebarView: View {
                         Label("Settings", systemImage: "gearshape")
                     }
                 })
-
-                NavigationLink(destination: SettingsView(), label: {
-                    HStack {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                })
             }
         }.navigationTitle("Application Modes")
     }
