@@ -61,20 +61,13 @@ extension InCallView {
         @Published private(set) var errorHandler = ObservableError()
         @Published private(set) var mode: Mode?
         @Published var callController: CallController?
+        private var unitFactory: AudioUnitFactory?
 
         @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
 
         init() {
-            let player: AudioPlayer
             let playerType: PlayerType = .init(rawValue: playerType)!
-            switch playerType {
-            case .audioUnit:
-                errorHandler.writeError(message: "AudioUnit player yet not implemented. Using AVEngineAudioPlayer.")
-                player = AVEngineAudioPlayer(errorWriter: errorHandler)
-            case .avAudioEngine:
-                player = AVEngineAudioPlayer(errorWriter: errorHandler)
-            }
-
+            let player = makeAudioPlayer(type: playerType)
             self.mode = .init(errorWriter: errorHandler, player: player)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
         }
@@ -84,6 +77,60 @@ extension InCallView {
         }
         func leave() async {
             await callController!.leave()
+            callController = nil
+            mode = nil
+            if let factory = unitFactory {
+                do {
+                    try factory.clearIOUnit()
+                    unitFactory = nil
+                } catch {
+                    errorHandler.writeError(message: "Failed to cleanup AU")
+                }
+            }
+        }
+
+        private func makeAudioPlayer(type: PlayerType) -> AudioPlayer {
+            switch type {
+            case .audioUnit:
+                let unit: AudioUnit
+                unitFactory = .init()
+                do {
+                    unit = try unitFactory!.makeIOUnit(voip: false)
+                } catch {
+                    errorHandler.writeError(message: "Failed to create IOAU")
+                    return AVEngineAudioPlayer(errorWriter: errorHandler)
+                }
+                // TODO: We need to get the input format to the player upfront.
+                let format: AudioStreamBasicDescription = .init(mSampleRate: 48000,
+                                                                mFormatID: 1819304813,
+                                                                mFormatFlags: 44,
+                                                                mBytesPerPacket: 2,
+                                                                mFramesPerPacket: 1,
+                                                                mBytesPerFrame: 2,
+                                                                mChannelsPerFrame: 1,
+                                                                mBitsPerChannel: 16,
+                                                                mReserved: 0)
+                let auPlayer: AudioUnitPlayer
+                do {
+                    auPlayer = try .init(audioUnit: unit, inputFormat: format)
+                } catch {
+                    errorHandler.writeError(message: "Failed to create AudioUnitPlayer: \(error)")
+                    return AVEngineAudioPlayer(errorWriter: errorHandler)
+                }
+                do {
+                    try unit.initializeAndStart()
+                } catch {
+                    errorHandler.writeError(message: "Failed to initialize IOAU \(error)")
+                }
+                print("Using AudioUnitPlayer")
+                return auPlayer
+            case .avAudioEngine:
+                print("Using AVEngineAudioPlayer")
+                return AVEngineAudioPlayer(errorWriter: errorHandler)
+            case .fasterAvAudioEngine:
+                print("Using FasterAVAudioEnginePlayer")
+                return FasterAVEngineAudioPlayer(errorWriter: errorHandler)
+            }
         }
     }
 }

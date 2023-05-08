@@ -49,9 +49,8 @@ actor CaptureManager: NSObject,
         super.init()
 
         // Audio configuration.
-        let audioSession = AVAudioSession.sharedInstance()
         do {
-            try audioSession.setCategory(.playAndRecord, mode: .videoChat)
+            try AVAudioSession.configureForDecimus()
         } catch {
             errorHandler.writeError(message: error.localizedDescription)
         }
