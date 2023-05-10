@@ -79,7 +79,7 @@ class AudioUnitPlayer: AudioPlayer {
         }
     }
 
-    func write(identifier: UInt32, buffer: AVAudioPCMBuffer) {
+    func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
         let list = buffer.mutableAudioBufferList.pointee
         let format = buffer.format.streamDescription.pointee
 
@@ -108,7 +108,7 @@ class AudioUnitPlayer: AudioPlayer {
         }
     }
 
-    func removePlayer(identifier: UInt32) {
+    func removePlayer(identifier: UInt64) {
         print("Please remove: \(identifier)")
         print("Incomplete reads: \(incompleteFrames)/\(reads)")
         print("Copy fails: \(copyFails)/\(copyAttempts)")
