@@ -8,11 +8,11 @@ import UIKit
 /// The core of the application.
 protocol ApplicationMode {
     var pipeline: PipelineManager? { get }
-    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer)
-    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer)
-    func removeRemoteSource(identifier: UInt32)
+    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer)
+    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer)
+    func removeRemoteSource(identifier: UInt64)
 
-    func onCreateEncoder(identifier: UInt32, codec: CodecType)
+    func onCreateEncoder(identifier: UInt64, codec: CodecType)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -27,7 +27,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     var pipeline: PipelineManager?
     let errorHandler: ErrorWriter
     let player: AudioPlayer
-    let clientId = UInt16.random(in: 0..<UInt16.max)
 
     @Published var participants: VideoParticipants = VideoParticipants()
 
@@ -38,33 +37,36 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         self.player = player
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
 
-        CodecFactory.shared.registerEncoderSampleCallback { [weak self] id, sample in
+        CodecFactory.shared.registerEncoderCallback { [weak self] id, sample in
             guard let mode = self else { return }
             mode.sendEncodedImage(identifier: id, data: sample)
         }
-        CodecFactory.shared.registerEncoderBufferCallback { [weak self] id, media in
+        CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
             guard let mode = self else { return }
             let identified: MediaBufferFromSource = .init(source: id, media: media)
             mode.sendEncodedAudio(data: identified)
         }
-        CodecFactory.shared.registerDecoderSampleCallback { [weak self] id, decoded, _, orientation, mirror in
+        CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
             mode.showDecodedImage(identifier: id,
                                   decoded: decoded,
                                   orientation: orientation,
                                   verticalMirror: mirror)
         }
-        CodecFactory.shared.registerDecoderBufferCallback { [weak self] id, buffer in
+        CodecFactory.shared.registerDecoderCallback { [weak self] id, buffer in
             guard let mode = self else { return }
             mode.player.write(identifier: id, buffer: buffer)
         }
+
+        // TODO: Move this to settings or something
+        ManifestController.shared.setServer(url: "10.0.0.150")
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
 
-    func showDecodedImage(identifier: UInt32,
+    func showDecodedImage(identifier: UInt64,
                           decoded: CIImage,
                           orientation: AVCaptureVideoOrientation?,
                           verticalMirror: Bool) {
@@ -89,8 +91,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
     }
 
-    func removeRemoteSource(identifier: UInt32) {
-        pipeline!.unregisterDecoders(sourceId: identifier)
+    func removeRemoteSource(identifier: UInt64) {
+        pipeline!.unregisterDecoders(identifier: identifier)
 
         // Remove video renderer.
         do {
@@ -120,24 +122,30 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 fatalError("MediaType not understood for device: \(device.id)")
             }
 
-            pipeline!.registerEncoder(sourceId: device.id, config: config)
+            pipeline!.registerEncoder(identifier: device.id, config: config)
             onCreateEncoder(identifier: device.id, codec: config.codec)
         case .removed:
-            pipeline!.unregisterEncoders(sourceId: device.id)
+            pipeline!.unregisterEncoders(identifier: device.id)
         }
     }
 
-    func onCreateEncoder(identifier: UInt32, codec: CodecType) {
+    func onCreateEncoder(identifier: UInt64, codec: CodecType) {
     }
 
-    func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        pipeline!.encode(identifier: identifier, sample: frame)
+    func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {
+        return [identifier]
     }
 
-    func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
-        pipeline!.encode(identifier: identifier, sample: sample)
+    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
+        let ids = getStreamIdFromDevice(identifier)
+        ids.forEach { pipeline!.encode(identifier: $0, sample: frame) }
     }
 
-    func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {}
+    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
+        let ids = getStreamIdFromDevice(identifier)
+        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
+    }
+
+    func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {}
     func sendEncodedAudio(data: MediaBufferFromSource) {}
 }

@@ -4,10 +4,10 @@ import SwiftUI
 import AVFoundation
 
 class Loopback: ApplicationModeBase {
-    override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[identifier] == nil {
-            pipeline!.registerDecoder(sourceId: identifier, mediaId: 0, codec: .h264)
+            pipeline!.registerDecoder(identifier: identifier, config: AudioCodecConfig(codec: .h264, bitrate: 0))
         }
         pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
     }
@@ -15,7 +15,7 @@ class Loopback: ApplicationModeBase {
     override func sendEncodedAudio(data: MediaBufferFromSource) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[data.source] == nil {
-            pipeline!.registerDecoder(sourceId: data.source, mediaId: 0, codec: .opus)
+            pipeline!.registerDecoder(identifier: data.source, config: AudioCodecConfig(codec: .opus, bitrate: 0))
         }
         pipeline!.decode(mediaBuffer: data)
     }

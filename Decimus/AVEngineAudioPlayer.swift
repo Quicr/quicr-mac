@@ -6,7 +6,7 @@ class AVEngineAudioPlayer: AudioPlayer {
     private var mixer: AVAudioMixerNode! = .init()
     private let mixerFormat: AVAudioFormat
     private let errorWriter: ErrorWriter
-    private var players: [UInt32: AVAudioPlayerNode] = [:]
+    private var players: [UInt64: AVAudioPlayerNode] = [:]
 
     /// Create a new `AudioPlayer`
     init(errorWriter: ErrorWriter) {
@@ -37,7 +37,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         engine = nil
     }
 
-    func write(identifier: UInt32, buffer: AVAudioPCMBuffer) {
+    func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
         guard mixerFormat.commonFormat == .pcmFormatFloat32 else {
             errorWriter.writeError(message: "Currently expecting output as F32")
             return
@@ -70,7 +70,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         node!.scheduleBuffer(inputBuffer)
     }
 
-    private func createPlayer(identifier: UInt32, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
+    private func createPlayer(identifier: UInt64, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
         guard players[identifier] == nil else { fatalError() }
         print("AudioPlayer => [\(identifier)] New player: \(inputFormat)")
         if !engine.isRunning {
@@ -92,7 +92,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         return node
     }
 
-    func removePlayer(identifier: UInt32) {
+    func removePlayer(identifier: UInt64) {
         guard let player = players[identifier] else { return }
 
         player.stop()

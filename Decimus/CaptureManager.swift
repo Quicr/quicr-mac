@@ -2,7 +2,7 @@ import AVFoundation
 import UIKit
 
 public extension AVCaptureDevice {
-    var id: UInt32 {
+    var id: UInt64 {
         .init(truncatingIfNeeded: uniqueID.hashValue)
     }
 }
@@ -16,7 +16,7 @@ actor CaptureManager: NSObject,
     enum DeviceEvent { case added; case removed }
 
     /// Callback of raw camera frames.
-    typealias MediaCallback = (UInt32, CMSampleBuffer) -> Void
+    typealias MediaCallback = (UInt64, CMSampleBuffer) -> Void
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
@@ -261,9 +261,9 @@ actor CaptureManager: NSObject,
 
         // Callback this media sample.
         if output == audioOutput {
-            audioFrameCallback(UInt32(truncatingIfNeeded: device!.id), sampleBuffer)
+            audioFrameCallback(device!.id, sampleBuffer)
         } else {
-            cameraFrameCallback(UInt32(truncatingIfNeeded: device!.id), sampleBuffer)
+            cameraFrameCallback(device!.id, sampleBuffer)
         }
     }
 

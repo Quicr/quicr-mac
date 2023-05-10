@@ -8,9 +8,8 @@ class PipelineManager {
     private let errorWriter: ErrorWriter
     private let metricsSubmitter: MetricsSubmitter
 
-    /// Managed pipeline elements.
-    private var encoders: [UInt32: [Encoder]] = [:]
-    var decoders: [UInt32: [UInt8: Decoder]] = [:]
+    private var encoders: [UInt64: Encoder] = [:]
+    var decoders: [UInt64: Decoder] = [:]
 
     /// Create a new PipelineManager.
     init(errorWriter: ErrorWriter, metricsSubmitter: MetricsSubmitter) {
@@ -18,49 +17,41 @@ class PipelineManager {
         self.metricsSubmitter = metricsSubmitter
     }
 
-    func registerEncoder(sourceId: UInt32, config: CodecConfig) {
-        let encoder = CodecFactory.shared.createEncoder(sourceId: sourceId, config: config)
-        guard encoders[sourceId] != nil else {
-            encoders[sourceId] = [encoder]
+    func registerEncoder(identifier: UInt64, config: CodecConfig) {
+        let encoder = CodecFactory.shared.createEncoder(identifier: identifier, config: config)
+        guard encoders[identifier] == nil else {
             return
         }
-        encoders[sourceId]!.append(encoder)
+        encoders[identifier] = encoder
     }
 
-    func registerDecoder(sourceId: UInt32, mediaId: UInt8, codec: CodecType) {
-        let decoder = CodecFactory.shared.createDecoder(sourceId: sourceId, codec: codec)
-        guard decoders[sourceId] != nil else {
-            decoders[sourceId] = [mediaId: decoder]
+    func registerDecoder(identifier: UInt64, config: CodecConfig) {
+        let decoder = CodecFactory.shared.createDecoder(identifier: identifier, config: config)
+        guard decoders[identifier] == nil else {
             return
         }
-        decoders[sourceId]![mediaId] = decoder
+        decoders[identifier] = decoder
     }
 
-    func unregisterEncoders(sourceId: UInt32) {
-        encoders.removeValue(forKey: sourceId)
+    func unregisterEncoders(identifier: UInt64) {
+        encoders.removeValue(forKey: identifier)
     }
 
-    func unregisterDecoders(sourceId: UInt32) {
-        decoders.removeValue(forKey: sourceId)
+    func unregisterDecoders(identifier: UInt64) {
+        decoders.removeValue(forKey: identifier)
     }
 
-    func encode(identifier: UInt32, sample: CMSampleBuffer) {
-        guard let encoders = encoders[identifier] else {
+    func encode(identifier: UInt64, sample: CMSampleBuffer) {
+        guard let encoder = encoders[identifier] else {
             fatalError("Tried to encode for unregistered identifier: \(identifier)")
         }
-
-        encoders.forEach { encoder in
-            encoder.write(sample: sample)
-        }
+        encoder.write(sample: sample)
     }
 
     func decode(mediaBuffer: MediaBufferFromSource) {
-        guard let decoders = decoders[mediaBuffer.source] else {
+        guard let decoder = decoders[mediaBuffer.source] else {
             fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.source)")
         }
-
-        decoders.forEach { _, decoder in
-            decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
-        }
+        decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
     }
 }

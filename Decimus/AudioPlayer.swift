@@ -5,9 +5,9 @@ protocol AudioPlayer {
     /// Write some audio to be played.
     /// - Parameter identifier: The unique identifier for this stream.
     /// - Parameter buffer: The buffer of audio data.
-    func write(identifier: UInt32, buffer: AVAudioPCMBuffer)
+    func write(identifier: UInt64, buffer: AVAudioPCMBuffer)
 
     /// Remove a stream from the player.
     /// - Parameter identifier: Identifier of the stream to remove.
-    func removePlayer(identifier: UInt32)
+    func removePlayer(identifier: UInt64)
 }

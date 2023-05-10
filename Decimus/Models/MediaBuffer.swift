@@ -9,7 +9,7 @@ struct MediaBuffer {
 /// Represents some media data from a source.
 struct MediaBufferFromSource {
     /// The source identifier this media comes from.
-    let source: UInt32
+    let source: UInt64
     /// The media data.
     let media: MediaBuffer
 }
