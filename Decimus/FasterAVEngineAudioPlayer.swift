@@ -240,7 +240,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
             }
         }
 
-        guard var element = elements.removeValue(forKey: identifier) else { return }
+        guard var element = elements.removeValue(forKey: identifier) else { fatalError("No player for: \(identifier)") }
         print("[FasterAVAudioEngine] Removing \(identifier)")
 
         // Dispose of the element's resources.
