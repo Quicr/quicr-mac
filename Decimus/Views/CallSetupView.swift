@@ -8,6 +8,7 @@ private let buttonColour = ActionButtonStyleConfig(
 )
 
 private struct LoginForm: View {
+    @AppStorage("email") private var email: String = ""
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
     @State private var callConfig = CallConfig(address: "",
                                                port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
@@ -25,7 +26,7 @@ private struct LoginForm: View {
                     Text("Email")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                    TextField("email", text: $email, prompt: Text("example@cisco.com"))
                         .textFieldStyle(FormInputStyle())
                 }
 
@@ -36,11 +37,11 @@ private struct LoginForm: View {
                     .init(address: relayAddress,
                           port: getPort(.UDP),
                           connectionProtocol: .UDP,
-                          email: callConfig.email),
+                          email: email),
                     .init(address: relayAddress,
                           port: getPort(.QUIC),
                           connectionProtocol: .QUIC,
-                          email: callConfig.email)
+                          email: email)
                 ])
 
                 ActionButton("Join Meeting",
