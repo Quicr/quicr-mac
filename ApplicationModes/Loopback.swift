@@ -7,7 +7,11 @@ class Loopback: ApplicationModeBase {
     override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[identifier] == nil {
-            pipeline!.registerDecoder(identifier: identifier, config: AudioCodecConfig(codec: .h264, bitrate: 0))
+            pipeline!.registerDecoder(identifier: identifier, config: VideoCodecConfig(codec: .h264,
+                                                                                       bitrate: 0,
+                                                                                       fps: 0,
+                                                                                       width: 0,
+                                                                                       height: 0))
         }
         pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
     }
