@@ -37,7 +37,7 @@ struct AudioCodecConfig: CodecConfig {
 }
 
 class CodecFactory {
-    static let shared = CodecFactory()
+    static var shared: CodecFactory!
 
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
@@ -83,10 +83,16 @@ class CodecFactory {
         .opus: { _ in return LibOpusEncoder() }
     ]
 
-    private var decoderFactories: [CodecType: () -> Decoder] = [
-        .h264: H264Decoder.init,
-        .av1: H264Decoder.init,
-        .opus: {
+    private var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
+        .h264: {
+            guard let config = $0 as? VideoCodecConfig else { fatalError() }
+            return H264Decoder(config: config)
+        },
+        .av1: {
+            guard let config = $0 as? VideoCodecConfig else { fatalError() }
+            return H264Decoder(config: config)
+        },
+        .opus: { _ in
             let opusFormat = AVAudioFormat(opusPCMFormat: .float32,
                                            sampleRate: .opus48khz,
                                            channels: 1)!
@@ -175,7 +181,7 @@ class CodecFactory {
             fatalError("No decoder factory found for codec type: \(config.codec)")
         }
 
-        let decoder = factory()
+        let decoder = factory(config)
         if let sampleDecoder = decoder as? SampleDecoder {
             sampleDecoder.registerCallback { image, timestamp, orientation, verticalMirror in
                 self.decodedSampleCallback(identifier, image, timestamp, orientation, verticalMirror)

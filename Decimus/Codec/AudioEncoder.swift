@@ -8,7 +8,7 @@ class AudioEncoder: SampleEncoder {
     // A frame is a collection of samples for the same time value (i.e frames = sample * channels).
     // A packet is the smallest possible collection of frames for given format. PCM=1, Opus=20ms?
 
-    internal var callback: EncodedSampleCallback = { _ in }
+    internal var callback: EncodedSampleCallback?
 
     private var converter: AVAudioConverter?
     private var currentFormat: AVAudioFormat?
@@ -25,6 +25,8 @@ class AudioEncoder: SampleEncoder {
     }
 
     func write(sample: CMSampleBuffer) {
+        guard let callback = callback else { fatalError("Callback not set for encoder") }
+
         // Ensure format exists and no change.
         guard sample.formatDescription != nil else { fatalError() }
         let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)

@@ -8,4 +8,6 @@ struct CallConfig: Hashable {
     var port: UInt16
     /// Protocol to use
     var connectionProtocol: MediaClient.ProtocolType
+
+    var email: String = ""
 }

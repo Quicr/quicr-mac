@@ -33,11 +33,11 @@ class PipelineManager {
         decoders[identifier] = decoder
     }
 
-    func unregisterEncoders(identifier: UInt64) {
+    func unregisterEncoder(identifier: UInt64) {
         encoders.removeValue(forKey: identifier)
     }
 
-    func unregisterDecoders(identifier: UInt64) {
+    func unregisterDecoder(identifier: UInt64) {
         decoders.removeValue(forKey: identifier)
     }
 

@@ -17,9 +17,16 @@ class H264Decoder: SampleDecoder {
     // Members.
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
-    internal var callback: DecodedSampleCallback = { _, _, _, _ in }
+    internal var callback: DecodedSampleCallback?
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool = false
+
+    /// Stored codec config. Can be updated.
+    private var config: VideoCodecConfig
+
+    init(config: VideoCodecConfig) {
+        self.config = config
+    }
 
     deinit {
         guard let session = self.session else { return }
@@ -244,6 +251,8 @@ class H264Decoder: SampleDecoder {
                        image: CVImageBuffer?,
                        presentation: CMTime,
                        duration: CMTime) {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         // Check status code.
         guard status == .zero else { print("Bad decode: \(status)"); return }
 

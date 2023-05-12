@@ -3,7 +3,7 @@ import AVFoundation
 
 class OpusDecoder: BufferDecoder {
 
-    internal var callback: DecodedBufferCallback = { _, _ in }
+    internal var callback: DecodedBufferCallback?
     private let converter: AVAudioConverter
     private let opus: AVAudioFormat
     private let output: AVAudioFormat
@@ -28,6 +28,8 @@ class OpusDecoder: BufferDecoder {
     }
 
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         let pcm: AVAudioPCMBuffer = .init(pcmFormat: output,
                                           frameCapacity: 960)!
         var error: NSError?

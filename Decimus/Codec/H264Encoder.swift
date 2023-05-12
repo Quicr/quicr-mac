@@ -4,7 +4,7 @@ import UIKit
 import AVFoundation
 
 class H264Encoder: SampleEncoder {
-    internal var callback: EncodedSampleCallback = { _ in }
+    internal var callback: EncodedSampleCallback?
 
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
@@ -74,6 +74,7 @@ class H264Encoder: SampleEncoder {
     }
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
+        guard let callback = callback else { fatalError("Callback not set for encoder") }
         guard status == .zero else { fatalError("Encode failure: \(status)")}
         guard let sample = sample else { return; }
 

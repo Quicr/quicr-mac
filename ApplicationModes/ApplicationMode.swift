@@ -11,8 +11,6 @@ protocol ApplicationMode {
     func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer)
     func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer)
     func removeRemoteSource(identifier: UInt64)
-
-    func onCreateEncoder(identifier: UInt64, codec: CodecType)
 }
 
 /// ApplicationModeBase provides a default implementation of the app.
@@ -32,11 +30,14 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     private let id = UUID()
 
+    @AppStorage("manifestAddress") private var manifestAddress: String = "127.0.0.1"
+
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         self.errorHandler = errorWriter
         self.player = player
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
 
+        CodecFactory.shared = .init()
         CodecFactory.shared.registerEncoderCallback { [weak self] id, sample in
             guard let mode = self else { return }
             mode.sendEncodedImage(identifier: id, data: sample)
@@ -58,8 +59,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             mode.player.write(identifier: id, buffer: buffer)
         }
 
-        // TODO: Move this to settings or something
-        ManifestController.shared.setServer(url: "10.0.0.150")
+        ManifestController.shared.setServer(url: manifestAddress)
+    }
+
+    deinit {
+        CodecFactory.shared = nil
     }
 
     func hash(into hasher: inout Hasher) {
@@ -92,15 +96,13 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func removeRemoteSource(identifier: UInt64) {
-        pipeline!.unregisterDecoders(identifier: identifier)
-
         // Remove video renderer.
         do {
             try participants.removeParticipant(identifier: identifier)
         } catch {
             errorHandler.writeError(message: "Failed to remove remote participant (\(identifier)): \(error)")
         }
-
+        pipeline!.unregisterDecoder(identifier: identifier)
         player.removePlayer(identifier: identifier)
     }
 
@@ -123,13 +125,9 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             }
 
             pipeline!.registerEncoder(identifier: device.id, config: config)
-            onCreateEncoder(identifier: device.id, codec: config.codec)
         case .removed:
-            pipeline!.unregisterEncoders(identifier: device.id)
+            pipeline!.unregisterEncoder(identifier: device.id)
         }
-    }
-
-    func onCreateEncoder(identifier: UInt64, codec: CodecType) {
     }
 
     func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {

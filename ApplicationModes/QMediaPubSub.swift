@@ -9,22 +9,38 @@ enum ApplicationError: Error {
 }
 
 class QMediaPubSub: ApplicationModeBase {
-    private var identifierMapping: [UInt32: UInt64] = .init()
-    private var streamIdMap: [UInt64] = .init()
-
-    private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
-
     private static weak var weakSelf: QMediaPubSub?
     private var mediaClient: MediaClient?
 
+    private var publishStreamIds: [UInt64: [UInt64]] = [:]
+    private var streamIdMap: [UInt64] = []
+
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
-        super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
-        QMediaPubSub.weakSelf = self
+        guard QMediaPubSub.weakSelf == nil else { fatalError("Previous QMediaPubSub not destroyed") }
+        super.init(errorWriter: errorWriter, player: player)
+
+        QMediaPubSub.weakSelf = Weak(self)
     }
 
-    let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
+    deinit {
+        guard mediaClient != nil else { return }
+
+        for id in streamIdMap {
+            removeRemoteSource(identifier: id)
+        }
+
+        for streamIds in publishStreamIds.values {
+            for id in streamIds {
+                mediaClient!.removeMediaPublishStream(mediaStreamId: id)
+            }
+        }
+
+        QMediaPubSub.weakSelf = nil
+    }
+
+    let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard QMediaPubSub.weakSelf != nil else {
-            fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
+            fatalError("[QMediaPubSub] Failed to find QMediaPubSub instance for stream: \(streamId)")
         }
 
         guard data != nil else {
@@ -46,9 +62,7 @@ class QMediaPubSub: ApplicationModeBase {
                             port: config.port,
                             protocol: config.connectionProtocol)
 
-        QMediaPubSub.weakSelf = Weak(self)
-
-        let manifest = ManifestController.shared.getManifest(confId: 1, email: "shenning@cisco.com")
+        let manifest = ManifestController.shared.getManifest(confId: 1, email: config.email)
         mediaClient!.getStreamConfigs(manifest,
                                       prepareEncoderCallback: prepareEncoder,
                                       prepareDecoderCallback: prepareDecoder)

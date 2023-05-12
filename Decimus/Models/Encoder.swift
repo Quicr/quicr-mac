@@ -8,7 +8,7 @@ protocol Encoder {
 
 protocol SampleEncoder: Encoder {
     typealias EncodedSampleCallback = (CMSampleBuffer) -> Void
-    private var callback: EncodedSampleCallback {get set}
+    var callback: EncodedSampleCallback? {get}
 
     func registerCallback(callback: @escaping EncodedSampleCallback)
     func write(sample: CMSampleBuffer)
@@ -16,7 +16,7 @@ protocol SampleEncoder: Encoder {
 
 protocol BufferEncoder: Encoder {
     typealias EncodedBufferCallback = (MediaBuffer) -> Void
-    private var callback: EncodedBufferCallback {get set}
+    var callback: EncodedBufferCallback? {get}
 
     func registerCallback(callback: @escaping EncodedBufferCallback)
     func write(sample: CMSampleBuffer)

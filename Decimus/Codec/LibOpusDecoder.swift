@@ -5,7 +5,7 @@ import AVFoundation
 class LibOpusDecoder: BufferDecoder {
 
     private let decoder: Opus.Decoder
-    internal var callback: DecodedBufferCallback = { _, _ in }
+    internal var callback: DecodedBufferCallback?
     private let format: AVAudioFormat
 
     /// Create an opus decoder with the given input format.
@@ -31,6 +31,8 @@ class LibOpusDecoder: BufferDecoder {
     /// - Parameter data: Pointer to some encoded opus data.
     /// - Parameter timestamp: Timestamp of this encoded data.
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         // Get to the right pointer type.
         let unsafe: UnsafePointer<UInt8> = data.baseAddress!.assumingMemoryBound(to: UInt8.self)
         let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)

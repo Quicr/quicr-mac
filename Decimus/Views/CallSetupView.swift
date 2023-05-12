@@ -2,16 +2,17 @@ import SwiftUI
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
-private struct LoginForm: View {
-    @State private var callConfig = CallConfig(address: "",
-                                               port: 0,
-                                               connectionProtocol: MediaClient.ProtocolType.QUIC)
-    private var joinMeetingCallback: ConfigCallback
+private let buttonColour = ActionButtonStyleConfig(
+    background: .white,
+    foreground: .black
+)
 
-    private let buttonColour = ActionButtonStyleConfig(
-        background: .white,
-        foreground: .black
-    )
+private struct LoginForm: View {
+    @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
+    @State private var callConfig = CallConfig(address: "",
+                                               port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                               connectionProtocol: .QUIC)
+    private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
@@ -20,41 +21,31 @@ private struct LoginForm: View {
     var body: some View {
         Form {
             Section {
-                RadioButtonGroup("Developer Relays",
-                                 selection: $callConfig,
-                                 labels: ["localhost", "AWS"],
-                                 tags: [
-                    .init(address: "127.0.0.1", port: 1234, connectionProtocol: callConfig.connectionProtocol),
-                    .init(address: "relay.us-west-2.quicr.ctgpoc.com",
-                          port: callConfig.connectionProtocol == MediaClient.ProtocolType.UDP ? 33434 : 33435,
-                          connectionProtocol: callConfig.connectionProtocol)
-                ])
-
                 VStack(alignment: .leading) {
-                    Text("Address")
+                    Text("Email")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField.init("address", text: $callConfig.address, prompt: Text(""))
-                        .textFieldStyle(FormInputStyle())
-                }
-                VStack(alignment: .leading) {
-                    Text("Port")
-                        .padding(.horizontal)
-                        .foregroundColor(.white)
-                    TextField.init("port",
-                                   value: $callConfig.port,
-                                   format: .number.grouping(.never),
-                                   prompt: Text(""))
+                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
                         .textFieldStyle(FormInputStyle())
                 }
 
                 RadioButtonGroup("Protocol",
-                                 selection: $callConfig.connectionProtocol,
-                                 tags: MediaClient.ProtocolType.allCases)
+                                 selection: $callConfig,
+                                 labels: ["UDP", "QUIC"],
+                                 tags: [
+                    .init(address: relayAddress,
+                          port: getPort(.UDP),
+                          connectionProtocol: .UDP,
+                          email: callConfig.email),
+                    .init(address: relayAddress,
+                          port: getPort(.QUIC),
+                          connectionProtocol: .QUIC,
+                          email: callConfig.email)
+                ])
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
-                             disabled: callConfig.address == "" || callConfig.port == 0,
+                             disabled: QMediaPubSub.weakSelf != nil || callConfig.email == "" || callConfig.port == 0,
                              styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
@@ -65,11 +56,18 @@ private struct LoginForm: View {
         }
         .background(.clear)
         .scrollContentBackground(.hidden)
+        .frame(maxHeight: 450)
         .scrollDisabled(true)
     }
 
     func join() {
         joinMeetingCallback(callConfig)
+    }
+
+    private func getPort(_ proto: MediaClient.ProtocolType) -> UInt16 {
+        guard let address = RelayURLs(rawValue: relayAddress) else { fatalError() }
+        guard let config = relayConfigs[address] else { fatalError() }
+        return config[proto] ?? 0
     }
 }
 
@@ -104,7 +102,7 @@ struct CallSetupView: View {
                     .font(.largeTitle)
                     .bold()
                     .foregroundColor(.white)
-                Spacer(minLength: 25)
+                    .padding()
                 Text("Join a meeting")
                     .font(.title)
                     .foregroundColor(.white)
