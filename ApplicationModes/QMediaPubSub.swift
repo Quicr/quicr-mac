@@ -19,45 +19,32 @@ class QMediaPubSub: ApplicationModeBase {
         guard QMediaPubSub.weakSelf == nil else { fatalError("Previous QMediaPubSub not destroyed") }
         super.init(errorWriter: errorWriter, player: player)
 
-        QMediaPubSub.weakSelf = Weak(self)
+        QMediaPubSub.weakSelf = self
     }
 
     deinit {
-        guard mediaClient != nil else { return }
-
-        for id in streamIdMap {
-            removeRemoteSource(identifier: id)
-        }
-
-        for streamIds in publishStreamIds.values {
-            for id in streamIds {
-                mediaClient!.removeMediaPublishStream(mediaStreamId: id)
-            }
-        }
-
         QMediaPubSub.weakSelf = nil
     }
 
-    let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
+    private let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard QMediaPubSub.weakSelf != nil else {
             fatalError("[QMediaPubSub] Failed to find QMediaPubSub instance for stream: \(streamId)")
         }
 
         guard data != nil else {
-            QMediaPubSub.weakSelf!.errorHandler.writeError(
-                message: "[QMediaPubSub] [Subscription \(streamId)] Data was nil"
-            )
+            QMediaPubSub.weakSelf!.writeError(message: "[QMediaPubSub] [Subscription \(streamId)] Data was nil")
             return
         }
 
-        let buffer: MediaBufferFromSource = .init(source: streamId,
-                                                  media: .init(buffer: .init(start: data, count: Int(length)),
-                                                               timestampMs: UInt32(timestamp)))
+        let buffer = MediaBufferFromSource(source: streamId,
+                                           media: .init(buffer: .init(start: data, count: Int(length)),
+                                                        timestampMs: UInt32(timestamp)))
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
     func connect(config: CallConfig) throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
+
         mediaClient = .init(address: .init(string: config.address)!,
                             port: config.port,
                             protocol: config.connectionProtocol)
@@ -66,6 +53,28 @@ class QMediaPubSub: ApplicationModeBase {
         mediaClient!.getStreamConfigs(manifest,
                                       prepareEncoderCallback: prepareEncoder,
                                       prepareDecoderCallback: prepareDecoder)
+    }
+
+    func disconnect() throws {
+        guard mediaClient != nil else { throw ApplicationError.notConnected }
+
+        publishStreamIds.values.forEach { $0.forEach { id in
+            mediaClient!.removeMediaPublishStream(mediaStreamId: id)
+            pipeline!.unregisterEncoder(identifier: id)
+        }}
+        publishStreamIds.removeAll()
+
+        streamIdMap.forEach { id in
+            mediaClient!.removeMediaSubscribeStream(mediaStreamId: id)
+            pipeline!.unregisterDecoder(identifier: id)
+        }
+        streamIdMap.removeAll()
+
+        mediaClient = nil
+    }
+
+    private func writeError(message: String) {
+        errorHandler.writeError(message: message)
     }
 
     private func prepareEncoder(sourceId: UInt64, mediaType: UInt8, endpoint: UInt16, config: CodecConfig) {

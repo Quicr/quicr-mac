@@ -17,6 +17,10 @@ extension AVAudioSession {
     }
 }
 
+enum AudioUnitError: Error {
+    case IOUnitNull
+}
+
 class AudioUnitFactory {
     private static var ioUnit: AudioUnit?
 
@@ -49,7 +53,7 @@ class AudioUnitFactory {
 
     func clearIOUnit() throws {
         guard Self.ioUnit != nil else {
-            fatalError("No io unit made")
+            throw AudioUnitError.IOUnitNull
         }
         try Self.ioUnit!.stopAndTeardown()
         Self.ioUnit = nil

@@ -60,7 +60,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private(set) var errorHandler = ObservableError()
         private(set) var mode: Mode?
-        private(set) var callController: CallController?
+        var callController: CallController?
         private var unitFactory: AudioUnitFactory?
 
         @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue

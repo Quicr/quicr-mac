@@ -26,7 +26,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     let errorHandler: ErrorWriter
     let player: AudioPlayer
 
-    @Published var participants: VideoParticipants = VideoParticipants()
+    var participants: VideoParticipants = VideoParticipants()
 
     private let id = UUID()
 
