@@ -22,10 +22,6 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf = self
     }
 
-    deinit {
-        QMediaPubSub.weakSelf = nil
-    }
-
     private let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard QMediaPubSub.weakSelf != nil else {
             fatalError("[QMediaPubSub] Failed to find QMediaPubSub instance for stream: \(streamId)")
