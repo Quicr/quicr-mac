@@ -5,48 +5,38 @@ import AVFoundation
 enum ApplicationError: Error {
     case emptyEncoder
     case alreadyConnected
+    case notConnected
 }
 
 class QMediaPubSub: ApplicationModeBase {
-    struct WeakQMediaPubSub {
-        weak var value: QMediaPubSub?
-        init(_ publisher: QMediaPubSub?) {
-            self.value = publisher
-        }
-    }
-    private static var streamIdMap: [UInt64: WeakQMediaPubSub] = .init()
-
-    private var qMedia: QMedia?
     private var identifierMapping: [UInt32: UInt64] = .init()
-
-    private var videoSubscription: UInt64 = 0
-    private var audioSubscription: UInt64 = 0
+    private var streamIdMap: [UInt64] = .init()
 
     private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
 
-    deinit {
-        guard qMedia != nil else { return }
-        QMediaPubSub.streamIdMap.forEach { id, _ in
-            removeRemoteSource(identifier: UInt32(id))
-        }
-        identifierMapping.forEach { id, _ in
-            qMedia!.removeMediaPublishStream(mediaStreamId: UInt64(id))
-        }
+    private static weak var weakSelf: QMediaPubSub?
+    private var qMedia: QMedia?
+
+    required init(errorWriter: ErrorWriter, player: AudioPlayer) {
+        super.init(errorWriter: errorWriter, player: player)
+        QMediaPubSub.weakSelf = self
     }
 
     let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
-        guard let publisher = QMediaPubSub.streamIdMap[streamId]?.value else {
+        guard QMediaPubSub.weakSelf != nil else {
             fatalError("Failed to find QMediaPubSub instance for stream: \(streamId))")
         }
         guard data != nil else {
-            publisher.errorHandler.writeError(message: "[QMediaPubSub] [Subscription \(streamId)] Data was nil")
+            QMediaPubSub.weakSelf!.errorHandler.writeError(
+                message: "[QMediaPubSub] [Subscription \(streamId)] Data was nil"
+            )
             return
         }
 
         // Get the codec out of the media ID.
         let rawCodec = mediaId & 0b1111_0000
         guard let codec = QMedia.CodecType(rawValue: rawCodec) else {
-            publisher.errorHandler.writeError(
+            QMediaPubSub.weakSelf!.errorHandler.writeError(
                 message: "[QMediaPubSub] [Subscription \(streamId)] Unexpected codec type: \(rawCodec)")
             return
         }
@@ -60,14 +50,14 @@ class QMediaPubSub: ApplicationModeBase {
         }
 
         let unique: UInt32 = .init(clientId) << 24 | .init(mediaId)
-        if publisher.pipeline!.decoders[unique] == nil {
-            publisher.pipeline!.registerDecoder(identifier: unique, type: mediaType)
+        if QMediaPubSub.weakSelf!.pipeline!.decoders[unique] == nil {
+            QMediaPubSub.weakSelf!.pipeline!.registerDecoder(identifier: unique, type: mediaType)
         }
 
         let buffer: MediaBufferFromSource = .init(source: UInt32(unique),
                                                   media: .init(buffer: .init(start: data, count: Int(length)),
                                                                timestampMs: UInt32(timestamp)))
-        publisher.pipeline!.decode(mediaBuffer: buffer)
+        QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
     func connect(config: CallConfig) throws {
@@ -77,14 +67,30 @@ class QMediaPubSub: ApplicationModeBase {
                        protocol: config.connectionProtocol)
 
         // Video.
-        videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
-        Self.streamIdMap[videoSubscription] = .init(self)
+        let videoSubscription = qMedia!.addVideoStreamSubscribe(codec: .h264, callback: streamCallback)
+        streamIdMap.append(videoSubscription)
         print("[QMediaPubSub] Subscribed for video: \(videoSubscription)")
 
         // Audio.
-        audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
-        Self.streamIdMap[audioSubscription] = .init(self)
+        let audioSubscription = qMedia!.addAudioStreamSubscribe(codec: .opus, callback: streamCallback)
+        streamIdMap.append(audioSubscription)
         print("[QMediaPubSub] Subscribed for audio: \(audioSubscription)")
+    }
+
+    func disconnect() throws {
+        guard qMedia != nil else { throw ApplicationError.notConnected }
+
+        identifierMapping.values.forEach {
+            qMedia!.removeMediaPublishStream(mediaStreamId: $0)
+        }
+        identifierMapping.removeAll()
+
+        streamIdMap.forEach {
+            qMedia!.removeMediaSubscribeStream(mediaStreamId: $0)
+        }
+        streamIdMap.removeAll()
+
+        qMedia = nil
     }
 
     override func createVideoEncoder(identifier: UInt32,
