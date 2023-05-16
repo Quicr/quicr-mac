@@ -1,6 +1,7 @@
 import Foundation
 
 struct ManifestServerConfig {
+    let scheme: String
     let url: String
     let port: Int
 }
@@ -11,16 +12,9 @@ class ManifestController {
     private var components: URLComponents = .init()
     private var mutex: DispatchSemaphore = .init(value: 0)
 
-    func setServer(url: String) {
-        self.components = URLComponents()
-        self.components.scheme = "http"
-        self.components.host = url
-        self.components.port = 8411
-    }
-
     func setServer(config: ManifestServerConfig) {
         self.components = URLComponents()
-        self.components.scheme = "http"
+        self.components.scheme = config.scheme
         self.components.host = config.url
         self.components.port = config.port
     }

@@ -32,6 +32,8 @@ struct SettingsView: View {
     @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
     @AppStorage("manifestAddress") private var manifestAddress: String = "conf.quicr.ctgpoc.com"
+    @AppStorage("manifestPort") private var manifestPort: Int = 411
+    @AppStorage("manifestScheme") private var manifestScheme: String = "https"
 
     var body: some View {
         Form {
@@ -54,10 +56,22 @@ struct SettingsView: View {
 
             Section("Manifest") {
                 HStack {
+                    Text("Scheme")
+                        .padding(.horizontal)
+                        .foregroundColor(.white)
+                    TextField("manifest_scheme", text: $manifestScheme, prompt: Text("https"))
+                }
+                HStack {
                     Text("Address")
                         .padding(.horizontal)
                         .foregroundColor(.white)
                     TextField("manifest_address", text: $manifestAddress, prompt: Text(""))
+                }
+                HStack {
+                    Text("Port")
+                        .padding(.horizontal)
+                        .foregroundColor(.white)
+                    TextField("manifest_port", value: $manifestPort, format: .number)
                 }
             }
         }

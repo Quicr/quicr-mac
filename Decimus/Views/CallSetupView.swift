@@ -46,7 +46,7 @@ private struct LoginForm: View {
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
-                             disabled: QMediaPubSub.weakSelf != nil || callConfig.email == "" || callConfig.port == 0,
+                             disabled: callConfig.email == "" || callConfig.port == 0,
                              styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
