@@ -58,9 +58,9 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        @Published private(set) var errorHandler = ObservableError()
-        @Published private(set) var mode: Mode?
-        @Published var callController: CallController?
+        private(set) var errorHandler = ObservableError()
+        private(set) var mode: Mode?
+        private(set) var callController: CallController?
         private var unitFactory: AudioUnitFactory?
 
         @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
@@ -77,15 +77,15 @@ extension InCallView {
         }
         func leave() async {
             await callController!.leave()
-            callController = nil
-            mode = nil
-            if let factory = unitFactory {
-                do {
-                    try factory.clearIOUnit()
-                    unitFactory = nil
-                } catch {
-                    errorHandler.writeError(message: "Failed to cleanup AU")
+            do {
+                if let qmediaMode = mode as? QMediaPubSub {
+                    try qmediaMode.disconnect()
                 }
+                if let factory = unitFactory {
+                    try factory.clearIOUnit()
+                }
+            } catch {
+                errorHandler.writeError(message: "Error while leaving call: \(error)")
             }
         }
 
