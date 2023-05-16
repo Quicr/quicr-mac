@@ -9,22 +9,17 @@ enum ApplicationError: Error {
 }
 
 class QMediaPubSub: ApplicationModeBase {
-    private var qMedia: QMedia?
-
     private var identifierMapping: [UInt32: UInt64] = .init()
     private var streamIdMap: [UInt64] = .init()
 
     private var sourcesByMediaType: [QMedia.CodecType: UInt8] = [:]
 
     private static weak var weakSelf: QMediaPubSub?
+    private var qMedia: QMedia?
 
     required init(errorWriter: ErrorWriter, player: AudioPlayer) {
         super.init(errorWriter: errorWriter, player: player)
         QMediaPubSub.weakSelf = self
-    }
-
-    deinit {
-        QMediaPubSub.weakSelf = nil
     }
 
     let streamCallback: SubscribeCallback = { streamId, mediaId, clientId, data, length, timestamp in
