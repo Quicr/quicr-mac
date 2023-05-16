@@ -10,6 +10,7 @@ enum CodecType: UInt8, CaseIterable {
 
     // Audio
     case opus
+    case xcodec
 }
 
 /// Possible media types that the pipeline understands.
@@ -66,7 +67,7 @@ class CodecFactory {
         switch codec {
         case .h264, .av1:
             return VideoCodecConfig(codec: codec, tokens: tokens)
-        case .opus:
+        case .opus, .xcodec:
             return AudioCodecConfig(codec: codec, tokens: tokens)
         }
     }
@@ -80,7 +81,8 @@ class CodecFactory {
             guard let config = config as? VideoCodecConfig else { fatalError() }
             return H264Encoder(config: config, verticalMirror: false)
         },
-        .opus: { _ in return LibOpusEncoder() }
+        .opus: { _ in return LibOpusEncoder() },
+        .xcodec: { _ in return LibOpusEncoder() }
     ]
 
     private var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
@@ -93,6 +95,12 @@ class CodecFactory {
             return H264Decoder(config: config)
         },
         .opus: { _ in
+            let opusFormat = AVAudioFormat(opusPCMFormat: .float32,
+                                           sampleRate: .opus48khz,
+                                           channels: 1)!
+            return LibOpusDecoder(format: opusFormat)
+        },
+        .xcodec: { _ in
             let opusFormat = AVAudioFormat(opusPCMFormat: .float32,
                                            sampleRate: .opus48khz,
                                            channels: 1)!

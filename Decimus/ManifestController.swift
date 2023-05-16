@@ -15,7 +15,7 @@ class ManifestController {
         self.components = URLComponents()
         self.components.scheme = "http"
         self.components.host = url
-        self.components.port = 8080
+        self.components.port = 8411
     }
 
     func setServer(config: ManifestServerConfig) {

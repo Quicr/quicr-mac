@@ -31,7 +31,7 @@ let relayConfigs: [RelayURLs: [MediaClient.ProtocolType: UInt16]] = [
 struct SettingsView: View {
     @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
-    @AppStorage("manifestAddress") private var manifestAddress: String = "127.0.0.1"
+    @AppStorage("manifestAddress") private var manifestAddress: String = "conf.quicr.ctgpoc.com"
 
     var body: some View {
         Form {
