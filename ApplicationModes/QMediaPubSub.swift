@@ -17,8 +17,8 @@ class QMediaPubSub: ApplicationModeBase {
     private static weak var weakSelf: QMediaPubSub?
     private var qMedia: QMedia?
 
-    required init(errorWriter: ErrorWriter, player: AudioPlayer) {
-        super.init(errorWriter: errorWriter, player: player)
+    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
+        super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
         QMediaPubSub.weakSelf = self
     }
 

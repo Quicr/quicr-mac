@@ -29,6 +29,7 @@ class PipelineManager {
     private let audioCallback: DecodedAudioCallback
     private let debugging: Bool
     private let errorWriter: ErrorWriter
+    private let metricsSubmitter: MetricsSubmitter
 
     /// Managed pipeline elements.
     var encoders: [UInt32: EncoderElement] = .init()
@@ -39,11 +40,13 @@ class PipelineManager {
         decodedCallback: @escaping DecodedImageCallback,
         decodedAudioCallback: @escaping DecodedAudioCallback,
         debugging: Bool,
-        errorWriter: ErrorWriter) {
+        errorWriter: ErrorWriter,
+        metricsSubmitter: MetricsSubmitter) {
         self.imageCallback = decodedCallback
         self.audioCallback = decodedAudioCallback
         self.debugging = debugging
         self.errorWriter = errorWriter
+        self.metricsSubmitter = metricsSubmitter
     }
 
     private func debugPrint(message: String) {
@@ -55,7 +58,7 @@ class PipelineManager {
         debugPrint(message: "[\(identifier)] (\(UInt32(sample.presentationTimeStamp.seconds * 1000))) Encode write")
         let encoder: EncoderElement? = encoders[identifier]
         guard encoder != nil else { fatalError("Tried to encode for unregistered identifier: \(identifier)") }
-        encoder!.encoder.write(sample: sample)
+        encoder!.write(sample: sample)
     }
 
     func decode(mediaBuffer: MediaBufferFromSource) {
@@ -66,7 +69,7 @@ class PipelineManager {
     }
 
     func registerEncoder(identifier: UInt32, encoder: Encoder) {
-        let element: EncoderElement = .init(identifier: identifier, encoder: encoder)
+        let element: EncoderElement = .init(identifier: identifier, encoder: encoder, submitter: metricsSubmitter)
         encoders[identifier] = element
         debugPrint(message: "[\(identifier)] Registered encoder")
     }
