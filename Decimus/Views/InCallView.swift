@@ -65,10 +65,17 @@ extension InCallView {
 
         @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
 
+        @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+
         init() {
             let playerType: PlayerType = .init(rawValue: playerType)!
             let player = makeAudioPlayer(type: playerType)
-            self.mode = .init(errorWriter: errorHandler, player: player)
+            let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
+            Task {
+                guard influxConfig.value.submit else { return }
+                await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
+            }
+            self.mode = .init(errorWriter: errorHandler, player: player, metricsSubmitter: submitter)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
         }
 

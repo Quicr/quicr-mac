@@ -41,7 +41,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     private let id = UUID()
     private var h264Encoders: [H264Encoder] = []
 
-    required init(errorWriter: ErrorWriter, player: AudioPlayer) {
+    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         self.errorHandler = errorWriter
         self.player = player
         self.pipeline = .init(
@@ -58,7 +58,8 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                 mode.player.write(identifier: id, buffer: buffer)
             },
             debugging: false,
-            errorWriter: errorWriter)
+            errorWriter: errorWriter,
+            metricsSubmitter: metricsSubmitter)
     }
 
     func hash(into hasher: inout Hasher) {
