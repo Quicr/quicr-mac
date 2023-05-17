@@ -30,10 +30,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     private let id = UUID()
 
-    @AppStorage("manifestAddress") private var manifestAddress: String = "conf.quicr.ctgpoc.com"
-    @AppStorage("manifestPort") private var manifestPort: Int = 411
-    @AppStorage("manifestScheme") private var manifestScheme: String = "https"
-
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         self.errorHandler = errorWriter
         self.player = player
@@ -60,10 +56,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             guard let mode = self else { return }
             mode.player.write(identifier: id, buffer: buffer)
         }
-
-        ManifestController.shared.setServer(config: .init(scheme: manifestScheme,
-                                                          url: manifestAddress,
-                                                          port: manifestPort))
     }
 
     deinit {

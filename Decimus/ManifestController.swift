@@ -1,9 +1,9 @@
 import Foundation
 
-struct ManifestServerConfig {
-    let scheme: String
-    let url: String
-    let port: Int
+struct ManifestServerConfig: Codable {
+    var scheme: String
+    var url: String
+    var port: Int
 }
 
 class ManifestController {
@@ -53,17 +53,53 @@ class ManifestController {
         mutex.wait()
     }
 
-    func getConferences() {
+    func getUser(email: String) async -> String {
+        var url = components
+        url.path = "/users"
+
+        let request = makeRequest(method: "GET", components: url)
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
+            fatalError()
+        }
+
+        guard let user = json.first(where: { user in
+            guard let userEmail = user["email"] as? String else { fatalError() }
+            return userEmail == email
+        }) else {
+            return ""
+        }
+
+        guard let userId = user["id"] as? String else { fatalError() }
+        return userId
+    }
+
+    func getConferences(for id: String) async -> [UInt32: String] {
         var url = components
         url.path = "/conferences"
 
+        var meetings: [UInt32: String] = [:]
         let request = makeRequest(method: "GET", components: url)
-        sendRequest(request) { data in
-            print(data.prettyPrintedJSONString!)
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
+            fatalError()
         }
+
+        let conferences = json.filter { conference in
+            guard let participants = conference["participants"] as? [String] else { return false }
+            return participants.contains(id)
+        }
+
+        for conference in conferences {
+            guard let id = conference["id"] as? UInt32 else { fatalError() }
+            guard let title = conference["title"] as? String else { fatalError() }
+            meetings[id] = title
+        }
+
+        return meetings
     }
 
-    func getManifest(confId: UInt32, email: String) -> String {
+    func getManifest(confId: UInt32, email: String) async -> String {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
@@ -72,10 +108,10 @@ class ManifestController {
 
         var manifest: String = ""
         let request = makeRequest(method: "GET", components: url)
-        sendRequest(request) { data in
-            guard let json = data.prettyPrintedJSONString else { return }
-            manifest = json as String
-        }
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+
+        guard let json = data.prettyPrintedJSONString else { return "" }
+        manifest = json as String
 
         return manifest
     }
@@ -90,14 +126,6 @@ class ManifestController {
 }
 
 extension Data {
-    var json: [String: Any]? {
-        do {
-            return try JSONSerialization.jsonObject(with: self, options: []) as? [String: Any]
-        } catch {
-            fatalError(error.localizedDescription)
-        }
-    }
-
     var prettyPrintedJSONString: NSString? {
         guard let jsonObject = try? JSONSerialization.jsonObject(with: self, options: []),
               let data = try? JSONSerialization.data(withJSONObject: jsonObject,

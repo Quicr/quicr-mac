@@ -10,13 +10,22 @@ private let buttonColour = ActionButtonStyleConfig(
 private struct LoginForm: View {
     @AppStorage("email") private var email: String = ""
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
+    @AppStorage("manifestConfig") private var manifestConfig: Data = .init()
+
+    @State private var isAllowedJoin: Bool = false
+    @State private var meetings: [UInt32: String] = [:]
+
     @State private var callConfig = CallConfig(address: "",
                                                port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
-                                               connectionProtocol: .QUIC)
+                                               connectionProtocol: .QUIC,
+                                               conferenceId: 1)
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
+
+        guard let config = try? JSONDecoder().decode(ManifestServerConfig.self, from: manifestConfig) else { return }
+        ManifestController.shared.setServer(config: config)
     }
 
     var body: some View {
@@ -26,8 +35,30 @@ private struct LoginForm: View {
                     Text("Email")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField("email", text: $email, prompt: Text("example@cisco.com"))
+                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                        .keyboardType(.emailAddress)
+                        .onChange(of: callConfig.email, perform: { value in
+                            Task {
+                                email = value
+                                let userId = await ManifestController.shared.getUser(email: email)
+                                meetings = await ManifestController.shared.getConferences(for: userId)
+                            }
+                        })
                         .textFieldStyle(FormInputStyle())
+                }
+
+                if email != "" {
+                    VStack(alignment: .leading) {
+                        Text("Meeting")
+                            .padding(.horizontal)
+                            .foregroundColor(.white)
+                        Picker("", selection: $callConfig.conferenceId) {
+                            ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                Text(meeting).tag(id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
                 }
 
                 RadioButtonGroup("Protocol",
@@ -37,16 +68,18 @@ private struct LoginForm: View {
                     .init(address: relayAddress,
                           port: getPort(.UDP),
                           connectionProtocol: .UDP,
-                          email: email),
+                          email: callConfig.email,
+                          conferenceId: callConfig.conferenceId),
                     .init(address: relayAddress,
                           port: getPort(.QUIC),
                           connectionProtocol: .QUIC,
-                          email: email)
+                          email: callConfig.email,
+                          conferenceId: callConfig.conferenceId)
                 ])
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
-                             disabled: callConfig.email == "" || callConfig.port == 0,
+                             disabled: !isAllowedJoin || callConfig.email == "",
                              styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
@@ -59,6 +92,21 @@ private struct LoginForm: View {
         .scrollContentBackground(.hidden)
         .frame(maxHeight: 450)
         .scrollDisabled(true)
+        .onAppear {
+            Task {
+                let userId = await ManifestController.shared.getUser(email: email)
+                meetings = await ManifestController.shared.getConferences(for: userId)
+            }
+            callConfig = CallConfig(address: relayAddress,
+                                    port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                    connectionProtocol: .QUIC,
+                                    email: email,
+                                    conferenceId: 1)
+
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
+                isAllowedJoin = true
+            }
+        }
     }
 
     func join() {

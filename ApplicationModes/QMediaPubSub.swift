@@ -9,18 +9,13 @@ enum ApplicationError: Error {
 }
 
 class QMediaPubSub: ApplicationModeBase {
-    private static weak var weakSelf: QMediaPubSub?
+    static weak var weakSelf: QMediaPubSub?
     private var mediaClient: MediaClient?
 
     private var publishStreamIds: [UInt64: [UInt64]] = [:]
     private var streamIdMap: [UInt64] = []
 
-    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
-        guard QMediaPubSub.weakSelf == nil else { fatalError("Previous QMediaPubSub not destroyed") }
-        super.init(errorWriter: errorWriter, player: player)
-
-        QMediaPubSub.weakSelf = self
-    }
+    private var conferenceId: UInt32 = 1
 
     private let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard QMediaPubSub.weakSelf != nil else {
@@ -38,17 +33,27 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
-    func connect(config: CallConfig) throws {
+    func connect(config: CallConfig, onReady: () -> Void) throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
 
+        QMediaPubSub.weakSelf = self
         mediaClient = .init(address: .init(string: config.address)!,
                             port: config.port,
                             protocol: config.connectionProtocol)
 
-        let manifest = ManifestController.shared.getManifest(confId: 1, email: config.email)
-        mediaClient!.getStreamConfigs(manifest,
-                                      prepareEncoderCallback: prepareEncoder,
-                                      prepareDecoderCallback: prepareDecoder)
+        conferenceId = config.conferenceId
+
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
+            mediaClient!.getStreamConfigs(manifest,
+                                          prepareEncoderCallback: prepareEncoder,
+                                          prepareDecoderCallback: prepareDecoder)
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        onReady()
     }
 
     func disconnect() throws {
@@ -67,6 +72,7 @@ class QMediaPubSub: ApplicationModeBase {
         streamIdMap.removeAll()
 
         mediaClient = nil
+        QMediaPubSub.weakSelf = nil
     }
 
     private func writeError(message: String) {
@@ -75,8 +81,9 @@ class QMediaPubSub: ApplicationModeBase {
 
     private func prepareEncoder(sourceId: UInt64, mediaType: UInt8, endpoint: UInt16, config: CodecConfig) {
         let config = config
-        let streamId = mediaClient!.addStreamPublishIntent(codec: mediaType,
-                                                           clientIdentifier: endpoint)
+        let streamId = mediaClient!.addStreamPublishIntent(conferenceId: conferenceId,
+                                                           mediaType: mediaType,
+                                                           clientId: endpoint)
         if publishStreamIds[sourceId] == nil {
             publishStreamIds[sourceId] = [streamId]
         } else {
@@ -88,7 +95,10 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     private func prepareDecoder(sourceId: UInt64, mediaType: UInt8, endpoint: UInt16, config: CodecConfig) {
-        let streamId = mediaClient!.addStreamSubscribe(codec: mediaType, clientId: endpoint, callback: streamCallback)
+        let streamId = mediaClient!.addStreamSubscribe(conferenceId: conferenceId,
+                                                       mediaType: mediaType,
+                                                       clientId: endpoint,
+                                                       callback: streamCallback)
         streamIdMap.append(streamId)
 
         self.pipeline!.registerDecoder(identifier: streamId, config: config)

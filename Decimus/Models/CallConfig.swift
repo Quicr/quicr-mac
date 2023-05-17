@@ -10,4 +10,6 @@ struct CallConfig: Hashable {
     var connectionProtocol: MediaClient.ProtocolType
 
     var email: String = ""
+
+    var conferenceId: UInt32 = 1
 }

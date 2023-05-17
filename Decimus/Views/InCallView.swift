@@ -43,9 +43,6 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
             ErrorView(errorHandler: viewModel.errorHandler)
         }
         .background(.black)
-        .task {
-            await viewModel.join()
-        }
         .onDisappear {
             Task {
                 await viewModel.leave()
@@ -79,9 +76,6 @@ extension InCallView {
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
         }
 
-        func join() async {
-            await callController!.join()
-        }
         func leave() async {
             await callController!.leave()
             do {
@@ -153,7 +147,9 @@ extension InCallView.ViewModel where Mode == QMediaPubSub {
     convenience init(config: CallConfig) {
         self.init()
         do {
-            try mode!.connect(config: config)
+            try mode!.connect(config: config) {
+                Task { await callController!.join() }
+            }
         } catch {
             self.errorHandler.writeError(message: "[QMediaPubSub] Already connected!")
         }
