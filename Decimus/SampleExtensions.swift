@@ -3,7 +3,7 @@ import AVFoundation
 
 extension CMSampleBuffer {
 
-    func getMediaBuffer(source: UInt32) -> MediaBufferFromSource {
+    func getMediaBuffer(source: UInt64) -> MediaBufferFromSource {
         .init(source: source, media: self.getMediaBuffer())
     }
 

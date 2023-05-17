@@ -6,20 +6,20 @@ enum ParticipantError: Error {
 }
 
 class VideoParticipant: ObservableObject, Identifiable {
-    var id: UInt32
+    var id: UInt64
     @Published var decodedImage: Image
 
-    init(id: UInt32) {
+    init(id: UInt64) {
         self.id = id
         decodedImage = .init(systemName: "phone")
     }
 }
 
 class VideoParticipants: ObservableObject {
-    var participants: [UInt32: VideoParticipant] = [:]
-    private var cancellables: [UInt32: AnyCancellable] = [:]
+    var participants: [UInt64: VideoParticipant] = [:]
+    private var cancellables: [UInt64: AnyCancellable] = [:]
 
-    func getOrMake(identifier: UInt32) -> VideoParticipant {
+    func getOrMake(identifier: UInt64) -> VideoParticipant {
         if let participant = participants[identifier] {
             return participant
         }
@@ -35,7 +35,7 @@ class VideoParticipants: ObservableObject {
         return new
     }
 
-    func removeParticipant(identifier: UInt32) throws {
+    func removeParticipant(identifier: UInt64) throws {
         let removed = participants.removeValue(forKey: identifier)
         guard removed != nil else { throw ParticipantError.notFound }
         removed!.objectWillChange.send()

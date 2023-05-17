@@ -1,15 +1,11 @@
 import CoreMedia
 import AVFoundation
 
-class PassthroughEncoder: Encoder {
-
-    private let callback: Encoder.EncodedSampleCallback
-
-    init(callback: @escaping Encoder.EncodedSampleCallback) {
-        self.callback = callback
-    }
+class PassthroughEncoder: SampleEncoder {
+    internal var callback: EncodedSampleCallback?
 
     func write(sample: CMSampleBuffer) {
+        guard let callback = callback else { fatalError("Callback not set for encoder") }
         callback(sample)
     }
 }

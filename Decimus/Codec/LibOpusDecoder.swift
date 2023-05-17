@@ -2,34 +2,22 @@ import Opus
 import AVFoundation
 
 /// Decodes audio using libopus.
-class LibOpusDecoder: Decoder {
+class LibOpusDecoder: BufferDecoder {
 
     private let decoder: Opus.Decoder
-    private let callback: PipelineManager.DecodedAudio
+    internal var callback: DecodedBufferCallback?
     private let format: AVAudioFormat
-    private let fileWrite: Bool
-    private var outputPcm: AVAudioFile?
-    private let errorWriter: ErrorWriter
 
     /// Create an opus decoder with the given input format.
     /// - Parameter format: The incoming opus format.
     /// - Parameter fileWrite: True to write decoded audio to a file (debugging).
     /// - Parameter errorWriter: Protocol to report errors to.
     /// - Parameter callback: A callback fired when decoded data becomes available.
-    init(format: AVAudioFormat,
-         fileWrite: Bool,
-         errorWriter: ErrorWriter,
-         callback: @escaping PipelineManager.DecodedAudio) {
-        self.callback = callback
+    init(format: AVAudioFormat) {
         self.format = format
-        self.fileWrite = fileWrite
-        self.errorWriter = errorWriter
         do {
             guard format.isValidOpusPCMFormat else { fatalError() }
             decoder = try .init(format: format, application: .voip)
-            if fileWrite {
-                outputPcm = try makeOutputFile(sampleFormat: format)
-            }
         } catch {
             fatalError("Opus => Unsupported format?")
         }
@@ -39,6 +27,8 @@ class LibOpusDecoder: Decoder {
     /// - Parameter data: Pointer to some encoded opus data.
     /// - Parameter timestamp: Timestamp of this encoded data.
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         // Get to the right pointer type.
         let unsafe: UnsafePointer<UInt8> = data.baseAddress!.assumingMemoryBound(to: UInt8.self)
         let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)
@@ -49,28 +39,9 @@ class LibOpusDecoder: Decoder {
         do {
             try decoder.decode(ubp, to: decoded)
             let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
-            if fileWrite {
-                do {
-                    try outputPcm?.write(from: decoded)
-                } catch {
-                    fatalError(error.localizedDescription)
-                }
-            }
             callback(decoded, timestamp)
         } catch {
-            errorWriter.writeError(message: "Opus => Failed to decode: \(error)")
+            fatalError("Opus => Failed to decode: \(error)")
         }
-    }
-
-    private func makeOutputFile(sampleFormat: AVAudioFormat) throws -> AVAudioFile {
-        let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).last
-        return try .init(forWriting: dir!.appendingPathComponent("output.wav"),
-                         settings: [
-                            "AVFormatIdKey": kAudioFormatLinearPCM,
-                            "AVSampleRateKey": sampleFormat.sampleRate,
-                            "AVNumberOfChannelsKey": sampleFormat.channelCount
-                         ],
-                         commonFormat: sampleFormat.commonFormat,
-                         interleaved: sampleFormat.isInterleaved)
     }
 }

@@ -4,17 +4,10 @@ import AVFoundation
 
 class RawLoopback: ApplicationModeBase {
 
-    let localMirrorParticipants: UInt32 = 0
-    private var devices: [UInt32: AVCaptureDevice.Position] = [:]
+    let localMirrorParticipants: UInt64 = 0
+    private var devices: [UInt64: AVCaptureDevice.Position] = [:]
 
-    override func createVideoEncoder(identifier: UInt32,
-                                     width: Int32,
-                                     height: Int32,
-                                     orientation: AVCaptureVideoOrientation?,
-                                     verticalMirror: Bool) {}
-    override func createAudioEncoder(identifier: UInt32) {}
-
-    override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
         // NOOP.
     }
 
@@ -22,7 +15,7 @@ class RawLoopback: ApplicationModeBase {
         // NOOP.
     }
 
-    override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
+    override func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
         let mirror = devices[identifier] == .front
         for offset in 0...localMirrorParticipants {
             let mirrorIdentifier = identifier + offset
@@ -32,14 +25,13 @@ class RawLoopback: ApplicationModeBase {
                 orientation = UIDevice.current.orientation.videoOrientation
             #endif
             showDecodedImage(identifier: mirrorIdentifier,
-                             participants: participants,
                              decoded: ciImage,
                              orientation: orientation,
                              verticalMirror: mirror)
         }
     }
 
-    override func encodeAudioSample(identifier: UInt32, sample: CMSampleBuffer) {
+    override func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
         player.write(identifier: identifier, buffer: .fromSample(sample: sample))
     }
 

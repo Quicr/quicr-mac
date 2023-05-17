@@ -48,6 +48,5 @@ struct SidebarView: View {
 struct SidebarViewController_Previews: PreviewProvider {
     static var previews: some View {
         SidebarView()
-            .environmentObject(VideoParticipants())
     }
 }

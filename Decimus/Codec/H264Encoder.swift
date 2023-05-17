@@ -1,27 +1,18 @@
 import VideoToolbox
 import CoreVideo
+import UIKit
 import AVFoundation
 
-class H264Encoder: Encoder {
+class H264Encoder: SampleEncoder {
+    internal var callback: EncodedSampleCallback?
+
+    private var encoder: VTCompressionSession?
+    private let verticalMirror: Bool
 
     private let startCodeLength = 4
     private let startCode = [ 0x00, 0x00, 0x00, 0x01 ]
 
-    private var encoder: VTCompressionSession?
-    private let callback: EncodedSampleCallback
-
-    private let fps: Int32 = 60
-    private let bitrate: Int32 = 12
-    private var orientation: AVCaptureVideoOrientation?
-    private let verticalMirror: Bool
-
-    init(width: Int32,
-         height: Int32,
-         orientation: AVCaptureVideoOrientation?,
-         verticalMirror: Bool,
-         callback: @escaping EncodedSampleCallback) {
-        self.callback = callback
-        self.orientation = orientation
+    init(config: VideoCodecConfig, verticalMirror: Bool) {
         self.verticalMirror = verticalMirror
 
         let encoderSpecification = [
@@ -29,8 +20,8 @@ class H264Encoder: Encoder {
         ] as CFDictionary
 
         let error = VTCompressionSessionCreate(allocator: nil,
-                                               width: width,
-                                               height: height,
+                                               width: config.width,
+                                               height: config.height,
                                                codecType: kCMVideoCodecType_H264,
                                                encoderSpecification: encoderSpecification,
                                                imageBufferAttributes: nil,
@@ -51,9 +42,9 @@ class H264Encoder: Encoder {
                              value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
 
         VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: 2048000 as CFNumber)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: fps as CFNumber)
-        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: fps * 5 as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: config.bitrate as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: config.fps as CFNumber)
+        VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: 300 as CFNumber)
 
         VTCompressionSessionPrepareToEncodeFrames(encoder!)
     }
@@ -62,10 +53,6 @@ class H264Encoder: Encoder {
         guard let session = encoder else { return }
         VTCompressionSessionInvalidate(session)
         self.encoder = nil
-    }
-
-    func setOrientation(orientation: AVCaptureVideoOrientation) {
-        self.orientation = orientation
     }
 
     func write(sample: CMSampleBuffer) {
@@ -83,6 +70,7 @@ class H264Encoder: Encoder {
     }
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
+        guard let callback = callback else { fatalError("Callback not set for encoder") }
         guard status == .zero else { fatalError("Encode failure: \(status)")}
         guard let sample = sample else { return; }
 
@@ -106,16 +94,17 @@ class H264Encoder: Encoder {
             }
         }
 
+        #if !targetEnvironment(macCatalyst)
         // Orientation SEI.
         do {
-            if orientation != nil {
-                let orientationSei = try makeOrientationSEI(orientation: orientation!, verticalMirror: verticalMirror)
-                callback(orientationSei)
-            }
+            let orientationSei = try makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+                                                        verticalMirror: verticalMirror)
+            callback(orientationSei)
         } catch {
             print("Failed to make orientation SEI")
             return
         }
+        #endif
 
         let buffer = sample.dataBuffer!
         var offset = 0
@@ -245,7 +234,8 @@ class H264Encoder: Encoder {
         return parameterSample!
     }
 
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) throws -> CMSampleBuffer {
+    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
+                                    verticalMirror: Bool) throws -> CMSampleBuffer {
         let bytes: [UInt8] = [
             // Start Code.
             0x00, 0x00, 0x00, 0x01,

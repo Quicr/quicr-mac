@@ -1,9 +1,9 @@
 import Opus
 import AVFoundation
 
-class LibOpusEncoder: Encoder {
+class LibOpusEncoder: BufferEncoder {
     private var encoder: Opus.Encoder?
-    private let callback: MediaCallback
+    internal var callback: EncodedBufferCallback?
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
     private var currentFormat: AVAudioFormat?
@@ -13,10 +13,6 @@ class LibOpusEncoder: Encoder {
     private var buffer: [UInt8] = []
     private var timestamps: [CMTime] = []
     private var opusFrameSizeBytes: UInt32 = 0
-
-    init(callback: @escaping MediaCallback) {
-        self.callback = callback
-    }
 
     private func createEncoder(formatDescription: CMFormatDescription) {
         // Initialize an encoder if we haven't already.
@@ -79,6 +75,8 @@ class LibOpusEncoder: Encoder {
     }
 
     private func tryEncode() {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         let pcm: AVAudioPCMBuffer
         do {
             pcm = try buffer.toPCM(frames: opusFrameSize, format: currentFormat!)

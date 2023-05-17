@@ -4,12 +4,14 @@ import SwiftUI
 import AVFoundation
 
 class Loopback: ApplicationModeBase {
-    let localMirrorParticipants: UInt32 = 0
-
-    override func sendEncodedImage(identifier: UInt32, data: CMSampleBuffer) {
+    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[identifier] == nil {
-            pipeline!.registerDecoder(identifier: identifier, type: .video)
+            pipeline!.registerDecoder(identifier: identifier, config: VideoCodecConfig(codec: .h264,
+                                                                                       bitrate: 0,
+                                                                                       fps: 0,
+                                                                                       width: 0,
+                                                                                       height: 0))
         }
         pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
     }
@@ -17,16 +19,9 @@ class Loopback: ApplicationModeBase {
     override func sendEncodedAudio(data: MediaBufferFromSource) {
         // Loopback: Write encoded data to decoder.
         if pipeline!.decoders[data.source] == nil {
-            pipeline!.registerDecoder(identifier: data.source, type: .audio)
+            pipeline!.registerDecoder(identifier: data.source, config: AudioCodecConfig(codec: .opus, bitrate: 0))
         }
         pipeline!.decode(mediaBuffer: data)
-    }
-
-    override func encodeCameraFrame(identifier: UInt32, frame: CMSampleBuffer) {
-        for offset in 0...localMirrorParticipants {
-            let mirrorIdentifier = identifier + offset
-            super.encodeCameraFrame(identifier: mirrorIdentifier, frame: frame)
-        }
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
@@ -37,21 +32,6 @@ class Loopback: ApplicationModeBase {
             removeRemoteSource(identifier: device.id)
         default:
             return
-        }
-    }
-
-    override func createVideoEncoder(identifier: UInt32,
-                                     width: Int32,
-                                     height: Int32,
-                                     orientation: AVCaptureVideoOrientation?,
-                                     verticalMirror: Bool) {
-        for offset in 0...localMirrorParticipants {
-            let mirrorIdentifier = identifier + offset
-            super.createVideoEncoder(identifier: mirrorIdentifier,
-                                     width: width,
-                                     height: height,
-                                     orientation: orientation,
-                                     verticalMirror: verticalMirror)
         }
     }
 }

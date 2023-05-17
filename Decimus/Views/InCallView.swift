@@ -43,9 +43,6 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
             ErrorView(errorHandler: viewModel.errorHandler)
         }
         .background(.black)
-        .task {
-            await viewModel.join()
-        }
         .onDisappear {
             Task {
                 await viewModel.leave()
@@ -60,7 +57,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private(set) var errorHandler = ObservableError()
         private(set) var mode: Mode?
-        private(set) var callController: CallController?
+        var callController: CallController?
         private var unitFactory: AudioUnitFactory?
 
         @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
@@ -79,9 +76,6 @@ extension InCallView {
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
         }
 
-        func join() async {
-            await callController!.join()
-        }
         func leave() async {
             await callController!.leave()
             do {
@@ -153,7 +147,9 @@ extension InCallView.ViewModel where Mode == QMediaPubSub {
     convenience init(config: CallConfig) {
         self.init()
         do {
-            try mode!.connect(config: config)
+            try mode!.connect(config: config) {
+                Task { await callController!.join() }
+            }
         } catch {
             self.errorHandler.writeError(message: "[QMediaPubSub] Already connected!")
         }

@@ -152,16 +152,28 @@ class CallController: ObservableObject {
     @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
     @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
     @Published var selectedMicrophone: AVCaptureDevice?
-    @Published var capture: CaptureManager?
+    @Published var capture: CaptureManager
 
-    init(mode: ApplicationModeBase, errorHandler: ErrorWriter) {
+    init(mode: ApplicationModeBase?, errorHandler: ErrorWriter) {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = .init(
-            cameraCallback: mode.encodeCameraFrame,
-            audioCallback: mode.encodeAudioSample,
-            deviceChangeCallback: mode.onDeviceChange,
+            cameraCallback: { [weak mode] id, sample in
+                guard let mode = mode else { return }
+                mode.encodeCameraFrame(identifier: id, frame: sample)
+            },
+            audioCallback: { [weak mode] id, sample in
+                guard let mode = mode else { return }
+                mode.encodeAudioSample(identifier: id, sample: sample)
+            },
+            deviceChangeCallback: { [weak mode] device, event in
+                guard let mode = mode else { return }
+                mode.onDeviceChange(device: device, event: event)
+            },
             errorHandler: errorHandler
         )
+    }
+
+    deinit {
     }
 
     func join() async {
@@ -172,17 +184,17 @@ class CallController: ObservableObject {
             await addDevice(device: selectedMicrophone!)
         }
 
-        await capture!.startCapturing()
+        await capture.startCapturing()
     }
 
     func leave() async {
         usingDevice.forEach({ device, _ in
-            Task { await capture!.removeInput(device: device) }
+            Task { await capture.removeInput(device: device) }
         })
         usingDevice.removeAll()
         alteringDevice.removeAll()
 
-        await capture!.stopCapturing()
+        await capture.stopCapturing()
     }
 
     func addDevice(device: AVCaptureDevice) async {
@@ -190,7 +202,7 @@ class CallController: ObservableObject {
             return
         }
         alteringDevice[device] = true
-        await capture!.addInput(device: device)
+        await capture.addInput(device: device)
         usingDevice[device] = true
         alteringDevice[device] = false
     }
@@ -200,7 +212,7 @@ class CallController: ObservableObject {
             return
         }
         alteringDevice[device] = true
-        await capture!.removeInput(device: device)
+        await capture.removeInput(device: device)
         usingDevice[device] = false
         alteringDevice[device] = false
     }
@@ -210,7 +222,7 @@ class CallController: ObservableObject {
             return
         }
         alteringDevice[device] = true
-        usingDevice[device] = await capture!.toggleInput(device: device)
+        usingDevice[device] = await capture.toggleInput(device: device)
         alteringDevice[device] = false
     }
 
@@ -220,12 +232,12 @@ class CallController: ObservableObject {
     }
 
     func isUsingMicrophone() async -> Bool {
-        return await capture!.isMuted()
+        return await capture.isMuted()
     }
 
     func toggleMute() async -> Bool {
         guard selectedMicrophone != nil else { return false }
-        return await capture!.toggleAudio()
+        return await capture.toggleAudio()
     }
 }
 

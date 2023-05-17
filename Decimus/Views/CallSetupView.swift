@@ -2,59 +2,83 @@ import SwiftUI
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
-private struct LoginForm: View {
-    @State private var callConfig = CallConfig(address: "",
-                                               port: 0,
-                                               connectionProtocol: QMedia.ProtocolType.QUIC)
-    private var joinMeetingCallback: ConfigCallback
+private let buttonColour = ActionButtonStyleConfig(
+    background: .white,
+    foreground: .black
+)
 
-    private let buttonColour = ActionButtonStyleConfig(
-        background: .white,
-        foreground: .black
-    )
+private struct LoginForm: View {
+    @AppStorage("email") private var email: String = ""
+    @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
+    @AppStorage("manifestConfig")
+    private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
+
+    @State private var isAllowedJoin: Bool = false
+    @State private var meetings: [UInt32: String] = [:]
+
+    @State private var callConfig = CallConfig(address: "",
+                                               port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                               connectionProtocol: .QUIC,
+                                               conferenceId: 1)
+    private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
+        ManifestController.shared.setServer(config: manifestConfig.value)
     }
 
     var body: some View {
         Form {
             Section {
-                RadioButtonGroup("Developer Relays",
-                                 selection: $callConfig,
-                                 labels: ["localhost", "AWS"],
-                                 tags: [
-                    .init(address: "127.0.0.1", port: 1234, connectionProtocol: callConfig.connectionProtocol),
-                    .init(address: "relay.us-west-2.quicr.ctgpoc.com",
-                          port: callConfig.connectionProtocol == QMedia.ProtocolType.UDP ? 33434 : 33435,
-                          connectionProtocol: callConfig.connectionProtocol)
-                ])
-
                 VStack(alignment: .leading) {
-                    Text("Address")
+                    Text("Email")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField.init("address", text: $callConfig.address, prompt: Text(""))
+                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                        .keyboardType(.emailAddress)
+                        .onChange(of: callConfig.email, perform: { value in
+                            Task {
+                                email = value
+                                let userId = await ManifestController.shared.getUser(email: email)
+                                meetings = await ManifestController.shared.getConferences(for: userId)
+                            }
+                        })
                         .textFieldStyle(FormInputStyle())
                 }
-                VStack(alignment: .leading) {
-                    Text("Port")
-                        .padding(.horizontal)
-                        .foregroundColor(.white)
-                    TextField.init("port",
-                                   value: $callConfig.port,
-                                   format: .number.grouping(.never),
-                                   prompt: Text(""))
-                        .textFieldStyle(FormInputStyle())
+
+                if email != "" {
+                    VStack(alignment: .leading) {
+                        Text("Meeting")
+                            .padding(.horizontal)
+                            .foregroundColor(.white)
+                        Picker("", selection: $callConfig.conferenceId) {
+                            ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                Text(meeting).tag(id)
+                            }
+                        }
+                        .labelsHidden()
+                    }
                 }
 
                 RadioButtonGroup("Protocol",
-                                 selection: $callConfig.connectionProtocol,
-                                 tags: QMedia.ProtocolType.allCases)
+                                 selection: $callConfig,
+                                 labels: ["UDP", "QUIC"],
+                                 tags: [
+                    .init(address: relayAddress,
+                          port: getPort(.UDP),
+                          connectionProtocol: .UDP,
+                          email: callConfig.email,
+                          conferenceId: callConfig.conferenceId),
+                    .init(address: relayAddress,
+                          port: getPort(.QUIC),
+                          connectionProtocol: .QUIC,
+                          email: callConfig.email,
+                          conferenceId: callConfig.conferenceId)
+                ])
 
                 ActionButton("Join Meeting",
                              font: Font.system(size: 19, weight: .semibold),
-                             disabled: callConfig.address == "" || callConfig.port == 0,
+                             disabled: !isAllowedJoin || callConfig.email == "",
                              styleConfig: buttonColour,
                              action: join)
                 .frame(maxWidth: .infinity)
@@ -65,11 +89,33 @@ private struct LoginForm: View {
         }
         .background(.clear)
         .scrollContentBackground(.hidden)
+        .frame(maxHeight: 450)
         .scrollDisabled(true)
+        .onAppear {
+            Task {
+                let userId = await ManifestController.shared.getUser(email: email)
+                meetings = await ManifestController.shared.getConferences(for: userId)
+            }
+            callConfig = CallConfig(address: relayAddress,
+                                    port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                    connectionProtocol: .QUIC,
+                                    email: email,
+                                    conferenceId: 1)
+
+            Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
+                isAllowedJoin = true
+            }
+        }
     }
 
     func join() {
         joinMeetingCallback(callConfig)
+    }
+
+    private func getPort(_ proto: MediaClient.ProtocolType) -> UInt16 {
+        guard let address = RelayURLs(rawValue: relayAddress) else { fatalError() }
+        guard let config = relayConfigs[address] else { fatalError() }
+        return config[proto] ?? 0
     }
 }
 
@@ -104,7 +150,7 @@ struct CallSetupView: View {
                     .font(.largeTitle)
                     .bold()
                     .foregroundColor(.white)
-                Spacer(minLength: 25)
+                    .padding()
                 Text("Join a meeting")
                     .font(.title)
                     .foregroundColor(.white)

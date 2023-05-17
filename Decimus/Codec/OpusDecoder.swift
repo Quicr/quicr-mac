@@ -1,15 +1,14 @@
 import CoreMedia
 import AVFoundation
 
-class OpusDecoder: Decoder {
+class OpusDecoder: BufferDecoder {
 
-    private let callback: PipelineManager.DecodedAudio
+    internal var callback: DecodedBufferCallback?
     private let converter: AVAudioConverter
     private let opus: AVAudioFormat
     private let output: AVAudioFormat
 
-    init(output: AVAudioFormat, callback: @escaping PipelineManager.DecodedAudio) {
-        self.callback = callback
+    init(output: AVAudioFormat) {
         self.output = output
         var opusDesc: AudioStreamBasicDescription = .init(mSampleRate: Double(48000),
                                                           mFormatID: kAudioFormatOpus,
@@ -25,6 +24,8 @@ class OpusDecoder: Decoder {
     }
 
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+        guard let callback = callback else { fatalError("Callback not set for decoder") }
+
         let pcm: AVAudioPCMBuffer = .init(pcmFormat: output,
                                           frameCapacity: 960)!
         var error: NSError?

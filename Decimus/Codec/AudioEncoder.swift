@@ -3,25 +3,26 @@ import AVFoundation
 import CoreAudio
 import DequeModule
 
-class AudioEncoder: Encoder {
-
+class AudioEncoder: SampleEncoder {
     // A sample is a single value
     // A frame is a collection of samples for the same time value (i.e frames = sample * channels).
     // A packet is the smallest possible collection of frames for given format. PCM=1, Opus=20ms?
 
+    internal var callback: EncodedSampleCallback?
+
     private var converter: AVAudioConverter?
-    private let callback: EncodedSampleCallback
     private var currentFormat: AVAudioFormat?
     private var inputBuffers: Deque<CMSampleBuffer> = .init(minimumCapacity: 5)
     private let targetFormat: AVAudioFormat
     private var readByteOffset = 0
 
-    init(to targetFormat: AVAudioFormat, callback: @escaping EncodedSampleCallback) {
+    init(to targetFormat: AVAudioFormat) {
         self.targetFormat = targetFormat
-        self.callback = callback
     }
 
     func write(sample: CMSampleBuffer) {
+        guard let callback = callback else { fatalError("Callback not set for encoder") }
+
         // Ensure format exists and no change.
         guard sample.formatDescription != nil else { fatalError() }
         let format: AVAudioFormat = .init(cmAudioFormatDescription: sample.formatDescription!)
