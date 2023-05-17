@@ -12,8 +12,12 @@ class MediaClient {
     /// Initialize a new instance of QMedia.
     /// - Parameter address: Address to connect to.
     /// - Parameter port: Port to connect on.
-    init(address: URL, port: UInt16, protocol connectionProtocol: ProtocolType) {
-        MediaClient_Create(address.absoluteString, port, connectionProtocol.rawValue, &instance)
+    init(address: URL, port: UInt16, protocol connectionProtocol: ProtocolType, conferenceId: UInt32) {
+        MediaClient_Create(address.absoluteString,
+                           port,
+                           connectionProtocol.rawValue,
+                           conferenceId,
+                           &instance)
     }
 
     /// Destroy the instance of QMedia
@@ -25,16 +29,16 @@ class MediaClient {
     /// Signal the intent to publish a stream.
     /// - Parameter codec: The `CodecType` being published.
     /// - Returns Stream identifier to use for sending.
-    func addStreamPublishIntent(conferenceId: UInt32, mediaType: UInt8, clientId: UInt16) -> UInt64 {
-        MediaClient_AddStreamPublishIntent(instance, conferenceId, mediaType, clientId)
+    func addStreamPublishIntent(mediaType: UInt8, clientId: UInt16) -> UInt64 {
+        MediaClient_AddStreamPublishIntent(instance, mediaType, clientId)
     }
 
     /// Subscribe to an audio stream.
     /// - Parameter codec: The `CodecType` of interest.
     /// - Parameter callback: Function to run on receipt of data.
     /// - Returns The stream identifier subscribed to.
-    func addStreamSubscribe(conferenceId: UInt32, mediaType: UInt8, clientId: UInt16, callback: @escaping SubscribeCallback) -> UInt64 {
-        MediaClient_AddStreamSubscribe(instance, conferenceId, mediaType, clientId, callback)
+    func addStreamSubscribe(mediaType: UInt8, clientId: UInt16, callback: @escaping SubscribeCallback) -> UInt64 {
+        MediaClient_AddStreamSubscribe(instance, mediaType, clientId, callback)
     }
 
     func removeMediaPublishStream(mediaStreamId: UInt64) {

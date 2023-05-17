@@ -23,10 +23,6 @@ class LibOpusDecoder: BufferDecoder {
         }
     }
 
-    func registerCallback(callback: @escaping DecodedBufferCallback) {
-        self.callback = callback
-    }
-
     /// Write some encoded data to the decoder.
     /// - Parameter data: Pointer to some encoded opus data.
     /// - Parameter timestamp: Timestamp of this encoded data.

@@ -8,14 +8,26 @@ protocol Decoder {
 
 protocol SampleDecoder: Decoder {
     typealias DecodedSampleCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
-    var callback: DecodedSampleCallback? {get}
+    var callback: DecodedSampleCallback? {get set}
 
-    func registerCallback(callback: @escaping DecodedSampleCallback)
+    mutating func registerCallback(callback: @escaping DecodedSampleCallback)
+}
+
+extension SampleDecoder {
+    mutating func registerCallback(callback: @escaping DecodedSampleCallback) {
+        self.callback = callback
+    }
 }
 
 protocol BufferDecoder: Decoder {
     typealias DecodedBufferCallback = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
-    var callback: DecodedBufferCallback? {get}
+    var callback: DecodedBufferCallback? {get set}
 
-    func registerCallback(callback: @escaping DecodedBufferCallback)
+    mutating func registerCallback(callback: @escaping DecodedBufferCallback)
+}
+
+extension BufferDecoder {
+    mutating func registerCallback(callback: @escaping DecodedBufferCallback) {
+        self.callback = callback
+    }
 }

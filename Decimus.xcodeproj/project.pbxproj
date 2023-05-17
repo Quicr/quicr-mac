@@ -366,7 +366,6 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
-				18C89A472A14EF02005B333B /* Settings */,
 				18C89A372A13D14A005B333B /* Metrics */,
 				9B87FB4C2A02A84000C92DD1 /* AudioUnit */,
 				185D628E29BF3C5A0011E634 /* Info.plist */,
@@ -403,6 +402,7 @@
 		9BA27FF6297D7D61007013B2 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				18C89A472A14EF02005B333B /* Settings */,
 				FFBF2FB529BFE47000D769CF /* Components */,
 				9B480670297F320E0040F5D4 /* PreviewView.swift */,
 				9BA27FF2297D7562007013B2 /* SidebarView.swift */,

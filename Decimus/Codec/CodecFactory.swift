@@ -162,17 +162,17 @@ class CodecFactory {
     /// Creates an encoder from a factory callback.
     /// - Parameter sourceId: The identifier for the source to encode.
     /// - Parameter config: The codec config information to use to create the encoder.
-    func createEncoder(identifier: UInt64, config: CodecConfig) -> Encoder {
+    func createEncoder(identifier: UInt64, config: CodecConfig, metricsSubmitter: MetricsSubmitter) -> Encoder {
         guard let factory = encoderFactories[config.codec] else {
             fatalError("No encoder factory found for codec type: \(config.codec)")
         }
 
         let encoder = factory(config)
-        if let sampleEncoder = encoder as? SampleEncoder {
+        if var sampleEncoder = encoder as? SampleEncoder {
             sampleEncoder.registerCallback(callback: { sample in
                 self.encodedSampleCallback(identifier, sample)
             })
-        } else if let bufferEncoder = encoder as? BufferEncoder {
+        } else if var bufferEncoder = encoder as? BufferEncoder {
             bufferEncoder.registerCallback(callback: { buffer in
                 self.encodedBufferCallback(identifier, buffer)
             })
@@ -190,11 +190,11 @@ class CodecFactory {
         }
 
         let decoder = factory(config)
-        if let sampleDecoder = decoder as? SampleDecoder {
+        if var sampleDecoder = decoder as? SampleDecoder {
             sampleDecoder.registerCallback { image, timestamp, orientation, verticalMirror in
                 self.decodedSampleCallback(identifier, image, timestamp, orientation, verticalMirror)
             }
-        } else if let bufferDecoder = decoder as? BufferDecoder {
+        } else if var bufferDecoder = decoder as? BufferDecoder {
             bufferDecoder.registerCallback { pcm, _ in
                 self.decodedBufferCallback(identifier, pcm)
             }

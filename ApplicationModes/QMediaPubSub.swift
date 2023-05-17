@@ -39,9 +39,8 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf = self
         mediaClient = .init(address: .init(string: config.address)!,
                             port: config.port,
-                            protocol: config.connectionProtocol)
-
-        conferenceId = config.conferenceId
+                            protocol: config.connectionProtocol,
+                            conferenceId: config.conferenceId)
 
         let semaphore = DispatchSemaphore(value: 0)
         Task {
@@ -81,9 +80,7 @@ class QMediaPubSub: ApplicationModeBase {
 
     private func prepareEncoder(sourceId: UInt64, mediaType: UInt8, endpoint: UInt16, config: CodecConfig) {
         let config = config
-        let streamId = mediaClient!.addStreamPublishIntent(conferenceId: conferenceId,
-                                                           mediaType: mediaType,
-                                                           clientId: endpoint)
+        let streamId = mediaClient!.addStreamPublishIntent(mediaType: mediaType, clientId: endpoint)
         if publishStreamIds[sourceId] == nil {
             publishStreamIds[sourceId] = [streamId]
         } else {
@@ -95,8 +92,7 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     private func prepareDecoder(sourceId: UInt64, mediaType: UInt8, endpoint: UInt16, config: CodecConfig) {
-        let streamId = mediaClient!.addStreamSubscribe(conferenceId: conferenceId,
-                                                       mediaType: mediaType,
+        let streamId = mediaClient!.addStreamSubscribe(mediaType: mediaType,
                                                        clientId: endpoint,
                                                        callback: streamCallback)
         streamIdMap.append(streamId)

@@ -14,10 +14,6 @@ class LibOpusEncoder: BufferEncoder {
     private var timestamps: [CMTime] = []
     private var opusFrameSizeBytes: UInt32 = 0
 
-    func registerCallback(callback: @escaping EncodedBufferCallback) {
-        self.callback = callback
-    }
-
     private func createEncoder(formatDescription: CMFormatDescription) {
         // Initialize an encoder if we haven't already.
         let sampleFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)

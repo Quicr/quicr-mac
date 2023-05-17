@@ -55,10 +55,6 @@ class H264Encoder: SampleEncoder {
         self.encoder = nil
     }
 
-    func registerCallback(callback: @escaping EncodedSampleCallback) {
-        self.callback = callback
-    }
-
     func write(sample: CMSampleBuffer) {
         guard let compressionSession = encoder,
               let imageBuffer = CMSampleBufferGetImageBuffer(sample) else { return }

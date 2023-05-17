@@ -20,10 +20,6 @@ class AudioEncoder: SampleEncoder {
         self.targetFormat = targetFormat
     }
 
-    func registerCallback(callback: @escaping EncodedSampleCallback) {
-        self.callback = callback
-    }
-
     func write(sample: CMSampleBuffer) {
         guard let callback = callback else { fatalError("Callback not set for encoder") }
 

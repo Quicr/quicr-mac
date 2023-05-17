@@ -3,12 +3,32 @@ import CoreImage
 import CoreMedia
 import AVFoundation
 
+class EncoderWrapper {
+    /// Instance of the Encoder
+    private let encoder: Encoder
+    /// Metrics.
+    private let measurement: EncoderMeasurement
+
+    /// Create a new encoder pipeline element.
+    init(identifier: UInt64, encoder: Encoder, submitter: MetricsSubmitter) {
+        self.encoder = encoder
+        measurement = .init(identifier: String(identifier), submitter: submitter)
+    }
+
+    func write(sample: CMSampleBuffer) {
+        self.encoder.write(sample: sample)
+        Task {
+            await measurement.write()
+        }
+    }
+}
+
 /// Manages pipeline elements.
 class PipelineManager {
     private let errorWriter: ErrorWriter
     private let metricsSubmitter: MetricsSubmitter
 
-    private var encoders: [UInt64: Encoder] = [:]
+    private var encoders: [UInt64: EncoderWrapper] = [:]
     var decoders: [UInt64: Decoder] = [:]
 
     /// Create a new PipelineManager.
@@ -18,11 +38,14 @@ class PipelineManager {
     }
 
     func registerEncoder(identifier: UInt64, config: CodecConfig) {
-        let encoder = CodecFactory.shared.createEncoder(identifier: identifier, config: config)
+        let encoder = CodecFactory.shared.createEncoder(identifier: identifier,
+                                                        config: config,
+                                                        metricsSubmitter: metricsSubmitter)
         guard encoders[identifier] == nil else {
             return
         }
-        encoders[identifier] = encoder
+
+        encoders[identifier] = .init(identifier: identifier, encoder: encoder, submitter: metricsSubmitter)
     }
 
     func registerDecoder(identifier: UInt64, config: CodecConfig) {

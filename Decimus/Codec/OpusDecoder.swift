@@ -23,10 +23,6 @@ class OpusDecoder: BufferDecoder {
         converter = .init(from: opus, to: output)!
     }
 
-    func registerCallback(callback: @escaping DecodedBufferCallback) {
-        self.callback = callback
-    }
-
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         guard let callback = callback else { fatalError("Callback not set for decoder") }
 

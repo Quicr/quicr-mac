@@ -34,10 +34,6 @@ class H264Decoder: SampleDecoder {
         self.session = nil
     }
 
-    func registerCallback(callback: @escaping DecodedSampleCallback) {
-        self.callback = callback
-    }
-
     /// Write a new frame to the decoder.
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         // Get NALU type.
