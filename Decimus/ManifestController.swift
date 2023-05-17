@@ -1,9 +1,9 @@
 import Foundation
 
 struct ManifestServerConfig: Codable {
-    var scheme: String
-    var url: String
-    var port: Int
+    var scheme: String = "https"
+    var url: String = "conf.quicr.ctgpoc.com"
+    var port: Int = 411
 }
 
 class ManifestController {

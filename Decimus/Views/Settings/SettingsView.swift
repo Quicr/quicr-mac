@@ -37,16 +37,8 @@ struct SettingsView: View {
     @AppStorage("playerType") private var playerType: Int = PlayerType.fasterAvAudioEngine.rawValue
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
 
-    @AppStorage("manifestConfig") private var manifestConfig: Data = .init()
-    @State private var manifestConfigDefault = ManifestServerConfig(scheme: "https",
-                                                                    url: "conf.quicr.ctgpoc.com",
-                                                                    port: 411)
-
-    private func saveManifestConfig() {
-        guard let configData = try? JSONEncoder().encode(manifestConfigDefault) else { fatalError() }
-        self.manifestConfig = configData
-        ManifestController.shared.setServer(config: manifestConfigDefault)
-    }
+    @AppStorage("manifestConfig")
+    private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     var body: some View {
         Form {
@@ -69,33 +61,33 @@ struct SettingsView: View {
             }
 
             Section("Manifest") {
-                Picker("Scheme", selection: $manifestConfigDefault.scheme) {
+                Picker("Scheme", selection: $manifestConfig.value.scheme) {
                     ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
                         Text(scheme.rawValue)
                     }
                 }
-                .onChange(of: manifestConfigDefault.scheme) { _ in
-                    saveManifestConfig()
+                .onChange(of: manifestConfig.value.scheme) { _ in
+                    ManifestController.shared.setServer(config: manifestConfig.value)
                 }
 
                 HStack {
                     Text("Address")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField("manifest_address", text: $manifestConfigDefault.url, prompt: Text("127.0.0.1"))
+                    TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
                         .keyboardType(.URL)
-                        .onChange(of: manifestConfigDefault.url) { _ in
-                            saveManifestConfig()
+                        .onChange(of: manifestConfig.value.url) { _ in
+                            ManifestController.shared.setServer(config: manifestConfig.value)
                         }
                 }
                 HStack {
                     Text("Port")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField("manifest_port", value: $manifestConfigDefault.port, format: .number.grouping(.never))
+                    TextField("manifest_port", value: $manifestConfig.value.port, format: .number.grouping(.never))
                         .keyboardType(.numberPad)
-                        .onChange(of: manifestConfigDefault.port) { _ in
-                            saveManifestConfig()
+                        .onChange(of: manifestConfig.value.port) { _ in
+                            ManifestController.shared.setServer(config: manifestConfig.value)
                         }
                 }
             }
@@ -107,10 +99,7 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            do {
-                manifestConfigDefault = try JSONDecoder().decode(ManifestServerConfig.self, from: manifestConfig)
-                ManifestController.shared.setServer(config: manifestConfigDefault)
-            } catch {}
+            ManifestController.shared.setServer(config: manifestConfig.value)
         }
     }
 }

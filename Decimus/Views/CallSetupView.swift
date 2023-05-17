@@ -10,7 +10,8 @@ private let buttonColour = ActionButtonStyleConfig(
 private struct LoginForm: View {
     @AppStorage("email") private var email: String = ""
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
-    @AppStorage("manifestConfig") private var manifestConfig: Data = .init()
+    @AppStorage("manifestConfig")
+    private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
@@ -23,9 +24,7 @@ private struct LoginForm: View {
 
     init(_ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
-
-        guard let config = try? JSONDecoder().decode(ManifestServerConfig.self, from: manifestConfig) else { return }
-        ManifestController.shared.setServer(config: config)
+        ManifestController.shared.setServer(config: manifestConfig.value)
     }
 
     var body: some View {
