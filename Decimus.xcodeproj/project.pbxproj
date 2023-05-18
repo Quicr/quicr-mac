@@ -15,6 +15,8 @@
 		18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A432A13ED24005B333B /* MockSubmitter.swift */; };
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettings.swift */; };
+		18F3E9532A1661C100DC2721 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9522A1661C100DC2721 /* Copus */; };
+		18F3E9552A16646700DC2721 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9542A16646700DC2721 /* Opus */; };
 		9B165A112983E5C10017079F /* Loopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A102983E5C10017079F /* Loopback.swift */; };
 		9B165A132984012D0017079F /* ApplicationMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A122984012D0017079F /* ApplicationMode.swift */; };
 		9B165A1529840B610017079F /* QMediaPubSub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* QMediaPubSub.swift */; };
@@ -27,8 +29,6 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
 		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
-		9B4806832981D4400040F5D4 /* AudioEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806822981D4400040F5D4 /* AudioEncoder.swift */; };
-		9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480684298284F40040F5D4 /* OpusDecoder.swift */; };
 		9B480687298289910040F5D4 /* AVEngineAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AVEngineAudioPlayer.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
@@ -53,12 +53,9 @@
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BAE3CC72A0D6E22008AF6A9 /* SourceElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAE3CC62A0D6E22008AF6A9 /* SourceElement.swift */; };
 		9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */; };
-		9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */; };
-		9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */; };
 		9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */; };
 		9BDD5AF62996736B00C01D54 /* SampleExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
-		9BDD5B162996A84B00C01D54 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B152996A84B00C01D54 /* Opus */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
@@ -151,8 +148,6 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
-		9B4806822981D4400040F5D4 /* AudioEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEncoder.swift; sourceTree = "<group>"; };
-		9B480684298284F40040F5D4 /* OpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusDecoder.swift; sourceTree = "<group>"; };
 		9B480686298289910040F5D4 /* AVEngineAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVEngineAudioPlayer.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
@@ -180,8 +175,6 @@
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BAE3CC62A0D6E22008AF6A9 /* SourceElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceElement.swift; sourceTree = "<group>"; };
 		9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPCMExtensions.swift; sourceTree = "<group>"; };
-		9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughDecoder.swift; sourceTree = "<group>"; };
-		9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassthroughEncoder.swift; sourceTree = "<group>"; };
 		9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaBuffer.swift; sourceTree = "<group>"; };
 		9BDD5AF52996736B00C01D54 /* SampleExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleExtensions.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
@@ -247,8 +240,9 @@
 				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
-				9BDD5B162996A84B00C01D54 /* Opus in Frameworks */,
+				18F3E9532A1661C100DC2721 /* Copus in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
+				18F3E9552A16646700DC2721 /* Opus in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,10 +286,6 @@
 			children = (
 				9B480663297EBD930040F5D4 /* H264Decoder.swift */,
 				9B4806802980170B0040F5D4 /* H264Encoder.swift */,
-				9B4806822981D4400040F5D4 /* AudioEncoder.swift */,
-				9B480684298284F40040F5D4 /* OpusDecoder.swift */,
-				9BDD5AED2996414400C01D54 /* PassthroughDecoder.swift */,
-				9BDD5AEF2996496300C01D54 /* PassthroughEncoder.swift */,
 				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
 				9B647C9B29A6267B000AD358 /* PCMExtensions.swift */,
@@ -528,9 +518,10 @@
 			name = Decimus;
 			packageProductDependencies = (
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
-				9BDD5B152996A84B00C01D54 /* Opus */,
 				9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */,
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
+				18F3E9522A1661C100DC2721 /* Copus */,
+				18F3E9542A16646700DC2721 /* Opus */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -672,16 +663,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */,
-				9B480685298284F40040F5D4 /* OpusDecoder.swift in Sources */,
 				FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
-				9B4806832981D4400040F5D4 /* AudioEncoder.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* QMediaConfigCall.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
-				9BDD5AF02996496300C01D54 /* PassthroughEncoder.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				9B165A132984012D0017079F /* ApplicationMode.swift in Sources */,
@@ -707,7 +695,6 @@
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */,
-				9BDD5AEE2996414400C01D54 /* PassthroughDecoder.swift in Sources */,
 				9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
@@ -750,7 +737,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
@@ -773,7 +760,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
@@ -918,7 +905,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -973,7 +960,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1095,6 +1082,16 @@
 			package = 18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */;
 			productName = InfluxDBSwift;
 		};
+		18F3E9522A1661C100DC2721 /* Copus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Copus;
+		};
+		18F3E9542A16646700DC2721 /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
+		};
 		9B165A20298807AF0017079F /* SwiftLintPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
@@ -1109,11 +1106,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
-		};
-		9BDD5B152996A84B00C01D54 /* Opus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Opus;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

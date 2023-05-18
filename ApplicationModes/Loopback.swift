@@ -1,37 +1,39 @@
-import CoreGraphics
-import CoreMedia
 import SwiftUI
 import AVFoundation
 
 class Loopback: ApplicationModeBase {
-    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
-        // Loopback: Write encoded data to decoder.
-        if pipeline!.decoders[identifier] == nil {
-            pipeline!.registerDecoder(identifier: identifier, config: VideoCodecConfig(codec: .h264,
-                                                                                       bitrate: 0,
-                                                                                       fps: 0,
-                                                                                       width: 0,
-                                                                                       height: 0))
-        }
-        pipeline!.decode(mediaBuffer: data.getMediaBuffer(source: identifier))
-    }
 
-    override func sendEncodedAudio(data: MediaBufferFromSource) {
+    override func sendEncodedData(data: MediaBufferFromSource) {
         // Loopback: Write encoded data to decoder.
-        if pipeline!.decoders[data.source] == nil {
-            pipeline!.registerDecoder(identifier: data.source, config: AudioCodecConfig(codec: .opus, bitrate: 0))
-        }
         pipeline!.decode(mediaBuffer: data)
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
-        super.onDeviceChange(device: device, event: event)
-
         switch event {
+        case .added:
+            let config: CodecConfig
+            if device.hasMediaType(.audio) {
+                // TODO: This is a hack to try and get the format. Assuming built-in mic.
+                // This will be fixed by AVAudioEngine capture implementation.
+                config = AudioCodecConfig(codec: .opus, bitrate: 0, format: .init())
+            } else if device.hasMediaType(.video) {
+                let size = device.activeFormat.formatDescription.dimensions
+                config = VideoCodecConfig(codec: .h264,
+                                          bitrate: 2048000,
+                                          fps: 60,
+                                          width: size.width,
+                                          height: size.height
+                )
+            } else {
+                fatalError("MediaType not understood for device: \(device.id)")
+            }
+
+            pipeline!.registerEncoder(identifier: device.id, config: config)
+            pipeline!.registerDecoder(identifier: device.id, config: config)
         case .removed:
+            pipeline!.unregisterEncoder(identifier: device.id)
             removeRemoteSource(identifier: device.id)
-        default:
-            return
         }
+        super.onDeviceChange(device: device, event: event)
     }
 }

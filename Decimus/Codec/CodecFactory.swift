@@ -81,8 +81,12 @@ class CodecFactory {
             guard let config = config as? VideoCodecConfig else { fatalError() }
             return H264Encoder(config: config, verticalMirror: false)
         },
-        .opus: { _ in return LibOpusEncoder() },
-        .xcodec: { _ in return LibOpusEncoder() }
+        .opus: { _ in
+            return LibOpusEncoder()
+        },
+        .xcodec: { config in
+            return LibOpusEncoder()
+        }
     ]
 
     private var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
@@ -108,17 +112,11 @@ class CodecFactory {
         }
     ]
 
-    /// Represents an encoded image.
-    /// - Parameter identifier: The source identifier for this encoded image.
-    /// - Parameter sample: The sample being encoded
-    typealias EncodedImageCallback = (_ identifier: UInt64,
-                                      _ sample: CMSampleBuffer) -> Void
-
     /// Represents an encoded audio sample.
-    /// - Parameter identifier: The source identifier for this encoded image.
-    /// - Parameter buffer: The buffer being encoded
-    typealias EncodedAudioCallback = (_ identifier: UInt64,
-                                      _ buffer: MediaBuffer) -> Void
+    /// - Parameter identifier: The source identifier for this encoded data.
+    /// - Parameter buffer: The encoded data.
+    typealias EncodedBufferCallback = (_ identifier: UInt64,
+                                       _ buffer: MediaBuffer) -> Void
 
     /// Represents a decoded image.
     /// - Parameter identifier: The source identifier for this decoded image.
@@ -138,16 +136,11 @@ class CodecFactory {
     typealias DecodedAudioCallback = (_ identifier: UInt64,
                                       _ buffer: AVAudioPCMBuffer) -> Void
 
-    private var encodedSampleCallback: EncodedImageCallback!
-    private var encodedBufferCallback: EncodedAudioCallback!
+    private var encodedBufferCallback: EncodedBufferCallback!
     private var decodedSampleCallback: DecodedImageCallback!
     private var decodedBufferCallback: DecodedAudioCallback!
 
-    func registerEncoderCallback(callback: @escaping EncodedImageCallback) {
-        encodedSampleCallback = callback
-    }
-
-    func registerEncoderCallback(callback: @escaping EncodedAudioCallback) {
+    func registerEncoderCallback(callback: @escaping EncodedBufferCallback) {
         encodedBufferCallback = callback
     }
 
@@ -167,17 +160,10 @@ class CodecFactory {
             fatalError("No encoder factory found for codec type: \(config.codec)")
         }
 
-        let encoder = factory(config)
-        if var sampleEncoder = encoder as? SampleEncoder {
-            sampleEncoder.registerCallback(callback: { sample in
-                self.encodedSampleCallback(identifier, sample)
-            })
-        } else if var bufferEncoder = encoder as? BufferEncoder {
-            bufferEncoder.registerCallback(callback: { buffer in
-                self.encodedBufferCallback(identifier, buffer)
-            })
+        var encoder = factory(config)
+        encoder.registerCallback { buffer in
+            self.encodedBufferCallback(identifier, buffer)
         }
-
         return encoder
     }
 

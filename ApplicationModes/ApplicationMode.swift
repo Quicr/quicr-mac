@@ -36,14 +36,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
 
         CodecFactory.shared = .init()
-        CodecFactory.shared.registerEncoderCallback { [weak self] id, sample in
-            guard let mode = self else { return }
-            mode.sendEncodedImage(identifier: id, data: sample)
-        }
         CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
             guard let mode = self else { return }
             let identified: MediaBufferFromSource = .init(source: id, media: media)
-            mode.sendEncodedAudio(data: identified)
+            mode.sendEncodedData(data: identified)
         }
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
@@ -107,7 +103,9 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         case .added:
             let config: CodecConfig
             if device.hasMediaType(.audio) {
-                config = AudioCodecConfig(codec: .opus, bitrate: 0)
+                // TODO: This is a hack to try and get the format. Assuming built-in mic.
+                // This will be fixed by AVAudioEngine capture implementation.
+                config = AudioCodecConfig(codec: .opus, bitrate: 0, format: .init())
             } else if device.hasMediaType(.video) {
                 let size = device.activeFormat.formatDescription.dimensions
                 config = VideoCodecConfig(codec: .h264,
@@ -132,14 +130,19 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
         let ids = getStreamIdFromDevice(identifier)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: frame) }
+        let sample = frame.asMediaBuffer()
+        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
     }
 
     func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
         let ids = getStreamIdFromDevice(identifier)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
+        guard let formatDescription = sample.formatDescription else {
+            errorHandler.writeError(message: "Missing format description")
+            return
+        }
+        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
+        ids.forEach { pipeline!.encode(identifier: $0, sample: sample.getMediaBuffer(userData: audioFormat)) }
     }
 
-    func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {}
-    func sendEncodedAudio(data: MediaBufferFromSource) {}
+    func sendEncodedData(data: MediaBufferFromSource) {}
 }

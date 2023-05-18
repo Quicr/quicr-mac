@@ -2,30 +2,13 @@ import CoreMedia
 import AVFoundation
 
 protocol Encoder {
-    func write(sample: CMSampleBuffer)
-}
-
-protocol SampleEncoder: Encoder {
-    typealias EncodedSampleCallback = (CMSampleBuffer) -> Void
-    var callback: EncodedSampleCallback? {get set}
-
-    mutating func registerCallback(callback: @escaping EncodedSampleCallback)
-}
-
-extension SampleEncoder {
-    mutating func registerCallback(callback: @escaping EncodedSampleCallback) {
-        self.callback = callback
-    }
-}
-
-protocol BufferEncoder: Encoder {
     typealias EncodedBufferCallback = (MediaBuffer) -> Void
+    func write(data: MediaBuffer)
     var callback: EncodedBufferCallback? {get set}
-
     mutating func registerCallback(callback: @escaping EncodedBufferCallback)
 }
 
-extension BufferEncoder {
+extension Encoder {
     mutating func registerCallback(callback: @escaping EncodedBufferCallback) {
         self.callback = callback
     }

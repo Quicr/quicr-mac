@@ -4,6 +4,8 @@ struct MediaBuffer {
     let buffer: UnsafeRawBufferPointer
     /// Timestamp of this media data, in milliseconds.
     let timestampMs: UInt32
+    /// User data object.
+    var userData: AnyObject?
 }
 
 /// Represents some media data from a source.

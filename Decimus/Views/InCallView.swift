@@ -74,6 +74,7 @@ extension InCallView {
             }
             self.mode = .init(errorWriter: errorHandler, player: player, metricsSubmitter: submitter)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
+            Task { await callController!.join() }
         }
 
         func leave() async {
@@ -148,7 +149,6 @@ extension InCallView.ViewModel where Mode == QMediaPubSub {
         self.init()
         do {
             try mode!.connect(config: config) {
-                Task { await callController!.join() }
             }
         } catch {
             self.errorHandler.writeError(message: "[QMediaPubSub] Already connected!")

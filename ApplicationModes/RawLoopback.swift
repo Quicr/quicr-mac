@@ -7,11 +7,7 @@ class RawLoopback: ApplicationModeBase {
     let localMirrorParticipants: UInt64 = 0
     private var devices: [UInt64: AVCaptureDevice.Position] = [:]
 
-    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
-        // NOOP.
-    }
-
-    override func sendEncodedAudio(data: MediaBufferFromSource) {
+    override func sendEncodedData(data: MediaBufferFromSource) {
         // NOOP.
     }
 
