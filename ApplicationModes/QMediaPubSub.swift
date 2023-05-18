@@ -30,7 +30,7 @@ class QMediaPubSub: ApplicationModeBase {
 
         let buffer = MediaBufferFromSource(source: streamId,
                                            media: .init(buffer: .init(start: data, count: Int(length)),
-                                                        timestampMs: UInt32(timestamp), userData: nil))
+                                                        timestampMs: UInt32(timestamp)))
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 

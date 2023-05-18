@@ -100,7 +100,7 @@ class H264Encoder: Encoder {
         do {
             let orientationSei = try makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
                                                         verticalMirror: verticalMirror)
-            callback(orientationSei)
+            callback(orientationSei.getMediaBuffer())
         } catch {
             print("Failed to make orientation SEI")
             return
