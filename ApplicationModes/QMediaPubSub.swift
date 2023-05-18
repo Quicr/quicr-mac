@@ -34,7 +34,7 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
-    func connect(config: CallConfig) async throws {
+    override func connect(config: CallConfig) async throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
 
         QMediaPubSub.weakSelf = self

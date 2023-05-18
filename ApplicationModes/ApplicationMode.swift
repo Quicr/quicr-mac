@@ -130,4 +130,5 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     func sendEncodedData(data: MediaBufferFromSource) {}
+    func connect(config: CallConfig) async throws {}
 }
