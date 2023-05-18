@@ -3,14 +3,11 @@ import AVFoundation
 
 extension CMSampleBuffer {
 
-    func getMediaBuffer(source: UInt64) -> MediaBufferFromSource {
-        .init(source: source, media: self.getMediaBuffer())
+    func getMediaBuffer(source: UInt64, userData: AnyObject? = nil) -> MediaBufferFromSource {
+        .init(source: source, media: self.getMediaBuffer(userData: userData))
     }
 
-    func getMediaBuffer() -> MediaBuffer {
-        // Requires contiguous buffers.
-        guard self.dataBuffer!.isContiguous else { fatalError() }
-
+    func getMediaBuffer(userData: AnyObject? = nil) -> MediaBuffer {
         // Timestamp.
         let timestampMs: UInt32 = UInt32(self.presentationTimeStamp.convertScale(1000, method: .default).value)
 
@@ -23,7 +20,13 @@ extension CMSampleBuffer {
             copy.deallocate()
             fatalError()
         }
-        return .init(buffer: .init(copy), timestampMs: timestampMs)
+        return .init(buffer: .init(copy), timestampMs: timestampMs, userData: userData)
+    }
+
+    func asMediaBuffer() -> MediaBuffer {
+        let opaque = Unmanaged.passUnretained(self).toOpaque()
+        let bufferPtr: UnsafeRawBufferPointer = .init(start: opaque, count: 1)
+        return .init(buffer: bufferPtr, timestampMs: 0)
     }
 }
 
@@ -111,7 +114,7 @@ extension AVAudioPCMBuffer {
         return sample
     }
 
-    func asMediaBuffer(timestampMs: UInt32) -> MediaBuffer {
+    func asMediaBuffer(timestampMs: UInt32, userData: AnyObject? = nil) -> MediaBuffer {
         guard format.channelCount == 1 else { fatalError() }
         let bpf = self.format.formatDescription.audioStreamBasicDescription!.mBytesPerFrame
         let lengthInBytes: Int = Int(bpf * self.frameLength)
@@ -127,7 +130,7 @@ extension AVAudioPCMBuffer {
 
         var buffer: MediaBuffer?
         data.withUnsafeBytes { ptr in
-            buffer = .init(buffer: ptr, timestampMs: timestampMs)
+            buffer = .init(buffer: ptr, timestampMs: timestampMs, userData: userData)
         }
         return buffer!
     }

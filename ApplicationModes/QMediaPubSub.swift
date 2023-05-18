@@ -16,6 +16,7 @@ class QMediaPubSub: ApplicationModeBase {
     private var streamIdMap: [UInt64] = []
 
     private var conferenceId: UInt32 = 1
+    private var codecLookup: [UInt64: CodecConfig] = [:]
 
     private let streamCallback: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard QMediaPubSub.weakSelf != nil else {
@@ -33,7 +34,7 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
-    func connect(config: CallConfig) async throws {
+    override func connect(config: CallConfig) async throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
 
         QMediaPubSub.weakSelf = self
@@ -81,6 +82,7 @@ class QMediaPubSub: ApplicationModeBase {
         }
 
         self.pipeline!.registerEncoder(identifier: streamId, config: config)
+        self.codecLookup[streamId] = config
         print("[QMediaPubSub] Registered \(String(describing: config.codec)) to publish stream: \(streamId)")
     }
 
@@ -111,36 +113,31 @@ class QMediaPubSub: ApplicationModeBase {
         return streamIds
     }
 
-    override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
-        do {
-            try data.dataBuffer!.withUnsafeMutableBytes { ptr in
-                let unsafe = ptr.baseAddress!.assumingMemoryBound(to: UInt8.self)
-                let timestampMs: UInt32
-                do {
-                    timestampMs = UInt32(try data.sampleTimingInfo(at: 0).presentationTimeStamp.seconds * 1000)
-                } catch {
-                    timestampMs = 0
-                }
-
-                mediaClient!.sendVideoFrame(mediaStreamId: identifier,
-                                       buffer: unsafe,
-                                       length: UInt32(data.dataBuffer!.dataLength),
-                                       timestamp: UInt64(timestampMs),
-                                       flag: false)
-            }
-        } catch {
-            errorHandler.writeError(message: "[QMediaPubSub] Failed to get bytes of encoded image")
-        }
-    }
-
-    override func sendEncodedAudio(data: MediaBufferFromSource) {
-        guard data.media.buffer.count > 0 else {
-            errorHandler.writeError(message: "[QMediaPubSub] Audio to send had length 0")
+    override func sendEncodedData(data: MediaBufferFromSource) {
+        let buffer = data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self)
+        let length: UInt32 = .init(data.media.buffer.count)
+        let timestamp: UInt64 = .init(data.media.timestampMs)
+        guard length > 0 else {
+            errorHandler.writeError(message: "[QMediaPubSub] Data to send had length 0")
             return
         }
-        mediaClient!.sendAudio(mediaStreamId: data.source,
-                          buffer: data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                          length: UInt32(data.media.buffer.count),
-                          timestamp: UInt64(data.media.timestampMs))
+
+        let config = codecLookup[data.source]!
+        switch config {
+        case is AudioCodecConfig:
+            mediaClient!.sendAudio(mediaStreamId: data.source,
+                                   buffer: buffer,
+                                   length: length,
+                                   timestamp: timestamp)
+        case is VideoCodecConfig:
+            mediaClient!.sendVideoFrame(mediaStreamId: data.source,
+                                        buffer: buffer,
+                                        length: length,
+                                        timestamp: timestamp,
+                                        flag: false)
+        default:
+            errorHandler.writeError(message: "Got unexpected media type")
+            return
+        }
     }
 }

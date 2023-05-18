@@ -21,7 +21,11 @@ struct SidebarView: View {
                     }
                 })
 
-                NavigationLink(destination: NavigationLazyView(InCallView<Loopback>()), label: {
+                NavigationLink(destination: NavigationLazyView(
+                    InCallView<Loopback>(config: .init(address: "127.0.0.1",
+                                                       port: 5001,
+                                                       connectionProtocol: .QUIC), onLeave: {})),
+                               label: {
                     HStack {
                         Label("Encoded Loopback", systemImage: "arrow.clockwise.circle.fill")
                         Spacer()

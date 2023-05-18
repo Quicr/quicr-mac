@@ -5,7 +5,7 @@ import UIKit
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView<Mode>: View where Mode: ApplicationModeBase {
-    @StateObject var viewModel = ViewModel()
+    @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
 
     /// Callback when call is left.
@@ -16,9 +16,10 @@ struct InCallView<Mode>: View where Mode: ApplicationModeBase {
         .makeConnectable()
         .autoconnect()
 
-    init(onLeave: @escaping () -> Void = {}) {
+    init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
+        _viewModel = StateObject(wrappedValue: ViewModel(config: config))
     }
 
     var body: some View {
@@ -64,7 +65,7 @@ extension InCallView {
 
         @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
-        init() {
+        init(config: CallConfig) {
             let playerType: PlayerType = .init(rawValue: playerType)!
             let player = makeAudioPlayer(type: playerType)
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
@@ -74,12 +75,11 @@ extension InCallView {
             }
             self.mode = .init(errorWriter: errorHandler, player: player, metricsSubmitter: submitter)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
-
-            switch mode {
-            case _ as QMediaPubSub:
-                break
-            default:
-                Task { await callController!.join() }
+            Task {
+                do {
+                    try await self.mode!.connect(config: config)
+                    await callController?.join()
+                }
             }
         }
 
@@ -143,29 +143,8 @@ extension InCallView {
     }
 }
 
-extension InCallView where Mode == QMediaPubSub {
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
-        self.init(onLeave: onLeave)
-        _viewModel = StateObject(wrappedValue: ViewModel(config: config))
-    }
-}
-
-extension InCallView.ViewModel where Mode == QMediaPubSub {
-    convenience init(config: CallConfig) {
-        self.init()
-        Task {
-            do {
-                try await mode!.connect(config: config)
-                await callController!.join()
-            } catch {
-                self.errorHandler.writeError(message: "[QMediaPubSub] \(error)")
-            }
-        }
-    }
-}
-
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView()
+        InCallView(config: .init(address: "127.0.0.1", port: 5001, connectionProtocol: .QUIC)) { }
     }
 }

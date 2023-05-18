@@ -46,14 +46,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
 
         CodecFactory.shared = .init()
-        CodecFactory.shared.registerEncoderCallback { [weak self] id, sample in
-            guard let mode = self else { return }
-            mode.sendEncodedImage(identifier: id, data: sample)
-        }
         CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
             guard let mode = self else { return }
             let identified: MediaBufferFromSource = .init(source: id, media: media)
-            mode.sendEncodedAudio(data: identified)
+            mode.sendEncodedData(data: identified)
         }
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
@@ -111,29 +107,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
-        switch event {
-        case .added:
-            let config: CodecConfig
-            if device.hasMediaType(.audio) {
-                config = AudioCodecConfig(codec: .opus, bitrate: 0)
-            } else if device.hasMediaType(.video) {
-                let size = device.activeFormat.formatDescription.dimensions
-                config = VideoCodecConfig(codec: .h264,
-                                          bitrate: 2048000,
-                                          fps: 60,
-                                          width: size.width,
-                                          height: size.height
-                )
-            } else {
-                fatalError("MediaType not understood for device: \(device.id)")
-            }
-
-            pipeline!.registerEncoder(identifier: device.id, config: config)
-        case .removed:
-            pipeline!.unregisterEncoder(identifier: device.id)
-        }
-    }
+    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) { }
 
     func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {
         return [identifier]
@@ -141,14 +115,20 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
         let ids = getStreamIdFromDevice(identifier)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: frame) }
+        let sample = frame.asMediaBuffer()
+        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
     }
 
     func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
         let ids = getStreamIdFromDevice(identifier)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
+        guard let formatDescription = sample.formatDescription else {
+            errorHandler.writeError(message: "Missing format description")
+            return
+        }
+        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
+        ids.forEach { pipeline!.encode(identifier: $0, sample: sample.getMediaBuffer(userData: audioFormat)) }
     }
 
-    func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {}
-    func sendEncodedAudio(data: MediaBufferFromSource) {}
+    func sendEncodedData(data: MediaBufferFromSource) {}
+    func connect(config: CallConfig) async throws {}
 }

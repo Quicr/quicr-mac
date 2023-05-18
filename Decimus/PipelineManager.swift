@@ -15,9 +15,9 @@ class EncoderWrapper {
         measurement = .init(identifier: String(identifier), config: config, submitter: submitter)
     }
 
-    func write(sample: CMSampleBuffer) {
-        let bytes = sample.totalSampleSize
-        self.encoder.write(sample: sample)
+    func write(data: MediaBuffer) {
+        let bytes = data.buffer.count
+        self.encoder.write(data: data)
         Task {
             await measurement.write(bytes: bytes)
         }
@@ -68,11 +68,11 @@ class PipelineManager {
         decoders.removeValue(forKey: identifier)
     }
 
-    func encode(identifier: UInt64, sample: CMSampleBuffer) {
+    func encode(identifier: UInt64, sample: MediaBuffer) {
         guard let encoder = encoders[identifier] else {
             fatalError("Tried to encode for unregistered identifier: \(identifier)")
         }
-        encoder.write(sample: sample)
+        encoder.write(data: sample)
     }
 
     func decode(mediaBuffer: MediaBufferFromSource) {
