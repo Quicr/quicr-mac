@@ -74,6 +74,13 @@ extension InCallView {
             }
             self.mode = .init(errorWriter: errorHandler, player: player, metricsSubmitter: submitter)
             self.callController = CallController(mode: mode!, errorHandler: errorHandler)
+
+            switch mode {
+            case _ as QMediaPubSub:
+                break
+            default:
+                Task { await callController!.join() }
+            }
         }
 
         func leave() async {

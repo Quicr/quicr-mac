@@ -10,7 +10,7 @@ class H264Encoder: SampleEncoder {
     private let verticalMirror: Bool
 
     private let startCodeLength = 4
-    private let startCode = [ 0x00, 0x00, 0x00, 0x01 ]
+    private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
     init(config: VideoCodecConfig, verticalMirror: Bool) {
         self.verticalMirror = verticalMirror
@@ -76,34 +76,30 @@ class H264Encoder: SampleEncoder {
 
         // Annex B time.
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
-        var idr = false
         guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
+
         let key = kCMSampleAttachmentKey_NotSync as NSString
-        if let found = sampleAttachments[key] as? Bool? {
-            idr = !(found != nil && found == true)
-        }
+        let foundAttachment = sampleAttachments[key] as? Bool?
+        let idr = !(foundAttachment != nil && foundAttachment == true)
 
         if idr {
-            do {
-                // SPS + PPS.
-                let parameterSets = try handleParameterSets(sample: sample)
-                callback(parameterSets)
-            } catch {
+            // SPS + PPS.
+            guard let parameterSets = try? handleParameterSets(sample: sample) else {
                 print("Failed to handle parameter sets")
                 return
             }
+            callback(parameterSets)
         }
 
         #if !targetEnvironment(macCatalyst)
         // Orientation SEI.
-        do {
-            let orientationSei = try makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                                        verticalMirror: verticalMirror)
-            callback(orientationSei)
-        } catch {
+        guard let orientationSei = try? makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+                                                           verticalMirror: verticalMirror)
+        else {
             print("Failed to make orientation SEI")
             return
         }
+        callback(orientationSei)
         #endif
 
         let buffer = sample.dataBuffer!
@@ -116,8 +112,7 @@ class H264Encoder: SampleEncoder {
                                                            length: startCodeLength,
                                                            temporaryBlock: memory,
                                                            returnedPointerOut: &data)
-            guard accessError == .zero else { fatalError("Bad access") }
-            guard data != nil else { fatalError("Bad access") }
+            guard accessError == .zero else { fatalError("Bad access: \(accessError)") }
 
             var naluLength: UInt32 = 0
             memcpy(&naluLength, data, startCodeLength)
@@ -125,16 +120,10 @@ class H264Encoder: SampleEncoder {
             naluLength = CFSwapInt32BigToHost(naluLength)
 
             // Replace with start code.
-            let replaceError = CMBlockBufferReplaceDataBytes(with: startCode,
-                                                             blockBuffer: buffer,
-                                                             offsetIntoDestination: offset,
-                                                             dataLength: startCodeLength)
-            guard replaceError == .zero else { fatalError("Replace") }
-
-            // TODO: This is broken.
-            try? buffer.withUnsafeMutableBytes(atOffset: offset) { ptr in
-                ptr[3] = 0x01
-            }
+            CMBlockBufferReplaceDataBytes(with: startCode,
+                                          blockBuffer: buffer,
+                                          offsetIntoDestination: offset,
+                                            dataLength: startCodeLength)
 
             // Carry on.
             offset += startCodeLength + Int(naluLength)
@@ -179,59 +168,26 @@ class H264Encoder: SampleEncoder {
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
 
         // Make a block buffer for PPS/SPS.
-        var buffer: CMBlockBuffer?
-        let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                                            memoryBlock: nil,
-                                                            blockLength: totalLength,
-                                                            blockAllocator: nil,
-                                                            customBlockSource: nil,
-                                                            offsetToData: 0,
-                                                            dataLength: totalLength,
-                                                            flags: 0,
-                                                            blockBufferOut: &buffer)
-        guard blockError == .zero else { throw("Failed to create parameter set block") }
-
-        let allocateError = CMBlockBufferAssureBlockMemory(buffer!)
-        guard allocateError == .zero else { throw("Failed to allocate parameter set block") }
+        let buffer = try makeBuffer(totalLength: totalLength)
 
         var offset = 0
         for parameterSetIndex in 0...sets-1 {
             let startCodeError = CMBlockBufferReplaceDataBytes(with: startCode,
-                                                               blockBuffer: buffer!,
+                                                               blockBuffer: buffer,
                                                                offsetIntoDestination: offset,
                                                                dataLength: startCodeLength)
             guard startCodeError == .zero else { throw("Couldn't copy start code") }
             offset += startCodeLength
             let parameterDataError = CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
-                                                                   blockBuffer: buffer!,
+                                                                   blockBuffer: buffer,
                                                                    offsetIntoDestination: offset,
                                                                    dataLength: parameterSetLengths[parameterSetIndex])
             guard parameterDataError == .zero else { throw("Couldn't copy parameter data") }
             offset += parameterSetLengths[parameterSetIndex]
         }
 
-        // FIXME: Why does the above not work?
-        try buffer!.withUnsafeMutableBytes { ptr in
-            let firstAlterIndex = startCodeLength - 1
-            ptr[firstAlterIndex] = 0x01
-            let secondAlterIndex = startCodeLength * 2 + parameterSetLengths[0] - 1
-            ptr[secondAlterIndex] = 0x01
-        }
-
         // Return as a sample for easy callback.
-        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
-        var parameterSample: CMSampleBuffer?
-        let sampleError = CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
-                                                    dataBuffer: buffer,
-                                                    formatDescription: nil,
-                                                    sampleCount: 1,
-                                                    sampleTimingEntryCount: 1,
-                                                    sampleTimingArray: &time,
-                                                    sampleSizeEntryCount: 1,
-                                                    sampleSizeArray: &totalLength,
-                                                    sampleBufferOut: &parameterSample)
-        guard sampleError == .zero else { throw("Couldn't create parameter sample") }
-        return parameterSample!
+        return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
     }
 
     private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
@@ -283,6 +239,44 @@ class H264Encoder: SampleEncoder {
         } catch {
             fatalError("?")
         }
+    }
+
+    private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
+        var buffer: CMBlockBuffer?
+        let blockError = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
+                                                            memoryBlock: nil,
+                                                            blockLength: totalLength,
+                                                            blockAllocator: nil,
+                                                            customBlockSource: nil,
+                                                            offsetToData: 0,
+                                                            dataLength: totalLength,
+                                                            flags: 0,
+                                                            blockBufferOut: &buffer)
+        guard blockError == .zero else { throw("Failed to create parameter set block") }
+
+        let allocateError = CMBlockBufferAssureBlockMemory(buffer!)
+        guard allocateError == .zero else { throw("Failed to allocate parameter set block") }
+
+        return buffer!
+    }
+
+    private func makeParameterSampleBuffer(sample: CMSampleBuffer,
+                                           buffer: CMBlockBuffer,
+                                           totalLength: Int) throws -> CMSampleBuffer {
+        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
+        var parameterSample: CMSampleBuffer?
+        var length = totalLength
+        let sampleError = CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
+                                                    dataBuffer: buffer,
+                                                    formatDescription: nil,
+                                                    sampleCount: 1,
+                                                    sampleTimingEntryCount: 1,
+                                                    sampleTimingArray: &time,
+                                                    sampleSizeEntryCount: 1,
+                                                    sampleSizeArray: &length,
+                                                    sampleBufferOut: &parameterSample)
+        guard sampleError == .zero else { throw("Couldn't create parameter sample") }
+        return parameterSample!
     }
 }
 
