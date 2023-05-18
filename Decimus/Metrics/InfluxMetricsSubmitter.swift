@@ -34,6 +34,9 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         for measurement in measurements {
             for timestampedDict in await measurement.fields {
                 let point: InfluxDBClient.Point = .init(await measurement.name)
+                for tag in await measurement.tags {
+                    point.addTag(key: tag.key, value: tag.value)
+                }
                 if let realTime = timestampedDict.key {
                     point.time(time: .date(realTime))
                 }

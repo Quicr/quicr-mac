@@ -10,15 +10,16 @@ class EncoderWrapper {
     private let measurement: EncoderMeasurement
 
     /// Create a new encoder pipeline element.
-    init(identifier: UInt64, encoder: Encoder, submitter: MetricsSubmitter) {
+    init(identifier: UInt64, encoder: Encoder, config: CodecConfig, submitter: MetricsSubmitter) {
         self.encoder = encoder
-        measurement = .init(identifier: String(identifier), submitter: submitter)
+        measurement = .init(identifier: String(identifier), config: config, submitter: submitter)
     }
 
     func write(sample: CMSampleBuffer) {
+        let bytes = sample.totalSampleSize
         self.encoder.write(sample: sample)
         Task {
-            await measurement.write()
+            await measurement.write(bytes: bytes)
         }
     }
 }
@@ -45,7 +46,10 @@ class PipelineManager {
             return
         }
 
-        encoders[identifier] = .init(identifier: identifier, encoder: encoder, submitter: metricsSubmitter)
+        encoders[identifier] = .init(identifier: identifier,
+                                     encoder: encoder,
+                                     config: config,
+                                     submitter: metricsSubmitter)
     }
 
     func registerDecoder(identifier: UInt64, config: CodecConfig) {
