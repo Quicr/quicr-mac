@@ -123,7 +123,7 @@ class H264Encoder: SampleEncoder {
             CMBlockBufferReplaceDataBytes(with: startCode,
                                           blockBuffer: buffer,
                                           offsetIntoDestination: offset,
-                                            dataLength: startCodeLength)
+                                          dataLength: startCodeLength)
 
             // Carry on.
             offset += startCodeLength + Int(naluLength)
