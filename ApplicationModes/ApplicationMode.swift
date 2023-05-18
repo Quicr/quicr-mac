@@ -98,31 +98,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         player.removePlayer(identifier: identifier)
     }
 
-    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
-        switch event {
-        case .added:
-            let config: CodecConfig
-            if device.hasMediaType(.audio) {
-                // TODO: This is a hack to try and get the format. Assuming built-in mic.
-                // This will be fixed by AVAudioEngine capture implementation.
-                config = AudioCodecConfig(codec: .opus, bitrate: 0, format: .init())
-            } else if device.hasMediaType(.video) {
-                let size = device.activeFormat.formatDescription.dimensions
-                config = VideoCodecConfig(codec: .h264,
-                                          bitrate: 2048000,
-                                          fps: 60,
-                                          width: size.width,
-                                          height: size.height
-                )
-            } else {
-                fatalError("MediaType not understood for device: \(device.id)")
-            }
-
-            pipeline!.registerEncoder(identifier: device.id, config: config)
-        case .removed:
-            pipeline!.unregisterEncoder(identifier: device.id)
-        }
-    }
+    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) { }
 
     func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {
         return [identifier]

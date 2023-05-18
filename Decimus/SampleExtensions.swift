@@ -24,7 +24,7 @@ extension CMSampleBuffer {
     }
 
     func asMediaBuffer() -> MediaBuffer {
-        let opaque = Unmanaged.passRetained(self).toOpaque()
+        let opaque = Unmanaged.passUnretained(self).toOpaque()
         let bufferPtr: UnsafeRawBufferPointer = .init(start: opaque, count: 1)
         return .init(buffer: bufferPtr, timestampMs: 0)
     }

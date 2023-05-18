@@ -89,6 +89,7 @@ class QMediaPubSub: ApplicationModeBase {
         }
 
         self.pipeline!.registerEncoder(identifier: streamId, config: config)
+        self.codecLookup[streamId] = config
         print("[QMediaPubSub] Registered \(String(describing: config.codec)) to publish stream: \(streamId)")
     }
 
@@ -134,20 +135,20 @@ class QMediaPubSub: ApplicationModeBase {
         }
 
         let config = codecLookup[data.source]!
-        if let _ = config as? AudioCodecConfig {
+        switch config {
+        case is AudioCodecConfig:
             mediaClient!.sendAudio(mediaStreamId: data.source,
                                    buffer: buffer,
                                    length: length,
                                    timestamp: timestamp)
-            return
-        }
-
-        if let _ = config as? VideoCodecConfig {
+        case is VideoCodecConfig:
             mediaClient!.sendVideoFrame(mediaStreamId: data.source,
                                         buffer: buffer,
                                         length: length,
                                         timestamp: timestamp,
                                         flag: false)
+        default:
+            errorHandler.writeError(message: "Got unexpected media type")
             return
         }
     }

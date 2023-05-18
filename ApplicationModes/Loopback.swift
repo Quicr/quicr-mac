@@ -13,9 +13,7 @@ class Loopback: ApplicationModeBase {
         case .added:
             let config: CodecConfig
             if device.hasMediaType(.audio) {
-                // TODO: This is a hack to try and get the format. Assuming built-in mic.
-                // This will be fixed by AVAudioEngine capture implementation.
-                config = AudioCodecConfig(codec: .opus, bitrate: 0, format: .init())
+                config = AudioCodecConfig(codec: .opus, bitrate: 0)
             } else if device.hasMediaType(.video) {
                 let size = device.activeFormat.formatDescription.dimensions
                 config = VideoCodecConfig(codec: .h264,
@@ -32,8 +30,8 @@ class Loopback: ApplicationModeBase {
             pipeline!.registerDecoder(identifier: device.id, config: config)
         case .removed:
             pipeline!.unregisterEncoder(identifier: device.id)
+            pipeline!.unregisterDecoder(identifier: device.id)
             removeRemoteSource(identifier: device.id)
         }
-        super.onDeviceChange(device: device, event: event)
     }
 }

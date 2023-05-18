@@ -57,7 +57,7 @@ class H264Encoder: Encoder {
 
     func write(data: MediaBuffer) {
         guard let compressionSession = encoder else { return }
-        let sample = Unmanaged<CMSampleBuffer>.fromOpaque(data.buffer.baseAddress!).takeRetainedValue()
+        let sample = Unmanaged<CMSampleBuffer>.fromOpaque(data.buffer.baseAddress!).takeUnretainedValue()
         guard let imageBuffer = sample.imageBuffer else { return }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
         let error = VTCompressionSessionEncodeFrame(compressionSession,
