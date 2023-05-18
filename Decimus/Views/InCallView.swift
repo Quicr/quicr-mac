@@ -146,12 +146,13 @@ extension InCallView where Mode == QMediaPubSub {
 extension InCallView.ViewModel where Mode == QMediaPubSub {
     convenience init(config: CallConfig) {
         self.init()
-        do {
-            try mode!.connect(config: config) {
-                Task { await callController!.join() }
+        Task {
+            do {
+                try await mode!.connect(config: config)
+                await callController!.join()
+            } catch {
+                self.errorHandler.writeError(message: "[QMediaPubSub] \(error)")
             }
-        } catch {
-            self.errorHandler.writeError(message: "[QMediaPubSub] Already connected!")
         }
     }
 }

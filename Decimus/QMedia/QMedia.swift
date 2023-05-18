@@ -72,17 +72,22 @@ class MediaClient {
         MediaClient_sendVideoFrame(instance, mediaStreamId, buffer, length, timestamp, flag)
     }
 
+    enum GetStreamError: Error {
+        case missing
+        case malformed
+    }
+
     /// Temporary method for parsing JSON to retrieve quality profiles for creating codecs.
     /// TODO: Remove this when QMedia's API is updated to accomodate this functionality
-    private func getStreams(json: [String: Any], setName: String) -> [UInt64: [[String: String]]] {
-        guard let sets = json[setName] as? [[String: Any]] else { fatalError("Couldn't get \(setName)") }
+    private func getStreams(json: [String: Any], setName: String) throws -> [UInt64: [[String: String]]] {
+        guard let sets = json[setName] as? [[String: Any]] else { throw GetStreamError.missing }
 
         var allProfiles: [UInt64: [[String: String]]] = [:]
-        sets.enumerated().forEach { index, json in
-            guard let profileSet = json["profileSet"] as? [String: Any] else { fatalError() }
-            guard let profiles = profileSet["profiles"] as? [[String: String]] else { fatalError() }
-            guard let type = profileSet["type"] as? String else { fatalError() }
-            guard let mediaType = json["mediaType"] as? String else { fatalError() }
+        try sets.enumerated().forEach { index, json in
+            guard let profileSet = json["profileSet"] as? [String: Any] else { throw GetStreamError.malformed }
+            guard let profiles = profileSet["profiles"] as? [[String: String]] else { throw GetStreamError.malformed }
+            guard let type = profileSet["type"] as? String else { throw GetStreamError.malformed }
+            guard let mediaType = json["mediaType"] as? String else { throw GetStreamError.malformed }
 
             let sourceId = setName == "Publications" ?
                 AVCaptureDevice.default(for: mediaType == "video" ? .video : .audio)!.id : UInt64(index)
@@ -105,23 +110,23 @@ class MediaClient {
     /// TODO: Remove this when QMedia's API is updated to accomodate this functionality
     func getStreamConfigs(_ manifest: String,
                           prepareEncoderCallback: (UInt64, UInt8, UInt16, CodecConfig) -> Void,
-                          prepareDecoderCallback: (UInt64, UInt8, UInt16, CodecConfig) -> Void) {
+                          prepareDecoderCallback: (UInt64, UInt8, UInt16, CodecConfig) -> Void) throws {
         guard let manifestData = manifest.data(using: .utf8) else { fatalError() }
         guard let json = try? JSONSerialization.jsonObject(with: manifestData, options: []) as? [String: Any] else {
-            fatalError("Couldn't parse JSON")
+            throw GetStreamError.malformed
         }
 
         let setNames = ["Publications", "Subscriptions"]
-        setNames.forEach { setName in
-            let allProfiles = getStreams(json: json, setName: setName)
+        try setNames.forEach { setName in
+            let allProfiles = try getStreams(json: json, setName: setName)
             let prepareCallback = setName == "Publications" ? prepareEncoderCallback : prepareDecoderCallback
 
-            allProfiles.forEach { sourceId, profiles in
+            try allProfiles.forEach { sourceId, profiles in
                 for profile in profiles {
-                    guard let qualityProfile = profile["qualityProfile"] else { fatalError() }
-                    guard let quicrNamespaceUrl = profile["quicrNamespaceUrl"] else { fatalError() }
+                    guard let qualityProfile = profile["qualityProfile"] else { throw GetStreamError.malformed }
+                    guard let quicrNamespaceUrl = profile["quicrNamespaceUrl"] else { throw GetStreamError.malformed }
 
-                    guard let comp = URLComponents(string: quicrNamespaceUrl) else { fatalError() }
+                    guard let comp = URLComponents(string: quicrNamespaceUrl) else { throw GetStreamError.malformed }
                     let tokens = comp.path.components(separatedBy: "/")
                     let mediaType: UInt8 = UInt8(tokens[4]) ?? 0
                     let endpoint: UInt16 = UInt16(tokens[6]) ?? 0
