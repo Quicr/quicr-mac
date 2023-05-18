@@ -111,11 +111,6 @@ class QMediaPubSub: ApplicationModeBase {
         return streamIds
     }
 
-    override func removeRemoteSource(identifier: UInt64) {
-        super.removeRemoteSource(identifier: identifier)
-        mediaClient!.removeMediaSubscribeStream(mediaStreamId: identifier)
-    }
-
     override func sendEncodedImage(identifier: UInt64, data: CMSampleBuffer) {
         do {
             try data.dataBuffer!.withUnsafeMutableBytes { ptr in

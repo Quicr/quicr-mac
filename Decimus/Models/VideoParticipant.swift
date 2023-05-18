@@ -8,10 +8,12 @@ enum ParticipantError: Error {
 class VideoParticipant: ObservableObject, Identifiable {
     var id: UInt64
     @Published var decodedImage: Image
+    var lastUpdated: DispatchTime
 
     init(id: UInt64) {
         self.id = id
         decodedImage = .init(systemName: "phone")
+        lastUpdated = .init(uptimeNanoseconds: 0)
     }
 }
 
