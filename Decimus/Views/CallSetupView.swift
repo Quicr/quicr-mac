@@ -13,13 +13,14 @@ private struct LoginForm: View {
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
+    @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
 
     @State private var callConfig = CallConfig(address: "",
                                                port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
                                                connectionProtocol: .QUIC,
-                                               conferenceId: 1)
+                                               conferenceId: 0)
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -34,55 +35,71 @@ private struct LoginForm: View {
                     Text("Email")
                         .padding(.horizontal)
                         .foregroundColor(.white)
-                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
-                        .keyboardType(.emailAddress)
-                        .onChange(of: callConfig.email, perform: { value in
-                            Task {
+                    HStack {
+                        TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                            .keyboardType(.emailAddress)
+                            .onChange(of: callConfig.email, perform: { value in
                                 email = value
-                                let userId = await ManifestController.shared.getUser(email: email)
-                                meetings = await ManifestController.shared.getConferences(for: userId)
-                            }
-                        })
-                        .textFieldStyle(FormInputStyle())
+                                Task {
+                                    await fetchManifest()
+                                }
+                            })
+                            .textFieldStyle(FormInputStyle())
+                        if isLoading {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }
                 }
 
                 if email != "" {
                     VStack(alignment: .leading) {
-                        Text("Meeting")
-                            .padding(.horizontal)
-                            .foregroundColor(.white)
-                        Picker("", selection: $callConfig.conferenceId) {
-                            ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
-                                Text(meeting).tag(id)
+                        if meetings.count > 0 {
+                            Text("Meeting")
+                                .padding(.horizontal)
+                                .foregroundColor(.white)
+                            Picker("", selection: $callConfig.conferenceId) {
+                                ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                    Text(meeting).tag(id)
+                                }
                             }
+                            .labelsHidden()
+                        } else {
+                            Text("No meetings")
+                                .padding(.horizontal)
+                                .foregroundColor(.white)
+                                .onAppear {
+                                    callConfig.conferenceId = 0
+                                }
                         }
-                        .labelsHidden()
                     }
                 }
 
-                RadioButtonGroup("Protocol",
-                                 selection: $callConfig,
-                                 labels: ["UDP", "QUIC"],
-                                 tags: [
-                    .init(address: relayAddress,
-                          port: getPort(.UDP),
-                          connectionProtocol: .UDP,
-                          email: callConfig.email,
-                          conferenceId: callConfig.conferenceId),
-                    .init(address: relayAddress,
-                          port: getPort(.QUIC),
-                          connectionProtocol: .QUIC,
-                          email: callConfig.email,
-                          conferenceId: callConfig.conferenceId)
-                ])
+                if callConfig.conferenceId != 0 {
+                    RadioButtonGroup("Protocol",
+                                     selection: $callConfig,
+                                     labels: ["UDP", "QUIC"],
+                                     tags: [
+                        .init(address: relayAddress,
+                              port: getPort(.UDP),
+                              connectionProtocol: .UDP,
+                              email: callConfig.email,
+                              conferenceId: callConfig.conferenceId),
+                        .init(address: relayAddress,
+                              port: getPort(.QUIC),
+                              connectionProtocol: .QUIC,
+                              email: callConfig.email,
+                              conferenceId: callConfig.conferenceId)
+                    ])
 
-                ActionButton("Join Meeting",
-                             font: Font.system(size: 19, weight: .semibold),
-                             disabled: !isAllowedJoin || callConfig.email == "",
-                             styleConfig: buttonColour,
-                             action: join)
-                .frame(maxWidth: .infinity)
-                .font(Font.system(size: 19, weight: .semibold))
+                    ActionButton("Join Meeting",
+                                 font: Font.system(size: 19, weight: .semibold),
+                                 disabled: !isAllowedJoin || callConfig.email == "",
+                                 styleConfig: buttonColour,
+                                 action: join)
+                    .frame(maxWidth: .infinity)
+                    .font(Font.system(size: 19, weight: .semibold))
+                }
             }
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
@@ -93,19 +110,27 @@ private struct LoginForm: View {
         .scrollDisabled(true)
         .onAppear {
             Task {
-                let userId = await ManifestController.shared.getUser(email: email)
-                meetings = await ManifestController.shared.getConferences(for: userId)
+                await fetchManifest()
+                if meetings.count > 0 {
+                    callConfig = CallConfig(address: relayAddress,
+                                            port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                            connectionProtocol: .QUIC,
+                                            email: email,
+                                            conferenceId: meetings.first!.key)
+                }
             }
-            callConfig = CallConfig(address: relayAddress,
-                                    port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
-                                    connectionProtocol: .QUIC,
-                                    email: email,
-                                    conferenceId: 1)
-
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
                 isAllowedJoin = true
             }
         }
+    }
+
+    private func fetchManifest() async {
+        isLoading = true
+        let userId = await ManifestController.shared.getUser(email: email)
+        meetings = await ManifestController.shared.getConferences(for: userId)
+        callConfig.conferenceId = meetings.first?.key ?? 0
+        isLoading = false
     }
 
     func join() {

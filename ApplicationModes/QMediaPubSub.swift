@@ -33,7 +33,7 @@ class QMediaPubSub: ApplicationModeBase {
         QMediaPubSub.weakSelf!.pipeline!.decode(mediaBuffer: buffer)
     }
 
-    func connect(config: CallConfig, onReady: () -> Void) throws {
+    func connect(config: CallConfig) async throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
 
         QMediaPubSub.weakSelf = self
@@ -42,17 +42,10 @@ class QMediaPubSub: ApplicationModeBase {
                             protocol: config.connectionProtocol,
                             conferenceId: config.conferenceId)
 
-        let semaphore = DispatchSemaphore(value: 0)
-        Task {
-            let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
-            mediaClient!.getStreamConfigs(manifest,
+        let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
+        try mediaClient!.getStreamConfigs(manifest,
                                           prepareEncoderCallback: prepareEncoder,
                                           prepareDecoderCallback: prepareDecoder)
-            semaphore.signal()
-        }
-
-        semaphore.wait()
-        onReady()
     }
 
     func disconnect() throws {
