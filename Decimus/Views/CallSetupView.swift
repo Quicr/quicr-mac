@@ -13,6 +13,8 @@ private struct LoginForm: View {
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
+    @AppStorage("confId") private var confId: Int = 1
+
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
@@ -43,6 +45,11 @@ private struct LoginForm: View {
                                 Task {
                                     await fetchManifest()
                                 }
+
+                                if !meetings.keys.contains(UInt32(confId)) {
+                                    confId = 1
+                                    callConfig.conferenceId = 1
+                                }
                             })
                             .textFieldStyle(FormInputStyle())
                         if isLoading {
@@ -62,6 +69,9 @@ private struct LoginForm: View {
                                 ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
                                     Text(meeting).tag(id)
                                 }
+                            }
+                            .onChange(of: callConfig.conferenceId) { _ in
+                                confId = Int(callConfig.conferenceId)
                             }
                             .labelsHidden()
                         } else {
@@ -116,7 +126,7 @@ private struct LoginForm: View {
                                             port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
                                             connectionProtocol: .QUIC,
                                             email: email,
-                                            conferenceId: meetings.first!.key)
+                                            conferenceId: UInt32(confId))
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -129,7 +139,7 @@ private struct LoginForm: View {
         isLoading = true
         let userId = await ManifestController.shared.getUser(email: email)
         meetings = await ManifestController.shared.getConferences(for: userId)
-        callConfig.conferenceId = meetings.first?.key ?? 0
+        callConfig.conferenceId = UInt32(confId)
         isLoading = false
     }
 

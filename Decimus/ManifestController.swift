@@ -58,7 +58,7 @@ class ManifestController {
         url.path = "/users"
 
         let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return "" }
         guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
             fatalError()
         }
