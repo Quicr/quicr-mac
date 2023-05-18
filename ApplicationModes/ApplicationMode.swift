@@ -27,6 +27,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     let player: AudioPlayer
 
     var participants: VideoParticipants = VideoParticipants()
+    private var checkStaleVideoTimer: Timer?
 
     private let id = UUID()
 
@@ -34,6 +35,15 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         self.errorHandler = errorWriter
         self.player = player
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
+
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+            let staleVideos = self.participants.participants.filter { _, participant in
+                return participant.lastUpdated.advanced(by: DispatchTimeInterval.seconds(2)) < .now()
+            }
+            for id in staleVideos.keys {
+                self.removeRemoteSource(identifier: id)
+            }
+        }
 
         CodecFactory.shared = .init()
         CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
@@ -55,6 +65,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     }
 
     deinit {
+        checkStaleVideoTimer!.invalidate()
         CodecFactory.shared = nil
     }
 
@@ -85,17 +96,15 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             imageOrientation = .up
         }
         participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
+        participant.lastUpdated = .now()
     }
 
     func removeRemoteSource(identifier: UInt64) {
-        // Remove video renderer.
         do {
             try participants.removeParticipant(identifier: identifier)
         } catch {
-            errorHandler.writeError(message: "Failed to remove remote participant (\(identifier)): \(error)")
+            player.removePlayer(identifier: identifier)
         }
-        pipeline!.unregisterDecoder(identifier: identifier)
-        player.removePlayer(identifier: identifier)
     }
 
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) { }

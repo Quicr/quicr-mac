@@ -113,11 +113,6 @@ class QMediaPubSub: ApplicationModeBase {
         return streamIds
     }
 
-    override func removeRemoteSource(identifier: UInt64) {
-        super.removeRemoteSource(identifier: identifier)
-        mediaClient!.removeMediaSubscribeStream(mediaStreamId: identifier)
-    }
-
     override func sendEncodedData(data: MediaBufferFromSource) {
         let buffer = data.media.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self)
         let length: UInt32 = .init(data.media.buffer.count)
