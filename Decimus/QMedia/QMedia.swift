@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-typealias SourceIDType = UInt64
+typealias SourceIDType = String
 typealias StreamIDType = UInt64
 
 /// Swift Interface for using QMedia stack.
@@ -82,10 +82,10 @@ class MediaClient {
 
     /// Temporary method for parsing JSON to retrieve quality profiles for creating codecs.
     /// TODO: Remove this when QMedia's API is updated to accomodate this functionality
-    private func getStreams(json: [String: Any], setName: String) throws -> [UInt64: [[String: String]]] {
+    private func getStreams(json: [String: Any], setName: String) throws -> [SourceIDType: [[String: String]]] {
         guard let sets = json[setName] as? [[String: Any]] else { throw GetStreamError.missing }
 
-        var allProfiles: [UInt64: [[String: String]]] = [:]
+        var allProfiles: [SourceIDType: [[String: String]]] = [:]
         try sets.enumerated().forEach { index, json in
             guard let profileSet = json["profileSet"] as? [String: Any] else { throw GetStreamError.malformed }
             guard let profiles = profileSet["profiles"] as? [[String: String]] else { throw GetStreamError.malformed }
@@ -93,7 +93,7 @@ class MediaClient {
             guard let mediaType = json["mediaType"] as? String else { throw GetStreamError.malformed }
 
             let sourceId = setName == "Publications" ?
-                AVCaptureDevice.default(for: mediaType == "video" ? .video : .audio)!.id : UInt64(index)
+            AVCaptureDevice.default(for: mediaType == "video" ? .video : .audio)!.uniqueID : String(index)
 
             if type == "singleordered" {
                 allProfiles[sourceId] = [profiles[0]]
@@ -112,8 +112,8 @@ class MediaClient {
     /// Temporary method for parsing JSON to retrieve quality profiles for creating codecs.
     /// TODO: Remove this when QMedia's API is updated to accomodate this functionality
     func getStreamConfigs(_ manifest: String,
-                          prepareEncoderCallback: (StreamIDType, UInt8, UInt16, String) -> Void,
-                          prepareDecoderCallback: (StreamIDType, UInt8, UInt16, String) -> Void) throws {
+                          prepareEncoderCallback: (SourceIDType, UInt8, UInt16, String) -> Void,
+                          prepareDecoderCallback: (SourceIDType, UInt8, UInt16, String) -> Void) throws {
         guard let manifestData = manifest.data(using: .utf8) else { fatalError() }
         guard let json = try? JSONSerialization.jsonObject(with: manifestData, options: []) as? [String: Any] else {
             throw GetStreamError.malformed

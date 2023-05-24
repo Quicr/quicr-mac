@@ -8,7 +8,7 @@ enum ApplicationError: Error {
     case notConnected
 }
 
-class QMediaPubSub: ApplicationModeBase {
+class QMediaPubSub: ApplicationMode {
     private let devices = Devices()
     private var codecLookup: [UInt64: CodecConfig] = [:]
 
@@ -39,7 +39,7 @@ class QMediaPubSub: ApplicationModeBase {
     }
 
     private func prepareEncoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
-        guard devices.devices.first(where: { $0.id == sourceId }) != nil else {
+        guard devices.devices.first(where: { $0.uniqueID == sourceId }) != nil else {
             fatalError("Invalid sourceId \"\(sourceId)\": No device found")
         }
 
@@ -49,10 +49,7 @@ class QMediaPubSub: ApplicationModeBase {
         do {
             codecLookup[streamId] = try publisher.prepareByStream(streamId: streamId,
                                                                   sourceId: sourceId,
-                                                                  qualityProfile: qualityProfile) { [weak self] media in
-                guard let mode = self else { return }
-                mode.sendEncodedData(identifier: streamId, data: media)
-            }
+                                                                  qualityProfile: qualityProfile)
 
             if publishers[sourceId] == nil {
                 publishers[sourceId] = [publisher]
@@ -98,14 +95,14 @@ class QMediaPubSub: ApplicationModeBase {
         ManifestController.shared.sendCapabilities()
     }
 
-    override func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
+    override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
         guard let publishers = publishers[identifier] else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }
         Task { await publishers.concurrentForEach { $0.write(sample: frame) } }
     }
 
-    override func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
+    override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
         guard let publisher = publishers[identifier] else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }
@@ -117,34 +114,6 @@ class QMediaPubSub: ApplicationModeBase {
         let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
         let data = sample.getMediaBuffer(userData: audioFormat)
         publisher.forEach { $0.write(data: data) }
-    }
-
-    override func sendEncodedData(identifier: UInt64, data: MediaBuffer) {
-        let buffer = data.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self)
-        let length: UInt32 = .init(data.buffer.count)
-        let timestamp: UInt64 = .init(data.timestampMs)
-        guard length > 0 else {
-            errorHandler.writeError(message: "[QMediaPubSub] Data to send had length 0")
-            return
-        }
-
-        let config = codecLookup[identifier]!
-        switch config {
-        case is AudioCodecConfig:
-            mediaClient!.sendAudio(mediaStreamId: identifier,
-                                   buffer: buffer,
-                                   length: length,
-                                   timestamp: timestamp)
-        case is VideoCodecConfig:
-            mediaClient!.sendVideoFrame(mediaStreamId: identifier,
-                                        buffer: buffer,
-                                        length: length,
-                                        timestamp: timestamp,
-                                        flag: false)
-        default:
-            errorHandler.writeError(message: "Got unexpected media type")
-            return
-        }
     }
 }
 

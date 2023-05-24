@@ -154,7 +154,7 @@ class CallController: ObservableObject {
     @Published var selectedMicrophone: AVCaptureDevice?
     @Published var capture: CaptureManager
 
-    init(mode: ApplicationModeBase?, capture: CaptureManager) {
+    init(mode: ApplicationMode?, capture: CaptureManager) {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = capture
     }

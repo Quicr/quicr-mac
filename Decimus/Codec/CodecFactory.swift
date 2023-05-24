@@ -116,7 +116,7 @@ class CodecFactory {
     /// - Parameter timestamp: The timestamp for this image.
     /// - Parameter orientation: The source orientation of this image.
     /// - Parameter verticalMirror: True if this image is intended to be vertically mirrored.
-    typealias DecodedImageCallback = (_ identifier: UInt64,
+    typealias DecodedImageCallback = (_ identifier: StreamIDType,
                                       _ image: CIImage,
                                       _ timestamp: CMTimeValue,
                                       _ orientation: AVCaptureVideoOrientation?,
@@ -125,7 +125,7 @@ class CodecFactory {
     /// Represents an decoded audio sample.
     /// - Parameter identifier: The source identifier for this encoded image.
     /// - Parameter buffer: The buffer being decoded
-    typealias DecodedAudioCallback = (_ identifier: UInt64,
+    typealias DecodedAudioCallback = (_ identifier: StreamIDType,
                                       _ buffer: AVAudioPCMBuffer) -> Void
 
     private var decodedSampleCallback: DecodedImageCallback!
@@ -163,7 +163,7 @@ class CodecFactory {
     /// Creates an decoder from a factory callback.
     /// - Parameter sourceId: The identifier for the source to encode.
     /// - Parameter codec: The codec type of the decoder
-    func createDecoder(identifier: UInt64, config: CodecConfig) throws -> Decoder {
+    func createDecoder(identifier: StreamIDType, config: CodecConfig) throws -> Decoder {
         guard let factory = decoderFactories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
         }

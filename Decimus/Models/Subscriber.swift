@@ -27,7 +27,7 @@ class Subscriber {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
 
         do {
-            try decoder = CodecFactory.shared.createDecoder(identifier: streamId, config: config)
+            decoder = try CodecFactory.shared.createDecoder(identifier: streamId, config: config)
             self.streamId = streamId
 
             // TODO: This is temporary before we change QMedia

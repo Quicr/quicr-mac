@@ -5,11 +5,11 @@ import AVFAudio
 import AVFoundation
 import UIKit
 
-/// ApplicationModeBase provides a default implementation of the app.
+/// ApplicationMode provides a default implementation of the app.
 /// Uncompressed data is passed to the pipeline to encode, encoded data is passed out to be rendered.
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
-class ApplicationModeBase {
+class ApplicationMode {
     let errorHandler: ErrorWriter
     let player: AudioPlayer
 
@@ -54,7 +54,7 @@ class ApplicationModeBase {
         CodecFactory.shared = nil
     }
 
-    func showDecodedImage(identifier: UInt64,
+    func showDecodedImage(identifier: StreamIDType,
                           decoded: CIImage,
                           orientation: AVCaptureVideoOrientation?,
                           verticalMirror: Bool) {
@@ -80,7 +80,7 @@ class ApplicationModeBase {
         participant.lastUpdated = .now()
     }
 
-    func removeRemoteSource(identifier: UInt64) {
+    func removeRemoteSource(identifier: StreamIDType) {
         do {
             try participants.removeParticipant(identifier: identifier)
         } catch {
@@ -89,9 +89,9 @@ class ApplicationModeBase {
     }
 
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {}
-    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {}
-    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {}
-    func sendEncodedData(identifier: UInt64, data: MediaBuffer) {}
+    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {}
+    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {}
+
     func connect(config: CallConfig) async throws {}
     func disconnect() throws {}
 }

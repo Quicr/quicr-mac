@@ -4,7 +4,7 @@ import UIKit
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
-struct InCallView<Mode>: View where Mode: ApplicationModeBase {
+struct InCallView<Mode>: View where Mode: ApplicationMode {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
 

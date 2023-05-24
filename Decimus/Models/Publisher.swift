@@ -11,19 +11,42 @@ class Publisher {
         self.client.removeMediaPublishStream(mediaStreamId: streamId)
     }
 
+    private var device: AVCaptureDevice?
     private var streamId: StreamIDType = 0
-    private unowned var device: AVCaptureDevice?
     private var encoder: Encoder?
 
     func prepareByStream(streamId: StreamIDType,
                          sourceId: SourceIDType,
-                         qualityProfile: String,
-                         encodeCallback: @escaping Encoder.EncodedBufferCallback) throws -> CodecConfig {
+                         qualityProfile: String) throws -> CodecConfig {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
 
+        self.device = AVCaptureDevice.init(uniqueID: sourceId)
+        self.streamId = streamId
+
         do {
-            try encoder = CodecFactory.shared.createEncoder(config, encodeCallback: encodeCallback)
-            self.streamId = streamId
+            try encoder = CodecFactory.shared.createEncoder(config) { data in
+                let buffer = data.buffer.baseAddress!.assumingMemoryBound(to: UInt8.self)
+                let length: UInt32 = .init(data.buffer.count)
+                let timestamp: UInt64 = .init(data.timestampMs)
+                guard length > 0 else { return }
+
+                switch config {
+                case is AudioCodecConfig:
+                    self.client.sendAudio(mediaStreamId: self.streamId,
+                                           buffer: buffer,
+                                           length: length,
+                                           timestamp: timestamp)
+                case is VideoCodecConfig:
+                    self.client.sendVideoFrame(mediaStreamId: self.streamId,
+                                                buffer: buffer,
+                                                length: length,
+                                                timestamp: timestamp,
+                                                flag: false)
+                default:
+                    fatalError("Unrecognized codec config")
+                }
+            }
+
             print("[Publisher] Registered \(String(describing: config.codec)) to publish stream: \(streamId)")
         } catch {
             print("[Publisher] Failed to create encoder: \(error)")

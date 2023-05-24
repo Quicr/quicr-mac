@@ -8,7 +8,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
     private var engine: AVAudioEngine = .init()
     private var mixer: AVAudioMixerNode = .init()
     private let errorWriter: ErrorWriter
-    private var elements: [UInt64: SourceElement] = [:]
+    private var elements: [StreamIDType: SourceElement] = [:]
 
     /// Create a new `AudioPlayer`
     init(errorWriter: ErrorWriter) {
@@ -33,7 +33,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
         engine.detach(mixer)
     }
 
-    func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
+    func write(identifier: StreamIDType, buffer: AVAudioPCMBuffer) {
         // Get the source element for this identifier.
         let source: SourceElement? = elements[identifier]
         guard let source = source else {
@@ -45,7 +45,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
         source.write(list: buffer.mutableAudioBufferList)
     }
 
-    func addPlayer(identifier: UInt64, format: AVAudioFormat) {
+    func addPlayer(identifier: StreamIDType, format: AVAudioFormat) {
         do {
             if !engine.isRunning {
                 try engine.start()
@@ -62,7 +62,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
         engine.connect(source.sourceNode, to: mixer, format: nil)
     }
 
-    func removePlayer(identifier: UInt64) {
+    func removePlayer(identifier: StreamIDType) {
 
         guard let element = elements.removeValue(forKey: identifier) else { return }
         print("[FasterAVAudioEngine] (\(identifier)) Removing")

@@ -1,7 +1,7 @@
 import SwiftUI
 import AVFoundation
 
-class Loopback: ApplicationModeBase {
+class Loopback: ApplicationMode {
 
     var pipeline: PipelineManager?
 
@@ -10,23 +10,18 @@ class Loopback: ApplicationModeBase {
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
     }
 
-    override func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
+    override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
         let sample = frame.asMediaBuffer()
-        pipeline!.encode(identifier: identifier, buffer: sample)
+        pipeline!.encode(identifier: AVCaptureDevice(uniqueID: identifier)!.id, buffer: sample)
     }
 
-    override func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
+    override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
         guard let formatDescription = sample.formatDescription else {
             errorHandler.writeError(message: "Missing format description")
             return
         }
         let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
-        pipeline!.encode(identifier: identifier, buffer: sample.getMediaBuffer(userData: audioFormat))
-    }
-
-    override func sendEncodedData(identifier: UInt64, data: MediaBuffer) {
-        // Loopback: Write encoded data to decoder.
-        pipeline!.decode(identifier: identifier, buffer: data)
+        pipeline!.encode(identifier: AVCaptureDevice(uniqueID: identifier)!.id, buffer: sample.getMediaBuffer(userData: audioFormat))
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
@@ -44,12 +39,15 @@ class Loopback: ApplicationModeBase {
                                           height: size.height
                 )
             } else {
-                fatalError("MediaType not understood for device: \(device.id)")
+                fatalError("MediaType not understood for device: \(device.uniqueID)")
             }
 
-            pipeline!.registerEncoder(identifier: device.id, config: config)
-            if let decoder = pipeline!.registerDecoder(identifier: device.id, config: config) as? BufferDecoder {
-                player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            // if let decoder = pipeline!.registerDecoder(identifier: device.id, config: config) as? BufferDecoder {
+            //     player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            // }
+            pipeline!.registerEncoder(identifier: device.id, config: config) { [weak self] media in
+                guard let mode = self else { return }
+                mode.pipeline!.decode(identifier: device.id, buffer: media)
             }
         case .removed:
             pipeline!.unregisterEncoder(identifier: device.id)

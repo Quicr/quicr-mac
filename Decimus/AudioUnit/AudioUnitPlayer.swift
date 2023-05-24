@@ -79,11 +79,11 @@ class AudioUnitPlayer: AudioPlayer {
         }
     }
 
-    func addPlayer(identifier: UInt64, format: AVAudioFormat) {
+    func addPlayer(identifier: StreamIDType, format: AVAudioFormat) {
         // TODO: Player & mixer support.
     }
 
-    func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
+    func write(identifier: StreamIDType, buffer: AVAudioPCMBuffer) {
         let list = buffer.mutableAudioBufferList.pointee
         if !buffer.format.equivalent(other: self.inputFormat) {
             // Try and change the format to match.
@@ -114,7 +114,7 @@ class AudioUnitPlayer: AudioPlayer {
         }
     }
 
-    func removePlayer(identifier: UInt64) {
+    func removePlayer(identifier: StreamIDType) {
         print("Please remove: \(identifier)")
         print("Incomplete reads: \(incompleteFrames)/\(reads)")
         print("Copy fails: \(copyFails)/\(copyAttempts)")
