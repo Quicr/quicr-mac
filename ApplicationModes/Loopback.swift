@@ -3,9 +3,30 @@ import AVFoundation
 
 class Loopback: ApplicationModeBase {
 
-    override func sendEncodedData(data: MediaBufferFromSource) {
+    var pipeline: PipelineManager?
+
+    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
+        super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
+        self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
+    }
+
+    override func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
+        let sample = frame.asMediaBuffer()
+        pipeline!.encode(identifier: identifier, buffer: sample)
+    }
+
+    override func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
+        guard let formatDescription = sample.formatDescription else {
+            errorHandler.writeError(message: "Missing format description")
+            return
+        }
+        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
+        pipeline!.encode(identifier: identifier, buffer: sample.getMediaBuffer(userData: audioFormat))
+    }
+
+    override func sendEncodedData(identifier: UInt64, data: MediaBuffer) {
         // Loopback: Write encoded data to decoder.
-        pipeline!.decode(mediaBuffer: data)
+        pipeline!.decode(identifier: identifier, buffer: data)
     }
 
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {

@@ -63,6 +63,8 @@
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
 		FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2C29DD110600887833 /* VideoGrid.swift */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
+		FF6C80A92A16DB850094751E /* Publisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publisher.swift */; };
+		FF6C80AB2A17E8980094751E /* Subscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80AA2A17E8980094751E /* Subscriber.swift */; };
 		FF6D6D302A00410400B535DA /* fonts in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D2F2A00410400B535DA /* fonts */; };
 		FF6D6D522A00415300B535DA /* CiscoSansTT-MediumOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */; };
 		FF6D6D532A00415300B535DA /* CiscoSansTTThinOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */; };
@@ -185,6 +187,8 @@
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
 		FF1C5C2C29DD110600887833 /* VideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoGrid.swift; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
+		FF6C80A82A16DB850094751E /* Publisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publisher.swift; sourceTree = "<group>"; };
+		FF6C80AA2A17E8980094751E /* Subscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscriber.swift; sourceTree = "<group>"; };
 		FF6D6D2F2A00410400B535DA /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = "dependencies/momentum-ui/core/fonts"; sourceTree = "<group>"; };
 		FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavy.woff; sourceTree = "<group>"; };
 		FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondBold.woff; sourceTree = "<group>"; };
@@ -412,6 +416,8 @@
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */,
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
+				FF6C80A82A16DB850094751E /* Publisher.swift */,
+				FF6C80AA2A17E8980094751E /* Subscriber.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -689,6 +695,8 @@
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BAE3CC72A0D6E22008AF6A9 /* SourceElement.swift in Sources */,
+				FF6C80AB2A17E8980094751E /* Subscriber.swift in Sources */,
+				FF6C80A92A16DB850094751E /* Publisher.swift in Sources */,
 				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
 				9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,

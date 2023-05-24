@@ -94,9 +94,7 @@ extension InCallView {
         func leave() async {
             await callController!.leave()
             do {
-                if let qmediaMode = mode as? QMediaPubSub {
-                    try qmediaMode.disconnect()
-                }
+                try mode!.disconnect()
                 if let factory = unitFactory {
                     try factory.clearIOUnit()
                 }

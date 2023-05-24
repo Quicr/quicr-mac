@@ -1,6 +1,9 @@
 import Foundation
 import AVFoundation
 
+typealias SourceIDType = UInt64
+typealias StreamIDType = UInt64
+
 /// Swift Interface for using QMedia stack.
 class MediaClient {
     /// Protocol type mappings
@@ -41,11 +44,11 @@ class MediaClient {
         MediaClient_AddStreamSubscribe(instance, mediaType, clientId, callback)
     }
 
-    func removeMediaPublishStream(mediaStreamId: UInt64) {
+    func removeMediaPublishStream(mediaStreamId: StreamIDType) {
         MediaClient_RemoveMediaPublishStream(instance, mediaStreamId)
     }
 
-    func removeMediaSubscribeStream(mediaStreamId: UInt64) {
+    func removeMediaSubscribeStream(mediaStreamId: StreamIDType) {
         MediaClient_RemoveMediaSubscribeStream(instance, mediaStreamId)
     }
 
@@ -54,7 +57,7 @@ class MediaClient {
     /// - Parameter buffer: Pointer to the audio data.
     /// - Parameter length: Length of the data in `buffer`.
     /// - Parameter timestamp: Timestamp of this audio data.
-    func sendAudio(mediaStreamId: UInt64, buffer: UnsafePointer<UInt8>, length: UInt32, timestamp: UInt64) {
+    func sendAudio(mediaStreamId: StreamIDType, buffer: UnsafePointer<UInt8>, length: UInt32, timestamp: UInt64) {
         MediaClient_sendAudio(instance, mediaStreamId, buffer, length, timestamp)
     }
 
@@ -64,7 +67,7 @@ class MediaClient {
     /// - Parameter length: Length of the data in `buffer`.
     /// - Parameter timestamp: Timestamp of this video frame.
     /// - Parameter flag: True if the video frame being submitted is a keyframe.
-    func sendVideoFrame(mediaStreamId: UInt64,
+    func sendVideoFrame(mediaStreamId: StreamIDType,
                         buffer: UnsafePointer<UInt8>,
                         length: UInt32,
                         timestamp: UInt64,
@@ -109,8 +112,8 @@ class MediaClient {
     /// Temporary method for parsing JSON to retrieve quality profiles for creating codecs.
     /// TODO: Remove this when QMedia's API is updated to accomodate this functionality
     func getStreamConfigs(_ manifest: String,
-                          prepareEncoderCallback: (UInt64, UInt8, UInt16, CodecConfig) -> Void,
-                          prepareDecoderCallback: (UInt64, UInt8, UInt16, CodecConfig) -> Void) throws {
+                          prepareEncoderCallback: (StreamIDType, UInt8, UInt16, String) -> Void,
+                          prepareDecoderCallback: (StreamIDType, UInt8, UInt16, String) -> Void) throws {
         guard let manifestData = manifest.data(using: .utf8) else { fatalError() }
         guard let json = try? JSONSerialization.jsonObject(with: manifestData, options: []) as? [String: Any] else {
             throw GetStreamError.malformed
@@ -131,9 +134,7 @@ class MediaClient {
                     let mediaType: UInt8 = UInt8(tokens[4]) ?? 0
                     let endpoint: UInt16 = UInt16(tokens[6]) ?? 0
 
-                    let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-                    if config.codec == .av1 { continue }
-                    prepareCallback(sourceId, mediaType, endpoint, config)
+                    prepareCallback(sourceId, mediaType, endpoint, qualityProfile)
                 }
             }
         }

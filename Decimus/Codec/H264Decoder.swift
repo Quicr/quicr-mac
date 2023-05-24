@@ -35,7 +35,10 @@ class H264Decoder: SampleDecoder {
     }
 
     /// Write a new frame to the decoder.
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+    func write(buffer: MediaBuffer) {
+        let data = buffer.buffer
+        let timestamp = buffer.timestampMs
+
         // Get NALU type.
         var type = data[startCodeLength] & 0x1F
 
@@ -81,7 +84,7 @@ class H264Decoder: SampleDecoder {
             }
 
             // Construct a block buffer from this NALU.
-            var buffer: CMBlockBuffer?
+            var blockBuffer: CMBlockBuffer?
             var error = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
                                                            memoryBlock: naluPtr,
                                                            blockLength: naluTotalLength,
@@ -90,7 +93,7 @@ class H264Decoder: SampleDecoder {
                                                            offsetToData: 0,
                                                            dataLength: naluTotalLength,
                                                            flags: 0,
-                                                           blockBufferOut: &buffer)
+                                                           blockBufferOut: &blockBuffer)
             guard error == .zero else { fatalError("CMBlockBufferCreateWithMemoryBlock failed: \(error)") }
 
             // CMTime presentation.
@@ -103,7 +106,7 @@ class H264Decoder: SampleDecoder {
             var sampleSize = naluTotalLength
             var sampleBuffer: CMSampleBuffer?
             error = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
-                                         dataBuffer: buffer,
+                                         dataBuffer: blockBuffer,
                                          dataReady: true,
                                          makeDataReadyCallback: nil,
                                          refcon: nil,
@@ -136,7 +139,7 @@ class H264Decoder: SampleDecoder {
                 // We need to recreate the decoder because of a format change.
                 print("H264Decoder => Recreating due to format change")
                 session = makeDecoder(format: newFormat!)
-                write(data: data, timestamp: timestamp)
+                write(buffer: buffer)
             case .zero:
                 break
             default:

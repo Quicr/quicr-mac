@@ -28,10 +28,40 @@ class AudioVideoDevices: ObservableObject {
             mediaType: .video,
             position: .unspecified)
         cameras = cameraDiscovery.devices
+        
 
         let microphoneDiscovery = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInMicrophone],
                                                                    mediaType: .audio,
                                                                    position: .unspecified)
         audioInputs = microphoneDiscovery.devices
+    }
+}
+
+class Devices {
+    @Published var devices: [AVCaptureDevice]
+
+    init() {
+        // Get all microphones and cameras.
+        var types: [AVCaptureDevice.DeviceType] = [
+            .builtInDualWideCamera,
+            .builtInDualCamera,
+            .builtInTelephotoCamera,
+            .builtInTripleCamera,
+            .builtInTrueDepthCamera,
+            .builtInDualCamera,
+            .builtInUltraWideCamera,
+            .builtInWideAngleCamera,
+
+            .builtInMicrophone
+        ]
+        if #available(iOS 15.4, *) {
+            types.append(.builtInLiDARDepthCamera)
+        }
+
+        let deviceDiscovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: types,
+            mediaType: nil,
+            position: .unspecified)
+        devices = deviceDiscovery.devices
     }
 }

@@ -3,7 +3,7 @@ import CoreImage
 import Foundation
 
 protocol Decoder {
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt32)
+    func write(buffer: MediaBuffer)
 }
 
 protocol SampleDecoder: Decoder {

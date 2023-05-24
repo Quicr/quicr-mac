@@ -2,6 +2,10 @@ import AVFoundation
 import CoreImage
 import Foundation
 
+enum CodecError: Error {
+    case noCodecFound(CodecType)
+}
+
 /// Codec type mappings.
 enum CodecType: UInt8, CaseIterable {
     // Video
@@ -77,19 +81,7 @@ class CodecFactory {
             guard let config = config as? VideoCodecConfig else { fatalError() }
             return H264Encoder(config: config, verticalMirror: false)
         },
-        .av1: { config in
-            guard let config = config as? VideoCodecConfig else { fatalError() }
-            return H264Encoder(config: config, verticalMirror: false)
-        },
         .opus: { config in
-            guard let config = config as? AudioCodecConfig else { fatalError() }
-            do {
-                return try LibOpusEncoder(format: self.inputAudioFormat)
-            } catch {
-                fatalError()
-            }
-        },
-        .xcodec: { config in
             guard let config = config as? AudioCodecConfig else { fatalError() }
             do {
                 return try LibOpusEncoder(format: self.inputAudioFormat)
@@ -104,23 +96,7 @@ class CodecFactory {
             guard let config = $0 as? VideoCodecConfig else { fatalError() }
             return H264Decoder(config: config)
         },
-        .av1: {
-            guard let config = $0 as? VideoCodecConfig else { fatalError() }
-            return H264Decoder(config: config)
-        },
         .opus: { _ in
-            do {
-                // Decode directly into output format if possible.
-                return try LibOpusDecoder(format: self.outputAudioFormat.isValidOpusPCMFormat ?
-                                                    self.outputAudioFormat :
-                                                    .init(opusPCMFormat: .float32,
-                                                          sampleRate: .opus48khz,
-                                                          channels: 2)!)
-            } catch {
-                fatalError()
-            }
-        },
-        .xcodec: { _ in
             do {
                 // Decode directly into output format if possible.
                 return try LibOpusDecoder(format: self.outputAudioFormat.isValidOpusPCMFormat ?
@@ -133,12 +109,6 @@ class CodecFactory {
             }
         }
     ]
-
-    /// Represents an encoded audio sample.
-    /// - Parameter identifier: The source identifier for this encoded data.
-    /// - Parameter buffer: The encoded data.
-    typealias EncodedBufferCallback = (_ identifier: UInt64,
-                                       _ buffer: MediaBuffer) -> Void
 
     /// Represents a decoded image.
     /// - Parameter identifier: The source identifier for this decoded image.
@@ -158,7 +128,6 @@ class CodecFactory {
     typealias DecodedAudioCallback = (_ identifier: UInt64,
                                       _ buffer: AVAudioPCMBuffer) -> Void
 
-    private var encodedBufferCallback: EncodedBufferCallback!
     private var decodedSampleCallback: DecodedImageCallback!
     private var decodedBufferCallback: DecodedAudioCallback!
     private let inputAudioFormat: AVAudioFormat
@@ -167,10 +136,6 @@ class CodecFactory {
     init(inputAudioFormat: AVAudioFormat, outputAudioFormat: AVAudioFormat) {
         self.inputAudioFormat = inputAudioFormat
         self.outputAudioFormat = outputAudioFormat
-    }
-
-    func registerEncoderCallback(callback: @escaping EncodedBufferCallback) {
-        encodedBufferCallback = callback
     }
 
     func registerDecoderCallback(callback: @escaping DecodedImageCallback) {
@@ -184,24 +149,23 @@ class CodecFactory {
     /// Creates an encoder from a factory callback.
     /// - Parameter sourceId: The identifier for the source to encode.
     /// - Parameter config: The codec config information to use to create the encoder.
-    func createEncoder(identifier: UInt64, config: CodecConfig, metricsSubmitter: MetricsSubmitter) -> Encoder {
+    func createEncoder(_ config: CodecConfig,
+                       encodeCallback: @escaping Encoder.EncodedBufferCallback) throws -> Encoder {
         guard let factory = encoderFactories[config.codec] else {
-            fatalError("No encoder factory found for codec type: \(config.codec)")
+            throw CodecError.noCodecFound(config.codec)
         }
 
         var encoder = factory(config)
-        encoder.registerCallback { buffer in
-            self.encodedBufferCallback(identifier, buffer)
-        }
+        encoder.registerCallback(callback: encodeCallback)
         return encoder
     }
 
     /// Creates an decoder from a factory callback.
     /// - Parameter sourceId: The identifier for the source to encode.
     /// - Parameter codec: The codec type of the decoder
-    func createDecoder(identifier: UInt64, config: CodecConfig) -> Decoder {
+    func createDecoder(identifier: UInt64, config: CodecConfig) throws -> Decoder {
         guard let factory = decoderFactories[config.codec] else {
-            fatalError("No decoder factory found for codec type: \(config.codec)")
+            throw CodecError.noCodecFound(config.codec)
         }
 
         let decoder = factory(config)

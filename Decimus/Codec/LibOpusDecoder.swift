@@ -18,8 +18,11 @@ class LibOpusDecoder: BufferDecoder {
     /// Write some encoded data to the decoder.
     /// - Parameter data: Pointer to some encoded opus data.
     /// - Parameter timestamp: Timestamp of this encoded data.
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+    func write(buffer: MediaBuffer) {
         guard let callback = callback else { fatalError("Callback not set for decoder") }
+
+        let data = buffer.buffer
+        let timestamp = buffer.timestampMs
 
         // Get to the right pointer type.
         let unsafe: UnsafePointer<UInt8> = data.baseAddress!.assumingMemoryBound(to: UInt8.self)

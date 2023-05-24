@@ -5,24 +5,11 @@ import AVFAudio
 import AVFoundation
 import UIKit
 
-/// The core of the application.
-protocol ApplicationMode {
-    var pipeline: PipelineManager? { get }
-    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer)
-    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer)
-    func removeRemoteSource(identifier: UInt64)
-}
-
 /// ApplicationModeBase provides a default implementation of the app.
 /// Uncompressed data is passed to the pipeline to encode, encoded data is passed out to be rendered.
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
-class ApplicationModeBase: ApplicationMode, Hashable {
-    static func == (lhs: ApplicationModeBase, rhs: ApplicationModeBase) -> Bool {
-        false
-    }
-
-    var pipeline: PipelineManager?
+class ApplicationModeBase {
     let errorHandler: ErrorWriter
     let player: AudioPlayer
 
@@ -38,7 +25,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                   outputAudioFormat: AVAudioFormat) {
         self.errorHandler = errorWriter
         self.player = player
-        self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
             let staleVideos = self.participants.participants.filter { _, participant in
@@ -50,11 +36,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
 
         CodecFactory.shared = .init(inputAudioFormat: inputAudioFormat, outputAudioFormat: outputAudioFormat)
-        CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
-            guard let mode = self else { return }
-            let identified: MediaBufferFromSource = .init(source: id, media: media)
-            mode.sendEncodedData(data: identified)
-        }
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
             mode.showDecodedImage(identifier: id,
@@ -71,10 +52,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
     deinit {
         checkStaleVideoTimer!.invalidate()
         CodecFactory.shared = nil
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
     }
 
     func showDecodedImage(identifier: UInt64,
@@ -111,28 +88,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) { }
-
-    func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {
-        return [identifier]
-    }
-
-    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
-        let ids = getStreamIdFromDevice(identifier)
-        let sample = frame.asMediaBuffer()
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
-    }
-
-    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
-        let ids = getStreamIdFromDevice(identifier)
-        guard let formatDescription = sample.formatDescription else {
-            errorHandler.writeError(message: "Missing format description")
-            return
-        }
-        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample.getMediaBuffer(userData: audioFormat)) }
-    }
-
-    func sendEncodedData(data: MediaBufferFromSource) {}
+    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {}
+    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {}
+    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {}
+    func sendEncodedData(identifier: UInt64, data: MediaBuffer) {}
     func connect(config: CallConfig) async throws {}
+    func disconnect() throws {}
 }
