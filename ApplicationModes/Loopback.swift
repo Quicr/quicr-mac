@@ -27,7 +27,9 @@ class Loopback: ApplicationModeBase {
             }
 
             pipeline!.registerEncoder(identifier: device.id, config: config)
-            pipeline!.registerDecoder(identifier: device.id, config: config)
+            if let decoder = pipeline!.registerDecoder(identifier: device.id, config: config) as? BufferDecoder {
+                player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            }
         case .removed:
             pipeline!.unregisterEncoder(identifier: device.id)
             pipeline!.unregisterDecoder(identifier: device.id)

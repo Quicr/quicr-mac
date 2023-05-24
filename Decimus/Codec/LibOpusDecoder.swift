@@ -6,21 +6,13 @@ class LibOpusDecoder: BufferDecoder {
 
     private let decoder: Opus.Decoder
     internal var callback: DecodedBufferCallback?
-    private let format: AVAudioFormat
+    let decodedFormat: AVAudioFormat
 
-    /// Create an opus decoder with the given input format.
-    /// - Parameter format: The incoming opus format.
-    /// - Parameter fileWrite: True to write decoded audio to a file (debugging).
-    /// - Parameter errorWriter: Protocol to report errors to.
-    /// - Parameter callback: A callback fired when decoded data becomes available.
-    init(format: AVAudioFormat) {
-        self.format = format
-        do {
-            guard format.isValidOpusPCMFormat else { fatalError() }
-            decoder = try .init(format: format, application: .voip)
-        } catch {
-            fatalError("Opus => Unsupported format?")
-        }
+    /// Create an opus decoder.
+    /// - Parameter format: Format to decode into.
+    init(format: AVAudioFormat) throws {
+        self.decodedFormat = format
+        decoder = try .init(format: format, application: .voip)
     }
 
     /// Write some encoded data to the decoder.
@@ -34,7 +26,7 @@ class LibOpusDecoder: BufferDecoder {
         let ubp: UnsafeBufferPointer<UInt8> = .init(start: unsafe, count: data.count)
 
         // Create buffer for the decoded data.
-        let decoded: AVAudioPCMBuffer = .init(pcmFormat: format,
+        let decoded: AVAudioPCMBuffer = .init(pcmFormat: decodedFormat,
                                               frameCapacity: .opusMax)!
         do {
             try decoder.decode(ubp, to: decoded)

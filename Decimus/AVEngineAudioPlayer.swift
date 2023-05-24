@@ -2,9 +2,9 @@ import AVFoundation
 
 /// Plays audio samples out.
 class AVEngineAudioPlayer: AudioPlayer {
+    var inputFormat: AVAudioFormat
     private var engine: AVAudioEngine! = .init()
     private var mixer: AVAudioMixerNode! = .init()
-    private let mixerFormat: AVAudioFormat
     private let errorWriter: ErrorWriter
     private var players: [UInt64: AVAudioPlayerNode] = [:]
 
@@ -12,9 +12,9 @@ class AVEngineAudioPlayer: AudioPlayer {
     init(errorWriter: ErrorWriter) {
         self.errorWriter = errorWriter
 
-        mixerFormat = mixer.inputFormat(forBus: 0)
+        inputFormat = mixer.inputFormat(forBus: 0)
         engine.attach(mixer)
-        engine.connect(mixer, to: engine.outputNode, format: mixerFormat)
+        engine.connect(mixer, to: engine.outputNode, format: nil)
         engine.prepare()
     }
 
@@ -37,9 +37,21 @@ class AVEngineAudioPlayer: AudioPlayer {
         engine = nil
     }
 
+    func addPlayer(identifier: UInt64, format: AVAudioFormat) {
+        guard players[identifier] == nil else {
+            errorWriter.writeError(message: "Audio player for: \(identifier) already exists")
+            return
+        }
+        do {
+            players[identifier] = try createPlayer(identifier: identifier, inputFormat: format)
+        } catch {
+            errorWriter.writeError(message: "Failed to create audio player: \(error)")
+        }
+    }
+
     func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
-        guard mixerFormat.commonFormat == .pcmFormatFloat32 else {
-            errorWriter.writeError(message: "Currently expecting output as F32")
+        guard inputFormat.commonFormat == buffer.format.commonFormat else {
+            errorWriter.writeError(message: "Audio format mismatch")
             return
         }
 
@@ -56,22 +68,13 @@ class AVEngineAudioPlayer: AudioPlayer {
         }
 
         // Get the player node for this stream.
-        var node: AVAudioPlayerNode? = players[identifier]
-        if node == nil {
-            do {
-                node = try createPlayer(identifier: identifier, inputFormat: inputBuffer.format)
-            } catch {
-                errorWriter.writeError(message: error.localizedDescription)
-                return
-            }
-        }
+        var node: AVAudioPlayerNode = players[identifier]!
 
         // Play the buffer.
-        node!.scheduleBuffer(inputBuffer)
+        node.scheduleBuffer(inputBuffer)
     }
 
     private func createPlayer(identifier: UInt64, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
-        guard players[identifier] == nil else { fatalError() }
         print("AudioPlayer => [\(identifier)] New player: \(inputFormat)")
         if !engine.isRunning {
             try engine.start()
@@ -85,10 +88,9 @@ class AVEngineAudioPlayer: AudioPlayer {
         let inputRate = inputFormat.sampleRate
         let outputRate = node.outputFormat(forBus: 0).sampleRate
         guard outputRate == inputRate else {
-            fatalError("AVAudioEngine expects these sample rates match. Out: \(outputRate) In: \(inputRate)")
+            throw "AVAudioEngine expects these sample rates match. Out: \(outputRate) In: \(inputRate)"
         }
 
-        players[identifier] = node
         return node
     }
 

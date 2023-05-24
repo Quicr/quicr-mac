@@ -106,6 +106,15 @@ extension AudioUnit {
         }
 
         // This is the actual format being output/requested for input.
+        return try getFormat(microphone: microphone)
+    }
+
+    /// Get the desired format to the application controllable format of the audio unit.
+    /// For a microphone, this is the output side of the input bus.
+    /// For a speaker, this is the input side of the output bus.
+    /// - Parameter microphone: True if this is the microphone side per the above, false if speaker.
+    /// - Returns The format in use.
+    func getFormat(microphone: Bool) throws -> AudioStreamBasicDescription {
         var retrievedActualFormat: AudioStreamBasicDescription = .init()
         var retrievedActualFormatSize: UInt32 = UInt32(MemoryLayout.size(ofValue: retrievedActualFormat))
         let getFormat = AudioUnitGetProperty(self,
