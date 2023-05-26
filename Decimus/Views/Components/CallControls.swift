@@ -161,7 +161,7 @@ class CallController: ObservableObject {
         self.capture = capture
         self.notifier.addObserver(self,
                                   selector: #selector(addInputDevice),
-                                  name: .deviceRegistered,
+                                  name: .publicationPreparedForDevice,
                                   object: nil)
     }
 

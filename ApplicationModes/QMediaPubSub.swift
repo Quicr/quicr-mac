@@ -11,7 +11,7 @@ enum ApplicationError: Error {
 class QMediaPubSub: ApplicationMode {
     private var mediaClient: MediaClient?
     private var publisher: Publisher?
-    private var subscriptions: [SourceIDType: [Subscription]] = [:]
+    private var subscriber: Subscriber?
 
     override func connect(config: CallConfig) async throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
@@ -22,6 +22,7 @@ class QMediaPubSub: ApplicationMode {
                             conferenceId: config.conferenceId)
 
         publisher = .init(client: mediaClient!)
+        subscriber = .init(client: mediaClient!)
 
         let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
         try mediaClient!.getStreamConfigs(manifest,
@@ -33,7 +34,7 @@ class QMediaPubSub: ApplicationMode {
         guard mediaClient != nil else { throw ApplicationError.notConnected }
 
         publisher = nil
-        subscriptions.removeAll()
+        subscriber = nil
         mediaClient = nil
     }
 
@@ -41,71 +42,56 @@ class QMediaPubSub: ApplicationMode {
         guard let publisher = publisher else {
             fatalError("[QMediaPubSub] No publisher setup, did you forget to connect?")
         }
+
         let streamID = mediaClient!.addStreamPublishIntent(mediaType: mediaType, clientId: endpoint)
         let publication = publisher.allocateByStream(streamID: streamID)
 
         do {
-            try publication.prepareByStream(streamID: streamID,
-                                            sourceID: sourceId,
-                                            qualityProfile: qualityProfile)
+            try publication.prepare(streamID: streamID, sourceID: sourceId, qualityProfile: qualityProfile)
         } catch {
             mediaClient!.removeMediaPublishStream(mediaStreamId: streamID)
         }
     }
 
     private func prepareDecoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
-        let subscription = Subscription(client: mediaClient!)
-        let streamId = mediaClient!.addStreamSubscribe(mediaType: mediaType,
+        guard let subscriber = subscriber else {
+            fatalError("[QMediaPubSub] No subscriber setup, did you forget to connect?")
+        }
+
+        let subscription = subscriber.allocateByStream(streamID: 0)
+        let streamID = mediaClient!.addStreamSubscribe(mediaType: mediaType,
                                                        clientId: endpoint,
                                                        callback: subscription.subscribedObject)
+        subscriber.updateSubscriptionStreamID(streamID: streamID)
 
         // if let decoder = decoder as? BufferDecoder {
         //     self.player.addPlayer(identifier: streamId, format: decoder.decodedFormat)
         // }
         do {
-            try subscription.prepareByStream(streamID: streamId,
-                                             sourceID: sourceId,
-                                             qualityProfile: qualityProfile)
-
-            if subscriptions[sourceId] == nil { subscriptions[sourceId] = .init() }
-            subscriptions[sourceId]!.append(subscription)
+            try subscription.prepareByStream(streamID: streamID, sourceID: sourceId, qualityProfile: qualityProfile)
         } catch {
-            mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamId)
+            mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamID)
         }
-    }
-
-    override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
-        switch event {
-        case .added:
-            print()
-        case .removed:
-            print()
-        }
-        ManifestController.shared.sendCapabilities()
     }
 
     override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
         guard let publisher = publisher else {
             fatalError("No publisher delegate. Did you forget to connect?")
         }
-        let publications = publisher.publications.filter({
-            return $0.value.device!.uniqueID == identifier
-        })
 
+        let publications = publisher.publications.filter({ $0.value.device!.uniqueID == identifier })
         guard !publications.isEmpty else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }
-        Task { await publications.concurrentForEach { $0.value.write(sample: frame) } }
+        Task { await publications.concurrentForEach { $0.value.write(data: frame.asMediaBuffer()) } }
     }
 
     override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
         guard let publisher = publisher else {
             fatalError("No publisher delegate. Did you forget to connect?")
         }
-        let publications = publisher.publications.filter({
-            return $0.value.device!.uniqueID == identifier
-        })
 
+        let publications = publisher.publications.filter({ $0.value.device!.uniqueID == identifier })
         guard !publications.isEmpty else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }

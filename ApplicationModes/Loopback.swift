@@ -21,7 +21,7 @@ class Loopback: ApplicationMode {
             }
             pipeline!.registerDecoder(identifier: device.id, config: config)
             //     player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
-            notifier.post(name: .deviceRegistered, object: device)
+            notifier.post(name: .publicationPreparedForDevice, object: device)
         }
 
         if let device = AVCaptureDevice.default(for: .video) {
@@ -38,7 +38,7 @@ class Loopback: ApplicationMode {
                 mode.pipeline!.decode(identifier: device.id, buffer: media)
             }
             pipeline!.registerDecoder(identifier: device.id, config: config)
-            notifier.post(name: .deviceRegistered, object: device)
+            notifier.post(name: .publicationPreparedForDevice, object: device)
         }
     }
 
