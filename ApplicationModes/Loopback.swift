@@ -4,10 +4,42 @@ import AVFoundation
 class Loopback: ApplicationMode {
 
     var pipeline: PipelineManager?
+    private var notifier: NotificationCenter = .default
 
     required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
         super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
+    }
+
+    override func connect(config: CallConfig) async throws {
+        if let device = AVCaptureDevice.default(for: .audio) {
+            let config = AudioCodecConfig(codec: .opus, bitrate: 0)
+
+            pipeline!.registerEncoder(identifier: device.id, config: config) { [weak self] media in
+                guard let mode = self else { return }
+                mode.pipeline!.decode(identifier: device.id, buffer: media)
+            }
+            pipeline!.registerDecoder(identifier: device.id, config: config)
+            //     player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            notifier.post(name: .deviceRegistered, object: device)
+        }
+
+        if let device = AVCaptureDevice.default(for: .video) {
+            let size = device.activeFormat.formatDescription.dimensions
+            let config = VideoCodecConfig(codec: .h264,
+                                      bitrate: 2048000,
+                                      fps: 60,
+                                      width: size.width,
+                                      height: size.height
+            )
+
+            pipeline!.registerEncoder(identifier: device.id, config: config) { [weak self] media in
+                guard let mode = self else { return }
+                mode.pipeline!.decode(identifier: device.id, buffer: media)
+            }
+            pipeline!.registerDecoder(identifier: device.id, config: config)
+            notifier.post(name: .deviceRegistered, object: device)
+        }
     }
 
     override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
@@ -27,28 +59,7 @@ class Loopback: ApplicationMode {
     override func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {
         switch event {
         case .added:
-            let config: CodecConfig
-            if device.hasMediaType(.audio) {
-                config = AudioCodecConfig(codec: .opus, bitrate: 0)
-            } else if device.hasMediaType(.video) {
-                let size = device.activeFormat.formatDescription.dimensions
-                config = VideoCodecConfig(codec: .h264,
-                                          bitrate: 2048000,
-                                          fps: 60,
-                                          width: size.width,
-                                          height: size.height
-                )
-            } else {
-                fatalError("MediaType not understood for device: \(device.uniqueID)")
-            }
-
-            // if let decoder = pipeline!.registerDecoder(identifier: device.id, config: config) as? BufferDecoder {
-            //     player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
-            // }
-            pipeline!.registerEncoder(identifier: device.id, config: config) { [weak self] media in
-                guard let mode = self else { return }
-                mode.pipeline!.decode(identifier: device.id, buffer: media)
-            }
+            print()
         case .removed:
             pipeline!.unregisterEncoder(identifier: device.id)
             pipeline!.unregisterDecoder(identifier: device.id)

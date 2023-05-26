@@ -154,22 +154,21 @@ class CallController: ObservableObject {
     @Published var selectedMicrophone: AVCaptureDevice?
     @Published var capture: CaptureManager
 
+    private var notifier: NotificationCenter = .default
+
     init(mode: ApplicationMode?, capture: CaptureManager) {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = capture
+        self.notifier.addObserver(self,
+                                  selector: #selector(addInputDevice),
+                                  name: .deviceRegistered,
+                                  object: nil)
     }
 
     deinit {
     }
 
     func join() async {
-        if let defaultCamera = AVCaptureDevice.default(for: .video) {
-            await addDevice(device: defaultCamera)
-        }
-        if selectedMicrophone != nil {
-            await addDevice(device: selectedMicrophone!)
-        }
-
         await capture.startCapturing()
     }
 
@@ -181,6 +180,16 @@ class CallController: ObservableObject {
         alteringDevice.removeAll()
 
         await capture.stopCapturing()
+    }
+
+    @objc private func addInputDevice(_ notification: Notification) {
+        guard let device = notification.object as? AVCaptureDevice else {
+            let object = notification.object as Any
+            assertionFailure("Invalid device: \(object)")
+            return
+        }
+
+        Task { await addDevice(device: device) }
     }
 
     func addDevice(device: AVCaptureDevice) async {

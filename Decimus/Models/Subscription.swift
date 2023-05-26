@@ -1,11 +1,11 @@
 import Foundation
 import AVFoundation
 
-class Subscriber {
+class Subscription {
     // TODO: This is temporary before we change QMedia
     private class Weak {
-        weak var value: Subscriber?
-        init(_ value: Subscriber?) { self.value = value }
+        weak var value: Subscription?
+        init(_ value: Subscription?) { self.value = value }
     }
     private static var weakStaticSources: [StreamIDType: Weak] = [:]
     // end TODO
@@ -17,23 +17,23 @@ class Subscriber {
 
     deinit {
         self.client.removeMediaSubscribeStream(mediaStreamId: streamId)
-        Subscriber.weakStaticSources.removeValue(forKey: streamId)
+        Subscription.weakStaticSources.removeValue(forKey: streamId)
     }
 
     private var streamId: StreamIDType = 0
     private var decoder: Decoder?
 
-    func prepareByStream(streamId: StreamIDType, sourceId: SourceIDType, qualityProfile: String) throws {
+    func prepareByStream(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
 
         do {
-            decoder = try CodecFactory.shared.createDecoder(identifier: streamId, config: config)
-            self.streamId = streamId
+            decoder = try CodecFactory.shared.createDecoder(identifier: streamID, config: config)
+            self.streamId = streamID
 
             // TODO: This is temporary before we change QMedia
-            Subscriber.weakStaticSources[streamId] = .init(self)
+            Subscription.weakStaticSources[streamID] = .init(self)
 
-            print("[Subscriber] Subscribed to \(String(describing: config.codec)) stream: \(streamId)")
+            print("[Subscriber] Subscribed to \(String(describing: config.codec)) stream: \(streamID)")
         } catch {
             print("[Subscriber] Failed to create decoder: \(error)")
             throw error
@@ -41,7 +41,7 @@ class Subscriber {
     }
 
     let subscribedObject: SubscribeCallback = { streamId, _, _, data, length, timestamp in
-        guard let subscriber = Subscriber.weakStaticSources[streamId]?.value else {
+        guard let subscriber = Subscription.weakStaticSources[streamId]?.value else {
             fatalError("[Subscriber:\(streamId)] Failed to find instance for stream")
         }
 
@@ -59,12 +59,5 @@ class Subscriber {
             fatalError("[Subscriber:\(streamId)] No decoder for Subscriber. Did you forget to prepare?")
         }
         decoder.write(buffer: data)
-    }
-
-    private func write(sample: CMSampleBuffer) {
-        guard let decoder = decoder else {
-            fatalError("[Subscriber:\(streamId)] No decoder for Subscriber. Did you forget to prepare?")
-        }
-        decoder.write(buffer: sample.asMediaBuffer())
     }
 }

@@ -17,9 +17,6 @@ enum CodecType: UInt8, CaseIterable {
     case xcodec
 }
 
-/// Possible media types that the pipeline understands.
-enum MediaType { case audio; case video }
-
 /// Abstract configuration for initialising codecs.
 protocol CodecConfig {
     var codec: CodecType {get}
@@ -187,10 +184,10 @@ class CodecFactory {
 extension VideoCodecConfig {
     init(codec: CodecType, tokens: [String: String]) {
         self.codec = codec
-        self.bitrate = (UInt32(tokens["br"]!) ?? 0) * 1000
-        self.fps = UInt16(tokens["fps"]!) ?? 0
-        self.width = Int32(tokens["width"]!) ?? -1
-        self.height = Int32(tokens["height"]!) ?? -1
+        self.bitrate = (UInt32(tokens["br"] ?? "") ?? 0 ) * 1000
+        self.fps = UInt16(tokens["fps"] ?? "") ?? 0
+        self.width = Int32(tokens["width"] ?? "") ?? -1
+        self.height = Int32(tokens["height"] ?? "") ?? -1
     }
 }
 
@@ -198,6 +195,6 @@ extension VideoCodecConfig {
 extension AudioCodecConfig {
     init(codec: CodecType, tokens: [String: String]) {
         self.codec = codec
-        self.bitrate = (UInt32(tokens["br"]!) ?? 0) * 1000
+        self.bitrate = (UInt32(tokens["br"] ?? "") ?? 0) * 1000
     }
 }

@@ -9,12 +9,9 @@ enum ApplicationError: Error {
 }
 
 class QMediaPubSub: ApplicationMode {
-    private let devices = Devices()
-    private var codecLookup: [UInt64: CodecConfig] = [:]
-
     private var mediaClient: MediaClient?
-    private var publishers: [SourceIDType: [Publisher]] = [:]
-    private var subscribers: [SourceIDType: [Subscriber]] = [:]
+    private var publisher: Publisher?
+    private var subscriptions: [SourceIDType: [Subscription]] = [:]
 
     override func connect(config: CallConfig) async throws {
         guard mediaClient == nil else { throw ApplicationError.alreadyConnected }
@@ -23,6 +20,8 @@ class QMediaPubSub: ApplicationMode {
                             port: config.port,
                             protocol: config.connectionProtocol,
                             conferenceId: config.conferenceId)
+
+        publisher = .init(client: mediaClient!)
 
         let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
         try mediaClient!.getStreamConfigs(manifest,
@@ -33,53 +32,43 @@ class QMediaPubSub: ApplicationMode {
     override func disconnect() throws {
         guard mediaClient != nil else { throw ApplicationError.notConnected }
 
-        publishers.removeAll()
-        subscribers.removeAll()
+        publisher = nil
+        subscriptions.removeAll()
         mediaClient = nil
     }
 
     private func prepareEncoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
-        guard devices.devices.first(where: { $0.uniqueID == sourceId }) != nil else {
-            fatalError("Invalid sourceId \"\(sourceId)\": No device found")
+        guard let publisher = publisher else {
+            fatalError("[QMediaPubSub] No publisher setup, did you forget to connect?")
         }
-
-        let publisher = Publisher(client: mediaClient!)
-        let streamId = mediaClient!.addStreamPublishIntent(mediaType: mediaType, clientId: endpoint)
+        let streamID = mediaClient!.addStreamPublishIntent(mediaType: mediaType, clientId: endpoint)
+        let publication = publisher.allocateByStream(streamID: streamID)
 
         do {
-            codecLookup[streamId] = try publisher.prepareByStream(streamId: streamId,
-                                                                  sourceId: sourceId,
-                                                                  qualityProfile: qualityProfile)
-
-            if publishers[sourceId] == nil {
-                publishers[sourceId] = [publisher]
-            } else {
-                publishers[sourceId]!.append(publisher)
-            }
+            try publication.prepareByStream(streamID: streamID,
+                                            sourceID: sourceId,
+                                            qualityProfile: qualityProfile)
         } catch {
-            mediaClient!.removeMediaPublishStream(mediaStreamId: streamId)
+            mediaClient!.removeMediaPublishStream(mediaStreamId: streamID)
         }
     }
 
     private func prepareDecoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
-        let subscriber = Subscriber(client: mediaClient!)
+        let subscription = Subscription(client: mediaClient!)
         let streamId = mediaClient!.addStreamSubscribe(mediaType: mediaType,
                                                        clientId: endpoint,
-                                                       callback: subscriber.subscribedObject)
+                                                       callback: subscription.subscribedObject)
 
         // if let decoder = decoder as? BufferDecoder {
         //     self.player.addPlayer(identifier: streamId, format: decoder.decodedFormat)
         // }
         do {
-            try subscriber.prepareByStream(streamId: streamId,
-                                         sourceId: sourceId,
-                                         qualityProfile: qualityProfile)
+            try subscription.prepareByStream(streamID: streamId,
+                                             sourceID: sourceId,
+                                             qualityProfile: qualityProfile)
 
-            if subscribers[sourceId] == nil {
-                subscribers[sourceId] = [subscriber]
-            } else {
-                subscribers[sourceId]!.append(subscriber)
-            }
+            if subscriptions[sourceId] == nil { subscriptions[sourceId] = .init() }
+            subscriptions[sourceId]!.append(subscription)
         } catch {
             mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamId)
         }
@@ -96,14 +85,28 @@ class QMediaPubSub: ApplicationMode {
     }
 
     override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
-        guard let publishers = publishers[identifier] else {
+        guard let publisher = publisher else {
+            fatalError("No publisher delegate. Did you forget to connect?")
+        }
+        let publications = publisher.publications.filter({
+            return $0.value.device!.uniqueID == identifier
+        })
+
+        guard !publications.isEmpty else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }
-        Task { await publishers.concurrentForEach { $0.write(sample: frame) } }
+        Task { await publications.concurrentForEach { $0.value.write(sample: frame) } }
     }
 
     override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
-        guard let publisher = publishers[identifier] else {
+        guard let publisher = publisher else {
+            fatalError("No publisher delegate. Did you forget to connect?")
+        }
+        let publications = publisher.publications.filter({
+            return $0.value.device!.uniqueID == identifier
+        })
+
+        guard !publications.isEmpty else {
             fatalError("No publishers matching sourceId: \(identifier)")
         }
 
@@ -113,7 +116,7 @@ class QMediaPubSub: ApplicationMode {
         }
         let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
         let data = sample.getMediaBuffer(userData: audioFormat)
-        publisher.forEach { $0.write(data: data) }
+        publications.forEach { $0.value.write(data: data) }
     }
 }
 
