@@ -18,7 +18,10 @@ class Publication {
 
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
         do {
-            try encoder = CodecFactory.shared.createEncoder(config, encodeCallback: onEncode)
+            try encoder = CodecFactory.shared.createEncoder(config) { [weak self] data in
+                guard let self = self else { return }
+                self.onEncode(data: data)
+            }
             print("[Publisher] Registered \(String(describing: config.codec)) to publish stream: \(streamID)")
         } catch {
             print("[Publisher] Failed to create encoder: \(error)")

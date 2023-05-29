@@ -2,10 +2,12 @@ import Foundation
 
 class Subscriber {
     private unowned let client: MediaClient
+    private unowned let player: AudioPlayer
     private var subscriptions: [StreamIDType: Subscription] = [:]
 
-    init(client: MediaClient) {
+    init(client: MediaClient, player: AudioPlayer) {
         self.client = client
+        self.player = player
     }
 
     deinit {
@@ -13,7 +15,7 @@ class Subscriber {
     }
 
     func allocateByStream(streamID: StreamIDType) -> Subscription {
-        let subscription = Subscription(client: client)
+        let subscription = Subscription(client: client, player: player)
         subscriptions[streamID] = subscription
         return subscription
     }

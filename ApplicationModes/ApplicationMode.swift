@@ -16,6 +16,8 @@ class ApplicationMode {
     var participants: VideoParticipants = VideoParticipants()
     private var checkStaleVideoTimer: Timer?
 
+    var notifier: NotificationCenter = .default
+
     private let id = UUID()
 
     required init(errorWriter: ErrorWriter,
@@ -26,7 +28,9 @@ class ApplicationMode {
         self.errorHandler = errorWriter
         self.player = player
 
-        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+
             let staleVideos = self.participants.participants.filter { _, participant in
                 return participant.lastUpdated.advanced(by: DispatchTimeInterval.seconds(2)) < .now()
             }
@@ -92,6 +96,12 @@ class ApplicationMode {
     func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {}
     func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {}
 
-    func connect(config: CallConfig) async throws {}
+    func connect(config: CallConfig) async throws {
+        notifier.post(name: .connected, object: self)
+    }
     func disconnect() throws {}
+}
+
+extension Notification.Name {
+    static var connected = Notification.Name("connected")
 }

@@ -4,10 +4,17 @@ import AVFoundation
 class Loopback: ApplicationMode {
 
     var pipeline: PipelineManager?
-    private var notifier: NotificationCenter = .default
 
-    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
-        super.init(errorWriter: errorWriter, player: player, metricsSubmitter: metricsSubmitter)
+    required init(errorWriter: ErrorWriter,
+                  player: AudioPlayer,
+                  metricsSubmitter: MetricsSubmitter,
+                  inputAudioFormat: AVAudioFormat,
+                  outputAudioFormat: AVAudioFormat) {
+        super.init(errorWriter: errorWriter,
+                   player: player,
+                   metricsSubmitter: metricsSubmitter,
+                   inputAudioFormat: inputAudioFormat,
+                   outputAudioFormat: outputAudioFormat)
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
     }
 
@@ -19,8 +26,9 @@ class Loopback: ApplicationMode {
                 guard let mode = self else { return }
                 mode.pipeline!.decode(identifier: device.id, buffer: media)
             }
-            pipeline!.registerDecoder(identifier: device.id, config: config)
-            //     player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            if let decoder = pipeline!.registerDecoder(identifier: device.id, config: config) as? BufferDecoder {
+                player.addPlayer(identifier: device.id, format: decoder.decodedFormat)
+            }
             notifier.post(name: .publicationPreparedForDevice, object: device)
         }
 

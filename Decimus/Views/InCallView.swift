@@ -78,15 +78,20 @@ extension InCallView {
                               metricsSubmitter: submitter,
                               inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!,
                               outputAudioFormat: player.inputFormat)
-            let capture: CaptureManager = .init(cameraCallback: mode!.encodeCameraFrame,
-                                                audioCallback: mode!.encodeAudioSample,
-                                                deviceChangeCallback: mode!.onDeviceChange,
+            let capture: CaptureManager = .init(cameraCallback: { [weak mode] id, frame in
+                                                    mode?.encodeCameraFrame(identifier: id, frame: frame)
+                                                },
+                                                audioCallback: { [weak mode] id, sample in
+                                                    mode?.encodeAudioSample(identifier: id, sample: sample)
+                                                },
+                                                deviceChangeCallback: { [weak mode] device, event in
+                                                    mode?.onDeviceChange(device: device, event: event)
+                                                },
                                                 errorHandler: errorHandler)
             self.callController = CallController(mode: mode!, capture: capture)
             Task {
                 do {
                     try await self.mode!.connect(config: config)
-                    await callController?.join()
                 }
             }
         }

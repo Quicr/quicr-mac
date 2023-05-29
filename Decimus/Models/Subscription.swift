@@ -11,24 +11,33 @@ class Subscription {
     // end TODO
 
     private unowned let client: MediaClient
-    init(client: MediaClient) {
+    private unowned let player: AudioPlayer
+    init(client: MediaClient, player: AudioPlayer) {
         self.client = client
+        self.player = player
     }
 
     deinit {
-        self.client.removeMediaSubscribeStream(mediaStreamId: streamId)
-        Subscription.weakStaticSources.removeValue(forKey: streamId)
+        self.client.removeMediaSubscribeStream(mediaStreamId: streamID)
+        Subscription.weakStaticSources.removeValue(forKey: streamID)
+
+        if decoder as? BufferDecoder != nil {
+            self.player.removePlayer(identifier: streamID)
+        }
     }
 
-    private var streamId: StreamIDType = 0
+    private var streamID: StreamIDType = 0
     private var decoder: Decoder?
 
-    func prepareByStream(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws {
+    func prepare(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
+        self.streamID = streamID
 
         do {
             decoder = try CodecFactory.shared.createDecoder(identifier: streamID, config: config)
-            self.streamId = streamID
+            if let decoder = decoder as? BufferDecoder {
+                self.player.addPlayer(identifier: streamID, format: decoder.decodedFormat)
+            }
 
             // TODO: This is temporary before we change QMedia
             Subscription.weakStaticSources[streamID] = .init(self)
@@ -56,7 +65,7 @@ class Subscription {
 
     private func write(data: MediaBuffer) {
         guard let decoder = decoder else {
-            fatalError("[Subscriber:\(streamId)] No decoder for Subscriber. Did you forget to prepare?")
+            fatalError("[Subscriber:\(streamID)] No decoder for Subscriber. Did you forget to prepare?")
         }
         decoder.write(buffer: data)
     }

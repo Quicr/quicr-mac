@@ -1,7 +1,7 @@
 import AVFAudio
 
 /// Represents the ability to mix and play multiple streams of audio.
-protocol AudioPlayer {
+protocol AudioPlayer: AnyObject {
 
     /// The format that the player desires input in.
     /// This may not be a requirement depending on the implementation,

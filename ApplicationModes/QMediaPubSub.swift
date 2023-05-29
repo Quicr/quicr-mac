@@ -21,13 +21,15 @@ class QMediaPubSub: ApplicationMode {
                             protocol: config.connectionProtocol,
                             conferenceId: config.conferenceId)
 
-        publisher = .init(client: mediaClient!)
-        subscriber = .init(client: mediaClient!)
+        publisher = .init(client: self.mediaClient!)
+        subscriber = .init(client: self.mediaClient!, player: self.player)
 
         let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
         try mediaClient!.getStreamConfigs(manifest,
                                           prepareEncoderCallback: prepareEncoder,
                                           prepareDecoderCallback: prepareDecoder)
+
+        notifier.post(name: .connected, object: self)
     }
 
     override func disconnect() throws {
@@ -64,11 +66,8 @@ class QMediaPubSub: ApplicationMode {
                                                        callback: subscription.subscribedObject)
         subscriber.updateSubscriptionStreamID(streamID: streamID)
 
-        // if let decoder = decoder as? BufferDecoder {
-        //     self.player.addPlayer(identifier: streamId, format: decoder.decodedFormat)
-        // }
         do {
-            try subscription.prepareByStream(streamID: streamID, sourceID: sourceId, qualityProfile: qualityProfile)
+            try subscription.prepare(streamID: streamID, sourceID: sourceId, qualityProfile: qualityProfile)
         } catch {
             mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamID)
         }

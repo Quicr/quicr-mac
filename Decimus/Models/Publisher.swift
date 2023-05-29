@@ -19,6 +19,7 @@ class Publisher {
     }
 
     func removeByStream(streamID: StreamIDType) -> Bool {
+        client.removeMediaPublishStream(mediaStreamId: streamID)
         return publications.removeValue(forKey: streamID) != nil
     }
 }

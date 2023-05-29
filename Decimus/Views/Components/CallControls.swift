@@ -160,16 +160,17 @@ class CallController: ObservableObject {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = capture
         self.notifier.addObserver(self,
+                                  selector: #selector(join),
+                                  name: .connected,
+                                  object: nil)
+        self.notifier.addObserver(self,
                                   selector: #selector(addInputDevice),
                                   name: .publicationPreparedForDevice,
                                   object: nil)
     }
 
-    deinit {
-    }
-
-    func join() async {
-        await capture.startCapturing()
+    @objc private func join(_ notification: Notification) {
+        Task { await capture.startCapturing() }
     }
 
     func leave() async {
@@ -240,11 +241,11 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let loopback: RawLoopback = .init(errorWriter: errorWriter,
-                                          player: AVEngineAudioPlayer(errorWriter: errorWriter),
-                                          metricsSubmitter: MockSubmitter(),
-                                          inputAudioFormat: .init(),
-                                          outputAudioFormat: .init())
+        let loopback: Loopback = .init(errorWriter: errorWriter,
+                                       player: AVEngineAudioPlayer(errorWriter: errorWriter),
+                                       metricsSubmitter: MockSubmitter(),
+                                       inputAudioFormat: .init(),
+                                       outputAudioFormat: .init())
         let capture: CaptureManager = .init(cameraCallback: loopback.encodeCameraFrame,
                                             audioCallback: loopback.encodeAudioSample,
                                             deviceChangeCallback: loopback.onDeviceChange,

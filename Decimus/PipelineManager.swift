@@ -52,13 +52,13 @@ class PipelineManager {
                                      submitter: metricsSubmitter)
     }
 
-    func registerDecoder(identifier: StreamIDType, config: CodecConfig) {
+    func registerDecoder(identifier: StreamIDType, config: CodecConfig) -> Decoder {
         guard let decoder = try? CodecFactory.shared.createDecoder(identifier: identifier, config: config) else {
             fatalError("Failed to create decoder")
         }
-        guard decoders[identifier] == nil else {
-            return
-        }
+        decoders[identifier] = decoder
+
+        return decoder
     }
 
     func unregisterEncoder(identifier: StreamIDType) {
