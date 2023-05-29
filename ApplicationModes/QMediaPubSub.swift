@@ -92,7 +92,10 @@ class QMediaPubSub: ApplicationModeBase {
                                                        callback: streamCallback)
         streamIdMap.append(streamId)
 
-        self.pipeline!.registerDecoder(identifier: streamId, config: config)
+        let decoder = self.pipeline!.registerDecoder(identifier: streamId, config: config)
+        if let decoder = decoder as? BufferDecoder {
+            self.player.addPlayer(identifier: streamId, format: decoder.decodedFormat)
+        }
         print("[QMediaPubSub] Subscribed to \(String(describing: config.codec)) stream: \(streamId)")
     }
 

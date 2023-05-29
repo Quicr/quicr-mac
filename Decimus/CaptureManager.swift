@@ -261,6 +261,17 @@ actor CaptureManager: NSObject,
 
         // Callback this media sample.
         if output == audioOutput {
+            guard let asbd = sampleBuffer.formatDescription?.audioStreamBasicDescription else {
+                errorHandler.writeError(message: "Couldn't get audio input format")
+                return
+            }
+
+            guard asbd.mSampleRate == .opus48khz,
+                  asbd.mChannelsPerFrame == 1,
+                  asbd.mBytesPerFrame == 2 else {
+                errorHandler.writeError(message: "Microphone format not currently supported. Try a different mic")
+                return
+            }
             audioFrameCallback(device!.id, sampleBuffer)
         } else {
             cameraFrameCallback(device!.id, sampleBuffer)

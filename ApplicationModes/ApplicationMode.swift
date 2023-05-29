@@ -31,7 +31,11 @@ class ApplicationModeBase: ApplicationMode, Hashable {
 
     private let id = UUID()
 
-    required init(errorWriter: ErrorWriter, player: AudioPlayer, metricsSubmitter: MetricsSubmitter) {
+    required init(errorWriter: ErrorWriter,
+                  player: AudioPlayer,
+                  metricsSubmitter: MetricsSubmitter,
+                  inputAudioFormat: AVAudioFormat,
+                  outputAudioFormat: AVAudioFormat) {
         self.errorHandler = errorWriter
         self.player = player
         self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
@@ -45,7 +49,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
             }
         }
 
-        CodecFactory.shared = .init()
+        CodecFactory.shared = .init(inputAudioFormat: inputAudioFormat, outputAudioFormat: outputAudioFormat)
         CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
             guard let mode = self else { return }
             let identified: MediaBufferFromSource = .init(source: id, media: media)

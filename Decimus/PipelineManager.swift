@@ -52,12 +52,13 @@ class PipelineManager {
                                      submitter: metricsSubmitter)
     }
 
-    func registerDecoder(identifier: UInt64, config: CodecConfig) {
-        let decoder = CodecFactory.shared.createDecoder(identifier: identifier, config: config)
-        guard decoders[identifier] == nil else {
-            return
+    func registerDecoder(identifier: UInt64, config: CodecConfig) -> Decoder {
+        guard let decoder = self.decoders[identifier] else {
+            let decoder = CodecFactory.shared.createDecoder(identifier: identifier, config: config)
+            decoders[identifier] = decoder
+            return decoder
         }
-        decoders[identifier] = decoder
+        return decoder
     }
 
     func unregisterEncoder(identifier: UInt64) {

@@ -154,23 +154,9 @@ class CallController: ObservableObject {
     @Published var selectedMicrophone: AVCaptureDevice?
     @Published var capture: CaptureManager
 
-    init(mode: ApplicationModeBase?, errorHandler: ErrorWriter) {
+    init(mode: ApplicationModeBase?, capture: CaptureManager) {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
-        self.capture = .init(
-            cameraCallback: { [weak mode] id, sample in
-                guard let mode = mode else { return }
-                mode.encodeCameraFrame(identifier: id, frame: sample)
-            },
-            audioCallback: { [weak mode] id, sample in
-                guard let mode = mode else { return }
-                mode.encodeAudioSample(identifier: id, sample: sample)
-            },
-            deviceChangeCallback: { [weak mode] device, event in
-                guard let mode = mode else { return }
-                mode.onDeviceChange(device: device, event: event)
-            },
-            errorHandler: errorHandler
-        )
+        self.capture = capture
     }
 
     deinit {
@@ -245,10 +231,16 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let controller: CallController = .init(mode: RawLoopback(errorWriter: errorWriter,
-                                                                 player: AVEngineAudioPlayer(errorWriter: errorWriter),
-                                                                 metricsSubmitter: MockSubmitter()),
-                                               errorHandler: errorWriter)
+        let loopback: RawLoopback = .init(errorWriter: errorWriter,
+                                          player: AVEngineAudioPlayer(errorWriter: errorWriter),
+                                          metricsSubmitter: MockSubmitter(),
+                                          inputAudioFormat: .init(),
+                                          outputAudioFormat: .init())
+        let capture: CaptureManager = .init(cameraCallback: loopback.encodeCameraFrame,
+                                            audioCallback: loopback.encodeAudioSample,
+                                            deviceChangeCallback: loopback.onDeviceChange,
+                                            errorHandler: errorWriter)
+        let controller: CallController = .init(mode: loopback, capture: capture)
         CallControls(leaving: bool).environmentObject(controller)
     }
 }

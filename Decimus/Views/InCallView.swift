@@ -73,8 +73,16 @@ extension InCallView {
                 guard influxConfig.value.submit else { return }
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
             }
-            self.mode = .init(errorWriter: errorHandler, player: player, metricsSubmitter: submitter)
-            self.callController = CallController(mode: mode!, errorHandler: errorHandler)
+            // TODO: inputAudioFormat needs to be the real input format.
+            self.mode = .init(errorWriter: errorHandler, player: player,
+                              metricsSubmitter: submitter,
+                              inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!,
+                              outputAudioFormat: player.inputFormat)
+            let capture: CaptureManager = .init(cameraCallback: mode!.encodeCameraFrame,
+                                                audioCallback: mode!.encodeAudioSample,
+                                                deviceChangeCallback: mode!.onDeviceChange,
+                                                errorHandler: errorHandler)
+            self.callController = CallController(mode: mode!, capture: capture)
             Task {
                 do {
                     try await self.mode!.connect(config: config)
@@ -108,19 +116,9 @@ extension InCallView {
                     errorHandler.writeError(message: "Failed to create IOAU")
                     return AVEngineAudioPlayer(errorWriter: errorHandler)
                 }
-                // TODO: We need to get the input format to the player upfront.
-                let format: AudioStreamBasicDescription = .init(mSampleRate: 48000,
-                                                                mFormatID: 1819304813,
-                                                                mFormatFlags: 44,
-                                                                mBytesPerPacket: 2,
-                                                                mFramesPerPacket: 1,
-                                                                mBytesPerFrame: 2,
-                                                                mChannelsPerFrame: 1,
-                                                                mBitsPerChannel: 16,
-                                                                mReserved: 0)
                 let auPlayer: AudioUnitPlayer
                 do {
-                    auPlayer = try .init(audioUnit: unit, inputFormat: format)
+                    auPlayer = try .init(audioUnit: unit)
                 } catch {
                     errorHandler.writeError(message: "Failed to create AudioUnitPlayer: \(error)")
                     return AVEngineAudioPlayer(errorWriter: errorHandler)

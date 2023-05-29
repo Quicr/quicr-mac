@@ -3,17 +3,20 @@ import CTPCircularBuffer
 import CoreAudio
 
 class AudioUnitPlayer: AudioPlayer {
-
-    // TODO: Mixer support.
+    var inputFormat: AVAudioFormat
 
     private var buffer: TPCircularBuffer = .init()
-    private var inputFormat: AudioStreamBasicDescription
     private var incompleteFrames: Int = 0
     private var copyFails: Int = 0
     private var copyAttempts: Int = 0
     private var reads: Int = 0
+    private let audioUnit: AudioUnit
 
-    init(audioUnit: AudioUnit, inputFormat: AudioStreamBasicDescription) throws {
+    init(audioUnit: AudioUnit) throws {
+        self.audioUnit = audioUnit
+        var inputAsbd = try audioUnit.getFormat(microphone: false)
+        self.inputFormat = .init(streamDescription: &inputAsbd)!
+
         // Create the circular buffer.
         let created = _TPCircularBufferInit(&buffer,
                                             1,
@@ -22,10 +25,6 @@ class AudioUnitPlayer: AudioPlayer {
             fatalError()
         }
 
-        self.inputFormat = try audioUnit.setFormat(desired: inputFormat, microphone: false)
-        if self.inputFormat != inputFormat {
-            fatalError()
-        }
         print("[AudioUnitPlayer] Input format is: \(self.inputFormat)")
 
         // Callback to pass data for playout.
@@ -38,11 +37,12 @@ class AudioUnitPlayer: AudioPlayer {
             // Fill the buffers as best we can.
             var copiedFrames: UInt32 = numFrames
             let mutableTimestamp = timestamp
+            var asbd = auPlayer.inputFormat.streamDescription.pointee
             TPCircularBufferDequeueBufferListFrames(&auPlayer.buffer,
                                                     &copiedFrames,
                                                     data,
                                                     .init(mutating: mutableTimestamp),
-                                                    &auPlayer.inputFormat)
+                                                    &asbd)
             auPlayer.reads += 1
             guard copiedFrames == numFrames else {
                 // Ensure any incomplete data is pure silence.
@@ -51,8 +51,8 @@ class AudioUnitPlayer: AudioPlayer {
                     guard let dataPointer = buffer.mData else {
                         break
                     }
-                    let discontinuityStartOffset = Int(copiedFrames * auPlayer.inputFormat.mBytesPerFrame)
-                    let numberOfSilenceBytes = Int((numFrames - copiedFrames) * auPlayer.inputFormat.mBytesPerFrame)
+                    let discontinuityStartOffset = Int(copiedFrames * asbd.mBytesPerFrame)
+                    let numberOfSilenceBytes = Int((numFrames - copiedFrames) * asbd.mBytesPerFrame)
                     guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {
                         print("[AudioUnitPlayer] Invalid buffers when calculating silence")
                         break
@@ -79,16 +79,22 @@ class AudioUnitPlayer: AudioPlayer {
         }
     }
 
+    func addPlayer(identifier: UInt64, format: AVAudioFormat) {
+        // TODO: Player & mixer support.
+    }
+
     func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
         let list = buffer.mutableAudioBufferList.pointee
-        let format = buffer.format.streamDescription.pointee
-
-        guard list.mNumberBuffers == 1 else {
-            fatalError()
-        }
-
-        guard format == self.inputFormat else {
-            fatalError("This needs to be converted.\nExpected: \(self.inputFormat)\nGot: \(format)")
+        if !buffer.format.equivalent(other: self.inputFormat) {
+            // Try and change the format to match.
+            do {
+                var asbd = try self.audioUnit.setFormat(desired: buffer.format.streamDescription.pointee,
+                                                        microphone: false)
+                self.inputFormat = .init(streamDescription: &asbd)!
+            } catch {
+                print("Couldn't update input format")
+                return
+            }
         }
 
         guard list.mBuffers.mDataByteSize > 0 else {

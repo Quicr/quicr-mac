@@ -44,3 +44,14 @@ extension Array<UInt8> {
         }
     }
 }
+
+extension AVAudioFormat {
+    func equivalent(other: AVAudioFormat) -> Bool {
+        guard sampleRate == other.sampleRate,
+              commonFormat == other.commonFormat,
+              channelCount == other.channelCount else {
+            return false
+        }
+        return channelCount > 1 ? isInterleaved == other.isInterleaved : true
+    }
+}

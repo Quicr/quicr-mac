@@ -72,7 +72,7 @@ class CodecFactory {
         }
     }
 
-    private var encoderFactories: [CodecType: (CodecConfig) -> Encoder] = [
+    private lazy var encoderFactories: [CodecType: (CodecConfig) -> Encoder] = [
         .h264: { config in
             guard let config = config as? VideoCodecConfig else { fatalError() }
             return H264Encoder(config: config, verticalMirror: false)
@@ -81,15 +81,25 @@ class CodecFactory {
             guard let config = config as? VideoCodecConfig else { fatalError() }
             return H264Encoder(config: config, verticalMirror: false)
         },
-        .opus: { _ in
-            return LibOpusEncoder()
+        .opus: { config in
+            guard let config = config as? AudioCodecConfig else { fatalError() }
+            do {
+                return try LibOpusEncoder(format: self.inputAudioFormat)
+            } catch {
+                fatalError()
+            }
         },
         .xcodec: { config in
-            return LibOpusEncoder()
+            guard let config = config as? AudioCodecConfig else { fatalError() }
+            do {
+                return try LibOpusEncoder(format: self.inputAudioFormat)
+            } catch {
+                fatalError()
+            }
         }
     ]
 
-    private var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
+    private lazy var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
         .h264: {
             guard let config = $0 as? VideoCodecConfig else { fatalError() }
             return H264Decoder(config: config)
@@ -99,16 +109,28 @@ class CodecFactory {
             return H264Decoder(config: config)
         },
         .opus: { _ in
-            let opusFormat = AVAudioFormat(opusPCMFormat: .float32,
-                                           sampleRate: .opus48khz,
-                                           channels: 1)!
-            return LibOpusDecoder(format: opusFormat)
+            do {
+                // Decode directly into output format if possible.
+                return try LibOpusDecoder(format: self.outputAudioFormat.isValidOpusPCMFormat ?
+                                                    self.outputAudioFormat :
+                                                    .init(opusPCMFormat: .float32,
+                                                          sampleRate: .opus48khz,
+                                                          channels: 2)!)
+            } catch {
+                fatalError()
+            }
         },
         .xcodec: { _ in
-            let opusFormat = AVAudioFormat(opusPCMFormat: .float32,
-                                           sampleRate: .opus48khz,
-                                           channels: 1)!
-            return LibOpusDecoder(format: opusFormat)
+            do {
+                // Decode directly into output format if possible.
+                return try LibOpusDecoder(format: self.outputAudioFormat.isValidOpusPCMFormat ?
+                                                    self.outputAudioFormat :
+                                                    .init(opusPCMFormat: .float32,
+                                                          sampleRate: .opus48khz,
+                                                          channels: 2)!)
+            } catch {
+                fatalError()
+            }
         }
     ]
 
@@ -139,6 +161,13 @@ class CodecFactory {
     private var encodedBufferCallback: EncodedBufferCallback!
     private var decodedSampleCallback: DecodedImageCallback!
     private var decodedBufferCallback: DecodedAudioCallback!
+    private let inputAudioFormat: AVAudioFormat
+    private let outputAudioFormat: AVAudioFormat
+
+    init(inputAudioFormat: AVAudioFormat, outputAudioFormat: AVAudioFormat) {
+        self.inputAudioFormat = inputAudioFormat
+        self.outputAudioFormat = outputAudioFormat
+    }
 
     func registerEncoderCallback(callback: @escaping EncodedBufferCallback) {
         encodedBufferCallback = callback

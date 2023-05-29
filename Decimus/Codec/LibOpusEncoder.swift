@@ -1,36 +1,47 @@
-// import Opus
+import Opus
 import AVFoundation
-import Copus
 
 class LibOpusEncoder: Encoder {
-    private let encoder: OpaquePointer
+    private let encoder: Opus.Encoder
     internal var callback: EncodedBufferCallback?
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
-    private let opusFrameSize: AVAudioFrameCount = 480
-    private var encoded: UnsafeMutableRawBufferPointer = .allocate(byteCount: 64000,
-                                                                   alignment: MemoryLayout<UInt8>.alignment)
 
+    // Data holders.
+    private var encoded: Data
     private var buffer: [UInt8] = []
     private var timestamps: [UInt32] = []
-    private var opusFrameSizeBytes: UInt32 = 0
 
-    init() {
-        // Only the type of the incoming format is important for opus.
-        // Encoder is safe to always be 2 channel @ 48kHz.
-        var error: Int32 = 0
-        encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error)
-        guard error == .zero else { fatalError("\(error)") }
-        // TODO: Assuming 16bit int.
-        opusFrameSizeBytes = opusFrameSize * 2 * 1
+    // Audio format.
+    private var opusFrameSize: AVAudioFrameCount = 0
+    private var opusFrameSizeBytes: UInt32 = 0
+    private let desiredFrameSizeMs: Double = 10
+    private let format: AVAudioFormat
+
+    // TODO: Report errors.
+
+    /// Create an opus encoder.
+    /// - Parameter format: The format of the input data.
+    init(format: AVAudioFormat) throws {
+        self.format = format
+        let appMode: Opus.Application = desiredFrameSizeMs < 10 ? .restrictedLowDelay : .voip
+        try encoder = .init(format: format, application: appMode)
+        opusFrameSize = AVAudioFrameCount(format.sampleRate * (desiredFrameSizeMs / 1000))
+        opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
+        encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
     func write(data: MediaBuffer) {
 
-        // swiftlint:disable force_cast
-        let format = data.userData! as! AVAudioFormat
-        // swiftlint:enable force_cast
-        guard format.commonFormat == .pcmFormatInt16 else { fatalError() }
+        guard let format = data.userData as? AVAudioFormat else {
+            print("Couldn't get format from audio data")
+            return
+        }
+
+        guard format.equivalent(other: self.format) else {
+            print("Write format must match declared format")
+            return
+        }
 
         // Write our samples to the buffer
         data.buffer.withUnsafeBytes {
@@ -63,20 +74,14 @@ class LibOpusEncoder: Encoder {
         }
 
         // Encode to Opus.
-        var encodedBytes = opus_encode(encoder,
-                                       pcm.int16ChannelData!.pointee,
-                                       Int32(opusFrameSize),
-                                       encoded.baseAddress!,
-                                       opus_int32(encoded.count))
-
-        // Callback encoded data.
-        encoded.withUnsafeBytes { bytes in
-            callback(.init(buffer: .init(start: bytes.baseAddress, count: Int(encodedBytes)),
-                           timestampMs: timestamps.first!, userData: nil))
+        do {
+            let encodedBytes = try encoder.encode(pcm, to: &encoded)
+            encoded.withUnsafeBytes { bytes in
+                callback(.init(buffer: .init(start: bytes.baseAddress, count: Int(encodedBytes)),
+                               timestampMs: timestamps.first!))
+            }
+        } catch {
+            print("Failed opus encode: \(error)")
         }
-    }
-
-    deinit {
-        opus_encoder_destroy(encoder)
     }
 }
