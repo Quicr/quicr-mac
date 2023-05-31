@@ -16,7 +16,7 @@ actor CaptureManager: NSObject,
     enum DeviceEvent { case added; case removed }
 
     /// Callback of raw camera frames.
-    typealias MediaCallback = (UInt64, CMSampleBuffer) -> Void
+    typealias MediaCallback = (SourceIDType, CMSampleBuffer) -> Void
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
@@ -272,9 +272,9 @@ actor CaptureManager: NSObject,
                 errorHandler.writeError(message: "Microphone format not currently supported. Try a different mic")
                 return
             }
-            audioFrameCallback(device!.id, sampleBuffer)
+            audioFrameCallback(device!.uniqueID, sampleBuffer)
         } else {
-            cameraFrameCallback(device!.id, sampleBuffer)
+            cameraFrameCallback(device!.uniqueID, sampleBuffer)
         }
     }
 

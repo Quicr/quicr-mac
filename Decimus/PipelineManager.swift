@@ -10,7 +10,7 @@ class EncoderWrapper {
     private let measurement: EncoderMeasurement
 
     /// Create a new encoder pipeline element.
-    init(identifier: UInt64, encoder: Encoder, config: CodecConfig, submitter: MetricsSubmitter) {
+    init(identifier: StreamIDType, encoder: Encoder, config: CodecConfig, submitter: MetricsSubmitter) {
         self.encoder = encoder
         measurement = .init(identifier: String(identifier), config: config, submitter: submitter)
     }
@@ -29,8 +29,8 @@ class PipelineManager {
     private let errorWriter: ErrorWriter
     private let metricsSubmitter: MetricsSubmitter
 
-    private var encoders: [UInt64: EncoderWrapper] = [:]
-    var decoders: [UInt64: Decoder] = [:]
+    private var encoders: [StreamIDType: EncoderWrapper] = [:]
+    var decoders: [StreamIDType: Decoder] = [:]
 
     /// Create a new PipelineManager.
     init(errorWriter: ErrorWriter, metricsSubmitter: MetricsSubmitter) {
@@ -38,48 +38,48 @@ class PipelineManager {
         self.metricsSubmitter = metricsSubmitter
     }
 
-    func registerEncoder(identifier: UInt64, config: CodecConfig) {
-        let encoder = CodecFactory.shared.createEncoder(identifier: identifier,
-                                                        config: config,
-                                                        metricsSubmitter: metricsSubmitter)
-        guard encoders[identifier] == nil else {
-            return
+    func registerEncoder(identifier: StreamIDType,
+                         config: CodecConfig,
+                         encodeCallback: @escaping Encoder.EncodedBufferCallback) {
+        guard let encoder = try? CodecFactory.shared.createEncoder(config, encodeCallback: encodeCallback) else {
+            fatalError("Failed to create encoder")
         }
 
+        guard encoders[identifier] == nil else { return }
         encoders[identifier] = .init(identifier: identifier,
                                      encoder: encoder,
                                      config: config,
                                      submitter: metricsSubmitter)
     }
 
-    func registerDecoder(identifier: UInt64, config: CodecConfig) -> Decoder {
-        guard let decoder = self.decoders[identifier] else {
-            let decoder = CodecFactory.shared.createDecoder(identifier: identifier, config: config)
-            decoders[identifier] = decoder
-            return decoder
+    func registerDecoder(identifier: StreamIDType, config: CodecConfig) -> Decoder {
+        guard let decoder = try? CodecFactory.shared.createDecoder(identifier: identifier, config: config) else {
+            fatalError("Failed to create decoder")
         }
+        decoders[identifier] = decoder
+
         return decoder
     }
 
-    func unregisterEncoder(identifier: UInt64) {
+    func unregisterEncoder(identifier: StreamIDType) {
         encoders.removeValue(forKey: identifier)
     }
 
-    func unregisterDecoder(identifier: UInt64) {
+    func unregisterDecoder(identifier: StreamIDType) {
         decoders.removeValue(forKey: identifier)
     }
 
-    func encode(identifier: UInt64, sample: MediaBuffer) {
+    func encode(identifier: StreamIDType, buffer: MediaBuffer) {
         guard let encoder = encoders[identifier] else {
             fatalError("Tried to encode for unregistered identifier: \(identifier)")
         }
-        encoder.write(data: sample)
+        encoder.write(data: buffer)
     }
 
-    func decode(mediaBuffer: MediaBufferFromSource) {
-        guard let decoder = decoders[mediaBuffer.source] else {
-            fatalError("Tried to decode for unregistered identifier: \(mediaBuffer.source)")
+    func decode(identifier: StreamIDType, buffer: MediaBuffer) {
+        guard let decoder = decoders[identifier] else {
+            fatalError("Tried to decode for unregistered identifier: \(identifier)")
         }
-        decoder.write(data: mediaBuffer.media.buffer, timestamp: mediaBuffer.media.timestampMs)
+        decoder.write(buffer: buffer)
     }
 }

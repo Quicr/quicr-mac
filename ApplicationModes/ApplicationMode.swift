@@ -5,29 +5,18 @@ import AVFAudio
 import AVFoundation
 import UIKit
 
-/// The core of the application.
-protocol ApplicationMode {
-    var pipeline: PipelineManager? { get }
-    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer)
-    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer)
-    func removeRemoteSource(identifier: UInt64)
-}
-
-/// ApplicationModeBase provides a default implementation of the app.
+/// ApplicationMode provides a default implementation of the app.
 /// Uncompressed data is passed to the pipeline to encode, encoded data is passed out to be rendered.
 /// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
 /// to try out new things. For example, a loopback layer.
-class ApplicationModeBase: ApplicationMode, Hashable {
-    static func == (lhs: ApplicationModeBase, rhs: ApplicationModeBase) -> Bool {
-        false
-    }
-
-    var pipeline: PipelineManager?
+class ApplicationMode {
     let errorHandler: ErrorWriter
     let player: AudioPlayer
 
     var participants: VideoParticipants = VideoParticipants()
     private var checkStaleVideoTimer: Timer?
+
+    var notifier: NotificationCenter = .default
 
     private let id = UUID()
 
@@ -38,9 +27,10 @@ class ApplicationModeBase: ApplicationMode, Hashable {
                   outputAudioFormat: AVAudioFormat) {
         self.errorHandler = errorWriter
         self.player = player
-        self.pipeline = .init(errorWriter: errorWriter, metricsSubmitter: metricsSubmitter)
 
-        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+
             let staleVideos = self.participants.participants.filter { _, participant in
                 return participant.lastUpdated.advanced(by: DispatchTimeInterval.seconds(2)) < .now()
             }
@@ -50,11 +40,6 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
 
         CodecFactory.shared = .init(inputAudioFormat: inputAudioFormat, outputAudioFormat: outputAudioFormat)
-        CodecFactory.shared.registerEncoderCallback { [weak self] id, media in
-            guard let mode = self else { return }
-            let identified: MediaBufferFromSource = .init(source: id, media: media)
-            mode.sendEncodedData(data: identified)
-        }
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
             mode.showDecodedImage(identifier: id,
@@ -73,11 +58,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         CodecFactory.shared = nil
     }
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
-    func showDecodedImage(identifier: UInt64,
+    func showDecodedImage(identifier: StreamIDType,
                           decoded: CIImage,
                           orientation: AVCaptureVideoOrientation?,
                           verticalMirror: Bool) {
@@ -103,7 +84,7 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         participant.lastUpdated = .now()
     }
 
-    func removeRemoteSource(identifier: UInt64) {
+    func removeRemoteSource(identifier: StreamIDType) {
         do {
             try participants.removeParticipant(identifier: identifier)
         } catch {
@@ -111,28 +92,16 @@ class ApplicationModeBase: ApplicationMode, Hashable {
         }
     }
 
-    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) { }
+    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {}
+    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {}
+    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {}
 
-    func getStreamIdFromDevice(_ identifier: UInt64) -> [UInt64] {
-        return [identifier]
+    func connect(config: CallConfig) async throws {
+        notifier.post(name: .connected, object: self)
     }
+    func disconnect() throws {}
+}
 
-    func encodeCameraFrame(identifier: UInt64, frame: CMSampleBuffer) {
-        let ids = getStreamIdFromDevice(identifier)
-        let sample = frame.asMediaBuffer()
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample) }
-    }
-
-    func encodeAudioSample(identifier: UInt64, sample: CMSampleBuffer) {
-        let ids = getStreamIdFromDevice(identifier)
-        guard let formatDescription = sample.formatDescription else {
-            errorHandler.writeError(message: "Missing format description")
-            return
-        }
-        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
-        ids.forEach { pipeline!.encode(identifier: $0, sample: sample.getMediaBuffer(userData: audioFormat)) }
-    }
-
-    func sendEncodedData(data: MediaBufferFromSource) {}
-    func connect(config: CallConfig) async throws {}
+extension Notification.Name {
+    static var connected = Notification.Name("connected")
 }

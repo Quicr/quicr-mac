@@ -154,23 +154,23 @@ class CallController: ObservableObject {
     @Published var selectedMicrophone: AVCaptureDevice?
     @Published var capture: CaptureManager
 
-    init(mode: ApplicationModeBase?, capture: CaptureManager) {
+    private var notifier: NotificationCenter = .default
+
+    init(mode: ApplicationMode?, capture: CaptureManager) {
         self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
         self.capture = capture
+        self.notifier.addObserver(self,
+                                  selector: #selector(join),
+                                  name: .connected,
+                                  object: nil)
+        self.notifier.addObserver(self,
+                                  selector: #selector(addInputDevice),
+                                  name: .publicationPreparedForDevice,
+                                  object: nil)
     }
 
-    deinit {
-    }
-
-    func join() async {
-        if let defaultCamera = AVCaptureDevice.default(for: .video) {
-            await addDevice(device: defaultCamera)
-        }
-        if selectedMicrophone != nil {
-            await addDevice(device: selectedMicrophone!)
-        }
-
-        await capture.startCapturing()
+    @objc private func join(_ notification: Notification) {
+        Task { await capture.startCapturing() }
     }
 
     func leave() async {
@@ -181,6 +181,16 @@ class CallController: ObservableObject {
         alteringDevice.removeAll()
 
         await capture.stopCapturing()
+    }
+
+    @objc private func addInputDevice(_ notification: Notification) {
+        guard let device = notification.object as? AVCaptureDevice else {
+            let object = notification.object as Any
+            assertionFailure("Invalid device: \(object)")
+            return
+        }
+
+        Task { await addDevice(device: device) }
     }
 
     func addDevice(device: AVCaptureDevice) async {
@@ -231,11 +241,11 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let loopback: RawLoopback = .init(errorWriter: errorWriter,
-                                          player: AVEngineAudioPlayer(errorWriter: errorWriter),
-                                          metricsSubmitter: MockSubmitter(),
-                                          inputAudioFormat: .init(),
-                                          outputAudioFormat: .init())
+        let loopback: Loopback = .init(errorWriter: errorWriter,
+                                       player: AVEngineAudioPlayer(errorWriter: errorWriter),
+                                       metricsSubmitter: MockSubmitter(),
+                                       inputAudioFormat: .init(),
+                                       outputAudioFormat: .init())
         let capture: CaptureManager = .init(cameraCallback: loopback.encodeCameraFrame,
                                             audioCallback: loopback.encodeAudioSample,
                                             deviceChangeCallback: loopback.onDeviceChange,

@@ -6,7 +6,7 @@ class AVEngineAudioPlayer: AudioPlayer {
     private var engine: AVAudioEngine! = .init()
     private var mixer: AVAudioMixerNode! = .init()
     private let errorWriter: ErrorWriter
-    private var players: [UInt64: AVAudioPlayerNode] = [:]
+    private var players: [StreamIDType: AVAudioPlayerNode] = [:]
 
     /// Create a new `AudioPlayer`
     init(errorWriter: ErrorWriter) {
@@ -37,7 +37,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         engine = nil
     }
 
-    func addPlayer(identifier: UInt64, format: AVAudioFormat) {
+    func addPlayer(identifier: StreamIDType, format: AVAudioFormat) {
         guard players[identifier] == nil else {
             errorWriter.writeError(message: "Audio player for: \(identifier) already exists")
             return
@@ -49,7 +49,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         }
     }
 
-    func write(identifier: UInt64, buffer: AVAudioPCMBuffer) {
+    func write(identifier: StreamIDType, buffer: AVAudioPCMBuffer) {
         guard inputFormat.commonFormat == buffer.format.commonFormat else {
             errorWriter.writeError(message: "Audio format mismatch")
             return
@@ -74,7 +74,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         node.scheduleBuffer(inputBuffer)
     }
 
-    private func createPlayer(identifier: UInt64, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
+    private func createPlayer(identifier: StreamIDType, inputFormat: AVAudioFormat) throws -> AVAudioPlayerNode {
         print("AudioPlayer => [\(identifier)] New player: \(inputFormat)")
         if !engine.isRunning {
             try engine.start()
@@ -94,7 +94,7 @@ class AVEngineAudioPlayer: AudioPlayer {
         return node
     }
 
-    func removePlayer(identifier: UInt64) {
+    func removePlayer(identifier: StreamIDType) {
         guard let player = players[identifier] else { return }
 
         player.stop()

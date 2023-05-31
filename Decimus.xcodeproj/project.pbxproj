@@ -32,7 +32,6 @@
 		9B480687298289910040F5D4 /* AVEngineAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480686298289910040F5D4 /* AVEngineAudioPlayer.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
-		9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B555197299B8B4F0025906D /* RawLoopback.swift */; };
 		9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5992B52A02A2C3009B899E /* AudioPlayer.swift */; };
 		9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PCMExtensions.swift */; };
 		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
@@ -63,6 +62,8 @@
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
 		FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2C29DD110600887833 /* VideoGrid.swift */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
+		FF6C80A92A16DB850094751E /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publication.swift */; };
+		FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80AA2A17E8980094751E /* Subscription.swift */; };
 		FF6D6D302A00410400B535DA /* fonts in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D2F2A00410400B535DA /* fonts */; };
 		FF6D6D522A00415300B535DA /* CiscoSansTT-MediumOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */; };
 		FF6D6D532A00415300B535DA /* CiscoSansTTThinOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */; };
@@ -101,6 +102,8 @@
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
+		FFD1CFEE2A2131250034CDD0 /* Publisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD1CFED2A2131250034CDD0 /* Publisher.swift */; };
+		FFD1CFF02A214FA60034CDD0 /* Subscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD1CFEF2A214FA60034CDD0 /* Subscriber.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -152,7 +155,6 @@
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
 		9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
-		9B555197299B8B4F0025906D /* RawLoopback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawLoopback.swift; sourceTree = "<group>"; };
 		9B5992B52A02A2C3009B899E /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		9B647C9B29A6267B000AD358 /* PCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMExtensions.swift; sourceTree = "<group>"; };
 		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
@@ -185,6 +187,8 @@
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
 		FF1C5C2C29DD110600887833 /* VideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoGrid.swift; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
+		FF6C80A82A16DB850094751E /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
+		FF6C80AA2A17E8980094751E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
 		FF6D6D2F2A00410400B535DA /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = "dependencies/momentum-ui/core/fonts"; sourceTree = "<group>"; };
 		FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavy.woff; sourceTree = "<group>"; };
 		FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondBold.woff; sourceTree = "<group>"; };
@@ -223,6 +227,8 @@
 		FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButtonGroup.swift; sourceTree = "<group>"; };
 		FFB8CBE429C148B70093C623 /* ActionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPicker.swift; sourceTree = "<group>"; };
 		FFBF2FB629BFE48100D769CF /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
+		FFD1CFED2A2131250034CDD0 /* Publisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publisher.swift; sourceTree = "<group>"; };
+		FFD1CFEF2A214FA60034CDD0 /* Subscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscriber.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -276,7 +282,6 @@
 				9B165A102983E5C10017079F /* Loopback.swift */,
 				9B165A122984012D0017079F /* ApplicationMode.swift */,
 				9B165A1429840B610017079F /* QMediaPubSub.swift */,
-				9B555197299B8B4F0025906D /* RawLoopback.swift */,
 			);
 			path = ApplicationModes;
 			sourceTree = "<group>";
@@ -412,6 +417,10 @@
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				9BDD5AF32996732E00C01D54 /* MediaBuffer.swift */,
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
+				FF6C80A82A16DB850094751E /* Publication.swift */,
+				FF6C80AA2A17E8980094751E /* Subscription.swift */,
+				FFD1CFED2A2131250034CDD0 /* Publisher.swift */,
+				FFD1CFEF2A214FA60034CDD0 /* Subscriber.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -689,13 +698,16 @@
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BAE3CC72A0D6E22008AF6A9 /* SourceElement.swift in Sources */,
+				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
+				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				9BDD5AF42996732E00C01D54 /* MediaBuffer.swift in Sources */,
 				9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
+				FFD1CFF02A214FA60034CDD0 /* Subscriber.swift in Sources */,
+				FFD1CFEE2A2131250034CDD0 /* Publisher.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */,
-				9B555198299B8B4F0025906D /* RawLoopback.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
