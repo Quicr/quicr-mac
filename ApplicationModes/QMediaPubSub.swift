@@ -72,37 +72,6 @@ class QMediaPubSub: ApplicationMode {
             mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamID)
         }
     }
-
-    override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
-        guard let publisher = publisher else {
-            fatalError("No publisher delegate. Did you forget to connect?")
-        }
-
-        let publications = publisher.publications.filter({ $0.value.device!.uniqueID == identifier })
-        guard !publications.isEmpty else {
-            fatalError("No publishers matching sourceId: \(identifier)")
-        }
-        Task { await publications.concurrentForEach { $0.value.write(data: frame.asMediaBuffer()) } }
-    }
-
-    override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
-        guard let publisher = publisher else {
-            fatalError("No publisher delegate. Did you forget to connect?")
-        }
-
-        let publications = publisher.publications.filter({ $0.value.device!.uniqueID == identifier })
-        guard !publications.isEmpty else {
-            fatalError("No publishers matching sourceId: \(identifier)")
-        }
-
-        guard let formatDescription = sample.formatDescription else {
-            errorHandler.writeError(message: "Missing format description")
-            return
-        }
-        let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
-        let data = sample.getMediaBuffer(userData: audioFormat)
-        publications.forEach { $0.value.write(data: data) }
-    }
 }
 
 extension Sequence {

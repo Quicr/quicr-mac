@@ -1,7 +1,9 @@
 import Foundation
 import AVFoundation
 
-class Publication {
+class Publication: NSObject,
+                   AVCaptureVideoDataOutputSampleBufferDelegate,
+                   AVCaptureAudioDataOutputSampleBufferDelegate {
     private(set) var device: AVCaptureDevice?
     private var encoder: Encoder?
     private var notifier: NotificationCenter = .default
@@ -28,14 +30,7 @@ class Publication {
             throw error
         }
 
-        notifier.post(name: .publicationPreparedForDevice, object: device)
-    }
-
-    func write(data: MediaBuffer) {
-        guard let encoder = encoder else {
-            fatalError("[Publisher] No encoder for Publisher. Did you forget to prepare?")
-        }
-        encoder.write(data: data)
+        notifier.post(name: .publicationPreparedForDevice, object: self)
     }
 
     // TODO: Remove once QMedia is updated to reflect the new arch.
@@ -48,6 +43,51 @@ class Publication {
     func prepare(streamID: StreamIDType, sourceID: SourceIDType, label: String = "", qualityProfile: String) throws {
         self.streamID = streamID
         try prepare(sourceID: sourceID, qualityProfile: qualityProfile)
+    }
+
+    /// This callback fires when a video frame arrives.
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard connection.isEnabled else { return }
+        guard let encoder = encoder else {
+            fatalError("[Publisher] No encoder for Publisher. Did you forget to prepare?")
+        }
+
+        if device!.hasMediaType(.video) {
+            encoder.write(data: sampleBuffer.asMediaBuffer())
+        } else if device!.hasMediaType(.audio) {
+            guard let asbd = sampleBuffer.formatDescription?.audioStreamBasicDescription else {
+                print("Couldn't get audio input format")
+                return
+            }
+
+            guard asbd.mSampleRate == .opus48khz,
+                  asbd.mChannelsPerFrame == 1,
+                  asbd.mBytesPerFrame == 2 else {
+                print("Microphone format not currently supported. Try a different mic")
+                return
+            }
+            guard let formatDescription = sampleBuffer.formatDescription else {
+                print("Missing format description")
+                return
+            }
+            let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
+            let data = sampleBuffer.getMediaBuffer(userData: audioFormat)
+            encoder.write(data: data)
+        }
+    }
+
+    /// This callback fires if a frame was dropped.
+    func captureOutput(_ output: AVCaptureOutput,
+                       didDrop sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        var mode: CMAttachmentMode = 0
+        let reason = CMGetAttachment(sampleBuffer,
+                                     key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
+                                     attachmentModeOut: &mode)
+
+        print("Publication => Frame dropped! Reason: \(String(describing: reason))")
     }
 
     private func onEncode(data: MediaBuffer) {

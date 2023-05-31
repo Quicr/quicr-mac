@@ -22,20 +22,20 @@ struct CallControls: View {
     }
 
     private func toggleVideo() async {
-        if controller.devices.cameras.allSatisfy({ camera in
-            return !(controller.usingDevice[camera] ?? false)
-        }) {
-            guard let camera = AVCaptureDevice.default(for: .video) else { return }
-            await controller.addDevice(device: camera)
-            videoOn = true
-            return
-        }
-
-        videoOn = false
-        controller.devices.cameras.forEach { camera in
-            guard controller.usingDevice[camera] ?? false else { return }
-            Task { await controller.removeDevice(device: camera) }
-        }
+//        if controller.devices.cameras.allSatisfy({ camera in
+//            return !(controller.usingDevice[camera] ?? false)
+//        }) {
+//            guard let camera = AVCaptureDevice.default(for: .video) else { return }
+//            await controller.addDevice(device: camera)
+//            videoOn = true
+//            return
+//        }
+//
+//        videoOn = false
+//        controller.devices.cameras.forEach { camera in
+//            guard controller.usingDevice[camera] ?? false else { return }
+//            Task { await controller.removeDevice(device: camera) }
+//        }
     }
 
     private func openCameraModal() {
@@ -184,21 +184,23 @@ class CallController: ObservableObject {
     }
 
     @objc private func addInputDevice(_ notification: Notification) {
-        guard let device = notification.object as? AVCaptureDevice else {
+        guard let publication = notification.object as? Publication else {
             let object = notification.object as Any
             assertionFailure("Invalid device: \(object)")
             return
         }
 
-        Task { await addDevice(device: device) }
+        Task { await addDevice(device: publication.device!, delegate: publication, audioDelegate: publication) }
     }
 
-    func addDevice(device: AVCaptureDevice) async {
+    func addDevice(device: AVCaptureDevice,
+                   delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
+                   audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?) async {
         guard !(alteringDevice[device] ?? false) else {
             return
         }
         alteringDevice[device] = true
-        await capture.addInput(device: device)
+        await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate)
         usingDevice[device] = true
         alteringDevice[device] = false
     }
