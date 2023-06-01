@@ -36,9 +36,11 @@ class Subscription: QSubscriptionDelegateObjC {
         guard let decoder = decoder else {
             fatalError("[Subscriber] No decoder for Subscriber. Did you forget to prepare?")
         }
+
+        data.withUnsafeBytes {
+            decoder.write(buffer: .init(buffer: $0, timestampMs: UInt32(NSDate().timeIntervalSince1970)))
+        }
+
         return 0
-//        data.withUnsafeBytes {
-//            decoder.write(buffer: .init(buffer: $0, timestampMs: <#T##UInt32#>))
-//        }
     }
 }
