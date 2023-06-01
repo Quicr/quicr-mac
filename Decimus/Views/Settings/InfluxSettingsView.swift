@@ -1,68 +1,58 @@
 import SwiftUI
 
-struct InfluxSettings: View {
+struct InfluxSettingsView: View {
 
-    @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+    @AppStorage("influxConfig")
+    private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     var body: some View {
-        Form {
-            Section(header: Text("Influx Connection")) {
-
-                Toggle(isOn: $influxConfig.value.submit) {
+        Section("Influx Connection") {
+            Form {
+                HStack {
                     Text("Submit Metrics")
+                    Toggle(isOn: $influxConfig.value.submit) {}
                 }
 
-                LabeledContent {
+                LabeledContent("Interval (s)") {
                     TextField(
                         "Interval (s)",
                         value: $influxConfig.value.intervalSecs,
                         format: .number)
-                } label: {
-                    Text("Interval (s)")
                 }
 
-                LabeledContent {
+                LabeledContent("URL") {
                     TextField("URL", text: $influxConfig.value.url)
-                } label: {
-                    Text("URL")
                 }
 
-                LabeledContent {
+                LabeledContent("Username") {
                     TextField("Username", text: $influxConfig.value.username)
-                } label: {
-                    Text("Username")
                 }
 
-                LabeledContent {
+                LabeledContent("Password") {
                     SecureField("Password", text: $influxConfig.value.password)
-                } label: {
-                    Text("Password")
                 }
 
-                LabeledContent {
+                LabeledContent("Bucket") {
                     TextField("Bucket", text: $influxConfig.value.bucket)
-                } label: {
-                    Text("Bucket")
                 }
 
-                LabeledContent {
+                LabeledContent("Org") {
                     TextField("Org", text: $influxConfig.value.org)
-                } label: {
-                    Text("Org")
                 }
 
-                LabeledContent {
+                LabeledContent("Token") {
                     SecureField("Token", text: $influxConfig.value.token)
-                } label: {
-                    Text("Token")
                 }
             }
+            .formStyle(.columns)
         }
     }
 }
 
 struct InfluxSettings_Previews: PreviewProvider {
     static var previews: some View {
-        InfluxSettings()
+        Form {
+            InfluxSettingsView()
+        }
     }
 }

@@ -238,7 +238,7 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let loopback: Loopback = .init(errorWriter: errorWriter,
+        let loopback: ApplicationMode = .init(errorWriter: errorWriter,
                                        player: AVEngineAudioPlayer(errorWriter: errorWriter),
                                        metricsSubmitter: MockSubmitter(),
                                        inputAudioFormat: .init(),

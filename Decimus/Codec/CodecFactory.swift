@@ -144,8 +144,8 @@ class CodecFactory {
     }
 
     /// Creates an encoder from a factory callback.
-    /// - Parameter sourceId: The identifier for the source to encode.
     /// - Parameter config: The codec config information to use to create the encoder.
+    /// - Parameter encodeCallback The callback to register to the encoder to run on succesful encoding.
     func createEncoder(_ config: CodecConfig,
                        encodeCallback: @escaping Encoder.EncodedBufferCallback) throws -> Encoder {
         guard let factory = encoderFactories[config.codec] else {
@@ -158,7 +158,7 @@ class CodecFactory {
     }
 
     /// Creates an decoder from a factory callback.
-    /// - Parameter sourceId: The identifier for the source to encode.
+    /// - Parameter identifier: The identifier for the source to encode.
     /// - Parameter codec: The codec type of the decoder
     func createDecoder(identifier: StreamIDType, config: CodecConfig) throws -> Decoder {
         guard let factory = decoderFactories[config.codec] else {
