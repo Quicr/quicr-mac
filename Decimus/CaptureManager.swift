@@ -75,10 +75,8 @@ actor CaptureManager {
     }
 
     func toggleInput(device: AVCaptureDevice) -> Bool {
-        guard let connection = self.connections[device] else {
-            fatalError()
-        }
-        connection.isEnabled = !connection.isEnabled
+        guard let connection = self.connections[device] else { fatalError() }
+        connection.isEnabled.toggle()
         return connection.isEnabled
     }
 
@@ -196,40 +194,11 @@ actor CaptureManager {
         deviceChangedCallback(device, .removed)
     }
 
-    func toggleAudio() -> Bool {
-        session.connections.forEach { conn in
-            guard conn.audioChannels.count != 0 else { return }
-            conn.isEnabled.toggle()
+    func isMuted(device: AVCaptureDevice) -> Bool {
+        guard let connection = connections[device] else {
+            fatalError()
         }
-        return isMuted()
-    }
-
-    func isMuted() -> Bool {
-        guard let conn = session.connections.first(where: { conn in
-            return conn.audioChannels.count != 0
-        }) else { return true }
-
-        return conn.isEnabled
-    }
-
-    func toggleVideo(device: AVCaptureDevice) {
-        guard let conn = connections[device] else { return }
-        conn.isEnabled.toggle()
-    }
-
-    func muteVideo(device: AVCaptureDevice) {
-        guard let conn = connections[device] else { return }
-        conn.isEnabled = false
-    }
-
-    func unmuteVideo(device: AVCaptureDevice) {
-        guard let conn = connections[device] else { return }
-        conn.isEnabled = true
-    }
-
-    func isVideoMuted(device: AVCaptureDevice) -> Bool {
-        guard let conn = connections[device] else { return true }
-        return conn.isEnabled
+        return connection.isEnabled
     }
 }
 

@@ -49,7 +49,6 @@ class Publication: NSObject,
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        guard connection.isEnabled else { return }
         guard let encoder = encoder else {
             fatalError("[Publisher] No encoder for Publisher. Did you forget to prepare?")
         }

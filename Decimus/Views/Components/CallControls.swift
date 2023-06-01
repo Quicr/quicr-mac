@@ -22,29 +22,26 @@ struct CallControls: View {
     }
 
     private func toggleVideo() async {
-//        if controller.devices.cameras.allSatisfy({ camera in
-//            return !(controller.usingDevice[camera] ?? false)
-//        }) {
-//            guard let camera = AVCaptureDevice.default(for: .video) else { return }
-//            await controller.addDevice(device: camera)
-//            videoOn = true
-//            return
-//        }
-//
-//        videoOn = false
-//        controller.devices.cameras.forEach { camera in
-//            guard controller.usingDevice[camera] ?? false else { return }
-//            Task { await controller.removeDevice(device: camera) }
-//        }
+        var anyVideo = false
+        for (camera, _) in controller.usingDevice where camera.hasMediaType(.video) {
+            let enabled = await controller.toggleDevice(device: camera)
+            anyVideo = anyVideo || enabled
+        }
+        videoOn = anyVideo
+    }
+
+    private func toggleAudio() async {
+        var anyAudio = false
+        for (microphone, _) in controller.usingDevice where microphone.hasMediaType(.audio) {
+            let enabled = await controller.toggleDevice(device: microphone)
+            anyAudio = anyAudio || enabled
+        }
+        audioOn = anyAudio
     }
 
     private func openCameraModal() {
         cameraModalExpanded.toggle()
         muteModalExpanded = false
-    }
-
-    private func toggleMute() async {
-        audioOn = await controller.toggleMute()
     }
 
     private func openAudioModal() {
@@ -59,7 +56,7 @@ struct CallControls: View {
                 icon: audioOn ? "microphone-on" : "microphone-muted",
                 role: audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
-                action: toggleMute,
+                action: toggleAudio,
                 pickerAction: openAudioModal
             ) {
                 Text("Audio Connection")
@@ -69,7 +66,7 @@ struct CallControls: View {
                         disabled: controller.isAlteringMicrophone(),
                         cornerRadius: 12,
                         styleConfig: deviceButtonStyleConfig,
-                        action: toggleMute) {
+                        action: toggleAudio) {
                             HStack {
                                 Image(systemName: microphone.deviceType == .builtInMicrophone ?
                                       "mic" : "speaker.wave.2")
@@ -83,7 +80,7 @@ struct CallControls: View {
             }
             .onChange(of: controller.selectedMicrophone) { _ in
                 guard controller.selectedMicrophone != nil else { return }
-                Task { await controller.toggleCamera(device: controller.selectedMicrophone!) }
+                Task { await controller.toggleDevice(device: controller.selectedMicrophone!) }
             }
             .disabled(controller.isAlteringMicrophone())
 
@@ -115,7 +112,7 @@ struct CallControls: View {
                             disabled: controller.alteringDevice[camera] ?? false,
                             cornerRadius: 10,
                             styleConfig: deviceButtonStyleConfig,
-                            action: { await controller.toggleCamera(device: camera) },
+                            action: { _ = await controller.toggleDevice(device: camera) },
                             title: {
                                 Text(verbatim: camera.localizedName)
                                     .lineLimit(1)
@@ -215,27 +212,21 @@ class CallController: ObservableObject {
         alteringDevice[device] = false
     }
 
-    func toggleCamera(device: AVCaptureDevice) async {
+    func toggleDevice(device: AVCaptureDevice) async -> Bool {
         guard !(alteringDevice[device] ?? false) else {
-            return
+            print("??")
+            return false
         }
         alteringDevice[device] = true
-        usingDevice[device] = await capture.toggleInput(device: device)
+        let enabled = await capture.toggleInput(device: device)
+        usingDevice[device] = enabled
         alteringDevice[device] = false
+        return enabled
     }
 
     func isAlteringMicrophone() -> Bool {
         guard selectedMicrophone != nil else { return false }
         return alteringDevice[selectedMicrophone!] ?? false
-    }
-
-    func isUsingMicrophone() async -> Bool {
-        return await capture.isMuted()
-    }
-
-    func toggleMute() async -> Bool {
-        guard selectedMicrophone != nil else { return false }
-        return await capture.toggleAudio()
     }
 }
 
