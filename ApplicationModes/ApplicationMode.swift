@@ -77,8 +77,6 @@ class ApplicationMode {
     }
 
     func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {}
-    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {}
-    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {}
 
     func connect(config: CallConfig) async throws {
         notifier.post(name: .connected, object: self)
