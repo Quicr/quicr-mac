@@ -1,12 +1,5 @@
 import SwiftUI
 
-enum PlayerType: Int, CaseIterable, Identifiable {
-    case audioUnit = 0
-    case avAudioEngine
-    case fasterAvAudioEngine
-    var id: Int { rawValue }
-}
-
 enum RelayURLs: String {
     case localhost = "localhost"
     case usWest2 = "relay.us-west-2.quicr.ctgpoc.com"
@@ -34,7 +27,6 @@ enum URLScheme: String, CaseIterable {
 }
 
 struct SettingsView: View {
-    @AppStorage("playerType") private var playerType: Int = PlayerType.fasterAvAudioEngine.rawValue
     @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
 
     @AppStorage("manifestConfig")
@@ -42,14 +34,6 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Audio") {
-                Picker("Player", selection: $playerType) {
-                    ForEach(PlayerType.allCases) { option in
-                        Text(String("\(option)"))
-                    }
-                }
-            }
-
             Section("Relay") {
                 HStack {
                     Text("Address")

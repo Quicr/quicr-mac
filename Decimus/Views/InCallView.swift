@@ -59,15 +59,11 @@ extension InCallView {
         private(set) var errorHandler = ObservableError()
         private(set) var mode: Mode?
         var callController: CallController?
-        private var unitFactory: AudioUnitFactory?
-
-        @AppStorage("playerType") private var playerType: Int = PlayerType.avAudioEngine.rawValue
 
         @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(config: CallConfig) {
-            let playerType: PlayerType = .init(rawValue: playerType)!
-            let player = makeAudioPlayer(type: playerType)
+            let player = FasterAVEngineAudioPlayer(errorWriter: errorHandler)
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -100,45 +96,8 @@ extension InCallView {
             await callController!.leave()
             do {
                 try mode!.disconnect()
-                if let factory = unitFactory {
-                    try factory.clearIOUnit()
-                }
             } catch {
                 errorHandler.writeError(message: "Error while leaving call: \(error)")
-            }
-        }
-
-        private func makeAudioPlayer(type: PlayerType) -> AudioPlayer {
-            switch type {
-            case .audioUnit:
-                let unit: AudioUnit
-                unitFactory = .init()
-                do {
-                    unit = try unitFactory!.makeIOUnit(voip: false)
-                } catch {
-                    errorHandler.writeError(message: "Failed to create IOAU")
-                    return AVEngineAudioPlayer(errorWriter: errorHandler)
-                }
-                let auPlayer: AudioUnitPlayer
-                do {
-                    auPlayer = try .init(audioUnit: unit)
-                } catch {
-                    errorHandler.writeError(message: "Failed to create AudioUnitPlayer: \(error)")
-                    return AVEngineAudioPlayer(errorWriter: errorHandler)
-                }
-                do {
-                    try unit.initializeAndStart()
-                } catch {
-                    errorHandler.writeError(message: "Failed to initialize IOAU \(error)")
-                }
-                print("Using AudioUnitPlayer")
-                return auPlayer
-            case .avAudioEngine:
-                print("Using AVEngineAudioPlayer")
-                return AVEngineAudioPlayer(errorWriter: errorHandler)
-            case .fasterAvAudioEngine:
-                print("Using FasterAVAudioEnginePlayer")
-                return FasterAVEngineAudioPlayer(errorWriter: errorHandler)
             }
         }
     }
