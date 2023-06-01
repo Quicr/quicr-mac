@@ -7,11 +7,6 @@ enum PlayerType: Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
 }
 
-enum URLScheme: String, CaseIterable {
-    case http
-    case https
-}
-
 struct SettingsView: View {
     @AppStorage("playerType")
     private var playerType: Int = PlayerType.fasterAvAudioEngine.rawValue
@@ -35,6 +30,7 @@ struct SettingsView: View {
             InfluxSettingsView()
                 .textFieldStyle(.roundedBorder)
         }
+        .frame(maxWidth: 500)
     }
 }
 

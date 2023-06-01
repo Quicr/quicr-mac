@@ -18,7 +18,7 @@ private struct LoginForm: View {
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     @AppStorage("confId")
-    private var confId: Int = 1
+    private var confId: Int = 0
 
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
@@ -40,29 +40,26 @@ private struct LoginForm: View {
             Section {
                 VStack(alignment: .leading) {
                     Text("Email")
-                        .padding(.horizontal)
-                        .foregroundColor(.white)
-                    HStack {
-                        TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
-                            .keyboardType(.emailAddress)
-                            .onChange(of: callConfig.email, perform: { value in
-                                email = value
-                                Task {
-                                    await fetchManifest()
-                                }
-
-                                if !meetings.keys.contains(UInt32(confId)) {
-                                    confId = 1
-                                    callConfig.conferenceId = 1
-                                }
-                            })
-                            .textFieldStyle(FormInputStyle())
-                        if isLoading {
-                            Spacer()
-                            ProgressView()
-                        }
+                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                        .keyboardType(.emailAddress)
+                        .onChange(of: callConfig.email, perform: { value in
+                            email = value
+                            Task {
+                                await fetchManifest()
+                            }
+                            
+                            if !meetings.keys.contains(UInt32(confId)) {
+                                confId = 1
+                                callConfig.conferenceId = 1
+                            }
+                        })
+                        .textFieldStyle(FormInputStyle())
+                    if isLoading {
+                        Spacer()
+                        ProgressView()
                     }
                 }
+
 
                 if email != "" {
                     VStack(alignment: .leading) {
@@ -84,6 +81,7 @@ private struct LoginForm: View {
                                 .padding(.horizontal)
                                 .foregroundColor(.white)
                                 .onAppear {
+                                    confId = 0
                                     callConfig.conferenceId = 0
                                 }
                         }
@@ -109,7 +107,7 @@ private struct LoginForm: View {
 
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "",
+                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceId == 0,
                                  styleConfig: buttonColour,
                                  action: join)
                     .frame(maxWidth: .infinity)

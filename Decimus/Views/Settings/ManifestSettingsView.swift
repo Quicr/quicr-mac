@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum URLScheme: String, CaseIterable {
+    case http
+    case https
+}
+
 struct ManifestSettingsView: View {
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
