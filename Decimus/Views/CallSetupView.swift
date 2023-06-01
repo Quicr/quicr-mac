@@ -47,7 +47,7 @@ private struct LoginForm: View {
                             Task {
                                 await fetchManifest()
                             }
-                            
+
                             if !meetings.keys.contains(UInt32(confId)) {
                                 confId = 1
                                 callConfig.conferenceId = 1
@@ -59,7 +59,6 @@ private struct LoginForm: View {
                         ProgressView()
                     }
                 }
-
 
                 if email != "" {
                     VStack(alignment: .leading) {
