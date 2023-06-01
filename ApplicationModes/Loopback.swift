@@ -50,12 +50,12 @@ class Loopback: ApplicationMode {
         }
     }
 
-    override func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
+    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
         let sample = frame.asMediaBuffer()
         pipeline!.encode(identifier: AVCaptureDevice(uniqueID: identifier)!.id, buffer: sample)
     }
 
-    override func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
+    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
         guard let formatDescription = sample.formatDescription else {
             errorHandler.writeError(message: "Missing format description")
             return

@@ -187,17 +187,21 @@ class CallController: ObservableObject {
             return
         }
 
-        Task { await addDevice(device: publication.device!, delegate: publication, audioDelegate: publication) }
+        Task { await addDevice(device: publication.device!,
+                               delegate: publication,
+                               audioDelegate: publication,
+                               queue: publication.queue!) }
     }
 
     func addDevice(device: AVCaptureDevice,
                    delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
-                   audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?) async {
+                   audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
+                   queue: DispatchQueue) async {
         guard !(alteringDevice[device] ?? false) else {
             return
         }
         alteringDevice[device] = true
-        await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate)
+        await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate, queue: queue)
         usingDevice[device] = true
         alteringDevice[device] = false
     }
@@ -239,9 +243,7 @@ struct CallControls_Previews: PreviewProvider {
                                        metricsSubmitter: MockSubmitter(),
                                        inputAudioFormat: .init(),
                                        outputAudioFormat: .init())
-        let capture: CaptureManager = .init(cameraCallback: loopback.encodeCameraFrame,
-                                            audioCallback: loopback.encodeAudioSample,
-                                            deviceChangeCallback: loopback.onDeviceChange,
+        let capture: CaptureManager = .init(deviceChangeCallback: loopback.onDeviceChange,
                                             errorHandler: errorWriter)
         let controller: CallController = .init(mode: loopback, capture: capture)
         CallControls(leaving: bool).environmentObject(controller)

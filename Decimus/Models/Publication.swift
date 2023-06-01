@@ -5,6 +5,7 @@ class Publication: NSObject,
                    AVCaptureVideoDataOutputSampleBufferDelegate,
                    AVCaptureAudioDataOutputSampleBufferDelegate {
     private(set) var device: AVCaptureDevice?
+    private(set) var queue: DispatchQueue?
     private var encoder: Encoder?
     private var notifier: NotificationCenter = .default
 
@@ -14,6 +15,8 @@ class Publication: NSObject,
     /// - Parameter qualityProfile: The string of the quality profile for the codec to build.
     func prepare(sourceID: SourceIDType, label: String = "", qualityProfile: String) throws {
         self.device = AVCaptureDevice.init(uniqueID: sourceID)
+        self.queue = .init(label: "com.cisco.quicr.decimus.\(sourceID)",
+                           target: .global(qos: .userInteractive))
         guard self.device != nil else {
             fatalError("[Publisher] Failed to find device for publication with id \(sourceID)")
         }

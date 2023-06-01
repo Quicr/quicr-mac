@@ -13,27 +13,17 @@ actor CaptureManager {
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
 
-    /// Callback of raw camera frames.
-    typealias MediaCallback = (SourceIDType, CMSampleBuffer) -> Void
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
     let session: AVCaptureMultiCamSession
-    let cameraFrameCallback: MediaCallback
-    let audioFrameCallback: MediaCallback
     let deviceChangedCallback: DeviceChangeCallback
-    private let sessionQueue: DispatchQueue = .init(label: "CaptureManager", target: .global(qos: .userInitiated))
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
     private let errorHandler: ErrorWriter
 
-    init(cameraCallback: @escaping MediaCallback,
-         audioCallback: @escaping MediaCallback,
-         deviceChangeCallback: @escaping DeviceChangeCallback,
-         errorHandler: ErrorWriter) {
-        self.cameraFrameCallback = cameraCallback
-        self.audioFrameCallback = audioCallback
+    init(deviceChangeCallback: @escaping DeviceChangeCallback, errorHandler: ErrorWriter) {
         self.deviceChangedCallback = deviceChangeCallback
         self.errorHandler = errorHandler
 
@@ -80,7 +70,9 @@ actor CaptureManager {
         return connection.isEnabled
     }
 
-    private func addMicrophone(device: AVCaptureDevice, delegate: AVCaptureAudioDataOutputSampleBufferDelegate) {
+    private func addMicrophone(device: AVCaptureDevice,
+                               delegate: AVCaptureAudioDataOutputSampleBufferDelegate,
+                               queue: DispatchQueue) {
         guard device.deviceType == .builtInMicrophone else {
             errorHandler.writeError(message: "addMicrophone must be called on a microphone")
             return
@@ -92,11 +84,13 @@ actor CaptureManager {
         }
 
         let audioOutput: AVCaptureAudioDataOutput = .init()
-        audioOutput.setSampleBufferDelegate(delegate, queue: sessionQueue)
+        audioOutput.setSampleBufferDelegate(delegate, queue: queue)
         addIO(device: device, input: microphone, output: audioOutput)
     }
 
-    private func addCamera(device: AVCaptureDevice, delegate: AVCaptureVideoDataOutputSampleBufferDelegate) {
+    private func addCamera(device: AVCaptureDevice,
+                           delegate: AVCaptureVideoDataOutputSampleBufferDelegate,
+                           queue: DispatchQueue) {
         do {
             // Device config.
             try device.lockForConfiguration()
@@ -119,7 +113,7 @@ actor CaptureManager {
 
         // Add an output for this device.
         let videoOutput: AVCaptureVideoDataOutput = .init()
-        videoOutput.setSampleBufferDelegate(delegate, queue: sessionQueue)
+        videoOutput.setSampleBufferDelegate(delegate, queue: queue)
         addIO(device: device, input: camera, output: videoOutput)
     }
 
@@ -154,7 +148,8 @@ actor CaptureManager {
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice,
                   delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
-                  audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?) {
+                  audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
+                  queue: DispatchQueue) {
         // Notify upfront.
         print("CaptureManager => Adding capture device: \(device.localizedName)")
         deviceChangedCallback(device, .added)
@@ -162,9 +157,9 @@ actor CaptureManager {
         // Add.
         session.beginConfiguration()
         if device.deviceType == .builtInMicrophone {
-            addMicrophone(device: device, delegate: audioDelegate!)
+            addMicrophone(device: device, delegate: audioDelegate!, queue: queue)
         } else {
-            addCamera(device: device, delegate: delegate!)
+            addCamera(device: device, delegate: delegate!, queue: queue)
         }
         session.commitConfiguration()
 
