@@ -26,8 +26,8 @@ class QMediaPubSub: ApplicationMode {
 
         let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
         try mediaClient!.getStreamConfigs(manifest,
-                                          prepareEncoderCallback: prepareEncoder,
-                                          prepareDecoderCallback: prepareDecoder)
+                                          prepareEncoderCallback: preparePublication,
+                                          prepareDecoderCallback: prepareSubscription)
 
         notifier.post(name: .connected, object: self)
     }
@@ -40,7 +40,10 @@ class QMediaPubSub: ApplicationMode {
         mediaClient = nil
     }
 
-    private func prepareEncoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
+    private func preparePublication(sourceId: SourceIDType,
+                                    mediaType: UInt8,
+                                    endpoint: UInt16,
+                                    qualityProfile: String) {
         guard let publisher = publisher else {
             fatalError("[QMediaPubSub] No publisher setup, did you forget to connect?")
         }
@@ -55,7 +58,10 @@ class QMediaPubSub: ApplicationMode {
         }
     }
 
-    private func prepareDecoder(sourceId: SourceIDType, mediaType: UInt8, endpoint: UInt16, qualityProfile: String) {
+    private func prepareSubscription(sourceId: SourceIDType,
+                                     mediaType: UInt8,
+                                     endpoint: UInt16,
+                                     qualityProfile: String) {
         guard let subscriber = subscriber else {
             fatalError("[QMediaPubSub] No subscriber setup, did you forget to connect?")
         }
