@@ -8,19 +8,24 @@ private let buttonColour = ActionButtonStyleConfig(
 )
 
 private struct LoginForm: View {
-    @AppStorage("email") private var email: String = ""
-    @AppStorage("relayAddress") private var relayAddress: String = RelayURLs.usWest2.rawValue
+    @AppStorage("email")
+    private var email: String = ""
+
+    @AppStorage("relayConfig")
+    private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
+
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
-    @AppStorage("confId") private var confId: Int = 1
+    @AppStorage("confId")
+    private var confId: Int = 0
 
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
 
     @State private var callConfig = CallConfig(address: "",
-                                               port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                                               port: 0,
                                                connectionProtocol: .QUIC,
                                                conferenceId: 0)
     private var joinMeetingCallback: ConfigCallback
@@ -35,27 +40,23 @@ private struct LoginForm: View {
             Section {
                 VStack(alignment: .leading) {
                     Text("Email")
-                        .padding(.horizontal)
-                        .foregroundColor(.white)
-                    HStack {
-                        TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
-                            .keyboardType(.emailAddress)
-                            .onChange(of: callConfig.email, perform: { value in
-                                email = value
-                                Task {
-                                    await fetchManifest()
-                                }
+                    TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                        .keyboardType(.emailAddress)
+                        .onChange(of: callConfig.email, perform: { value in
+                            email = value
+                            Task {
+                                await fetchManifest()
+                            }
 
-                                if !meetings.keys.contains(UInt32(confId)) {
-                                    confId = 1
-                                    callConfig.conferenceId = 1
-                                }
-                            })
-                            .textFieldStyle(FormInputStyle())
-                        if isLoading {
-                            Spacer()
-                            ProgressView()
-                        }
+                            if !meetings.keys.contains(UInt32(confId)) {
+                                confId = 1
+                                callConfig.conferenceId = 1
+                            }
+                        })
+                        .textFieldStyle(FormInputStyle())
+                    if isLoading {
+                        Spacer()
+                        ProgressView()
                     }
                 }
 
@@ -79,6 +80,7 @@ private struct LoginForm: View {
                                 .padding(.horizontal)
                                 .foregroundColor(.white)
                                 .onAppear {
+                                    confId = 0
                                     callConfig.conferenceId = 0
                                 }
                         }
@@ -90,13 +92,13 @@ private struct LoginForm: View {
                                      selection: $callConfig,
                                      labels: ["UDP", "QUIC"],
                                      tags: [
-                        .init(address: relayAddress,
-                              port: getPort(.UDP),
+                        .init(address: relayConfig.value.address,
+                              port: relayConfig.value.ports[.UDP]!,
                               connectionProtocol: .UDP,
                               email: callConfig.email,
                               conferenceId: callConfig.conferenceId),
-                        .init(address: relayAddress,
-                              port: getPort(.QUIC),
+                        .init(address: relayConfig.value.address,
+                              port: relayConfig.value.ports[.QUIC]!,
                               connectionProtocol: .QUIC,
                               email: callConfig.email,
                               conferenceId: callConfig.conferenceId)
@@ -104,7 +106,7 @@ private struct LoginForm: View {
 
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "",
+                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceId == 0,
                                  styleConfig: buttonColour,
                                  action: join)
                     .frame(maxWidth: .infinity)
@@ -122,8 +124,8 @@ private struct LoginForm: View {
             Task {
                 await fetchManifest()
                 if meetings.count > 0 {
-                    callConfig = CallConfig(address: relayAddress,
-                                            port: relayConfigs[RelayURLs.usWest2]?[.QUIC] ?? 0,
+                    callConfig = CallConfig(address: relayConfig.value.address,
+                                            port: relayConfig.value.ports[.QUIC]!,
                                             connectionProtocol: .QUIC,
                                             email: email,
                                             conferenceId: UInt32(confId))
@@ -146,16 +148,11 @@ private struct LoginForm: View {
     func join() {
         joinMeetingCallback(callConfig)
     }
-
-    private func getPort(_ proto: MediaClient.ProtocolType) -> UInt16 {
-        guard let address = RelayURLs(rawValue: relayAddress) else { fatalError() }
-        guard let config = relayConfigs[address] else { fatalError() }
-        return config[proto] ?? 0
-    }
 }
 
 struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
+    @State private var settingsOpen: Bool = false
 
     init(_ onJoin: @escaping ConfigCallback) {
         UIApplication.shared.isIdleTimerDisabled = false
@@ -163,34 +160,42 @@ struct CallSetupView: View {
     }
 
     var body: some View {
-        ZStack {
-            Image("RTMC-Background")
-                .resizable()
-                .scaledToFill()
-                .edgesIgnoringSafeArea(.all)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
-                #if targetEnvironment(macCatalyst)
-                .frame(maxWidth: .infinity,
-                       maxHeight: .infinity,
-                       alignment: .center)
-                #else
-                .frame(width: UIScreen.main.bounds.width,
-                       height: UIScreen.main.bounds.height,
-                       alignment: .center)
-                #endif
+        NavigationStack {
+            ZStack {
+                Image("RTMC-Background")
+                    .resizable()
+                    .scaledToFill()
+                    .edgesIgnoringSafeArea(.top)
+                    #if targetEnvironment(macCatalyst)
+                    .frame(maxWidth: .infinity,
+                           maxHeight: .infinity,
+                           alignment: .center)
+                    #else
+                    .frame(width: UIScreen.main.bounds.width,
+                           height: UIScreen.main.bounds.height,
+                           alignment: .center)
+                    #endif
 
-            VStack {
-                Image("RTMC-Icon")
-                Text("Real Time Media Client")
-                    .font(.largeTitle)
-                    .bold()
-                    .foregroundColor(.white)
-                    .padding()
-                Text("Join a meeting")
-                    .font(.title)
-                    .foregroundColor(.white)
-                LoginForm(joinMeetingCallback)
-                    .frame(maxWidth: 350)
+                VStack {
+                    Image("RTMC-Icon")
+                    Text("Real Time Media Client")
+                        .font(.largeTitle)
+                        .bold()
+                        .foregroundColor(.white)
+                        .padding()
+                    Text("Join a meeting")
+                        .font(.title)
+                        .foregroundColor(.white)
+                    LoginForm(joinMeetingCallback)
+                        .frame(maxWidth: 350)
+
+                    NavigationLink(destination: SettingsView()) {
+                        Label("", systemImage: "gearshape").font(.title)
+                    }
+                    .buttonStyle(ActionButtonStyle(styleConfig: .init(background: .clear, foreground: .white),
+                                                   cornerRadius: 50,
+                                                   isDisabled: false))
+                }
             }
         }
     }

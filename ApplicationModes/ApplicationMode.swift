@@ -42,10 +42,7 @@ class ApplicationMode {
         CodecFactory.shared = .init(inputAudioFormat: inputAudioFormat, outputAudioFormat: outputAudioFormat)
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
-            mode.showDecodedImage(identifier: id,
-                                  decoded: decoded,
-                                  orientation: orientation,
-                                  verticalMirror: mirror)
+            mode.showDecodedImage(identifier: id, decoded: decoded, orientation: orientation, verticalMirror: mirror)
         }
         CodecFactory.shared.registerDecoderCallback { [weak self] id, buffer in
             guard let mode = self else { return }
@@ -62,24 +59,11 @@ class ApplicationMode {
                           decoded: CIImage,
                           orientation: AVCaptureVideoOrientation?,
                           verticalMirror: Bool) {
-        // Push the image to the output.
         let participant = participants.getOrMake(identifier: identifier)
 
         // TODO: Why can't we use CIImage directly here?
         let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
-        let imageOrientation: Image.Orientation
-        switch orientation {
-        case .portrait:
-            imageOrientation = verticalMirror ? .leftMirrored : .right
-        case .landscapeLeft:
-            imageOrientation = verticalMirror ? .upMirrored : .down
-        case .landscapeRight:
-            imageOrientation = verticalMirror ? .downMirrored : .up
-        case .portraitUpsideDown:
-            imageOrientation = verticalMirror ? .rightMirrored : .left
-        default:
-            imageOrientation = .up
-        }
+        let imageOrientation = orientation?.toImageOrientation(verticalMirror) ?? .up
         participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
         participant.lastUpdated = .now()
     }
@@ -100,6 +84,25 @@ class ApplicationMode {
         notifier.post(name: .connected, object: self)
     }
     func disconnect() throws {}
+}
+
+extension AVCaptureVideoOrientation {
+    func toImageOrientation(_ verticalMirror: Bool) -> Image.Orientation {
+        let imageOrientation: Image.Orientation
+        switch self {
+        case .portrait:
+            imageOrientation = verticalMirror ? .leftMirrored : .right
+        case .landscapeLeft:
+            imageOrientation = verticalMirror ? .upMirrored : .down
+        case .landscapeRight:
+            imageOrientation = verticalMirror ? .downMirrored : .up
+        case .portraitUpsideDown:
+            imageOrientation = verticalMirror ? .rightMirrored : .left
+        default:
+            imageOrientation = .up
+        }
+        return imageOrientation
+    }
 }
 
 extension Notification.Name {
