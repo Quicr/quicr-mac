@@ -30,7 +30,6 @@
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
 		9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5992B52A02A2C3009B899E /* AudioPlayer.swift */; };
 		9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PCMExtensions.swift */; };
-		9B87FB4E2A02A85100C92DD1 /* AudioUnitPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4D2A02A85100C92DD1 /* AudioUnitPlayer.swift */; };
 		9B87FB502A02A8A000C92DD1 /* AudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */; };
 		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
@@ -228,7 +227,7 @@
 		FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButtonGroup.swift; sourceTree = "<group>"; };
 		FFB8CBE429C148B70093C623 /* ActionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPicker.swift; sourceTree = "<group>"; };
 		FFBB04412A2923580038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		FFBB04422A29235D0038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; name = Info.plist; path = "dependencies/momentum-ui/core/fonts/Info.plist"; sourceTree = SOURCE_ROOT; };
+		FFBB04422A29235D0038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Decimus/Info.plist; sourceTree = SOURCE_ROOT; };
 		FFBF2FB629BFE48100D769CF /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
 		FFD1CFED2A2131250034CDD0 /* Publisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publisher.swift; sourceTree = "<group>"; };
 		FFD1CFEF2A214FA60034CDD0 /* Subscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscriber.swift; sourceTree = "<group>"; };

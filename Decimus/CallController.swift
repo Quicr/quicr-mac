@@ -14,7 +14,7 @@ class CallController {
     let publisher: Publisher = .init()
     let subscriber: Subscriber?
 
-    let player: AudioPlayer
+    let player: FasterAVEngineAudioPlayer
 
     let controller: QControllerGWObjC = .init()
 
@@ -26,7 +26,7 @@ class CallController {
     private let id = UUID()
 
     required init(errorWriter: ErrorWriter,
-                  player: AudioPlayer,
+                  player: FasterAVEngineAudioPlayer,
                   metricsSubmitter: MetricsSubmitter,
                   inputAudioFormat: AVAudioFormat,
                   outputAudioFormat: AVAudioFormat) {
@@ -34,7 +34,7 @@ class CallController {
         self.errorHandler = errorWriter
         self.player = player
 
-        self.subscriber = .init(errorWriter: errorWriter)
+        self.subscriber = .init(player: self.player)
 
         controller.publisherDelegate = self.publisher
         controller.subscriberDelegate = self.subscriber
@@ -96,12 +96,6 @@ class CallController {
     }
 
     func disconnect() throws {
-    }
-
-    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
-    }
-
-    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
     }
 }
 

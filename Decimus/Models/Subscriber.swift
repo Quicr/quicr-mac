@@ -1,14 +1,14 @@
 import Foundation
 
 class Subscriber: QSubscriberDelegateObjC {
-    let errorWriter: ErrorWriter
+    private unowned let player: FasterAVEngineAudioPlayer
 
-    init(errorWriter: ErrorWriter) {
-        self.errorWriter = errorWriter
+    init(player: FasterAVEngineAudioPlayer) {
+        self.player = player
     }
 
     func allocateSub(byNamespace quicrNamepace: String!) -> Any! {
-        return Subscription(errorWriter: errorWriter)
+        return Subscription(player: player)
     }
 
     func remove(byNamespace quicrNamepace: String!) -> Int32 {

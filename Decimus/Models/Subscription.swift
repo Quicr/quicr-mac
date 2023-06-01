@@ -3,11 +3,11 @@ import AVFoundation
 
 class Subscription: QSubscriptionDelegateObjC {
 
-    private let player: FasterAVEngineAudioPlayer
+    private unowned let player: FasterAVEngineAudioPlayer
     private var decoder: Decoder?
 
-    init(errorWriter: ErrorWriter) {
-        player = .init(errorWriter: errorWriter)
+    init(player: FasterAVEngineAudioPlayer) {
+        self.player = player
     }
 
     func prepare(_ sourceId: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
