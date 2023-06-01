@@ -67,16 +67,17 @@ class QMediaPubSub: ApplicationMode {
         }
 
         let subscription = subscriber.allocateByStream(streamID: 0)
+        /*
         let streamID = mediaClient!.addStreamSubscribe(mediaType: mediaType,
                                                        clientId: endpoint,
                                                        callback: subscription.subscribedObject)
         subscriber.updateSubscriptionStreamID(streamID: streamID)
-
         do {
             try subscription.prepare(streamID: streamID, sourceID: sourceId, qualityProfile: qualityProfile)
         } catch {
             mediaClient!.removeMediaSubscribeStream(mediaStreamId: streamID)
         }
+         */
     }
 }
 

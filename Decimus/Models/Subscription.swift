@@ -48,7 +48,7 @@ class Subscription {
             throw error
         }
     }
-
+/*
     let subscribedObject: SubscribeCallback = { streamId, _, _, data, length, timestamp in
         guard let subscriber = Subscription.weakStaticSources[streamId]?.value else {
             fatalError("[Subscriber:\(streamId)] Failed to find instance for stream")
@@ -62,6 +62,7 @@ class Subscription {
         subscriber.write(data: .init(buffer: .init(start: data, count: Int(length)),
                                      timestampMs: UInt32(timestamp)))
     }
+ */
 
     private func write(data: MediaBuffer) {
         guard let decoder = decoder else {

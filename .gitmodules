@@ -1,6 +1,7 @@
 [submodule "dependencies/new-qmedia"]
 	path = dependencies/new-qmedia
 	url = git@github.com:Quicr/new-qmedia.git
+        branch = manifest
 [submodule "dependencies/momentum-ui"]
 	path = dependencies/momentum-ui
 	url = https://github.com/momentum-design/momentum-ui

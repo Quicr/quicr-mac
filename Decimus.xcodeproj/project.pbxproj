@@ -31,8 +31,7 @@
 		9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMedia.swift */; };
 		9B5992B62A02A2C3009B899E /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5992B52A02A2C3009B899E /* AudioPlayer.swift */; };
 		9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PCMExtensions.swift */; };
-		9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; };
-		9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9B87FB4E2A02A85100C92DD1 /* AudioUnitPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4D2A02A85100C92DD1 /* AudioUnitPlayer.swift */; };
 		9B87FB502A02A8A000C92DD1 /* AudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */; };
 		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
@@ -52,6 +51,10 @@
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
+		D71F036B2A28E63E00B2FA37 /* qmedia.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = D71F036A2A28E63E00B2FA37 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		D786193F2A28F44200EC0556 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D71F036A2A28E63E00B2FA37 /* qmedia.xcframework */; };
+		D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */; };
+		D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619442A28FC9D00EC0556 /* QControllerGW.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
@@ -122,7 +125,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				9B76FFE3298D5570006B5267 /* neo_media_client.xcframework in Embed Libraries */,
+				D71F036B2A28E63E00B2FA37 /* qmedia.xcframework in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -150,10 +153,8 @@
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMedia.swift; sourceTree = "<group>"; };
-		9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		9B5992B52A02A2C3009B899E /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		9B647C9B29A6267B000AD358 /* PCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMExtensions.swift; sourceTree = "<group>"; };
-		9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = neo_media_client.xcframework; path = dependencies/neo_media_client.xcframework; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B87FB4F2A02A8A000C92DD1 /* AudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUnitHelpers.swift; sourceTree = "<group>"; };
@@ -176,6 +177,14 @@
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
+		D71F036A2A28E63E00B2FA37 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = qmedia.xcframework; sourceTree = "<group>"; };
+		D78619402A28FC9C00EC0556 /* QDelegatesObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QDelegatesObjC.h; sourceTree = "<group>"; };
+		D78619412A28FC9C00EC0556 /* QMediaDelegates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QMediaDelegates.h; sourceTree = "<group>"; };
+		D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = QMediaDelegates.mm; sourceTree = "<group>"; };
+		D78619432A28FC9D00EC0556 /* QControllerGW.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGW.h; sourceTree = "<group>"; };
+		D78619442A28FC9D00EC0556 /* QControllerGW.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = QControllerGW.mm; sourceTree = "<group>"; };
+		D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGWObjC.h; sourceTree = "<group>"; };
+		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		FF01709529C10013000E23A6 /* FormInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormInput.swift; sourceTree = "<group>"; };
 		FF1C5C2A29DD110600887833 /* CallControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallControls.swift; sourceTree = "<group>"; };
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
@@ -241,7 +250,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9B76FFE2298D5566006B5267 /* neo_media_client.xcframework in Frameworks */,
+				D786193F2A28F44200EC0556 /* qmedia.xcframework in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				18F3E9532A1661C100DC2721 /* Copus in Frameworks */,
@@ -301,8 +310,14 @@
 		9B48068A298301ED0040F5D4 /* QMedia */ = {
 			isa = PBXGroup;
 			children = (
+				D78619432A28FC9D00EC0556 /* QControllerGW.h */,
+				D78619442A28FC9D00EC0556 /* QControllerGW.mm */,
+				D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */,
+				D78619402A28FC9C00EC0556 /* QDelegatesObjC.h */,
+				D78619412A28FC9C00EC0556 /* QMediaDelegates.h */,
+				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
 				9B48068B298301FD0040F5D4 /* QMedia.swift */,
-				9B48068D29830CCB0040F5D4 /* Decimus-Bridging-Header.h */,
+				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
 			);
 			path = QMedia;
 			sourceTree = "<group>";
@@ -310,7 +325,7 @@
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				9B76FFE1298D5566006B5267 /* neo_media_client.xcframework */,
+				D71F036A2A28E63E00B2FA37 /* qmedia.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -674,6 +689,7 @@
 				9B48068C298301FD0040F5D4 /* QMedia.swift in Sources */,
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
+				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
@@ -691,6 +707,7 @@
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
@@ -835,6 +852,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -919,6 +937,8 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "";
+				"HEADER_SEARCH_PATHS[arch=*]" = "";
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -952,7 +972,13 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/dependencies/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/",
+				);
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USER_HEADER_SEARCH_PATHS = "";
+				USE_HEADERMAP = NO;
 			};
 			name = Debug;
 		};
@@ -974,6 +1000,8 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "";
+				"HEADER_SEARCH_PATHS[arch=*]" = "";
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -1005,7 +1033,13 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
+				SYSTEM_HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/dependencies/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/",
+				);
 				TARGETED_DEVICE_FAMILY = "1,2";
+				USER_HEADER_SEARCH_PATHS = "";
+				USE_HEADERMAP = NO;
 			};
 			name = Release;
 		};

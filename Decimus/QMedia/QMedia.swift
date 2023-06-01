@@ -20,26 +20,31 @@ class MediaClient {
     /// - Parameter address: Address to connect to.
     /// - Parameter port: Port to connect on.
     init(address: URL, port: UInt16, protocol connectionProtocol: ProtocolType, conferenceId: UInt32) {
+        /*
         MediaClient_Create(address.absoluteString,
                            port,
                            connectionProtocol.rawValue,
                            conferenceId,
-                           &instance)
+                           &instance)*/
     }
 
     /// Destroy the instance of QMedia
     deinit {
         guard instance != nil else { return }
+        /*
         MediaClient_Destroy(instance)
+         */
     }
 
     /// Signal the intent to publish a stream.
     /// - Parameter codec: The `CodecType` being published.
     /// - Returns Stream identifier to use for sending.
     func addStreamPublishIntent(mediaType: UInt8, clientId: UInt16) -> UInt64 {
-        MediaClient_AddStreamPublishIntent(instance, mediaType, clientId)
+        /*
+        MediaClient_AddStreamPublishIntent(instance, mediaType, clientId)*/
+        return 0
     }
-
+/*
     /// Subscribe to an audio stream.
     /// - Parameter codec: The `CodecType` of interest.
     /// - Parameter callback: Function to run on receipt of data.
@@ -47,13 +52,18 @@ class MediaClient {
     func addStreamSubscribe(mediaType: UInt8, clientId: UInt16, callback: @escaping SubscribeCallback) -> UInt64 {
         MediaClient_AddStreamSubscribe(instance, mediaType, clientId, callback)
     }
+ */
 
     func removeMediaPublishStream(mediaStreamId: StreamIDType) {
+        /*
         MediaClient_RemoveMediaPublishStream(instance, mediaStreamId)
+         */
     }
 
     func removeMediaSubscribeStream(mediaStreamId: StreamIDType) {
+        /*
         MediaClient_RemoveMediaSubscribeStream(instance, mediaStreamId)
+         */
     }
 
     /// Send some audio data.
@@ -62,7 +72,9 @@ class MediaClient {
     /// - Parameter length: Length of the data in `buffer`.
     /// - Parameter timestamp: Timestamp of this audio data.
     func sendAudio(mediaStreamId: StreamIDType, buffer: UnsafePointer<UInt8>, length: UInt32, timestamp: UInt64) {
+        /*
         MediaClient_sendAudio(instance, mediaStreamId, buffer, length, timestamp)
+         */
     }
 
     /// Send a video frame.
@@ -76,7 +88,9 @@ class MediaClient {
                         length: UInt32,
                         timestamp: UInt64,
                         flag: Bool) {
+        /*
         MediaClient_sendVideoFrame(instance, mediaStreamId, buffer, length, timestamp, flag)
+         */
     }
 
     enum GetStreamError: Error {

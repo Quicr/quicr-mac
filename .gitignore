@@ -1,6 +1,6 @@
 # WxQ Specific ignores.
 dependencies/build-*/
-dependencies/neo_media_client.xcframework
+dependencies/qmedia.xcframework
 
 #Xcode
 #
