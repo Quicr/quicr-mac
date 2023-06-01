@@ -8,17 +8,21 @@ class Publication: NSObject,
     private(set) var queue: DispatchQueue?
     private var encoder: Encoder?
     private var notifier: NotificationCenter = .default
+    private var sourceID: SourceIDType?
+    private var qualityProfile: String?
 
     /// Prepare the device and encoder to start capturing and encoding.
     /// - Parameter sourceID: The unique ID of the source device
     /// - Parameter label: Label of the publication that can be displayed.
     /// - Parameter qualityProfile: The string of the quality profile for the codec to build.
     func prepare(sourceID: SourceIDType, label: String = "", qualityProfile: String) throws {
+        self.sourceID = sourceID
+        self.qualityProfile = qualityProfile
         self.device = AVCaptureDevice.init(uniqueID: sourceID)
         self.queue = .init(label: "com.cisco.quicr.decimus.\(sourceID)",
                            target: .global(qos: .userInteractive))
         guard self.device != nil else {
-            fatalError("[Publisher] Failed to find device for publication with id \(sourceID)")
+            fatalError("[Publication] Failed to find device for publication with id \(sourceID)")
         }
 
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
@@ -27,9 +31,9 @@ class Publication: NSObject,
                 guard let self = self else { return }
                 self.onEncode(data: data)
             }
-            print("[Publisher] Registered \(String(describing: config.codec)) to publish stream: \(streamID)")
+            log("Registered \(String(describing: config.codec)) to publish stream: \(streamID)")
         } catch {
-            print("[Publisher] Failed to create encoder: \(error)")
+            log("Failed to create encoder: \(error)")
             throw error
         }
 
@@ -53,25 +57,25 @@ class Publication: NSObject,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         guard let encoder = encoder else {
-            fatalError("[Publisher] No encoder for Publisher. Did you forget to prepare?")
+            fatalError("[Publication] No encoder for Publisher. Did you forget to prepare?")
         }
 
         if device!.hasMediaType(.video) {
             encoder.write(data: sampleBuffer.asMediaBuffer())
         } else if device!.hasMediaType(.audio) {
             guard let asbd = sampleBuffer.formatDescription?.audioStreamBasicDescription else {
-                print("Couldn't get audio input format")
+                log("Couldn't get audio input format")
                 return
             }
 
             guard asbd.mSampleRate == .opus48khz,
                   asbd.mChannelsPerFrame == 1,
                   asbd.mBytesPerFrame == 2 else {
-                print("Microphone format not currently supported. Try a different mic")
+                log("Microphone format not currently supported. Try a different mic")
                 return
             }
             guard let formatDescription = sampleBuffer.formatDescription else {
-                print("Missing format description")
+                log("Missing format description")
                 return
             }
             let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
@@ -89,7 +93,7 @@ class Publication: NSObject,
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
 
-        print("Publication => Frame dropped! Reason: \(String(describing: reason))")
+        log(String(describing: reason))
     }
 
     private func onEncode(data: MediaBuffer) {
@@ -110,10 +114,18 @@ class Publication: NSObject,
                                        timestamp: timestamp,
                                        flag: false)
         } else {
-            fatalError("[Publisher] Failed encode: Unrecognized codec config")
+            fatalError("[Publication] Failed encode: Unrecognized codec config")
         }
     }
     // end TODO
+
+    private func log(_ message: String) {
+        guard let sourceID = sourceID,
+              let qualityProfile = qualityProfile else {
+            fatalError("Must be called after prepare")
+        }
+        print("[Publication] (\(sourceID) \(qualityProfile)) \(message)")
+    }
 }
 
 extension Notification.Name {
