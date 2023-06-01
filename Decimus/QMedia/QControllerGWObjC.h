@@ -15,11 +15,14 @@
 
 #import "QDelegatesObjC.h"
 
-@interface QControllerGWObjC : NSObject<QSubscriberDelegateObjC, QPublisherDelegateObjC>  {
+@interface QControllerGWObjC : NSObject  {
 #ifdef __cplusplus
     QControllerGW qControllerGW;
 #endif
 }
+@property (nonatomic, weak)  id<QSubscriberDelegateObjC> subscriberDelegate;
+@property (nonatomic, weak)  id<QPublisherDelegateObjC> publisherDelegate;
+
 -(instancetype) init;
 -(int) connect: (NSString*)remoteAddress
           port:(UInt16)remotePort

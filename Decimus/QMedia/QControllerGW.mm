@@ -17,12 +17,13 @@
 
 #import "QDelegatesObjC.h"
 
+@synthesize subscriberDelegate;
+@synthesize publisherDelegate;
+
 
 - (id)init
 {
     self = [super init];
-    qControllerGW.setSubscriberDelegate(self);
-    qControllerGW.setPublisherDelegate(self);
     return self;
 }
 
@@ -36,12 +37,22 @@
     qControllerGW.updateManifest(std::string([manifest UTF8String]));
 }
 
+-(void) setSubscriberDelegate:(id<QSubscriberDelegateObjC>)delegate
+{
+    qControllerGW.setSubscriberDelegate(delegate);
+}
+
+-(void) setPublisherDelegate:(id<QPublisherDelegateObjC>)delegate
+{
+    qControllerGW.setPublisherDelegate(delegate);
+}
+
 - (id)allocateSubByNamespace:(NSString *)quicrNamepace {
-    return  [self allocateSubByNamespace:quicrNamepace];
+    return  [subscriberDelegate allocateSubByNamespace:quicrNamepace];
 }
 
 - (id)allocatePubByNamespace:(NSString *)quicrNamepace {
-    return  [self allocatePubByNamespace:quicrNamepace];
+    return  [publisherDelegate allocatePubByNamespace:quicrNamepace];
 }
 
 - (int)removeByNamespace:(NSString *)quicrNamepace {
