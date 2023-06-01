@@ -4,7 +4,7 @@ import UIKit
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
-struct InCallView<Mode>: View where Mode: ApplicationMode {
+struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
 
@@ -57,8 +57,8 @@ extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
         private(set) var errorHandler = ObservableError()
-        private(set) var mode: Mode?
-        var callController: CallController?
+        private(set) var mode: CallController?
+        var callController: CallControls.ViewModel?
 
         @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
@@ -69,16 +69,14 @@ extension InCallView {
                 guard influxConfig.value.submit else { return }
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
             }
+
             // TODO: inputAudioFormat needs to be the real input format.
             self.mode = .init(errorWriter: errorHandler, player: player,
                               metricsSubmitter: submitter,
                               inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!,
                               outputAudioFormat: player.inputFormat)
-            let capture: CaptureManager = .init(deviceChangeCallback: { [weak mode] device, event in
-                                                    mode?.onDeviceChange(device: device, event: event)
-                                                },
-                                                errorHandler: errorHandler)
-            self.callController = CallController(mode: mode!, capture: capture)
+            let capture: CaptureManager = .init(errorHandler: errorHandler)
+            self.callController = CallControls.ViewModel(capture: capture)
             Task {
                 do {
                     try await self.mode!.connect(config: config)

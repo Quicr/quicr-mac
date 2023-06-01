@@ -1,17 +1,22 @@
-import CoreGraphics
-import CoreMedia
 import SwiftUI
-import AVFAudio
+import CoreMedia
 import AVFoundation
-import UIKit
 
-/// ApplicationMode provides a default implementation of the app.
-/// Uncompressed data is passed to the pipeline to encode, encoded data is passed out to be rendered.
-/// The intention of exposing this an abstraction layer is to provide an easy way to reconfigure the application
-/// to try out new things. For example, a loopback layer.
-class ApplicationMode {
+enum ApplicationError: Error {
+    case emptyEncoder
+    case alreadyConnected
+    case notConnected
+}
+
+class CallController {
     let errorHandler: ErrorWriter
+
+    let publisher: Publisher = .init()
+    let subscriber: Subscriber?
+
     let player: AudioPlayer
+
+    let controller: QControllerGWObjC = .init()
 
     var participants: VideoParticipants = VideoParticipants()
     private var checkStaleVideoTimer: Timer?
@@ -25,8 +30,14 @@ class ApplicationMode {
                   metricsSubmitter: MetricsSubmitter,
                   inputAudioFormat: AVAudioFormat,
                   outputAudioFormat: AVAudioFormat) {
+
         self.errorHandler = errorWriter
         self.player = player
+
+        self.subscriber = .init(errorWriter: errorWriter)
+
+        controller.publisherDelegate = self.publisher
+        controller.subscriberDelegate = self.subscriber
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -76,12 +87,37 @@ class ApplicationMode {
         }
     }
 
-    func onDeviceChange(device: AVCaptureDevice, event: CaptureManager.DeviceEvent) {}
-
     func connect(config: CallConfig) async throws {
+        controller.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)
+
+        let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
+        controller.updateManifest(manifest)
         notifier.post(name: .connected, object: self)
     }
-    func disconnect() throws {}
+
+    func disconnect() throws {
+    }
+
+    func encodeCameraFrame(identifier: SourceIDType, frame: CMSampleBuffer) {
+    }
+
+    func encodeAudioSample(identifier: SourceIDType, sample: CMSampleBuffer) {
+    }
+}
+
+extension Sequence {
+    func concurrentForEach(_ operation: @escaping (Element) async -> Void) async {
+        // A task group automatically waits for all of its
+        // sub-tasks to complete, while also performing those
+        // tasks in parallel:
+        await withTaskGroup(of: Void.self) { group in
+            for element in self {
+                group.addTask {
+                    await operation(element)
+                }
+            }
+        }
+    }
 }
 
 extension AVCaptureVideoOrientation {

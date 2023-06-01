@@ -17,14 +17,12 @@ actor CaptureManager {
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
     let session: AVCaptureMultiCamSession
-    let deviceChangedCallback: DeviceChangeCallback
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
     private let errorHandler: ErrorWriter
 
-    init(deviceChangeCallback: @escaping DeviceChangeCallback, errorHandler: ErrorWriter) {
-        self.deviceChangedCallback = deviceChangeCallback
+    init(errorHandler: ErrorWriter) {
         self.errorHandler = errorHandler
 
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -152,7 +150,6 @@ actor CaptureManager {
                   queue: DispatchQueue) {
         // Notify upfront.
         print("CaptureManager => Adding capture device: \(device.localizedName)")
-        deviceChangedCallback(device, .added)
 
         // Add.
         session.beginConfiguration()
@@ -186,7 +183,6 @@ actor CaptureManager {
         }
         session.commitConfiguration()
         print("CaptureManager => Removing input for \(device.localizedName)")
-        deviceChangedCallback(device, .removed)
     }
 
     func isMuted(device: AVCaptureDevice) -> Bool {

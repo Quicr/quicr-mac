@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 
 struct CallControls: View {
-    @EnvironmentObject var controller: CallController
+    @EnvironmentObject var controller: ViewModel
 
     @Binding var leaving: Bool
 
@@ -143,94 +143,86 @@ struct CallControls: View {
     }
 }
 
-@MainActor
-class CallController: ObservableObject {
-    @Published private(set) var devices = AudioVideoDevices()
-    @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
-    @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
-    @Published var selectedMicrophone: AVCaptureDevice?
-    @Published var capture: CaptureManager
+extension CallControls {
+    @MainActor
+    class ViewModel: ObservableObject {
+        @Published private(set) var devices = AudioVideoDevices()
+        @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
+        @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
+        @Published var selectedMicrophone: AVCaptureDevice?
+        @Published var capture: CaptureManager
 
-    private var notifier: NotificationCenter = .default
+        private var notifier: NotificationCenter = .default
 
-    init(mode: ApplicationMode?, capture: CaptureManager) {
-        self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
-        self.capture = capture
-        self.notifier.addObserver(self,
-                                  selector: #selector(join),
-                                  name: .connected,
-                                  object: nil)
-        self.notifier.addObserver(self,
-                                  selector: #selector(addInputDevice),
-                                  name: .publicationPreparedForDevice,
-                                  object: nil)
-    }
-
-    @objc private func join(_ notification: Notification) {
-        Task { await capture.startCapturing() }
-    }
-
-    func leave() async {
-        usingDevice.forEach({ device, _ in
-            Task { await capture.removeInput(device: device) }
-        })
-        usingDevice.removeAll()
-        alteringDevice.removeAll()
-
-        await capture.stopCapturing()
-    }
-
-    @objc private func addInputDevice(_ notification: Notification) {
-        guard let publication = notification.object as? Publication else {
-            let object = notification.object as Any
-            assertionFailure("Invalid device: \(object)")
-            return
+        init(capture: CaptureManager) {
+            self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
+            self.capture = capture
+            self.notifier.addObserver(self,
+                                      selector: #selector(join),
+                                      name: .connected,
+                                      object: nil)
+            self.notifier.addObserver(self,
+                                      selector: #selector(addInputDevice),
+                                      name: .publicationPreparedForDevice,
+                                      object: nil)
         }
 
-        Task { await addDevice(device: publication.device!,
-                               delegate: publication,
-                               audioDelegate: publication,
-                               queue: publication.queue!) }
-    }
-
-    func addDevice(device: AVCaptureDevice,
-                   delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
-                   audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
-                   queue: DispatchQueue) async {
-        guard !(alteringDevice[device] ?? false) else {
-            return
+        @objc private func join(_ notification: Notification) {
+            Task { await capture.startCapturing() }
         }
-        alteringDevice[device] = true
-        await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate, queue: queue)
-        usingDevice[device] = true
-        alteringDevice[device] = false
-    }
 
-    func removeDevice(device: AVCaptureDevice) async {
-        guard !(alteringDevice[device] ?? false) else {
-            return
+        func leave() async {
+            usingDevice.forEach({ device, _ in
+                Task { await capture.removeInput(device: device) }
+            })
+            usingDevice.removeAll()
+            alteringDevice.removeAll()
+
+            await capture.stopCapturing()
         }
-        alteringDevice[device] = true
-        await capture.removeInput(device: device)
-        usingDevice[device] = false
-        alteringDevice[device] = false
-    }
 
-    func toggleDevice(device: AVCaptureDevice) async -> Bool {
-        guard !(alteringDevice[device] ?? false) else {
-            print("??")
-            return false
+        @objc private func addInputDevice(_ notification: Notification) {
+            guard let publication = notification.object as? Publication else {
+                let object = notification.object as Any
+                assertionFailure("Invalid device: \(object)")
+                return
+            }
+
+            Task { await addDevice(device: publication.device!,
+                                   delegate: publication,
+                                   audioDelegate: publication,
+                                   queue: publication.queue!) }
         }
-        alteringDevice[device] = true
-        let enabled = await capture.toggleInput(device: device)
-        usingDevice[device] = enabled
-        alteringDevice[device] = false
-        return enabled
-    }
 
-    func isAlteringMicrophone() -> Bool {
-        guard selectedMicrophone != nil else { return false }
-        return alteringDevice[selectedMicrophone!] ?? false
+        func addDevice(device: AVCaptureDevice,
+                       delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
+                       audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
+                       queue: DispatchQueue) async {
+            guard !(alteringDevice[device] ?? false) else {
+                return
+            }
+            alteringDevice[device] = true
+            await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate, queue: queue)
+            usingDevice[device] = true
+            alteringDevice[device] = false
+        }
+
+        func toggleDevice(device: AVCaptureDevice) async -> Bool {
+            guard !(alteringDevice[device] ?? false) else {
+                print("??")
+                return false
+            }
+            alteringDevice[device] = true
+            let enabled = await capture.toggleInput(device: device)
+            usingDevice[device] = enabled
+            alteringDevice[device] = false
+            return enabled
+        }
+
+        func isAlteringMicrophone() -> Bool {
+            guard selectedMicrophone != nil else { return false }
+            return alteringDevice[selectedMicrophone!] ?? false
+        }
     }
 }
 
@@ -238,14 +230,13 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let loopback: ApplicationMode = .init(errorWriter: errorWriter,
+        let loopback = CallController(errorWriter: errorWriter,
                                        player: FasterAVEngineAudioPlayer(errorWriter: errorWriter),
                                        metricsSubmitter: MockSubmitter(),
                                        inputAudioFormat: .init(),
                                        outputAudioFormat: .init())
-        let capture: CaptureManager = .init(deviceChangeCallback: loopback.onDeviceChange,
-                                            errorHandler: errorWriter)
-        let controller: CallController = .init(mode: loopback, capture: capture)
-        CallControls(leaving: bool).environmentObject(controller)
+        let capture: CaptureManager = .init(errorHandler: errorWriter)
+        let viewModel = CallControls.ViewModel(capture: capture)
+        CallControls(leaving: bool).environmentObject(viewModel)
     }
 }

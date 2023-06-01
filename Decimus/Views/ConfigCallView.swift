@@ -5,7 +5,7 @@ struct ConfigCallView: View {
 
     var body: some View {
         if config != nil {
-            InCallView<QMediaPubSub>(config: config!) { config = nil }
+            InCallView(config: config!) { config = nil }
         } else {
             CallSetupView { self.config = $0 }
         }
