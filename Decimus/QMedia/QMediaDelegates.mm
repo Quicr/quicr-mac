@@ -31,7 +31,7 @@ int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std:
 }
 
 int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile)  {
-    return [delegate update:@(sourceId.c_str()) label:@(label.c_str()) qaulityProfile:@(qualityProfile.c_str())];
+    return [delegate update:@(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str())];
 }
 /*
 quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
@@ -54,7 +54,7 @@ int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::
     return [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];
 }
 int QMediaPublicationDelegate::update(const std::string& sourceId, const std::string& qualityProfile) {
-    return [delegate update:@(sourceId.c_str()) qaulityProfile:@(qualityProfile.c_str())];
+    return [delegate update:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];
 }
 /*
 quicr::Namespace QMediaPublicationDelegate::getNamespace()  {

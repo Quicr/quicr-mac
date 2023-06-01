@@ -16,8 +16,6 @@
 
 class QControllerGW {
 public:
-    
-    //QControllerGW(QControllerGWObjC  *objcSelf);
     QControllerGW();
     ~QControllerGW();
 

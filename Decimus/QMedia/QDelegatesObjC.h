@@ -11,13 +11,13 @@
 
 @protocol QSubscriptionDelegateObjC
 - (int) prepare: (NSString *) sourceId label: (NSString *) label qualityProfile: (NSString *) qualityProfile;
-- (int) update: (NSString *) sourceId label: (NSString *) label qaulityProfile: (NSString *) qualityProfile;
+- (int) update: (NSString *) sourceId label: (NSString *) label qualityProfile: (NSString *) qualityProfile;
 - (int) subscribedObject: (NSData *) data;
 @end
 
 @protocol QPublicationDelegateObjC
 - (int) prepare: (NSString *) sourceId qualityProfile: (NSString *) qualityProfile;
-- (int) update: (NSString *) sourceId qaulityProfile: (NSString *) qualityProfile;
+- (int) update: (NSString *) sourceId qualityProfile: (NSString *) qualityProfile;
 - (void) publish: (bool) flag;
 @end
 

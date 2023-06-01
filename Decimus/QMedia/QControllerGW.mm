@@ -15,17 +15,14 @@
 // objective c
 @implementation QControllerGWObjC
 
-@synthesize subscriberDelegate;
-@synthesize publisherDelegate;
-
 #import "QDelegatesObjC.h"
 
 
 - (id)init
 {
     self = [super init];
-    //qControllerGW = new QControllerGW(self);
-
+    qControllerGW.setSubscriberDelegate(self);
+    qControllerGW.setPublisherDelegate(self);
     return self;
 }
 
@@ -34,29 +31,17 @@
     return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
 }
 
--(void) setSubscriberDelegate:(id<QSubscriberDelegateObjC>)delegate
-{
-    subscriberDelegate = delegate;
-    qControllerGW.setSubscriberDelegate(delegate);
-}
-
--(void) setPublisherDelegate:(id<QPublisherDelegateObjC>)delegate
-{
-    publisherDelegate = delegate;
-    qControllerGW.setPublisherDelegate(delegate);
-}
-
 -(void)updateManifest: (NSString *) manifest
 {
     qControllerGW.updateManifest(std::string([manifest UTF8String]));
 }
 
 - (id)allocateSubByNamespace:(NSString *)quicrNamepace {
-    return  [subscriberDelegate allocateSubByNamespace:quicrNamepace];
+    return  [self allocateSubByNamespace:quicrNamepace];
 }
 
 - (id)allocatePubByNamespace:(NSString *)quicrNamepace {
-    return  [publisherDelegate allocatePubByNamespace:quicrNamepace];
+    return  [self allocatePubByNamespace:quicrNamepace];
 }
 
 - (int)removeByNamespace:(NSString *)quicrNamepace {
@@ -98,7 +83,6 @@ void QControllerGW::setSubscriberDelegate(id<QSubscriberDelegateObjC> delegate)
 {
     subscriberDelegate = std::make_shared<qclient::QMediaSubsciberDelegate>(delegate);
 }
-
 
 void QControllerGW::setPublisherDelegate(id<QPublisherDelegateObjC> delegate)
 {
