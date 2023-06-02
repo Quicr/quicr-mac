@@ -2,7 +2,7 @@ import SwiftUI
 import AVFoundation
 
 struct CallControls: View {
-    @EnvironmentObject var controller: ViewModel
+    @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
 
@@ -17,14 +17,15 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(leaving: Binding<Bool>) {
+    init(errorWriter: ErrorWriter, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter))
         _leaving = leaving
     }
 
     private func toggleVideo() async {
         var anyVideo = false
-        for (camera, _) in controller.usingDevice where camera.hasMediaType(.video) {
-            let enabled = await controller.toggleDevice(device: camera)
+        for (camera, _) in viewModel.usingDevice where camera.hasMediaType(.video) {
+            let enabled = await viewModel.toggleDevice(device: camera)
             anyVideo = anyVideo || enabled
         }
         videoOn = anyVideo
@@ -32,8 +33,8 @@ struct CallControls: View {
 
     private func toggleAudio() async {
         var anyAudio = false
-        for (microphone, _) in controller.usingDevice where microphone.hasMediaType(.audio) {
-            let enabled = await controller.toggleDevice(device: microphone)
+        for (microphone, _) in viewModel.usingDevice where microphone.hasMediaType(.audio) {
+            let enabled = await viewModel.toggleDevice(device: microphone)
             anyAudio = anyAudio || enabled
         }
         audioOn = anyAudio
@@ -61,9 +62,9 @@ struct CallControls: View {
             ) {
                 Text("Audio Connection")
                     .foregroundColor(.gray)
-                ForEach(controller.devices.audioInputs, id: \.uniqueID) { microphone in
+                ForEach(viewModel.devices.audioInputs, id: \.uniqueID) { microphone in
                     ActionButton(
-                        disabled: controller.isAlteringMicrophone(),
+                        disabled: viewModel.isAlteringMicrophone(),
                         cornerRadius: 12,
                         styleConfig: deviceButtonStyleConfig,
                         action: toggleAudio) {
@@ -78,11 +79,11 @@ struct CallControls: View {
                         .aspectRatio(contentMode: .fill)
                 }
             }
-            .onChange(of: controller.selectedMicrophone) { _ in
-                guard controller.selectedMicrophone != nil else { return }
-                Task { await controller.toggleDevice(device: controller.selectedMicrophone!) }
+            .onChange(of: viewModel.selectedMicrophone) { _ in
+                guard viewModel.selectedMicrophone != nil else { return }
+                Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
             }
-            .disabled(controller.isAlteringMicrophone())
+            .disabled(viewModel.isAlteringMicrophone())
 
             ActionPicker(
                 videoOn ? "Stop Video" : "Start Video",
@@ -100,19 +101,19 @@ struct CallControls: View {
                     Text("Camera")
                         .padding(.leading)
                         .foregroundColor(.gray)
-                    ForEach(controller.devices.cameras, id: \.self) { camera in
-                        if controller.alteringDevice[camera] ?? false {
+                    ForEach(viewModel.devices.cameras, id: \.self) { camera in
+                        if viewModel.alteringDevice[camera] ?? false {
                             ProgressView()
-                        } else if controller.usingDevice[camera] ?? false {
+                        } else if viewModel.usingDevice[camera] ?? false {
                             Image(systemName: "checkmark")
                         } else {
                             Spacer()
                         }
                         ActionButton(
-                            disabled: controller.alteringDevice[camera] ?? false,
+                            disabled: viewModel.alteringDevice[camera] ?? false,
                             cornerRadius: 10,
                             styleConfig: deviceButtonStyleConfig,
-                            action: { _ = await controller.toggleDevice(device: camera) },
+                            action: { _ = await viewModel.toggleDevice(device: camera) },
                             title: {
                                 Text(verbatim: camera.localizedName)
                                     .lineLimit(1)
@@ -123,7 +124,7 @@ struct CallControls: View {
                 .frame(maxWidth: 300, alignment: .bottomTrailing)
                 .padding(.bottom)
             }
-            .disabled(controller.devices.cameras.allSatisfy({ !(controller.alteringDevice[$0] ?? false) }))
+            .disabled(viewModel.devices.cameras.allSatisfy({ !(viewModel.alteringDevice[$0] ?? false) }))
 
             Button(action: {
                 leaving = true
@@ -154,12 +155,16 @@ extension CallControls {
 
         private var notifier: NotificationCenter = .default
 
-        init(capture: CaptureManager) {
+        init(errorWriter: ErrorWriter) {
+            self.capture = .init(errorHandler: errorWriter)
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
-            self.capture = capture
             self.notifier.addObserver(self,
                                       selector: #selector(join),
                                       name: .connected,
+                                      object: nil)
+            self.notifier.addObserver(self,
+                                      selector: #selector(leave),
+                                      name: .disconnected,
                                       object: nil)
             self.notifier.addObserver(self,
                                       selector: #selector(addInputDevice),
@@ -171,14 +176,14 @@ extension CallControls {
             Task { await capture.startCapturing() }
         }
 
-        func leave() async {
+        @objc private func leave(_ notification: Notification) {
             usingDevice.forEach({ device, _ in
                 Task { await capture.removeInput(device: device) }
             })
             usingDevice.removeAll()
             alteringDevice.removeAll()
 
-            await capture.stopCapturing()
+            Task { await capture.stopCapturing() }
         }
 
         @objc private func addInputDevice(_ notification: Notification) {
@@ -229,14 +234,6 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        let errorWriter: ObservableError = .init()
-        let loopback = CallController(errorWriter: errorWriter,
-                                       player: FasterAVEngineAudioPlayer(errorWriter: errorWriter),
-                                       metricsSubmitter: MockSubmitter(),
-                                       inputAudioFormat: .init(),
-                                       outputAudioFormat: .init())
-        let capture: CaptureManager = .init(errorHandler: errorWriter)
-        let viewModel = CallControls.ViewModel(capture: capture)
-        CallControls(leaving: bool).environmentObject(viewModel)
+        CallControls(errorWriter: ObservableError(), leaving: bool)
     }
 }

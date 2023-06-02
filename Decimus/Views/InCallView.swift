@@ -25,10 +25,10 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.mode!.participants)
+                VideoGrid(participants: viewModel.controller!.subscriber.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(leaving: $leaving)
+                CallControls(errorWriter: viewModel.errorHandler, leaving: $leaving)
                     .disabled(leaving)
                     .padding(.bottom)
                     .frame(alignment: .top)
@@ -36,7 +36,7 @@ struct InCallView: View {
             .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             if leaving {
-                LeaveModal(leaveAction: onLeave, cancelAction: { leaving = false })
+                LeaveModal(leaveAction: onLeave, cancelAction: leaving = false)
                     .frame(maxWidth: 400, alignment: .center)
             }
 
@@ -49,7 +49,6 @@ struct InCallView: View {
                 await viewModel.leave()
             }
         }
-        .environmentObject(viewModel.callController!)
     }
 }
 
@@ -57,13 +56,12 @@ extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
         private(set) var errorHandler = ObservableError()
-        private(set) var mode: CallController?
-        var callController: CallControls.ViewModel?
+        private(set) var controller: CallController?
 
-        @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+        @AppStorage("influxConfig")
+        private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(config: CallConfig) {
-            let player = FasterAVEngineAudioPlayer(errorWriter: errorHandler)
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -71,23 +69,22 @@ extension InCallView {
             }
 
             // TODO: inputAudioFormat needs to be the real input format.
-            self.mode = .init(errorWriter: errorHandler, player: player,
-                              metricsSubmitter: submitter,
-                              inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!,
-                              outputAudioFormat: player.inputFormat)
-            let capture: CaptureManager = .init(errorHandler: errorHandler)
-            self.callController = CallControls.ViewModel(capture: capture)
+            self.controller = .init(errorWriter: errorHandler,
+                                    metricsSubmitter: submitter,
+                                    inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                                                    sampleRate: 48000,
+                                                                    channels: 1,
+                                                                    interleaved: true)!)
             Task {
                 do {
-                    try await self.mode!.connect(config: config)
+                    try await self.controller!.connect(config: config)
                 }
             }
         }
 
         func leave() async {
-            await callController!.leave()
             do {
-                try mode!.disconnect()
+                try controller!.disconnect()
             } catch {
                 errorHandler.writeError(message: "Error while leaving call: \(error)")
             }
