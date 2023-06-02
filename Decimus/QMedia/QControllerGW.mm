@@ -60,6 +60,11 @@
     // fixme - which one?
     return 0;
 }
+
+- (void)publishNamedObject: (NSString*) quicrNamespace data: (void *) data len: (int) len {
+    qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)data, len);
+}
+
 @end
 
 // C++
@@ -98,4 +103,15 @@ void QControllerGW::setSubscriberDelegate(id<QSubscriberDelegateObjC> delegate)
 void QControllerGW::setPublisherDelegate(id<QPublisherDelegateObjC> delegate)
 {
     publisherDelegate = std::make_shared<qclient::QMediaPublisherDelegate>(delegate) ;
+}
+
+// QPublishObject Delegate Method
+void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, std::uint8_t *data, int len)
+{
+    std::string delimiter = "/";
+    std::string bitsString = quicrNamespaceString.substr(0, quicrNamespaceString.find(delimiter));
+    quicr::Name quicrName(quicrNamespaceString);
+    uint8_t sigBits = std::stoi(bitsString);
+    quicr::Namespace quicrNamespace{quicrName,sigBits};
+    qController->publishNamedObject(quicrNamespace, data, len);
 }

@@ -30,4 +30,9 @@
 - (id) allocatePubByNamespace:  (NSString*) quicrNamepace;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
+
+@protocol QPublishObjectDelegateObjC
+- (void) publishObject: (NSString *) quicrNamespace data: (void *) data len: (int) len;
+@end
+
 #endif /* QDelegatesObjC_h */

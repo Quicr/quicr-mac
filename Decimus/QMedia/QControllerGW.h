@@ -28,6 +28,8 @@ public:
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
     
+    void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len);
+    
 private:
     std::unique_ptr<qmedia::QController> qController;
     std::shared_ptr<qmedia::QSubscriberDelegate> subscriberDelegate;

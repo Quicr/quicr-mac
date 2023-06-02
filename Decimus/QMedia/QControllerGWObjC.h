@@ -15,7 +15,7 @@
 
 #import "QDelegatesObjC.h"
 
-@interface QControllerGWObjC : NSObject  {
+@interface QControllerGWObjC : NSObject<QPublishObjectDelegateObjC>  {
 #ifdef __cplusplus
     QControllerGW qControllerGW;
 #endif

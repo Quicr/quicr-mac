@@ -46,6 +46,7 @@ int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data) {
 
 // PUBLICATION
 QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace) :
+    qmedia::QPublicationDelegate(quicrNamespace),
     delegate(delegate), quicrNamespace(quicrNamespace)
 {
 }
