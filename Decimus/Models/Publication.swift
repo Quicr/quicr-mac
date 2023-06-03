@@ -13,15 +13,18 @@ class Publication: NSObject,
                    AVCaptureVideoDataOutputSampleBufferDelegate,
                    AVCaptureAudioDataOutputSampleBufferDelegate,
                    QPublicationDelegateObjC {
-    private let id = UUID()
     private var notifier: NotificationCenter = .default
 
+    private let namespace: String
     private(set) var device: AVCaptureDevice?
     private(set) var queue: DispatchQueue?
     private var encoder: Encoder?
     private unowned let codecFactory: EncoderFactory
+    private unowned let publishDelegate: QPublishObjectDelegateObjC
 
-    init(codecFactory: EncoderFactory) {
+    init(namespace: String, publishDelegate: QPublishObjectDelegateObjC, codecFactory: EncoderFactory) {
+        self.namespace = namespace
+        self.publishDelegate = publishDelegate
         self.codecFactory = codecFactory
     }
 
@@ -32,12 +35,15 @@ class Publication: NSObject,
         //    return PublicationError.NoSource.rawValue
         // }
 
-        self.queue = .init(label: "com.cisco.quicr.decimus.\(id)",
+        self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
 
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
         do {
-            try encoder = codecFactory.create(config) { _ in }
+            try encoder = codecFactory.create(config) { [weak self] in
+                guard let self = self else { return }
+                self.publishDelegate.publishObject(self.namespace, data: $0)
+            }
             log("Registered \(String(describing: config.codec)) publication for source \(sourceId!)")
 
             // TODO: SourceID from manifest is bogus, do this for now to retrieve correct device
@@ -57,7 +63,7 @@ class Publication: NSObject,
         }
 
         notifier.post(name: .publicationPreparedForDevice, object: self)
-        return PublicationError.NoSource.rawValue
+        return PublicationError.None.rawValue
     }
 
     func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
@@ -75,7 +81,7 @@ class Publication: NSObject,
         }
 
         if device!.hasMediaType(.video) {
-            encoder.write(data: sampleBuffer.asMediaBuffer())
+            encoder.write(sample: sampleBuffer)
         } else if device!.hasMediaType(.audio) {
             guard let asbd = sampleBuffer.formatDescription?.audioStreamBasicDescription else {
                 log("Couldn't get audio input format")
@@ -93,8 +99,7 @@ class Publication: NSObject,
                 return
             }
             let audioFormat: AVAudioFormat = .init(cmAudioFormatDescription: formatDescription)
-            let data = sampleBuffer.getMediaBuffer(userData: audioFormat)
-            encoder.write(data: data)
+            encoder.write(data: sampleBuffer, format: audioFormat)
         }
     }
 
@@ -111,7 +116,7 @@ class Publication: NSObject,
     }
 
     private func log(_ message: String) {
-        print("[Publication] (\(id)) \(message)")
+        print("[Publication] (\(namespace)) \(message)")
     }
 }
 

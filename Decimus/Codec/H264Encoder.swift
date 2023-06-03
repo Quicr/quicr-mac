@@ -4,7 +4,7 @@ import UIKit
 import AVFoundation
 
 class H264Encoder: Encoder {
-    internal var callback: EncodedBufferCallback?
+    internal var callback: EncodedCallback?
 
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
@@ -55,9 +55,8 @@ class H264Encoder: Encoder {
         self.encoder = nil
     }
 
-    func write(data: MediaBuffer) {
+    func write(sample: CMSampleBuffer) {
         guard let compressionSession = encoder else { return }
-        let sample = Unmanaged<CMSampleBuffer>.fromOpaque(data.buffer.baseAddress!).takeUnretainedValue()
         guard let imageBuffer = sample.imageBuffer else { return }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
         let error = VTCompressionSessionEncodeFrame(compressionSession,
@@ -100,7 +99,7 @@ class H264Encoder: Encoder {
             print("Failed to make orientation SEI")
             return
         }
-        callback(orientationSei.getMediaBuffer())
+        try? callback(orientationSei.dataBuffer!.dataBytes())
         #endif
 
         let buffer = sample.dataBuffer!
@@ -131,10 +130,10 @@ class H264Encoder: Encoder {
         }
 
         // Callback the Annex-B sample.
-        callback(sample.getMediaBuffer())
+        try? callback(sample.dataBuffer!.dataBytes())
     }
 
-    func handleParameterSets(sample: CMSampleBuffer) throws -> MediaBuffer {
+    func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
         // Get number of parameter sets.
         var sets: Int = 0
         let format = CMSampleBufferGetFormatDescription(sample)
@@ -263,7 +262,7 @@ class H264Encoder: Encoder {
 
     private func makeParameterSampleBuffer(sample: CMSampleBuffer,
                                            buffer: CMBlockBuffer,
-                                           totalLength: Int) throws -> MediaBuffer {
+                                           totalLength: Int) throws -> Data {
         var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
         var parameterSample: CMSampleBuffer?
         var length = totalLength
@@ -277,7 +276,7 @@ class H264Encoder: Encoder {
                                                     sampleSizeArray: &length,
                                                     sampleBufferOut: &parameterSample)
         guard sampleError == .zero else { throw("Couldn't create parameter sample") }
-        return parameterSample!.getMediaBuffer()
+        return try parameterSample!.dataBuffer!.dataBytes()
     }
 }
 

@@ -60,7 +60,7 @@ private struct LoginForm: View {
                     }
                 }
 
-                if email != "" {
+                if email != "" && meetings.keys.contains(UInt32(confId)) {
                     VStack(alignment: .leading) {
                         if meetings.count > 0 {
                             Text("Meeting")
@@ -80,7 +80,6 @@ private struct LoginForm: View {
                                 .padding(.horizontal)
                                 .foregroundColor(.white)
                                 .onAppear {
-                                    confId = 0
                                     callConfig.conferenceId = 0
                                 }
                         }

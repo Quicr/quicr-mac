@@ -22,7 +22,7 @@ class CallController {
                   outputAudioFormat: AVAudioFormat? = nil) {
 
         self.errorHandler = errorWriter
-        self.publisher = .init(audioFormat: inputAudioFormat)
+        self.publisher = .init(publishDelegate: controller, audioFormat: inputAudioFormat)
         self.subscriber = .init(errorWriter: errorWriter, audioFormat: outputAudioFormat)
 
         controller.publisherDelegate = self.publisher

@@ -32,7 +32,7 @@
 @end
 
 @protocol QPublishObjectDelegateObjC
-- (void) publishObject: (NSString *) quicrNamespace data: (void *) data len: (int) len;
+- (void) publishObject: (NSString *) quicrNamespace data: (NSData *) data;
 @end
 
 #endif /* QDelegatesObjC_h */

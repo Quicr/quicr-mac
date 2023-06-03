@@ -4,30 +4,32 @@ import SwiftUI
 
 class Subscription: QSubscriptionDelegateObjC {
 
-    private var sourceID: SourceIDType?
+    private let namespace: String
     private var decoder: Decoder?
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private unowned let codecFactory: DecoderFactory
 
-    init(codecFactory: DecoderFactory, participants: VideoParticipants, player: FasterAVEngineAudioPlayer) {
+    init(namespace: String,
+         codecFactory: DecoderFactory,
+         participants: VideoParticipants,
+         player: FasterAVEngineAudioPlayer) {
+        self.namespace = namespace
         self.codecFactory = codecFactory
         self.participants = participants
         self.player = player
     }
 
     deinit {
-        guard let sourceID = sourceID else { return }
         do {
-            try participants.removeParticipant(identifier: sourceID)
+            try participants.removeParticipant(identifier: namespace)
         } catch {
-            player.removePlayer(identifier: sourceID)
+            player.removePlayer(identifier: namespace)
         }
     }
 
     func prepare(_ sourceId: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        sourceID = sourceId
 
         do {
             switch config.codec {
@@ -35,7 +37,7 @@ class Subscription: QSubscriptionDelegateObjC {
                 let bufferDecoder = try codecFactory.create(config: config) { [weak self] in
                     self?.playAudio(buffer: $0, timestamp: $1)
                 }
-                self.player.addPlayer(identifier: sourceId, format: bufferDecoder.decodedFormat)
+                self.player.addPlayer(identifier: namespace, format: bufferDecoder.decodedFormat)
                 decoder = bufferDecoder
             case .h264:
                 let sampleDecoder = try codecFactory.create(config: config) { [weak self] in
@@ -73,21 +75,14 @@ class Subscription: QSubscriptionDelegateObjC {
     }
 
     private func playAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime?) {
-        guard let sourceID = sourceID else {
-            fatalError()
-        }
-        player.write(identifier: sourceID, buffer: buffer)
+        player.write(identifier: namespace, buffer: buffer)
     }
 
     private func showDecodedImage(decoded: CIImage,
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
-        guard let sourceID = sourceID else {
-            fatalError()
-        }
-
-        let participant = participants.getOrMake(identifier: sourceID)
+        let participant = participants.getOrMake(identifier: namespace)
 
         // TODO: Why can't we use CIImage directly here?
         let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
@@ -97,10 +92,7 @@ class Subscription: QSubscriptionDelegateObjC {
     }
 
     private func log(_ message: String) {
-        guard let sourceID = sourceID else {
-            fatalError("[Subscription] No sourceID for Subscription. Did you forget to prepare?")
-        }
-        print("[Subscription] (\(sourceID)) \(message)")
+        print("[Subscription] (\(namespace)) \(message)")
     }
 }
 

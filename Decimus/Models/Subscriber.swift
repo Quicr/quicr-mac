@@ -33,7 +33,10 @@ class Subscriber: QSubscriberDelegateObjC {
     }
 
     func allocateSub(byNamespace quicrNamepace: String!) -> Any! {
-        return Subscription(codecFactory: codecFactory, participants: participants, player: player)
+        return Subscription(namespace: quicrNamepace!,
+                            codecFactory: codecFactory,
+                            participants: participants,
+                            player: player)
     }
 
     func remove(byNamespace quicrNamepace: String!) -> Int32 {

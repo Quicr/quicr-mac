@@ -96,7 +96,7 @@ class EncoderFactory: CodecFactory {
     ]
 
     func create(_ config: CodecConfig,
-                callback: @escaping Encoder.EncodedBufferCallback) throws -> Encoder {
+                callback: @escaping Encoder.EncodedCallback) throws -> Encoder {
         guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
         }
