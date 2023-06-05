@@ -145,13 +145,13 @@ class DecoderFactory: CodecFactory {
         return decoder
     }
 
-    func create(config: CodecConfig, callback: @escaping SampleDecoder.DecodedSampleCallback) throws -> SampleDecoder {
+    func create(config: CodecConfig, callback: @escaping SampleDecoder.DecodedCallback) throws -> SampleDecoder {
         var decoder: SampleDecoder = try create(config: config)
         decoder.registerCallback(callback: callback)
         return decoder
     }
 
-    func create(config: CodecConfig, callback: @escaping BufferDecoder.DecodedBufferCallback) throws -> BufferDecoder {
+    func create(config: CodecConfig, callback: @escaping BufferDecoder.DecodedCallback) throws -> BufferDecoder {
         var decoder: BufferDecoder = try create(config: config)
         decoder.registerCallback(callback: callback)
         return decoder
@@ -176,4 +176,3 @@ extension AudioCodecConfig {
         self.bitrate = (UInt32(tokens["br"] ?? "") ?? 0) * 1000
     }
 }
-

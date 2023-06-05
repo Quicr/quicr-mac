@@ -17,7 +17,7 @@ class H264Decoder: SampleDecoder {
     // Members.
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
-    internal var callback: DecodedSampleCallback?
+    internal var callback: DecodedCallback?
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool = false
 
@@ -35,10 +35,7 @@ class H264Decoder: SampleDecoder {
     }
 
     /// Write a new frame to the decoder.
-    func write(buffer: MediaBuffer) {
-        let data = buffer.buffer
-        let timestamp = buffer.timestampMs
-
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
         // Get NALU type.
         var type = data[startCodeLength] & 0x1F
 
@@ -139,7 +136,7 @@ class H264Decoder: SampleDecoder {
                 // We need to recreate the decoder because of a format change.
                 print("H264Decoder => Recreating due to format change")
                 session = makeDecoder(format: newFormat!)
-                write(buffer: buffer)
+                write(data: data, timestamp: timestamp)
             case .zero:
                 break
             default:

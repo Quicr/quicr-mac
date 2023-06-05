@@ -5,7 +5,7 @@ import SwiftUI
 class Subscription: QSubscriptionDelegateObjC {
 
     private let namespace: String
-    private var decoder: Decoder?
+    private var decoder: (any Decoder)?
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private unowned let codecFactory: DecoderFactory
@@ -68,9 +68,8 @@ class Subscription: QSubscriptionDelegateObjC {
         }
 
         data.withUnsafeBytes {
-            decoder.write(buffer: .init(buffer: $0, timestampMs: 0))
+            decoder.write(data: $0, timestamp: 0)
         }
-
         return 0
     }
 
