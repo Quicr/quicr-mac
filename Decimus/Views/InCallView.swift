@@ -33,29 +33,25 @@ struct InCallView: View {
                     .padding(.bottom)
                     .frame(alignment: .top)
             }
-            .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             if leaving {
-                LeaveModal(leaveAction: onLeave, cancelAction: leaving = false)
+                LeaveModal(leaveAction: {
+                    Task { await viewModel.leave() }
+                    onLeave()
+                }, cancelAction: leaving = false)
                     .frame(maxWidth: 400, alignment: .center)
             }
 
-            // Error messages.
             ErrorView(errorHandler: viewModel.errorHandler)
         }
         .background(.black)
-        .onDisappear {
-            Task {
-                await viewModel.leave()
-            }
-        }
     }
 }
 
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        private(set) var errorHandler = ObservableError()
+        let errorHandler = ObservableError()
         private(set) var controller: CallController?
 
         @AppStorage("influxConfig")
@@ -68,17 +64,15 @@ extension InCallView {
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
             }
 
-            // TODO: inputAudioFormat needs to be the real input format.
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
+                                    // TODO: inputAudioFormat needs to be the real input format.
                                     inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
                                                                     sampleRate: 48000,
                                                                     channels: 1,
                                                                     interleaved: true)!)
-            Task {
-                do {
-                    try await self.controller!.connect(config: config)
-                }
+            do {
+                Task { try await self.controller!.connect(config: config) }
             }
         }
 

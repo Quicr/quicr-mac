@@ -5,7 +5,7 @@ import AVFoundation
 enum PublicationError: Int32 {
     case None = 0
     case NoSource
-    case FailedDecoderCreation
+    case FailedEncoderCreation
 }
 // swiftlint:enable identifier_name
 
@@ -59,7 +59,7 @@ class Publication: NSObject,
             self.device = AVCaptureDevice.default(for: mediaType)
         } catch {
             log("Failed to create encoder: \(error)")
-            return PublicationError.FailedDecoderCreation.rawValue
+            return PublicationError.FailedEncoderCreation.rawValue
         }
 
         notifier.post(name: .publicationPreparedForDevice, object: self)

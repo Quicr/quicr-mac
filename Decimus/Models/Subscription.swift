@@ -2,10 +2,18 @@ import AVFoundation
 import CoreMedia
 import SwiftUI
 
+// swiftlint:disable identifier_name
+enum SubscriptionError: Int32 {
+    case None = 0
+    case NoDecoder
+    case FailedDecoderCreation
+}
+// swiftlint:enable identifier_name
+
 class Subscription: QSubscriptionDelegateObjC {
 
     private let namespace: String
-    private var decoder: (any Decoder)?
+    private var decoder: Decoder?
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private unowned let codecFactory: DecoderFactory
@@ -45,32 +53,32 @@ class Subscription: QSubscriptionDelegateObjC {
                 }
                 decoder = sampleDecoder
             default:
-                return 1
+                return SubscriptionError.FailedDecoderCreation.rawValue
             }
 
             log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceId!)")
         } catch {
             log("Failed to create decoder: \(error)")
-            return 1
+            return SubscriptionError.FailedDecoderCreation.rawValue
         }
 
-        return 0
+        return SubscriptionError.None.rawValue
     }
 
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
-        return 1
+        return SubscriptionError.NoDecoder.rawValue
     }
 
     func subscribedObject(_ data: Data!) -> Int32 {
         guard let decoder = decoder else {
             log("No decoder for Subscription. Did you forget to prepare?")
-            return 1
+            return SubscriptionError.NoDecoder.rawValue
         }
 
         data.withUnsafeBytes {
             decoder.write(data: $0, timestamp: 0)
         }
-        return 0
+        return SubscriptionError.None.rawValue
     }
 
     private func playAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime?) {
