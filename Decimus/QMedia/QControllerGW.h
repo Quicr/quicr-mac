@@ -23,6 +23,8 @@ public:
                  std::uint16_t remote_port,
                  std::uint16_t protocol);
     
+    void close();
+    
     void updateManifest(const std::string manifest);
        
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);

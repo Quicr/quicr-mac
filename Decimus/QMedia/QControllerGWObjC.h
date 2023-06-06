@@ -27,6 +27,7 @@
 -(int) connect: (NSString*)remoteAddress
           port:(UInt16)remotePort
           protocol:(UInt8)protocol;
+-(void) close;
 -(void) updateManifest: (NSString *) manifest;
 @end
 

@@ -32,6 +32,11 @@
     return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
 }
 
+-(void) close
+{
+    qControllerGW.close();
+}
+
 -(void)updateManifest: (NSString *) manifest
 {
     qControllerGW.updateManifest(std::string([manifest UTF8String]));
@@ -86,13 +91,32 @@ int QControllerGW::connect(const std::string remote_address,
     return 0;
 }
 
+void QControllerGW::close()
+{
+    if (qController)
+    {
+        qController->close();
+    }
+    else
+    {
+        NSLog(@"QControllerGW::close - qController nil");
+    }
+}
+
 QControllerGW::~QControllerGW()
 {
 }
 
 void QControllerGW::updateManifest(const std::string manifest)
 {
-    qController->updateManifest(manifest);
+    if (qController)
+    {
+        qController->updateManifest(manifest);
+    }
+    else
+    {
+        NSLog(@"QControllerGW::updateManifest - qController nil");
+    }
 }
 
 void QControllerGW::setSubscriberDelegate(id<QSubscriberDelegateObjC> delegate)
@@ -108,5 +132,12 @@ void QControllerGW::setPublisherDelegate(id<QPublisherDelegateObjC> delegate)
 // QPublishObject Delegate Method
 void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, std::uint8_t *data, int len)
 {
-    qController->publishNamedObject(std::string_view(quicrNamespaceString), data, len);
+    if (qController)
+    {
+        qController->publishNamedObject(std::string_view(quicrNamespaceString), data, len);
+    }
+    else
+    {
+        NSLog(@"QControllerGW::publishNamedObject - qController nil");
+    }
 }
