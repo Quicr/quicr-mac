@@ -2,8 +2,6 @@ import AVFoundation
 import CoreMedia
 import SwiftUI
 
-typealias SourceIDType = String
-
 // swiftlint:disable identifier_name
 enum SubscriptionError: Int32 {
     case None = 0
