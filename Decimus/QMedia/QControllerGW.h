@@ -30,7 +30,7 @@ public:
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
     
-    void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len);
+    void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
     
 private:
     std::unique_ptr<qmedia::QController> qController;

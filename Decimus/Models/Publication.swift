@@ -42,7 +42,7 @@ class Publication: NSObject,
         do {
             try encoder = codecFactory.create(config) { [weak self] in
                 guard let self = self else { return }
-                self.publishDelegate.publishObject(self.namespace, data: $0)
+                self.publishDelegate.publishObject(self.namespace, data: $0, group: true) // FIXME - SAH
             }
             log("Registered \(String(describing: config.codec)) publication for source \(sourceId!)")
 

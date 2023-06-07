@@ -66,8 +66,8 @@
     return 0;
 }
 
-- (void)publishObject:(NSString *)quicrNamespace data:(NSData *)data {
-    qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)data.bytes, (int)data.length);
+- (void)publishObject:(NSString *)quicrNamespace data:(NSData *)data group:(bool) groupFlag {
+    qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)data.bytes, (int)data.length, groupFlag);
 }
 
 @end
@@ -130,11 +130,11 @@ void QControllerGW::setPublisherDelegate(id<QPublisherDelegateObjC> delegate)
 }
 
 // QPublishObject Delegate Method
-void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, std::uint8_t *data, int len)
+void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, std::uint8_t *data, int len, bool groupFlag)
 {
     if (qController)
     {
-        qController->publishNamedObject(std::string_view(quicrNamespaceString), data, len);
+        qController->publishNamedObject(std::string_view(quicrNamespaceString), data, len, groupFlag);
     }
     else
     {
