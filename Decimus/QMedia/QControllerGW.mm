@@ -53,10 +53,12 @@
 }
 
 - (id)allocateSubByNamespace:(NSString *)quicrNamepace {
+    if (!subscriberDelegate) return nil;
     return  [subscriberDelegate allocateSubByNamespace:quicrNamepace];
 }
 
 - (id)allocatePubByNamespace:(NSString *)quicrNamepace {
+    if (!publisherDelegate) return nil;
     return  [publisherDelegate allocatePubByNamespace:quicrNamepace];
 }
 

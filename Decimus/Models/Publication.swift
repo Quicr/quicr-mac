@@ -20,7 +20,7 @@ class Publication: NSObject,
     private(set) var queue: DispatchQueue?
     private var encoder: Encoder?
     private unowned let codecFactory: EncoderFactory
-    private unowned let publishDelegate: QPublishObjectDelegateObjC
+    private weak var publishDelegate: (QPublishObjectDelegateObjC)?
 
     init(namespace: String, publishDelegate: QPublishObjectDelegateObjC, codecFactory: EncoderFactory) {
         self.namespace = namespace
@@ -42,7 +42,7 @@ class Publication: NSObject,
         do {
             try encoder = codecFactory.create(config) { [weak self] in
                 guard let self = self else { return }
-                self.publishDelegate.publishObject(self.namespace, data: $0, group: true) // FIXME - SAH
+                self.publishDelegate?.publishObject(self.namespace, data: $0, group: true) // FIXME - SAH
             }
             log("Registered \(String(describing: config.codec)) publication for source \(sourceId!)")
 
@@ -87,7 +87,7 @@ class Publication: NSObject,
                 log("Couldn't get audio input format")
                 return
             }
-
+            
             guard asbd.mSampleRate == .opus48khz,
                   asbd.mChannelsPerFrame == 1,
                   asbd.mBytesPerFrame == 2 else {

@@ -12,8 +12,6 @@
 #include "QDelegatesObjC.h"
 #import "QControllerGWObjC.h"
 
-@class QControllerGWObjC;
-
 class QControllerGW {
 public:
     QControllerGW();
