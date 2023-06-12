@@ -1,29 +1,28 @@
 import Foundation
 import AVFoundation
 
-class Subscription {
+protocol Subscription: AnyObject {
+    func prepare(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws
+    var subscribedObject: SubscribeCallback {get}
+}
+
+class VideoSubscription: Subscription {
     // TODO: This is temporary before we change QMedia
     private class Weak {
-        weak var value: Subscription?
-        init(_ value: Subscription?) { self.value = value }
+        weak var value: VideoSubscription?
+        init(_ value: VideoSubscription?) { self.value = value }
     }
     private static var weakStaticSources: [StreamIDType: Weak] = [:]
     // end TODO
 
     private unowned let client: MediaClient
-    private unowned let player: AudioPlayer
-    init(client: MediaClient, player: AudioPlayer) {
+    init(client: MediaClient) {
         self.client = client
-        self.player = player
     }
 
     deinit {
         self.client.removeMediaSubscribeStream(mediaStreamId: streamID)
-        Subscription.weakStaticSources.removeValue(forKey: streamID)
-
-        if decoder as? BufferDecoder != nil {
-            self.player.removePlayer(identifier: streamID)
-        }
+        Self.weakStaticSources.removeValue(forKey: streamID)
     }
 
     private var streamID: StreamIDType = 0
@@ -35,12 +34,9 @@ class Subscription {
 
         do {
             decoder = try CodecFactory.shared.createDecoder(identifier: streamID, config: config)
-            if let decoder = decoder as? BufferDecoder {
-                self.player.addPlayer(identifier: streamID, format: decoder.decodedFormat)
-            }
 
             // TODO: This is temporary before we change QMedia
-            Subscription.weakStaticSources[streamID] = .init(self)
+            Self.weakStaticSources[streamID] = .init(self)
 
             print("[Subscriber] Subscribed to \(String(describing: config.codec)) stream: \(streamID)")
         } catch {
@@ -50,7 +46,7 @@ class Subscription {
     }
 
     let subscribedObject: SubscribeCallback = { streamId, _, _, data, length, timestamp in
-        guard let subscriber = Subscription.weakStaticSources[streamId]?.value else {
+        guard let subscriber = VideoSubscription.weakStaticSources[streamId]?.value else {
             fatalError("[Subscriber:\(streamId)] Failed to find instance for stream")
         }
 

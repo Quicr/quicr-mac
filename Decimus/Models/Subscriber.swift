@@ -2,10 +2,10 @@ import Foundation
 
 class Subscriber {
     private unowned let client: MediaClient
-    private unowned let player: AudioPlayer
+    private unowned let player: FasterAVEngineAudioPlayer
     private var subscriptions: [StreamIDType: Subscription] = [:]
 
-    init(client: MediaClient, player: AudioPlayer) {
+    init(client: MediaClient, player: FasterAVEngineAudioPlayer) {
         self.client = client
         self.player = player
     }
@@ -14,8 +14,11 @@ class Subscriber {
         subscriptions.forEach { client.removeMediaSubscribeStream(mediaStreamId: $0.key) }
     }
 
-    func allocateByStream(streamID: StreamIDType) -> Subscription {
-        let subscription = Subscription(client: client, player: player)
+    func allocateByStream(streamID: StreamIDType, mediaType: UInt8) -> Subscription {
+        print(mediaType)
+        let subscription: Subscription = mediaType == 1 ?
+            AudioSubscription(client: client, player: player) :
+            VideoSubscription(client: client)
         subscriptions[streamID] = subscription
         return subscription
     }

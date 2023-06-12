@@ -66,7 +66,7 @@ class QMediaPubSub: ApplicationMode {
             fatalError("[QMediaPubSub] No subscriber setup, did you forget to connect?")
         }
 
-        let subscription = subscriber.allocateByStream(streamID: 0)
+        let subscription = subscriber.allocateByStream(streamID: 0, mediaType: mediaType)
         let streamID = mediaClient!.addStreamSubscribe(mediaType: mediaType,
                                                        clientId: endpoint,
                                                        callback: subscription.subscribedObject)

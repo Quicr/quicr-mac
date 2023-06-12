@@ -11,7 +11,7 @@ import UIKit
 /// to try out new things. For example, a loopback layer.
 class ApplicationMode {
     let errorHandler: ErrorWriter
-    let player: AudioPlayer
+    let player: FasterAVEngineAudioPlayer
 
     var participants: VideoParticipants = VideoParticipants()
     private var checkStaleVideoTimer: Timer?
@@ -21,7 +21,7 @@ class ApplicationMode {
     private let id = UUID()
 
     required init(errorWriter: ErrorWriter,
-                  player: AudioPlayer,
+                  player: FasterAVEngineAudioPlayer,
                   metricsSubmitter: MetricsSubmitter,
                   inputAudioFormat: AVAudioFormat,
                   outputAudioFormat: AVAudioFormat) {
@@ -43,10 +43,6 @@ class ApplicationMode {
         CodecFactory.shared.registerDecoderCallback { [weak self] id, decoded, _, orientation, mirror in
             guard let mode = self else { return }
             mode.showDecodedImage(identifier: id, decoded: decoded, orientation: orientation, verticalMirror: mirror)
-        }
-        CodecFactory.shared.registerDecoderCallback { [weak self] id, buffer in
-            guard let mode = self else { return }
-            mode.player.write(identifier: id, buffer: buffer)
         }
     }
 
