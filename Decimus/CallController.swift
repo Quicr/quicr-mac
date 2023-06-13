@@ -1,41 +1,42 @@
 import CoreMedia
 import AVFoundation
 
-class CallController {
+enum CallError: Error {
+    case failedToConnect(Int32)
+}
+
+class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     let notifier: NotificationCenter = .default
 
-    let errorHandler: ErrorWriter
-    let publisher: Publisher
-    let subscriber: Subscriber
-    private let controller: QControllerGWObjC = .init()
-
-    required init(errorWriter: ErrorWriter,
-                  metricsSubmitter: MetricsSubmitter,
-                  inputAudioFormat: AVAudioFormat,
-                  outputAudioFormat: AVAudioFormat? = nil) {
-
-        self.errorHandler = errorWriter
-        self.publisher = .init(publishDelegate: controller, audioFormat: inputAudioFormat)
-        self.subscriber = .init(errorWriter: errorWriter, audioFormat: outputAudioFormat)
-
-        controller.publisherDelegate = self.publisher
-        controller.subscriberDelegate = self.subscriber
+    init(errorWriter: ErrorWriter,
+         metricsSubmitter: MetricsSubmitter,
+         inputAudioFormat: AVAudioFormat,
+         outputAudioFormat: AVAudioFormat? = nil) {
+        super.init()
+        self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter, audioFormat: outputAudioFormat)
+        self.publisherDelegate = PublisherDelegate(publishDelegate: self,
+                                                   audioFormat: inputAudioFormat,
+                                                   metricsSubmitter: metricsSubmitter)
     }
 
     func connect(config: CallConfig) async throws {
-        controller.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)
+        let error = super.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)
+        guard error == .zero else {
+            throw CallError.failedToConnect(error)
+        }
 
-        let manifest = await ManifestController.shared.getManifest(confId: config.conferenceId, email: config.email)
-        controller.updateManifest(manifest)
+        let manifest = await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
+        super.updateManifest(manifest)
         notifier.post(name: .connected, object: self)
     }
 
     func disconnect() throws {
+        super.close()
         notifier.post(name: .disconnected, object: self)
     }
 }
 
 extension Notification.Name {
-    static var connected = Notification.Name("connected")
-    static var disconnected = Notification.Name("disconnected")
+    static let connected = Notification.Name("connected")
+    static let disconnected = Notification.Name("disconnected")
 }

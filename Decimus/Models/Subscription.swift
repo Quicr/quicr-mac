@@ -10,6 +10,18 @@ enum SubscriptionError: Int32 {
 }
 // swiftlint:enable identifier_name
 
+class SubscriptionOutputDelegate {
+
+}
+
+private class VideoSubscriptionOutputDelegate: SubscriptionOutputDelegate {
+
+}
+
+private class AudioSubscriptionOutputDelegate: SubscriptionOutputDelegate {
+
+}
+
 class Subscription: QSubscriptionDelegateObjC {
 
     private let namespace: String
@@ -36,7 +48,7 @@ class Subscription: QSubscriptionDelegateObjC {
         }
     }
 
-    func prepare(_ sourceId: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
 
         do {
@@ -56,7 +68,7 @@ class Subscription: QSubscriptionDelegateObjC {
                 return SubscriptionError.FailedDecoderCreation.rawValue
             }
 
-            log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceId!)")
+            log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceID!)")
         } catch {
             log("Failed to create decoder: \(error)")
             return SubscriptionError.FailedDecoderCreation.rawValue

@@ -10,29 +10,29 @@
 #import <Foundation/Foundation.h>
 
 @protocol QSubscriptionDelegateObjC
-- (int) prepare: (NSString *) sourceId label: (NSString *) label qualityProfile: (NSString *) qualityProfile;
-- (int) update: (NSString *) sourceId label: (NSString *) label qualityProfile: (NSString *) qualityProfile;
-- (int) subscribedObject: (NSData *) data;
+- (int) prepare: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
+- (int) update: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
+- (int) subscribedObject: (NSData*) data;
 @end
 
 @protocol QPublicationDelegateObjC
-- (int) prepare: (NSString *) sourceId qualityProfile: (NSString *) qualityProfile;
-- (int) update: (NSString *) sourceId qualityProfile: (NSString *) qualityProfile;
+- (int) prepare: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile;
+- (int) update: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile;
 - (void) publish: (bool) flag;
 @end
 
 @protocol QSubscriberDelegateObjC
-- (id) allocateSubByNamespace: (NSString *) quicrNamepace;
-- (int) removeByNamespace:  (NSString *) quicrNamepace;
+- (id) allocateSubByNamespace: (NSString*) quicrNamepace;
+- (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 
 @protocol QPublisherDelegateObjC
-- (id) allocatePubByNamespace:  (NSString*) quicrNamepace;
+- (id) allocatePubByNamespace: (NSString*) quicrNamepace;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 
 @protocol QPublishObjectDelegateObjC
-- (void) publishObject: (NSString *) quicrNamespace data: (NSData *) data group: (bool) groupFlag;
+- (void) publishObject: (NSString*) quicrNamespace data: (NSData *) data group: (bool) groupFlag;
 @end
 
 #endif /* QDelegatesObjC_h */

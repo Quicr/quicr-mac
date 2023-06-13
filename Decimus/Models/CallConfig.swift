@@ -6,10 +6,10 @@ struct CallConfig: Hashable {
     var address: String
     /// Port to connect on.
     var port: UInt16
-    /// Protocol to use
-    var connectionProtocol: MediaClient.ProtocolType
-
+    /// Protocol to use in qmedia
+    var connectionProtocol: ProtocolType
+    /// Email address of the user joining the call
     var email: String = ""
-
-    var conferenceId: UInt32 = 1
+    /// Conference ID to join
+    var conferenceID: UInt32 = 1
 }

@@ -70,7 +70,7 @@ class LibOpusEncoder: Encoder {
         do {
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
-                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)))
+                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
             }
         } catch {
             print("Failed opus encode: \(error)")

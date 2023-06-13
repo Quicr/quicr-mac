@@ -145,8 +145,7 @@ actor CaptureManager {
     /// Start capturing from the target device.
     /// - Parameter device: The target capture device.
     func addInput(device: AVCaptureDevice,
-                  delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
-                  audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
+                  delegateCapture: PublicationCaptureDelegate?,
                   queue: DispatchQueue) {
         // Notify upfront.
         print("CaptureManager => Adding capture device: \(device.localizedName)")
@@ -154,9 +153,15 @@ actor CaptureManager {
         // Add.
         session.beginConfiguration()
         if device.deviceType == .builtInMicrophone {
-            addMicrophone(device: device, delegate: audioDelegate!, queue: queue)
+            guard let audioDelegate = delegateCapture as? AVCaptureAudioDataOutputSampleBufferDelegate else {
+                fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureAudioDataOutputSampleBufferDelegate")
+            }
+            addMicrophone(device: device, delegate: audioDelegate, queue: queue)
         } else {
-            addCamera(device: device, delegate: delegate!, queue: queue)
+            guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
+                fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
+            }
+            addCamera(device: device, delegate: videoDelegate, queue: queue)
         }
         session.commitConfiguration()
 

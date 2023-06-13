@@ -194,20 +194,18 @@ extension CallControls {
             }
 
             Task { await addDevice(device: publication.device!,
-                                   delegate: publication,
-                                   audioDelegate: publication,
-                                   queue: publication.queue!) }
+                                   delegateCapture: publication.capture,
+                                   queue: publication.queue) }
         }
 
         func addDevice(device: AVCaptureDevice,
-                       delegate: AVCaptureVideoDataOutputSampleBufferDelegate?,
-                       audioDelegate: AVCaptureAudioDataOutputSampleBufferDelegate?,
+                       delegateCapture: PublicationCaptureDelegate?,
                        queue: DispatchQueue) async {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
             alteringDevice[device] = true
-            await capture.addInput(device: device, delegate: delegate, audioDelegate: audioDelegate, queue: queue)
+            await capture.addInput(device: device, delegateCapture: delegateCapture, queue: queue)
             usingDevice[device] = true
             alteringDevice[device] = false
         }

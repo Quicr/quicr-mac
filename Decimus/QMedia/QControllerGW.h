@@ -14,12 +14,12 @@
 
 class QControllerGW {
 public:
-    QControllerGW();
-    ~QControllerGW();
+    QControllerGW() = default;
+    ~QControllerGW() = default;
 
     int connect(const std::string remote_address,
-                 std::uint16_t remote_port,
-                 std::uint16_t protocol);
+                std::uint16_t remote_port,
+                std::uint16_t protocol);
     
     void close();
     

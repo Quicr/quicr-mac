@@ -15,21 +15,22 @@
 
 #import "QDelegatesObjC.h"
 
-@interface QControllerGWObjC : NSObject<QPublishObjectDelegateObjC>  {
+@interface QControllerGWObjC<PubDelegate: id<QPublisherDelegateObjC>,
+                             SubDelegate: id<QSubscriberDelegateObjC>> : NSObject<QPublishObjectDelegateObjC> {
 #ifdef __cplusplus
     QControllerGW qControllerGW;
 #endif
 }
-@property (nonatomic, weak)  id<QSubscriberDelegateObjC> subscriberDelegate;
-@property (nonatomic, weak)  id<QPublisherDelegateObjC> publisherDelegate;
+
+@property (nonatomic, strong) PubDelegate publisherDelegate;
+@property (nonatomic, strong) SubDelegate subscriberDelegate;
 
 -(instancetype) init;
 -(int) connect: (NSString*)remoteAddress
-          port:(UInt16)remotePort
-          protocol:(UInt8)protocol;
+                port:(UInt16)remotePort
+                protocol:(UInt8)protocol;
 -(void) close;
--(void) updateManifest: (NSString *) manifest;
+-(void) updateManifest: (NSString*)manifest;
 @end
-
 
 #endif /* QControllerGWObj_h */

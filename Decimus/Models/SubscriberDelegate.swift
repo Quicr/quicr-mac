@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-class Subscriber: QSubscriberDelegateObjC {
+class SubscriberDelegate: QSubscriberDelegateObjC {
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
     private let codecFactory: DecoderFactory

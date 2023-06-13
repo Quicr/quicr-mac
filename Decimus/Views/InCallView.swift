@@ -25,7 +25,7 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.controller!.subscriber.participants)
+                VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
                 CallControls(errorWriter: viewModel.errorHandler, leaving: $leaving)

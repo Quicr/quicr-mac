@@ -37,18 +37,20 @@
     qControllerGW.close();
 }
 
--(void)updateManifest: (NSString *) manifest
+-(void)updateManifest:(NSString*)manifest
 {
     qControllerGW.updateManifest(std::string([manifest UTF8String]));
 }
 
--(void) setSubscriberDelegate:(id<QSubscriberDelegateObjC>)delegate
+-(void)setSubscriberDelegate:(id<QSubscriberDelegateObjC>)delegate
 {
+    subscriberDelegate = delegate;
     qControllerGW.setSubscriberDelegate(delegate);
 }
 
--(void) setPublisherDelegate:(id<QPublisherDelegateObjC>)delegate
+-(void)setPublisherDelegate:(id<QPublisherDelegateObjC>)delegate
 {
+    publisherDelegate = delegate;
     qControllerGW.setPublisherDelegate(delegate);
 }
 
@@ -75,13 +77,10 @@
 @end
 
 // C++
-QControllerGW::QControllerGW() // QControllerGWObjC *objcSelf): objcSelf(objcSelf)
-{
-}
 
 int QControllerGW::connect(const std::string remote_address,
-                       std::uint16_t remote_port,
-                       std::uint16_t protocol)
+                           std::uint16_t remote_port,
+                           std::uint16_t protocol)
 {
     qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate);
     if (qController != nullptr)
@@ -103,10 +102,6 @@ void QControllerGW::close()
     {
         NSLog(@"QControllerGW::close - qController nil");
     }
-}
-
-QControllerGW::~QControllerGW()
-{
 }
 
 void QControllerGW::updateManifest(const std::string manifest)
