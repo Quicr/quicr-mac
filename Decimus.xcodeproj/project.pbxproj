@@ -50,7 +50,7 @@
 		D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */; };
 		D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619442A28FC9D00EC0556 /* QControllerGW.mm */; };
 		D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
-		D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
@@ -93,7 +93,6 @@
 		FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */; };
 		FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D742A01CCAE00B535DA /* ManifestController.swift */; };
 		FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D782A0422CE00B535DA /* CodecFactory.swift */; };
-		FF92AF862A392CE400B65BC3 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
@@ -116,15 +115,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		D7883CA42A2E82A200B88A61 /* Embed Frameworks */ = {
+		D7883CA42A2E82A200B88A61 /* Embed Libraries */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Frameworks */,
+				D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Libraries */,
 			);
-			name = "Embed Frameworks";
+			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -239,7 +238,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FF92AF862A392CE400B65BC3 /* qmedia.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -517,7 +515,7 @@
 				9BA27FBE297D7270007013B2 /* Sources */,
 				9BA27FBF297D7270007013B2 /* Frameworks */,
 				9BA27FC0297D7270007013B2 /* Resources */,
-				D7883CA42A2E82A200B88A61 /* Embed Frameworks */,
+				D7883CA42A2E82A200B88A61 /* Embed Libraries */,
 			);
 			buildRules = (
 			);
@@ -747,7 +745,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S67838M5M8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
@@ -770,7 +768,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S67838M5M8;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 1.0;
@@ -916,7 +914,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S67838M5M8;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -979,7 +977,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S67838M5M8;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
