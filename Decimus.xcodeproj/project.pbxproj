@@ -93,6 +93,7 @@
 		FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */; };
 		FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D742A01CCAE00B535DA /* ManifestController.swift */; };
 		FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D782A0422CE00B535DA /* CodecFactory.swift */; };
+		FF92AF862A392CE400B65BC3 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
@@ -238,6 +239,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FF92AF862A392CE400B65BC3 /* qmedia.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -914,7 +916,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = 5EE6X4NQSU;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -977,7 +979,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = 5EE6X4NQSU;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
