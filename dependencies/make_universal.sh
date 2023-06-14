@@ -1,9 +1,9 @@
 # Univeral catalyst binary
 DIR="$(cd "$(dirname "$0")";pwd -P)"
-ORIGINAL=$(readlink -f $DIR/build-catalyst/src/extern/neo_media_client.framework/neo_media_client)
+ORIGINAL=$(readlink -f $DIR/build-catalyst-$BUILD_FOLDER/$TARGET_PATH/$TARGET.framework/$TARGET)
 ARCHS=$(lipo -archs $ORIGINAL)
 if [ "$ARCHS" == "arm64" ]
 then
-  lipo -create -output $DIR/neo_media_client $ORIGINAL $DIR/build-catalyst-x86/src/extern/neo_media_client.framework/neo_media_client
-  mv $DIR/neo_media_client $ORIGINAL
+  lipo -create -output $DIR/$TARGET $ORIGINAL $DIR/build-catalyst-x86-$BUILD_FOLDER/$TARGET_PATH/$TARGET.framework/$TARGET
+  mv $DIR/$TARGET $ORIGINAL
 fi

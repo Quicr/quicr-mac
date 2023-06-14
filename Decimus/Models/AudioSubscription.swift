@@ -1,13 +1,12 @@
 import Foundation
 import AVFoundation
-import CTPCircularBuffer
 import CoreAudio
 
 class AudioSubscription: Subscription {
 
     struct Metrics {
-        var copyFails = 0
-        var copyAttempts = 0
+        var framesEnqueued = 0
+        var framesEnqueuedFail = 0
     }
 
     // TODO: This is temporary before we change QMedia
@@ -34,18 +33,19 @@ class AudioSubscription: Subscription {
         node?.reset()
 
         // Cleanup buffer.
-        TPCircularBufferCleanup(buffer)
+        JitterDestroy(jitterBuffer)
 
         // Report metrics on leave.
-        print("They had \(metrics.copyFails)/\(metrics.copyAttempts) copy fails")
+        print("They had \(metrics.framesEnqueuedFail) copy fails")
     }
 
     private var streamID: StreamIDType = 0
     private var decoder: LibOpusDecoder?
-    private var buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
+    private var jitterBuffer: UnsafeMutableRawPointer?
+    private var seq: UInt = 0
 
     func prepare(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
@@ -54,8 +54,19 @@ class AudioSubscription: Subscription {
         do {
             decoder = try .init(format: player.inputFormat)
         } catch {
+            let format: AVAudioFormat.OpusPCMFormat
+            switch player.inputFormat.commonFormat {
+            case .pcmFormatFloat32:
+                format = .float32
+            case .pcmFormatInt16:
+                format = .int16
+            default:
+                fatalError()
+            }
             do {
-                decoder = try .init(format: .init(opusPCMFormat: .float32, sampleRate: 48000, channels: 2)!)
+                decoder = try .init(format: .init(opusPCMFormat: format,
+                                                  sampleRate: 48000,
+                                                  channels: player.inputFormat.channelCount)!)
             } catch {
                 fatalError()
             }
@@ -71,37 +82,49 @@ class AudioSubscription: Subscription {
                 fatalError()
             }
 
+            // Get audio data as packet list.
+            let audioBuffer = list.pointee.mBuffers
+            var packet: Packet = .init(sequence_number: self.seq,
+                                       data: audioBuffer.mData,
+                                       length: Int(audioBuffer.mDataByteSize),
+                                       elements: Int(buffer.frameLength))
+            self.seq += 1
+
             // Copy in.
-            let copied = TPCircularBufferCopyAudioBufferList(self.buffer,
-                                                             list,
-                                                             nil,
-                                                             kTPCircularBufferCopyAll,
-                                                             nil)
-            self.metrics.copyAttempts += 1
-            guard copied else {
-                self.metrics.copyFails += 1
+            let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback)
+            self.metrics.framesEnqueued += copied
+            guard copied == buffer.frameLength else {
+                print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
+                let missing = Int(buffer.frameLength) - copied
+                self.metrics.framesEnqueuedFail += missing
                 return
             }
         })
 
-        // Create the circular buffer with minimum size.
-        let created = _TPCircularBufferInit(buffer,
-                                            1,
-                                            MemoryLayout<TPCircularBuffer>.size)
-        guard created else {
+        // TODO: Make jitter configuration available in settings.
+        jitterBuffer = JitterInit(Int(decoder!.decodedFormat.streamDescription.pointee.mBytesPerPacket),
+                                  UInt(decoder!.decodedFormat.sampleRate),
+                                  20,
+                                  500)
+        guard jitterBuffer != nil else {
             fatalError()
         }
 
         // Create the player node.
         asbd = .init(mutating: decoder!.decodedFormat.streamDescription)
-        node = .init(format: decoder!.decodedFormat) { [buffer, asbd] silence, timestamp, numFrames, data in
+        node = .init(format: decoder!.decodedFormat) { [jitterBuffer, asbd] silence, _, numFrames, data in
             // Fill the buffers as best we can.
-            var copiedFrames: UInt32 = numFrames
-            TPCircularBufferDequeueBufferListFrames(buffer,
-                                                    &copiedFrames,
-                                                    data,
-                                                    .init(mutating: timestamp),
-                                                    asbd)
+            guard data.pointee.mNumberBuffers == 1 else {
+                fatalError("What to do")
+            }
+
+            guard data.pointee.mBuffers.mNumberChannels == asbd.pointee.mChannelsPerFrame else {
+                fatalError("Channel mismatch")
+            }
+
+            let buffer: AudioBuffer = data.pointee.mBuffers
+            assert(buffer.mDataByteSize == numFrames * asbd.pointee.mBytesPerFrame)
+            let copiedFrames = JitterDequeue(jitterBuffer, buffer.mData, Int(buffer.mDataByteSize), Int(numFrames))
             guard copiedFrames == numFrames else {
                 // Ensure any incomplete data is pure silence.
                 let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
@@ -109,8 +132,9 @@ class AudioSubscription: Subscription {
                     guard let dataPointer = buffer.mData else {
                         break
                     }
-                    let discontinuityStartOffset = Int(copiedFrames * asbd.pointee.mBytesPerFrame)
-                    let numberOfSilenceBytes = Int((numFrames - copiedFrames) * asbd.pointee.mBytesPerFrame)
+                    let bytesPerFrame = Int(asbd.pointee.mBytesPerFrame)
+                    let discontinuityStartOffset = copiedFrames * bytesPerFrame
+                    let numberOfSilenceBytes = (Int(numFrames) - copiedFrames) * bytesPerFrame
                     guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {
                         print("[FasterAVEngineAudioPlayer] Invalid buffers when calculating silence")
                         break
@@ -131,6 +155,20 @@ class AudioSubscription: Subscription {
         AudioSubscription.weakStaticSources[streamID] = .init(self)
 
         print("[AudioSubscription] Subscribed to \(String(describing: config.codec)) stream: \(streamID)")
+    }
+
+    let plcCallback: LibJitterConcealmentCallback = { packets, count in
+        for index in 0...count-1 {
+            // Make PLC packets.
+            // TODO: Ask the opus decoder to generate real PLC data.
+            let packetPtr = packets!.advanced(by: index)
+            print("[AudioSubscription] Requested PLC for: \(packetPtr.pointee.sequence_number)")
+            let malloced = malloc(480 * 8)
+            memset(malloced, 0, 480 * 8)
+            packetPtr.pointee.data = .init(malloced)
+            packetPtr.pointee.elements = 480
+            packetPtr.pointee.length = 480 * 8
+        }
     }
 
     let subscribedObject: SubscribeCallback = { streamId, _, _, data, length, timestamp in

@@ -1,6 +1,7 @@
 # WxQ Specific ignores.
 dependencies/build-*/
 dependencies/neo_media_client.xcframework
+dependencies/clibjitter.xcframework
 
 #Xcode
 #

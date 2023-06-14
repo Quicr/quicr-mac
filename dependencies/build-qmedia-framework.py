@@ -24,10 +24,10 @@ class PlatformType(Enum):
     IOS_SIMULATOR = 4
 
 
-def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int):
+def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
 
     build_dir = f"{current_directory}/{platform.build_folder}"
-    print(f"[{platform.type.name}] Building QMedia @ {build_dir}")
+    print(f"[{platform.type.name}] Building {identifier} @ {build_dir}")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
 
@@ -35,14 +35,14 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         cmake_path,
         f"-DCMAKE_TOOLCHAIN_FILE={current_directory}/ios.toolchain.cmake",
         "-S",
-        f"{current_directory}/new-qmedia",
+        source,
         "-B",
         build_dir,
         "-DCMAKE_FRAMEWORK=TRUE",
         f"-DPLATFORM={platform.cmake_platform}",
         "-DDEPLOYMENT_TARGET=16.0",
         "-DENABLE_VISIBILITY=ON",
-        "-DMACOSX_FRAMEWORK_IDENTIFIER=com.cisco.quicr.qmedia",
+        f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
         f"-DCMAKE_MODULE_PATH={current_directory}",
         f"-DBUILD_NUMBER={build_number}",
         "-Wno-dev"]
@@ -56,7 +56,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         cmake_path,
         "--build",
         build_dir,
-        "--target neo_media_client",
+        f"--target {target}",
         f"-j{multiprocessing.cpu_count()}"
     ]
     build_process = subprocess.Popen(
@@ -65,8 +65,8 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
     return (platform, build_process.returncode, output, error)
 
 
-def create_xcframework(current_directory: str, platforms: list[Platform]):
-    xcframework_name = "neo_media_client.xcframework"
+def create_xcframework(target: str, target_path: str, current_directory: str, platforms: list[Platform]):
+    xcframework_name = f"{target}.xcframework"
     xcframework_path = f"{current_directory}/{xcframework_name}"
     if os.path.exists(xcframework_path):
         shutil.rmtree(xcframework_path)
@@ -79,7 +79,7 @@ def create_xcframework(current_directory: str, platforms: list[Platform]):
     for platform in platforms:
         command.append("-framework")
         command.append(
-            f"{current_directory}/{platform.build_folder}/src/extern/neo_media_client.framework")
+            f"{current_directory}/{platform.build_folder}/{target_path}/{target}.framework")
     command.append("-output")
     command.append(xcframework_path)
 
@@ -94,17 +94,19 @@ def create_xcframework(current_directory: str, platforms: list[Platform]):
         print(output.decode())
 
 
-def patch_universal():
+def patch_universal(current_directory: str, build_folder: str, target: str, target_path: str):
+    env = os.environ.copy()
+    env["TARGET"] = target
+    env["BUILD_FOLDER"] = build_folder
+    env["TARGET_PATH"] = target_path
     make_universal = subprocess.Popen(
-        ["sh", f"{current_directory}/make_universal.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ["sh", f"{current_directory}/make_universal.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     _, error = make_universal.communicate()
     if make_universal.returncode != 0:
         print(error.decode())
         exit(1)
 
-
-if __name__ == "__main__":
-
+def do_build(source_folder: str, identifier: str, target: str, target_path: str):
     # Get CMake path.
     cmake = shutil.which("cmake")
     if cmake == None:
@@ -113,11 +115,11 @@ if __name__ == "__main__":
 
     # Supported platforms.
     supported_platforms = {
-        PlatformType.CATALYST_ARM: Platform(PlatformType.CATALYST_ARM, "MAC_CATALYST_ARM64", "build-catalyst"),
-        PlatformType.CATALYST_X86: Platform(PlatformType.CATALYST_X86, "MAC_CATALYST", "build-catalyst-x86"),
-        PlatformType.IOS: Platform(PlatformType.IOS, "OS64", "build-ios"),
+        PlatformType.CATALYST_ARM: Platform(PlatformType.CATALYST_ARM, "MAC_CATALYST_ARM64", f"build-catalyst-{source_folder}"),
+        PlatformType.CATALYST_X86: Platform(PlatformType.CATALYST_X86, "MAC_CATALYST", f"build-catalyst-x86-{source_folder}"),
+        PlatformType.IOS: Platform(PlatformType.IOS, "OS64", f"build-ios-{source_folder}"),
         PlatformType.IOS_SIMULATOR: Platform(
-            PlatformType.IOS_SIMULATOR, "SIMULATORARM64", "build-iossim")
+            PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}")
     }
 
     # Get dependencies directory (assuming this is where this script lives).
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     platforms = []
     build_number = 1234
     if len(sys.argv) > 1:
-        parse = argparse.ArgumentParser("Build QMedia")
+        parse = argparse.ArgumentParser("Build Dependencies")
         parse.add_argument("--platform", action="append",
                            choices=[platform.name for platform in PlatformType])
         parse.add_argument("--archs", help="Optional, used by xcode")
@@ -160,7 +162,7 @@ if __name__ == "__main__":
 
     # CMake generate & build.
     with ThreadPoolExecutor(max_workers=len(platforms)) as pool:
-        builds = [pool.submit(build, current_directory, supported_platforms[platform], cmake, build_number)
+        builds = [pool.submit(build, current_directory, supported_platforms[platform], cmake, build_number, f"{current_directory}/{source_folder}", identifier, target)
                   for platform in platforms]
     for completed in builds:
         platform, return_code, output, error = completed.result()
@@ -173,10 +175,15 @@ if __name__ == "__main__":
     # Universal LIPO.
     if PlatformType.CATALYST_ARM in platforms and PlatformType.CATALYST_X86 in platforms:
         # Patch and then drop the x86 support, as it's now included in the ARM binary.
-        patch_universal()
+        patch_universal(current_directory, identifier, target, target_path)
         platforms.remove(PlatformType.CATALYST_X86)
         print(f"[{PlatformType.CATALYST_ARM.name} & {PlatformType.CATALYST_X86.name}] Patched universal catalyst binary for ARM64 & x86")
 
     # XCFramework.
-    create_xcframework(current_directory, [
+    create_xcframework(target, target_path, current_directory, [
                        supported_platforms[platform] for platform in platforms])
+
+if __name__ == "__main__":
+    do_build("new-qmedia", "com.cisco.quicr.qmedia", "neo_media_client", "src/extern")
+    do_build("libjitter", "com.cisco.quicr.clibjitter", "clibjitter", "")
+    
