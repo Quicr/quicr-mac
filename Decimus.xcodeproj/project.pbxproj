@@ -920,8 +920,14 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "";
-				"HEADER_SEARCH_PATHS[arch=*]" = "";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/dependencies/new-qmedia/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -955,10 +961,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				SYSTEM_HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/dependencies/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/",
-				);
+				SYSTEM_HEADER_SEARCH_PATHS = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USER_HEADER_SEARCH_PATHS = "";
 				USE_HEADERMAP = NO;
@@ -983,8 +986,14 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "";
-				"HEADER_SEARCH_PATHS[arch=*]" = "";
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/dependencies/new-qmedia/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
@@ -1016,10 +1025,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				SYSTEM_HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/dependencies/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/",
-				);
+				SYSTEM_HEADER_SEARCH_PATHS = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USER_HEADER_SEARCH_PATHS = "";
 				USE_HEADERMAP = NO;
