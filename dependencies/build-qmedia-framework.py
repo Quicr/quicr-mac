@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#!/usr/bin/python3
 
 from enum import Enum
 import sys
@@ -56,7 +56,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         cmake_path,
         "--build",
         build_dir,
-        "--target neo_media_client",
+        "--target qmedia",
         f"-j{multiprocessing.cpu_count()}"
     ]
     build_process = subprocess.Popen(
@@ -66,7 +66,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
 
 
 def create_xcframework(current_directory: str, platforms: list[Platform]):
-    xcframework_name = "neo_media_client.xcframework"
+    xcframework_name = "qmedia.xcframework"
     xcframework_path = f"{current_directory}/{xcframework_name}"
     if os.path.exists(xcframework_path):
         shutil.rmtree(xcframework_path)
@@ -79,7 +79,7 @@ def create_xcframework(current_directory: str, platforms: list[Platform]):
     for platform in platforms:
         command.append("-framework")
         command.append(
-            f"{current_directory}/{platform.build_folder}/src/extern/neo_media_client.framework")
+            f"{current_directory}/{platform.build_folder}/src/qmedia.framework")
     command.append("-output")
     command.append(xcframework_path)
 

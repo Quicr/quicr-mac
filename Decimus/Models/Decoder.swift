@@ -3,32 +3,32 @@ import CoreImage
 import Foundation
 
 protocol Decoder {
-    func write(buffer: MediaBuffer)
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32)
 }
 
 protocol SampleDecoder: Decoder {
-    typealias DecodedSampleCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
-    var callback: DecodedSampleCallback? {get set}
+    typealias DecodedCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
+    var callback: DecodedCallback? {get set}
 
-    mutating func registerCallback(callback: @escaping DecodedSampleCallback)
+    mutating func registerCallback(callback: @escaping DecodedCallback)
 }
 
 extension SampleDecoder {
-    mutating func registerCallback(callback: @escaping DecodedSampleCallback) {
+    mutating func registerCallback(callback: @escaping DecodedCallback) {
         self.callback = callback
     }
 }
 
 protocol BufferDecoder: Decoder {
-    typealias DecodedBufferCallback = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
-    var callback: DecodedBufferCallback? {get set}
+    typealias DecodedCallback = (_ buffer: AVAudioPCMBuffer, _ timestamp: CMTime) -> Void
+    var callback: DecodedCallback? {get set}
     var decodedFormat: AVAudioFormat {get}
 
-    mutating func registerCallback(callback: @escaping DecodedBufferCallback)
+    mutating func registerCallback(callback: @escaping DecodedCallback)
 }
 
 extension BufferDecoder {
-    mutating func registerCallback(callback: @escaping DecodedBufferCallback) {
+    mutating func registerCallback(callback: @escaping DecodedCallback) {
         self.callback = callback
     }
 }

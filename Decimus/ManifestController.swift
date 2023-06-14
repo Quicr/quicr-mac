@@ -80,7 +80,7 @@ class ManifestController {
 
         var meetings: [UInt32: String] = [:]
         let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return [:] }
         guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
             fatalError()
         }
@@ -108,7 +108,10 @@ class ManifestController {
 
         var manifest: String = ""
         let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { fatalError() }
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else {
+            print("[ManifestController] Failed to retrieve manifest")
+            return ""
+        }
 
         guard let json = data.prettyPrintedJSONString else { return "" }
         manifest = json as String

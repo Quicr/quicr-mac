@@ -4,7 +4,7 @@ struct LeaveModal: View {
     private let leaveAction: () -> Void
     private let cancelAction: () -> Void
 
-    init(leaveAction: @escaping () -> Void, cancelAction: @escaping () -> Void) {
+    init(leaveAction: @escaping () -> Void, cancelAction: @autoclosure @escaping () -> Void) {
         self.leaveAction = leaveAction
         self.cancelAction = cancelAction
     }

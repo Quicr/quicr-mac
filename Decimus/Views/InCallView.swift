@@ -4,7 +4,7 @@ import UIKit
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
-struct InCallView<Mode>: View where Mode: ApplicationMode {
+struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
 
@@ -25,71 +25,60 @@ struct InCallView<Mode>: View where Mode: ApplicationMode {
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.mode!.participants)
+                VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(leaving: $leaving)
+                CallControls(errorWriter: viewModel.errorHandler, leaving: $leaving)
                     .disabled(leaving)
                     .padding(.bottom)
                     .frame(alignment: .top)
             }
-            .edgesIgnoringSafeArea(.top) // Note: Only because of navigation bar forcing whole content down by 50
 
             if leaving {
-                LeaveModal(leaveAction: onLeave, cancelAction: { leaving = false })
+                LeaveModal(leaveAction: {
+                    Task { await viewModel.leave() }
+                    onLeave()
+                }, cancelAction: leaving = false)
                     .frame(maxWidth: 400, alignment: .center)
             }
 
-            // Error messages.
             ErrorView(errorHandler: viewModel.errorHandler)
         }
         .background(.black)
-        .onDisappear {
-            Task {
-                await viewModel.leave()
-            }
-        }
-        .environmentObject(viewModel.callController!)
     }
 }
 
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        private(set) var errorHandler = ObservableError()
-        private(set) var mode: Mode?
-        var callController: CallController?
+        let errorHandler = ObservableError()
+        private(set) var controller: CallController?
 
-        @AppStorage("influxConfig") private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+        @AppStorage("influxConfig")
+        private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(config: CallConfig) {
-            let player = FasterAVEngineAudioPlayer(errorWriter: errorHandler)
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
             Task {
                 guard influxConfig.value.submit else { return }
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
             }
-            // TODO: inputAudioFormat needs to be the real input format.
-            self.mode = .init(errorWriter: errorHandler, player: player,
-                              metricsSubmitter: submitter,
-                              inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 48000, channels: 1, interleaved: true)!,
-                              outputAudioFormat: player.inputFormat)
-            let capture: CaptureManager = .init(deviceChangeCallback: { [weak mode] device, event in
-                                                    mode?.onDeviceChange(device: device, event: event)
-                                                },
-                                                errorHandler: errorHandler)
-            self.callController = CallController(mode: mode!, capture: capture)
-            Task {
-                do {
-                    try await self.mode!.connect(config: config)
-                }
+
+            self.controller = .init(errorWriter: errorHandler,
+                                    metricsSubmitter: submitter,
+                                    // TODO: inputAudioFormat needs to be the real input format.
+                                    inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
+                                                                    sampleRate: 48000,
+                                                                    channels: 1,
+                                                                    interleaved: true)!)
+            do {
+                Task { try await self.controller!.connect(config: config) }
             }
         }
 
         func leave() async {
-            await callController!.leave()
             do {
-                try mode!.disconnect()
+                try controller!.disconnect()
             } catch {
                 errorHandler.writeError(message: "Error while leaving call: \(error)")
             }

@@ -4,6 +4,7 @@ import Foundation
 
 enum CodecError: Error {
     case noCodecFound(CodecType)
+    case failedToCreateCodec(CodecType)
 }
 
 /// Codec type mappings.
@@ -39,7 +40,11 @@ struct AudioCodecConfig: CodecConfig {
 }
 
 class CodecFactory {
-    static var shared: CodecFactory!
+    let audioFormat: AVAudioFormat
+
+    init(audioFormat: AVAudioFormat) {
+        self.audioFormat = audioFormat
+    }
 
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
@@ -72,110 +77,83 @@ class CodecFactory {
             return AudioCodecConfig(codec: codec, tokens: tokens)
         }
     }
+}
 
-    private lazy var encoderFactories: [CodecType: (CodecConfig) -> Encoder] = [
-        .h264: { config in
-            guard let config = config as? VideoCodecConfig else { fatalError() }
-            return H264Encoder(config: config, verticalMirror: false)
-        },
-        .opus: { config in
-            guard let config = config as? AudioCodecConfig else { fatalError() }
-            do {
-                return try LibOpusEncoder(format: self.inputAudioFormat)
-            } catch {
-                fatalError()
-            }
-        }
-    ]
-
-    private lazy var decoderFactories: [CodecType: (CodecConfig) -> Decoder] = [
+class EncoderFactory: CodecFactory {
+    private lazy var factories: [CodecType: (CodecConfig) -> Encoder] = [
         .h264: {
             guard let config = $0 as? VideoCodecConfig else { fatalError() }
-            return H264Decoder(config: config)
+            return H264Encoder(config: config, verticalMirror: false)
         },
-        .opus: { _ in
+        .opus: { [unowned self] in
+            guard let config = $0 as? AudioCodecConfig else { fatalError() }
             do {
-                // Decode directly into output format if possible.
-                return try LibOpusDecoder(format: self.outputAudioFormat.isValidOpusPCMFormat ?
-                                                    self.outputAudioFormat :
-                                                    .init(opusPCMFormat: .float32,
-                                                          sampleRate: .opus48khz,
-                                                          channels: 2)!)
+                return try LibOpusEncoder(format: self.audioFormat)
             } catch {
                 fatalError()
             }
         }
     ]
 
-    /// Represents a decoded image.
-    /// - Parameter identifier: The source identifier for this decoded image.
-    /// - Parameter image: The decoded image data.
-    /// - Parameter timestamp: The timestamp for this image.
-    /// - Parameter orientation: The source orientation of this image.
-    /// - Parameter verticalMirror: True if this image is intended to be vertically mirrored.
-    typealias DecodedImageCallback = (_ identifier: StreamIDType,
-                                      _ image: CIImage,
-                                      _ timestamp: CMTimeValue,
-                                      _ orientation: AVCaptureVideoOrientation?,
-                                      _ verticalMirror: Bool) -> Void
-
-    /// Represents an decoded audio sample.
-    /// - Parameter identifier: The source identifier for this encoded image.
-    /// - Parameter buffer: The buffer being decoded
-    typealias DecodedAudioCallback = (_ identifier: StreamIDType,
-                                      _ buffer: AVAudioPCMBuffer) -> Void
-
-    private var decodedSampleCallback: DecodedImageCallback!
-    private var decodedBufferCallback: DecodedAudioCallback!
-    private let inputAudioFormat: AVAudioFormat
-    private let outputAudioFormat: AVAudioFormat
-
-    init(inputAudioFormat: AVAudioFormat, outputAudioFormat: AVAudioFormat) {
-        self.inputAudioFormat = inputAudioFormat
-        self.outputAudioFormat = outputAudioFormat
-    }
-
-    func registerDecoderCallback(callback: @escaping DecodedImageCallback) {
-        decodedSampleCallback = callback
-    }
-
-    func registerDecoderCallback(callback: @escaping DecodedAudioCallback) {
-        decodedBufferCallback = callback
-    }
-
-    /// Creates an encoder from a factory callback.
-    /// - Parameter config: The codec config information to use to create the encoder.
-    /// - Parameter encodeCallback The callback to register to the encoder to run on succesful encoding.
-    func createEncoder(_ config: CodecConfig,
-                       encodeCallback: @escaping Encoder.EncodedBufferCallback) throws -> Encoder {
-        guard let factory = encoderFactories[config.codec] else {
+    func create(_ config: CodecConfig,
+                callback: @escaping Encoder.EncodedCallback) throws -> Encoder {
+        guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
         }
 
         var encoder = factory(config)
-        encoder.registerCallback(callback: encodeCallback)
+        encoder.registerCallback(callback: callback)
         return encoder
     }
+}
 
-    /// Creates an decoder from a factory callback.
-    /// - Parameter identifier: The identifier for the source to encode.
-    /// - Parameter codec: The codec type of the decoder
-    func createDecoder(identifier: StreamIDType, config: CodecConfig) throws -> Decoder {
-        guard let factory = decoderFactories[config.codec] else {
+class DecoderFactory: CodecFactory {
+    private lazy var factories: [CodecType: (CodecConfig) -> Decoder] = [
+        .h264: {
+            guard let config = $0 as? VideoCodecConfig else { fatalError() }
+            return H264Decoder(config: config)
+        },
+        .opus: { [unowned self] _ in
+            do {
+                // Decode directly into output format if possible.
+                return try LibOpusDecoder(format: self.audioFormat)
+            } catch {
+                fatalError()
+            }
+        }
+    ]
+
+    override init(audioFormat: AVAudioFormat) {
+        if audioFormat.isValidOpusPCMFormat {
+            super.init(audioFormat: audioFormat)
+        } else {
+            super.init(audioFormat: .init(opusPCMFormat: .float32,
+                                          sampleRate: .opus48khz,
+                                          channels: 2)!)
+        }
+    }
+
+    private func create<DecoderType>(config: CodecConfig) throws -> DecoderType {
+        guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
         }
 
-        let decoder = factory(config)
-        if var sampleDecoder = decoder as? SampleDecoder {
-            sampleDecoder.registerCallback { image, timestamp, orientation, verticalMirror in
-                self.decodedSampleCallback(identifier, image, timestamp, orientation, verticalMirror)
-            }
-        } else if var bufferDecoder = decoder as? BufferDecoder {
-            bufferDecoder.registerCallback { pcm, _ in
-                self.decodedBufferCallback(identifier, pcm)
-            }
+        guard let decoder = factory(config) as? DecoderType else {
+            throw CodecError.failedToCreateCodec(config.codec)
         }
 
+        return decoder
+    }
+
+    func create(config: CodecConfig, callback: @escaping SampleDecoder.DecodedCallback) throws -> SampleDecoder {
+        var decoder: SampleDecoder = try create(config: config)
+        decoder.registerCallback(callback: callback)
+        return decoder
+    }
+
+    func create(config: CodecConfig, callback: @escaping BufferDecoder.DecodedCallback) throws -> BufferDecoder {
+        var decoder: BufferDecoder = try create(config: config)
+        decoder.registerCallback(callback: callback)
         return decoder
     }
 }

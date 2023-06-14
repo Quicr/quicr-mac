@@ -27,7 +27,7 @@ private struct LoginForm: View {
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
                                                connectionProtocol: .QUIC,
-                                               conferenceId: 0)
+                                               conferenceID: 0)
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -50,7 +50,7 @@ private struct LoginForm: View {
 
                             if !meetings.keys.contains(UInt32(confId)) {
                                 confId = 1
-                                callConfig.conferenceId = 1
+                                callConfig.conferenceID = 1
                             }
                         })
                         .textFieldStyle(FormInputStyle())
@@ -60,19 +60,19 @@ private struct LoginForm: View {
                     }
                 }
 
-                if email != "" {
+                if email != "" && meetings.keys.contains(UInt32(confId)) {
                     VStack(alignment: .leading) {
                         if meetings.count > 0 {
                             Text("Meeting")
                                 .padding(.horizontal)
                                 .foregroundColor(.white)
-                            Picker("", selection: $callConfig.conferenceId) {
+                            Picker("", selection: $callConfig.conferenceID) {
                                 ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
                                     Text(meeting).tag(id)
                                 }
                             }
-                            .onChange(of: callConfig.conferenceId) { _ in
-                                confId = Int(callConfig.conferenceId)
+                            .onChange(of: callConfig.conferenceID) { _ in
+                                confId = Int(callConfig.conferenceID)
                             }
                             .labelsHidden()
                         } else {
@@ -80,14 +80,13 @@ private struct LoginForm: View {
                                 .padding(.horizontal)
                                 .foregroundColor(.white)
                                 .onAppear {
-                                    confId = 0
-                                    callConfig.conferenceId = 0
+                                    callConfig.conferenceID = 0
                                 }
                         }
                     }
                 }
 
-                if callConfig.conferenceId != 0 {
+                if callConfig.conferenceID != 0 {
                     RadioButtonGroup("Protocol",
                                      selection: $callConfig,
                                      labels: ["UDP", "QUIC"],
@@ -96,17 +95,17 @@ private struct LoginForm: View {
                               port: relayConfig.value.ports[.UDP]!,
                               connectionProtocol: .UDP,
                               email: callConfig.email,
-                              conferenceId: callConfig.conferenceId),
+                              conferenceID: callConfig.conferenceID),
                         .init(address: relayConfig.value.address,
                               port: relayConfig.value.ports[.QUIC]!,
                               connectionProtocol: .QUIC,
                               email: callConfig.email,
-                              conferenceId: callConfig.conferenceId)
+                              conferenceID: callConfig.conferenceID)
                     ])
 
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceId == 0,
+                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
                                  styleConfig: buttonColour,
                                  action: join)
                     .frame(maxWidth: .infinity)
@@ -128,7 +127,7 @@ private struct LoginForm: View {
                                             port: relayConfig.value.ports[.QUIC]!,
                                             connectionProtocol: .QUIC,
                                             email: email,
-                                            conferenceId: UInt32(confId))
+                                            conferenceID: UInt32(confId))
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -141,7 +140,7 @@ private struct LoginForm: View {
         isLoading = true
         let userId = await ManifestController.shared.getUser(email: email)
         meetings = await ManifestController.shared.getConferences(for: userId)
-        callConfig.conferenceId = UInt32(confId)
+        callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }
 

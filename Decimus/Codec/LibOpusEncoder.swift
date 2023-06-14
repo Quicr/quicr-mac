@@ -3,7 +3,7 @@ import AVFoundation
 
 class LibOpusEncoder: Encoder {
     private let encoder: Opus.Encoder
-    internal var callback: EncodedBufferCallback?
+    internal var callback: EncodedCallback?
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
 
@@ -31,33 +31,26 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
-    func write(data: MediaBuffer) {
-
-        guard let format = data.userData as? AVAudioFormat else {
-            print("Couldn't get format from audio data")
-            return
-        }
-
+    func write(data: CMSampleBuffer, format: AVAudioFormat) {
         guard format.equivalent(other: self.format) else {
             print("Write format must match declared format")
             return
         }
 
-        // Write our samples to the buffer
-        data.buffer.withUnsafeBytes {
-            buffer.append(contentsOf: $0)
+        do {
+            // Write our samples to the buffer
+            try data.dataBuffer!.withUnsafeMutableBytes {
+                buffer.append(contentsOf: $0)
+            }
+        } catch {
+            fatalError()
         }
-
-        timestamps.append(data.timestampMs)
 
         // Try to encode and empty the buffer
         while UInt32(buffer.count) >= opusFrameSizeBytes {
             tryEncode(format: format)
 
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
-            if buffer.count > 0 && timestamps.count != 1 {
-                timestamps.removeFirst()
-            }
         }
     }
 
@@ -77,8 +70,7 @@ class LibOpusEncoder: Encoder {
         do {
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
-                callback(.init(buffer: .init(start: bytes.baseAddress, count: Int(encodedBytes)),
-                               timestampMs: timestamps.first!))
+                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
             }
         } catch {
             print("Failed opus encode: \(error)")

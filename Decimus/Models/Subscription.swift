@@ -1,72 +1,135 @@
-import Foundation
 import AVFoundation
+import CoreMedia
+import SwiftUI
 
-class Subscription {
-    // TODO: This is temporary before we change QMedia
-    private class Weak {
-        weak var value: Subscription?
-        init(_ value: Subscription?) { self.value = value }
-    }
-    private static var weakStaticSources: [StreamIDType: Weak] = [:]
-    // end TODO
+// swiftlint:disable identifier_name
+enum SubscriptionError: Int32 {
+    case None = 0
+    case NoDecoder
+    case FailedDecoderCreation
+}
+// swiftlint:enable identifier_name
 
-    private unowned let client: MediaClient
-    private unowned let player: AudioPlayer
-    init(client: MediaClient, player: AudioPlayer) {
-        self.client = client
+class SubscriptionOutputDelegate {
+
+}
+
+private class VideoSubscriptionOutputDelegate: SubscriptionOutputDelegate {
+
+}
+
+private class AudioSubscriptionOutputDelegate: SubscriptionOutputDelegate {
+
+}
+
+class Subscription: QSubscriptionDelegateObjC {
+
+    private let namespace: String
+    private var decoder: Decoder?
+    private unowned let participants: VideoParticipants
+    private unowned let player: FasterAVEngineAudioPlayer
+    private unowned let codecFactory: DecoderFactory
+
+    init(namespace: String,
+         codecFactory: DecoderFactory,
+         participants: VideoParticipants,
+         player: FasterAVEngineAudioPlayer) {
+        self.namespace = namespace
+        self.codecFactory = codecFactory
+        self.participants = participants
         self.player = player
     }
 
     deinit {
-        self.client.removeMediaSubscribeStream(mediaStreamId: streamID)
-        Subscription.weakStaticSources.removeValue(forKey: streamID)
-
-        if decoder as? BufferDecoder != nil {
-            self.player.removePlayer(identifier: streamID)
+        do {
+            try participants.removeParticipant(identifier: namespace)
+        } catch {
+            player.removePlayer(identifier: namespace)
         }
     }
 
-    private var streamID: StreamIDType = 0
-    private var decoder: Decoder?
-
-    func prepare(streamID: StreamIDType, sourceID: SourceIDType, qualityProfile: String) throws {
+    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        self.streamID = streamID
 
         do {
-            decoder = try CodecFactory.shared.createDecoder(identifier: streamID, config: config)
-            if let decoder = decoder as? BufferDecoder {
-                self.player.addPlayer(identifier: streamID, format: decoder.decodedFormat)
+            switch config.codec {
+            case .opus:
+                let bufferDecoder = try codecFactory.create(config: config) { [weak self] in
+                    self?.playAudio(buffer: $0, timestamp: $1)
+                }
+                self.player.addPlayer(identifier: namespace, format: bufferDecoder.decodedFormat)
+                decoder = bufferDecoder
+            case .h264:
+                let sampleDecoder = try codecFactory.create(config: config) { [weak self] in
+                    self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
+                }
+                decoder = sampleDecoder
+            default:
+                return SubscriptionError.FailedDecoderCreation.rawValue
             }
 
-            // TODO: This is temporary before we change QMedia
-            Subscription.weakStaticSources[streamID] = .init(self)
-
-            print("[Subscriber] Subscribed to \(String(describing: config.codec)) stream: \(streamID)")
+            log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceID!)")
         } catch {
-            print("[Subscriber] Failed to create decoder: \(error)")
-            throw error
+            log("Failed to create decoder: \(error)")
+            return SubscriptionError.FailedDecoderCreation.rawValue
         }
+
+        return SubscriptionError.None.rawValue
     }
 
-    let subscribedObject: SubscribeCallback = { streamId, _, _, data, length, timestamp in
-        guard let subscriber = Subscription.weakStaticSources[streamId]?.value else {
-            fatalError("[Subscriber:\(streamId)] Failed to find instance for stream")
-        }
-
-        guard data != nil else {
-            print("[Subscriber:\(streamId)] Data was nil")
-            return
-        }
-
-        subscriber.write(data: .init(buffer: .init(start: data, count: Int(length)),
-                                     timestampMs: UInt32(timestamp)))
+    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
+        return SubscriptionError.NoDecoder.rawValue
     }
 
-    private func write(data: MediaBuffer) {
+    func subscribedObject(_ data: Data!) -> Int32 {
         guard let decoder = decoder else {
-            fatalError("[Subscriber:\(streamID)] No decoder for Subscriber. Did you forget to prepare?")
+            log("No decoder for Subscription. Did you forget to prepare?")
+            return SubscriptionError.NoDecoder.rawValue
         }
-        decoder.write(buffer: data)
+
+        data.withUnsafeBytes {
+            decoder.write(data: $0, timestamp: 0)
+        }
+        return SubscriptionError.None.rawValue
+    }
+
+    private func playAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime?) {
+        player.write(identifier: namespace, buffer: buffer)
+    }
+
+    private func showDecodedImage(decoded: CIImage,
+                                  timestamp: CMTimeValue,
+                                  orientation: AVCaptureVideoOrientation?,
+                                  verticalMirror: Bool) {
+        let participant = participants.getOrMake(identifier: namespace)
+
+        // TODO: Why can't we use CIImage directly here?
+        let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
+        let imageOrientation = orientation?.toImageOrientation(verticalMirror) ?? .up
+        participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
+        participant.lastUpdated = .now()
+    }
+
+    private func log(_ message: String) {
+        print("[Subscription] (\(namespace)) \(message)")
+    }
+}
+
+extension AVCaptureVideoOrientation {
+    func toImageOrientation(_ verticalMirror: Bool) -> Image.Orientation {
+        let imageOrientation: Image.Orientation
+        switch self {
+        case .portrait:
+            imageOrientation = verticalMirror ? .leftMirrored : .right
+        case .landscapeLeft:
+            imageOrientation = verticalMirror ? .upMirrored : .down
+        case .landscapeRight:
+            imageOrientation = verticalMirror ? .downMirrored : .up
+        case .portraitUpsideDown:
+            imageOrientation = verticalMirror ? .rightMirrored : .left
+        default:
+            imageOrientation = .up
+        }
+        return imageOrientation
     }
 }
