@@ -54,9 +54,9 @@
     qControllerGW.setPublisherDelegate(delegate);
 }
 
-- (id)allocateSubByNamespace:(NSString *)quicrNamepace {
+- (id)allocateSubByNamespace:(NSString *)quicrNamepace qualityProfile:(NSString*)qualityProfile {
     if (!subscriberDelegate) return nil;
-    return  [subscriberDelegate allocateSubByNamespace:quicrNamepace];
+    return  [subscriberDelegate allocateSubByNamespace:quicrNamepace qualityProfile:qualityProfile];
 }
 
 - (id)allocatePubByNamespace:(NSString *)quicrNamepace {

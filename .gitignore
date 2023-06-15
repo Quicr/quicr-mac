@@ -1,6 +1,7 @@
 # WxQ Specific ignores.
 dependencies/build-*/
 dependencies/qmedia.xcframework
+dependencies/clibjitter.xcframework
 
 #Xcode
 #

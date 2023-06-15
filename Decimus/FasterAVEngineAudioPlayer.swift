@@ -3,12 +3,12 @@ import CoreAudio
 import CTPCircularBuffer
 
 /// Plays audio samples out.
-class FasterAVEngineAudioPlayer: AudioPlayer {
+class FasterAVEngineAudioPlayer {
     let inputFormat: AVAudioFormat
     private var engine: AVAudioEngine = .init()
     private var mixer: AVAudioMixerNode = .init()
     private let errorWriter: ErrorWriter
-    private var elements: [SourceIDType: SourceElement] = [:]
+    private var elements: [SourceIDType: AVAudioSourceNode] = [:]
 
     /// Create a new `AudioPlayer`
     init(errorWriter: ErrorWriter) {
@@ -33,33 +33,17 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
         engine.detach(mixer)
     }
 
-    func write(identifier: SourceIDType, buffer: AVAudioPCMBuffer) {
-        // Get the source element for this identifier.
-        let source: SourceElement? = elements[identifier]
-        guard let source = source else {
-            errorWriter.writeError(message: "Missing player for: \(identifier)")
-            return
-        }
-
-        // Copy data into the source's input buffer.
-        source.write(list: buffer.mutableAudioBufferList)
-    }
-
-    func addPlayer(identifier: SourceIDType, format: AVAudioFormat) {
-        do {
-            if !engine.isRunning {
+    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) {
+        print("[FasterAVAudioEngine] (\(identifier)) Attaching node: \(node.outputFormat(forBus: 0))")
+        engine.attach(node)
+        engine.connect(node, to: mixer, format: nil)
+        if !engine.isRunning {
+            do {
                 try engine.start()
+            } catch {
+                fatalError()
             }
-        } catch {
-            self.errorWriter.writeError(message: "Couldn't start audio engine")
         }
-
-        // Create a node for this source and add it to the mixer.
-        let source: SourceElement = .init(format: format)
-        print("[FasterAVAudioEngine] (\(identifier)) Creating element: \(format)")
-        elements[identifier] = source
-        engine.attach(source.sourceNode)
-        engine.connect(source.sourceNode, to: mixer, format: nil)
     }
 
     func removePlayer(identifier: SourceIDType) {
@@ -68,7 +52,7 @@ class FasterAVEngineAudioPlayer: AudioPlayer {
         print("[FasterAVAudioEngine] (\(identifier)) Removing")
 
         // Dispose of the element's resources.
-        engine.disconnectNodeInput(element.sourceNode)
-        engine.detach(element.sourceNode)
+        engine.disconnectNodeInput(element)
+        engine.detach(element)
     }
 }

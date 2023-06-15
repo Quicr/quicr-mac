@@ -53,12 +53,6 @@ class Subscription: QSubscriptionDelegateObjC {
 
         do {
             switch config.codec {
-            case .opus:
-                let bufferDecoder = try codecFactory.create(config: config) { [weak self] in
-                    self?.playAudio(buffer: $0, timestamp: $1)
-                }
-                self.player.addPlayer(identifier: namespace, format: bufferDecoder.decodedFormat)
-                decoder = bufferDecoder
             case .h264:
                 let sampleDecoder = try codecFactory.create(config: config) { [weak self] in
                     self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -91,10 +85,6 @@ class Subscription: QSubscriptionDelegateObjC {
             decoder.write(data: $0, timestamp: 0)
         }
         return SubscriptionError.None.rawValue
-    }
-
-    private func playAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime?) {
-        player.write(identifier: namespace, buffer: buffer)
     }
 
     private func showDecodedImage(decoded: CIImage,

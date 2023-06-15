@@ -50,7 +50,7 @@ class QMediaSubsciberDelegate : public qmedia::QSubscriberDelegate
 {
 public:
     QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> delegate);
-    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubByNamespace(const quicr::Namespace& quicrNamespace);
+    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile);
     int removeSubByNamespace(const quicr::Namespace& quicrNamespace);
 private:
     id<QSubscriberDelegateObjC> delegate;

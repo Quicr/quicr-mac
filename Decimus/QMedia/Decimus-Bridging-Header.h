@@ -8,4 +8,5 @@
 #ifndef Decimus_Bridging_Header_h
 #define Decimus_Bridging_Header_h
 #import "QControllerGWObjC.h"
+#import "../../dependencies/libjitter/include/libjitter.h"
 #endif /* Decimus_Bridging_Header_h */
