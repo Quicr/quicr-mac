@@ -22,7 +22,7 @@
 @end
 
 @protocol QSubscriberDelegateObjC
-- (id) allocateSubByNamespace: (NSString*) quicrNamepace;
+- (id) allocateSubByNamespace: (NSString*) quicrNamepace qualityProfile: (NSString*) qualityProfile;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 

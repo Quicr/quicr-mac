@@ -71,11 +71,13 @@ QMediaSubsciberDelegate::QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> del
 {
 }
 
-std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace)
+std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    id subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString];
+    NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
+                                       encoding:[NSString defaultCStringEncoding]];
+    id subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
     return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, quicrNamespace);
 }
 
