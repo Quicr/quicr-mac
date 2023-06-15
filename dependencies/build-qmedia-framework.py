@@ -176,7 +176,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     # Universal LIPO.
     if PlatformType.CATALYST_ARM in platforms and PlatformType.CATALYST_X86 in platforms:
         # Patch and then drop the x86 support, as it's now included in the ARM binary.
-        patch_universal(current_directory, identifier, target, target_path)
+        patch_universal(current_directory, source_folder, target, target_path)
         platforms.remove(PlatformType.CATALYST_X86)
         print(f"[{PlatformType.CATALYST_ARM.name} & {PlatformType.CATALYST_X86.name}] Patched universal catalyst binary for ARM64 & x86")
 
