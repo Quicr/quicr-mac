@@ -22,12 +22,12 @@
 @end
 
 @protocol QSubscriberDelegateObjC
-- (id) allocateSubByNamespace: (NSString*) quicrNamepace qualityProfile: (NSString*) qualityProfile;
+- (id<QSubscriptionDelegateObjC>) allocateSubByNamespace: (NSString*) quicrNamepace qualityProfile: (NSString*) qualityProfile;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 
 @protocol QPublisherDelegateObjC
-- (id) allocatePubByNamespace: (NSString*) quicrNamepace;
+- (id<QPublicationDelegateObjC>) allocatePubByNamespace: (NSString*) quicrNamepace;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 

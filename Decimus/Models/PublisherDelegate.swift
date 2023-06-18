@@ -12,7 +12,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.metricsSubmitter = metricsSubmitter
     }
 
-    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!) -> Any! {
+    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!) -> QPublicationDelegateObjC! {
         return Publication(namespace: quicrNamepace!,
                            publishDelegate: publishDelegate,
                            codecFactory: codecFactory,
