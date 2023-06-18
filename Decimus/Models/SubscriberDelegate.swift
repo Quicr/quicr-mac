@@ -32,7 +32,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         checkStaleVideoTimer!.invalidate()
     }
 
-    func allocateSub(byNamespace quicrNamepace: String!, qualityProfile: String!) -> Any! {
+    func allocateSub(byNamespace quicrNamepace: String!, qualityProfile: String!) -> QSubscriptionDelegateObjC! {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         switch config.codec {
         case .opus:
