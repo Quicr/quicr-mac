@@ -66,6 +66,17 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
     return (platform, build_process.returncode, output, error)
 
 
+def generate_dsym(framework_dir, target) -> tuple[int, bytes, bytes]:
+    command = [
+        "dsymutil",
+        f"{framework_dir}{target}.framework/{target}",
+        "-o",
+        f"{framework_dir}{target}.dSYM"
+    ]
+    make_dsym = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = make_dsym.communicate()
+    return make_dsym.returncode, output, error,
+
 def create_xcframework(target: str, target_path: str, current_directory: str, platforms: list[Platform]):
     xcframework_name = f"{target}.xcframework"
     xcframework_path = f"{current_directory}/{xcframework_name}"
@@ -81,6 +92,8 @@ def create_xcframework(target: str, target_path: str, current_directory: str, pl
         command.append("-framework")
         command.append(
             f"{current_directory}/{platform.build_folder}/{target_path}/{target}.framework")
+        command.append("-debug-symbols")
+        command.append(f"{current_directory}/{platform.build_folder}/{target_path}/{target}.dSYM")
     command.append("-output")
     command.append(xcframework_path)
 
@@ -172,6 +185,13 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
             print(error.decode())
         else:
             print(f"[{platform.type.name}] Built")
+
+    for platform in platforms:
+        result, output, error = generate_dsym(f"{current_directory}/{supported_platforms[platform].build_folder}/{target_path}", target)
+        if result != 0:
+            print(f"Couldn't make dsym for {platform}")
+            print(output)
+            print(error)
 
     # Universal LIPO.
     if PlatformType.CATALYST_ARM in platforms and PlatformType.CATALYST_X86 in platforms:
