@@ -16,11 +16,14 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private var node: AVAudioSourceNode?
     private var jitterBuffer: UnsafeMutableRawPointer?
     private var seq: UInt = 0
+    private let errorWriter: ErrorWriter
 
     init(namespace: String,
-         player: FasterAVEngineAudioPlayer) {
+         player: FasterAVEngineAudioPlayer,
+         errorWriter: ErrorWriter) {
         self.namespace = namespace
         self.player = player
+        self.errorWriter = errorWriter
     }
 
     deinit {
@@ -57,7 +60,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         // Create the player node.
         node = .init(format: decoder!.decodedFormat, renderBlock: renderBlock)
 
-        self.player.addPlayer(identifier: namespace, node: node!)
+        do {
+            try self.player.addPlayer(identifier: namespace, node: node!)
+        } catch {
+            let message = "Failed to add player node for subscription: \(error.localizedDescription)"
+            log(message)
+            errorWriter.writeError(message)
+        }
         log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceID!)")
 
         return SubscriptionError.None.rawValue
@@ -66,7 +75,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd] silence, _, numFrames, data in
         // Fill the buffers as best we can.
         guard data.pointee.mNumberBuffers == 1 else {
-            fatalError("What to do")
+            // Unexpected.
+            let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
+            print("Got multiple buffers?")
+            for buffer in buffers {
+                print("Got buffer of size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
+            }
+            return 1
         }
 
         guard data.pointee.mBuffers.mNumberChannels == asbd.pointee.mChannelsPerFrame else {
@@ -129,18 +144,19 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             return try .init(format: playerFormat)
         } catch {
             // That may not be supported, so decode into standard output instead.
-            let format: AVAudioFormat.OpusPCMFormat
-            switch player.inputFormat.commonFormat {
-            case .pcmFormatInt16:
-                format = .int16
-            case .pcmFormatFloat32:
-                format = .float32
-            default:
-                fatalError()
-            }
-            return try .init(format: .init(opusPCMFormat: format,
-                                           sampleRate: 48000,
-                                           channels: player.inputFormat.channelCount)!)
+            fatalError()
+//            let format: AVAudioFormat.OpusPCMFormat
+//            switch player.inputFormat.commonFormat {
+//            case .pcmFormatInt16:
+//                format = .int16
+//            case .pcmFormatFloat32:
+//                format = .float32
+//            default:
+//                fatalError()
+//            }
+//            return try .init(format: .init(opusPCMFormat: format,
+//                                           sampleRate: 48000,
+//                                           channels: player.inputFormat.channelCount)!)
         }
     }
 
@@ -150,12 +166,21 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
     func subscribedObject(_ data: Data!) -> Int32 {
         guard let decoder = decoder else {
-            log("No decoder for Subscription. Did you forget to prepare?")
+            let message = "No decoder for Subscription. Did you forget to prepare?"
+            log(message)
+            errorWriter.writeError(message)
             return SubscriptionError.NoDecoder.rawValue
         }
 
         data.withUnsafeBytes {
-            decoder.write(data: $0, timestamp: 0)
+            do {
+                try decoder.write(data: $0, timestamp: 0)
+            } catch {
+                // TODO: Report this error.
+                let message = "Failed to write to decoder: \(error.localizedDescription)"
+                log(message)
+                errorWriter.writeError(message)
+            }
         }
         return SubscriptionError.None.rawValue
     }

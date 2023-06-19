@@ -7,6 +7,7 @@ import UIKit
 struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
+    @EnvironmentObject private var errorHandler: ObservableError
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -16,10 +17,11 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(errorWriter: ErrorWriter, config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
-        _viewModel = StateObject(wrappedValue: ViewModel(config: config))
+        let model: ViewModel = .init(errorHandler: errorWriter, config: config)
+        _viewModel = .init(wrappedValue: model)
     }
 
     var body: some View {
@@ -28,7 +30,7 @@ struct InCallView: View {
                 VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(errorWriter: viewModel.errorHandler, leaving: $leaving)
+                CallControls(errorWriter: errorHandler, leaving: $leaving)
                     .disabled(leaving)
                     .padding(.bottom)
                     .frame(alignment: .top)
@@ -42,7 +44,7 @@ struct InCallView: View {
                     .frame(maxWidth: 400, alignment: .center)
             }
 
-            ErrorView(errorHandler: viewModel.errorHandler)
+            ErrorView()
         }
         .background(.black)
     }
@@ -51,13 +53,14 @@ struct InCallView: View {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        let errorHandler = ObservableError()
+        private let errorHandler: ErrorWriter
         private(set) var controller: CallController?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
-        init(config: CallConfig) {
+        init(errorHandler: ErrorWriter, config: CallConfig) {
+            self.errorHandler = errorHandler
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -71,8 +74,12 @@ extension InCallView {
                                                                     sampleRate: 48000,
                                                                     channels: 1,
                                                                     interleaved: true)!)
-            do {
-                Task { try await self.controller!.connect(config: config) }
+            Task {
+                do {
+                    try await self.controller!.connect(config: config) }
+                catch {
+                    errorHandler.writeError("CallController failed: \(error.localizedDescription)")
+                }
             }
         }
 
@@ -80,7 +87,7 @@ extension InCallView {
             do {
                 try controller!.disconnect()
             } catch {
-                errorHandler.writeError(message: "Error while leaving call: \(error)")
+                errorHandler.writeError("Error while leaving call: \(error)")
             }
         }
     }
@@ -88,6 +95,10 @@ extension InCallView {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(config: .init(address: "127.0.0.1", port: 5001, connectionProtocol: .QUIC)) { }
+        InCallView(errorWriter: ObservableError(),
+                   config: .init(address: "127.0.0.1",
+                                 port: 5001,
+                                 connectionProtocol: .QUIC)) { }
+            .environmentObject(ObservableError())
     }
 }

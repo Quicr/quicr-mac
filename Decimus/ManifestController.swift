@@ -19,9 +19,9 @@ class ManifestController {
         self.components.port = config.port
     }
 
-    private func makeRequest(method: String, components: URLComponents) -> URLRequest {
+    private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
         guard let url = URL(string: components.string!) else {
-            fatalError("[ManifestController] Invalid URL")
+            throw "Invalid URL: \(components)"
         }
 
         var request = URLRequest(url: url)
@@ -37,12 +37,12 @@ class ManifestController {
             defer { self.mutex.signal() }
 
             if let error = error {
-                print("[ManifestController] Failed to send request: \(error)")
+                print("Failed to send request: \(error)")
                 return
             }
 
             if let response = response as? HTTPURLResponse {
-                print("[ManifestController] Got HTTP response with status code: \(response.statusCode)")
+                print("Got HTTP response with status code: \(response.statusCode)")
             }
 
             if let data = data {
@@ -53,53 +53,57 @@ class ManifestController {
         mutex.wait()
     }
 
-    func getUser(email: String) async -> String {
+    func getUser(email: String) async throws -> String {
         var url = components
         url.path = "/users"
 
-        let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return "" }
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
-            fatalError()
+        let request = try makeRequest(method: "GET", components: url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
+            throw "Failed to deserialize JSON: \(data)"
         }
 
-        guard let user = json.first(where: { user in
-            guard let userEmail = user["email"] as? String else { fatalError() }
+        guard let user = try json.first(where: { user in
+            guard let userEmail = user["email"] as? String else {
+                throw "Missing user email"
+            }
             return userEmail == email
         }) else {
             return ""
         }
 
-        guard let userId = user["id"] as? String else { fatalError() }
+        guard let userId = user["id"] as? String else {
+            throw "Missing user id"
+        }
         return userId
     }
 
-    func getConferences(for id: String) async -> [UInt32: String] {
+    func getConferences(for id: String) async throws -> [UInt32: String] {
         var url = components
         url.path = "/conferences"
 
         var meetings: [UInt32: String] = [:]
-        let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return [:] }
-        guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
-            fatalError()
+        let request = try makeRequest(method: "GET", components: url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
+            throw "Failed to deserialize JSON: \(data)"
         }
 
-        let conferences = json.filter { conference in
-            guard let participants = conference["participants"] as? [String] else { return false }
+        let conferences = try json.filter { conference in
+            guard let participants = conference["participants"] as? [String] else { throw "Conference missing participants" }
             return participants.contains(id)
         }
 
         for conference in conferences {
-            guard let id = conference["id"] as? UInt32 else { fatalError() }
-            guard let title = conference["title"] as? String else { fatalError() }
+            guard let id = conference["id"] as? UInt32 else { throw "Conference missing id" }
+            guard let title = conference["title"] as? String else { throw "Conference missing title" }
             meetings[id] = title
         }
 
         return meetings
     }
 
-    func getManifest(confId: UInt32, email: String) async -> String {
+    func getManifest(confId: UInt32, email: String) async throws -> String {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
@@ -107,11 +111,8 @@ class ManifestController {
         ]
 
         var manifest: String = ""
-        let request = makeRequest(method: "GET", components: url)
-        guard let (data, _) = try? await URLSession.shared.data(for: request) else {
-            print("[ManifestController] Failed to retrieve manifest")
-            return ""
-        }
+        let request = try makeRequest(method: "GET", components: url)
+        let (data, _) = try await URLSession.shared.data(for: request)
 
         guard let json = data.prettyPrintedJSONString else { return "" }
         manifest = json as String

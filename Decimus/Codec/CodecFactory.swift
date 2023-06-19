@@ -80,10 +80,10 @@ class CodecFactory {
 }
 
 class EncoderFactory: CodecFactory {
-    private lazy var factories: [CodecType: (CodecConfig) -> Encoder] = [
+    private lazy var factories: [CodecType: (CodecConfig) throws -> Encoder] = [
         .h264: {
             guard let config = $0 as? VideoCodecConfig else { fatalError() }
-            return H264Encoder(config: config, verticalMirror: false)
+            return try H264Encoder(config: config, verticalMirror: false)
         },
         .opus: { [unowned self] in
             guard let config = $0 as? AudioCodecConfig else { fatalError() }
@@ -101,7 +101,7 @@ class EncoderFactory: CodecFactory {
             throw CodecError.noCodecFound(config.codec)
         }
 
-        var encoder = factory(config)
+        var encoder = try factory(config)
         encoder.registerCallback(callback: callback)
         return encoder
     }
@@ -124,13 +124,14 @@ class DecoderFactory: CodecFactory {
     ]
 
     override init(audioFormat: AVAudioFormat) {
-        if audioFormat.isValidOpusPCMFormat {
-            super.init(audioFormat: audioFormat)
-        } else {
-            super.init(audioFormat: .init(opusPCMFormat: .float32,
-                                          sampleRate: .opus48khz,
-                                          channels: 2)!)
-        }
+//        if audioFormat.isValidOpusPCMFormat {
+//            super.init(audioFormat: audioFormat)
+//        } else {
+//            super.init(audioFormat: .init(opusPCMFormat: .float32,
+//                                          sampleRate: .opus48khz,
+//                                          channels: 2)!)
+//        }
+        super.init(audioFormat: .init())
     }
 
     private func create<DecoderType>(config: CodecConfig) throws -> DecoderType {

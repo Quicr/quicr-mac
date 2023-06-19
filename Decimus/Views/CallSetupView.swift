@@ -28,6 +28,7 @@ private struct LoginForm: View {
                                                port: 0,
                                                connectionProtocol: .QUIC,
                                                conferenceID: 0)
+    @EnvironmentObject private var errorHandler: ObservableError
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -45,7 +46,11 @@ private struct LoginForm: View {
                         .onChange(of: callConfig.email, perform: { value in
                             email = value
                             Task {
-                                await fetchManifest()
+                                do {
+                                    try await fetchManifest()
+                                } catch {
+                                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                                }
                             }
 
                             if !meetings.keys.contains(UInt32(confId)) {
@@ -121,7 +126,12 @@ private struct LoginForm: View {
         .scrollDisabled(true)
         .onAppear {
             Task {
-                await fetchManifest()
+                do {
+                    try await fetchManifest()
+                } catch {
+                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                    return
+                }
                 if meetings.count > 0 {
                     callConfig = CallConfig(address: relayConfig.value.address,
                                             port: relayConfig.value.ports[.QUIC]!,
@@ -136,10 +146,10 @@ private struct LoginForm: View {
         }
     }
 
-    private func fetchManifest() async {
+    private func fetchManifest() async throws {
         isLoading = true
-        let userId = await ManifestController.shared.getUser(email: email)
-        meetings = await ManifestController.shared.getConferences(for: userId)
+        let userId = try await ManifestController.shared.getUser(email: email)
+        meetings = try await ManifestController.shared.getConferences(for: userId)
         callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }
@@ -152,6 +162,7 @@ private struct LoginForm: View {
 struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
     @State private var settingsOpen: Bool = false
+    @EnvironmentObject private var errorWriter: ObservableError
 
     init(_ onJoin: @escaping ConfigCallback) {
         UIApplication.shared.isIdleTimerDisabled = false
@@ -195,6 +206,9 @@ struct CallSetupView: View {
                                                    cornerRadius: 50,
                                                    isDisabled: false))
                 }
+
+                // Show any errors.
+                ErrorView()
             }
         }
     }
@@ -203,5 +217,6 @@ struct CallSetupView: View {
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
         CallSetupView { _ in }
+            .environmentObject(ObservableError())
     }
 }

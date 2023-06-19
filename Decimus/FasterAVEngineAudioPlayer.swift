@@ -33,16 +33,12 @@ class FasterAVEngineAudioPlayer {
         engine.detach(mixer)
     }
 
-    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) {
+    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
         print("[FasterAVAudioEngine] (\(identifier)) Attaching node: \(node.outputFormat(forBus: 0))")
         engine.attach(node)
         engine.connect(node, to: mixer, format: nil)
         if !engine.isRunning {
-            do {
-                try engine.start()
-            } catch {
-                fatalError()
-            }
+            try engine.start()
         }
     }
 

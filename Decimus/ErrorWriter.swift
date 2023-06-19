@@ -1,3 +1,3 @@
 protocol ErrorWriter {
-    func writeError(message: String)
+    func writeError(_ message: String)
 }
