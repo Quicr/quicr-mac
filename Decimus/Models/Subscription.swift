@@ -24,13 +24,13 @@ private class AudioSubscriptionOutputDelegate: SubscriptionOutputDelegate {
 
 class Subscription: QSubscriptionDelegateObjC {
 
-    private let namespace: String
+    private let namespace: QuicrNamespace
     private var decoder: Decoder?
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private unowned let codecFactory: DecoderFactory
 
-    init(namespace: String,
+    init(namespace: QuicrNamespace,
          codecFactory: DecoderFactory,
          participants: VideoParticipants,
          player: FasterAVEngineAudioPlayer) {

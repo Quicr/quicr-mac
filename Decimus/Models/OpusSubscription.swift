@@ -9,7 +9,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     private var frames: UInt64 = 0
     private var bytes: UInt64 = 0
 
-    init(namespace: String, submitter: MetricsSubmitter) {
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
         Task {
             await submitter.register(measurement: self)
@@ -44,7 +44,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private var seq: UInt = 0
     private let measurement: OpusSubscriptionMeasurement
 
-    init(namespace: String,
+    init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
          submitter: MetricsSubmitter) {
         self.namespace = namespace
