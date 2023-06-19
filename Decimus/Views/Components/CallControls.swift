@@ -2,6 +2,7 @@ import SwiftUI
 import AVFoundation
 
 struct CallControls: View {
+    @EnvironmentObject private var errorHandler: ObservableError
     @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
@@ -18,7 +19,8 @@ struct CallControls: View {
     )
 
     init(errorWriter: ErrorWriter, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter))
+        let model: ViewModel = .init(errorWriter: errorWriter)
+        _viewModel = .init(wrappedValue: model)
         _leaving = leaving
     }
 
@@ -151,12 +153,19 @@ extension CallControls {
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        @Published var capture: CaptureManager
+        @Published var capture: CaptureManager?
 
         private var notifier: NotificationCenter = .default
+        private let errorWriter: ErrorWriter
 
         init(errorWriter: ErrorWriter) {
-            self.capture = .init(errorHandler: errorWriter)
+            self.errorWriter = errorWriter
+            do {
+                self.capture = try .init()
+            } catch {
+                errorWriter.writeError(error.localizedDescription)
+                return
+            }
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.notifier.addObserver(self,
                                       selector: #selector(join),
@@ -173,17 +182,31 @@ extension CallControls {
         }
 
         @objc private func join(_ notification: Notification) {
+            guard let capture = capture else { return }
             Task { await capture.startCapturing() }
         }
 
         @objc private func leave(_ notification: Notification) {
+            guard let capture = capture else { return }
             usingDevice.forEach({ device, _ in
-                Task { await capture.removeInput(device: device) }
+                Task {
+                    do {
+                        try await capture.removeInput(device: device)
+                    } catch {
+                        errorWriter.writeError(error.localizedDescription)
+                    }
+                }
             })
             usingDevice.removeAll()
             alteringDevice.removeAll()
 
-            Task { await capture.stopCapturing() }
+            Task {
+                do {
+                    try await capture.stopCapturing()
+                } catch {
+                    errorWriter.writeError(error.localizedDescription)
+                }
+            }
         }
 
         @objc private func addInputDevice(_ notification: Notification) {
@@ -193,19 +216,26 @@ extension CallControls {
                 return
             }
 
-            Task { await addDevice(device: publication.device!,
-                                   delegateCapture: publication.capture,
-                                   queue: publication.queue) }
+            Task {
+                do {
+                    try await addDevice(device: publication.device!,
+                                        delegateCapture: publication.capture,
+                                        queue: publication.queue)
+                } catch {
+                    errorWriter.writeError(error.localizedDescription)
+                }
+            }
         }
 
         func addDevice(device: AVCaptureDevice,
                        delegateCapture: PublicationCaptureDelegate?,
-                       queue: DispatchQueue) async {
+                       queue: DispatchQueue) async throws {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
+            guard let capture = capture else { return }
             alteringDevice[device] = true
-            await capture.addInput(device: device, delegateCapture: delegateCapture, queue: queue)
+            try await capture.addInput(device: device, delegateCapture: delegateCapture, queue: queue)
             usingDevice[device] = true
             alteringDevice[device] = false
         }
@@ -215,6 +245,7 @@ extension CallControls {
                 print("??")
                 return false
             }
+            guard let capture = capture else { return false }
             alteringDevice[device] = true
             let enabled = await capture.toggleInput(device: device)
             usingDevice[device] = enabled
@@ -233,5 +264,6 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         CallControls(errorWriter: ObservableError(), leaving: bool)
+            .environmentObject(ObservableError())
     }
 }

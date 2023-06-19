@@ -29,15 +29,18 @@ class Subscription: QSubscriptionDelegateObjC {
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private unowned let codecFactory: DecoderFactory
+    private let errorWriter: ErrorWriter
 
     init(namespace: String,
          codecFactory: DecoderFactory,
          participants: VideoParticipants,
-         player: FasterAVEngineAudioPlayer) {
+         player: FasterAVEngineAudioPlayer,
+         errorWriter: ErrorWriter) {
         self.namespace = namespace
         self.codecFactory = codecFactory
         self.participants = participants
         self.player = player
+        self.errorWriter = errorWriter
     }
 
     deinit {
@@ -82,7 +85,14 @@ class Subscription: QSubscriptionDelegateObjC {
         }
 
         data.withUnsafeBytes {
-            decoder.write(data: $0, timestamp: 0)
+            do {
+                try decoder.write(data: $0, timestamp: 0)
+            } catch {
+                // TODO: Subscription error for failed decode.
+                let message = "Failed to decoder: \(error.localizedDescription)"
+                errorWriter.writeError(message)
+                log(message)
+            }
         }
         return SubscriptionError.None.rawValue
     }

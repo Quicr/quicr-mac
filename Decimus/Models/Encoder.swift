@@ -3,15 +3,15 @@ import AVFoundation
 
 protocol Encoder {
     typealias EncodedCallback = (Data, Bool) -> Void
-    func write(sample: CMSampleBuffer)
-    func write(data: CMSampleBuffer, format: AVAudioFormat)
+    func write(sample: CMSampleBuffer) throws
+    func write(data: CMSampleBuffer, format: AVAudioFormat) throws
     var callback: EncodedCallback? {get set}
     mutating func registerCallback(callback: @escaping EncodedCallback)
 }
 
 extension Encoder {
-    func write(sample: CMSampleBuffer) {}
-    func write(data: CMSampleBuffer, format: AVAudioFormat) {}
+    func write(sample: CMSampleBuffer) throws {}
+    func write(data: CMSampleBuffer, format: AVAudioFormat) throws {}
     mutating func registerCallback(callback: @escaping EncodedCallback) {
         self.callback = callback
     }

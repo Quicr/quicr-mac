@@ -6,8 +6,10 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let player: FasterAVEngineAudioPlayer
     private let codecFactory: DecoderFactory
     private var checkStaleVideoTimer: Timer?
+    private let errorWriter: ErrorWriter
 
     init(errorWriter: ErrorWriter, audioFormat: AVAudioFormat?) {
+        self.errorWriter = errorWriter
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter)
         self.codecFactory = .init(audioFormat: audioFormat ?? player.inputFormat)
@@ -37,12 +39,14 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         switch config.codec {
         case .opus:
             return OpusSubscription(namespace: quicrNamepace!,
-                                    player: player)
+                                    player: player,
+                                    errorWriter: errorWriter)
         default:
             return Subscription(namespace: quicrNamepace!,
                                 codecFactory: codecFactory,
                                 participants: participants,
-                                player: player)
+                                player: player,
+                                errorWriter: errorWriter)
         }
     }
 
