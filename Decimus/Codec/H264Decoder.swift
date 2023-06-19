@@ -30,8 +30,11 @@ class H264Decoder: SampleDecoder {
 
     deinit {
         guard let session = self.session else { return }
+        let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
+        if flush != .zero {
+            print("H264Decoder failed to flush frames")
+        }
         VTDecompressionSessionInvalidate(session)
-        self.session = nil
     }
 
     /// Write a new frame to the decoder.
