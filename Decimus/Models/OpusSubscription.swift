@@ -144,19 +144,18 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             return try .init(format: playerFormat)
         } catch {
             // That may not be supported, so decode into standard output instead.
-            fatalError()
-//            let format: AVAudioFormat.OpusPCMFormat
-//            switch player.inputFormat.commonFormat {
-//            case .pcmFormatInt16:
-//                format = .int16
-//            case .pcmFormatFloat32:
-//                format = .float32
-//            default:
-//                fatalError()
-//            }
-//            return try .init(format: .init(opusPCMFormat: format,
-//                                           sampleRate: 48000,
-//                                           channels: player.inputFormat.channelCount)!)
+            let format: AVAudioFormat.OpusPCMFormat
+            switch player.inputFormat.commonFormat {
+            case .pcmFormatInt16:
+                format = .int16
+            case .pcmFormatFloat32:
+                format = .float32
+            default:
+                fatalError()
+            }
+            return try .init(format: .init(opusPCMFormat: format,
+                                           sampleRate: 48000,
+                                           channels: player.inputFormat.channelCount)!)
         }
     }
 

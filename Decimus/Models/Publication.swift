@@ -63,12 +63,12 @@ private class AudioPublicationCaptureDelegate: PublicationCaptureDelegate,
             return
         }
 
-//        guard asbd.mSampleRate == .opus48khz,
-//              asbd.mChannelsPerFrame == 1,
-//              asbd.mBytesPerFrame == 2 else {
-//            log("Microphone format not currently supported. Try a different mic")
-//            return
-//        }
+        guard asbd.mSampleRate == .opus48khz,
+              asbd.mChannelsPerFrame == 1,
+              asbd.mBytesPerFrame == 2 else {
+            log("Microphone format not currently supported. Try a different mic")
+            return
+        }
         guard let formatDescription = sampleBuffer.formatDescription else {
             let message = "Missing format description"
             log(message)
@@ -132,10 +132,13 @@ class Publication: QPublicationDelegateObjC {
             let mediaType: AVMediaType
             switch config.codec {
             case .h264:
-                capture = VideoPublicationCaptureDelegate(encoder: encoder!, errorWriter: errorWriter) { [weak self] in self?.log($0) }
+                capture = VideoPublicationCaptureDelegate(encoder: encoder!, errorWriter: errorWriter) { [weak self] in
+                    self?.log($0)
+                }
                 mediaType = .video
             case .opus:
-                capture = AudioPublicationCaptureDelegate(encoder: encoder!, errorWriter: errorWriter) { [weak self] in self?.log($0)
+                capture = AudioPublicationCaptureDelegate(encoder: encoder!, errorWriter: errorWriter) { [weak self] in
+                    self?.log($0)
                 }
                 mediaType = .audio
             default:

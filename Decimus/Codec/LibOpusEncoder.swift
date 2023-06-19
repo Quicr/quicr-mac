@@ -1,8 +1,8 @@
-// import Opus
+import Opus
 import AVFoundation
 
 class LibOpusEncoder: Encoder {
-    // private let encoder: Opus.Encoder
+    private let encoder: Opus.Encoder
     internal var callback: EncodedCallback?
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
@@ -22,18 +22,16 @@ class LibOpusEncoder: Encoder {
     /// - Parameter format: The format of the input data.
     init(format: AVAudioFormat) throws {
         self.format = format
-//        let appMode: Opus.Application = desiredFrameSizeMs < 10 ? .restrictedLowDelay : .voip
-//        try encoder = .init(format: format, application: appMode)
+        let appMode: Opus.Application = desiredFrameSizeMs < 10 ? .restrictedLowDelay : .voip
+        try encoder = .init(format: format, application: appMode)
         opusFrameSize = AVAudioFrameCount(format.sampleRate * (desiredFrameSizeMs / 1000))
         opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
-//        encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
-        encoded = .init()
+        encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
         guard format.equivalent(other: self.format) else {
-            print("Write format must match declared format")
-            return
+            throw "Write format must match declared format"
         }
 
         // Write our samples to the buffer
@@ -45,10 +43,10 @@ class LibOpusEncoder: Encoder {
         while UInt32(buffer.count) >= opusFrameSizeBytes {
             guard let callback = callback else { throw "Callback not set for decoder" }
             let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
-            // let encodedBytes = try encoder.encode(pcm, to: &encoded)
-//            encoded.withUnsafeBytes { bytes in
-//                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
-//            }
+            let encodedBytes = try encoder.encode(pcm, to: &encoded)
+            encoded.withUnsafeBytes { bytes in
+                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
+            }
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
         }
     }

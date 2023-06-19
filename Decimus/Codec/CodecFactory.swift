@@ -124,14 +124,13 @@ class DecoderFactory: CodecFactory {
     ]
 
     override init(audioFormat: AVAudioFormat) {
-//        if audioFormat.isValidOpusPCMFormat {
-//            super.init(audioFormat: audioFormat)
-//        } else {
-//            super.init(audioFormat: .init(opusPCMFormat: .float32,
-//                                          sampleRate: .opus48khz,
-//                                          channels: 2)!)
-//        }
-        super.init(audioFormat: .init())
+        if audioFormat.isValidOpusPCMFormat {
+            super.init(audioFormat: audioFormat)
+        } else {
+            super.init(audioFormat: .init(opusPCMFormat: .float32,
+                                          sampleRate: .opus48khz,
+                                          channels: 2)!)
+        }
     }
 
     private func create<DecoderType>(config: CodecConfig) throws -> DecoderType {
