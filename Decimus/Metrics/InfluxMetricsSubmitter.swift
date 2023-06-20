@@ -6,13 +6,15 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     private let client: InfluxDBClient
     private var measurements: [Measurement] = []
     private var submissionTask: Task<(), Never>?
+    private var tags: [String: String]
 
-    init(config: InfluxConfig) {
+    init(config: InfluxConfig, tags: [String: String]) {
         // Create the influx API instance.
         client = .init(url: config.url,
                        token: config.token,
                        options: .init(bucket: config.bucket,
                                       org: config.org))
+        self.tags = tags
     }
 
     func startSubmitting(interval: Int) {
@@ -35,6 +37,9 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
             for timestampedDict in await measurement.fields {
                 let point: InfluxDBClient.Point = .init(await measurement.name)
                 for tag in await measurement.tags {
+                    point.addTag(key: tag.key, value: tag.value)
+                }
+                for tag in self.tags {
                     point.addTag(key: tag.key, value: tag.value)
                 }
                 if let realTime = timestampedDict.key {

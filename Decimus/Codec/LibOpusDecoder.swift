@@ -28,7 +28,7 @@ class LibOpusDecoder: BufferDecoder {
             try data.withMemoryRebound(to: UInt8.self) {
                 try decoder.decode($0, to: decoded)
             }
-            let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
+            let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1)
             callback(decoded, timestamp)
         } catch {
             fatalError("Opus => Failed to decode: \(error)")

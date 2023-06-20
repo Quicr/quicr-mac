@@ -1,6 +1,32 @@
 import AVFAudio
 import CoreAudio
 
+actor OpusSubscriptionMeasurement: Measurement {
+    var name: String = "OpusSubscription"
+    var fields: [Date?: [String: AnyObject]] = [:]
+    var tags: [String: String] = [:]
+
+    private var frames: UInt64 = 0
+    private var bytes: UInt64 = 0
+
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        tags["namespace"] = namespace
+        Task {
+            await submitter.register(measurement: self)
+        }
+    }
+
+    func receivedFrames(received: AVAudioFrameCount, timestamp: Date?) {
+        self.frames += UInt64(received)
+        record(field: "receivedFrames", value: self.frames as AnyObject, timestamp: timestamp)
+    }
+
+    func receivedBytes(received: UInt, timestamp: Date?) {
+        self.bytes += UInt64(received)
+        record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+    }
+}
+
 class OpusSubscription: QSubscriptionDelegateObjC {
 
     struct Metrics {
@@ -16,11 +42,14 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private var node: AVAudioSourceNode?
     private var jitterBuffer: UnsafeMutableRawPointer?
     private var seq: UInt = 0
+    private let measurement: OpusSubscriptionMeasurement
 
-    init(namespace: String,
-         player: FasterAVEngineAudioPlayer) {
+    init(namespace: QuicrNamespace,
+         player: FasterAVEngineAudioPlayer,
+         submitter: MetricsSubmitter) {
         self.namespace = namespace
         self.player = player
+        self.measurement = .init(namespace: namespace, submitter: submitter)
     }
 
     deinit {
@@ -154,8 +183,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             return SubscriptionError.NoDecoder.rawValue
         }
 
+        Task(priority: .utility) {
+            let date = Date.now
+            await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+        }
+
         data.withUnsafeBytes {
-            decoder.write(data: $0, timestamp: 0)
+            decoder.write(data: $0, timestamp: .init(Date.now.timeIntervalSince1970))
         }
         return SubscriptionError.None.rawValue
     }
@@ -168,6 +202,14 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
         guard list.pointee.mBuffers.mDataByteSize > 0 else {
             fatalError()
+        }
+
+        Task(priority: .utility) {
+            var date: Date?
+            if let timestamp = timestamp {
+                date = .init(timeIntervalSince1970: timestamp.seconds)
+            }
+            await measurement.receivedFrames(received: buffer.frameLength, timestamp: date)
         }
 
         // Get audio data as packet list.
