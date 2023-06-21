@@ -8,6 +8,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         var framesEnqueuedFail = 0
     }
 
+    static var requestPLCCount: Int = 0;
     private let namespace: String
     private var decoder: LibOpusDecoder?
     private unowned let player: FasterAVEngineAudioPlayer
@@ -105,13 +106,19 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     }
 
     private let plcCallback: LibJitterConcealmentCallback = { packets, count in
+        print("plcCallback count = \(count)")
+        requestPLCCount +=  count
+        print("total request count = \(requestPLCCount)")
         for index in 0...count - 1 {
             // Make PLC packets.
             // TODO: Ask the opus deco5der to generate real PLC data.
             // TODO: Figure out how to best pass in frame lengths and sizes.
             let packetPtr = packets!.advanced(by: index)
             print("[AudioSubscription] Requested PLC for: \(packetPtr.pointee.sequence_number)")
+            
             let malloced = malloc(480 * 8)
+            
+
             memset(malloced, 0, 480 * 8)
             packetPtr.pointee.data = .init(malloced)
             packetPtr.pointee.elements = 480
@@ -148,7 +155,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!) -> Int32 {
+    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         guard let decoder = decoder else {
             log("No decoder for Subscription. Did you forget to prepare?")
             return SubscriptionError.NoDecoder.rawValue
