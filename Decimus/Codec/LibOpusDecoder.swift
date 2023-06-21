@@ -23,9 +23,15 @@ class LibOpusDecoder: BufferDecoder {
 
         // Create buffer for the decoded data.
         let decoded: AVAudioPCMBuffer = .init(pcmFormat: decodedFormat,
-                                              frameCapacity: 1000)!
-        try data.withMemoryRebound(to: UInt8.self) {
-            try decoder.decode($0, to: decoded)
+                                              frameCapacity: .opusMax)!
+        do {
+            try data.withMemoryRebound(to: UInt8.self) {
+                try decoder.decode($0, to: decoded)
+            }
+            let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1)
+            callback(decoded, timestamp)
+        } catch {
+            fatalError("Opus => Failed to decode: \(error)")
         }
         let timestamp: CMTime = .init(value: CMTimeValue(timestamp), timescale: 1000)
         callback(decoded, timestamp)

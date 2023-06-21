@@ -13,7 +13,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
          inputAudioFormat: AVAudioFormat,
          outputAudioFormat: AVAudioFormat? = nil) {
         super.init()
-        self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter, audioFormat: outputAudioFormat)
+        self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter,
+                                                     audioFormat: outputAudioFormat,
+                                                     submitter: metricsSubmitter)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    audioFormat: inputAudioFormat,
                                                    metricsSubmitter: metricsSubmitter,

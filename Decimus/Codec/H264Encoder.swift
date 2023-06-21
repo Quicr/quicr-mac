@@ -67,8 +67,15 @@ class H264Encoder: Encoder {
 
     deinit {
         guard let session = encoder else { return }
+
+        // Sync flush all pending frames.
+        let flushError = VTCompressionSessionCompleteFrames(session,
+                                                            untilPresentationTimeStamp: .init())
+        if flushError != .zero {
+            print("H264 Encoder failed to flush")
+        }
+
         VTCompressionSessionInvalidate(session)
-        self.encoder = nil
     }
 
     func write(sample: CMSampleBuffer) throws {
