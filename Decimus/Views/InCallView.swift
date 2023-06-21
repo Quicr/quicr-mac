@@ -58,7 +58,13 @@ extension InCallView {
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(config: CallConfig) {
-            let submitter = InfluxMetricsSubmitter(config: influxConfig.value)
+            let tags: [String: String] = [
+                "relay": "\(config.address):\(config.port)",
+                "email": config.email,
+                "conference": "\(config.conferenceID)",
+                "protocol": "\(config.connectionProtocol)"
+            ]
+            let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
             Task {
                 guard influxConfig.value.submit else { return }
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)

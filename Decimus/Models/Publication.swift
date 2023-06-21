@@ -119,10 +119,14 @@ class Publication: QPublicationDelegateObjC {
             let mediaType: AVMediaType
             switch config.codec {
             case .h264:
-                capture = VideoPublicationCaptureDelegate(encoder: encoder, log: log)
+                capture = VideoPublicationCaptureDelegate(encoder: encoder) { [weak self] message in
+                    self?.log(message)
+                }
                 mediaType = .video
             case .opus:
-                capture = AudioPublicationCaptureDelegate(encoder: encoder, log: log)
+                capture = AudioPublicationCaptureDelegate(encoder: encoder) { [weak self] message in
+                    self?.log(message)
+                }
                 mediaType = .audio
             default:
                 return PublicationError.NoSource.rawValue

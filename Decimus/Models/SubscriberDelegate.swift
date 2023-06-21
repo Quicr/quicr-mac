@@ -6,11 +6,13 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let player: FasterAVEngineAudioPlayer
     private let codecFactory: DecoderFactory
     private var checkStaleVideoTimer: Timer?
+    private let submitter: MetricsSubmitter
 
-    init(errorWriter: ErrorWriter, audioFormat: AVAudioFormat?) {
+    init(errorWriter: ErrorWriter, audioFormat: AVAudioFormat?, submitter: MetricsSubmitter) {
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter)
         self.codecFactory = .init(audioFormat: audioFormat ?? player.inputFormat)
+        self.submitter = submitter
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -32,12 +34,13 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         checkStaleVideoTimer!.invalidate()
     }
 
-    func allocateSub(byNamespace quicrNamepace: String!, qualityProfile: String!) -> Any! {
+    func allocateSub(byNamespace quicrNamepace: String!, qualityProfile: String!) -> QSubscriptionDelegateObjC! {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         switch config.codec {
         case .opus:
             return OpusSubscription(namespace: quicrNamepace!,
-                                    player: player)
+                                    player: player,
+                                    submitter: submitter)
         default:
             return Subscription(namespace: quicrNamepace!,
                                 codecFactory: codecFactory,

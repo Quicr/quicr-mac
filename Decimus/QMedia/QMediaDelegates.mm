@@ -77,7 +77,7 @@ std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocate
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    id subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
+    id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
     return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, quicrNamespace);
 }
 
@@ -96,7 +96,7 @@ std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocateP
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    id publication = [delegate allocatePubByNamespace:quicrNamespaceNSString];
+    id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString];
     return std::make_shared<qclient::QMediaPublicationDelegate>(publication, quicrNamespace);
 }
 

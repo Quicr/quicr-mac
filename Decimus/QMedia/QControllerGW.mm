@@ -54,12 +54,12 @@
     qControllerGW.setPublisherDelegate(delegate);
 }
 
-- (id)allocateSubByNamespace:(NSString *)quicrNamepace qualityProfile:(NSString*)qualityProfile {
+- (id<QSubscriptionDelegateObjC>)allocateSubByNamespace:(NSString *)quicrNamepace qualityProfile:(NSString*)qualityProfile {
     if (!subscriberDelegate) return nil;
     return  [subscriberDelegate allocateSubByNamespace:quicrNamepace qualityProfile:qualityProfile];
 }
 
-- (id)allocatePubByNamespace:(NSString *)quicrNamepace {
+- (id<QPublicationDelegateObjC>)allocatePubByNamespace:(NSString *)quicrNamepace {
     if (!publisherDelegate) return nil;
     return  [publisherDelegate allocatePubByNamespace:quicrNamepace];
 }
