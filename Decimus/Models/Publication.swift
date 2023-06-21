@@ -9,6 +9,46 @@ enum PublicationError: Int32 {
 }
 // swiftlint:enable identifier_name
 
+actor PublicationMeasurement: Measurement {
+    var name: String = "Publication"
+    var fields: [Date?: [String: AnyObject]] = [:]
+    var tags: [String: String] = [:]
+
+    private var bytes: UInt64 = 0
+
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        tags["namespace"] = namespace
+        Task {
+            await submitter.register(measurement: self)
+        }
+    }
+
+    func sentBytes(sent: UInt64, timestamp: Date?) {
+        self.bytes += sent
+        record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+    }
+}
+
+actor VideoMeasurement: Measurement {
+    var name: String = "VideoPublication"
+    var fields: [Date?: [String: AnyObject]] = [:]
+    var tags: [String: String] = [:]
+
+    private var pixels: UInt64 = 0
+
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        tags["namespace"] = namespace
+        Task {
+            await submitter.register(measurement: self)
+        }
+    }
+
+    func sentPixels(sent: UInt64, timestamp: Date?) {
+        self.pixels += sent
+        record(field: "sentPixels", value: self.pixels as AnyObject, timestamp: timestamp)
+    }
+}
+
 class PublicationCaptureDelegate: NSObject {
     private let encoder: Encoder?
     let log: (String) -> Void
@@ -41,10 +81,28 @@ class PublicationCaptureDelegate: NSObject {
 
 private class VideoPublicationCaptureDelegate: PublicationCaptureDelegate,
                                                AVCaptureVideoDataOutputSampleBufferDelegate {
+    private let measurement: VideoMeasurement
+
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter, encoder: Encoder?, log: @escaping (String) -> Void) {
+        measurement = .init(namespace: namespace, submitter: submitter)
+        super.init(encoder: encoder, log: log)
+    }
+
     /// This callback fires when a video frame arrives.
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        // Report pixel metrics.
+        guard let buffer = sampleBuffer.imageBuffer else { return }
+        let width = CVPixelBufferGetWidth(sampleBuffer.imageBuffer!)
+        let height = CVPixelBufferGetHeight(sampleBuffer.imageBuffer!)
+        let pixels: UInt64 = .init(width * height)
+        let date = Date.now
+        Task(priority: .utility) {
+            await measurement.sentPixels(sent: pixels, timestamp: date)
+        }
+
+        // Encode.
         let encoder = checkEncoder()
         encoder.write(sample: sampleBuffer)
     }
@@ -83,6 +141,7 @@ class Publication: QPublicationDelegateObjC {
     private unowned let codecFactory: EncoderFactory
     private unowned let publishObjectDelegate: QPublishObjectDelegateObjC
     private unowned let metricsSubmitter: MetricsSubmitter
+    private let measurement: PublicationMeasurement
 
     let namespace: QuicrNamespace
     let queue: DispatchQueue
@@ -99,6 +158,7 @@ class Publication: QPublicationDelegateObjC {
         self.metricsSubmitter = metricsSubmitter
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
+        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
@@ -110,16 +170,23 @@ class Publication: QPublicationDelegateObjC {
 
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
         do {
-            let encoder = try codecFactory.create(config) { [weak self] in
+            let encoder = try codecFactory.create(config) { [weak self] data, flag in
                 guard let self = self else { return }
-                self.publishObjectDelegate.publishObject(self.namespace, data: $0, group: $1)
+                let timestamp = Date.now
+                let count = data.count
+                Task(priority: .utility) {
+                    await self.measurement.sentBytes(sent: UInt64(count), timestamp: timestamp)
+                }
+                self.publishObjectDelegate.publishObject(self.namespace, data: data, group: flag)
             }
             log("Registered \(String(describing: config.codec)) publication for source \(sourceID!)")
 
             let mediaType: AVMediaType
             switch config.codec {
             case .h264:
-                capture = VideoPublicationCaptureDelegate(encoder: encoder) { [weak self] message in
+                capture = VideoPublicationCaptureDelegate(namespace: self.namespace,
+                                                          submitter: self.metricsSubmitter,
+                                                          encoder: encoder) { [weak self] message in
                     self?.log(message)
                 }
                 mediaType = .video
