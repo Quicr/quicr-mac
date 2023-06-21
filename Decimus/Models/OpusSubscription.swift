@@ -148,6 +148,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
     }
 
+    private let freeCallback: LibJitterConcealmentCallback = { packets, count in
+        for index in 0...count - 1 {
+            let packetPtr = packets!.advanced(by: index)
+            free(.init(mutating: packetPtr.pointee.data))
+        }
+    }
+
     private func createOpusDecoder(config: CodecConfig, playerFormat: AVAudioFormat) throws -> LibOpusDecoder {
         guard config.codec == .opus else {
             fatalError("Codec mismatch")
@@ -221,7 +228,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         self.seq += 1
 
         // Copy in.
-        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback)
+        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback)
         self.metrics.framesEnqueued += copied
         guard copied == buffer.frameLength else {
             print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
