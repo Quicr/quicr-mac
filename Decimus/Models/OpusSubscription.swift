@@ -184,7 +184,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!) -> Int32 {
+    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         guard let decoder = decoder else {
             log("No decoder for Subscription. Did you forget to prepare?")
             return SubscriptionError.NoDecoder.rawValue
