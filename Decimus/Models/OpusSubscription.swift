@@ -133,7 +133,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return .zero
     }
 
-    private let plcCallback: LibJitterConcealmentCallback = { packets, count in
+    private let plcCallback: LibJitterConcealmentCallback = { packets, count, _ in
         for index in 0...count - 1 {
             // Make PLC packets.
             // TODO: Ask the opus deco5der to generate real PLC data.
@@ -148,7 +148,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
     }
 
-    private let freeCallback: LibJitterConcealmentCallback = { packets, count in
+    private let freeCallback: LibJitterConcealmentCallback = { packets, count, _ in
         for index in 0...count - 1 {
             let packetPtr = packets!.advanced(by: index)
             free(.init(mutating: packetPtr.pointee.data))
@@ -228,7 +228,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         self.seq += 1
 
         // Copy in.
-        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback)
+        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback, nil)
         self.metrics.framesEnqueued += copied
         guard copied == buffer.frameLength else {
             print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
