@@ -88,8 +88,8 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         asbd = .init(mutating: decoder!.decodedFormat.streamDescription)
         jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
                                   UInt(asbd.pointee.mSampleRate),
-                                  20,
-                                  500)
+                                  500,
+                                  20)
 
         // Create the player node.
         node = .init(format: decoder!.decodedFormat, renderBlock: renderBlock)
