@@ -77,7 +77,9 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
         do {
             decoder = try createOpusDecoder(config: config, playerFormat: player.inputFormat)
-            decoder!.registerCallback(callback: onDecodedAudio)
+            decoder!.registerCallback { [weak self] in
+                self?.onDecodedAudio(buffer: $0, timestamp: $1)
+            }
         } catch {
             return SubscriptionError.FailedDecoderCreation.rawValue
         }
