@@ -199,10 +199,11 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         // Metrics.
         let date = Date.now
         let missing = groupId - self.seq - 1
+        let currentSeq = self.seq
         Task(priority: .utility) {
             await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
             if missing > 0 {
-                print("LOSS! \(missing) packets. Had: \(self.seq), got: \(groupId)")
+                print("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
                 await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
             }
         }
