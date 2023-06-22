@@ -8,6 +8,7 @@ actor OpusSubscriptionMeasurement: Measurement {
 
     private var frames: UInt64 = 0
     private var bytes: UInt64 = 0
+    private var missing: UInt64 = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -25,6 +26,11 @@ actor OpusSubscriptionMeasurement: Measurement {
         self.bytes += UInt64(received)
         record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
     }
+
+    func missingSeq(missingCount: UInt64, timestamp: Date?) {
+        self.missing += missingCount
+        record(field: "missingSeqs", value: self.missing as AnyObject, timestamp: timestamp)
+    }
 }
 
 class OpusSubscription: QSubscriptionDelegateObjC {
@@ -41,7 +47,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
     private var jitterBuffer: UnsafeMutableRawPointer?
-    private var seq: UInt = 0
+    private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
 
     init(namespace: QuicrNamespace,
@@ -190,11 +196,18 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             return SubscriptionError.NoDecoder.rawValue
         }
 
+        // Metrics.
+        let date = Date.now
+        let missing = groupId - self.seq - 1
         Task(priority: .utility) {
-            let date = Date.now
             await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+            if missing > 0 {
+                print("LOSS! \(missing) packets. Had: \(self.seq), got: \(groupId)")
+                await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+            }
         }
 
+        self.seq = groupId
         data.withUnsafeBytes {
             decoder.write(data: $0, timestamp: .init(Date.now.timeIntervalSince1970))
         }
@@ -221,11 +234,10 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
-        var packet: Packet = .init(sequence_number: self.seq,
+        var packet: Packet = .init(sequence_number: UInt(self.seq),
                                    data: audioBuffer.mData,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
-        self.seq += 1
 
         // Copy in.
         let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback)
