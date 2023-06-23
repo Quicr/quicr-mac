@@ -929,6 +929,8 @@
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -995,6 +997,8 @@
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
