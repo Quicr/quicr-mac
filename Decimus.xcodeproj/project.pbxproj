@@ -916,7 +916,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -931,6 +931,9 @@
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
 					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -984,7 +987,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -999,6 +1002,9 @@
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
 					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
