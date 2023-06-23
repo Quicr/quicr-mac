@@ -15,6 +15,8 @@ class OpusPublication: QPublicationDelegateObjC {
     private var asbd: UnsafePointer<AudioStreamBasicDescription>?
     private var format: AVAudioFormat?
     private var encodeThread: Thread?
+    private var converter: AVAudioConverter?
+    private var differentEncodeFormat: AVAudioFormat?
 
     let namespace: QuicrNamespace
     private(set) var capture: PublicationCaptureDelegate?
@@ -27,54 +29,61 @@ class OpusPublication: QPublicationDelegateObjC {
         self.publishObjectDelegate = publishDelegate
         self.codecFactory = codecFactory
         self.metricsSubmitter = metricsSubmitter
-        guard _TPCircularBufferInit(buffer, 1, MemoryLayout<TPCircularBuffer>.size) else {
-            fatalError()
-        }
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        guard config.codec == .opus else {
-            print("This wasn't opus")
-            return PublicationError.None.rawValue
+        assert(config.codec == .opus)
+
+        do {
+            try AVAudioSession.configureForDecimus()
+            try engine.inputNode.setVoiceProcessingEnabled(false)
+            print(engine.inputNode.outputFormat(forBus: 0))
+        } catch {
+            fatalError()
         }
+
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
+        format = outputFormat
+        asbd = format!.streamDescription
+
+        let hundredMils = asbd!.pointee.mBytesPerPacket * UInt32(asbd!.pointee.mSampleRate) / 100
+        guard _TPCircularBufferInit(buffer, hundredMils, MemoryLayout<TPCircularBuffer>.size) else {
+            fatalError()
+        }
+
         do {
             // Try and directly use the microphone output format.
             encoder = try .init(format: outputFormat)
-            encoder?.registerCallback(callback: { [weak self] data, flag in
-                self?.publishObjectDelegate.publishObject(self?.namespace, data: data, group: flag)
-            })
-            format = outputFormat
         } catch {
             // Fallback format?
-            fatalError()
-            return PublicationError.FailedEncoderCreation.rawValue
+            differentEncodeFormat = .init(commonFormat: outputFormat.commonFormat,
+                                          sampleRate: 48000,
+                                          channels: 1,
+                                          interleaved: true)
+            converter = .init(from: outputFormat, to: differentEncodeFormat!)!
+            do {
+                encoder = try .init(format: differentEncodeFormat!)
+            } catch { fatalError() }
         }
-        asbd = format!.streamDescription
+        encoder?.registerCallback(callback: { [weak self] data, flag in
+            self?.publishObjectDelegate.publishObject(self?.namespace, data: data, group: flag)
+        })
 
         // Start capturing audio.
-        do {
-            try engine.inputNode.setVoiceProcessingEnabled(false)
-        } catch {
-            fatalError()
-        }
-
         let sink: AVAudioSinkNode = .init { [buffer, asbd] timestamp, numFrames, data in
-            guard data.pointee.mBuffers.mDataByteSize > 0 else {
-                fatalError()
-            }
-
-            let copied = TPCircularBufferCopyAudioBufferList(buffer, data, timestamp, numFrames, asbd)
+            let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                             data,
+                                                             timestamp,
+                                                             numFrames,
+                                                             asbd)
             guard copied else {
-                print("Didn't copy")
                 return 1
             }
             return .zero
         }
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: nil)
-        engine.prepare()
         do {
             try engine.start()
         } catch {
@@ -98,16 +107,62 @@ class OpusPublication: QPublicationDelegateObjC {
     }
 
     func encode() throws {
-        let opusFrameSize: AVAudioFrameCount = 480
+        if let converter = converter {
+            let converted: AVAudioPCMBuffer = .init(pcmFormat: differentEncodeFormat!, frameCapacity: 480)!
+            var error: NSError? = .init()
+            converter.convert(to: converted,
+                              error: &error) { [weak self] packets, status in
+                guard let self = self else {
+                    status.pointee = .endOfStream
+                    return nil
+                }
+                var timestamp: AudioTimeStamp = .init()
+                let availableFrames = TPCircularBufferPeek(buffer,
+                                                           &timestamp,
+                                                           asbd)
+                guard availableFrames >= packets else {
+                    status.pointee = .noDataNow
+                    return .init()
+                }
+
+                // We have enough data.
+                var inOutFrames: AVAudioFrameCount = packets
+                let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: packets)!
+                pcm.frameLength = packets
+                TPCircularBufferDequeueBufferListFrames(buffer,
+                                                        &inOutFrames,
+                                                        pcm.audioBufferList,
+                                                        &timestamp,
+                                                        asbd)
+                pcm.frameLength = inOutFrames
+                guard inOutFrames > 0 else {
+                    status.pointee = .noDataNow
+                    return .init()
+                }
+                guard inOutFrames == packets else {
+                    print("Dequeue only got: \(inOutFrames)/\(packets)")
+                    status.pointee = .noDataNow
+                    return nil
+                }
+                status.pointee = .haveData
+                return pcm
+            }
+            converted.frameLength = 480
+            try encoder?.write(data: converted)
+            return
+        }
+
+        // No conversion.
+        let tenMil: AVAudioFrameCount = AVAudioFrameCount(asbd!.pointee.mSampleRate / 100)
         var timestamp: AudioTimeStamp = .init()
         let availableFrames = TPCircularBufferPeek(buffer,
                                                    &timestamp,
                                                    asbd)
-        guard availableFrames >= opusFrameSize else { return }
+        guard availableFrames >= tenMil else { return }
 
-        var inOutFrames: AVAudioFrameCount = opusFrameSize
-        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: opusFrameSize)!
-        pcm.frameLength = opusFrameSize
+        var inOutFrames: AVAudioFrameCount = tenMil
+        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: tenMil)!
+        pcm.frameLength = tenMil
         TPCircularBufferDequeueBufferListFrames(buffer,
                                                 &inOutFrames,
                                                 pcm.audioBufferList,
@@ -115,11 +170,12 @@ class OpusPublication: QPublicationDelegateObjC {
                                                 asbd)
         pcm.frameLength = inOutFrames
         guard inOutFrames > 0 else { return }
-        guard inOutFrames == opusFrameSize else {
-            print("Dequeue only got: \(inOutFrames)/\(opusFrameSize)")
+        guard inOutFrames == tenMil else {
+            print("Dequeue only got: \(inOutFrames)/\(tenMil)")
             return
         }
-        try encoder?.write(data: pcm)
+
+        try encoder!.write(data: pcm)
     }
 
     func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {

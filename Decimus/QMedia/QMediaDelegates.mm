@@ -92,11 +92,13 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 {
 }
 
-std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace)
+std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString];
+    NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
+                                       encoding:[NSString defaultCStringEncoding]];
+    id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
     return std::make_shared<qclient::QMediaPublicationDelegate>(publication, quicrNamespace);
 }
 
