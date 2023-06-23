@@ -12,11 +12,20 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.metricsSubmitter = metricsSubmitter
     }
 
-    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!) -> QPublicationDelegateObjC! {
-        return Publication(namespace: quicrNamepace!,
-                           publishDelegate: publishDelegate,
-                           codecFactory: codecFactory,
-                           metricsSubmitter: metricsSubmitter)
+    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!, qualityProfile: String!) -> QPublicationDelegateObjC! {
+        let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
+        switch config.codec {
+        case .opus:
+            return OpusPublication(namespace: quicrNamepace,
+                                   publishDelegate: publishDelegate,
+                                   codecFactory: codecFactory,
+                                   metricsSubmitter: metricsSubmitter)
+        default:
+            return Publication(namespace: quicrNamepace!,
+                               publishDelegate: publishDelegate,
+                               codecFactory: codecFactory,
+                               metricsSubmitter: metricsSubmitter)
+        }
     }
 
     func remove(byNamespace quicrNamepace: String!) -> Int32 {

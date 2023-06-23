@@ -59,9 +59,9 @@
     return  [subscriberDelegate allocateSubByNamespace:quicrNamepace qualityProfile:qualityProfile];
 }
 
-- (id<QPublicationDelegateObjC>)allocatePubByNamespace:(NSString *)quicrNamepace {
+- (id<QPublicationDelegateObjC>)allocatePubByNamespace:(NSString *)quicrNamepace qualityProfile:(NSString*)qualityProfile {
     if (!publisherDelegate) return nil;
-    return  [publisherDelegate allocatePubByNamespace:quicrNamepace];
+    return  [publisherDelegate allocatePubByNamespace:quicrNamepace qualityProfile:qualityProfile];
 }
 
 - (int)removeByNamespace:(NSString *)quicrNamepace {
