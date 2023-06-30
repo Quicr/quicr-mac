@@ -112,14 +112,14 @@ class OpusPublication: QPublicationDelegateObjC {
             var error: NSError? = .init()
             converter.convert(to: converted,
                               error: &error) { [weak self] packets, status in
-                guard let self = self else {
+                guard let instance = self else {
                     status.pointee = .endOfStream
                     return nil
                 }
                 var timestamp: AudioTimeStamp = .init()
-                let availableFrames = TPCircularBufferPeek(buffer,
+                let availableFrames = TPCircularBufferPeek(instance.buffer,
                                                            &timestamp,
-                                                           asbd)
+                                                           instance.asbd)
                 guard availableFrames >= packets else {
                     status.pointee = .noDataNow
                     return .init()
@@ -127,13 +127,13 @@ class OpusPublication: QPublicationDelegateObjC {
 
                 // We have enough data.
                 var inOutFrames: AVAudioFrameCount = packets
-                let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: packets)!
+                let pcm: AVAudioPCMBuffer = .init(pcmFormat: instance.format!, frameCapacity: packets)!
                 pcm.frameLength = packets
-                TPCircularBufferDequeueBufferListFrames(buffer,
+                TPCircularBufferDequeueBufferListFrames(instance.buffer,
                                                         &inOutFrames,
                                                         pcm.audioBufferList,
                                                         &timestamp,
-                                                        asbd)
+                                                        instance.asbd)
                 pcm.frameLength = inOutFrames
                 guard inOutFrames > 0 else {
                     status.pointee = .noDataNow
