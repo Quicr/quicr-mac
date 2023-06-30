@@ -52,6 +52,7 @@ struct CallControls: View {
 
     var body: some View {
         HStack(alignment: .center) {
+#if !os(tvOS)
             ActionPicker(
                 audioOn ? "Mute" : "Unmute",
                 icon: audioOn ? "microphone-on" : "microphone-muted",
@@ -84,6 +85,7 @@ struct CallControls: View {
                 Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
             }
             .disabled(viewModel.isAlteringMicrophone())
+#endif
 
             ActionPicker(
                 videoOn ? "Stop Video" : "Start Video",

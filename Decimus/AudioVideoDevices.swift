@@ -4,7 +4,7 @@ import AVFoundation
 /// Allows access to cameras, microphones and speakers.
 class AudioVideoDevices: ObservableObject {
 
-    @Published var audioInputs: [AVCaptureDevice]
+    @Published var audioInputs: [AVCaptureDevice] = []
     @Published var cameras: [AVCaptureDevice]
 
     init() {
@@ -29,9 +29,11 @@ class AudioVideoDevices: ObservableObject {
             position: .unspecified)
         cameras = cameraDiscovery.devices
 
+        #if !os(tvOS)
         let microphoneDiscovery = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInMicrophone],
                                                                    mediaType: .audio,
                                                                    position: .unspecified)
         audioInputs = microphoneDiscovery.devices
+        #endif
     }
 }

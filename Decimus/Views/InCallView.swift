@@ -10,11 +10,13 @@ struct InCallView: View {
 
     /// Callback when call is left.
     private let onLeave: () -> Void
+#if !os(tvOS)
     private let orientationChanged = NotificationCenter
         .default
         .publisher(for: UIDevice.orientationDidChangeNotification)
         .makeConnectable()
         .autoconnect()
+#endif
 
     init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true

@@ -98,7 +98,7 @@ class H264Encoder: Encoder {
             callback(parameterSets, true)
         }
 
-        #if !targetEnvironment(macCatalyst)
+        #if !targetEnvironment(macCatalyst) && !os(tvOS)
         // Orientation SEI.
         guard let orientationSei = try? makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
                                                            verticalMirror: verticalMirror)
@@ -197,6 +197,7 @@ class H264Encoder: Encoder {
         return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
     }
 
+#if !os(tvOS)
     private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
                                     verticalMirror: Bool) throws -> CMSampleBuffer {
         let bytes: [UInt8] = [
@@ -247,6 +248,7 @@ class H264Encoder: Encoder {
             fatalError("?")
         }
     }
+#endif
 
     private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
         var buffer: CMBlockBuffer?

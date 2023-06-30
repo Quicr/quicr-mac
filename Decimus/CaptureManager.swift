@@ -70,6 +70,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return connection.isEnabled
     }
 
+    #if !os(tvOS)
     private func addMicrophone(device: AVCaptureDevice,
                                delegate: AVCaptureAudioDataOutputSampleBufferDelegate,
                                queue: DispatchQueue) {
@@ -87,6 +88,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         audioOutput.setSampleBufferDelegate(delegate, queue: queue)
         addIO(device: device, input: microphone, output: audioOutput)
     }
+    #endif
 
     private func addCamera(device: AVCaptureDevice,
                            delegate: AVCaptureVideoDataOutputSampleBufferDelegate) {
@@ -162,17 +164,29 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Add.
         session.beginConfiguration()
+
+#if !os(tvOS)
         if device.deviceType == .builtInMicrophone {
             guard let audioDelegate = delegateCapture as? AVCaptureAudioDataOutputSampleBufferDelegate else {
                 fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureAudioDataOutputSampleBufferDelegate")
             }
             addMicrophone(device: device, delegate: audioDelegate, queue: queue)
-        } else {
-            guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
-                fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
+
+            session.commitConfiguration()
+
+            // Run the session
+            if !session.isRunning {
+                session.startRunning()
             }
-            addCamera(device: device, delegate: videoDelegate)
+
+            return
         }
+#endif
+
+        guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
+            fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
+        }
+        addCamera(device: device, delegate: videoDelegate)
         session.commitConfiguration()
 
         // Run the session
@@ -246,6 +260,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 }
 
+#if !os(tvOS)
 extension UIDeviceOrientation {
     var videoOrientation: AVCaptureVideoOrientation {
         switch self {
@@ -262,3 +277,4 @@ extension UIDeviceOrientation {
         }
     }
 }
+#endif

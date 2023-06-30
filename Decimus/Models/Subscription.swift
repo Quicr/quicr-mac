@@ -54,9 +54,15 @@ class Subscription: QSubscriptionDelegateObjC {
         do {
             switch config.codec {
             case .h264:
-                let sampleDecoder = try codecFactory.create(config: config) { [weak self] in
-                    self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
+#if os(tvOS)
+                let sampleDecoder = try codecFactory.create(config: config) { [weak self] image, timestamp, flip in
+                    self?.showDecodedImage(decoded: image, timestamp: timestamp, verticalMirror: flip)
                 }
+#else
+                let sampleDecoder = try codecFactory.create(config: config) { [weak self] image, timestamp, orientation, flip in
+                    self?.showDecodedImage(decoded: image, timestamp: timestamp, orientation: orientation, verticalMirror: flip)
+                }
+#endif
                 decoder = sampleDecoder
             default:
                 return SubscriptionError.FailedDecoderCreation.rawValue
@@ -87,6 +93,7 @@ class Subscription: QSubscriptionDelegateObjC {
         return SubscriptionError.None.rawValue
     }
 
+#if !os(tvOS)
     private func showDecodedImage(decoded: CIImage,
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
@@ -99,12 +106,25 @@ class Subscription: QSubscriptionDelegateObjC {
         participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
         participant.lastUpdated = .now()
     }
+#else
+    private func showDecodedImage(decoded: CIImage,
+                                  timestamp: CMTimeValue,
+                                  verticalMirror: Bool) {
+        let participant = participants.getOrMake(identifier: namespace)
+
+        // TODO: Why can't we use CIImage directly here?
+        let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
+        participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: .up)
+        participant.lastUpdated = .now()
+    }
+#endif
 
     private func log(_ message: String) {
         print("[Subscription] (\(namespace)) \(message)")
     }
 }
 
+#if !os(tvOS)
 extension AVCaptureVideoOrientation {
     func toImageOrientation(_ verticalMirror: Bool) -> Image.Orientation {
         let imageOrientation: Image.Orientation
@@ -123,3 +143,4 @@ extension AVCaptureVideoOrientation {
         return imageOrientation
     }
 }
+#endif

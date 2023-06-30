@@ -113,10 +113,14 @@ private struct LoginForm: View {
                 }
             }
             .listRowBackground(Color.clear)
+#if !os(tvOS)
             .listRowSeparator(.hidden)
+#endif
         }
         .background(.clear)
+#if !os(tvOS)
         .scrollContentBackground(.hidden)
+#endif
         .frame(maxHeight: 450)
         .scrollDisabled(true)
         .onAppear {

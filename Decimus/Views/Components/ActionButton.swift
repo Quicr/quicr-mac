@@ -49,10 +49,12 @@ struct ActionButtonStyle: ButtonStyle {
                     .stroke(borderColour, lineWidth: borderSize)
                     .hoverEffect(.highlight)
             )
+        #if !os(tvOS)
             .onHover { hovered in
                 borderColour = (hovered ? styleConfig.hoverColour : styleConfig.borderColour) ??
                                                                     styleConfig.borderColour ?? .clear
             }
+        #endif
     }
 }
 

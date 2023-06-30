@@ -18,7 +18,9 @@ class H264Decoder: SampleDecoder {
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
     internal var callback: DecodedCallback?
+#if !os(tvOS)
     private var orientation: AVCaptureVideoOrientation?
+#endif
     private var verticalMirror: Bool = false
 
     /// Stored codec config. Can be updated.
@@ -257,7 +259,11 @@ class H264Decoder: SampleDecoder {
 
         // Fire callback with the decoded image.
         let ciImage: CIImage = .init(cvImageBuffer: image!)
-        callback(ciImage, presentation.value, orientation, verticalMirror)
+        #if os(tvOS)
+callback(ciImage, presentation.value, verticalMirror)
+        #else
+callback(ciImage, presentation.value, orientation, verticalMirror)
+        #endif
     }
 
     /// Determines if the current pointer is pointing to the start of a NALU start code.
@@ -278,7 +284,9 @@ class H264Decoder: SampleDecoder {
         case 0x2f:
             // Video orientation.
             assert(typed[6] == 2)
+#if !os(tvOS) // TODO: This should be handled in our own enum.
             orientation = .init(rawValue: .init(typed[7]))
+#endif
             verticalMirror = typed[8] == 1
         default:
             print("H264Decoder => Unhandled SEI type: \(seiType)")

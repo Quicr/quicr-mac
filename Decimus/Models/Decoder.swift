@@ -7,7 +7,11 @@ protocol Decoder {
 }
 
 protocol SampleDecoder: Decoder {
+#if !os(tvOS)
     typealias DecodedCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
+#else
+    typealias DecodedCallback = (CIImage, CMTimeValue, Bool) -> Void
+#endif
     var callback: DecodedCallback? {get set}
 
     mutating func registerCallback(callback: @escaping DecodedCallback)

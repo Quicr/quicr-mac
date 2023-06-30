@@ -8,9 +8,13 @@ extension AVAudioSession {
     static func configureForDecimus() throws {
         guard !configuredForDecimus else { return }
         let audioSession = Self.sharedInstance()
+        let options: AVAudioSession.CategoryOptions = []
+        #if !os(tvOS)
+        options = [.defaultToSpeaker, .allowBluetooth]
+        #endif
         try audioSession.setCategory(.playAndRecord,
                                      mode: .videoChat,
-                                     options: [.defaultToSpeaker, .allowBluetooth])
+                                     options: options)
         try audioSession.setActive(true)
         configuredForDecimus = true
         print("Configured")
