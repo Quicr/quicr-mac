@@ -5,11 +5,16 @@ class PublisherDelegate: QPublisherDelegateObjC {
     private let codecFactory: EncoderFactory
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
+    private let captureManager: CaptureManager
 
-    init(publishDelegate: QPublishObjectDelegateObjC, audioFormat: AVAudioFormat, metricsSubmitter: MetricsSubmitter) {
+    init(publishDelegate: QPublishObjectDelegateObjC,
+         audioFormat: AVAudioFormat,
+         metricsSubmitter: MetricsSubmitter,
+         captureManager: CaptureManager) {
         self.publishDelegate = publishDelegate
         self.codecFactory = .init(audioFormat: audioFormat)
         self.metricsSubmitter = metricsSubmitter
+        self.captureManager = captureManager
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!, qualityProfile: String!) -> QPublicationDelegateObjC! {
@@ -24,7 +29,8 @@ class PublisherDelegate: QPublisherDelegateObjC {
             return Publication(namespace: quicrNamepace!,
                                publishDelegate: publishDelegate,
                                codecFactory: codecFactory,
-                               metricsSubmitter: metricsSubmitter)
+                               metricsSubmitter: metricsSubmitter,
+                               captureManager: captureManager)
         }
     }
 

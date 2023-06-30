@@ -8,7 +8,7 @@ public extension AVCaptureDevice {
 }
 
 /// Manages local media capture.
-actor CaptureManager {
+actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -20,7 +20,9 @@ actor CaptureManager {
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
+    private var multiVideoDelegate: [AVCaptureDevice: [AVCaptureVideoDataOutputSampleBufferDelegate]] = [:]
     private let errorHandler: ErrorWriter
+    private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
 
     init(errorHandler: ErrorWriter) {
         self.errorHandler = errorHandler
@@ -87,8 +89,15 @@ actor CaptureManager {
     }
 
     private func addCamera(device: AVCaptureDevice,
-                           delegate: AVCaptureVideoDataOutputSampleBufferDelegate,
-                           queue: DispatchQueue) {
+                           delegate: AVCaptureVideoDataOutputSampleBufferDelegate) {
+        // Device is already setup, add this delegate.
+        if var subscriptions = self.multiVideoDelegate[device] {
+            subscriptions.append(delegate)
+            self.multiVideoDelegate[device] = subscriptions
+            return
+        }
+
+        // Setup device.
         do {
             // Device config.
             try device.lockForConfiguration()
@@ -111,8 +120,9 @@ actor CaptureManager {
 
         // Add an output for this device.
         let videoOutput: AVCaptureVideoDataOutput = .init()
-        videoOutput.setSampleBufferDelegate(delegate, queue: queue)
+        videoOutput.setSampleBufferDelegate(self, queue: self.queue)
         addIO(device: device, input: camera, output: videoOutput)
+        self.multiVideoDelegate[device] = [delegate]
     }
 
     private func addIO(device: AVCaptureDevice, input: AVCaptureDeviceInput, output: AVCaptureOutput) {
@@ -161,7 +171,7 @@ actor CaptureManager {
             guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
                 fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
             }
-            addCamera(device: device, delegate: videoDelegate, queue: queue)
+            addCamera(device: device, delegate: videoDelegate)
         }
         session.commitConfiguration()
 
@@ -195,6 +205,44 @@ actor CaptureManager {
             fatalError()
         }
         return connection.isEnabled
+    }
+
+    private func getDelegate(output: AVCaptureOutput) -> [AVCaptureVideoDataOutputSampleBufferDelegate] {
+        guard let device = self.outputs[output],
+              let subscribers = self.multiVideoDelegate[device] else {
+            return []
+        }
+        return subscribers
+    }
+
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didOutput sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
+        Task(priority: .high) {
+            let subscriptions = await getDelegate(output: output)
+            await withTaskGroup(of: Void.self, body: { group in
+                for subscriber in subscriptions {
+                    group.addTask {
+                        subscriber.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+                    }
+                }
+            })
+        }
+    }
+
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didDrop sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
+        Task(priority: .high) {
+            let subscriptions = await getDelegate(output: output)
+            await withTaskGroup(of: Void.self, body: { group in
+                for subscriber in subscriptions {
+                    group.addTask {
+                        subscriber.captureOutput?(output, didDrop: sampleBuffer, from: connection)
+                    }
+                }
+            })
+        }
     }
 }
 
