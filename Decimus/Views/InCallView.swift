@@ -28,7 +28,9 @@ struct InCallView: View {
                 VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(errorWriter: viewModel.errorHandler, leaving: $leaving)
+                CallControls(errorWriter: viewModel.errorHandler,
+                             captureManager: viewModel.captureManager,
+                             leaving: $leaving)
                     .disabled(leaving)
                     .padding(.bottom)
                     .frame(alignment: .top)
@@ -53,6 +55,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         let errorHandler = ObservableError()
         private(set) var controller: CallController?
+        private(set) var captureManager: CaptureManager
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -64,6 +67,7 @@ extension InCallView {
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
+            self.captureManager = .init(errorHandler: errorHandler)
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -72,6 +76,7 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
+                                    captureManager: captureManager,
                                     // TODO: inputAudioFormat needs to be the real input format.
                                     inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
                                                                     sampleRate: 48000,

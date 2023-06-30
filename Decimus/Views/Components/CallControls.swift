@@ -17,8 +17,8 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter))
+    init(errorWriter: ErrorWriter, captureManager: CaptureManager, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
         _leaving = leaving
     }
 
@@ -151,13 +151,13 @@ extension CallControls {
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        @Published var capture: CaptureManager
+        private let capture: CaptureManager
 
         private var notifier: NotificationCenter = .default
 
-        init(errorWriter: ErrorWriter) {
-            self.capture = .init(errorHandler: errorWriter)
+        init(errorWriter: ErrorWriter, captureManager: CaptureManager) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
+            self.capture = captureManager
             self.notifier.addObserver(self,
                                       selector: #selector(join),
                                       name: .connected,
@@ -165,10 +165,6 @@ extension CallControls {
             self.notifier.addObserver(self,
                                       selector: #selector(leave),
                                       name: .disconnected,
-                                      object: nil)
-            self.notifier.addObserver(self,
-                                      selector: #selector(addInputDevice),
-                                      name: .publicationPreparedForDevice,
                                       object: nil)
         }
 
@@ -184,30 +180,6 @@ extension CallControls {
             alteringDevice.removeAll()
 
             Task { await capture.stopCapturing() }
-        }
-
-        @objc private func addInputDevice(_ notification: Notification) {
-            guard let publication = notification.object as? Publication else {
-                let object = notification.object as Any
-                assertionFailure("Invalid device: \(object)")
-                return
-            }
-
-            Task { await addDevice(device: publication.device!,
-                                   delegateCapture: publication.capture,
-                                   queue: publication.queue) }
-        }
-
-        func addDevice(device: AVCaptureDevice,
-                       delegateCapture: PublicationCaptureDelegate?,
-                       queue: DispatchQueue) async {
-            guard !(alteringDevice[device] ?? false) else {
-                return
-            }
-            alteringDevice[device] = true
-            await capture.addInput(device: device, delegateCapture: delegateCapture, queue: queue)
-            usingDevice[device] = true
-            alteringDevice[device] = false
         }
 
         func toggleDevice(device: AVCaptureDevice) async -> Bool {
@@ -232,6 +204,7 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        CallControls(errorWriter: ObservableError(), leaving: bool)
+        CallControls(errorWriter: ObservableError(),
+                     captureManager: .init(errorHandler: ObservableError()), leaving: bool)
     }
 }

@@ -147,11 +147,13 @@ class Publication: QPublicationDelegateObjC {
     let queue: DispatchQueue
     private(set) var device: AVCaptureDevice?
     private(set) var capture: PublicationCaptureDelegate?
+    private let captureManager: CaptureManager
 
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
          codecFactory: EncoderFactory,
-         metricsSubmitter: MetricsSubmitter) {
+         metricsSubmitter: MetricsSubmitter,
+         captureManager: CaptureManager) {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.codecFactory = codecFactory
@@ -159,6 +161,7 @@ class Publication: QPublicationDelegateObjC {
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        self.captureManager = captureManager
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
@@ -200,7 +203,12 @@ class Publication: QPublicationDelegateObjC {
             }
 
             // TODO: SourceID from manifest is bogus, do this for now to retrieve correct device
-            self.device = AVCaptureDevice.default(for: mediaType)
+            guard let device: AVCaptureDevice = .default(for: mediaType) else {
+                return PublicationError.NoSource.rawValue
+            }
+            Task(priority: .medium) {
+                await captureManager.addInput(device: device, delegateCapture: capture, queue: self.queue)
+            }
         } catch {
             log("Failed to create encoder: \(error)")
             return PublicationError.FailedEncoderCreation.rawValue

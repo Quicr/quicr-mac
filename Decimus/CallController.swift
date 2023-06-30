@@ -10,6 +10,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
+         captureManager: CaptureManager,
          inputAudioFormat: AVAudioFormat,
          outputAudioFormat: AVAudioFormat? = nil) {
         super.init()
@@ -18,7 +19,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      submitter: metricsSubmitter)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    audioFormat: inputAudioFormat,
-                                                   metricsSubmitter: metricsSubmitter)
+                                                   metricsSubmitter: metricsSubmitter,
+                                                   captureManager: captureManager)
     }
 
     func connect(config: CallConfig) async throws {
