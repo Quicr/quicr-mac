@@ -76,12 +76,7 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager,
-                                    // TODO: inputAudioFormat needs to be the real input format.
-                                    inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
-                                                                    sampleRate: 48000,
-                                                                    channels: 1,
-                                                                    interleaved: true)!)
+                                    captureManager: captureManager)
             do {
                 Task { try await self.controller!.connect(config: config) }
             }

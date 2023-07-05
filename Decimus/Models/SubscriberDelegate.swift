@@ -8,10 +8,10 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private var checkStaleVideoTimer: Timer?
     private let submitter: MetricsSubmitter
 
-    init(errorWriter: ErrorWriter, audioFormat: AVAudioFormat?, submitter: MetricsSubmitter) {
+    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter) {
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter)
-        self.codecFactory = .init(audioFormat: audioFormat ?? player.inputFormat)
+        self.codecFactory = .init(audioFormat: player.inputFormat)
         self.submitter = submitter
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in

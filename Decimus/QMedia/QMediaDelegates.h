@@ -60,7 +60,7 @@ class QMediaPublisherDelegate : public qmedia::QPublisherDelegate
 {
 public:
     QMediaPublisherDelegate(id<QPublisherDelegateObjC> delegate);
-    std::shared_ptr<qmedia::QPublicationDelegate> allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile);
+    std::shared_ptr<qmedia::QPublicationDelegate> allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile);
     int removePubByNamespace(const quicr::Namespace& quicrNamespace);
 private:
     id<QPublisherDelegateObjC> delegate;

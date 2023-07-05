@@ -3,13 +3,12 @@ import AVFAudio
 import AVFoundation
 import CTPCircularBuffer
 
-class OpusPublication: QPublicationDelegateObjC {
-    private let notifier: NotificationCenter = .default
+class OpusPublication: Publication {
+    let namespace: QuicrNamespace
+    internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
+    internal let device: AVCaptureDevice? = nil
 
-    private var encoder: LibOpusEncoder?
-    private unowned let codecFactory: EncoderFactory
-    private unowned let publishObjectDelegate: QPublishObjectDelegateObjC
-    private unowned let metricsSubmitter: MetricsSubmitter
+    private var encoder: LibOpusEncoder
     private let engine: AVAudioEngine = .init()
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private var asbd: UnsafePointer<AudioStreamBasicDescription>?
@@ -18,22 +17,12 @@ class OpusPublication: QPublicationDelegateObjC {
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
 
-    let namespace: QuicrNamespace
-    private(set) var capture: PublicationCaptureDelegate?
-
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
-         codecFactory: EncoderFactory,
+         sourceID: SourceIDType,
          metricsSubmitter: MetricsSubmitter) {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.codecFactory = codecFactory
-        self.metricsSubmitter = metricsSubmitter
-    }
-
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
-        let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        assert(config.codec == .opus)
 
         do {
             try AVAudioSession.configureForDecimus()
@@ -66,8 +55,8 @@ class OpusPublication: QPublicationDelegateObjC {
                 encoder = try .init(format: differentEncodeFormat!)
             } catch { fatalError() }
         }
-        encoder?.registerCallback(callback: { [weak self] data, flag in
-            self?.publishObjectDelegate.publishObject(self?.namespace, data: data, group: flag)
+        encoder.registerCallback(callback: { [weak self] data, flag in
+            self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, group: flag)
         })
 
         // Start capturing audio.
@@ -89,8 +78,10 @@ class OpusPublication: QPublicationDelegateObjC {
         } catch {
             fatalError("\(error)")
         }
-        log("Registered \(String(describing: config.codec)) publication for source \(sourceID!)")
+        log("Registered OPUS publication for source \(sourceID)")
+    }
 
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
         // Start the encode job.
         encodeThread = Thread {
             while true {
@@ -103,7 +94,12 @@ class OpusPublication: QPublicationDelegateObjC {
             }
         }
         encodeThread!.start()
+
         return PublicationError.None.rawValue
+    }
+
+    func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
+        return PublicationError.NoSource.rawValue
     }
 
     func encode() throws {
@@ -148,7 +144,7 @@ class OpusPublication: QPublicationDelegateObjC {
                 return pcm
             }
             converted.frameLength = 480
-            try encoder?.write(data: converted)
+            try encoder.write(data: converted)
             return
         }
 
@@ -175,16 +171,8 @@ class OpusPublication: QPublicationDelegateObjC {
             return
         }
 
-        try encoder!.write(data: pcm)
-    }
-
-    func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
-        return PublicationError.NoSource.rawValue
+        try encoder.write(data: pcm)
     }
 
     func publish(_ flag: Bool) {}
-
-    private func log(_ message: String) {
-        print("[Publication] (\(namespace)) \(message)")
-    }
 }

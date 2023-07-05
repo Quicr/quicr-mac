@@ -2,36 +2,25 @@ import AVFoundation
 import Foundation
 
 class PublisherDelegate: QPublisherDelegateObjC {
-    private let codecFactory: EncoderFactory
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
-    private let captureManager: CaptureManager
+    private let factory: PublicationFactory
 
     init(publishDelegate: QPublishObjectDelegateObjC,
-         audioFormat: AVAudioFormat,
          metricsSubmitter: MetricsSubmitter,
          captureManager: CaptureManager) {
         self.publishDelegate = publishDelegate
-        self.codecFactory = .init(audioFormat: audioFormat)
         self.metricsSubmitter = metricsSubmitter
-        self.captureManager = captureManager
+        self.factory = .init(capture: captureManager)
     }
 
-    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!, qualityProfile: String!) -> QPublicationDelegateObjC! {
+    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!, sourceID: SourceIDType!, qualityProfile: String!) -> QPublicationDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
-        switch config.codec {
-        case .opus:
-            return OpusPublication(namespace: quicrNamepace,
+        return try? factory.create(quicrNamepace,
                                    publishDelegate: publishDelegate,
-                                   codecFactory: codecFactory,
+                                   sourceID: sourceID,
+                                   config: config,
                                    metricsSubmitter: metricsSubmitter)
-        default:
-            return Publication(namespace: quicrNamepace!,
-                               publishDelegate: publishDelegate,
-                               codecFactory: codecFactory,
-                               metricsSubmitter: metricsSubmitter,
-                               captureManager: captureManager)
-        }
     }
 
     func remove(byNamespace quicrNamepace: String!) -> Int32 {
