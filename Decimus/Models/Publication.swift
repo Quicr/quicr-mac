@@ -136,8 +136,6 @@ private class AudioPublicationCaptureDelegate: PublicationCaptureDelegate,
 }
 
 class Publication: QPublicationDelegateObjC {
-    private let notifier: NotificationCenter = .default
-
     private unowned let codecFactory: EncoderFactory
     private unowned let publishObjectDelegate: QPublishObjectDelegateObjC
     private unowned let metricsSubmitter: MetricsSubmitter
@@ -214,7 +212,6 @@ class Publication: QPublicationDelegateObjC {
             return PublicationError.FailedEncoderCreation.rawValue
         }
 
-        notifier.post(name: .publicationPreparedForDevice, object: self)
         return PublicationError.None.rawValue
     }
 
@@ -227,8 +224,4 @@ class Publication: QPublicationDelegateObjC {
     private func log(_ message: String) {
         print("[Publication] (\(namespace)) \(message)")
     }
-}
-
-extension Notification.Name {
-    static var publicationPreparedForDevice = Notification.Name("publicationPreparedForDevice")
 }
