@@ -54,7 +54,8 @@ class H264Publication: NSObject, Publication, FrameListener {
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
         // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
         #if !targetEnvironment(macCatalyst)
-        guard let device = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .builtInTelephotoCamera],
+        guard let device = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera,
+                                                                          .builtInTelephotoCamera],
                                                             mediaType: .video,
                                                             position: .front).devices.first else {
             log("Failed to register H264 publication for source \(sourceID)")
