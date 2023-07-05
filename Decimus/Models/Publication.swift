@@ -80,11 +80,17 @@ class PublicationCaptureDelegate: NSObject {
 }
 
 private class VideoPublicationCaptureDelegate: PublicationCaptureDelegate,
-                                               AVCaptureVideoDataOutputSampleBufferDelegate {
+                                               FrameListener {
+    let queue: DispatchQueue
     private let measurement: VideoMeasurement
 
-    init(namespace: QuicrNamespace, submitter: MetricsSubmitter, encoder: Encoder?, log: @escaping (String) -> Void) {
+    init(namespace: QuicrNamespace,
+         submitter: MetricsSubmitter,
+         encoder: Encoder?,
+         queue: DispatchQueue,
+         log: @escaping (String) -> Void) {
         measurement = .init(namespace: namespace, submitter: submitter)
+        self.queue = queue
         super.init(encoder: encoder, log: log)
     }
 
@@ -187,7 +193,8 @@ class Publication: QPublicationDelegateObjC {
             case .h264:
                 capture = VideoPublicationCaptureDelegate(namespace: self.namespace,
                                                           submitter: self.metricsSubmitter,
-                                                          encoder: encoder) { [weak self] message in
+                                                          encoder: encoder,
+                                                          queue: queue) { [weak self] message in
                     self?.log(message)
                 }
                 mediaType = .video

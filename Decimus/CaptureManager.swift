@@ -7,6 +7,10 @@ public extension AVCaptureDevice {
     }
 }
 
+protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
+    var queue: DispatchQueue { get }
+}
+
 /// Manages local media capture.
 actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
@@ -20,7 +24,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
-    private var multiVideoDelegate: [AVCaptureDevice: [AVCaptureVideoDataOutputSampleBufferDelegate]] = [:]
+    private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let errorHandler: ErrorWriter
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
 
@@ -89,11 +93,11 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     private func addCamera(device: AVCaptureDevice,
-                           delegate: AVCaptureVideoDataOutputSampleBufferDelegate) {
+                           delegate: FrameListener) {
         // Device is already setup, add this delegate.
-        if var subscriptions = self.multiVideoDelegate[device] {
-            subscriptions.append(delegate)
-            self.multiVideoDelegate[device] = subscriptions
+        if var cameraFrameListeners = self.multiVideoDelegate[device] {
+            cameraFrameListeners.append(delegate)
+            self.multiVideoDelegate[device] = cameraFrameListeners
             return
         }
 
@@ -168,7 +172,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
             addMicrophone(device: device, delegate: audioDelegate, queue: queue)
         } else {
-            guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
+            guard let videoDelegate = delegateCapture as? FrameListener else {
                 fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
             }
             addCamera(device: device, delegate: videoDelegate)
@@ -207,7 +211,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return connection.isEnabled
     }
 
-    private func getDelegate(output: AVCaptureOutput) -> [AVCaptureVideoDataOutputSampleBufferDelegate] {
+    private func getDelegate(output: AVCaptureOutput) -> [FrameListener] {
         guard let device = self.outputs[output],
               let subscribers = self.multiVideoDelegate[device] else {
             return []
@@ -219,14 +223,12 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                                    didOutput sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
         Task(priority: .high) {
-            let subscriptions = await getDelegate(output: output)
-            await withTaskGroup(of: Void.self, body: { group in
-                for subscriber in subscriptions {
-                    group.addTask {
-                        subscriber.captureOutput?(output, didOutput: sampleBuffer, from: connection)
-                    }
+            let cameraFrameListeners = await getDelegate(output: output)
+            for listener in cameraFrameListeners {
+                listener.queue.async {
+                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
                 }
-            })
+            }
         }
     }
 
@@ -234,14 +236,12 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                                    didDrop sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
         Task(priority: .high) {
-            let subscriptions = await getDelegate(output: output)
-            await withTaskGroup(of: Void.self, body: { group in
-                for subscriber in subscriptions {
-                    group.addTask {
-                        subscriber.captureOutput?(output, didDrop: sampleBuffer, from: connection)
-                    }
+            let cameraFrameListeners = await getDelegate(output: output)
+            for listener in cameraFrameListeners {
+                listener.queue.async {
+                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
                 }
-            })
+            }
         }
     }
 }
