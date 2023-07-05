@@ -117,9 +117,9 @@ class OpusPublication: QPublicationDelegateObjC {
                     return nil
                 }
                 var timestamp: AudioTimeStamp = .init()
-                let availableFrames = TPCircularBufferPeek(buffer,
+                let availableFrames = TPCircularBufferPeek(self.buffer,
                                                            &timestamp,
-                                                           asbd)
+                                                           self.asbd)
                 guard availableFrames >= packets else {
                     status.pointee = .noDataNow
                     return .init()
@@ -127,13 +127,13 @@ class OpusPublication: QPublicationDelegateObjC {
 
                 // We have enough data.
                 var inOutFrames: AVAudioFrameCount = packets
-                let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: packets)!
+                let pcm: AVAudioPCMBuffer = .init(pcmFormat: self.format!, frameCapacity: packets)!
                 pcm.frameLength = packets
-                TPCircularBufferDequeueBufferListFrames(buffer,
+                TPCircularBufferDequeueBufferListFrames(self.buffer,
                                                         &inOutFrames,
                                                         pcm.audioBufferList,
                                                         &timestamp,
-                                                        asbd)
+                                                        self.asbd)
                 pcm.frameLength = inOutFrames
                 guard inOutFrames > 0 else {
                     status.pointee = .noDataNow
