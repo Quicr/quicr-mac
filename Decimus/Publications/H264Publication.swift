@@ -1,13 +1,39 @@
 import Foundation
 import AVFoundation
 
-class H264Publication: NSObject, Publication, AVCaptureVideoDataOutputSampleBufferDelegate {
-    private let publicationMeasurement: PublicationMeasurement
-    private let videoMeasurement: VideoMeasurement
+actor VideoMeasurement: Measurement {
+    var name: String = "VideoPublication"
+    var fields: [Date?: [String: AnyObject]] = [:]
+    var tags: [String: String] = [:]
+
+    private var bytes: UInt64 = 0
+    private var pixels: UInt64 = 0
+
+    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        tags["namespace"] = namespace
+        Task {
+            await submitter.register(measurement: self)
+        }
+    }
+
+    func sentBytes(sent: UInt64, timestamp: Date?) {
+        self.bytes += sent
+        record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+    }
+
+    func sentPixels(sent: UInt64, timestamp: Date?) {
+        self.pixels += sent
+        record(field: "sentPixels", value: self.pixels as AnyObject, timestamp: timestamp)
+    }
+}
+
+class H264Publication: NSObject, Publication, FrameListener {
+    private let measurement: VideoMeasurement
 
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
     var device: AVCaptureDevice?
+    let queue: DispatchQueue
 
     private var encoder: H264Encoder
 
@@ -18,18 +44,28 @@ class H264Publication: NSObject, Publication, AVCaptureVideoDataOutputSampleBuff
                   metricsSubmitter: MetricsSubmitter) {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.publicationMeasurement = .init(namespace: namespace, submitter: metricsSubmitter)
-        self.videoMeasurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.encoder = .init(config: config, verticalMirror: false)
+        self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
+                           target: .global(qos: .userInteractive))
 
         super.init()
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
         // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
+        #if !targetEnvironment(macCatalyst)
+        guard let device = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera, .builtInTelephotoCamera],
+                                                            mediaType: .video,
+                                                            position: .front).devices.first else {
+            log("Failed to register H264 publication for source \(sourceID)")
+            fatalError()
+        }
+        #else
         guard let device = AVCaptureDevice.default(for: .video) else {
             log("Failed to register H264 publication for source \(sourceID)")
             fatalError()
         }
+        #endif
         self.device = device
 
         self.encoder.registerCallback { [weak self] data, flag in
@@ -38,7 +74,7 @@ class H264Publication: NSObject, Publication, AVCaptureVideoDataOutputSampleBuff
             let timestamp = Date.now
             let count = data.count
             Task(priority: .utility) {
-                await self.publicationMeasurement.sentBytes(sent: UInt64(count), timestamp: timestamp)
+                await self.measurement.sentBytes(sent: UInt64(count), timestamp: timestamp)
             }
             self.publishObjectDelegate?.publishObject(self.namespace, data: data, group: flag)
         }
@@ -80,7 +116,7 @@ class H264Publication: NSObject, Publication, AVCaptureVideoDataOutputSampleBuff
         let pixels: UInt64 = .init(width * height)
         let date = Date.now
         Task(priority: .utility) {
-            await videoMeasurement.sentPixels(sent: pixels, timestamp: date)
+            await measurement.sentPixels(sent: pixels, timestamp: date)
         }
 
         // Encode.

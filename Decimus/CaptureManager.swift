@@ -92,8 +92,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         addIO(device: device, input: microphone, output: audioOutput)
     }
 
-    private func addCamera(device: AVCaptureDevice,
-                           delegate: FrameListener) {
+    private func addCamera(device: AVCaptureDevice, delegate: FrameListener) {
         // Device is already setup, add this delegate.
         if var cameraFrameListeners = self.multiVideoDelegate[device] {
             cameraFrameListeners.append(delegate)
@@ -169,8 +168,8 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Add.
         session.beginConfiguration()
 
-        guard let videoDelegate = publication as? AVCaptureVideoDataOutputSampleBufferDelegate else {
-            fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
+        guard let videoDelegate = publication as? FrameListener else {
+            fatalError("CaptureManager => Failed to add input: Publication is not a FrameListener")
         }
         addCamera(device: device, delegate: videoDelegate)
 

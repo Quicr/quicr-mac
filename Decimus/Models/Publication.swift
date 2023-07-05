@@ -8,7 +8,6 @@ enum PublicationError: Int32 {
 }
 // swiftlint:enable identifier_name
 
-
 protocol Publication: QPublicationDelegateObjC {
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
@@ -44,25 +43,5 @@ actor PublicationMeasurement: Measurement {
     func sentBytes(sent: UInt64, timestamp: Date?) {
         self.bytes += sent
         record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: timestamp)
-    }
-}
-
-actor VideoMeasurement: Measurement {
-    var name: String = "VideoPublication"
-    var fields: [Date?: [String: AnyObject]] = [:]
-    var tags: [String: String] = [:]
-
-    private var pixels: UInt64 = 0
-
-    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
-        tags["namespace"] = namespace
-        Task {
-            await submitter.register(measurement: self)
-        }
-    }
-
-    func sentPixels(sent: UInt64, timestamp: Date?) {
-        self.pixels += sent
-        record(field: "sentPixels", value: self.pixels as AnyObject, timestamp: timestamp)
     }
 }
