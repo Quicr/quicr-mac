@@ -11,10 +11,16 @@ struct CallControls: View {
     @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
 
+//    private let deviceButtonStyleConfig = ActionButtonStyleConfig(
+//        background: .black,
+//        foreground: .gray,
+//        hoverColour: .blue
+//    )
+
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(
         background: .black,
-        foreground: .gray,
-        hoverColour: .blue
+        foreground: .white,
+        borderColour: .gray
     )
 
     init(errorWriter: ErrorWriter, captureManager: CaptureManager, leaving: Binding<Bool>) {
@@ -52,79 +58,120 @@ struct CallControls: View {
 
     var body: some View {
         HStack(alignment: .center) {
-            ActionPicker(
-                audioOn ? "Mute" : "Unmute",
-                icon: audioOn ? "microphone-on" : "microphone-muted",
-                role: audioOn ? nil : .destructive,
-                expanded: $muteModalExpanded,
-                action: toggleAudio,
-                pickerAction: openAudioModal
-            ) {
-                Text("Audio Connection")
-                    .foregroundColor(.gray)
-                ForEach(viewModel.devices.audioInputs, id: \.uniqueID) { microphone in
-                    ActionButton(
-                        disabled: viewModel.isAlteringMicrophone(),
-                        cornerRadius: 12,
-                        styleConfig: deviceButtonStyleConfig,
-                        action: toggleAudio) {
-                            HStack {
-                                Image(systemName: microphone.deviceType == .builtInMicrophone ?
-                                      "mic" : "speaker.wave.2")
-                                .renderingMode(.original)
-                                .foregroundColor(.gray)
-                                Text(microphone.localizedName).tag(microphone)
-                            }
-                        }
-                        .aspectRatio(contentMode: .fill)
-                }
-            }
-            .onChange(of: viewModel.selectedMicrophone) { _ in
-                guard viewModel.selectedMicrophone != nil else { return }
-                Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
-            }
-            .disabled(viewModel.isAlteringMicrophone())
+//            ActionPicker(
+//                audioOn ? "Mute" : "Unmute",
+//                icon: audioOn ? "microphone-on" : "microphone-muted",
+//                role: audioOn ? nil : .destructive,
+//                expanded: $muteModalExpanded,
+//                action: toggleAudio,
+//                pickerAction: openAudioModal
+//            ) {
+//                Text("Audio Connection")
+//                    .foregroundColor(.gray)
+//                ForEach(viewModel.devices.audioInputs, id: \.uniqueID) { microphone in
+//                    ActionButton(
+//                        disabled: viewModel.isAlteringMicrophone(),
+//                        cornerRadius: 12,
+//                        styleConfig: deviceButtonStyleConfig,
+//                        action: toggleAudio) {
+//                            HStack {
+//                                Image(systemName: microphone.deviceType == .builtInMicrophone ?
+//                                      "mic" : "speaker.wave.2")
+//                                .renderingMode(.original)
+//                                .foregroundColor(.gray)
+//                                Text(microphone.localizedName).tag(microphone)
+//                            }
+//                        }
+//                        .aspectRatio(contentMode: .fill)
+//                }
+//            }
+//            .onChange(of: viewModel.selectedMicrophone) { _ in
+//                guard viewModel.selectedMicrophone != nil else { return }
+//                Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
+//            }
+//            .disabled(viewModel.isAlteringMicrophone())
 
-            ActionPicker(
-                videoOn ? "Stop Video" : "Start Video",
-                icon: videoOn ? "video-on" : "video-off",
-                role: videoOn ? nil : .destructive,
-                expanded: $cameraModalExpanded,
-                action: toggleVideo,
-                pickerAction: openCameraModal
-            ) {
-                LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
-                          alignment: .leading) {
-                    Image("video-on")
-                        .renderingMode(.template)
-                        .foregroundColor(.gray)
-                    Text("Camera")
-                        .padding(.leading)
-                        .foregroundColor(.gray)
-                    ForEach(viewModel.devices.cameras, id: \.self) { camera in
-                        if viewModel.alteringDevice[camera] ?? false {
-                            ProgressView()
-                        } else if viewModel.usingDevice[camera] ?? false {
-                            Image(systemName: "checkmark")
-                        } else {
-                            Spacer()
-                        }
-                        ActionButton(
-                            disabled: viewModel.alteringDevice[camera] ?? false,
-                            cornerRadius: 10,
-                            styleConfig: deviceButtonStyleConfig,
-                            action: { _ = await viewModel.toggleDevice(device: camera) },
-                            title: {
-                                Text(verbatim: camera.localizedName)
-                                    .lineLimit(1)
-                            }
-                        )
+//            ActionPicker(
+//                videoOn ? "Stop Video" : "Start Video",
+//                icon: videoOn ? "video-on" : "video-off",
+//                role: videoOn ? nil : .destructive,
+//                expanded: $cameraModalExpanded,
+//                action: toggleVideo,
+//                pickerAction: openCameraModal
+//            ) {
+//                LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
+//                          alignment: .leading) {
+//                    Image("video-on")
+//                        .renderingMode(.template)
+//                        .foregroundColor(.gray)
+//                    Text("Camera")
+//                        .padding(.leading)
+//                        .foregroundColor(.gray)
+//                    ForEach(viewModel.devices.cameras, id: \.self) { camera in
+//                        if viewModel.alteringDevice[camera] ?? false {
+//                            ProgressView()
+//                        } else if viewModel.usingDevice[camera] ?? false {
+//                            Image(systemName: "checkmark")
+//                        } else {
+//                            Spacer()
+//                        }
+//                        ActionButton(
+//                            disabled: viewModel.alteringDevice[camera] ?? false,
+//                            cornerRadius: 10,
+//                            styleConfig: deviceButtonStyleConfig,
+//                            action: { _ = await viewModel.toggleDevice(device: camera) },
+//                            title: {
+//                                Text(verbatim: camera.localizedName)
+//                                    .lineLimit(1)
+//                            }
+//                        )
+//                    }
+//                }
+//                .frame(maxWidth: 300, alignment: .bottomTrailing)
+//                .padding(.bottom)
+//            }
+//            .disabled(viewModel.devices.cameras.allSatisfy({ !(viewModel.alteringDevice[$0] ?? false) }))
+
+            ActionButton(
+                disabled: viewModel.isAlteringMicrophone(),
+                cornerRadius: 30,
+                styleConfig: deviceButtonStyleConfig,
+                action: toggleAudio,
+                title: {
+                    HStack(alignment: .center) {
+                        Image(audioOn ? "microphone-on" : "microphone-muted")
+                            .renderingMode(.template)
+                            .resizable()
+                            .foregroundColor(audioOn ? .white : .red)
+                            .frame(width: 20, height: 20)
+                        Text(audioOn ? "Mute" : "Unmute")
+                            .font(.custom("CiscoSansTTRegular", size: 16))
+                            .frame(alignment: .center)
+                            .foregroundColor(.white)
                     }
                 }
-                .frame(maxWidth: 300, alignment: .bottomTrailing)
-                .padding(.bottom)
-            }
-            .disabled(viewModel.devices.cameras.allSatisfy({ !(viewModel.alteringDevice[$0] ?? false) }))
+            )
+
+            ActionButton(
+                disabled: false,
+                cornerRadius: 30,
+                styleConfig: deviceButtonStyleConfig,
+                action: toggleVideo,
+                title: {
+                    HStack(alignment: .center) {
+                        Image(videoOn ? "video-on" : "video-off")
+                            .renderingMode(.template)
+                            .resizable()
+                            .foregroundColor(videoOn ? .white : .red)
+                            .frame(width: 20, height: 20)
+                        Text(videoOn ? "Stop Video" : "Start Video")
+                            .font(.custom("CiscoSansTTRegular", size: 16))
+                            .frame(alignment: .center)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                    }
+                }
+            )
 
             Button(action: {
                 leaving = true
@@ -140,6 +187,7 @@ struct CallControls: View {
             .background(.red)
             .clipShape(Circle())
         }
+        .frame(maxWidth: 650)
         .scaledToFit()
     }
 }
