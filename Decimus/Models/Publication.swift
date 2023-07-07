@@ -11,13 +11,16 @@ enum PublicationError: Int32 {
 protocol Publication: QPublicationDelegateObjC {
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
-    var device: AVCaptureDevice? {get}
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32
     func update(_ sourceId: String!, qualityProfile: String!) -> Int32
     func publish(_ flag: Bool)
 
     func log(_ message: String)
+}
+
+protocol AVCaptureDevicePublication: Publication {
+    var device: AVCaptureDevice? {get}
 }
 
 extension Publication {

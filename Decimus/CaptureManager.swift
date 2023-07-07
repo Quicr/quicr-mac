@@ -155,9 +155,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         connections[device] = connection
     }
 
-    /// Start capturing from the target device.
-    /// - Parameter device: The target capture device.
-    func addInput(_ publication: Publication) {
+    func addInput(_ publication: AVCaptureDevicePublication) {
         guard let device = publication.device else {
             fatalError("CaptureManager => Failed to add device (device was nil)")
         }

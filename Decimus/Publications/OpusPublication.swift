@@ -6,7 +6,6 @@ import CTPCircularBuffer
 class OpusPublication: Publication {
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
-    internal let device: AVCaptureDevice? = nil
 
     private var encoder: LibOpusEncoder
     private let engine: AVAudioEngine = .init()

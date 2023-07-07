@@ -27,7 +27,7 @@ actor VideoMeasurement: Measurement {
     }
 }
 
-class H264Publication: NSObject, Publication, FrameListener {
+class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private let measurement: VideoMeasurement
 
     let namespace: QuicrNamespace
