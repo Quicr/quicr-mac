@@ -75,6 +75,7 @@ class OpusSubscription: Subscription {
         // Create the jitter buffer.
         asbd = .init(mutating: decoder.decodedFormat.streamDescription)
         jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
+                                  480,
                                   UInt(asbd.pointee.mSampleRate),
                                   500,
                                   20)
