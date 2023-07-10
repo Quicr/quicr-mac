@@ -2,6 +2,7 @@ import Foundation
 import AVFAudio
 import AVFoundation
 import CTPCircularBuffer
+import CoreAudio
 
 class OpusPublication: QPublicationDelegateObjC {
     private let notifier: NotificationCenter = .default
@@ -29,6 +30,11 @@ class OpusPublication: QPublicationDelegateObjC {
         self.publishObjectDelegate = publishDelegate
         self.codecFactory = codecFactory
         self.metricsSubmitter = metricsSubmitter
+        do {
+            try engine.inputNode.setVoiceProcessingEnabled(true)
+        } catch {
+            fatalError("\(error)")
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
@@ -37,16 +43,24 @@ class OpusPublication: QPublicationDelegateObjC {
 
         do {
             try AVAudioSession.configureForDecimus()
-            try engine.inputNode.setVoiceProcessingEnabled(false)
-            print(engine.inputNode.outputFormat(forBus: 0))
         } catch {
             fatalError()
         }
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
-        format = outputFormat
+        if outputFormat.channelCount > 2 {
+            // For some unknown reason, we can get multichannel duplicate
+            // data when using voice processing. All channels appear to be the same,
+            // so we clip to mono.
+            var oneChannelAsbd = outputFormat.streamDescription.pointee
+            oneChannelAsbd.mChannelsPerFrame = 1
+            format = .init(streamDescription: &oneChannelAsbd)
+        } else {
+            format = outputFormat
+        }
         asbd = format!.streamDescription
 
+        // Create a buffer to hold raw data waiting for encode.
         let hundredMils = asbd!.pointee.mBytesPerPacket * UInt32(asbd!.pointee.mSampleRate) / 100
         guard _TPCircularBufferInit(buffer, hundredMils, MemoryLayout<TPCircularBuffer>.size) else {
             fatalError()
@@ -54,16 +68,19 @@ class OpusPublication: QPublicationDelegateObjC {
 
         do {
             // Try and directly use the microphone output format.
-            encoder = try .init(format: outputFormat)
+            encoder = try .init(format: format!)
+            log("Encoder created using native format: \(format!)")
         } catch {
-            // Fallback format?
-            differentEncodeFormat = .init(commonFormat: outputFormat.commonFormat,
-                                          sampleRate: 48000,
-                                          channels: 1,
+            // We need to fallback to an opus supported format if we can.
+            var sampleRate: Double = isNativeOpusSampleRate(format!.sampleRate) ? format!.sampleRate : .opus48khz
+            differentEncodeFormat = .init(commonFormat: format!.commonFormat,
+                                          sampleRate: sampleRate,
+                                          channels: format!.channelCount,
                                           interleaved: true)
-            converter = .init(from: outputFormat, to: differentEncodeFormat!)!
+            converter = .init(from: format!, to: differentEncodeFormat!)!
             do {
                 encoder = try .init(format: differentEncodeFormat!)
+                log("Encoder created using fallback format: \(differentEncodeFormat!)")
             } catch { fatalError() }
         }
         encoder?.registerCallback(callback: { [weak self] data, flag in
@@ -72,15 +89,40 @@ class OpusPublication: QPublicationDelegateObjC {
 
         // Start capturing audio.
         let sink: AVAudioSinkNode = .init { [buffer, asbd] timestamp, numFrames, data in
-            let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                             data,
-                                                             timestamp,
-                                                             numFrames,
-                                                             asbd)
-            guard copied else {
-                return 1
+            // If this is weird multichannel audio, we need to clip.
+            // Otherwise, it should be okay.
+            if data.pointee.mNumberBuffers > 2 {
+                // FIXME: Should we ensure this is always true.
+//                let ptr: UnsafeMutableAudioBufferListPointer = .init(.init(mutating: data))
+//                var last: UnsafeMutableRawPointer?
+//                for list in ptr {
+//                    guard last != nil else {
+//                        last = list.mData
+//                        continue
+//                    }
+//                    let result = memcmp(last, list.mData, Int(list.mDataByteSize))
+//                    last = list.mData
+//                    if result != 0 {
+//                        fatalError("Mismatch")
+//                    }
+//                }
+
+                // There's N duplicates of the 1 channel data in here.
+                var oneChannelList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: data.pointee.mBuffers)
+                let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                                 &oneChannelList,
+                                                                 timestamp,
+                                                                 numFrames,
+                                                                 asbd)
+                return copied ? .zero : 1
+            } else {
+                let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                                 data,
+                                                                 timestamp,
+                                                                 numFrames,
+                                                                 asbd)
+                return copied ? .zero : 1
             }
-            return .zero
         }
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: nil)
@@ -108,6 +150,42 @@ class OpusPublication: QPublicationDelegateObjC {
 
     func encode() throws {
         if let converter = converter {
+            // Is it a trivial conversion?
+            if differentEncodeFormat!.commonFormat == format!.commonFormat &&
+               differentEncodeFormat!.sampleRate == format!.sampleRate {
+                // Target encode size.
+                var inOutFrames: AVAudioFrameCount = 480
+
+                // Are there enough frames for an encode?
+                let availableFrames = TPCircularBufferPeek(self.buffer,
+                                                           nil,
+                                                           self.asbd)
+                guard availableFrames >= inOutFrames else {
+                    return
+                }
+
+                // Data holders.
+                let dequeued: AVAudioPCMBuffer = .init(pcmFormat: self.format!,
+                                                       frameCapacity: inOutFrames)!
+                dequeued.frameLength = inOutFrames
+                let converted: AVAudioPCMBuffer = .init(pcmFormat: self.differentEncodeFormat!,
+                                                        frameCapacity: inOutFrames)!
+                converted.frameLength = inOutFrames
+
+                // Get some data to encode.
+                TPCircularBufferDequeueBufferListFrames(self.buffer,
+                                                        &inOutFrames,
+                                                        dequeued.audioBufferList,
+                                                        nil,
+                                                        self.asbd)
+                dequeued.frameLength = inOutFrames
+                converted.frameLength = inOutFrames
+
+                // Convert and encode.
+                try converter.convert(to: converted, from: dequeued)
+                try encoder!.write(data: converted)
+                return
+            }
             let converted: AVAudioPCMBuffer = .init(pcmFormat: differentEncodeFormat!, frameCapacity: 480)!
             var error: NSError? = .init()
             converter.convert(to: converted,
@@ -186,5 +264,14 @@ class OpusPublication: QPublicationDelegateObjC {
 
     private func log(_ message: String) {
         print("[Publication] (\(namespace)) \(message)")
+    }
+
+    private func isNativeOpusSampleRate(_ sampleRate: Double) -> Bool {
+        switch sampleRate {
+        case .opus48khz, .opus24khz, .opus12khz, .opus16khz, .opus8khz:
+            return true
+        default:
+            return false
+        }
     }
 }
