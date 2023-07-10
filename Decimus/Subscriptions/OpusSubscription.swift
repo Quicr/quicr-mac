@@ -245,7 +245,8 @@ class OpusSubscription: Subscription {
         // Copy in.
         let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback, nil)
         self.metrics.framesEnqueued += copied
-        guard copied == buffer.frameLength else {
+        guard copied >= buffer.frameLength else {
+            assert(copied % Int(buffer.frameLength) == 0)
             print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
