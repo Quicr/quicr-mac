@@ -6,9 +6,7 @@ struct MenuModal<Content>: View where Content: View {
 
     var body: some View {
         if presented {
-            VStack(alignment: .leading) {
-                self.content()
-            }
+            VStack(alignment: .leading, content: self.content)
             .frame(maxWidth: .infinity)
             .padding()
             .background(.black)
@@ -113,17 +111,18 @@ struct ActionPicker<Content>: View where Content: View {
             .disabled(isDisabled)
             .background(.black)
             .cornerRadius(30, corners: [.topLeft, .bottomLeft])
-            Button(action: pickerAction) {
-                Image(systemName: "chevron.\(expanded ? "up" : "down")")
-                    .renderingMode(.original)
-                    .foregroundColor(.white)
-                    .frame(alignment: .trailing)
-                    .padding(.trailing)
-                    .padding(.vertical, 22)
-            }
-            .disabled(isDisabled)
-            .background(.black)
-            .cornerRadius(20, corners: [.topRight, .bottomRight])
+
+//            Button(action: pickerAction) {
+//                Image(systemName: "chevron.\(expanded ? "up" : "down")")
+//                    .renderingMode(.original)
+//                    .foregroundColor(.white)
+//                    .frame(alignment: .trailing)
+//                    .padding(.trailing)
+//                    .padding(.vertical, 22)
+//            }
+//            .disabled(isDisabled)
+//            .background(.black)
+//            .cornerRadius(20, corners: [.topRight, .bottomRight])
         }
         .overlay(RoundedRectangle(cornerRadius: 30).stroke(.gray, lineWidth: 1))
 #if targetEnvironment(macCatalyst)
