@@ -4,15 +4,16 @@ import Foundation
 class SubscriberDelegate: QSubscriberDelegateObjC {
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
-    private let codecFactory: DecoderFactory
     private var checkStaleVideoTimer: Timer?
     private let submitter: MetricsSubmitter
 
-    init(errorWriter: ErrorWriter, audioFormat: AVAudioFormat?, submitter: MetricsSubmitter) {
+    private let factory: SubscriptionFactory
+
+    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter) {
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter)
-        self.codecFactory = .init(audioFormat: audioFormat ?? player.inputFormat)
         self.submitter = submitter
+        self.factory = .init(participants: self.participants, player: self.player)
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -34,22 +35,18 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         checkStaleVideoTimer!.invalidate()
     }
 
-    func allocateSub(byNamespace quicrNamepace: String!, qualityProfile: String!) -> QSubscriptionDelegateObjC! {
+    func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,
+                     qualityProfile: String!) -> QSubscriptionDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
-        switch config.codec {
-        case .opus:
-            return OpusSubscription(namespace: quicrNamepace!,
-                                    player: player,
-                                    submitter: submitter)
-        default:
-            return Subscription(namespace: quicrNamepace!,
-                                codecFactory: codecFactory,
-                                participants: participants,
-                                player: player)
+        do {
+            return try factory.create(quicrNamepace!, config: config, metricsSubmitter: submitter)
+        } catch {
+            print("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            return nil
         }
     }
 
-    func remove(byNamespace quicrNamepace: String!) -> Int32 {
+    func remove(byNamespace quicrNamepace: QuicrNamespace!) -> Int32 {
         return 0
     }
 }

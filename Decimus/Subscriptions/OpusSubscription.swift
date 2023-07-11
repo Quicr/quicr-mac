@@ -1,6 +1,12 @@
 import AVFAudio
 import CoreAudio
 
+// swiftlint:disable identifier_name
+enum OpusSubscriptionError: Error {
+    case FailedDecoderCreation
+}
+// swiftlint:enable identifier_name
+
 actor OpusSubscriptionMeasurement: Measurement {
     var name: String = "OpusSubscription"
     var fields: [Date?: [String: AnyObject]] = [:]
@@ -33,15 +39,15 @@ actor OpusSubscriptionMeasurement: Measurement {
     }
 }
 
-class OpusSubscription: QSubscriptionDelegateObjC {
-
+class OpusSubscription: Subscription {
     struct Metrics {
         var framesEnqueued = 0
         var framesEnqueuedFail = 0
     }
 
-    private let namespace: String
-    private var decoder: LibOpusDecoder?
+    let namespace: String
+    private var decoder: LibOpusDecoder
+
     private unowned let player: FasterAVEngineAudioPlayer
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
@@ -52,10 +58,32 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
-         submitter: MetricsSubmitter) {
+         config: AudioCodecConfig,
+         submitter: MetricsSubmitter) throws {
         self.namespace = namespace
         self.player = player
         self.measurement = .init(namespace: namespace, submitter: submitter)
+        do {
+            self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
+            self.decoder.registerCallback { [weak self] in
+                self?.onDecodedAudio(buffer: $0, timestamp: $1)
+            }
+        } catch {
+            throw OpusSubscriptionError.FailedDecoderCreation
+        }
+
+        // Create the jitter buffer.
+        asbd = .init(mutating: decoder.decodedFormat.streamDescription)
+        jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
+                                  UInt(asbd.pointee.mSampleRate),
+                                  500,
+                                  20)
+
+        // Create the player node.
+        node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
+
+        self.player.addPlayer(identifier: namespace, node: node!)
+        log("Subscribed to OPUS stream")
     }
 
     deinit {
@@ -73,30 +101,6 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     }
 
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
-        // Create the decoder.
-        let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        do {
-            decoder = try createOpusDecoder(config: config, playerFormat: player.inputFormat)
-            decoder!.registerCallback { [weak self] in
-                self?.onDecodedAudio(buffer: $0, timestamp: $1)
-            }
-        } catch {
-            return SubscriptionError.FailedDecoderCreation.rawValue
-        }
-
-        // Create the jitter buffer.
-        asbd = .init(mutating: decoder!.decodedFormat.streamDescription)
-        jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
-                                  UInt(asbd.pointee.mSampleRate),
-                                  500,
-                                  20)
-
-        // Create the player node.
-        node = .init(format: decoder!.decodedFormat, renderBlock: renderBlock)
-
-        self.player.addPlayer(identifier: namespace, node: node!)
-        log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceID!)")
-
         return SubscriptionError.None.rawValue
     }
 
@@ -163,14 +167,14 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
     }
 
-    private func createOpusDecoder(config: CodecConfig, playerFormat: AVAudioFormat) throws -> LibOpusDecoder {
+    private static func createOpusDecoder(config: CodecConfig, player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
         guard config.codec == .opus else {
             fatalError("Codec mismatch")
         }
 
         do {
             // First, try and decode directly into the output's input format.
-            return try .init(format: playerFormat)
+            return try .init(format: player.inputFormat)
         } catch {
             // That may not be supported, so decode into standard output instead.
             let format: AVAudioFormat.OpusPCMFormat
@@ -193,11 +197,6 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
-        guard let decoder = decoder else {
-            log("No decoder for Subscription. Did you forget to prepare?")
-            return SubscriptionError.NoDecoder.rawValue
-        }
-
         // Metrics.
         let date = Date.now
         let missing = groupId - self.seq - 1
@@ -251,9 +250,5 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             self.metrics.framesEnqueuedFail += missing
             return
         }
-    }
-
-    private func log(_ message: String) {
-        print("[Subscription] (\(namespace)) \(message)")
     }
 }
