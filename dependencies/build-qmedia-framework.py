@@ -31,6 +31,13 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
 
+    quiche_targets = {
+        PlatformType.CATALYST_ARM: "aarch64-apple-ios-macabi",
+        PlatformType.CATALYST_X86: "x86_64-apple-ios-macabi",
+        PlatformType.IOS: "aarch64-apple-ios",
+        PlatformType.IOS_SIMULATOR: "aarch64-apple-ios-sim"
+    }
+
     command = [
         cmake_path,
         f"-DCMAKE_TOOLCHAIN_FILE={current_directory}/ios.toolchain.cmake",
@@ -45,6 +52,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
         f"-DCMAKE_MODULE_PATH={current_directory}",
         f"-DBUILD_NUMBER={build_number}",
+        f"-DQUICHE_TARGET={quiche_targets[platform.type]}",
         "-Wno-dev"]
     generate = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

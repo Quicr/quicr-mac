@@ -12,5 +12,6 @@ enum ProtocolType: UInt8, CaseIterable, Codable, Identifiable, Comparable {
 
     case UDP = 0
     case QUIC = 1
+    case H3 = 2
     var id: UInt8 { rawValue }
 }
