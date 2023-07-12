@@ -16,15 +16,18 @@ enum RelayURLs: String {
 let relayConfigs: [RelayURLs: [MediaClient.ProtocolType: UInt16]] = [
     .localhost: [
         .UDP: 1234,
-        .QUIC: 1234
+        .QUIC: 1235,
+        .H3: 1236
     ],
     .usWest2: [
         .UDP: 33434,
-        .QUIC: 33435
+        .QUIC: 33435,
+        .H3: 33436
     ],
     .euWest2: [
         .UDP: 33434,
-        .QUIC: 33435
+        .QUIC: 33435,
+        .H3: 33436
     ]
 ]
 

@@ -94,7 +94,7 @@ private struct LoginForm: View {
                 if callConfig.conferenceID != 0 {
                     RadioButtonGroup("Protocol",
                                      selection: $callConfig,
-                                     labels: ["UDP", "QUIC"],
+                                     labels: ["UDP", "QUIC", "H3"],
                                      tags: [
                         .init(address: relayConfig.value.address,
                               port: relayConfig.value.ports[.UDP]!,
@@ -104,6 +104,11 @@ private struct LoginForm: View {
                         .init(address: relayConfig.value.address,
                               port: relayConfig.value.ports[.QUIC]!,
                               connectionProtocol: .QUIC,
+                              email: callConfig.email,
+                              conferenceID: callConfig.conferenceID),
+                        .init(address: relayConfig.value.address,
+                              port: relayConfig.value.ports[.H3]!,
+                              connectionProtocol: .H3,
                               email: callConfig.email,
                               conferenceID: callConfig.conferenceID)
                     ])
