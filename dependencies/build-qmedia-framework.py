@@ -54,11 +54,6 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DBUILD_NUMBER={build_number}",
         f"-DQUICHE_TARGET={quiche_targets[platform.type]}",
         "-Wno-dev"]
-    print("!! ")
-    for item in command:
-        print(item, end=" ")
-    print("")
-    print("!! ")
     generate = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = generate.communicate()
@@ -73,11 +68,6 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"--target {target}",
         f"-j{multiprocessing.cpu_count()}"
     ]
-    print("!! ")
-    for item in build_command:
-        print(item, end=" ")
-    print("")
-    print("!! ")
     build_process = subprocess.Popen(
         build_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = build_process.communicate()
