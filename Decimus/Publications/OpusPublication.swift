@@ -18,6 +18,43 @@ class OpusPublication: Publication {
     private var differentEncodeFormat: AVAudioFormat?
     private let metricsSubmitter: MetricsSubmitter
 
+    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, asbd] timestamp, numFrames, data in
+        // If this is weird multichannel audio, we need to clip.
+        // Otherwise, it should be okay.
+        if data.pointee.mNumberBuffers > 2 {
+            // FIXME: Should we ensure this is always true.
+//                let ptr: UnsafeMutableAudioBufferListPointer = .init(.init(mutating: data))
+//                var last: UnsafeMutableRawPointer?
+//                for list in ptr {
+//                    guard last != nil else {
+//                        last = list.mData
+//                        continue
+//                    }
+//                    let result = memcmp(last, list.mData, Int(list.mDataByteSize))
+//                    last = list.mData
+//                    if result != 0 {
+//                        fatalError("Mismatch")
+//                    }
+//                }
+
+            // There's N duplicates of the 1 channel data in here.
+            var oneChannelList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: data.pointee.mBuffers)
+            let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                             &oneChannelList,
+                                                             timestamp,
+                                                             numFrames,
+                                                             asbd)
+            return copied ? .zero : 1
+        } else {
+            let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                             data,
+                                                             timestamp,
+                                                             numFrames,
+                                                             asbd)
+            return copied ? .zero : 1
+        }
+    }
+
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
@@ -39,7 +76,7 @@ class OpusPublication: Publication {
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
         if outputFormat.channelCount > 2 {
-            // For some unknown reason, we can get multichannel duplicate
+            // FIXME: For some unknown reason, we can get multichannel duplicate
             // data when using voice processing. All channels appear to be the same,
             // so we clip to mono.
             var oneChannelAsbd = outputFormat.streamDescription.pointee
@@ -62,7 +99,7 @@ class OpusPublication: Publication {
             log("Encoder created using native format: \(format!)")
         } catch {
             // We need to fallback to an opus supported format if we can.
-            var sampleRate: Double = Self.isNativeOpusSampleRate(format!.sampleRate) ? format!.sampleRate : .opus48khz
+            let sampleRate: Double = Self.isNativeOpusSampleRate(format!.sampleRate) ? format!.sampleRate : .opus48khz
             differentEncodeFormat = .init(commonFormat: format!.commonFormat,
                                           sampleRate: sampleRate,
                                           channels: format!.channelCount,
@@ -78,42 +115,7 @@ class OpusPublication: Publication {
         })
 
         // Start capturing audio.
-        let sink: AVAudioSinkNode = .init { [buffer, asbd] timestamp, numFrames, data in
-            // If this is weird multichannel audio, we need to clip.
-            // Otherwise, it should be okay.
-            if data.pointee.mNumberBuffers > 2 {
-                // FIXME: Should we ensure this is always true.
-//                let ptr: UnsafeMutableAudioBufferListPointer = .init(.init(mutating: data))
-//                var last: UnsafeMutableRawPointer?
-//                for list in ptr {
-//                    guard last != nil else {
-//                        last = list.mData
-//                        continue
-//                    }
-//                    let result = memcmp(last, list.mData, Int(list.mDataByteSize))
-//                    last = list.mData
-//                    if result != 0 {
-//                        fatalError("Mismatch")
-//                    }
-//                }
-
-                // There's N duplicates of the 1 channel data in here.
-                var oneChannelList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: data.pointee.mBuffers)
-                let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                                 &oneChannelList,
-                                                                 timestamp,
-                                                                 numFrames,
-                                                                 asbd)
-                return copied ? .zero : 1
-            } else {
-                let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                                 data,
-                                                                 timestamp,
-                                                                 numFrames,
-                                                                 asbd)
-                return copied ? .zero : 1
-            }
-        }
+        let sink: AVAudioSinkNode = .init(receiverBlock: block)
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: nil)
         do {
@@ -145,85 +147,9 @@ class OpusPublication: Publication {
         return PublicationError.NoSource.rawValue
     }
 
-    func encode() throws {
-        if let converter = converter {
-            // Is it a trivial conversion?
-            if differentEncodeFormat!.commonFormat == format!.commonFormat &&
-               differentEncodeFormat!.sampleRate == format!.sampleRate {
-                // Target encode size.
-                var inOutFrames: AVAudioFrameCount = 480
-
-                // Are there enough frames for an encode?
-                let availableFrames = TPCircularBufferPeek(self.buffer,
-                                                           nil,
-                                                           self.asbd)
-                guard availableFrames >= inOutFrames else {
-                    return
-                }
-
-                // Data holders.
-                let dequeued: AVAudioPCMBuffer = .init(pcmFormat: self.format!,
-                                                       frameCapacity: inOutFrames)!
-                dequeued.frameLength = inOutFrames
-                let converted: AVAudioPCMBuffer = .init(pcmFormat: self.differentEncodeFormat!,
-                                                        frameCapacity: inOutFrames)!
-                converted.frameLength = inOutFrames
-
-                // Get some data to encode.
-                TPCircularBufferDequeueBufferListFrames(self.buffer,
-                                                        &inOutFrames,
-                                                        dequeued.audioBufferList,
-                                                        nil,
-                                                        self.asbd)
-                dequeued.frameLength = inOutFrames
-                converted.frameLength = inOutFrames
-
-                // Convert and encode.
-                try converter.convert(to: converted, from: dequeued)
-                try encoder.write(data: converted)
-                return
-            }
-            let converted: AVAudioPCMBuffer = .init(pcmFormat: differentEncodeFormat!, frameCapacity: 480)!
-            var error: NSError? = .init()
-            converter.convert(to: converted,
-                              error: &error) { [weak self] packets, status in
-                guard let self = self else {
-                    status.pointee = .endOfStream
-                    return nil
-                }
-                var timestamp: AudioTimeStamp = .init()
-                let availableFrames = TPCircularBufferPeek(self.buffer,
-                                                           &timestamp,
-                                                           self.asbd)
-                guard availableFrames >= packets else {
-                    status.pointee = .noDataNow
-                    return .init()
-                }
-
-                // We have enough data.
-                var inOutFrames: AVAudioFrameCount = packets
-                let pcm: AVAudioPCMBuffer = .init(pcmFormat: self.format!, frameCapacity: packets)!
-                pcm.frameLength = packets
-                TPCircularBufferDequeueBufferListFrames(self.buffer,
-                                                        &inOutFrames,
-                                                        pcm.audioBufferList,
-                                                        &timestamp,
-                                                        self.asbd)
-                pcm.frameLength = inOutFrames
-                guard inOutFrames > 0 else {
-                    status.pointee = .noDataNow
-                    return .init()
-                }
-                guard inOutFrames == packets else {
-                    print("Dequeue only got: \(inOutFrames)/\(packets)")
-                    status.pointee = .noDataNow
-                    return nil
-                }
-                status.pointee = .haveData
-                return pcm
-            }
-            converted.frameLength = 480
-            try encoder.write(data: converted)
+    private func encode() throws {
+        guard converter == nil else {
+            try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
             return
         }
 
@@ -251,6 +177,98 @@ class OpusPublication: Publication {
         }
 
         try encoder.write(data: pcm)
+    }
+
+    // swiftlint:disable identifier_name
+    private func convertAndEncode(converter: AVAudioConverter,
+                                  to: AVAudioFormat,
+                                  from: AVAudioFormat) throws {
+        // Is it a trivial conversion?
+        if to.commonFormat == from.commonFormat &&
+            to.sampleRate == from.sampleRate {
+            try trivialConvertAndEncode(converter: converter, to: to, from: from)
+            return
+        }
+
+        let converted: AVAudioPCMBuffer = .init(pcmFormat: to, frameCapacity: 480)!
+        var error: NSError? = .init()
+        converter.convert(to: converted,
+                          error: &error) { [weak self] packets, status in
+            guard let self = self else {
+                status.pointee = .endOfStream
+                return nil
+            }
+            var timestamp: AudioTimeStamp = .init()
+            let availableFrames = TPCircularBufferPeek(self.buffer,
+                                                       &timestamp,
+                                                       from.streamDescription)
+            guard availableFrames >= packets else {
+                status.pointee = .noDataNow
+                return .init()
+            }
+
+            // We have enough data.
+            var inOutFrames: AVAudioFrameCount = packets
+            let pcm: AVAudioPCMBuffer = .init(pcmFormat: self.format!, frameCapacity: packets)!
+            pcm.frameLength = packets
+            TPCircularBufferDequeueBufferListFrames(self.buffer,
+                                                    &inOutFrames,
+                                                    pcm.audioBufferList,
+                                                    &timestamp,
+                                                    from.streamDescription)
+            pcm.frameLength = inOutFrames
+            guard inOutFrames > 0 else {
+                status.pointee = .noDataNow
+                return .init()
+            }
+            guard inOutFrames == packets else {
+                print("Dequeue only got: \(inOutFrames)/\(packets)")
+                status.pointee = .noDataNow
+                return nil
+            }
+            status.pointee = .haveData
+            return pcm
+        }
+        converted.frameLength = 480
+        try encoder.write(data: converted)
+        return
+    }
+
+    private func trivialConvertAndEncode(converter: AVAudioConverter,
+                                         to: AVAudioFormat,
+                                         from: AVAudioFormat) throws {
+            // Target encode size.
+            var inOutFrames: AVAudioFrameCount = 480
+
+            // Are there enough frames for an encode?
+            let availableFrames = TPCircularBufferPeek(self.buffer,
+                                                       nil,
+                                                       from.streamDescription)
+            guard availableFrames >= inOutFrames else {
+                return
+            }
+
+            // Data holders.
+            let dequeued: AVAudioPCMBuffer = .init(pcmFormat: from,
+                                                   frameCapacity: inOutFrames)!
+            dequeued.frameLength = inOutFrames
+            let converted: AVAudioPCMBuffer = .init(pcmFormat: to,
+                                                    frameCapacity: inOutFrames)!
+            converted.frameLength = inOutFrames
+
+            // Get some data to encode.
+            TPCircularBufferDequeueBufferListFrames(self.buffer,
+                                                    &inOutFrames,
+                                                    dequeued.audioBufferList,
+                                                    nil,
+                                                    from.streamDescription)
+            dequeued.frameLength = inOutFrames
+            converted.frameLength = inOutFrames
+
+            // Convert and encode.
+            try converter.convert(to: converted, from: dequeued)
+            try encoder.write(data: converted)
+            return
     }
 
     func publish(_ flag: Bool) {}
