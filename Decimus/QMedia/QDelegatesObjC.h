@@ -27,7 +27,7 @@
 @end
 
 @protocol QPublisherDelegateObjC
-- (id<QPublicationDelegateObjC>) allocatePubByNamespace: (NSString*) quicrNamepace qualityProfile: (NSString*) qualityProfile;
+- (id<QPublicationDelegateObjC>) allocatePubByNamespace: (NSString*) quicrNamepace sourceID: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 
