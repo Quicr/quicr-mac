@@ -3,12 +3,6 @@ import CoreVideo
 import UIKit
 import AVFoundation
 
-enum H264EncoderError: Error {
-    case noCompressionSession
-    case failedToCreateCompressionSession(CFString?)
-    case failedToSetProperty(CFString, CFString?)
-}
-
 class H264Encoder: Encoder {
     internal var callback: EncodedCallback?
 
@@ -318,37 +312,33 @@ class H264Encoder: Encoder {
         return try parameterSample!.dataBuffer!.dataBytes()
     }
 
-    private func setProperty(_ key: CFString, value: CFTypeRef?) throws {
-        guard let encoder = encoder else {
-            throw H264EncoderError.noCompressionSession
-        }
-
-        let error = VTSessionSetProperty(encoder, key: key, value: value)
-        guard error == .zero else {
-            throw H264EncoderError.failedToSetProperty(key, SecCopyErrorMessageString(error, nil))
-        }
-    }
-
+    /// Try to build an encoder specification dictionary. Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
     private func makeEncoderSpecification() -> CFDictionary {
-        var availableEncoders: [[String: Any]] = []
-        var ptr: CFArray? = availableEncoders as CFArray
-        VTCopyVideoEncoderList(nil, &ptr)
+        var availableEncodersPtr: CFArray?
+        VTCopyVideoEncoderList(nil, &availableEncodersPtr)
 
-        if let hwEncoder = availableEncoders.first(where: {
-            guard let name = $0[kVTVideoEncoderList_EncoderName as String] as? String else {
-                return false
-            }
-            return name == "Apple H.264 (HW)"
-        }) {
-            if let hwEncoderName = hwEncoder[kVTVideoEncoderList_EncoderID as String] as? String {
-                return [
-                    kVTVideoEncoderSpecification_EncoderID: "com.apple.videotoolbox.videoencoder.ave.avc" as CFString
-                ] as CFDictionary
-            }
+        let defaultSpec = [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
+        ] as CFDictionary
+
+        guard let availableEncoders = availableEncodersPtr as? [[CFString: Any]] else {
+            return defaultSpec
+        }
+
+        guard let hwEncoder = availableEncoders.first(where: {
+            guard let name = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
+            let isHardwareAccelerated = $0[kVTVideoEncoderList_IsHardwareAccelerated] != nil
+            return name == kCMVideoCodecType_H264 && isHardwareAccelerated
+        }) else {
+            return defaultSpec
+        }
+
+        guard let hwEncoderID = hwEncoder[kVTVideoEncoderList_EncoderID] else {
+            return defaultSpec
         }
 
         return [
-            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
+            kVTVideoEncoderSpecification_EncoderID: hwEncoderID
         ] as CFDictionary
     }
 }
