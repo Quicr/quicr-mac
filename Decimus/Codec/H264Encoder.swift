@@ -3,6 +3,11 @@ import CoreVideo
 import UIKit
 import AVFoundation
 
+enum H264EncoderError: Error {
+    case noCompressionSession
+    case failedToSetProperty(CFString, OSStatus)
+}
+
 class H264Encoder: Encoder {
     internal var callback: EncodedCallback?
 
@@ -16,7 +21,7 @@ class H264Encoder: Encoder {
         self.verticalMirror = verticalMirror
 
         let encoderSpecification = [
-            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
+            kVTVideoEncoderSpecification_EncoderID: "com.apple.videotoolbox.videoencoder.ave.avc" as CFString
         ] as CFDictionary
 
         try OSStatusError.checked("Creation") {
@@ -310,6 +315,16 @@ class H264Encoder: Encoder {
                                       sampleBufferOut: &parameterSample)
         }
         return try parameterSample!.dataBuffer!.dataBytes()
+    }
+
+    private func setProperty(_ key: CFString, value: CFTypeRef?) throws {
+        guard let encoder = encoder else {
+            throw H264EncoderError.noCompressionSession
+        }
+        let error = VTSessionSetProperty(encoder, key: key, value: value)
+        guard error == .zero else {
+            throw H264EncoderError.failedToSetProperty(key, error)
+        }
     }
 }
 
