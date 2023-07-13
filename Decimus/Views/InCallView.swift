@@ -77,14 +77,13 @@ extension InCallView {
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
                                     captureManager: captureManager)
-            do {
-                Task { try await self.controller!.connect(config: config) }
-            }
+            Task { try? await self.controller!.connect(config: config) }
         }
 
         func leave() async {
             do {
                 try controller!.disconnect()
+                
             } catch {
                 errorHandler.writeError(message: "Error while leaving call: \(error)")
             }

@@ -27,16 +27,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
         let manifest = await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
         super.updateManifest(manifest)
-        notifier.post(name: .connected, object: self)
     }
 
     func disconnect() throws {
         super.close()
-        notifier.post(name: .disconnected, object: self)
     }
-}
-
-extension Notification.Name {
-    static let connected = Notification.Name("connected")
-    static let disconnected = Notification.Name("disconnected")
 }
