@@ -51,6 +51,14 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session.commitConfiguration()
     }
 
+    func devices() -> [AVCaptureDevice] {
+        return Array(connections.keys)
+    }
+
+    func activeDevices() -> [AVCaptureDevice] {
+        return Array(connections.keys.filter { !isMuted(device: $0) })
+    }
+
     func usingInput(device: AVCaptureDevice) -> Bool {
         inputs[device] != nil
     }
@@ -202,7 +210,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let connection = connections[device] else {
             fatalError()
         }
-        return connection.isEnabled
+        return !connection.isEnabled
     }
 
     private func getDelegate(output: AVCaptureOutput) -> [FrameListener] {
