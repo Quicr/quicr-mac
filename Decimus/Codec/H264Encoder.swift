@@ -5,7 +5,8 @@ import AVFoundation
 
 enum H264EncoderError: Error {
     case noCompressionSession
-    case failedToSetProperty(CFString, OSStatus)
+    case failedToCreateCompressionSession(CFString?)
+    case failedToSetProperty(CFString, CFString?)
 }
 
 class H264Encoder: Encoder {
@@ -29,7 +30,7 @@ class H264Encoder: Encoder {
                                        width: config.width,
                                        height: config.height,
                                        codecType: kCMVideoCodecType_H264,
-                                       encoderSpecification: encoderSpecification,
+                                       encoderSpecification: makeEncoderSpecification(),
                                        imageBufferAttributes: nil,
                                        compressedDataAllocator: nil,
                                        outputCallback: nil,
@@ -321,10 +322,34 @@ class H264Encoder: Encoder {
         guard let encoder = encoder else {
             throw H264EncoderError.noCompressionSession
         }
+
         let error = VTSessionSetProperty(encoder, key: key, value: value)
         guard error == .zero else {
-            throw H264EncoderError.failedToSetProperty(key, error)
+            throw H264EncoderError.failedToSetProperty(key, SecCopyErrorMessageString(error, nil))
         }
+    }
+
+    private func makeEncoderSpecification() -> CFDictionary {
+        var availableEncoders: [[String: Any]] = []
+        var ptr: CFArray? = availableEncoders as CFArray
+        VTCopyVideoEncoderList(nil, &ptr)
+
+        if let hwEncoder = availableEncoders.first(where: {
+            guard let name = $0[kVTVideoEncoderList_EncoderName as String] as? String else {
+                return false
+            }
+            return name == "Apple H.264 (HW)"
+        }) {
+            if let hwEncoderName = hwEncoder[kVTVideoEncoderList_EncoderID as String] as? String {
+                return [
+                    kVTVideoEncoderSpecification_EncoderID: "com.apple.videotoolbox.videoencoder.ave.avc" as CFString
+                ] as CFDictionary
+            }
+        }
+
+        return [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
+        ] as CFDictionary
     }
 }
 
