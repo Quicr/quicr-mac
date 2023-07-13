@@ -149,7 +149,9 @@ class OpusPublication: Publication {
 
     private func encode() throws {
         guard converter == nil else {
-            try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
+            var data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
+            guard let data = data else { return }
+            try encoder.write(data: data)
             return
         }
 
@@ -182,12 +184,11 @@ class OpusPublication: Publication {
     // swiftlint:disable identifier_name
     private func convertAndEncode(converter: AVAudioConverter,
                                   to: AVAudioFormat,
-                                  from: AVAudioFormat) throws {
+                                  from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
         // Is it a trivial conversion?
         if to.commonFormat == from.commonFormat &&
             to.sampleRate == from.sampleRate {
-            try trivialConvertAndEncode(converter: converter, to: to, from: from)
-            return
+            return try trivialConvertAndEncode(converter: converter, to: to, from: from)
         }
 
         let converted: AVAudioPCMBuffer = .init(pcmFormat: to, frameCapacity: 480)!
@@ -229,14 +230,12 @@ class OpusPublication: Publication {
             status.pointee = .haveData
             return pcm
         }
-        converted.frameLength = 480
-        try encoder.write(data: converted)
-        return
+        return converted.frameLength > 0 ? converted : nil
     }
 
     private func trivialConvertAndEncode(converter: AVAudioConverter,
                                          to: AVAudioFormat,
-                                         from: AVAudioFormat) throws {
+                                         from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
             // Target encode size.
             var inOutFrames: AVAudioFrameCount = 480
 
@@ -245,7 +244,7 @@ class OpusPublication: Publication {
                                                        nil,
                                                        from.streamDescription)
             guard availableFrames >= inOutFrames else {
-                return
+                return nil
             }
 
             // Data holders.
@@ -267,8 +266,7 @@ class OpusPublication: Publication {
 
             // Convert and encode.
             try converter.convert(to: converted, from: dequeued)
-            try encoder.write(data: converted)
-            return
+            return converted
     }
 
     func publish(_ flag: Bool) {}
