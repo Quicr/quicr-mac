@@ -72,20 +72,20 @@ class OpusSubscription: Subscription {
 
         // Create the jitter buffer.
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        self.jitterBuffer = .init(Int(asbd.pointee.mBytesPerPacket),
-                                  packet_elements: 480,
-                                  clock_rate: UInt(asbd.pointee.mSampleRate),
-                                  max_length_ms: 500,
-                                  min_length_ms: 20)
+        self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
+                                          packetElements: 480,
+                                          clockRate: UInt(asbd.pointee.mSampleRate),
+                                          maxLengthMs: 500,
+                                          minLengthMs: 20)
+
+        // Create the player node.
+        self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
+        self.player.addPlayer(identifier: namespace, node: node!)
 
         self.decoder.registerCallback { [weak self] in
             self?.onDecodedAudio(buffer: $0, timestamp: $1)
         }
 
-        // Create the player node.
-        node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-
-        self.player.addPlayer(identifier: namespace, node: node!)
         log("Subscribed to OPUS stream")
     }
 
@@ -119,7 +119,7 @@ class OpusSubscription: Subscription {
         let buffer: AudioBuffer = data.pointee.mBuffers
         assert(buffer.mDataByteSize == numFrames * asbd.pointee.mBytesPerFrame)
         let copiedFrames = jitterBuffer.dequeue(buffer.mData,
-                                                destination_length: Int(buffer.mDataByteSize),
+                                                destinationLength: Int(buffer.mDataByteSize),
                                                 elements: Int(numFrames))
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
@@ -146,13 +146,13 @@ class OpusSubscription: Subscription {
     }
 
     private let plcCallback: PacketCallback = { packets, count in
-        for index in 0...count - 1 {
+        for index in 0..<count {
             // Make PLC packets.
             // TODO: Ask the opus deco5der to generate real PLC data.
             // TODO: Figure out how to best pass in frame lengths and sizes.
 
             var packet = packets![Int(index)]
-            print("[AudioSubscription] Requested PLC for: \(packet.sequence_number)")
+            print("[OpusSubscription] Requested PLC for: \(packet.sequence_number)")
 
             packet.data = malloc(packet.length)
             memset(packet.data, 0, packet.length)
@@ -160,7 +160,7 @@ class OpusSubscription: Subscription {
     }
 
     private let freeCallback: PacketCallback = { packets, count in
-        for index in 0...count - 1 {
+        for index in 0..<count {
             free(.init(mutating: packets![Int(index)].data))
         }
     }
@@ -251,8 +251,8 @@ class OpusSubscription: Subscription {
 
         // Copy in.
         let copied = jitterBuffer.enqueue(packet,
-                                          concealment_callback: self.plcCallback,
-                                          free_callback: self.freeCallback)
+                                          concealmentCallback: self.plcCallback,
+                                          freeCallback: self.freeCallback)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)

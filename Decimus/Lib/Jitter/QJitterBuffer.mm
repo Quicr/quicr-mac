@@ -9,11 +9,11 @@
 #include "JitterBuffer.hh"
 
 @implementation QJitterBuffer
--(id)init: (size_t)elementSize
-            packet_elements:(size_t)packet_elements
-            clock_rate:(unsigned long)clock_rate
-            max_length_ms:(unsigned long)max_length_ms
-            min_length_ms:(unsigned long)min_length_ms
+-(id)initElementSize: (size_t)elementSize
+            packetElements:(size_t)packet_elements
+            clockRate:(unsigned long)clock_rate
+            maxLengthMs:(unsigned long)max_length_ms
+            minLengthMs:(unsigned long)min_length_ms
 {
     self = [super init];
     if (self) jitterBuffer = std::make_unique<JitterBuffer>(elementSize,
@@ -25,8 +25,8 @@
 }
 
 -(size_t)enqueue: (Packet)packet
-                    concealment_callback:(PacketCallback)concealment_callback
-                    free_callback:(PacketCallback)free_callback
+                    concealmentCallback:(PacketCallback)concealment_callback
+                    freeCallback:(PacketCallback)free_callback
 {
     if (!jitterBuffer) return 0;
 
@@ -36,7 +36,7 @@
 }
 
 -(size_t)dequeue: (uint8_t*)destination
-                    destination_length:(size_t)destination_length
+                    destinationLength:(size_t)destination_length
                     elements:(size_t)elements
 {
     if (!jitterBuffer) return 0;
