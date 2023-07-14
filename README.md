@@ -51,3 +51,41 @@ This repo includes the QMedia dependency as a submodule, and building a universa
 #### Undefined QMedia Symbols
 
 Ensure you're building for an ARM64 target and not an Intel, Rosetta or Any Mac target.
+
+## Building for H3 Support
+
+Steps:
+
+- Build a customer Rust compiler
+
+  - Clone Rust:
+
+    - `git clone --depth 1 --recursive git@github.com:paulej/rust.git --branch paulej_ios`
+
+  - Build rust
+
+    - `cd rust`
+
+    - ``./x.py build``
+
+  - Add this build as a toolchain
+
+    - `rustup toolchain link 'm10x' build/host/stage2`
+
+- Clone Decimus
+
+  - `git clone --recursive --branch h3-support git@github.com:Quicr/WxQ.git`
+
+- Switch libquir to the paulej_h3 branch and update submodules
+
+  - `cd dependencies/new-qmedia/dependencies/libquicr`
+
+  - `git checkout main`
+
+  - `git pull (to get the latest code)`
+
+  - `git checkout paulej_h3`
+
+  - `git submodule update --init --recursive`
+
+- Follow the normal build instructions for Decimus
