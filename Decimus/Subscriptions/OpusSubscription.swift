@@ -154,7 +154,7 @@ class OpusSubscription: Subscription {
             var packet = packets![Int(index)]
             print("[AudioSubscription] Requested PLC for: \(packet.sequence_number)")
 
-            packet.data = malloc(packet.length).assumingMemoryBound(to: UInt8.self)
+            packet.data = malloc(packet.length)
             memset(packet.data, 0, packet.length)
         }
     }
