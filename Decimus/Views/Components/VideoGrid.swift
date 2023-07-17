@@ -31,8 +31,7 @@ struct VideoGrid: View {
 
             LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(Array(participants.participants.values)) { participant in
-                    participant.decodedImage
-                        .resizable()
+                    participant.view
                         .scaledToFit()
                         .cornerRadius(12)
                         .frame(maxHeight: height)

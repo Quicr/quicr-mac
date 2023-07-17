@@ -41,17 +41,32 @@ class H264Subscription: Subscription {
         return SubscriptionError.None.rawValue
     }
 
-    private func showDecodedImage(decoded: CIImage,
+    private func showDecodedImage(decoded: CMSampleBuffer,
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
-        let participant = participants.getOrMake(identifier: namespace)
+        // FIXME: Driving from proper timestamps probably preferable.
+        let array: CFArray! = CMSampleBufferGetSampleAttachmentsArray(decoded, createIfNecessary: true)
+        let dictionary: CFMutableDictionary = unsafeBitCast(CFArrayGetValueAtIndex(array, 0),
+                                                            to: CFMutableDictionary.self)
+        CFDictionarySetValue(dictionary,
+                             Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                             Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
 
-        // TODO: Why can't we use CIImage directly here?
-        let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
-        let imageOrientation = orientation?.toImageOrientation(verticalMirror) ?? .up
-        participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
-        participant.lastUpdated = .now()
+        // Enqueue the buffer.
+        DispatchQueue.main.async {
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            guard let layer = participant.view.view.layer as? AVSampleBufferDisplayLayer else {
+                fatalError()
+            }
+            guard layer.status != .failed else {
+                print(layer.error!)
+                layer.flush()
+                return
+            }
+            layer.enqueue(decoded)
+            participant.lastUpdated = .now()
+        }
     }
 }
 
