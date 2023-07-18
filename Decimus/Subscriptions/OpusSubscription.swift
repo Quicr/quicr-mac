@@ -148,20 +148,21 @@ class OpusSubscription: Subscription {
     private let plcCallback: PacketCallback = { packets, count in
         for index in 0..<count {
             // Make PLC packets.
-            // TODO: Ask the opus deco5der to generate real PLC data.
+            // TODO: Ask the opus decoder to generate real PLC data.
             // TODO: Figure out how to best pass in frame lengths and sizes.
 
-            var packet = packets![Int(index)]
-            print("[OpusSubscription] Requested PLC for: \(packet.sequence_number)")
+            var packet = packets!.advanced(by: index)
+            print("[OpusSubscription] Requested PLC for: \(packet.pointee.sequence_number)")
 
-            packet.data = malloc(packet.length)
-            memset(packet.data, 0, packet.length)
+            let length = packet.pointee.length
+            packet.pointee.data = malloc(length).assumingMemoryBound(to: UInt8.self)
+            memset(packet.pointee.data, 0, length)
         }
     }
 
     private let freeCallback: PacketCallback = { packets, count in
         for index in 0..<count {
-            free(.init(mutating: packets![Int(index)].data))
+            free(.init(mutating: packets!.advanced(by: index).pointee.data))
         }
     }
 

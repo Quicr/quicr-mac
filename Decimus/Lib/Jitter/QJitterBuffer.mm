@@ -24,15 +24,25 @@
     return self;
 }
 
--(size_t)enqueue: (Packet)packet
-                    concealmentCallback:(PacketCallback)concealment_callback
-                    freeCallback:(PacketCallback)free_callback
+-(size_t)enqueuePacket:(Packet)packet
+                concealmentCallback:(PacketCallback)concealment_callback
+                freeCallback:(PacketCallback)free_callback
 {
     if (!jitterBuffer) return 0;
+    return jitterBuffer->Enqueue({1, packet},
+                                 [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
+                                 [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
+}
 
-    return jitterBuffer->Enqueue({packet},
-                                 [=](auto p) { return concealment_callback(p.data(), p.size()); },
-                                 [=](auto p) { return free_callback(p.data(), p.size()); });
+-(size_t)enqueuePackets:(Packet[])packets
+                size:(size_t)size
+                concealmentCallback:(PacketCallback)concealment_callback
+                freeCallback:(PacketCallback)free_callback
+{
+    if (!jitterBuffer) return 0;
+    return jitterBuffer->Enqueue({packets, packets + size},
+                                 [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
+                                 [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
 }
 
 -(size_t)dequeue: (uint8_t*)destination

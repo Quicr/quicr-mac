@@ -9,7 +9,7 @@
 #include "JitterBuffer.hh"
 #endif
 
-typedef void(*PacketCallback)(struct Packet[], size_t);
+typedef void(*PacketCallback)(struct Packet*, size_t);
 
 
 @interface QJitterBuffer : NSObject {
@@ -18,15 +18,20 @@ typedef void(*PacketCallback)(struct Packet[], size_t);
 #endif
 }
 
--(instancetype) initElementSize: (size_t)element_size
-                        packetElements:(size_t)packet_elements
-                        clockRate:(unsigned long)clock_rate
-                        maxLengthMs:(unsigned long)max_length_ms
-                        minLengthMs:(unsigned long)min_length_ms;
+-(instancetype) initElementSize:(size_t)element_size
+                    packetElements:(size_t)packet_elements
+                    clockRate:(unsigned long)clock_rate
+                    maxLengthMs:(unsigned long)max_length_ms
+                    minLengthMs:(unsigned long)min_length_ms;
 
--(size_t)enqueue: (struct Packet)packet
-                    concealmentCallback:(PacketCallback)concealment_callback
-                    freeCallback:(PacketCallback)free_callback;
+-(size_t)enqueuePacket:(struct Packet)packet
+                concealmentCallback:(PacketCallback)concealment_callback
+                freeCallback:(PacketCallback)free_callback;
+
+-(size_t)enqueuePackets:(struct Packet[])packets
+                size:(size_t)size
+                concealmentCallback:(PacketCallback)concealment_callback
+                freeCallback:(PacketCallback)free_callback;
 
 -(size_t)dequeue: (uint8_t*)destination
                     destinationLength:(size_t)destination_length
