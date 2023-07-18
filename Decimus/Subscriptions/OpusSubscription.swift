@@ -155,7 +155,7 @@ class OpusSubscription: Subscription {
             print("[OpusSubscription] Requested PLC for: \(packet.pointee.sequence_number)")
 
             let length = packet.pointee.length
-            packet.pointee.data = malloc(length).assumingMemoryBound(to: UInt8.self)
+            packet.pointee.data = malloc(length)
             memset(packet.pointee.data, 0, length)
         }
     }
