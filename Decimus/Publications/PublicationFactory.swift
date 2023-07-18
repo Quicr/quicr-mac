@@ -5,7 +5,8 @@ class PublicationFactory {
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter) -> Publication
+                                             MetricsSubmitter,
+                                             PublicationSettings) -> Publication
 
     private unowned let capture: CaptureManager
     init(capture: CaptureManager) {
@@ -15,6 +16,7 @@ class PublicationFactory {
     private lazy var factories: [CodecType: FactoryCallbackType] = [
         .h264: { [weak self] in
             guard let config = $3 as? VideoCodecConfig else { fatalError() }
+            _ = $5
             let publication = H264Publication(namespace: $0,
                                               publishDelegate: $1,
                                               sourceID: $2,
@@ -30,7 +32,11 @@ class PublicationFactory {
         },
         .opus: {
             guard let config = $3 as? AudioCodecConfig else { fatalError() }
-            return OpusPublication(namespace: $0, publishDelegate: $1, sourceID: $2, metricsSubmitter: $4)
+            return OpusPublication(namespace: $0,
+                                   publishDelegate: $1,
+                                   sourceID: $2,
+                                   metricsSubmitter: $4,
+                                   opusWindowSize: $5.opusWindowSize)
         }
     ]
 
@@ -38,11 +44,12 @@ class PublicationFactory {
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter) throws -> Publication {
+                metricsSubmitter: MetricsSubmitter,
+                publicationSettings: PublicationSettings) throws -> Publication {
         guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
         }
 
-        return factory(namespace, publishDelegate, sourceID, config, metricsSubmitter)
+        return factory(namespace, publishDelegate, sourceID, config, metricsSubmitter, publicationSettings)
     }
 }

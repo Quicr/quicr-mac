@@ -12,6 +12,9 @@ struct SettingsView: View {
 
             InfluxSettingsView()
                 .textFieldStyle(.roundedBorder)
+
+            PublicationSettingsView()
+                .textFieldStyle(.roundedBorder)
         }
         .frame(maxWidth: 500)
     }

@@ -1,17 +1,24 @@
 import AVFoundation
 import Foundation
 
+struct PublicationSettings: Codable {
+    var opusWindowSize: Double
+}
+
 class PublisherDelegate: QPublisherDelegateObjC {
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
     private let factory: PublicationFactory
+    private let publicationSettings: PublicationSettings
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter,
-         captureManager: CaptureManager) {
+         captureManager: CaptureManager,
+         publicationSettings: PublicationSettings) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.factory = .init(capture: captureManager)
+        self.publicationSettings = publicationSettings
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -23,7 +30,8 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
-                                       metricsSubmitter: metricsSubmitter)
+                                       metricsSubmitter: metricsSubmitter,
+                                       publicationSettings: publicationSettings)
         } catch {
             print("[PublisherDelegate] Failed to allocate publication: \(error)")
             return nil

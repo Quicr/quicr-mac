@@ -17,7 +17,7 @@ class OpusPublication: Publication {
     private var differentEncodeFormat: AVAudioFormat?
     private let metricsSubmitter: MetricsSubmitter
     private var encodeTimer: Timer?
-    private let opusWindowSizeSeconds: TimeInterval = 0.01
+    private let opusWindowSizeSeconds: TimeInterval
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, asbd] timestamp, numFrames, data in
         // If this is weird multichannel audio, we need to clip.
@@ -70,10 +70,12 @@ class OpusPublication: Publication {
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
-         metricsSubmitter: MetricsSubmitter) {
+         metricsSubmitter: MetricsSubmitter,
+         opusWindowSize: TimeInterval = 1) {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
+        self.opusWindowSizeSeconds = opusWindowSize
         do {
             try engine.inputNode.setVoiceProcessingEnabled(true)
         } catch {

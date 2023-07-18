@@ -10,13 +10,15 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
-         captureManager: CaptureManager) {
+         captureManager: CaptureManager,
+         publicationSettings: PublicationSettings) {
         super.init()
         self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter,
                                                      submitter: metricsSubmitter)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
-                                                   captureManager: captureManager)
+                                                   captureManager: captureManager,
+                                                   publicationSettings: publicationSettings)
     }
 
     func connect(config: CallConfig) async throws {

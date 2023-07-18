@@ -60,6 +60,9 @@ extension InCallView {
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
+        @AppStorage("publicationSettings")
+        private var publicationSettings: AppStorageWrapper<PublicationSettings> = .init(value: .init(opusWindowSize: 0.01))
+
         init(config: CallConfig) {
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -76,7 +79,8 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager)
+                                    captureManager: captureManager,
+                                    publicationSettings: publicationSettings.value)
             Task { try? await self.controller!.connect(config: config) }
         }
 
