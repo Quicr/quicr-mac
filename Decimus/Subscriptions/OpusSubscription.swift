@@ -245,8 +245,13 @@ class OpusSubscription: Subscription {
 
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
+        guard let data = audioBuffer.mData else {
+            log("AudioBuffer data was nil")
+            return
+        }
+
         var packet: Packet = .init(sequence_number: UInt(sequence),
-                                   data: audioBuffer.mData,
+                                   data: data,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
 
