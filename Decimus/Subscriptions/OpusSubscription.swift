@@ -95,7 +95,7 @@ class OpusSubscription: Subscription {
         JitterDestroy(jitterBuffer)
 
         // Report metrics.
-        print("They had \(metrics.framesEnqueuedFail) copy fails")
+        log("They had \(metrics.framesEnqueuedFail) copy fails")
     }
 
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
@@ -206,16 +206,11 @@ class OpusSubscription: Subscription {
             Task(priority: .utility) {
                 await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
                 if missing > 0 {
-                    print("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
+                    log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
                     await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                 }
             }
             self.seq = groupId
-        } else if groupId == self.seq {
-            print("Duplicate?")
-        } else {
-            // Out of order / late?
-            print("OOO / Late")
         }
 
         var decoded: AVAudioPCMBuffer?
@@ -259,7 +254,7 @@ class OpusSubscription: Subscription {
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
-            print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
+            log("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
             return
