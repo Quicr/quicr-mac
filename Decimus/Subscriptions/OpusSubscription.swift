@@ -150,21 +150,9 @@ class OpusSubscription: Subscription {
         for index in 0...count - 1 {
             // Make PLC packets.
             // TODO: Ask the opus deco5der to generate real PLC data.
-            // TODO: Figure out how to best pass in frame lengths and sizes.
             let packetPtr = packets!.advanced(by: index)
             print("[AudioSubscription] Requested PLC for: \(packetPtr.pointee.sequence_number)")
-            let malloced = malloc(480 * 8)
-            memset(malloced, 0, 480 * 8)
-            packetPtr.pointee.data = .init(malloced)
-            packetPtr.pointee.elements = 480
-            packetPtr.pointee.length = 480 * 8
-        }
-    }
-
-    private let freeCallback: LibJitterConcealmentCallback = { packets, count, _ in
-        for index in 0...count - 1 {
-            let packetPtr = packets!.advanced(by: index)
-            free(.init(mutating: packetPtr.pointee.data))
+            memset(packetPtr.pointee.data, 0, packetPtr.pointee.length)
         }
     }
 
@@ -243,7 +231,7 @@ class OpusSubscription: Subscription {
                                    elements: Int(buffer.frameLength))
 
         // Copy in.
-        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback, nil)
+        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, nil)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
