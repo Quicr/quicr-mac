@@ -105,11 +105,13 @@ class OpusSubscription: Subscription {
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd] silence, _, numFrames, data in
         // Fill the buffers as best we can.
         guard data.pointee.mNumberBuffers == 1 else {
-            fatalError("What to do")
+            print("Unexpected render block buffer count: \(data.pointee.mNumberBuffers)")
+            return 1
         }
 
         guard data.pointee.mBuffers.mNumberChannels == asbd.pointee.mChannelsPerFrame else {
-            fatalError("Channel mismatch")
+            print("Unexpected render block channels. Got \(data.pointee.mBuffers.mNumberChannels). Expected \(asbd.pointee.mChannelsPerFrame)")
+            return 1
         }
 
         guard jitterBuffer != nil else {
