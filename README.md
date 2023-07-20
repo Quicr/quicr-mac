@@ -56,21 +56,13 @@ Ensure you're building for an ARM64 target and not an Intel, Rosetta or Any Mac 
 
 Steps:
 
-- Build a customer Rust compiler
+- Install Rust "nightly"
 
-  - Clone Rust:
+  - rustup-init (select option 1) [only if you don't have rustup installed]
 
-    - `git clone --depth 1 --recursive git@github.com:paulej/rust.git --branch paulej_ios`
+  - rustup install nightly
 
-  - Build rust
-
-    - `cd rust`
-
-    - ``./x.py build``
-
-  - Add this build as a toolchain
-
-    - `rustup toolchain link 'm10x' build/host/stage2`
+  - rustup component add rust-src --toolchain nightly
 
 - Clone Decimus
 
