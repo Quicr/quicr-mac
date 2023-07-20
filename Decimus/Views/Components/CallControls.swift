@@ -218,7 +218,7 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let errorWriter: ObservableError = .init()
-        let capture: CaptureManager? = try? .init(errorHandler: errorWriter)
+        let capture: CaptureManager? = try? .init()
         CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
     }
 }

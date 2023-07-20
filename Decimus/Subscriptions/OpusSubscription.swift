@@ -6,7 +6,7 @@ enum OpusSubscriptionError: Error {
     case FailedDecoderCreation
 }
 // swiftlint:enable identifier_name
-    
+
 actor OpusSubscriptionMeasurement: Measurement {
     var name: String = "OpusSubscription"
     var fields: [Date?: [String: AnyObject]] = [:]
@@ -236,18 +236,19 @@ class OpusSubscription: Subscription {
             }
         }
         guard result == .None else { return result.rawValue }
-        queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
+        do {
+            try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
+        } catch {
+            errorWriter.writeError("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
+        }
         return SubscriptionError.None.rawValue
     }
 
-    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) {
+    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) throws {
         // Ensure this buffer looks valid.
         let list = buffer.audioBufferList
         guard list.pointee.mNumberBuffers == 1 else {
-            fatalError()
-        }
-        guard list.pointee.mBuffers.mDataByteSize > 0 else {
-            fatalError()
+            throw "Unexpected number of buffers"
         }
 
         Task(priority: .utility) {

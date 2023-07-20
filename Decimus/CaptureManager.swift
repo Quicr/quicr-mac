@@ -25,12 +25,9 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
-    private let errorHandler: ErrorWriter
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
 
-    init(errorHandler: ErrorWriter) throws {
-        self.errorHandler = errorHandler
-
+    init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw "Multicam not supported on this device"
         }

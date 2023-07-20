@@ -72,10 +72,11 @@ class OpusPublication: Publication {
                 try engine.inputNode.setVoiceProcessingEnabled(false)
             }
         } catch {
-            fatalError("\(error)")
+            let message = "Failed to set input voice processing: \(error.localizedDescription)"
+            Self.log(namespace: namespace, message: message)
+            errorWriter.writeError("Failed to set input voice processing: \(error.localizedDescription)")
         }
 
-        try engine.inputNode.setVoiceProcessingEnabled(true)
         try AVAudioSession.configureForDecimus()
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)

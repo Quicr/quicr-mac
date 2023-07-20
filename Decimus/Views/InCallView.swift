@@ -75,7 +75,7 @@ extension InCallView {
             ]
             self.errorHandler = errorHandler
             do {
-                self.captureManager = try .init(errorHandler: errorHandler)
+                self.captureManager = try .init()
             } catch {
                 errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
                 return
