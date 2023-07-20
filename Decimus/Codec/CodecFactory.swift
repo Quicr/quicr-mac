@@ -5,10 +5,13 @@ import Foundation
 enum CodecError: Error {
     case noCodecFound(CodecType)
     case failedToCreateCodec(CodecType)
+    case invalidEntry(String)
 }
 
 /// Codec type mappings.
 enum CodecType: UInt8, CaseIterable {
+    case unknown
+
     // Video
     case h264
     case av1
@@ -22,6 +25,12 @@ enum CodecType: UInt8, CaseIterable {
 protocol CodecConfig {
     var codec: CodecType {get}
     var bitrate: UInt32 {get}
+}
+
+/// Unknown code type, intended to be passed to induce exceptions.
+struct UnknownCodecConfig: CodecConfig {
+    let codec: CodecType = .unknown
+    let bitrate: UInt32 = UInt32.max
 }
 
 /// Video codec specific configuration type.
@@ -40,12 +49,6 @@ struct AudioCodecConfig: CodecConfig {
 }
 
 class CodecFactory {
-    let audioFormat: AVAudioFormat
-
-    init(audioFormat: AVAudioFormat) {
-        self.audioFormat = audioFormat
-    }
-
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
     /// - Returns The corresponding codec config.
@@ -54,7 +57,9 @@ class CodecFactory {
 
         guard let codec = CodecType.allCases.first(where: {
             String(describing: $0) == elements[0]
-        }) else { fatalError() }
+        }) else {
+            return UnknownCodecConfig()
+        }
 
         var tokens: [String: String] = [:]
         for token in elements.dropFirst() {
@@ -70,109 +75,45 @@ class CodecFactory {
     /// - Parameter tokens The dictionary of already parsed tokens.
     /// - Returns The corresponding codec config.
     static func makeCodecConfig(codec: CodecType, tokens: [String: String]) -> CodecConfig {
-        switch codec {
-        case .h264, .av1:
-            return VideoCodecConfig(codec: codec, tokens: tokens)
-        case .opus, .xcodec:
-            return AudioCodecConfig(codec: codec, tokens: tokens)
+        do {
+            switch codec {
+            case .h264:
+                return try VideoCodecConfig(codec: codec, tokens: tokens)
+            case .opus:
+                return try AudioCodecConfig(codec: codec, tokens: tokens)
+            default:
+                return UnknownCodecConfig()
+            }
+        } catch {
+            print("[CodecFactory] Failed to create codec config: \(error)")
+            return UnknownCodecConfig()
         }
     }
 }
 
-class EncoderFactory: CodecFactory {
-    private lazy var factories: [CodecType: (CodecConfig) throws -> Encoder] = [
-        .h264: {
-            guard let config = $0 as? VideoCodecConfig else { fatalError() }
-            return try H264Encoder(config: config, verticalMirror: false)
-        },
-        .opus: { [unowned self] in
-            guard let config = $0 as? AudioCodecConfig else { fatalError() }
-            do {
-                return try LibOpusEncoder(format: self.audioFormat)
-            } catch {
-                fatalError()
-            }
-        }
-    ]
-
-    func create(_ config: CodecConfig,
-                callback: @escaping Encoder.EncodedCallback) throws -> Encoder {
-        guard let factory = factories[config.codec] else {
-            throw CodecError.noCodecFound(config.codec)
-        }
-
-        var encoder = try factory(config)
-        encoder.registerCallback(callback: callback)
-        return encoder
+private func checkEntry<T: LosslessStringConvertible>(_ tokens: [String: String], entry: String) throws -> T {
+    guard let token = tokens[entry] else { throw CodecError.invalidEntry(entry) }
+    guard let value = T(token) else {
+        throw CodecError.invalidEntry(entry)
     }
-}
-
-class DecoderFactory: CodecFactory {
-    private lazy var factories: [CodecType: (CodecConfig) -> Decoder] = [
-        .h264: {
-            guard let config = $0 as? VideoCodecConfig else { fatalError() }
-            return H264Decoder(config: config)
-        },
-        .opus: { [unowned self] _ in
-            do {
-                // Decode directly into output format if possible.
-                return try LibOpusDecoder(format: self.audioFormat)
-            } catch {
-                fatalError()
-            }
-        }
-    ]
-
-    override init(audioFormat: AVAudioFormat) {
-        if audioFormat.isValidOpusPCMFormat {
-            super.init(audioFormat: audioFormat)
-        } else {
-            super.init(audioFormat: .init(opusPCMFormat: .float32,
-                                          sampleRate: .opus48khz,
-                                          channels: 2)!)
-        }
-    }
-
-    private func create<DecoderType>(config: CodecConfig) throws -> DecoderType {
-        guard let factory = factories[config.codec] else {
-            throw CodecError.noCodecFound(config.codec)
-        }
-
-        guard let decoder = factory(config) as? DecoderType else {
-            throw CodecError.failedToCreateCodec(config.codec)
-        }
-
-        return decoder
-    }
-
-    func create(config: CodecConfig, callback: @escaping SampleDecoder.DecodedCallback) throws -> SampleDecoder {
-        var decoder: SampleDecoder = try create(config: config)
-        decoder.registerCallback(callback: callback)
-        return decoder
-    }
-
-    func create(config: CodecConfig, callback: @escaping BufferDecoder.DecodedCallback) throws -> BufferDecoder {
-        var decoder: BufferDecoder = try create(config: config)
-        decoder.registerCallback(callback: callback)
-        return decoder
-    }
+    return value
 }
 
 /// Extentension initialiser for video codec configs from token dictionary.
-extension VideoCodecConfig {
-    init(codec: CodecType, tokens: [String: String]) {
+fileprivate extension VideoCodecConfig {
+    init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec
-        self.bitrate = (UInt32(tokens["br"] ?? "") ?? 0 ) * 1000
-        self.fps = UInt16(tokens["fps"] ?? "") ?? 0
-        self.width = Int32(tokens["width"] ?? "") ?? -1
-        self.height = Int32(tokens["height"] ?? "") ?? -1
+        self.bitrate = try checkEntry(tokens, entry: "br") * 1000
+        self.fps = try checkEntry(tokens, entry: "fps")
+        self.width = try checkEntry(tokens, entry: "width")
+        self.height = try checkEntry(tokens, entry: "height")
     }
 }
 
 /// Extentension initialiser for audio codec configs from token dictionary.
-extension AudioCodecConfig {
-    init(codec: CodecType, tokens: [String: String]) {
+fileprivate extension AudioCodecConfig {
+    init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec
-        self.bitrate = (UInt32(tokens["br"] ?? "") ?? 0) * 1000
+        self.bitrate = try checkEntry(tokens, entry: "br") * 1000
     }
 }

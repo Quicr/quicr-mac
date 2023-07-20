@@ -29,6 +29,11 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
+    func write(data: AVAudioPCMBuffer) throws {
+        let encodeCount = try encoder.encode(data, to: &encoded)
+        callback?(encoded, true)
+    }
+
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
         guard format.equivalent(other: self.format) else {
             throw "Write format must match declared format"

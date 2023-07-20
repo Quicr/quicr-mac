@@ -13,11 +13,15 @@ class FasterAVEngineAudioPlayer {
     /// Create a new `AudioPlayer`
     init(errorWriter: ErrorWriter) {
         self.errorWriter = errorWriter
-
         engine.attach(mixer)
         inputFormat = mixer.inputFormat(forBus: 0)
         print("[FasterAVEngineAudioPlayer] Creating. Mixer input format is: \(inputFormat)")
         engine.connect(mixer, to: engine.outputNode, format: nil)
+        do {
+            try engine.outputNode.setVoiceProcessingEnabled(true)
+        } catch {
+            fatalError("Failed to set voice processing: \(error)")
+        }
         engine.prepare()
     }
 

@@ -2,24 +2,36 @@ import AVFoundation
 import Foundation
 
 class PublisherDelegate: QPublisherDelegateObjC {
-    private let codecFactory: EncoderFactory
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
+    private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
 
-    init(publishDelegate: QPublishObjectDelegateObjC, audioFormat: AVAudioFormat, metricsSubmitter: MetricsSubmitter, errorWriter: ErrorWriter) {
+    init(publishDelegate: QPublishObjectDelegateObjC,
+         metricsSubmitter: MetricsSubmitter,
+         captureManager: CaptureManager,
+         errorWriter: ErrorWriter) {
         self.publishDelegate = publishDelegate
-        self.codecFactory = .init(audioFormat: audioFormat)
         self.metricsSubmitter = metricsSubmitter
+        self.factory = .init(capture: captureManager)
         self.errorWriter = errorWriter
     }
 
-    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!) -> QPublicationDelegateObjC! {
-        return Publication(namespace: quicrNamepace!,
-                           publishDelegate: publishDelegate,
-                           codecFactory: codecFactory,
-                           metricsSubmitter: metricsSubmitter,
-                           errorWriter: errorWriter)
+    func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
+                     sourceID: SourceIDType!,
+                     qualityProfile: String!) -> QPublicationDelegateObjC? {
+        let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
+        do {
+            return try factory.create(quicrNamepace,
+                                       publishDelegate: publishDelegate,
+                                       sourceID: sourceID,
+                                       config: config,
+                                       metricsSubmitter: metricsSubmitter,
+                                       errorWriter: errorWriter)
+        } catch {
+            print("[PublisherDelegate] Failed to allocate publication: \(error)")
+            return nil
+        }
     }
 
     func remove(byNamespace quicrNamepace: String!) -> Int32 {

@@ -1,16 +1,30 @@
 import SwiftUI
 import AVFoundation
 
+@MainActor
 struct CallControls: View {
     @EnvironmentObject private var errorHandler: ObservableError
     @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
 
-    @State private var audioOn: Bool = true
+    @State private var audioOn: Bool = false
     @State private var videoOn: Bool = true
+
     @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
+
+    private var cameras: [AVCaptureDevice] {
+        var devices: [AVCaptureDevice] = []
+        Task { devices = await viewModel.devices(.video) ?? devices }
+        return devices
+    }
+
+    private var audioDevices: [AVCaptureDevice] {
+        var devices: [AVCaptureDevice] = []
+        Task { devices = await viewModel.devices(.audio) ?? devices }
+        return devices
+    }
 
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(
         background: .black,
@@ -18,28 +32,23 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, leaving: Binding<Bool>) {
-        let model: ViewModel = .init(errorWriter: errorWriter)
-        _viewModel = .init(wrappedValue: model)
+    init(errorWriter: ErrorWriter, captureManager: CaptureManager?, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
         _leaving = leaving
     }
 
     private func toggleVideo() async {
-        var anyVideo = false
-        for (camera, _) in viewModel.usingDevice where camera.hasMediaType(.video) {
-            let enabled = await viewModel.toggleDevice(device: camera)
-            anyVideo = anyVideo || enabled
+        for camera in await viewModel.devices(.video) ?? [] {
+            _ = await viewModel.toggleDevice(device: camera)
         }
-        videoOn = anyVideo
+        videoOn = !((try? await viewModel.activeDevices(.video) ?? [])?.isEmpty ?? false)
     }
 
     private func toggleAudio() async {
-        var anyAudio = false
-        for (microphone, _) in viewModel.usingDevice where microphone.hasMediaType(.audio) {
-            let enabled = await viewModel.toggleDevice(device: microphone)
-            anyAudio = anyAudio || enabled
+        for microphone in await viewModel.devices(.audio) ?? [] {
+            _ = await viewModel.toggleDevice(device: microphone)
         }
-        audioOn = anyAudio
+        audioOn = !((try? await viewModel.activeDevices(.audio) ?? [])?.isEmpty ?? false)
     }
 
     private func openCameraModal() {
@@ -64,7 +73,7 @@ struct CallControls: View {
             ) {
                 Text("Audio Connection")
                     .foregroundColor(.gray)
-                ForEach(viewModel.devices.audioInputs, id: \.uniqueID) { microphone in
+                ForEach(audioDevices, id: \.uniqueID) { microphone in
                     ActionButton(
                         disabled: viewModel.isAlteringMicrophone(),
                         cornerRadius: 12,
@@ -103,10 +112,10 @@ struct CallControls: View {
                     Text("Camera")
                         .padding(.leading)
                         .foregroundColor(.gray)
-                    ForEach(viewModel.devices.cameras, id: \.self) { camera in
+                    ForEach(cameras, id: \.self) { camera in
                         if viewModel.alteringDevice[camera] ?? false {
                             ProgressView()
-                        } else if viewModel.usingDevice[camera] ?? false {
+                        } else if cameras.contains(camera) {
                             Image(systemName: "checkmark")
                         } else {
                             Spacer()
@@ -115,7 +124,7 @@ struct CallControls: View {
                             disabled: viewModel.alteringDevice[camera] ?? false,
                             cornerRadius: 10,
                             styleConfig: deviceButtonStyleConfig,
-                            action: { _ = await viewModel.toggleDevice(device: camera) },
+                            action: { await viewModel.toggleDevice(device: camera) },
                             title: {
                                 Text(verbatim: camera.localizedName)
                                     .lineLimit(1)
@@ -126,7 +135,7 @@ struct CallControls: View {
                 .frame(maxWidth: 300, alignment: .bottomTrailing)
                 .padding(.bottom)
             }
-            .disabled(viewModel.devices.cameras.allSatisfy({ !(viewModel.alteringDevice[$0] ?? false) }))
+            .disabled(cameras.allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
 
             Button(action: {
                 leaving = true
@@ -142,115 +151,60 @@ struct CallControls: View {
             .background(.red)
             .clipShape(Circle())
         }
+        .frame(maxWidth: 650)
         .scaledToFit()
+        .task { await viewModel.join() }
+        .onDisappear(perform: { Task { try await viewModel.leave() }})
     }
 }
 
 extension CallControls {
     @MainActor
     class ViewModel: ObservableObject {
-        @Published private(set) var devices = AudioVideoDevices()
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
-        @Published private(set) var usingDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        @Published var capture: CaptureManager?
-
-        private var notifier: NotificationCenter = .default
+        private let capture: CaptureManager?
         private let errorWriter: ErrorWriter
 
-        init(errorWriter: ErrorWriter) {
+        init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
             self.errorWriter = errorWriter
-            do {
-                self.capture = try .init()
-            } catch {
-                errorWriter.writeError(error.localizedDescription)
-                return
-            }
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
-            self.notifier.addObserver(self,
-                                      selector: #selector(join),
-                                      name: .connected,
-                                      object: nil)
-            self.notifier.addObserver(self,
-                                      selector: #selector(leave),
-                                      name: .disconnected,
-                                      object: nil)
-            self.notifier.addObserver(self,
-                                      selector: #selector(addInputDevice),
-                                      name: .publicationPreparedForDevice,
-                                      object: nil)
+            self.capture = captureManager
         }
 
-        @objc private func join(_ notification: Notification) {
-            guard let capture = capture else { return }
-            Task { await capture.startCapturing() }
+        func join() async {
+            await capture?.startCapturing()
         }
 
-        @objc private func leave(_ notification: Notification) {
-            guard let capture = capture else { return }
-            usingDevice.forEach({ device, _ in
-                Task {
-                    do {
-                        try await capture.removeInput(device: device)
-                    } catch {
-                        errorWriter.writeError(error.localizedDescription)
-                    }
-                }
-            })
-            usingDevice.removeAll()
+        func leave() async throws {
             alteringDevice.removeAll()
-
-            Task {
-                do {
-                    try await capture.stopCapturing()
-                } catch {
-                    errorWriter.writeError(error.localizedDescription)
-                }
-            }
+            try await capture?.stopCapturing()
         }
 
-        @objc private func addInputDevice(_ notification: Notification) {
-            guard let publication = notification.object as? Publication else {
-                let object = notification.object as Any
-                assertionFailure("Invalid device: \(object)")
-                return
-            }
-
-            Task {
-                do {
-                    try await addDevice(device: publication.device!,
-                                        delegateCapture: publication.capture,
-                                        queue: publication.queue)
-                } catch {
-                    errorWriter.writeError(error.localizedDescription)
-                }
-            }
+        func devices() async -> [AVCaptureDevice]? {
+            return await capture?.devices()
         }
 
-        func addDevice(device: AVCaptureDevice,
-                       delegateCapture: PublicationCaptureDelegate?,
-                       queue: DispatchQueue) async throws {
+        func devices(_ type: AVMediaType) async -> [AVCaptureDevice]? {
+            return await capture?.devices().filter { $0.hasMediaType(type) }
+        }
+
+        func activeDevices() async throws -> [AVCaptureDevice]? {
+            return try await capture?.activeDevices()
+        }
+
+        func activeDevices(_ type: AVMediaType) async throws -> [AVCaptureDevice]? {
+            return try await capture?.activeDevices().filter { $0.hasMediaType(type) }
+        }
+
+        func toggleDevice(device: AVCaptureDevice) async {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
             guard let capture = capture else { return }
             alteringDevice[device] = true
-            try await capture.addInput(device: device, delegateCapture: delegateCapture, queue: queue)
-            usingDevice[device] = true
+            _ = await capture.toggleInput(device: device)
             alteringDevice[device] = false
-        }
-
-        func toggleDevice(device: AVCaptureDevice) async -> Bool {
-            guard !(alteringDevice[device] ?? false) else {
-                print("??")
-                return false
-            }
-            guard let capture = capture else { return false }
-            alteringDevice[device] = true
-            let enabled = await capture.toggleInput(device: device)
-            usingDevice[device] = enabled
-            alteringDevice[device] = false
-            return enabled
         }
 
         func isAlteringMicrophone() -> Bool {
@@ -263,7 +217,8 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        CallControls(errorWriter: ObservableError(), leaving: bool)
-            .environmentObject(ObservableError())
+        let errorWriter: ObservableError = .init()
+        let capture: CaptureManager? = try? .init(errorHandler: errorWriter)
+        CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
     }
 }

@@ -10,15 +10,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
-         inputAudioFormat: AVAudioFormat,
-         outputAudioFormat: AVAudioFormat? = nil) {
+         captureManager: CaptureManager) {
         super.init()
         self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter,
-                                                     audioFormat: outputAudioFormat,
                                                      submitter: metricsSubmitter)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
-                                                   audioFormat: inputAudioFormat,
                                                    metricsSubmitter: metricsSubmitter,
+                                                   captureManager: captureManager,
                                                    errorWriter: errorWriter)
     }
 
@@ -30,16 +28,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
         let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
         super.updateManifest(manifest)
-        notifier.post(name: .connected, object: self)
     }
 
     func disconnect() throws {
         super.close()
-        notifier.post(name: .disconnected, object: self)
     }
-}
-
-extension Notification.Name {
-    static let connected = Notification.Name("connected")
-    static let disconnected = Notification.Name("disconnected")
 }

@@ -25,7 +25,7 @@ public:
     int prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) override;
     int update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) override;
     //quicr::Namespace getNamespace() override;
-    int subscribedObject(quicr::bytes&& data) override;
+    int subscribedObject(quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId);
 
 private:
     quicr::Namespace quicrNamespace;
@@ -60,7 +60,7 @@ class QMediaPublisherDelegate : public qmedia::QPublisherDelegate
 {
 public:
     QMediaPublisherDelegate(id<QPublisherDelegateObjC> delegate);
-    std::shared_ptr<qmedia::QPublicationDelegate> allocatePubByNamespace(const quicr::Namespace& quicrNamespace);
+    std::shared_ptr<qmedia::QPublicationDelegate> allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile);
     int removePubByNamespace(const quicr::Namespace& quicrNamespace);
 private:
     id<QPublisherDelegateObjC> delegate;

@@ -1,6 +1,12 @@
 import AVFAudio
 import CoreAudio
 
+// swiftlint:disable identifier_name
+enum OpusSubscriptionError: Error {
+    case FailedDecoderCreation
+}
+// swiftlint:enable identifier_name
+
 actor OpusSubscriptionMeasurement: Measurement {
     var name: String = "OpusSubscription"
     var fields: [Date?: [String: AnyObject]] = [:]
@@ -8,6 +14,7 @@ actor OpusSubscriptionMeasurement: Measurement {
 
     private var frames: UInt64 = 0
     private var bytes: UInt64 = 0
+    private var missing: UInt64 = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -25,34 +32,62 @@ actor OpusSubscriptionMeasurement: Measurement {
         self.bytes += UInt64(received)
         record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
     }
+
+    func missingSeq(missingCount: UInt64, timestamp: Date?) {
+        self.missing += missingCount
+        record(field: "missingSeqs", value: self.missing as AnyObject, timestamp: timestamp)
+    }
 }
 
-class OpusSubscription: QSubscriptionDelegateObjC {
-
+class OpusSubscription: Subscription {
     struct Metrics {
         var framesEnqueued = 0
         var framesEnqueuedFail = 0
     }
 
-    private let namespace: String
-    private var decoder: LibOpusDecoder?
+    let namespace: String
+    private var decoder: LibOpusDecoder
+
     private unowned let player: FasterAVEngineAudioPlayer
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
     private var jitterBuffer: UnsafeMutableRawPointer?
-    private var seq: UInt = 0
     private let errorWriter: ErrorWriter
+    private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
 
     init(namespace: String,
          player: FasterAVEngineAudioPlayer,
-         errorWriter: ErrorWriter,
-         submitter: MetricsSubmitter) {
+         config: AudioCodecConfig,
+         submitter: MetricsSubmitter,
+         errorWriter: ErrorWriter) throws {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: submitter)
+        do {
+            self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
+            self.decoder.registerCallback { [weak self] in
+                self?.onDecodedAudio(buffer: $0, timestamp: $1)
+            }
+        } catch {
+            throw OpusSubscriptionError.FailedDecoderCreation
+        }
+
+        // Create the jitter buffer.
+        asbd = .init(mutating: decoder.decodedFormat.streamDescription)
+        jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
+                                  480,
+                                  UInt(asbd.pointee.mSampleRate),
+                                  500,
+                                  20)
+
+        // Create the player node.
+        node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
+
+        try self.player.addPlayer(identifier: namespace, node: node!)
+        log("Subscribed to OPUS stream")
     }
 
     deinit {
@@ -66,38 +101,10 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         JitterDestroy(jitterBuffer)
 
         // Report metrics.
-        print("They had \(metrics.framesEnqueuedFail) copy fails")
+        log("They had \(metrics.framesEnqueuedFail) copy fails")
     }
 
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
-        // Create the decoder.
-        let config = CodecFactory.makeCodecConfig(from: qualityProfile)
-        do {
-            decoder = try createOpusDecoder(config: config, playerFormat: player.inputFormat)
-            decoder!.registerCallback(callback: onDecodedAudio)
-        } catch {
-            return SubscriptionError.FailedDecoderCreation.rawValue
-        }
-
-        // Create the jitter buffer.
-        asbd = .init(mutating: decoder!.decodedFormat.streamDescription)
-        jitterBuffer = JitterInit(Int(asbd.pointee.mBytesPerPacket),
-                                  UInt(asbd.pointee.mSampleRate),
-                                  20,
-                                  500)
-
-        // Create the player node.
-        node = .init(format: decoder!.decodedFormat, renderBlock: renderBlock)
-
-        do {
-            try self.player.addPlayer(identifier: namespace, node: node!)
-        } catch {
-            let message = "Failed to add player node for subscription: \(error.localizedDescription)"
-            log(message)
-            errorWriter.writeError(message)
-        }
-        log("Subscribed to \(String(describing: config.codec)) stream for source \(sourceID!)")
-
         return SubscriptionError.None.rawValue
     }
 
@@ -148,7 +155,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return .zero
     }
 
-    private let plcCallback: LibJitterConcealmentCallback = { packets, count in
+    private let plcCallback: LibJitterConcealmentCallback = { packets, count, _ in
         for index in 0...count - 1 {
             // Make PLC packets.
             // TODO: Ask the opus deco5der to generate real PLC data.
@@ -158,19 +165,26 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             let malloced = malloc(480 * 8)
             memset(malloced, 0, 480 * 8)
             packetPtr.pointee.data = .init(malloced)
-            packetPtr.pointee.elements = 480
+            // packetPtr.pointee.elements = 480
             packetPtr.pointee.length = 480 * 8
         }
     }
 
-    private func createOpusDecoder(config: CodecConfig, playerFormat: AVAudioFormat) throws -> LibOpusDecoder {
+    private let freeCallback: LibJitterConcealmentCallback = { packets, count, _ in
+        for index in 0...count - 1 {
+            let packetPtr = packets!.advanced(by: index)
+            free(.init(mutating: packetPtr.pointee.data))
+        }
+    }
+
+    private static func createOpusDecoder(config: CodecConfig, player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
         guard config.codec == .opus else {
             fatalError("Codec mismatch")
         }
 
         do {
             // First, try and decode directly into the output's input format.
-            return try .init(format: playerFormat)
+            return try .init(format: player.inputFormat)
         } catch {
             // That may not be supported, so decode into standard output instead.
             let format: AVAudioFormat.OpusPCMFormat
@@ -192,19 +206,20 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!) -> Int32 {
-        guard let decoder = decoder else {
-            let message = "No decoder for Subscription. Did you forget to prepare?"
-            log(message)
-            errorWriter.writeError(message)
-            return SubscriptionError.NoDecoder.rawValue
-        }
-
+    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+        // Metrics.
+        let date = Date.now
+        let missing = groupId - self.seq - 1
+        let currentSeq = self.seq
         Task(priority: .utility) {
-            let date = Date.now
             await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+            if missing > 0 {
+                log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
+                await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+            }
         }
 
+        self.seq = groupId
         data.withUnsafeBytes {
             do {
                 try decoder.write(data: $0, timestamp: .init(Date.now.timeIntervalSince1970))
@@ -237,24 +252,20 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
-        var packet: Packet = .init(sequence_number: self.seq,
+        var packet: Packet = .init(sequence_number: UInt(self.seq),
                                    data: audioBuffer.mData,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
-        self.seq += 1
 
         // Copy in.
-        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback)
+        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, self.freeCallback, nil)
         self.metrics.framesEnqueued += copied
-        guard copied == buffer.frameLength else {
-            print("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
+        guard copied >= buffer.frameLength else {
+            assert(copied % Int(buffer.frameLength) == 0)
+            errorWriter.writeError("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
             return
         }
-    }
-
-    private func log(_ message: String) {
-        print("[Subscription] (\(namespace)) \(message)")
     }
 }

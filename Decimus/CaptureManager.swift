@@ -7,8 +7,12 @@ public extension AVCaptureDevice {
     }
 }
 
+protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
+    var queue: DispatchQueue { get }
+}
+
 /// Manages local media capture.
-actor CaptureManager {
+actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -20,8 +24,13 @@ actor CaptureManager {
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
+    private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
+    private let errorHandler: ErrorWriter
+    private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
 
-    init() throws {
+    init(errorHandler: ErrorWriter) throws {
+        self.errorHandler = errorHandler
+
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw "Multicam not supported on this device"
         }
@@ -36,6 +45,14 @@ actor CaptureManager {
         session.beginConfiguration()
 
         session.commitConfiguration()
+    }
+
+    func devices() -> [AVCaptureDevice] {
+        return Array(connections.keys)
+    }
+
+    func activeDevices() throws -> [AVCaptureDevice] {
+        return Array(try connections.keys.filter { try !isMuted(device: $0) })
     }
 
     func usingInput(device: AVCaptureDevice) -> Bool {
@@ -73,10 +90,15 @@ actor CaptureManager {
         try addIO(device: device, input: microphone, output: audioOutput)
     }
 
-    private func addCamera(device: AVCaptureDevice,
-                           delegate: AVCaptureVideoDataOutputSampleBufferDelegate,
-                           queue: DispatchQueue) throws {
-        // Device config.
+    private func addCamera(device: AVCaptureDevice, delegate: FrameListener) throws {
+        // Device is already setup, add this delegate.
+        if var cameraFrameListeners = self.multiVideoDelegate[device] {
+            cameraFrameListeners.append(delegate)
+            self.multiVideoDelegate[device] = cameraFrameListeners
+            return
+        }
+
+        // Setup device.
         try device.lockForConfiguration()
 
         // Pick the highest quality multi-cam format.
@@ -90,14 +112,17 @@ actor CaptureManager {
         // Add an output for this device.
         let camera: AVCaptureDeviceInput = try .init(device: device)
         let videoOutput: AVCaptureVideoDataOutput = .init()
-        videoOutput.setSampleBufferDelegate(delegate, queue: queue)
+        videoOutput.setSampleBufferDelegate(self, queue: self.queue)
         try addIO(device: device, input: camera, output: videoOutput)
+        self.multiVideoDelegate[device] = [delegate]
     }
 
     private func addIO(device: AVCaptureDevice, input: AVCaptureDeviceInput, output: AVCaptureOutput) throws {
         guard session.canAddOutput(output) else {
             throw "Output already added: \(device.localizedName)"
         }
+        try session.beginConfiguration()
+        defer { session.commitConfiguration() }
         session.addOutputWithNoConnections(output)
         outputs[output] = device
 
@@ -115,28 +140,23 @@ actor CaptureManager {
         connections[device] = connection
     }
 
-    /// Start capturing from the target device.
-    /// - Parameter device: The target capture device.
-    func addInput(device: AVCaptureDevice,
-                  delegateCapture: PublicationCaptureDelegate?,
-                  queue: DispatchQueue) throws {
+    func addInput(_ publication: AVCaptureDevicePublication) throws {
+        guard let device = publication.device else {
+            fatalError("CaptureManager => Failed to add device (device was nil)")
+        }
+
         // Notify upfront.
         print("CaptureManager => Adding capture device: \(device.localizedName)")
 
         // Add.
-        session.beginConfiguration()
         if device.deviceType == .builtInMicrophone {
-            guard let audioDelegate = delegateCapture as? AVCaptureAudioDataOutputSampleBufferDelegate else {
-                fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureAudioDataOutputSampleBufferDelegate")
-            }
-            try addMicrophone(device: device, delegate: audioDelegate, queue: queue)
-        } else {
-            guard let videoDelegate = delegateCapture as? AVCaptureVideoDataOutputSampleBufferDelegate else {
-                fatalError("CaptureManager => Failed to add input: Publication capture delegate is not AVCaptureVideoDataOutputSampleBufferDelegate")
-            }
-            try addCamera(device: device, delegate: videoDelegate, queue: queue)
+            throw "Don't use CaptureManager for audio input"
         }
-        session.commitConfiguration()
+
+        guard let videoDelegate = publication as? FrameListener else {
+            fatalError("CaptureManager => Failed to add input: Publication is not a FrameListener")
+        }
+        try addCamera(device: device, delegate: videoDelegate)
 
         // Run the session
         if !session.isRunning {
@@ -166,7 +186,41 @@ actor CaptureManager {
         guard let connection = connections[device] else {
             throw "Connection not found for \(device.localizedName)"
         }
-        return connection.isEnabled
+        return !connection.isEnabled
+    }
+
+    private func getDelegate(output: AVCaptureOutput) -> [FrameListener] {
+        guard let device = self.outputs[output],
+              let subscribers = self.multiVideoDelegate[device] else {
+            return []
+        }
+        return subscribers
+    }
+
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didOutput sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
+        Task(priority: .high) {
+            let cameraFrameListeners = await getDelegate(output: output)
+            for listener in cameraFrameListeners {
+                listener.queue.async {
+                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+                }
+            }
+        }
+    }
+
+    nonisolated func captureOutput(_ output: AVCaptureOutput,
+                                   didDrop sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
+        Task(priority: .high) {
+            let cameraFrameListeners = await getDelegate(output: output)
+            for listener in cameraFrameListeners {
+                listener.queue.async {
+                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+                }
+            }
+        }
     }
 }
 

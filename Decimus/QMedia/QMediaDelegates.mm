@@ -38,9 +38,9 @@ quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
     return quicrNamespace;
 }*/
 
-int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data) {
+int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
     NSData * nsdata= [NSData dataWithBytes:data.data() length:data.size()];
-    return [delegate subscribedObject:nsdata];
+    return [delegate subscribedObject:nsdata groupId:group objectId:object];
 }
 
 
@@ -92,11 +92,15 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 {
 }
 
-std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace)
+std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString];
+    NSString *quicrSourceIdNSString = [NSString stringWithCString:sourceID.c_str()
+                                       encoding:[NSString defaultCStringEncoding]];
+    NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
+                                       encoding:[NSString defaultCStringEncoding]];
+    id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString sourceID:quicrSourceIdNSString qualityProfile:qualityProfileNSString];
     return std::make_shared<qclient::QMediaPublicationDelegate>(publication, quicrNamespace);
 }
 

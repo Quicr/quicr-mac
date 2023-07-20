@@ -8,6 +8,7 @@ struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
     @EnvironmentObject private var errorHandler: ObservableError
+    private let errorWriter: ErrorWriter
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -19,6 +20,7 @@ struct InCallView: View {
 
     init(errorWriter: ErrorWriter, config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
+        self.errorWriter = errorWriter
         self.onLeave = onLeave
         let model: ViewModel = .init(errorHandler: errorWriter, config: config)
         _viewModel = .init(wrappedValue: model)
@@ -30,10 +32,14 @@ struct InCallView: View {
                 VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
-                CallControls(errorWriter: errorHandler, leaving: $leaving)
-                    .disabled(leaving)
-                    .padding(.bottom)
-                    .frame(alignment: .top)
+                if let capture = viewModel.captureManager {
+                    CallControls(errorWriter: errorWriter,
+                                 captureManager: capture,
+                                 leaving: $leaving)
+                        .disabled(leaving)
+                        .padding(.bottom)
+                        .frame(alignment: .top)
+                }
             }
 
             if leaving {
@@ -55,18 +61,25 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private let errorHandler: ErrorWriter
         private(set) var controller: CallController?
+        private(set) var captureManager: CaptureManager?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(errorHandler: ErrorWriter, config: CallConfig) {
-                self.errorHandler = errorHandler
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
+            self.errorHandler = errorHandler
+            do {
+                self.captureManager = try .init(errorHandler: errorHandler)
+            } catch {
+                errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
+                return
+            }
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -75,15 +88,11 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    // TODO: inputAudioFormat needs to be the real input format.
-                                    inputAudioFormat: AVAudioFormat(commonFormat: .pcmFormatInt16,
-                                                                    sampleRate: 48000,
-                                                                    channels: 1,
-                                                                    interleaved: true)!)
+                                    captureManager: captureManager!)
             Task {
                 do {
-                    try await self.controller!.connect(config: config) }
-                catch {
+                    try await self.controller!.connect(config: config)
+                } catch {
                     errorHandler.writeError("CallController failed: \(error.localizedDescription)")
                 }
             }
