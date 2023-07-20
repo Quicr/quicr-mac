@@ -37,6 +37,7 @@
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */; };
+		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
 		9BA27FCD297D7271007013B2 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */; };
@@ -56,6 +57,10 @@
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
 		FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2C29DD110600887833 /* VideoGrid.swift */; };
+		FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498AF2A534E8E00C6D66D /* H264Publication.swift */; };
+		FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B12A53575D00C6D66D /* PublicationFactory.swift */; };
+		FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */; };
+		FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* H264Subscription.swift */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
 		FF6C80A92A16DB850094751E /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publication.swift */; };
 		FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80AA2A17E8980094751E /* Subscription.swift */; };
@@ -159,6 +164,7 @@
 		9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FasterAVEngineAudioPlayer.swift; sourceTree = "<group>"; };
+		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -184,6 +190,10 @@
 		FF1C5C2A29DD110600887833 /* CallControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallControls.swift; sourceTree = "<group>"; };
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
 		FF1C5C2C29DD110600887833 /* VideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoGrid.swift; sourceTree = "<group>"; };
+		FF2498AF2A534E8E00C6D66D /* H264Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Publication.swift; sourceTree = "<group>"; };
+		FF2498B12A53575D00C6D66D /* PublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationFactory.swift; sourceTree = "<group>"; };
+		FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFactory.swift; sourceTree = "<group>"; };
+		FF2498B62A55E95E00C6D66D /* H264Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Subscription.swift; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
 		FF6C80A82A16DB850094751E /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
 		FF6C80AA2A17E8980094751E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
@@ -367,6 +377,8 @@
 				185D628E29BF3C5A0011E634 /* Info.plist */,
 				9B48068A298301ED0040F5D4 /* QMedia */,
 				9B48067F298016FD0040F5D4 /* Codec */,
+				FF2498AE2A534E5B00C6D66D /* Publications */,
+				FF2498B52A55E8F800C6D66D /* Subscriptions */,
 				9BA27FF9297DD8CA007013B2 /* Models */,
 				9BA27FF6297D7D61007013B2 /* Views */,
 				FF6D6D312A00410A00B535DA /* fonts */,
@@ -420,7 +432,6 @@
 				FF6C80AA2A17E8980094751E /* Subscription.swift */,
 				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
 				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
-				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -431,6 +442,26 @@
 				9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */,
 			);
 			path = ci_scripts;
+			sourceTree = "<group>";
+		};
+		FF2498AE2A534E5B00C6D66D /* Publications */ = {
+			isa = PBXGroup;
+			children = (
+				9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */,
+				FF2498AF2A534E8E00C6D66D /* H264Publication.swift */,
+				FF2498B12A53575D00C6D66D /* PublicationFactory.swift */,
+			);
+			path = Publications;
+			sourceTree = "<group>";
+		};
+		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
+			isa = PBXGroup;
+			children = (
+				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
+				FF2498B62A55E95E00C6D66D /* H264Subscription.swift */,
+				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
+			);
+			path = Subscriptions;
 			sourceTree = "<group>";
 		};
 		FF6D6D312A00410A00B535DA /* fonts */ = {
@@ -680,6 +711,7 @@
 				184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
+				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
 				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
@@ -702,13 +734,16 @@
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */,
+				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
+				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
+				9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
@@ -716,6 +751,7 @@
 				FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */,
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
+				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
@@ -929,6 +965,12 @@
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -995,12 +1037,19 @@
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
 					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
 					"$(SRCROOT)/dependencies/new-qmedia/src/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
+					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIStatusBarStyle = "";

@@ -25,6 +25,10 @@ protocol AVCaptureDevicePublication: Publication {
 
 extension Publication {
     func log(_ message: String) {
+        Self.log(namespace: namespace, message: message)
+    }
+
+    static func log(namespace: String, message: String) {
         print("[\(String(describing: type(of: self)))] (\(namespace)) \(message)")
     }
 }

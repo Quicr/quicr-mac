@@ -6,7 +6,7 @@ enum OpusSubscriptionError: Error {
     case FailedDecoderCreation
 }
 // swiftlint:enable identifier_name
-
+    
 actor OpusSubscriptionMeasurement: Measurement {
     var name: String = "OpusSubscription"
     var fields: [Date?: [String: AnyObject]] = [:]
@@ -68,9 +68,6 @@ class OpusSubscription: Subscription {
         self.measurement = .init(namespace: namespace, submitter: submitter)
         do {
             self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
-            self.decoder.registerCallback { [weak self] in
-                self?.onDecodedAudio(buffer: $0, timestamp: $1)
-            }
         } catch {
             throw OpusSubscriptionError.FailedDecoderCreation
         }
@@ -121,7 +118,8 @@ class OpusSubscription: Subscription {
         }
 
         guard data.pointee.mBuffers.mNumberChannels == asbd.pointee.mChannelsPerFrame else {
-            fatalError("Channel mismatch")
+            print("Unexpected render block channels. Got \(data.pointee.mBuffers.mNumberChannels). Expected \(asbd.pointee.mChannelsPerFrame)")
+            return 1
         }
 
         guard jitterBuffer != nil else {
@@ -177,7 +175,8 @@ class OpusSubscription: Subscription {
         }
     }
 
-    private static func createOpusDecoder(config: CodecConfig, player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
+    private static func createOpusDecoder(config: CodecConfig,
+                                          player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
         guard config.codec == .opus else {
             fatalError("Codec mismatch")
         }
@@ -209,30 +208,39 @@ class OpusSubscription: Subscription {
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         let date = Date.now
-        let missing = groupId - self.seq - 1
-        let currentSeq = self.seq
-        Task(priority: .utility) {
-            await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
-            if missing > 0 {
-                log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
-                await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+
+        // TODO: Handle sequence rollover.
+        if groupId > self.seq {
+            let missing = groupId - self.seq - 1
+            let currentSeq = self.seq
+            Task(priority: .utility) {
+                await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+                if missing > 0 {
+                    log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
+                    await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+                }
             }
+            self.seq = groupId
         }
 
-        self.seq = groupId
-        data.withUnsafeBytes {
+        var decoded: AVAudioPCMBuffer?
+        let result: SubscriptionError = data.withUnsafeBytes {
             do {
-                try decoder.write(data: $0, timestamp: .init(Date.now.timeIntervalSince1970))
+                decoded = try decoder.write(data: $0)
+                return SubscriptionError.None
             } catch {
                 let message = "Failed to write to decoder: \(error.localizedDescription)"
                 log(message)
                 errorWriter.writeError(message)
+                return SubscriptionError.NoDecoder
             }
         }
+        guard result == .None else { return result.rawValue }
+        queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
         return SubscriptionError.None.rawValue
     }
 
-    private func onDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: CMTime?) {
+    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) {
         // Ensure this buffer looks valid.
         let list = buffer.audioBufferList
         guard list.pointee.mNumberBuffers == 1 else {
@@ -243,16 +251,12 @@ class OpusSubscription: Subscription {
         }
 
         Task(priority: .utility) {
-            var date: Date?
-            if let timestamp = timestamp {
-                date = .init(timeIntervalSince1970: timestamp.seconds)
-            }
-            await measurement.receivedFrames(received: buffer.frameLength, timestamp: date)
+            await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
         }
 
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
-        var packet: Packet = .init(sequence_number: UInt(self.seq),
+        var packet: Packet = .init(sequence_number: UInt(sequence),
                                    data: audioBuffer.mData,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
@@ -263,6 +267,7 @@ class OpusSubscription: Subscription {
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
             errorWriter.writeError("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
+            log("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
             return

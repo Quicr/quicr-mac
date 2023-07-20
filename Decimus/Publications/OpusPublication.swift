@@ -65,6 +65,15 @@ class OpusPublication: Publication {
         self.publishObjectDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.errorWriter = errorWriter
+        do {
+            try engine.inputNode.setVoiceProcessingEnabled(true)
+            if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
+                Self.log(namespace: namespace, message: "Voice processing gave a bad format, disabling")
+                try engine.inputNode.setVoiceProcessingEnabled(false)
+            }
+        } catch {
+            fatalError("\(error)")
+        }
 
         try engine.inputNode.setVoiceProcessingEnabled(true)
         try AVAudioSession.configureForDecimus()
