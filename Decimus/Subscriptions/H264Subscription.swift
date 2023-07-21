@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreMedia
 import SwiftUI
+import QuartzCore
 
 class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
@@ -64,6 +65,7 @@ class H264Subscription: Subscription {
                 layer.flush()
                 return
             }
+            layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
             layer.enqueue(decoded)
             participant.lastUpdated = .now()
         }
@@ -86,5 +88,34 @@ extension AVCaptureVideoOrientation {
             imageOrientation = .up
         }
         return imageOrientation
+    }
+
+    func toTransform(_ verticalMirror: Bool) -> CATransform3D {
+        var transform = CATransform3DIdentity
+        switch self {
+        case .portrait:
+            transform = CATransform3DRotate(transform, .pi / 2, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        case .landscapeLeft:
+            transform = CATransform3DRotate(transform, .pi, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        case .landscapeRight:
+            transform = CATransform3DRotate(transform, -.pi, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, -1.0, 1.0, 1.0)
+            }
+        case .portraitUpsideDown:
+            transform = CATransform3DRotate(transform, -.pi / 2, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        default:
+            break
+        }
+        return transform
     }
 }
