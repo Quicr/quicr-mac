@@ -20,7 +20,7 @@ class VideoUIView: UIView {
         guard let layer = layer as? AVSampleBufferDisplayLayer else {
             fatalError()
         }
-        layer.videoGravity = .resizeAspect
+        layer.videoGravity = .resizeAspectFill
     }
 }
 

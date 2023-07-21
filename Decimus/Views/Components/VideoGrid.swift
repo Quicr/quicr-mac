@@ -16,7 +16,7 @@ struct VideoGrid: View {
     }
 
     private func calcRows(_ columns: CGFloat) -> CGFloat {
-        return .init(round(Float(Array(participants.participants.values).count) / Float(columns)))
+        return .init(round(Float(Array(participants.participants.values).count) / Float(max(columns, 1))))
     }
 
     var body: some View {
@@ -32,9 +32,9 @@ struct VideoGrid: View {
             LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(Array(participants.participants.values)) { participant in
                     participant.view
-                        .scaledToFit()
+                        .scaledToFill()
                         .cornerRadius(12)
-                        .frame(maxHeight: height)
+                        .frame(maxWidth: width, maxHeight: height)
                 }
             }
             .cornerRadius(12)
