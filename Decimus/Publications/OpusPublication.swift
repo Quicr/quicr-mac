@@ -76,6 +76,10 @@ class OpusPublication: Publication {
         self.metricsSubmitter = metricsSubmitter
         do {
             try engine.inputNode.setVoiceProcessingEnabled(true)
+            if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
+                Self.log(namespace: namespace, message: "Voice processing gave a bad format, disabling")
+                try engine.inputNode.setVoiceProcessingEnabled(false)
+            }
         } catch {
             fatalError("\(error)")
         }
