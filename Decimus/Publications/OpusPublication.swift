@@ -209,7 +209,7 @@ class OpusPublication: Publication {
             return try trivialConvertAndEncode(converter: converter, to: to, from: from)
         }
 
-        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(asbd!.pointee.mSampleRate * self.opusWindowSizeSeconds)
+        let windowFrames: AVAudioFrameCount = .init(to.sampleRate * self.opusWindowSizeSeconds)
         let converted: AVAudioPCMBuffer = .init(pcmFormat: to, frameCapacity: windowFrames)!
         var error: NSError? = .init()
         converter.convert(to: converted,
@@ -229,23 +229,15 @@ class OpusPublication: Publication {
 
             // We have enough data.
             var inOutFrames: AVAudioFrameCount = packets
-            let pcm: AVAudioPCMBuffer = .init(pcmFormat: self.format!, frameCapacity: packets)!
+            let pcm: AVAudioPCMBuffer = .init(pcmFormat: from, frameCapacity: packets)!
             pcm.frameLength = packets
             TPCircularBufferDequeueBufferListFrames(self.buffer,
                                                     &inOutFrames,
                                                     pcm.audioBufferList,
                                                     &timestamp,
                                                     from.streamDescription)
+            assert(inOutFrames == packets)
             pcm.frameLength = inOutFrames
-            guard inOutFrames > 0 else {
-                status.pointee = .noDataNow
-                return .init()
-            }
-            guard inOutFrames == packets else {
-                print("Dequeue only got: \(inOutFrames)/\(packets)")
-                status.pointee = .noDataNow
-                return nil
-            }
             status.pointee = .haveData
             return pcm
         }
