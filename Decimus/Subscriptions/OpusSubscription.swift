@@ -57,7 +57,7 @@ class OpusSubscription: Subscription {
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
 
-    init(namespace: String,
+    init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter,
@@ -163,7 +163,7 @@ class OpusSubscription: Subscription {
             let malloced = malloc(480 * 8)
             memset(malloced, 0, 480 * 8)
             packetPtr.pointee.data = .init(malloced)
-            // packetPtr.pointee.elements = 480
+            packetPtr.pointee.elements = 480
             packetPtr.pointee.length = 480 * 8
         }
     }
