@@ -167,7 +167,7 @@ class OpusPublication: Publication {
 
     private func encode() throws {
         guard converter == nil else {
-            var data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
+            let data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
             guard let data = data else { return }
             try encoder.write(data: data)
             return
@@ -181,9 +181,9 @@ class OpusPublication: Publication {
                                                    asbd)
         guard availableFrames >= windowFrames else { return }
 
-        var inOutFrames: AVAudioFrameCount = windowFrames
         let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: windowFrames)!
         pcm.frameLength = windowFrames
+        var inOutFrames: AVAudioFrameCount = windowFrames
         TPCircularBufferDequeueBufferListFrames(buffer,
                                                 &inOutFrames,
                                                 pcm.audioBufferList,
@@ -192,7 +192,7 @@ class OpusPublication: Publication {
         pcm.frameLength = inOutFrames
         guard inOutFrames > 0 else { return }
         guard inOutFrames == windowFrames else {
-            print("Dequeue only got: \(inOutFrames)/\(windowFrames)")
+            log("Dequeue only got: \(inOutFrames)/\(windowFrames)")
             return
         }
 
