@@ -82,10 +82,6 @@ class OpusSubscription: Subscription {
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
         self.player.addPlayer(identifier: namespace, node: node!)
 
-        self.decoder.registerCallback { [weak self] in
-            self?.onDecodedAudio(buffer: $0, timestamp: $1)
-        }
-
         log("Subscribed to OPUS stream")
     }
 
