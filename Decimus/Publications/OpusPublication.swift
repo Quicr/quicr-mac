@@ -74,7 +74,7 @@ class OpusPublication: Publication {
         } catch {
             let message = "Failed to set input voice processing: \(error.localizedDescription)"
             Self.log(namespace: namespace, message: message)
-            errorWriter.writeError("Failed to set input voice processing: \(error.localizedDescription)")
+            errorWriter.writeError(message)
         }
 
         try AVAudioSession.configureForDecimus()
@@ -148,7 +148,7 @@ class OpusPublication: Publication {
 
     private func encode() throws {
         guard converter == nil else {
-            var data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
+            let data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
             guard let data = data else { return }
             try encoder.write(data: data)
             return

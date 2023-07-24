@@ -45,7 +45,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                                       metricsSubmitter: submitter,
                                       errorWriter: errorWriter)
         } catch {
-            print("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            errorWriter.writeError("[SubscriberDelegate] Failed to allocate subscription: \(error)")
             return nil
         }
     }

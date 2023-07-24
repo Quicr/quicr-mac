@@ -27,12 +27,16 @@ actor VideoMeasurement: Measurement {
     }
 }
 
+enum H264PublicationError: Error {
+    case noCamera(SourceIDType)
+}
+
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private let measurement: VideoMeasurement
 
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
-    var device: AVCaptureDevice?
+    let device: AVCaptureDevice
     let queue: DispatchQueue
 
     private var encoder: H264Encoder
@@ -52,8 +56,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                            target: .global(qos: .userInteractive))
         self.errorWriter = errorWriter
 
-        super.init()
-
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
         // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
         #if !targetEnvironment(macCatalyst)
@@ -61,16 +63,15 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                                                           .builtInTelephotoCamera],
                                                             mediaType: .video,
                                                             position: .front).devices.first else {
-            log("Failed to register H264 publication for source \(sourceID)")
-            fatalError()
+            throw H264PublicationError.noCamera(sourceID)
         }
         #else
         guard let device = AVCaptureDevice.default(for: .video) else {
-            log("Failed to register H264 publication for source \(sourceID)")
-            fatalError()
+            throw H264PublicationError.noCamera(sourceID)
         }
         #endif
         self.device = device
+        super.init()
 
         self.encoder.registerCallback { [weak self] data, flag in
             guard let self = self else { return }

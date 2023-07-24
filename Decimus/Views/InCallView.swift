@@ -22,8 +22,7 @@ struct InCallView: View {
         UIApplication.shared.isIdleTimerDisabled = true
         self.errorWriter = errorWriter
         self.onLeave = onLeave
-        let model: ViewModel = .init(errorHandler: errorWriter, config: config)
-        _viewModel = .init(wrappedValue: model)
+        _viewModel = .init(wrappedValue: .init(errorHandler: errorWriter, config: config))
     }
 
     var body: some View {
@@ -93,7 +92,7 @@ extension InCallView {
                 do {
                     try await self.controller!.connect(config: config)
                 } catch {
-                    errorHandler.writeError("CallController failed: \(error.localizedDescription)")
+                    errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
                 }
             }
         }

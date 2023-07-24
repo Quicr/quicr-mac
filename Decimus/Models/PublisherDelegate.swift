@@ -29,7 +29,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        metricsSubmitter: metricsSubmitter,
                                        errorWriter: errorWriter)
         } catch {
-            print("[PublisherDelegate] Failed to allocate publication: \(error)")
+            errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
             return nil
         }
     }

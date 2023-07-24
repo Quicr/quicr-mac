@@ -16,13 +16,13 @@ struct CallControls: View {
 
     private var cameras: [AVCaptureDevice] {
         var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.video) ?? devices }
+        Task { devices = await viewModel.devices(.video) }
         return devices
     }
 
     private var audioDevices: [AVCaptureDevice] {
         var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.audio) ?? devices }
+        Task { devices = await viewModel.devices(.audio) }
         return devices
     }
 
@@ -38,17 +38,18 @@ struct CallControls: View {
     }
 
     private func toggleVideo() async {
-        for camera in await viewModel.devices(.video) ?? [] {
+        for camera in await viewModel.devices(.video) {
             _ = await viewModel.toggleDevice(device: camera)
         }
-        videoOn = !((try? await viewModel.activeDevices(.video) ?? [])?.isEmpty ?? false)
+        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
     }
 
     private func toggleAudio() async {
-        for microphone in await viewModel.devices(.audio) ?? [] {
+        // TODO: Mute status needs to come from elsewhere.
+        for microphone in await viewModel.devices(.audio) {
             _ = await viewModel.toggleDevice(device: microphone)
         }
-        audioOn = !((try? await viewModel.activeDevices(.audio) ?? [])?.isEmpty ?? false)
+        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
     }
 
     private func openCameraModal() {
@@ -154,7 +155,7 @@ struct CallControls: View {
         .frame(maxWidth: 650)
         .scaledToFit()
         .task { await viewModel.join() }
-        .onDisappear(perform: { Task { try await viewModel.leave() }})
+        .onDisappear(perform: { Task { await viewModel.leave() }})
     }
 }
 
@@ -173,28 +174,41 @@ extension CallControls {
         }
 
         func join() async {
-            await capture?.startCapturing()
+            do {
+                try await capture?.startCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't start video capture: \(error.localizedDescription)")
+            }
         }
 
-        func leave() async throws {
+        func leave() async {
             alteringDevice.removeAll()
-            try await capture?.stopCapturing()
+            do {
+                try await capture?.stopCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't stop video capture: \(error.localizedDescription)")
+            }
         }
 
-        func devices() async -> [AVCaptureDevice]? {
-            return await capture?.devices()
+        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+            var devices = await capture?.devices() ?? []
+            if let type = type {
+                devices = devices.filter { $0.hasMediaType(type) }
+            }
+            return devices
         }
 
-        func devices(_ type: AVMediaType) async -> [AVCaptureDevice]? {
-            return await capture?.devices().filter { $0.hasMediaType(type) }
-        }
-
-        func activeDevices() async throws -> [AVCaptureDevice]? {
-            return try await capture?.activeDevices()
-        }
-
-        func activeDevices(_ type: AVMediaType) async throws -> [AVCaptureDevice]? {
-            return try await capture?.activeDevices().filter { $0.hasMediaType(type) }
+        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+            do {
+                var devices = try await capture?.activeDevices() ?? []
+                if let type = type {
+                    devices = devices.filter { $0.hasMediaType(type) }
+                }
+                return devices
+            } catch {
+                errorWriter.writeError("Failed to query active devices: \(error.localizedDescription)")
+                return []
+            }
         }
 
         func toggleDevice(device: AVCaptureDevice) async {
