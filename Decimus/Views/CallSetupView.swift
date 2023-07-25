@@ -26,12 +26,15 @@ private struct LoginForm: View {
 
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
-                                               connectionProtocol: .QUIC,
+                                               connectionProtocol: .none,
                                                conferenceID: 0)
     private var joinMeetingCallback: ConfigCallback
+    private let errorWriter: ObservableError
+    private var tags: [CallConfig] = []
 
-    init(_ onJoin: @escaping ConfigCallback) {
+    init(errorWriter: ObservableError, _ onJoin: @escaping ConfigCallback) {
         joinMeetingCallback = onJoin
+        self.errorWriter = errorWriter
         ManifestController.shared.setServer(config: manifestConfig.value)
     }
 
@@ -87,25 +90,13 @@ private struct LoginForm: View {
                 }
 
                 if callConfig.conferenceID != 0 {
-                    RadioButtonGroup("Protocol",
-                                     selection: $callConfig,
-                                     labels: ["UDP", "QUIC"],
-                                     tags: [
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.UDP]!,
-                              connectionProtocol: .UDP,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID),
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.QUIC]!,
-                              connectionProtocol: .QUIC,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID)
-                    ])
+                    PortPicker(relayConfig: self.relayConfig.value,
+                               callConfig: $callConfig,
+                               errorWriter: self.errorWriter)
 
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
+                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0 || callConfig.connectionProtocol == .none,
                                  styleConfig: buttonColour,
                                  action: join)
                     .frame(maxWidth: .infinity)
@@ -150,10 +141,12 @@ private struct LoginForm: View {
 }
 
 struct CallSetupView: View {
-    private var joinMeetingCallback: ConfigCallback
+    private let joinMeetingCallback: ConfigCallback
     @State private var settingsOpen: Bool = false
+    private let errorWriter: ObservableError
 
-    init(_ onJoin: @escaping ConfigCallback) {
+    init(errorWriter: ObservableError, _ onJoin: @escaping ConfigCallback) {
+        self.errorWriter = errorWriter
         UIApplication.shared.isIdleTimerDisabled = false
         joinMeetingCallback = onJoin
     }
@@ -185,7 +178,7 @@ struct CallSetupView: View {
                     Text("Join a meeting")
                         .font(.title)
                         .foregroundColor(.white)
-                    LoginForm(joinMeetingCallback)
+                    LoginForm(errorWriter: errorWriter, joinMeetingCallback)
                         .frame(maxWidth: 350)
 
                     NavigationLink(destination: SettingsView()) {
@@ -202,6 +195,6 @@ struct CallSetupView: View {
 
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
-        CallSetupView { _ in }
+        CallSetupView(errorWriter: ObservableError()) { _ in }
     }
 }

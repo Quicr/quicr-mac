@@ -4,7 +4,7 @@ import SwiftUI
 struct DecimusApp: App {
     var body: some Scene {
         WindowGroup {
-            ConfigCallView()
+            ConfigCallView(errorWriter: ObservableError())
                 .preferredColorScheme(.dark)
                 .withHostingWindow { window in
                     #if targetEnvironment(macCatalyst)

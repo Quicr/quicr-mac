@@ -16,10 +16,10 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, errorHandler: ObservableError, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
-        _viewModel = StateObject(wrappedValue: ViewModel(config: config))
+        _viewModel = StateObject(wrappedValue: ViewModel(config: config, errorHandler: errorHandler))
     }
 
     var body: some View {
@@ -53,14 +53,15 @@ struct InCallView: View {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        let errorHandler = ObservableError()
+        let errorHandler: ObservableError
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
-        init(config: CallConfig) {
+        init(config: CallConfig, errorHandler: ObservableError) {
+            self.errorHandler = errorHandler
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
@@ -93,6 +94,9 @@ extension InCallView {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(config: .init(address: "127.0.0.1", port: 5001, connectionProtocol: .QUIC)) { }
+        InCallView(config: .init(address: "127.0.0.1",
+                                 port: 5001,
+                                 connectionProtocol: .QUIC),
+                   errorHandler: ObservableError()) { }
     }
 }

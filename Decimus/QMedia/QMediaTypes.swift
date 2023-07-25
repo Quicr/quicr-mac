@@ -10,6 +10,7 @@ enum ProtocolType: UInt8, CaseIterable, Codable, Identifiable, Comparable {
         return lhs.id < rhs.id
     }
 
+    case none = 255
     case UDP = 0
     case QUIC = 1
     var id: UInt8 { rawValue }
