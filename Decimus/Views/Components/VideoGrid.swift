@@ -1,47 +1,46 @@
 import SwiftUI
+import WrappingHStack
 
 /// View for display grid of videos
 struct VideoGrid: View {
     private let maxColumns: Int = 4
     private let spacing: CGFloat = 10
+    private let cornerRadius: CGFloat = 12
 
-    @StateObject private var participants: VideoParticipants
+    @StateObject private var videoParticipants: VideoParticipants
+    private var participants: [VideoParticipant] {
+        return Array(videoParticipants.participants.values)
+    }
 
     init(participants: VideoParticipants) {
-        _participants = StateObject(wrappedValue: participants)
+        _videoParticipants = StateObject(wrappedValue: participants)
     }
 
     private func calcColumns() -> CGFloat {
-        return .init(min(maxColumns, max(1, Int(ceil(sqrt(Double(participants.participants.values.count)))))))
+        return .init(min(maxColumns, max(1, Int(ceil(sqrt(Double(participants.count)))))))
     }
 
     private func calcRows(_ columns: CGFloat) -> CGFloat {
-        return .init(round(Float(Array(participants.participants.values).count) / Float(max(columns, 1))))
+        return .init(round(Float(participants.count) / Float(columns)))
     }
 
     var body: some View {
+        let numColumns = calcColumns()
         GeometryReader { geo in
-            let numColumns = calcColumns()
-            let numRows = calcRows(numColumns)
-
-            let width = (geo.size.width) / numColumns
-            let height = abs(geo.size.height) / numRows
-            let columns = Array(repeating: GridItem(.adaptive(minimum: width, maximum: width)),
-                                count: Int(numColumns))
-
-            LazyVGrid(columns: columns, spacing: spacing) {
-                ForEach(Array(participants.participants.values)) { participant in
+            WrappingHStack(alignment: .center) {
+                ForEach(participants) { participant in
                     participant.view
                         .scaledToFill()
-                        .cornerRadius(12)
-                        .frame(maxWidth: width, maxHeight: height)
+                        .frame(maxWidth: (geo.size.width / numColumns) - (2 * spacing),
+                               maxHeight: abs(geo.size.height) / calcRows(numColumns))
+                        .cornerRadius(cornerRadius)
                 }
             }
-            .cornerRadius(12)
+            .cornerRadius(cornerRadius)
             .frame(height: geo.size.height)
         }
         .frame(maxHeight: .infinity)
-        .padding([.horizontal, .top])
+        .padding([.horizontal, .bottom])
     }
 }
 

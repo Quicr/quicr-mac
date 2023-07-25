@@ -75,7 +75,7 @@
     {
       "identity" : "swift-opus",
       "kind" : "remoteSourceControl",
-      "location" : "git@github.com:alta/swift-opus.git",
+      "location" : "https://github.com/alta/swift-opus.git",
       "state" : {
         "revision" : "5f0164b8915fb9001265c54413aa0f0efbd3df06",
         "version" : "0.0.2"
@@ -124,6 +124,15 @@
       "state" : {
         "revision" : "8833b3a73fab6530cc51e2063a85cced01714cfb",
         "version" : "1.6.2"
+      }
+    },
+    {
+      "identity" : "wrappinghstack",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ksemianov/WrappingHStack",
+      "state" : {
+        "revision" : "2638bc5258607e8a32f2e5675d075896c2401678",
+        "version" : "0.1.3"
       }
     },
     {

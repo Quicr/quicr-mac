@@ -57,11 +57,11 @@ class H264Subscription: Subscription {
         // Enqueue the buffer.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
-            guard let layer = participant.view.view.layer as? AVSampleBufferDisplayLayer else {
+            guard let layer = participant.view.layer else {
                 fatalError()
             }
             guard layer.status != .failed else {
-                print(layer.error!)
+                self.log("Layer failed: \(layer.error!)")
                 layer.flush()
                 return
             }

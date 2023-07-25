@@ -5,33 +5,17 @@ class VideoUIView: UIView {
     override public class var layerClass: AnyClass {
         return AVSampleBufferDisplayLayer.self
     }
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        initializeLayer()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        initializeLayer()
-    }
-
-    func initializeLayer() {
-        guard let layer = layer as? AVSampleBufferDisplayLayer else {
-            fatalError()
-        }
-        layer.videoGravity = .resizeAspectFill
-    }
 }
 
 struct VideoView: UIViewRepresentable {
     let view: VideoUIView = .init()
+    var layer: AVSampleBufferDisplayLayer? { return view.layer as? AVSampleBufferDisplayLayer }
 
     func makeUIView(context: Context) -> VideoUIView {
-        view
+        view.contentMode = .scaleAspectFit
+        return view
     }
-
-    func updateUIView(_ uiView: UIViewType, context: Context) { }
+    func updateUIView(_ uiView: VideoUIView, context: Context) {}
 }
 
 struct VideoView_Previews: PreviewProvider {
