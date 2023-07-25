@@ -33,9 +33,9 @@ typedef void(*PacketCallback)(struct Packet*, size_t);
                 concealmentCallback:(PacketCallback)concealment_callback
                 freeCallback:(PacketCallback)free_callback;
 
--(size_t)dequeue: (uint8_t*)destination
-                    destinationLength:(size_t)destination_length
-                    elements:(size_t)elements;
+-(size_t)dequeue:(uint8_t*)destination
+                destinationLength:(size_t)destination_length
+                elements:(size_t)elements;
 
 @end
 

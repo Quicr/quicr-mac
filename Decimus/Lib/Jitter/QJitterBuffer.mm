@@ -29,9 +29,17 @@
                 freeCallback:(PacketCallback)free_callback
 {
     if (!jitterBuffer) return 0;
-    return jitterBuffer->Enqueue({1, packet},
-                                 [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
-                                 [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
+
+    try
+    {
+        return jitterBuffer->Enqueue({1, packet},
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
+                                     [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
+    }
+    catch(...)
+    {
+        return 0;
+    }
 }
 
 -(size_t)enqueuePackets:(Packet[])packets
@@ -40,16 +48,32 @@
                 freeCallback:(PacketCallback)free_callback
 {
     if (!jitterBuffer) return 0;
-    return jitterBuffer->Enqueue({packets, packets + size},
-                                 [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
-                                 [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
+
+    try
+    {
+        return jitterBuffer->Enqueue({packets, packets + size},
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); },
+                                     [&](std::vector<Packet>& p) { return free_callback(p.data(), p.size()); });
+    }
+    catch(...)
+    {
+        return 0;
+    }
 }
 
--(size_t)dequeue: (uint8_t*)destination
-                    destinationLength:(size_t)destination_length
-                    elements:(size_t)elements
+-(size_t)dequeue:(uint8_t*)destination
+                destinationLength:(size_t)destination_length
+                elements:(size_t)elements
 {
     if (!jitterBuffer) return 0;
-    return jitterBuffer->Dequeue(destination, destination_length, elements);
+
+    try
+    {
+        return jitterBuffer->Dequeue(destination, destination_length, elements);
+    }
+    catch(...)
+    {
+        return 0;
+    }
 }
 @end
