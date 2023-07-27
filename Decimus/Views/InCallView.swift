@@ -30,7 +30,7 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                if connecting {
+                if connecting || viewModel.controller!.subscriberDelegate.participants.participants.isEmpty {
                     ZStack {
                         Image("RTMC-Background")
                             .resizable()
@@ -38,8 +38,10 @@ struct InCallView: View {
                                    alignment: .center)
                             .cornerRadius(12)
                             .padding([.horizontal, .bottom])
-                        ProgressView()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        if connecting {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        }
                     }
                 } else {
                     VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
