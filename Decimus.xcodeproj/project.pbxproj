@@ -18,6 +18,7 @@
 		18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A432A13ED24005B333B /* MockSubmitter.swift */; };
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */; };
+		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
 		18F3E9532A1661C100DC2721 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9522A1661C100DC2721 /* Copus */; };
 		18F3E9552A16646700DC2721 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9542A16646700DC2721 /* Opus */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
@@ -100,6 +101,7 @@
 		FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D422A00410A00B535DA /* CiscoSansTTThin.woff */; };
 		FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D742A01CCAE00B535DA /* ManifestController.swift */; };
 		FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D782A0422CE00B535DA /* CodecFactory.swift */; };
+		FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = FFA0E84F2A6F25A20027603B /* WrappingHStack */; };
 		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
@@ -147,6 +149,7 @@
 		18C89A432A13ED24005B333B /* MockSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSubmitter.swift; sourceTree = "<group>"; };
 		18C89A452A14E667005B333B /* AppStorageWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorageWrapper.swift; sourceTree = "<group>"; };
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
+		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
@@ -264,6 +267,7 @@
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */,
 				18F3E9532A1661C100DC2721 /* Copus in Frameworks */,
+				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				18F3E9552A16646700DC2721 /* Opus in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
@@ -417,6 +421,7 @@
 				9B480661297EAF170040F5D4 /* InCallView.swift */,
 				9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */,
 				FFFF72D62A27D47D00D4D5EE /* ErrorView.swift */,
+				18EC340C2A69CFD6004FE2EE /* VideoView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -584,6 +589,7 @@
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				18F3E9522A1661C100DC2721 /* Copus */,
 				18F3E9542A16646700DC2721 /* Opus */,
+				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -624,6 +630,7 @@
 				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
 				9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */,
+				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -761,6 +768,7 @@
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
+				18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */,
 				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
@@ -1176,6 +1184,14 @@
 				minimumVersion = 0.0.2;
 			};
 		};
+		FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ksemianov/WrappingHStack";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1208,6 +1224,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
+		};
+		FFA0E84F2A6F25A20027603B /* WrappingHStack */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */;
+			productName = WrappingHStack;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

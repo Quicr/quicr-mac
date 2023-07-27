@@ -274,8 +274,18 @@ class H264Decoder: SampleDecoder {
         guard status == .zero else { print("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        let ciImage: CIImage = .init(cvImageBuffer: image!)
-        callback(ciImage, presentation.value, orientation, verticalMirror)
+        guard let image = image else { print("Missing image"); return }
+        do {
+            let created: CMVideoFormatDescription = try .init(imageBuffer: image)
+            let sample: CMSampleBuffer = try .init(imageBuffer: image,
+                                                   formatDescription: created,
+                                                   sampleTiming: .init(duration: duration,
+                                                                       presentationTimeStamp: presentation,
+                                                                       decodeTimeStamp: .invalid))
+            callback(sample, presentation.value, orientation, verticalMirror)
+        } catch {
+            print("Couldn't create CMSampleBuffer: \(error)")
+        }
     }
 
     /// Determines if the current pointer is pointing to the start of a NALU start code.
