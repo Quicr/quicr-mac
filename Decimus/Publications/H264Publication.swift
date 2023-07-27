@@ -51,7 +51,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
-        self.encoder = try .init(config: config, verticalMirror: false)
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.errorWriter = errorWriter
@@ -71,6 +70,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
         super.init()
 
         self.encoder.registerCallback { [weak self] data, flag in
