@@ -45,11 +45,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
-        self.encoder = .init(config: config, verticalMirror: false)
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-
-        super.init()
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
         // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
@@ -58,16 +55,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                                                           .builtInTelephotoCamera],
                                                             mediaType: .video,
                                                             position: .front).devices.first else {
-            log("Failed to register H264 publication for source \(sourceID)")
+            Self.log(namespace: namespace, message: "Failed to register H264 publication for source \(sourceID)")
             fatalError()
         }
         #else
         guard let device = AVCaptureDevice.default(for: .video) else {
-            log("Failed to register H264 publication for source \(sourceID)")
+            Self.log(namespace: namespace, message: "Failed to register H264 publication for source \(sourceID)")
             fatalError()
         }
         #endif
         self.device = device
+        self.encoder = .init(config: config, verticalMirror: device.position == .front)
+        super.init()
 
         self.encoder.registerCallback { [weak self] data, flag in
             guard let self = self else { return }
