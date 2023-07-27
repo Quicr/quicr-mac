@@ -29,13 +29,13 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
-    let session: AVCaptureMultiCamSession
+    private let session: AVCaptureMultiCamSession
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
-    private let notifier: NotificationCenter
+    private let notifier: NotificationCenter = .default
 
     init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -43,7 +43,6 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
-        notifier = .default
         super.init()
         notifier.addObserver(forName: .AVCaptureSessionRuntimeError, object: nil, queue: nil, using: onStartFailure)
     }
@@ -74,7 +73,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
             return
         }
-        print(error.localizedDescription)
+        print("CaptureManager => AVCaptureSession failure: \(error.localizedDescription)")
     }
 
     func stopCapturing() throws {
