@@ -29,7 +29,11 @@
 
 -(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol
 {
-    return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
+    try {
+        return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
+    } catch(...) {
+        return -1;
+    }
 }
 
 -(void) close

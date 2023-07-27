@@ -66,6 +66,7 @@ class H264Encoder: Encoder {
     }
 
     deinit {
+        callback = nil
         guard let session = encoder else { return }
 
         // Sync flush all pending frames.

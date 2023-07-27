@@ -46,12 +46,18 @@ struct InCallView: View {
                     Task { await viewModel.leave() }
                     onLeave()
                 }, cancelAction: leaving = false)
-                    .frame(maxWidth: 400, alignment: .center)
+                .frame(maxWidth: 400, alignment: .center)
             }
 
             ErrorView()
         }
         .background(.black)
+        .task {
+            guard await viewModel.join() else {
+                await viewModel.leave()
+                return onLeave()
+            }
+        }
     }
 }
 
@@ -61,11 +67,13 @@ extension InCallView {
         private let errorHandler: ErrorWriter
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
+        private let config: CallConfig
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(errorHandler: ErrorWriter, config: CallConfig) {
+            self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
@@ -88,12 +96,15 @@ extension InCallView {
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
                                     captureManager: captureManager!)
-            Task {
-                do {
-                    try await self.controller!.connect(config: config)
-                } catch {
-                    errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
-                }
+        }
+
+        func join() async -> Bool {
+            do {
+                try await self.controller!.connect(config: config)
+                return true
+            } catch {
+                errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
+                return false
             }
         }
 
