@@ -7,6 +7,8 @@ import UIKit
 struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
+    @State var connecting: Bool = false
+
     @EnvironmentObject private var errorHandler: ObservableError
     private let errorWriter: ErrorWriter
 
@@ -28,8 +30,21 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                if connecting {
+                    ZStack {
+                        Image("RTMC-Background")
+                            .resizable()
+                            .frame(maxHeight: .infinity,
+                                   alignment: .center)
+                            .cornerRadius(12)
+                            .padding([.horizontal, .bottom])
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    }
+                } else {
+                    VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                }
 
                 if let capture = viewModel.captureManager {
                     CallControls(errorWriter: errorWriter,
@@ -53,10 +68,12 @@ struct InCallView: View {
         }
         .background(.black)
         .task {
+            connecting = true
             guard await viewModel.join() else {
                 await viewModel.leave()
                 return onLeave()
             }
+            connecting = false
         }
     }
 }
