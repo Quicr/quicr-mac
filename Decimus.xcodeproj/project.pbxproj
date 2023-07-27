@@ -61,6 +61,7 @@
 		FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B12A53575D00C6D66D /* PublicationFactory.swift */; };
 		FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */; };
 		FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* H264Subscription.swift */; };
+		FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
 		FF6C80A92A16DB850094751E /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publication.swift */; };
 		FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80AA2A17E8980094751E /* Subscription.swift */; };
@@ -194,6 +195,8 @@
 		FF2498B12A53575D00C6D66D /* PublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationFactory.swift; sourceTree = "<group>"; };
 		FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFactory.swift; sourceTree = "<group>"; };
 		FF2498B62A55E95E00C6D66D /* H264Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Subscription.swift; sourceTree = "<group>"; };
+		FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QJitterBuffer.h; sourceTree = "<group>"; };
+		FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QJitterBuffer.mm; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
 		FF6C80A82A16DB850094751E /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
 		FF6C80AA2A17E8980094751E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
@@ -316,7 +319,6 @@
 				D78619412A28FC9C00EC0556 /* QMediaDelegates.h */,
 				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
-				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
 			);
 			path = QMedia;
 			sourceTree = "<group>";
@@ -372,10 +374,10 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				FF3B952D2A60C77B00CE463F /* Lib */,
 				18C89A372A13D14A005B333B /* Metrics */,
 				9B87FB4C2A02A84000C92DD1 /* AudioUnit */,
 				185D628E29BF3C5A0011E634 /* Info.plist */,
-				9B48068A298301ED0040F5D4 /* QMedia */,
 				9B48067F298016FD0040F5D4 /* Codec */,
 				FF2498AE2A534E5B00C6D66D /* Publications */,
 				FF2498B52A55E8F800C6D66D /* Subscriptions */,
@@ -462,6 +464,25 @@
 				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
 			);
 			path = Subscriptions;
+			sourceTree = "<group>";
+		};
+		FF3B95292A60C19800CE463F /* Jitter */ = {
+			isa = PBXGroup;
+			children = (
+				FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */,
+				FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */,
+			);
+			path = Jitter;
+			sourceTree = "<group>";
+		};
+		FF3B952D2A60C77B00CE463F /* Lib */ = {
+			isa = PBXGroup;
+			children = (
+				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
+				9B48068A298301ED0040F5D4 /* QMedia */,
+				FF3B95292A60C19800CE463F /* Jitter */,
+			);
+			path = Lib;
 			sourceTree = "<group>";
 		};
 		FF6D6D312A00410A00B535DA /* fonts */ = {
@@ -729,6 +750,7 @@
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
+				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
@@ -959,18 +981,19 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/dependencies/new-qmedia/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/src/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
-					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/include/**",
+					"$(inherited)",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
+					"$(PROJECT_DIR)/dependencies/libjitter/**",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1002,12 +1025,10 @@
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/Lib/Decimus-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				SYSTEM_HEADER_SEARCH_PATHS = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				USER_HEADER_SEARCH_PATHS = "";
 				USE_HEADERMAP = NO;
 			};
 			name = Debug;
@@ -1031,18 +1052,19 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(SRCROOT)/dependencies/new-qmedia/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/lib/inc/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/numero-uri/contrib/json/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/src/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/sframe/**",
-					"$(SRCROOT)/dependencies/build-catalyst-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-catalyst-x86-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-ios-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/build-iossim-new-qmedia/third_party/src/gsl-extern/include/**",
-					"$(SRCROOT)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/include/**",
+					"$(inherited)",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
+					"$(PROJECT_DIR)/dependencies/libjitter/**",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1074,11 +1096,9 @@
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/QMedia/Decimus-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/Lib/Decimus-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
-				SYSTEM_HEADER_SEARCH_PATHS = "";
 				TARGETED_DEVICE_FAMILY = "1,2";
-				USER_HEADER_SEARCH_PATHS = "";
 				USE_HEADERMAP = NO;
 			};
 			name = Release;

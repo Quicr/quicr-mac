@@ -1,6 +1,10 @@
 import Opus
 import AVFoundation
 
+enum OpusEncodeError: Error {
+    case formatChange
+}
+
 class LibOpusEncoder: Encoder {
     private let encoder: Opus.Encoder
     internal var callback: EncodedCallback?
@@ -29,7 +33,11 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
+    // TODO: Change to a regular non-callback return.
     func write(data: AVAudioPCMBuffer) throws {
+        guard self.format == data.format else {
+            throw OpusEncodeError.formatChange
+        }
         let encodeCount = try encoder.encode(data, to: &encoded)
         callback?(encoded, true)
     }
