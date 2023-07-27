@@ -8,7 +8,7 @@ class ObservableError: ObservableObject, ErrorWriter {
     }
 
     @Published var messages: [StringError] = []
-    nonisolated func writeError(message: String) {
+    nonisolated func writeError(_ message: String) {
         print("[Decimus Error] => \(message)")
         DispatchQueue.main.async {
             self.messages.append(.init(message: message))
@@ -17,7 +17,7 @@ class ObservableError: ObservableObject, ErrorWriter {
 }
 
 struct ErrorView: View {
-    @StateObject var errorHandler: ObservableError
+    @EnvironmentObject var errorHandler: ObservableError
     var body: some View {
         VStack {
             if !errorHandler.messages.isEmpty {

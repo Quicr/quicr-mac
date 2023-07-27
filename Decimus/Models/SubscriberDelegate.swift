@@ -5,13 +5,14 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
+    private let errorWriter: ErrorWriter
     private let submitter: MetricsSubmitter
-
     private let factory: SubscriptionFactory
 
     init(errorWriter: ErrorWriter, submitter: MetricsSubmitter) {
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter)
+        self.errorWriter = errorWriter
         self.submitter = submitter
         self.factory = .init(participants: self.participants, player: self.player)
 
@@ -39,9 +40,12 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                      qualityProfile: String!) -> QSubscriptionDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         do {
-            return try factory.create(quicrNamepace!, config: config, metricsSubmitter: submitter)
+            return try factory.create(quicrNamepace!,
+                                      config: config,
+                                      metricsSubmitter: submitter,
+                                      errorWriter: errorWriter)
         } catch {
-            print("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            errorWriter.writeError("[SubscriberDelegate] Failed to allocate subscription: \(error)")
             return nil
         }
     }

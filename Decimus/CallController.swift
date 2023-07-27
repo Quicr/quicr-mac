@@ -16,7 +16,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      submitter: metricsSubmitter)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
-                                                   captureManager: captureManager)
+                                                   captureManager: captureManager,
+                                                   errorWriter: errorWriter)
     }
 
     func connect(config: CallConfig) async throws {
@@ -25,7 +26,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             throw CallError.failedToConnect(error)
         }
 
-        let manifest = await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
+        let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
         super.updateManifest(manifest)
     }
 
