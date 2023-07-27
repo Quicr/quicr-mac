@@ -70,7 +70,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        self.encoder = .init(config: config, verticalMirror: device.position == .front)
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
         super.init()
 
         self.encoder.registerCallback { [weak self] data, flag in
