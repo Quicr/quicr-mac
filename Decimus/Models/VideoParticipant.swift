@@ -7,12 +7,11 @@ enum ParticipantError: Error {
 
 class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
-    @Published var decodedImage: Image
-    var lastUpdated: DispatchTime
+    let view: VideoView = .init()
+    @Published var lastUpdated: DispatchTime
 
     init(id: SourceIDType) {
         self.id = id
-        decodedImage = .init(systemName: "phone")
         lastUpdated = .init(uptimeNanoseconds: 0)
     }
 }

@@ -1,13 +1,13 @@
 import AVFoundation
-import CoreImage
+import CoreMedia
 import Foundation
 
 protocol Decoder {
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt32)
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) throws
 }
 
 protocol SampleDecoder: Decoder {
-    typealias DecodedCallback = (CIImage, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
+    typealias DecodedCallback = (CMSampleBuffer, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
     var callback: DecodedCallback? {get set}
 
     mutating func registerCallback(callback: @escaping DecodedCallback)

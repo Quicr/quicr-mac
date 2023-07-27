@@ -52,6 +52,7 @@ class OpusSubscription: Subscription {
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
+    private let errorWriter: ErrorWriter
     private var jitterBuffer: QJitterBuffer
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
@@ -59,9 +60,11 @@ class OpusSubscription: Subscription {
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
-         submitter: MetricsSubmitter) throws {
+         submitter: MetricsSubmitter,
+         errorWriter: ErrorWriter) throws {
         self.namespace = namespace
         self.player = player
+        self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: submitter)
 
         do {
@@ -80,7 +83,7 @@ class OpusSubscription: Subscription {
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        self.player.addPlayer(identifier: namespace, node: node!)
+        try self.player.addPlayer(identifier: namespace, node: node!)
 
         log("Subscribed to OPUS stream")
     }
@@ -103,7 +106,12 @@ class OpusSubscription: Subscription {
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd] silence, _, numFrames, data in
         // Fill the buffers as best we can.
         guard data.pointee.mNumberBuffers == 1 else {
-            print("Unexpected render block buffer count: \(data.pointee.mNumberBuffers)")
+            // Unexpected.
+            let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
+            print("Got multiple buffers?")
+            for buffer in buffers {
+                print("Got buffer of size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
+            }
             return 1
         }
 
@@ -216,23 +224,26 @@ class OpusSubscription: Subscription {
                 decoded = try decoder.write(data: $0)
                 return SubscriptionError.None
             } catch {
-                log("Failed to decode: \(error)")
+                let message = "Failed to write to decoder: \(error.localizedDescription)"
+                log(message)
+                errorWriter.writeError(message)
                 return SubscriptionError.NoDecoder
             }
         }
         guard result == .None else { return result.rawValue }
-        queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
+        do {
+            try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
+        } catch {
+            errorWriter.writeError("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
+        }
         return SubscriptionError.None.rawValue
     }
 
-    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) {
+    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) throws {
         // Ensure this buffer looks valid.
         let list = buffer.audioBufferList
         guard list.pointee.mNumberBuffers == 1 else {
-            fatalError()
-        }
-        guard list.pointee.mBuffers.mDataByteSize > 0 else {
-            fatalError()
+            throw "Unexpected number of buffers"
         }
 
         Task(priority: .utility) {
@@ -258,6 +269,7 @@ class OpusSubscription: Subscription {
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
+            errorWriter.writeError("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             log("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
