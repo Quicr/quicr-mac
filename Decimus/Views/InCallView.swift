@@ -7,6 +7,8 @@ import UIKit
 struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
+    @State var connecting: Bool = false
+
     @EnvironmentObject private var errorHandler: ObservableError
     private let errorWriter: ErrorWriter
 
@@ -28,8 +30,23 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                if connecting || viewModel.controller!.subscriberDelegate.participants.participants.isEmpty {
+                    ZStack {
+                        Image("RTMC-Background")
+                            .resizable()
+                            .frame(maxHeight: .infinity,
+                                   alignment: .center)
+                            .cornerRadius(12)
+                            .padding([.horizontal, .bottom])
+                        if connecting {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        }
+                    }
+                } else {
+                    VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                }
 
                 if let capture = viewModel.captureManager {
                     CallControls(errorWriter: errorWriter,
@@ -46,12 +63,20 @@ struct InCallView: View {
                     Task { await viewModel.leave() }
                     onLeave()
                 }, cancelAction: leaving = false)
-                    .frame(maxWidth: 400, alignment: .center)
+                .frame(maxWidth: 400, alignment: .center)
             }
 
             ErrorView()
         }
         .background(.black)
+        .task {
+            connecting = true
+            guard await viewModel.join() else {
+                await viewModel.leave()
+                return onLeave()
+            }
+            connecting = false
+        }
     }
 }
 
@@ -61,11 +86,13 @@ extension InCallView {
         private let errorHandler: ErrorWriter
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
+        private let config: CallConfig
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
         init(errorHandler: ErrorWriter, config: CallConfig) {
+            self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
@@ -88,12 +115,15 @@ extension InCallView {
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
                                     captureManager: captureManager!)
-            Task {
-                do {
-                    try await self.controller!.connect(config: config)
-                } catch {
-                    errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
-                }
+        }
+
+        func join() async -> Bool {
+            do {
+                try await self.controller!.connect(config: config)
+                return true
+            } catch {
+                errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
+                return false
             }
         }
 
