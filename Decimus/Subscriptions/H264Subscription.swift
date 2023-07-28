@@ -82,7 +82,6 @@ class H264Subscription: Subscription {
             }
         } catch {
             self.errorWriter.writeError("Failed to write to decoder: \(error.localizedDescription)")
-
         }
         return SubscriptionError.None.rawValue
     }
