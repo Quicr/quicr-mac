@@ -38,7 +38,7 @@ class H264Decoder: SampleDecoder {
     }
 
     /// Write a new frame to the decoder.
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) {
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt32) throws {
         // Get NALU type.
         var type = data[startCodeLength] & 0x1F
 
@@ -46,7 +46,7 @@ class H264Decoder: SampleDecoder {
         guard self.currentFormat != nil || type == spsType else { return }
 
         // Extract SPS/PPS if available.
-        let paramOutput = checkParameterSets(data: data, length: data.count)
+        let paramOutput = try checkParameterSets(data: data, length: data.count)
         let offset = paramOutput.0
         let newFormat = paramOutput.1
 
@@ -79,7 +79,12 @@ class H264Decoder: SampleDecoder {
 
             // Parse any SEIs and move on.
             if type == sei {
-                parseSEI(pointer: naluPtr)
+                do {
+                    try parseSEI(pointer: naluPtr)
+                } catch {
+                    // TODO: Surface this error.
+                    print(error.localizedDescription)
+                }
                 continue
             }
 
@@ -94,7 +99,9 @@ class H264Decoder: SampleDecoder {
                                                            dataLength: naluTotalLength,
                                                            flags: 0,
                                                            blockBufferOut: &blockBuffer)
-            guard error == .zero else { fatalError("CMBlockBufferCreateWithMemoryBlock failed: \(error)") }
+            guard error == .zero else {
+                throw OSStatusError(error: error, message: "CMBlockBufferCreateWithMemoryBlock")
+            }
 
             // CMTime presentation.
             let time = CMTimeMake(value: Int64(timestamp), timescale: 1000)
@@ -117,7 +124,9 @@ class H264Decoder: SampleDecoder {
                                          sampleSizeEntryCount: 1,
                                          sampleSizeArray: &sampleSize,
                                          sampleBufferOut: &sampleBuffer)
-            guard error == .zero else { fatalError("CMSampleBufferCreate failed: \(error)") }
+            guard error == .zero else {
+                throw OSStatusError(error: error, message: "CMSampleBufferCreate")
+            }
 
             // Set to display immediately
             let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer!, createIfNecessary: true)
@@ -138,18 +147,18 @@ class H264Decoder: SampleDecoder {
             case kVTFormatDescriptionChangeNotSupportedErr:
                 // We need to recreate the decoder because of a format change.
                 print("H264Decoder => Recreating due to format change")
-                session = makeDecoder(format: newFormat!)
-                write(data: data, timestamp: timestamp)
+                session = try makeDecoder(format: newFormat!)
+                try write(data: data, timestamp: timestamp)
             case .zero:
                 break
             default:
-                fatalError("Failed to decode frame: \(error)")
+                throw OSStatusError(error: error, message: "Failed to decode frame")
             }
         }
     }
 
     /// Extracts parameter sets from the given pointer, if any.
-    private func checkParameterSets(data: UnsafeRawBufferPointer, length: Int) -> (Int, CMFormatDescription?) {
+    private func checkParameterSets(data: UnsafeRawBufferPointer, length: Int) throws -> (Int, CMFormatDescription?) {
 
         // Get current frame type.
         let type = data[startCodeLength] & 0x1F
@@ -165,7 +174,9 @@ class H264Decoder: SampleDecoder {
                 break
             }
 
-            guard ppsStartCodeIndex != 0 else { fatalError("Expected to find PPS start code after SPS") }
+            guard ppsStartCodeIndex != 0 else {
+                throw "Expected to find PPS start code after SPS"
+            }
         }
 
         // Check for PPS.
@@ -207,11 +218,13 @@ class H264Decoder: SampleDecoder {
                                                                         parameterSetSizes: parameterSetsSizes,
                                                                         nalUnitHeaderLength: Int32(startCodeLength),
                                                                         formatDescriptionOut: &format)
-        guard error == .zero else { fatalError("CMVideoFormatDescriptionCreateFromH264ParameterSets failed: \(error)") }
+        guard error == .zero else {
+            throw OSStatusError(error: error, message: "CMVideoFormatDescriptionCreateFromH264ParameterSets failed")
+        }
 
         // Create the decoder with the given format.
         if session == nil {
-            session = makeDecoder(format: format!)
+            session = try makeDecoder(format: format!)
         }
 
         // Return new pointer index.
@@ -219,13 +232,13 @@ class H264Decoder: SampleDecoder {
     }
 
     /// Makes a new decoder for the given format.
-    private func makeDecoder(format: CMFormatDescription) -> VTDecompressionSession {
+    private func makeDecoder(format: CMFormatDescription) throws -> VTDecompressionSession {
         // Output format properties.
         var formatKeyCallbacks = kCFTypeDictionaryKeyCallBacks
         var formatValueCallbacks = kCFTypeDictionaryValueCallBacks
         let outputFormat = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &formatKeyCallbacks, &formatValueCallbacks)
         if outputFormat == nil {
-            fatalError("Failed to create output format dictionary")
+            throw "Failed to create output format dictionary"
         }
 
         // Create the session.
@@ -236,7 +249,9 @@ class H264Decoder: SampleDecoder {
                                                  imageBufferAttributes: nil,
                                                  outputCallback: nil,
                                                  decompressionSessionOut: &session)
-        guard error == .zero else { fatalError("Failed to create VTDecompressionSession: \(error)") }
+        guard error == .zero else {
+            throw OSStatusError(error: error, message: "Failed to create VTDecompressionSession")
+        }
         self.currentFormat = format
 
         // Configure for realtime.
@@ -250,7 +265,10 @@ class H264Decoder: SampleDecoder {
                        image: CVImageBuffer?,
                        presentation: CMTime,
                        duration: CMTime) {
-        guard let callback = callback else { fatalError("Callback not set for decoder") }
+        guard let callback = callback else {
+            // TODO: Surface this error.
+            fatalError("Callback not set for decoder")
+        }
 
         // Check status code.
         guard status == .zero else { print("Bad decode: \(status)"); return }
@@ -280,9 +298,9 @@ class H264Decoder: SampleDecoder {
             pointer[startIndex + 3] == 0x01
     }
 
-    private func parseSEI(pointer: UnsafeMutableRawPointer) {
+    private func parseSEI(pointer: UnsafeMutableRawPointer) throws {
         let typed: UnsafeMutablePointer<UInt8> = pointer.assumingMemoryBound(to: UInt8.self)
-        guard typed[4] == sei else { fatalError("This is not an SEI") }
+        guard typed[4] == sei else { throw "This is not an SEI" }
         let seiType = typed[5]
         switch seiType {
         case 0x2f:

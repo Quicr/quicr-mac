@@ -20,7 +20,7 @@ protocol Publication: QPublicationDelegateObjC {
 }
 
 protocol AVCaptureDevicePublication: Publication {
-    var device: AVCaptureDevice? {get}
+    var device: AVCaptureDevice {get}
 }
 
 extension Publication {

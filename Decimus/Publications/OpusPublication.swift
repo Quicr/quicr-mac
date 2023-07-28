@@ -16,6 +16,7 @@ class OpusPublication: Publication {
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
     private let metricsSubmitter: MetricsSubmitter
+    private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
     private let opusWindowSizeSeconds: TimeInterval = 0.01
 
@@ -70,10 +71,12 @@ class OpusPublication: Publication {
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
-         metricsSubmitter: MetricsSubmitter) {
+         metricsSubmitter: MetricsSubmitter,
+         errorWriter: ErrorWriter) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
+        self.errorWriter = errorWriter
         do {
             try engine.inputNode.setVoiceProcessingEnabled(true)
             if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
@@ -81,14 +84,12 @@ class OpusPublication: Publication {
                 try engine.inputNode.setVoiceProcessingEnabled(false)
             }
         } catch {
-            fatalError("\(error)")
+            let message = "Failed to set input voice processing: \(error.localizedDescription)"
+            Self.log(namespace: namespace, message: message)
+            errorWriter.writeError(message)
         }
 
-        do {
-            try AVAudioSession.configureForDecimus()
-        } catch {
-            fatalError()
-        }
+        try AVAudioSession.configureForDecimus()
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
         if outputFormat.channelCount > 2 {
@@ -121,10 +122,8 @@ class OpusPublication: Publication {
                                           channels: format!.channelCount,
                                           interleaved: true)
             converter = .init(from: format!, to: differentEncodeFormat!)!
-            do {
-                encoder = try .init(format: differentEncodeFormat!)
-                log("Encoder created using fallback format: \(differentEncodeFormat!)")
-            } catch { fatalError() }
+            encoder = try .init(format: differentEncodeFormat!)
+            log("Encoder created using fallback format: \(differentEncodeFormat!)")
         }
         encoder.registerCallback(callback: { [weak self] data, flag in
             self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, group: flag)
@@ -142,13 +141,7 @@ class OpusPublication: Publication {
         let sink: AVAudioSinkNode = .init(receiverBlock: block)
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: nil)
-
-        do {
-            try engine.start()
-        } catch {
-            fatalError("\(error)")
-        }
-
+        try engine.start()
         log("Registered OPUS publication for source \(sourceID)")
     }
 

@@ -5,13 +5,16 @@ class PublisherDelegate: QPublisherDelegateObjC {
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
     private let factory: PublicationFactory
+    private let errorWriter: ErrorWriter
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter,
-         captureManager: CaptureManager) {
+         captureManager: CaptureManager,
+         errorWriter: ErrorWriter) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.factory = .init(capture: captureManager)
+        self.errorWriter = errorWriter
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -23,9 +26,10 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
-                                       metricsSubmitter: metricsSubmitter)
+                                       metricsSubmitter: metricsSubmitter,
+                                       errorWriter: errorWriter)
         } catch {
-            print("[PublisherDelegate] Failed to allocate publication: \(error)")
+            errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
             return nil
         }
     }

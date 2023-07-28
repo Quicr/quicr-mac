@@ -37,15 +37,18 @@ class H264Subscription: Subscription {
     private var decoder: H264Decoder
     private unowned let participants: VideoParticipants
     private let measurement: _Measurement
+    private let errorWriter: ErrorWriter
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter) {
+         metricsSubmitter: MetricsSubmitter,
+         errorWriter: ErrorWriter) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        self.errorWriter = errorWriter
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -72,8 +75,14 @@ class H264Subscription: Subscription {
             await self.measurement.receivedFrame(timestamp: now)
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
         }
-        data.withUnsafeBytes {
-            decoder.write(data: $0, timestamp: 0)
+
+        do {
+            try data.withUnsafeBytes {
+                try decoder.write(data: $0, timestamp: 0)
+            }
+        } catch {
+            self.errorWriter.writeError("Failed to write to decoder: \(error.localizedDescription)")
+
         }
         return SubscriptionError.None.rawValue
     }
