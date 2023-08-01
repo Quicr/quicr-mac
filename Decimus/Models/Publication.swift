@@ -20,11 +20,15 @@ protocol Publication: QPublicationDelegateObjC {
 }
 
 protocol AVCaptureDevicePublication: Publication {
-    var device: AVCaptureDevice? {get}
+    var device: AVCaptureDevice {get}
 }
 
 extension Publication {
     func log(_ message: String) {
+        Self.log(namespace: namespace, message: message)
+    }
+
+    static func log(namespace: String, message: String) {
         print("[\(String(describing: type(of: self)))] (\(namespace)) \(message)")
     }
 }

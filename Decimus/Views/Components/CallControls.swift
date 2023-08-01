@@ -3,6 +3,7 @@ import AVFoundation
 
 @MainActor
 struct CallControls: View {
+    @EnvironmentObject private var errorHandler: ObservableError
     @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
@@ -31,7 +32,7 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, captureManager: CaptureManager, leaving: Binding<Bool>) {
+    init(errorWriter: ErrorWriter, captureManager: CaptureManager?, leaving: Binding<Bool>) {
         _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
         _leaving = leaving
     }
@@ -44,10 +45,11 @@ struct CallControls: View {
     }
 
     private func toggleAudio() async {
+        // TODO: Mute status needs to come from elsewhere.
         for microphone in await viewModel.devices(.audio) {
             _ = await viewModel.toggleDevice(device: microphone)
         }
-        audioOn = !(await viewModel.activeDevices(.audio).isEmpty)
+        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
     }
 
     private func openCameraModal() {
@@ -162,42 +164,58 @@ extension CallControls {
     class ViewModel: ObservableObject {
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        private let capture: CaptureManager
+        private let capture: CaptureManager?
+        private let errorWriter: ErrorWriter
 
-        init(errorWriter: ErrorWriter, captureManager: CaptureManager) {
+        init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
+            self.errorWriter = errorWriter
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
         }
 
         func join() async {
-            await capture.startCapturing()
+            do {
+                try await capture?.startCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't start video capture: \(error.localizedDescription)")
+            }
         }
 
         func leave() async {
             alteringDevice.removeAll()
-            await capture.stopCapturing()
+            do {
+                try await capture?.stopCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't stop video capture: \(error.localizedDescription)")
+            }
         }
 
-        func devices() async -> [AVCaptureDevice] {
-            return await capture.devices()
+        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+            var devices = await capture?.devices() ?? []
+            if let type = type {
+                devices = devices.filter { $0.hasMediaType(type) }
+            }
+            return devices
         }
 
-        func devices(_ type: AVMediaType) async -> [AVCaptureDevice] {
-            return await capture.devices().filter { $0.hasMediaType(type) }
-        }
-
-        func activeDevices() async -> [AVCaptureDevice] {
-            return await capture.activeDevices()
-        }
-
-        func activeDevices(_ type: AVMediaType) async -> [AVCaptureDevice] {
-            return await capture.activeDevices().filter { $0.hasMediaType(type) }
+        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+            do {
+                var devices = try await capture?.activeDevices() ?? []
+                if let type = type {
+                    devices = devices.filter { $0.hasMediaType(type) }
+                }
+                return devices
+            } catch {
+                errorWriter.writeError("Failed to query active devices: \(error.localizedDescription)")
+                return []
+            }
         }
 
         func toggleDevice(device: AVCaptureDevice) async {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
+            guard let capture = capture else { return }
             alteringDevice[device] = true
             _ = await capture.toggleInput(device: device)
             alteringDevice[device] = false
@@ -213,7 +231,8 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        CallControls(errorWriter: ObservableError(),
-                     captureManager: .init(errorHandler: ObservableError()), leaving: bool)
+        let errorWriter: ObservableError = .init()
+        let capture: CaptureManager? = try? .init()
+        CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
     }
 }

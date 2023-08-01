@@ -1,6 +1,10 @@
 import Opus
 import AVFoundation
 
+enum OpusEncodeError: Error {
+    case formatChange
+}
+
 class LibOpusEncoder: Encoder {
     private let encoder: Opus.Encoder
     internal var callback: EncodedCallback?
@@ -18,8 +22,6 @@ class LibOpusEncoder: Encoder {
     private let desiredFrameSizeMs: Double = 10
     private let format: AVAudioFormat
 
-    // TODO: Report errors.
-
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
     init(format: AVAudioFormat) throws {
@@ -31,54 +33,34 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
+    // TODO: Change to a regular non-callback return.
     func write(data: AVAudioPCMBuffer) throws {
+        guard self.format == data.format else {
+            throw OpusEncodeError.formatChange
+        }
         let encodeCount = try encoder.encode(data, to: &encoded)
         callback?(encoded, true)
     }
 
-    func write(data: CMSampleBuffer, format: AVAudioFormat) {
+    func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
         guard format.equivalent(other: self.format) else {
-            print("Write format must match declared format")
-            return
+            throw "Write format must match declared format"
         }
 
-        do {
-            // Write our samples to the buffer
-            try data.dataBuffer!.withUnsafeMutableBytes {
-                buffer.append(contentsOf: $0)
-            }
-        } catch {
-            fatalError()
+        // Write our samples to the buffer
+        try data.dataBuffer!.withUnsafeMutableBytes {
+            buffer.append(contentsOf: $0)
         }
 
         // Try to encode and empty the buffer
         while UInt32(buffer.count) >= opusFrameSizeBytes {
-            tryEncode(format: format)
-
-            buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
-        }
-    }
-
-    private func tryEncode(format: AVAudioFormat) {
-        guard let callback = callback else { fatalError("Callback not set for decoder") }
-
-        let pcm: AVAudioPCMBuffer
-        do {
-            pcm = try buffer.toPCM(frames: opusFrameSize, format: format)
-        } catch PcmBufferError.notEnoughData(requestedBytes: let requested, availableBytes: let available) {
-            fatalError("Not enough data: \(requested)/\(available)")
-        } catch {
-            fatalError(error.localizedDescription)
-        }
-
-        // Encode to Opus.
-        do {
+            guard let callback = callback else { throw "Callback not set for decoder" }
+            let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
                 callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
             }
-        } catch {
-            print("Failed opus encode: \(error)")
+            buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
         }
     }
 }

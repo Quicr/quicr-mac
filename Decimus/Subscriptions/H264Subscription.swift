@@ -1,19 +1,23 @@
 import AVFoundation
 import CoreMedia
 import SwiftUI
+import QuartzCore
 
 class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
     private var decoder: H264Decoder
     private unowned let participants: VideoParticipants
+    private let errorWriter: ErrorWriter
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter) {
+         metricsSubmitter: MetricsSubmitter,
+         errorWriter: ErrorWriter) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
+        self.errorWriter = errorWriter
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -35,23 +39,43 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
-        data.withUnsafeBytes {
-            decoder.write(data: $0, timestamp: 0)
+        do {
+            try data.withUnsafeBytes {
+                try decoder.write(data: $0, timestamp: 0)
+            }
+        } catch {
+            self.errorWriter.writeError("Failed to write to decoder: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
     }
 
-    private func showDecodedImage(decoded: CIImage,
+    private func showDecodedImage(decoded: CMSampleBuffer,
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
-        let participant = participants.getOrMake(identifier: namespace)
+        // FIXME: Driving from proper timestamps probably preferable.
+        let array: CFArray! = CMSampleBufferGetSampleAttachmentsArray(decoded, createIfNecessary: true)
+        let dictionary: CFMutableDictionary = unsafeBitCast(CFArrayGetValueAtIndex(array, 0),
+                                                            to: CFMutableDictionary.self)
+        CFDictionarySetValue(dictionary,
+                             Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                             Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
 
-        // TODO: Why can't we use CIImage directly here?
-        let image: CGImage = CIContext().createCGImage(decoded, from: decoded.extent)!
-        let imageOrientation = orientation?.toImageOrientation(verticalMirror) ?? .up
-        participant.decodedImage = .init(decorative: image, scale: 1.0, orientation: imageOrientation)
-        participant.lastUpdated = .now()
+        // Enqueue the buffer.
+        DispatchQueue.main.async {
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            guard let layer = participant.view.layer else {
+                fatalError()
+            }
+            guard layer.status != .failed else {
+                self.log("Layer failed: \(layer.error!)")
+                layer.flush()
+                return
+            }
+            layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
+            layer.enqueue(decoded)
+            participant.lastUpdated = .now()
+        }
     }
 }
 
@@ -71,5 +95,34 @@ extension AVCaptureVideoOrientation {
             imageOrientation = .up
         }
         return imageOrientation
+    }
+
+    func toTransform(_ verticalMirror: Bool) -> CATransform3D {
+        var transform = CATransform3DIdentity
+        switch self {
+        case .portrait:
+            transform = CATransform3DRotate(transform, .pi / 2, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        case .landscapeLeft:
+            transform = CATransform3DRotate(transform, .pi, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        case .landscapeRight:
+            transform = CATransform3DRotate(transform, -.pi, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, -1.0, 1.0, 1.0)
+            }
+        case .portraitUpsideDown:
+            transform = CATransform3DRotate(transform, -.pi / 2, 0, 0, 1)
+            if verticalMirror {
+                transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
+            }
+        default:
+            break
+        }
+        return transform
     }
 }

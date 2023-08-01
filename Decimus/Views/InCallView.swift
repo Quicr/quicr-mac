@@ -7,6 +7,10 @@ import UIKit
 struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
+    @State var connecting: Bool = false
+
+    @EnvironmentObject private var errorHandler: ObservableError
+    private let errorWriter: ErrorWriter
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -16,24 +20,42 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(errorWriter: ErrorWriter, config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
+        self.errorWriter = errorWriter
         self.onLeave = onLeave
-        _viewModel = StateObject(wrappedValue: ViewModel(config: config))
+        _viewModel = .init(wrappedValue: .init(errorHandler: errorWriter, config: config))
     }
 
     var body: some View {
         ZStack {
             VStack {
-                VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                if connecting || viewModel.controller!.subscriberDelegate.participants.participants.isEmpty {
+                    ZStack {
+                        Image("RTMC-Background")
+                            .resizable()
+                            .frame(maxHeight: .infinity,
+                                   alignment: .center)
+                            .cornerRadius(12)
+                            .padding([.horizontal, .bottom])
+                        if connecting {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        }
+                    }
+                } else {
+                    VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                }
 
-                CallControls(errorWriter: viewModel.errorHandler,
-                             captureManager: viewModel.captureManager,
-                             leaving: $leaving)
-                    .disabled(leaving)
-                    .padding(.bottom)
-                    .frame(alignment: .top)
+                if let capture = viewModel.captureManager {
+                    CallControls(errorWriter: errorWriter,
+                                 captureManager: capture,
+                                 leaving: $leaving)
+                        .disabled(leaving)
+                        .padding(.bottom)
+                        .frame(alignment: .top)
+                }
             }
 
             if leaving {
@@ -41,33 +63,49 @@ struct InCallView: View {
                     Task { await viewModel.leave() }
                     onLeave()
                 }, cancelAction: leaving = false)
-                    .frame(maxWidth: 400, alignment: .center)
+                .frame(maxWidth: 400, alignment: .center)
             }
 
-            ErrorView(errorHandler: viewModel.errorHandler)
+            ErrorView()
         }
         .background(.black)
+        .task {
+            connecting = true
+            guard await viewModel.join() else {
+                await viewModel.leave()
+                return onLeave()
+            }
+            connecting = false
+        }
     }
 }
 
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        let errorHandler = ObservableError()
+        private let errorHandler: ErrorWriter
         private(set) var controller: CallController?
-        private(set) var captureManager: CaptureManager
+        private(set) var captureManager: CaptureManager?
+        private let config: CallConfig
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
-        init(config: CallConfig) {
+        init(errorHandler: ErrorWriter, config: CallConfig) {
+            self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
-            self.captureManager = .init(errorHandler: errorHandler)
+            self.errorHandler = errorHandler
+            do {
+                self.captureManager = try .init()
+            } catch {
+                errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
+                return
+            }
             let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
             Task {
                 guard influxConfig.value.submit else { return }
@@ -76,16 +114,24 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager)
-            Task { try? await self.controller!.connect(config: config) }
+                                    captureManager: captureManager!)
+        }
+
+        func join() async -> Bool {
+            do {
+                try await self.controller!.connect(config: config)
+                return true
+            } catch {
+                errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
+                return false
+            }
         }
 
         func leave() async {
             do {
                 try controller!.disconnect()
-                
             } catch {
-                errorHandler.writeError(message: "Error while leaving call: \(error)")
+                errorHandler.writeError("Error while leaving call: \(error)")
             }
         }
     }
@@ -93,6 +139,10 @@ extension InCallView {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(config: .init(address: "127.0.0.1", port: 5001, connectionProtocol: .QUIC)) { }
+        InCallView(errorWriter: ObservableError(),
+                   config: .init(address: "127.0.0.1",
+                                 port: 5001,
+                                 connectionProtocol: .QUIC)) { }
+            .environmentObject(ObservableError())
     }
 }

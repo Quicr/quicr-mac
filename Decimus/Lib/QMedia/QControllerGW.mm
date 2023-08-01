@@ -29,7 +29,15 @@
 
 -(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol
 {
-    return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
+    try {
+        return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
+    } catch(const std::exception& e) {
+        NSLog(@"QControllerGW::connect | ERROR | Failed to connect: %s", e.what());
+        return -1;
+    } catch(...) {
+        NSLog(@"QControllerGW::connect | ERROR | Failed to connect due to unknown error");
+        return -1;
+    }
 }
 
 -(void) close
