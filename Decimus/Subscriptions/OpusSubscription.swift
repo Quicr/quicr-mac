@@ -154,7 +154,6 @@ class OpusSubscription: Subscription {
             // Make PLC packets.
             // TODO: Ask the opus decoder to generate real PLC data.
             let packetPtr = packets!.advanced(by: index)
-            print("[AudioSubscription] Requested PLC for: \(packetPtr.pointee.sequence_number)")
             memset(packetPtr.pointee.data, 0, packetPtr.pointee.length)
         }
     }
@@ -252,7 +251,7 @@ class OpusSubscription: Subscription {
                                    elements: Int(buffer.frameLength))
 
         // Copy in.
-        let copied = JitterEnqueue(self.jitterBuffer, &packet, 1, self.plcCallback, nil)
+        let copied = jitterBuffer.enqueue(packet, concealmentCallback: self.plcCallback)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)

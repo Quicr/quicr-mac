@@ -25,13 +25,10 @@ typedef void(*PacketCallback)(struct Packet*, size_t);
                     minLengthMs:(unsigned long)min_length_ms;
 
 -(size_t)enqueuePacket:(struct Packet)packet
-                concealmentCallback:(PacketCallback)concealment_callback
-                freeCallback:(PacketCallback)free_callback;
-
+                concealmentCallback:(PacketCallback)concealment_callback;
 -(size_t)enqueuePackets:(struct Packet[])packets
                 size:(size_t)size
-                concealmentCallback:(PacketCallback)concealment_callback
-                freeCallback:(PacketCallback)free_callback;
+                concealmentCallback:(PacketCallback)concealment_callback;
 
 -(size_t)dequeue:(uint8_t*)destination
                 destinationLength:(size_t)destination_length
