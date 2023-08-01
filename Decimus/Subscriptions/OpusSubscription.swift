@@ -149,22 +149,40 @@ class OpusSubscription: Subscription {
         return .zero
     }
 
-    private let plcCallback: PacketCallback = { packets, count in
+    private let plcCallback: PacketCallback = { packets, count, userData in
+        guard let userData = userData else {
+            print("Expected LibOpusDecoder in userData")
+            return
+        }
+        let decoder: LibOpusDecoder = Unmanaged<LibOpusDecoder>.fromOpaque(userData).takeUnretainedValue()
         for index in 0..<count {
             // Make PLC packets.
-            // TODO: Ask the opus decoder to generate real PLC data.
-            // TODO: Figure out how to best pass in frame lengths and sizes.
-
             var packet = packets!.advanced(by: index)
-            print("[OpusSubscription] Requested PLC for: \(packet.pointee.sequence_number)")
+            do {
+                // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
+                let plcData = try decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
+                let list = plcData.audioBufferList
+                guard list.pointee.mNumberBuffers == 1 else {
+                    throw "Not sure what to do with this"
+                }
 
-            let length = packet.pointee.length
-            packet.pointee.data = malloc(length)
-            memset(packet.pointee.data, 0, length)
+                // Get audio data as packet list.
+                let audioBuffer = list.pointee.mBuffers
+                guard let data = audioBuffer.mData else {
+                    throw "AudioBuffer data was nil"
+                }
+                guard let dest = malloc(packet.pointee.length) else {
+                    throw "Malloc failed"
+                }
+                packet.pointee.data = dest
+                memcpy(packet.pointee.data, data, packet.pointee.length)
+            } catch {
+                print(error.localizedDescription)
+            }
         }
     }
 
-    private let freeCallback: PacketCallback = { packets, count in
+    private let freeCallback: PacketCallback = { packets, count, _ in
         for index in 0..<count {
             free(.init(mutating: packets!.advanced(by: index).pointee.data))
         }
@@ -262,10 +280,13 @@ class OpusSubscription: Subscription {
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
 
+        let decoderPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(decoder).toOpaque()
+
         // Copy in.
         let copied = jitterBuffer.enqueue(packet,
                                           concealmentCallback: self.plcCallback,
-                                          freeCallback: self.freeCallback)
+                                          freeCallback: self.freeCallback,
+                                          userData: decoderPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
