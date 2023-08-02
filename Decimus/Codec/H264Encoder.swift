@@ -3,17 +3,31 @@ import CoreVideo
 import UIKit
 import AVFoundation
 
-class H264Encoder: Encoder {
-    internal var callback: EncodedCallback?
-
+class H264Encoder {
+    typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
-
     private let startCodeLength = 4
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+    private let callback: EncodedCallback
+    private let orientationSei: [UInt8] = [
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01,
+        // SEI NALU type,
+        0x06,
+        // Display orientation
+        0x2f, 0x02,
+        // Orientation payload.
+        0x00,
+        // Device position.
+        0x00,
+        // Stop.
+        0x80
+    ]
 
-    init(config: VideoCodecConfig, verticalMirror: Bool) throws {
+    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
+        self.callback = callback
 
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
@@ -66,7 +80,6 @@ class H264Encoder: Encoder {
     }
 
     deinit {
-        callback = nil
         guard let session = encoder else { return }
 
         // Sync flush all pending frames.
@@ -96,7 +109,6 @@ class H264Encoder: Encoder {
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // TODO: Report these errors.
-        guard let callback = callback else { fatalError("Callback not set for encoder") }
         guard status == .zero else { fatalError("Encode failure: \(status)")}
         guard let sample = sample else { return; }
 
@@ -108,63 +120,68 @@ class H264Encoder: Encoder {
         let foundAttachment = sampleAttachments[key] as? Bool?
         let idr = !(foundAttachment != nil && foundAttachment == true)
 
+        var parameterSets: UnsafeRawBufferPointer?
         if idr {
             // SPS + PPS.
-            guard let parameterSets = try? handleParameterSets(sample: sample) else {
-                print("Failed to handle parameter sets")
+            guard let format = sample.formatDescription else {
+                print("Missing sample format")
                 return
             }
-            callback(parameterSets, true)
+            do {
+                parameterSets = try handleParameterSets(format: format)
+            } catch {
+                fatalError("Handle parameter sets")
+            }
+        }
+
+        var requiredLength = sample.totalSampleSize
+        if let sets = parameterSets {
+            requiredLength += sets.count
+        }
+        #if !targetEnvironment(macCatalyst)
+        requiredLength += orientationSei.count
+        #endif
+
+        var frameData: UnsafeMutableRawBufferPointer = .allocate(byteCount: requiredLength, alignment: MemoryLayout<UInt8>.alignment)
+        var frameDataOffset = 0
+
+        // Copy in SPS/PPS.
+        if let sets = parameterSets {
+            frameData.copyMemory(from: sets)
+            sets.deallocate()
+            frameDataOffset += sets.count
         }
 
         #if !targetEnvironment(macCatalyst)
         // Orientation SEI.
-        guard let orientationSei = try? makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                                           verticalMirror: verticalMirror)
-        else {
-            print("Failed to make orientation SEI")
-            return
-        }
-        try? callback(orientationSei.dataBuffer!.dataBytes(), false)
+        var bytes = orientationSei
+        bytes[7] = UInt8(UIDevice.current.orientation.videoOrientation.rawValue)
+        bytes[8] = verticalMirror ? 0x01 : 0x00
+        bytes.copyBytes(to: .init(start: frameData.baseAddress! + frameDataOffset,
+                                  count: requiredLength - frameDataOffset))
+        frameDataOffset += orientationSei.count
         #endif
 
-        let buffer = sample.dataBuffer!
-        var offset = 0
-        while offset < buffer.dataLength - startCodeLength {
-            guard let memory = malloc(startCodeLength) else { fatalError("malloc fail") }
-            var data: UnsafeMutablePointer<CChar>?
-            let accessError = CMBlockBufferAccessDataBytes(buffer,
-                                                           atOffset: offset,
-                                                           length: startCodeLength,
-                                                           temporaryBlock: memory,
-                                                           returnedPointerOut: &data)
-            guard accessError == .zero else { fatalError("Bad access: \(accessError)") }
-
-            var naluLength: UInt32 = 0
-            memcpy(&naluLength, data, startCodeLength)
-            free(memory)
-            naluLength = CFSwapInt32BigToHost(naluLength)
-
-            // Replace with start code.
-            CMBlockBufferReplaceDataBytes(with: startCode,
-                                          blockBuffer: buffer,
-                                          offsetIntoDestination: offset,
-                                          dataLength: startCodeLength)
-
-            // Carry on.
-            offset += startCodeLength + Int(naluLength)
+        // Copy the frame data.
+        let offseted: UnsafeMutableRawBufferPointer = .init(start: frameData.baseAddress! + frameDataOffset,
+                                                            count: frameData.count - frameDataOffset)
+        do {
+            try sample.toAnnexB()
+            try sample.dataBuffer!.copyDataBytes(to: offseted)
+        } catch {
+            print("Failed to annex B & copy actual frame")
+            return
         }
 
         // Callback the Annex-B sample.
-        try? callback(sample.dataBuffer!.dataBytes(), false)
+        callback(.init(frameData), idr)
     }
 
-    func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
+    func handleParameterSets(format: CMFormatDescription) throws -> UnsafeRawBufferPointer {
         // Get number of parameter sets.
         var sets: Int = 0
-        let format = CMSampleBufferGetFormatDescription(sample)
         try OSStatusError.checked("Get number of SPS/PPS") {
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format,
                                                                parameterSetIndex: 0,
                                                                parameterSetPointerOut: nil,
                                                                parameterSetSizeOut: nil,
@@ -180,7 +197,7 @@ class H264Encoder: Encoder {
             var parameterSize: Int = 0
             var naluSizeOut: Int32 = 0
             try OSStatusError.checked("Get SPS/PPS data") {
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format,
                                                                    parameterSetIndex: parameterSetIndex,
                                                                    parameterSetPointerOut: &parameterSet,
                                                                    parameterSetSizeOut: &parameterSize,
@@ -197,116 +214,61 @@ class H264Encoder: Encoder {
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
 
         // Make a block buffer for PPS/SPS.
-        let buffer = try makeBuffer(totalLength: totalLength)
-
+        let spspps: UnsafeMutableRawBufferPointer = .allocate(byteCount: totalLength,
+                                                              alignment: MemoryLayout<UInt8>.alignment)
         var offset = 0
+        var mutableStartCode = startCode
         for parameterSetIndex in 0...sets-1 {
-            try OSStatusError.checked("Set SPS/PPS start code") {
-                CMBlockBufferReplaceDataBytes(with: startCode,
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: startCodeLength)
-            }
+            spspps.baseAddress?.advanced(by: offset).copyMemory(from: &mutableStartCode, byteCount: startCodeLength)
             offset += startCodeLength
-            try OSStatusError.checked("Copy SPS/PPS data") {
-                CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: parameterSetLengths[parameterSetIndex])
-            }
+            spspps.baseAddress?.advanced(by: offset).copyMemory(from: parameterSetPointers[parameterSetIndex],
+                                                                byteCount: parameterSetLengths[parameterSetIndex])
             offset += parameterSetLengths[parameterSetIndex]
         }
-
-        // Return as a sample for easy callback.
-        return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
-    }
-
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                    verticalMirror: Bool) throws -> CMSampleBuffer {
-        let bytes: [UInt8] = [
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01,
-
-            // SEI NALU type,
-            0x06,
-
-            // Display orientation
-            0x2f, 0x02,
-
-            // Orientation payload.
-            UInt8(orientation.rawValue),
-
-            // Device position.
-            verticalMirror ? 0x01 : 0x00,
-
-            // Stop.
-            0x80
-        ]
-
-        let memBlock = malloc(bytes.count)
-        bytes.withUnsafeBytes { buffer in
-            _ = memcpy(memBlock, buffer.baseAddress, bytes.count)
-        }
-
-        var block: CMBlockBuffer?
-        try OSStatusError.checked("Create SEI memory block") {
-            CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                               memoryBlock: memBlock,
-                                               blockLength: bytes.count,
-                                               blockAllocator: nil,
-                                               customBlockSource: nil,
-                                               offsetToData: 0,
-                                               dataLength: bytes.count,
-                                               flags: 0,
-                                               blockBufferOut: &block)
-        }
-        return try .init(dataBuffer: block,
-                         formatDescription: nil,
-                         numSamples: 1,
-                         sampleTimings: [],
-                         sampleSizes: [bytes.count])
-    }
-
-    private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
-        var buffer: CMBlockBuffer?
-        try OSStatusError.checked("Create memory block") {
-            CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                               memoryBlock: nil,
-                                               blockLength: totalLength,
-                                               blockAllocator: nil,
-                                               customBlockSource: nil,
-                                               offsetToData: 0,
-                                               dataLength: totalLength,
-                                               flags: 0,
-                                               blockBufferOut: &buffer)
-        }
-        try OSStatusError.checked("Assure memory block") {
-            CMBlockBufferAssureBlockMemory(buffer!)
-        }
-        return buffer!
-    }
-
-    private func makeParameterSampleBuffer(sample: CMSampleBuffer,
-                                           buffer: CMBlockBuffer,
-                                           totalLength: Int) throws -> Data {
-        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
-        var parameterSample: CMSampleBuffer?
-        var length = totalLength
-        try OSStatusError.checked("Create SPS/PPS Buffer") {
-            CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
-                                      dataBuffer: buffer,
-                                      formatDescription: nil,
-                                      sampleCount: 1,
-                                      sampleTimingEntryCount: 1,
-                                      sampleTimingArray: &time,
-                                      sampleSizeEntryCount: 1,
-                                      sampleSizeArray: &length,
-                                      sampleBufferOut: &parameterSample)
-        }
-        return try parameterSample!.dataBuffer!.dataBytes()
+        return .init(spspps)
     }
 }
 
 extension String: LocalizedError {
     public var errorDescription: String? { return self }
+}
+
+extension CMSampleBuffer {
+    func toAnnexB() throws {
+        let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+        guard let buffer = self.dataBuffer else {
+            throw "No data buffer"
+        }
+        let memory: UnsafeMutableRawBufferPointer = .allocate(byteCount: startCode.count,
+                                                              alignment: MemoryLayout<UInt8>.alignment)
+        defer { memory.deallocate() }
+
+        // Annex B the actual frame data.
+        var offset = 0
+        while offset < buffer.dataLength - startCode.count {
+            var data: UnsafeMutablePointer<CChar>?
+            try OSStatusError.checked("CMBlockBufferAccessDataBytes") {
+                CMBlockBufferAccessDataBytes(buffer,
+                                             atOffset: offset,
+                                             length: memory.count,
+                                             temporaryBlock: memory.baseAddress!,
+                                             returnedPointerOut: &data)
+            }
+
+            var naluLength: UInt32 = 0
+            memcpy(&naluLength, data, startCode.count)
+            naluLength = CFSwapInt32BigToHost(naluLength)
+
+            // Replace with start code.
+            try OSStatusError.checked("CMBlockBufferReplaceDataBytes") {
+                CMBlockBufferReplaceDataBytes(with: startCode,
+                                              blockBuffer: buffer,
+                                              offsetIntoDestination: offset,
+                                              dataLength: startCode.count)
+            }
+
+            // Carry on.
+            offset += startCode.count + Int(naluLength)
+        }
+    }
 }
