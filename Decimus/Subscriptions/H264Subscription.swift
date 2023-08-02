@@ -38,6 +38,8 @@ class H264Subscription: Subscription {
     private unowned let participants: VideoParticipants
     private let measurement: _Measurement
     private let errorWriter: ErrorWriter
+    private var lastGroup: UInt32?
+    private var lastObject: UInt16?
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -70,6 +72,14 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+        let namegate: NameGate = SequentialObjectBlockingNameGate()
+        guard namegate.handle(groupId: groupId, objectId: objectId, lastGroup: lastGroup, lastObject: lastObject) else {
+            log("\(groupId)] (\(objectId) Ignoring blocked object. Had: [\(lastGroup)] (\(lastObject))")
+            return SubscriptionError.None.rawValue
+        }
+        lastGroup = groupId
+        lastObject = objectId
+
         let now: Date = .now
         Task(priority: .utility) {
             await self.measurement.receivedFrame(timestamp: now)
