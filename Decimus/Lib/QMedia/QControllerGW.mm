@@ -91,13 +91,12 @@ int QControllerGW::connect(const std::string remote_address,
                            std::uint16_t protocol)
 {
     qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate);
-    if (qController != nullptr)
-    {
-        quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
-        std::string address = remote_address;
-        qController->connect(address, remote_port, proto);
-    }
-    return 0;
+    if (qController == nullptr)
+        return -1;
+
+    quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
+    std::string address = remote_address;
+    return qController->connect(address, remote_port, proto);
 }
 
 void QControllerGW::close()
