@@ -1,12 +1,42 @@
 import AVFoundation
-import CoreMedia
-import SwiftUI
-import QuartzCore
 
 class H264Subscription: Subscription {
+    private actor _Measurement: Measurement {
+        var name: String = "H264Subscription"
+        var fields: [Date?: [String: AnyObject]] = [:]
+        var tags: [String: String] = [:]
+
+        private var frames: UInt64 = 0
+        private var bytes: UInt64 = 0
+        private var decoded: UInt64 = 0
+
+        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+            tags["namespace"] = namespace
+            Task(priority: .utility) {
+                await submitter.register(measurement: self)
+            }
+        }
+
+        func receivedFrame(timestamp: Date?) {
+            self.frames += 1
+            record(field: "receivedFrames", value: self.frames as AnyObject, timestamp: timestamp)
+        }
+
+        func decodedFrame(timestamp: Date?) {
+            self.frames += 1
+            record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)
+        }
+
+        func receivedBytes(received: Int, timestamp: Date?) {
+            self.bytes += UInt64(received)
+            record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+        }
+    }
+
     internal let namespace: QuicrNamespace
     private var decoder: H264Decoder
     private unowned let participants: VideoParticipants
+    private let measurement: _Measurement
     private let errorWriter: ErrorWriter
 
     init(namespace: QuicrNamespace,
@@ -17,6 +47,7 @@ class H264Subscription: Subscription {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
+        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.errorWriter = errorWriter
 
         self.decoder.registerCallback { [weak self] in
@@ -39,6 +70,12 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+        let now: Date = .now
+        Task(priority: .utility) {
+            await self.measurement.receivedFrame(timestamp: now)
+            await self.measurement.receivedBytes(received: data.count, timestamp: now)
+        }
+
         do {
             try data.withUnsafeBytes {
                 try decoder.write(data: $0, timestamp: 0)
@@ -53,6 +90,11 @@ class H264Subscription: Subscription {
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
+        let now: Date = .now
+        Task(priority: .utility) {
+            await self.measurement.decodedFrame(timestamp: now)
+        }
+
         // FIXME: Driving from proper timestamps probably preferable.
         let array: CFArray! = CMSampleBufferGetSampleAttachmentsArray(decoded, createIfNecessary: true)
         let dictionary: CFMutableDictionary = unsafeBitCast(CFArrayGetValueAtIndex(array, 0),
@@ -80,23 +122,6 @@ class H264Subscription: Subscription {
 }
 
 extension AVCaptureVideoOrientation {
-    func toImageOrientation(_ verticalMirror: Bool) -> Image.Orientation {
-        let imageOrientation: Image.Orientation
-        switch self {
-        case .portrait:
-            imageOrientation = verticalMirror ? .leftMirrored : .right
-        case .landscapeLeft:
-            imageOrientation = verticalMirror ? .upMirrored : .down
-        case .landscapeRight:
-            imageOrientation = verticalMirror ? .downMirrored : .up
-        case .portraitUpsideDown:
-            imageOrientation = verticalMirror ? .rightMirrored : .left
-        default:
-            imageOrientation = .up
-        }
-        return imageOrientation
-    }
-
     func toTransform(_ verticalMirror: Bool) -> CATransform3D {
         var transform = CATransform3DIdentity
         switch self {
