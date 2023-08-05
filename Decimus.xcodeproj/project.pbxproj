@@ -990,6 +990,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+ 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/quiche/quiche/include/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
@@ -1061,6 +1062,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
+ 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/quiche/quiche/include/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
