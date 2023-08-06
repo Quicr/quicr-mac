@@ -182,12 +182,6 @@ class OpusSubscription: Subscription {
         }
     }
 
-    private let freeCallback: PacketCallback = { packets, count, _ in
-        for index in 0..<count {
-            free(.init(mutating: packets!.advanced(by: index).pointee.data))
-        }
-    }
-
     private static func createOpusDecoder(config: CodecConfig,
                                           player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
         guard config.codec == .opus else {
@@ -285,7 +279,6 @@ class OpusSubscription: Subscription {
         // Copy in.
         let copied = jitterBuffer.enqueue(packet,
                                           concealmentCallback: self.plcCallback,
-                                          freeCallback: self.freeCallback,
                                           userData: decoderPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {

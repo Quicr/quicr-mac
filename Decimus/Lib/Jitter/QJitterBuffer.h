@@ -26,13 +26,11 @@ typedef void(*PacketCallback)(struct Packet*, size_t, void*);
 
 -(size_t)enqueuePacket:(struct Packet)packet
                 concealmentCallback:(PacketCallback)concealment_callback
-                freeCallback:(PacketCallback)free_callback
                 userData: (void*)user_data;
 
 -(size_t)enqueuePackets:(struct Packet[])packets
                 size:(size_t)size
                 concealmentCallback:(PacketCallback)concealment_callback
-                freeCallback:(PacketCallback)free_callback
                 userData: (void*)user_data;
 
 -(size_t)dequeue:(uint8_t*)destination
