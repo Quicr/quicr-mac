@@ -1,4 +1,5 @@
 import Foundation
+import AVFAudio
 
 class PublicationFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
@@ -9,8 +10,10 @@ class PublicationFactory {
                                              ErrorWriter) throws -> Publication
 
     private unowned let capture: CaptureManager
-    init(capture: CaptureManager) {
+    private unowned let engine: AVAudioEngine
+    init(capture: CaptureManager, engine: AVAudioEngine) {
         self.capture = capture
+        self.engine = engine
     }
 
     private lazy var factories: [CodecType: FactoryCallbackType] = [
@@ -36,7 +39,8 @@ class PublicationFactory {
                                        publishDelegate: $1,
                                        sourceID: $2,
                                        metricsSubmitter: $4,
-                                       errorWriter: $5)
+                                       errorWriter: $5,
+                                       engine: self.engine)
         }
     ]
 

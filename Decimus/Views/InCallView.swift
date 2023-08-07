@@ -94,6 +94,7 @@ extension InCallView {
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
+        private(set) var audioEngine: AVAudioEngine?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -119,13 +120,24 @@ extension InCallView {
                 await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
             }
 
+            do {
+                self.audioEngine = try setupAudioSession(voiceProcessing: true)
+            } catch {
+                errorHandler.writeError("Failed to create audio engine: \(error.localizedDescription)")
+                return
+            }
+
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager!)
+                                    captureManager: captureManager!,
+                                    engine: audioEngine!)
         }
 
         func join() async -> Bool {
             do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                self.audioEngine?.prepare()
+                try self.audioEngine?.start()
                 try await self.controller!.connect(config: config)
                 return true
             } catch {
@@ -134,12 +146,40 @@ extension InCallView {
             }
         }
 
-        func leave() async {
+        func leave() {
             do {
+                try AVAudioSession.sharedInstance().setActive(false)
                 try controller!.disconnect()
+                self.audioEngine?.stop()
             } catch {
                 errorHandler.writeError("Error while leaving call: \(error)")
             }
+        }
+
+        private func setupAudioSession(voiceProcessing: Bool) throws -> AVAudioEngine {
+            let engine: AVAudioEngine = .init()
+            let session: AVAudioSession = .sharedInstance()
+            try session.setCategory(.playAndRecord,
+                                    mode: .videoChat,
+                                    options: [
+                                        .defaultToSpeaker,
+                                        .allowBluetooth,
+                                        .mixWithOthers])
+            // try session.setPreferredSampleRate(.opus48khz)
+            // try session.setPreferredInputNumberOfChannels(2)
+            // try session.setPreferredOutputNumberOfChannels(2)
+            if engine.inputNode.isVoiceProcessingEnabled != voiceProcessing {
+                try engine.inputNode.setVoiceProcessingEnabled(voiceProcessing)
+                print("Set input processing: \(voiceProcessing)")
+            }
+            if engine.outputNode.isVoiceProcessingEnabled != voiceProcessing {
+                try engine.outputNode.setVoiceProcessingEnabled(voiceProcessing)
+                print("Set output processing: \(voiceProcessing)")
+            }
+            
+            print("Input sample rate: \(engine.inputNode.outputFormat(forBus: 0).streamDescription.pointee)")
+            print("Output sample rate: \(engine.outputNode.inputFormat(forBus: 0).streamDescription.pointee)")
+            return engine
         }
     }
 }

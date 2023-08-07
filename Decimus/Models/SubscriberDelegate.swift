@@ -9,9 +9,9 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let submitter: MetricsSubmitter
     private let factory: SubscriptionFactory
 
-    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter) {
+    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, engine: AVAudioEngine) {
         self.participants = .init()
-        self.player = .init(errorWriter: errorWriter)
+        self.player = .init(engine: engine, errorWriter: errorWriter)
         self.errorWriter = errorWriter
         self.submitter = submitter
         self.factory = .init(participants: self.participants, player: self.player)

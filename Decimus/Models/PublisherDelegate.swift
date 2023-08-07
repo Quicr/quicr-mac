@@ -10,10 +10,11 @@ class PublisherDelegate: QPublisherDelegateObjC {
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter,
          captureManager: CaptureManager,
-         errorWriter: ErrorWriter) {
+         errorWriter: ErrorWriter,
+         engine: AVAudioEngine) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.factory = .init(capture: captureManager)
+        self.factory = .init(capture: captureManager, engine: engine)
         self.errorWriter = errorWriter
     }
 
