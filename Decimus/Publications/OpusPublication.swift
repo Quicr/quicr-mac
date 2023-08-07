@@ -100,17 +100,24 @@ class OpusPublication: Publication {
         self.publishObjectDelegate = publishDelegate
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
-        do {
-            try engine.inputNode.setVoiceProcessingEnabled(true)
-            if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
-                Self.log(namespace: namespace, message: "Voice processing gave a bad format, disabling")
-                try engine.inputNode.setVoiceProcessingEnabled(false)
+
+#if os(iOS) && targetEnvironment(macCatalyst)
+        if !engine.inputNode.isVoiceProcessingEnabled {
+            do {
+                try engine.inputNode.setVoiceProcessingEnabled(true)
+                if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
+                    let message = "Voice processing gave a bad format, attempting to disable"
+                    errorWriter.writeError(message)
+                    Self.log(namespace: namespace, message: message)
+                    try engine.inputNode.setVoiceProcessingEnabled(false)
+                }
+            } catch {
+                let message = "Failed to set input voice processing: \(error.localizedDescription)"
+                Self.log(namespace: namespace, message: message)
+                errorWriter.writeError(message)
             }
-        } catch {
-            let message = "Failed to set input voice processing: \(error.localizedDescription)"
-            Self.log(namespace: namespace, message: message)
-            errorWriter.writeError(message)
         }
+#endif
 
         try AVAudioSession.configureForDecimus()
 
