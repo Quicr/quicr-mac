@@ -7,6 +7,15 @@ enum SubscriptionFactoryError: Error {
 }
 // swiftlint:enable identifier_name
 
+struct SubscriptionConfig: Codable {
+    var jitterMax: UInt
+    var jitterDepth: UInt
+    init() {
+        jitterMax = 500
+        jitterDepth = 60
+    }
+}
+
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
@@ -34,15 +43,19 @@ class SubscriptionFactory {
                                         player: self.player,
                                         config: config,
                                         submitter: $2,
-                                        errorWriter: $3)
+                                        errorWriter: $3,
+                                        jitterDepth: self.config.jitterDepth,
+                                        jitterMax: self.config.jitterMax)
         }
     ]
 
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
-    init(participants: VideoParticipants, player: FasterAVEngineAudioPlayer) {
+    private let config: SubscriptionConfig
+    init(participants: VideoParticipants, player: FasterAVEngineAudioPlayer, config: SubscriptionConfig) {
         self.participants = participants
         self.player = player
+        self.config = config
     }
 
     func create(_ namespace: QuicrNamespace,
