@@ -15,6 +15,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     private var frames: UInt64 = 0
     private var bytes: UInt64 = 0
     private var missing: UInt64 = 0
+    private var callbacks: UInt64 = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -37,12 +38,31 @@ actor OpusSubscriptionMeasurement: Measurement {
         self.missing += missingCount
         record(field: "missingSeqs", value: self.missing as AnyObject, timestamp: timestamp)
     }
+
+    func framesUnderrun(underrun: UInt64, timestamp: Date?) {
+        record(field: "framesUnderrun", value: underrun as AnyObject, timestamp: timestamp)
+    }
+
+    func concealmentFrames(concealed: UInt64, timestamp: Date?) {
+        record(field: "framesConcealed", value: concealed as AnyObject, timestamp: timestamp)
+    }
+
+    func callbacks(callbacks: UInt64, timestamp: Date?) {
+        record(field: "callbacks", value: callbacks as AnyObject, timestamp: timestamp)
+    }
 }
 
 class OpusSubscription: Subscription {
     struct Metrics {
         var framesEnqueued = 0
         var framesEnqueuedFail = 0
+    }
+
+    private class Weak<T> {
+        var value: T
+        init(value: T) {
+            self.value = value
+        }
     }
 
     let namespace: String
@@ -56,6 +76,8 @@ class OpusSubscription: Subscription {
     private var jitterBuffer: QJitterBuffer
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
+    private var underrun: Weak<UInt64> = .init(value: 0)
+    private var callbacks: Weak<UInt64> = .init(value: 0)
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -105,8 +127,11 @@ class OpusSubscription: Subscription {
         return SubscriptionError.None.rawValue
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
         // Fill the buffers as best we can.
+        if let callbacks = callbacks {
+            callbacks.value += 1
+        }
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
@@ -129,6 +154,10 @@ class OpusSubscription: Subscription {
                                                 elements: Int(numFrames))
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
+            let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
+            if let underrun = underrun {
+                underrun.value += framesUnderan
+            }
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
             for buffer in buffers {
                 guard let dataPointer = buffer.mData else {
@@ -136,7 +165,7 @@ class OpusSubscription: Subscription {
                 }
                 let bytesPerFrame = Int(asbd.pointee.mBytesPerFrame)
                 let discontinuityStartOffset = copiedFrames * bytesPerFrame
-                let numberOfSilenceBytes = (Int(numFrames) - copiedFrames) * bytesPerFrame
+                let numberOfSilenceBytes = Int(framesUnderan) * bytesPerFrame
                 guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {
                     print("[FasterAVEngineAudioPlayer] Invalid buffers when calculating silence")
                     break
@@ -153,16 +182,17 @@ class OpusSubscription: Subscription {
 
     private let plcCallback: PacketCallback = { packets, count, userData in
         guard let userData = userData else {
-            print("Expected LibOpusDecoder in userData")
+            print("Expected self in userData")
             return
         }
-        let decoder: LibOpusDecoder = Unmanaged<LibOpusDecoder>.fromOpaque(userData).takeUnretainedValue()
+        let subscription: OpusSubscription = Unmanaged<OpusSubscription>.fromOpaque(userData).takeUnretainedValue()
+        var concealed: UInt64 = 0
         for index in 0..<count {
             // Make PLC packets.
             var packet = packets!.advanced(by: index)
             do {
                 // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
-                let plcData = try decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
+                let plcData = try subscription.decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
                 let list = plcData.audioBufferList
                 guard list.pointee.mNumberBuffers == 1 else {
                     throw "Not sure what to do with this"
@@ -175,9 +205,14 @@ class OpusSubscription: Subscription {
                 }
                 assert(packet.pointee.length == audioBuffer.mDataByteSize)
                 memcpy(packet.pointee.data, data, packet.pointee.length)
+                concealed += UInt64(packet.pointee.elements)
             } catch {
                 print(error.localizedDescription)
             }
+        }
+        let constConcealed = concealed
+        Task(priority: .utility) {
+            await subscription.measurement.concealmentFrames(concealed: constConcealed, timestamp: nil)
         }
     }
 
@@ -225,6 +260,8 @@ class OpusSubscription: Subscription {
                     log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
                     await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                 }
+                await measurement.framesUnderrun(underrun: self.underrun.value, timestamp: date)
+                await measurement.callbacks(callbacks: self.callbacks.value, timestamp: date)
             }
             self.seq = groupId
         }
@@ -273,12 +310,12 @@ class OpusSubscription: Subscription {
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
 
-        let decoderPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(decoder).toOpaque()
+        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
 
         // Copy in.
         let copied = jitterBuffer.enqueue(packet,
                                           concealmentCallback: self.plcCallback,
-                                          userData: decoderPtr)
+                                          userData: selfPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             log("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
