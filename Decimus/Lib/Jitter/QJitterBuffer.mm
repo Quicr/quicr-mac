@@ -26,13 +26,14 @@
 
 -(size_t)enqueuePacket:(Packet)packet
                 concealmentCallback:(PacketCallback)concealment_callback
+                userData:(void*)user_data
 {
     if (!jitterBuffer) return 0;
 
     try
     {
         return jitterBuffer->Enqueue({1, packet},
-                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); });
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); });
     }
     catch(...)
     {
@@ -43,13 +44,14 @@
 -(size_t)enqueuePackets:(Packet[])packets
                 size:(size_t)size
                 concealmentCallback:(PacketCallback)concealment_callback
+                userData:(void*)user_data
 {
     if (!jitterBuffer) return 0;
 
     try
     {
         return jitterBuffer->Enqueue({packets, packets + size},
-                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size()); });
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); });
     }
     catch(...)
     {

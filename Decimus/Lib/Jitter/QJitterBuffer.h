@@ -9,7 +9,7 @@
 #include "JitterBuffer.hh"
 #endif
 
-typedef void(*PacketCallback)(struct Packet*, size_t);
+typedef void(*PacketCallback)(struct Packet*, size_t, void*);
 
 
 @interface QJitterBuffer : NSObject {
@@ -25,10 +25,13 @@ typedef void(*PacketCallback)(struct Packet*, size_t);
                     minLengthMs:(unsigned long)min_length_ms;
 
 -(size_t)enqueuePacket:(struct Packet)packet
-                concealmentCallback:(PacketCallback)concealment_callback;
+                concealmentCallback:(PacketCallback)concealment_callback
+                userData: (void*)user_data;
+
 -(size_t)enqueuePackets:(struct Packet[])packets
                 size:(size_t)size
-                concealmentCallback:(PacketCallback)concealment_callback;
+                concealmentCallback:(PacketCallback)concealment_callback
+                userData: (void*)user_data;
 
 -(size_t)dequeue:(uint8_t*)destination
                 destinationLength:(size_t)destination_length

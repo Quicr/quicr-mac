@@ -149,12 +149,33 @@ class OpusSubscription: Subscription {
         return .zero
     }
 
-    private let plcCallback: PacketCallback = { packets, count in
+    private let plcCallback: PacketCallback = { packets, count, userData in
+        guard let userData = userData else {
+            print("Expected LibOpusDecoder in userData")
+            return
+        }
+        let decoder: LibOpusDecoder = Unmanaged<LibOpusDecoder>.fromOpaque(userData).takeUnretainedValue()
         for index in 0..<count {
             // Make PLC packets.
-            // TODO: Ask the opus decoder to generate real PLC data.
-            let packetPtr = packets!.advanced(by: index)
-            memset(packetPtr.pointee.data, 0, packetPtr.pointee.length)
+            var packet = packets!.advanced(by: index)
+            do {
+                // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
+                let plcData = try decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
+                let list = plcData.audioBufferList
+                guard list.pointee.mNumberBuffers == 1 else {
+                    throw "Not sure what to do with this"
+                }
+
+                // Get audio data as packet list.
+                let audioBuffer = list.pointee.mBuffers
+                guard let data = audioBuffer.mData else {
+                    throw "AudioBuffer data was nil"
+                }
+                assert(packet.pointee.length == audioBuffer.mDataByteSize)
+                memcpy(packet.pointee.data, data, packet.pointee.length)
+            } catch {
+                print(error.localizedDescription)
+            }
         }
     }
 
@@ -250,8 +271,12 @@ class OpusSubscription: Subscription {
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
 
+        let decoderPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(decoder).toOpaque()
+
         // Copy in.
-        let copied = jitterBuffer.enqueue(packet, concealmentCallback: self.plcCallback)
+        let copied = jitterBuffer.enqueue(packet,
+                                          concealmentCallback: self.plcCallback,
+                                          userData: decoderPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             assert(copied % Int(buffer.frameLength) == 0)
