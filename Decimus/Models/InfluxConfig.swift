@@ -4,7 +4,7 @@ struct InfluxConfig: Codable {
 
     init() {
         submit = false
-        url = "metrics.m10x.ctgpoc.com:8086"
+        url = "http://metrics.m10x.ctgpoc.com:8086"
         username = "admin"
         password = "ctoMedia10x"
         bucket = "Media10x"
