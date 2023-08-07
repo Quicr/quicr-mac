@@ -171,10 +171,7 @@ class OpusSubscription: Subscription {
                 guard let data = audioBuffer.mData else {
                     throw "AudioBuffer data was nil"
                 }
-                guard let dest = malloc(packet.pointee.length) else {
-                    throw "Malloc failed"
-                }
-                packet.pointee.data = dest
+                assert(packet.pointee.length == audioBuffer.mDataByteSize)
                 memcpy(packet.pointee.data, data, packet.pointee.length)
             } catch {
                 print(error.localizedDescription)

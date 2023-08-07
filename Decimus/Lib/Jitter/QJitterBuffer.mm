@@ -33,7 +33,7 @@
     try
     {
         return jitterBuffer->Enqueue({1, packet},
-                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); },
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); });
     }
     catch(...)
     {
@@ -51,7 +51,7 @@
     try
     {
         return jitterBuffer->Enqueue({packets, packets + size},
-                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); },
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); });
     }
     catch(...)
     {
