@@ -61,7 +61,9 @@ class OpusSubscription: Subscription {
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter,
-         errorWriter: ErrorWriter) throws {
+         errorWriter: ErrorWriter,
+         jitterDepth: UInt,
+         jitterMax: UInt) throws {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter
@@ -78,8 +80,8 @@ class OpusSubscription: Subscription {
         self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
                                           packetElements: 480,
                                           clockRate: UInt(asbd.pointee.mSampleRate),
-                                          maxLengthMs: 500,
-                                          minLengthMs: 20)
+                                          maxLengthMs: jitterMax,
+                                          minLengthMs: jitterDepth)
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
@@ -279,8 +281,6 @@ class OpusSubscription: Subscription {
                                           userData: decoderPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
-            assert(copied % Int(buffer.frameLength) == 0)
-            errorWriter.writeError("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             log("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
             let missing = Int(buffer.frameLength) - copied
             self.metrics.framesEnqueuedFail += missing
