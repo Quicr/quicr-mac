@@ -15,6 +15,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     private var frames: UInt64 = 0
     private var bytes: UInt64 = 0
     private var missing: UInt64 = 0
+    private var callbacks: UInt64 = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -45,6 +46,10 @@ actor OpusSubscriptionMeasurement: Measurement {
     func concealmentFrames(concealed: UInt64, timestamp: Date?) {
         record(field: "framesConcealed", value: concealed as AnyObject, timestamp: timestamp)
     }
+
+    func callbacks(callbacks: UInt64, timestamp: Date?) {
+        record(field: "callbacks", value: callbacks as AnyObject, timestamp: timestamp)
+    }
 }
 
 class OpusSubscription: Subscription {
@@ -72,6 +77,7 @@ class OpusSubscription: Subscription {
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
     private var underrun: Weak<UInt64> = .init(value: 0)
+    private var callbacks: Weak<UInt64> = .init(value: 0)
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -119,8 +125,11 @@ class OpusSubscription: Subscription {
         return SubscriptionError.None.rawValue
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
         // Fill the buffers as best we can.
+        if let callbacks = callbacks {
+            callbacks.value += 1
+        }
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
@@ -250,6 +259,7 @@ class OpusSubscription: Subscription {
                     await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                 }
                 await measurement.framesUnderrun(underrun: self.underrun.value, timestamp: date)
+                await measurement.callbacks(callbacks: self.callbacks.value, timestamp: date)
             }
             self.seq = groupId
         }
