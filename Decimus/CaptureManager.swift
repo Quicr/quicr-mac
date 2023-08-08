@@ -112,6 +112,11 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Prepare IO.
         let input: AVCaptureDeviceInput = try .init(device: device)
         let output: AVCaptureVideoDataOutput = .init()
+        if CVIsCompressedPixelFormatAvailable(kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange) {
+            output.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+            ]
+        }
         output.setSampleBufferDelegate(self, queue: self.queue)
         guard session.canAddInput(input),
               session.canAddOutput(output) else {
