@@ -125,8 +125,8 @@ class OpusPublication: Publication {
             encoder = try .init(format: differentEncodeFormat!)
             log("Encoder created using fallback format: \(differentEncodeFormat!)")
         }
-        encoder.registerCallback(callback: { [weak self] data, flag in
-            self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, group: flag)
+        encoder.registerCallback(callback: { [weak self] data, datalength, flag in
+            self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, length: datalength, group: flag)
         })
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
