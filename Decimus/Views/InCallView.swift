@@ -99,6 +99,9 @@ extension InCallView {
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
+        @AppStorage("subscriptionConfig")
+        private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+
         init(errorHandler: ErrorWriter, config: CallConfig) {
             self.config = config
             let tags: [String: String] = [
@@ -130,6 +133,7 @@ extension InCallView {
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
                                     captureManager: captureManager!,
+                                    config: subscriptionConfig.value,
                                     engine: audioEngine!)
         }
 
@@ -176,7 +180,7 @@ extension InCallView {
                 try engine.outputNode.setVoiceProcessingEnabled(voiceProcessing)
                 print("Set output processing: \(voiceProcessing)")
             }
-            
+
             print("Input sample rate: \(engine.inputNode.outputFormat(forBus: 0).streamDescription.pointee)")
             print("Output sample rate: \(engine.outputNode.inputFormat(forBus: 0).streamDescription.pointee)")
             return engine

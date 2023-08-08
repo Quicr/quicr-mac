@@ -9,12 +9,12 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let submitter: MetricsSubmitter
     private let factory: SubscriptionFactory
 
-    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, engine: AVAudioEngine) {
+    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig, engine: AVAudioEngine) {
         self.participants = .init()
         self.player = .init(engine: engine, errorWriter: errorWriter)
         self.errorWriter = errorWriter
         self.submitter = submitter
-        self.factory = .init(participants: self.participants, player: self.player)
+        self.factory = .init(participants: self.participants, player: self.player, config: config)
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
