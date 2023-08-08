@@ -39,7 +39,9 @@ class LibOpusEncoder: Encoder {
             throw OpusEncodeError.formatChange
         }
         let encodeCount = try encoder.encode(data, to: &encoded)
-        callback?(encoded, true)
+        encoded.withUnsafeBytes {
+            callback?($0, encoded.count, true)
+        }
     }
 
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
@@ -58,7 +60,7 @@ class LibOpusEncoder: Encoder {
             let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
-                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
+                callback(bytes.baseAddress!, Int(encodedBytes), true)
             }
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
         }

@@ -70,16 +70,13 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        let onEncodedData: H264Encoder.EncodedCallback = { [publishDelegate, measurement, namespace] data, flag in
+        let onEncodedData: H264Encoder.EncodedCallback = { [publishDelegate, measurement, namespace] data, datalength, flag in
             let timestamp = Date.now
-            let count = data.count
             Task(priority: .utility) {
-                await measurement.sentBytes(sent: UInt64(count), timestamp: timestamp)
+                await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
             }
-            let nsData: Data = .init(bytesNoCopy: .init(mutating: data.baseAddress!),
-                                     count: data.count,
-                                     deallocator: .free)
-            publishDelegate.publishObject(namespace, data: nsData, group: flag)
+            publishDelegate.publishObject(namespace, data: data, length: datalength, group: flag)
+    
         }
         self.encoder = try .init(config: config, verticalMirror: device.position == .front, callback: onEncodedData)
         super.init()
