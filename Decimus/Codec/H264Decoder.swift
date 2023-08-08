@@ -234,11 +234,9 @@ class H264Decoder: SampleDecoder {
     /// Makes a new decoder for the given format.
     private func makeDecoder(format: CMFormatDescription) throws -> VTDecompressionSession {
         // Output format properties.
-        var formatKeyCallbacks = kCFTypeDictionaryKeyCallBacks
-        var formatValueCallbacks = kCFTypeDictionaryValueCallBacks
-        let outputFormat = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &formatKeyCallbacks, &formatValueCallbacks)
-        if outputFormat == nil {
-            throw "Failed to create output format dictionary"
+        var outputFormat: [String: Any] = [:]
+        if CVIsCompressedPixelFormatAvailable(kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange) {
+            outputFormat[kCVPixelBufferPixelFormatTypeKey as String] = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
         }
 
         // Create the session.
@@ -246,7 +244,7 @@ class H264Decoder: SampleDecoder {
         let error = VTDecompressionSessionCreate(allocator: nil,
                                                  formatDescription: format,
                                                  decoderSpecification: nil,
-                                                 imageBufferAttributes: nil,
+                                                 imageBufferAttributes: outputFormat as CFDictionary,
                                                  outputCallback: nil,
                                                  decompressionSessionOut: &session)
         guard error == .zero else {
