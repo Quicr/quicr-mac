@@ -78,7 +78,6 @@ class OpusSubscription: Subscription {
     private let measurement: OpusSubscriptionMeasurement
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
-    private let opusWindowSize = 0.01
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -86,7 +85,8 @@ class OpusSubscription: Subscription {
          submitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
          jitterDepth: UInt,
-         jitterMax: UInt) throws {
+         jitterMax: UInt,
+         opusWindowSize: TimeInterval) throws {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter

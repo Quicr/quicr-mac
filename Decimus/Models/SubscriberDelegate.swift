@@ -12,7 +12,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig) {
         self.participants = .init()
         do {
-            try AVAudioSession.configureForDecimus()
+            try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
         } catch {
             errorWriter.writeError("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }

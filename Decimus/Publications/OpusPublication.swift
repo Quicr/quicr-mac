@@ -40,8 +40,8 @@ class OpusPublication: Publication {
     private var differentEncodeFormat: AVAudioFormat?
     private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
-    private let opusWindowSizeSeconds: TimeInterval = 0.01
     private let measurement: _Measurement
+    private let opusWindowSize: TimeInterval
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, asbd] timestamp, numFrames, data in
         // If this is weird multichannel audio, we need to clip.
@@ -95,11 +95,13 @@ class OpusPublication: Publication {
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
          metricsSubmitter: MetricsSubmitter,
-         errorWriter: ErrorWriter) throws {
+         errorWriter: ErrorWriter,
+         opusWindowSize: TimeInterval) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        self.opusWindowSize = opusWindowSize
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
         if outputFormat.channelCount > 2 {
@@ -115,7 +117,7 @@ class OpusPublication: Publication {
         asbd = format!.streamDescription
 
         // Create a buffer to hold raw data waiting for encode.
-        let hundredMils = Double(asbd!.pointee.mBytesPerPacket) * asbd!.pointee.mSampleRate * self.opusWindowSizeSeconds
+        let hundredMils = Double(asbd!.pointee.mBytesPerPacket) * asbd!.pointee.mSampleRate * opusWindowSize
         guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
             fatalError()
         }
@@ -145,10 +147,10 @@ class OpusPublication: Publication {
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
         DispatchQueue.main.async {
-            self.encodeTimer = .scheduledTimer(withTimeInterval: self.opusWindowSizeSeconds,
+            self.encodeTimer = .scheduledTimer(withTimeInterval: opusWindowSize,
                                                repeats: true,
                                                block: self.encodeBlock)
-            self.encodeTimer!.tolerance = self.opusWindowSizeSeconds / 2
+            self.encodeTimer!.tolerance = opusWindowSize / 2
         }
 
         // Start capturing audio.
@@ -181,7 +183,7 @@ class OpusPublication: Publication {
         }
 
         // No conversion.
-        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(asbd!.pointee.mSampleRate * self.opusWindowSizeSeconds)
+        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(asbd!.pointee.mSampleRate * self.opusWindowSize)
         var timestamp: AudioTimeStamp = .init()
         let availableFrames = TPCircularBufferPeek(buffer,
                                                    &timestamp,
@@ -216,7 +218,7 @@ class OpusPublication: Publication {
             return try trivialConvertAndEncode(converter: converter, to: to, from: from)
         }
 
-        let windowFrames: AVAudioFrameCount = .init(to.sampleRate * self.opusWindowSizeSeconds)
+        let windowFrames: AVAudioFrameCount = .init(to.sampleRate * self.opusWindowSize)
         let converted: AVAudioPCMBuffer = .init(pcmFormat: to, frameCapacity: windowFrames)!
         var error: NSError? = .init()
         converter.convert(to: converted,
@@ -255,7 +257,7 @@ class OpusPublication: Publication {
                                          to: AVAudioFormat,
                                          from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
             // Target encode size.
-            var inOutFrames: AVAudioFrameCount = .init(asbd!.pointee.mSampleRate * self.opusWindowSizeSeconds)
+            var inOutFrames: AVAudioFrameCount = .init(asbd!.pointee.mSampleRate * self.opusWindowSize)
 
             // Are there enough frames for an encode?
             let availableFrames = TPCircularBufferPeek(self.buffer,

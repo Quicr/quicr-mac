@@ -10,9 +10,11 @@ enum SubscriptionFactoryError: Error {
 struct SubscriptionConfig: Codable {
     var jitterMax: UInt
     var jitterDepth: UInt
+    var opusWindowSize: TimeInterval
     init() {
         jitterMax = 500
         jitterDepth = 60
+        opusWindowSize = 0.01
     }
 }
 
@@ -45,7 +47,8 @@ class SubscriptionFactory {
                                         submitter: $2,
                                         errorWriter: $3,
                                         jitterDepth: self.config.jitterDepth,
-                                        jitterMax: self.config.jitterMax)
+                                        jitterMax: self.config.jitterMax,
+                                        opusWindowSize: self.config.opusWindowSize)
         }
     ]
 
