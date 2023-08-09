@@ -25,4 +25,12 @@ class LibOpusDecoder {
         }
         return decoded
     }
+
+    func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer {
+        guard let plc: AVAudioPCMBuffer = .init(pcmFormat: decodedFormat, frameCapacity: frames) else {
+            throw "Couldn't create PLC holder"
+        }
+        try decoder.decode(nil, to: plc, count: frames)
+        return plc
+    }
 }

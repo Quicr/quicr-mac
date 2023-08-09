@@ -98,6 +98,9 @@ extension InCallView {
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
+        @AppStorage("subscriptionConfig")
+        private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+
         init(errorHandler: ErrorWriter, config: CallConfig) {
             self.config = config
             let tags: [String: String] = [
@@ -121,7 +124,8 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager!)
+                                    captureManager: captureManager!,
+                                    config: subscriptionConfig.value)
         }
 
         func join() async -> Bool {

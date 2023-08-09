@@ -9,8 +9,10 @@ class PublicationFactory {
                                              ErrorWriter) throws -> Publication
 
     private unowned let capture: CaptureManager
-    init(capture: CaptureManager) {
+    private let opusWindowSize: TimeInterval
+    init(capture: CaptureManager, opusWindowSize: TimeInterval) {
         self.capture = capture
+        self.opusWindowSize = opusWindowSize
     }
 
     private lazy var factories: [CodecType: FactoryCallbackType] = [
@@ -36,7 +38,8 @@ class PublicationFactory {
                                        publishDelegate: $1,
                                        sourceID: $2,
                                        metricsSubmitter: $4,
-                                       errorWriter: $5)
+                                       errorWriter: $5,
+                                       opusWindowSize: self.opusWindowSize)
         }
     ]
 
