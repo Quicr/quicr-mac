@@ -78,6 +78,7 @@ class OpusSubscription: Subscription {
     private let measurement: OpusSubscriptionMeasurement
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
+    private let opusWindowSize = 0.01
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -99,8 +100,9 @@ class OpusSubscription: Subscription {
 
         // Create the jitter buffer.
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
+        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize
         self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
-                                          packetElements: 480,
+                                          packetElements: Int(opusPacketSize),
                                           clockRate: UInt(asbd.pointee.mSampleRate),
                                           maxLengthMs: jitterMax,
                                           minLengthMs: jitterDepth)
@@ -222,9 +224,11 @@ class OpusSubscription: Subscription {
             fatalError("Codec mismatch")
         }
 
+        let decoder: LibOpusDecoder
         do {
             // First, try and decode directly into the output's input format.
-            return try .init(format: player.inputFormat)
+            decoder = try .init(format: player.inputFormat)
+            print("Created decoder with native format: \(player.inputFormat)")
         } catch {
             // That may not be supported, so decode into standard output instead.
             let format: AVAudioFormat.OpusPCMFormat
@@ -236,10 +240,14 @@ class OpusSubscription: Subscription {
             default:
                 fatalError()
             }
-            return try .init(format: .init(opusPCMFormat: format,
-                                           sampleRate: 48000,
-                                           channels: player.inputFormat.channelCount)!)
+
+            let fallbackFormat: AVAudioFormat = .init(opusPCMFormat: format,
+                                                      sampleRate: 48000,
+                                                      channels: player.inputFormat.channelCount)!
+            decoder = try .init(format: fallbackFormat)
+            print("Created decoder with native format: \(fallbackFormat)")
         }
+        return decoder
     }
 
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
