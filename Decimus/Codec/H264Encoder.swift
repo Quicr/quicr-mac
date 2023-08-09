@@ -159,7 +159,7 @@ class H264Encoder {
         bytes[27] = verticalMirror ? 0x01 : 0x00
 
         bytes.withUnsafeBytes {
-            let hdrPtr = EncodedFrameBufferAllocator.allocateBufferHeader(encodedBufferPointer, len: bytes.count)
+            let hdrPtr = bufferAllocator.allocateBufferHeader(bytes.count)
             if let hdrPtr = hdrPtr {
                 hdrPtr.advanced(by: 0).copyMemory(from: $0.baseAddress!, byteCount: bytes.count)
             }
