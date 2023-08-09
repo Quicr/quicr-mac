@@ -101,26 +101,6 @@ class OpusPublication: Publication {
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
 
-#if os(iOS) && targetEnvironment(macCatalyst)
-        if !engine.inputNode.isVoiceProcessingEnabled {
-            do {
-                try engine.inputNode.setVoiceProcessingEnabled(true)
-                if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
-                    let message = "Voice processing gave a bad format, attempting to disable"
-                    errorWriter.writeError(message)
-                    Self.log(namespace: namespace, message: message)
-                    try engine.inputNode.setVoiceProcessingEnabled(false)
-                }
-            } catch {
-                let message = "Failed to set input voice processing: \(error.localizedDescription)"
-                Self.log(namespace: namespace, message: message)
-                errorWriter.writeError(message)
-            }
-        }
-#endif
-
-        try AVAudioSession.configureForDecimus()
-
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
         if outputFormat.channelCount > 2 {
             // FIXME: For some unknown reason, we can get multichannel duplicate
