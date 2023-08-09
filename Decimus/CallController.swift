@@ -19,7 +19,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,
-                                                   errorWriter: errorWriter)
+                                                   errorWriter: errorWriter,
+                                                   opusWindowSize: config.opusWindowSize)
     }
 
     func connect(config: CallConfig) async throws {

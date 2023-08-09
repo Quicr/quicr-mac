@@ -20,6 +20,12 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.jitterMax,
                         format: .number)
                 }
+                LabeledContent("Opus Window Size (s)") {
+                    TextField(
+                        "Opus Window Size (s)",
+                        value: $subscriptionConfig.value.opusWindowSize,
+                        format: .number)
+                }
             }
             .formStyle(.columns)
         }
