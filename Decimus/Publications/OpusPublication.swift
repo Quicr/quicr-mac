@@ -142,9 +142,9 @@ class OpusPublication: Publication {
         encoder.registerCallback(callback: { [weak self] data, datalength, flag in
             guard let self = self else { return }
             Task(priority: .utility) {
-                await self.measurement.publishedBytes(sentBytes: data.count, timestamp: nil)
+                await self.measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
             }
-            self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, length: datalength, group: flag)
+            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
         })
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
