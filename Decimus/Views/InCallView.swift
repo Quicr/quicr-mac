@@ -7,7 +7,11 @@ import UIKit
 struct InCallView: View {
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
-    @State var connecting: Bool = false
+    @State private var connecting: Bool = false
+    @State private var noParticipantsDetected = false
+    var noParticipants: Bool {
+        viewModel.controller!.subscriberDelegate.participants.participants.isEmpty
+    }
 
     @EnvironmentObject private var errorHandler: ObservableError
     private let errorWriter: ErrorWriter
@@ -30,7 +34,7 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             VStack {
-                if connecting || viewModel.controller!.subscriberDelegate.participants.participants.isEmpty {
+                if connecting || noParticipantsDetected {
                     ZStack {
                         Image("RTMC-Background")
                             .resizable()
@@ -69,6 +73,9 @@ struct InCallView: View {
             ErrorView()
         }
         .background(.black)
+        .onChange(of: noParticipants) { newValue in
+            noParticipantsDetected = newValue
+        }
         .task {
             connecting = true
             guard await viewModel.join() else {
@@ -90,6 +97,9 @@ extension InCallView {
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+
+        @AppStorage("subscriptionConfig")
+        private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
         init(errorHandler: ErrorWriter, config: CallConfig) {
             self.config = config
@@ -114,7 +124,8 @@ extension InCallView {
 
             self.controller = .init(errorWriter: errorHandler,
                                     metricsSubmitter: submitter,
-                                    captureManager: captureManager!)
+                                    captureManager: captureManager!,
+                                    config: subscriptionConfig.value)
         }
 
         func join() async -> Bool {

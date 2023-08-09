@@ -10,6 +10,8 @@
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
+		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -19,8 +21,6 @@
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */; };
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
-		18F3E9532A1661C100DC2721 /* Copus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9522A1661C100DC2721 /* Copus */; };
-		18F3E9552A16646700DC2721 /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 18F3E9542A16646700DC2721 /* Opus */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
@@ -143,6 +143,7 @@
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSubmitter.swift; sourceTree = "<group>"; };
 		18C89A3D2A13D315005B333B /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 		18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxMetricsSubmitter.swift; sourceTree = "<group>"; };
@@ -270,10 +271,9 @@
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */,
-				18F3E9532A1661C100DC2721 /* Copus in Frameworks */,
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
-				18F3E9552A16646700DC2721 /* Opus in Frameworks */,
+				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -300,6 +300,7 @@
 				18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */,
 				FFFF72DA2A280A8000D4D5EE /* RelaySettingsView.swift */,
 				FFFF72DC2A280B6300D4D5EE /* ManifestSettingsView.swift */,
+				18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -602,9 +603,8 @@
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
 				9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */,
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
-				18F3E9522A1661C100DC2721 /* Copus */,
-				18F3E9542A16646700DC2721 /* Opus */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
+				188ABB552A792E9C00B31A6E /* Opus */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -642,10 +642,10 @@
 			packageReferences = (
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
 				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
-				9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */,
 				9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */,
 				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
+				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -762,6 +762,7 @@
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
+				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
 				9B48066C297F051D0040F5D4 /* Encoder.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
@@ -1160,6 +1161,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RichLogan/swift-opus.git";
+			requirement = {
+				branch = plc;
+				kind = branch;
+			};
+		};
 		18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/influxdata/influxdb-client-swift";
@@ -1192,14 +1201,6 @@
 				minimumVersion = 1.0.0;
 			};
 		};
-		9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@github.com:alta/swift-opus.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.0.2;
-			};
-		};
 		FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ksemianov/WrappingHStack";
@@ -1211,20 +1212,15 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		188ABB552A792E9C00B31A6E /* Opus */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */;
+			productName = Opus;
+		};
 		18C89A392A13D1E4005B333B /* InfluxDBSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */;
 			productName = InfluxDBSwift;
-		};
-		18F3E9522A1661C100DC2721 /* Copus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Copus;
-		};
-		18F3E9542A16646700DC2721 /* Opus */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B142996A84B00C01D54 /* XCRemoteSwiftPackageReference "swift-opus" */;
-			productName = Opus;
 		};
 		9B165A20298807AF0017079F /* SwiftLintPlugin */ = {
 			isa = XCSwiftPackageProductDependency;

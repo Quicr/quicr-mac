@@ -5,6 +5,29 @@ import CTPCircularBuffer
 import CoreAudio
 
 class OpusPublication: Publication {
+    private actor _Measurement: Measurement {
+        var name: String = "OpusPublication"
+        var fields: [Date?: [String: AnyObject]] = [:]
+        var tags: [String: String] = [:]
+
+        private var frames: UInt64 = 0
+        private var bytes: UInt64 = 0
+
+        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+            tags["namespace"] = namespace
+            Task {
+                await submitter.register(measurement: self)
+            }
+        }
+
+        func publishedBytes(sentBytes: Int, timestamp: Date?) {
+            self.frames += 1
+            self.bytes += UInt64(sentBytes)
+            record(field: "publishedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+            record(field: "publishedFrames", value: self.frames as AnyObject, timestamp: timestamp)
+        }
+    }
+
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
@@ -15,10 +38,10 @@ class OpusPublication: Publication {
     private var format: AVAudioFormat?
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
-    private let metricsSubmitter: MetricsSubmitter
     private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
     private let opusWindowSizeSeconds: TimeInterval = 0.01
+    private let measurement: _Measurement
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, asbd] timestamp, numFrames, data in
         // If this is weird multichannel audio, we need to clip.
@@ -75,19 +98,26 @@ class OpusPublication: Publication {
          errorWriter: ErrorWriter) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.metricsSubmitter = metricsSubmitter
         self.errorWriter = errorWriter
-        do {
-            try engine.inputNode.setVoiceProcessingEnabled(true)
-            if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
-                Self.log(namespace: namespace, message: "Voice processing gave a bad format, disabling")
-                try engine.inputNode.setVoiceProcessingEnabled(false)
+        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+
+#if os(iOS) && targetEnvironment(macCatalyst)
+        if !engine.inputNode.isVoiceProcessingEnabled {
+            do {
+                try engine.inputNode.setVoiceProcessingEnabled(true)
+                if engine.inputNode.outputFormat(forBus: 0).sampleRate == 0 {
+                    let message = "Voice processing gave a bad format, attempting to disable"
+                    errorWriter.writeError(message)
+                    Self.log(namespace: namespace, message: message)
+                    try engine.inputNode.setVoiceProcessingEnabled(false)
+                }
+            } catch {
+                let message = "Failed to set input voice processing: \(error.localizedDescription)"
+                Self.log(namespace: namespace, message: message)
+                errorWriter.writeError(message)
             }
-        } catch {
-            let message = "Failed to set input voice processing: \(error.localizedDescription)"
-            Self.log(namespace: namespace, message: message)
-            errorWriter.writeError(message)
         }
+#endif
 
         try AVAudioSession.configureForDecimus()
 
@@ -126,6 +156,10 @@ class OpusPublication: Publication {
             log("Encoder created using fallback format: \(differentEncodeFormat!)")
         }
         encoder.registerCallback(callback: { [weak self] data, datalength, flag in
+            guard let self = self else { return }
+            Task(priority: .utility) {
+                await self.measurement.publishedBytes(sentBytes: data.count, timestamp: nil)
+            }
             self?.publishObjectDelegate?.publishObject(self?.namespace, data: data, length: datalength, group: flag)
         })
 

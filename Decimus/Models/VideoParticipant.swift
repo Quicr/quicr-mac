@@ -17,7 +17,7 @@ class VideoParticipant: ObservableObject, Identifiable {
 }
 
 class VideoParticipants: ObservableObject {
-    var participants: [SourceIDType: VideoParticipant] = [:]
+    @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
 
     func getOrMake(identifier: SourceIDType) -> VideoParticipant {
