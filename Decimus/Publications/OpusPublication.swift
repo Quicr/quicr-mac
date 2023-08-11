@@ -34,7 +34,7 @@ class OpusPublication: Publication {
     private var encoder: LibOpusEncoder
     private let engine: AVAudioEngine = .init()
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private var format: AVAudioFormat
+    private let format: AVAudioFormat
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
     private let errorWriter: ErrorWriter
