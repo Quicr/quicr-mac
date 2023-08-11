@@ -8,11 +8,12 @@
 #define QDelegatesObjC_h
 
 #import <Foundation/Foundation.h>
+#import "ProfileSet.h"
 
 @protocol QSubscriptionDelegateObjC
-- (int) prepare: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
-- (int) update: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
-- (int) subscribedObject: (NSData*) data groupId: (UInt32) groupId objectId: (UInt16) objectId;
+- (int) prepare: (NSString*) sourceID label: (NSString*) label profileSet: (struct QClientProfileSet) profileSet;
+- (int) update: (NSString*) sourceID label: (NSString*) label profileSet: (struct QClientProfileSet) profileSet;
+- (int) subscribedObject: (NSString*) name data: (NSData*) data groupId: (UInt32) groupId objectId: (UInt16) objectId;
 @end
 
 @protocol QPublicationDelegateObjC
@@ -22,7 +23,7 @@
 @end
 
 @protocol QSubscriberDelegateObjC
-- (id<QSubscriptionDelegateObjC>) allocateSubByNamespace: (NSString*) quicrNamepace qualityProfile: (NSString*) qualityProfile;
+- (id<QSubscriptionDelegateObjC>) allocateSubBySourceId: (NSString*) sourceId profileSet: (struct QClientProfileSet) profileSet;
 - (int) removeByNamespace: (NSString*) quicrNamepace;
 @end
 

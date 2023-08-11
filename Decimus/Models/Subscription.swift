@@ -10,17 +10,16 @@ enum SubscriptionError: Int32 {
 // swiftlint:enable identifier_name
 
 protocol Subscription: QSubscriptionDelegateObjC {
-    var namespace: QuicrNamespace {get}
-
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32
-    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32
+    var sourceId: SourceIDType {get}
+    func prepare(_ sourceID: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32
+    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32
+    func subscribedObject(_ name: String!, data: Data!, groupId: UInt32, objectId: UInt16) -> Int32
 
     func log(_ message: String)
 }
 
 extension Subscription {
     func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] (\(namespace)) \(message)")
+        print("[\(String(describing: type(of: self)))] (\(sourceId)) \(message)")
     }
 }

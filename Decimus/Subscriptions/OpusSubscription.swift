@@ -65,7 +65,7 @@ class OpusSubscription: Subscription {
         }
     }
 
-    let namespace: String
+    let sourceId: SourceIDType
     private var decoder: LibOpusDecoder
 
     private unowned let player: FasterAVEngineAudioPlayer
@@ -79,7 +79,8 @@ class OpusSubscription: Subscription {
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
 
-    init(namespace: QuicrNamespace,
+    init(sourceId: SourceIDType,
+         profileSet: QClientProfileSet,
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter,
@@ -87,9 +88,13 @@ class OpusSubscription: Subscription {
          jitterDepth: UInt,
          jitterMax: UInt,
          opusWindowSize: TimeInterval) throws {
-        self.namespace = namespace
+        self.sourceId = sourceId
         self.player = player
         self.errorWriter = errorWriter
+        
+        // FOR PROFILE IN PROFILE SET, DO.
+        
+        
         self.measurement = .init(namespace: namespace, submitter: submitter)
 
         do {
@@ -125,7 +130,7 @@ class OpusSubscription: Subscription {
         log("They had \(metrics.framesEnqueuedFail) copy fails")
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!, label: String!, profileSet: QClientProfileSet!) -> Int32 {
         return SubscriptionError.None.rawValue
     }
 
@@ -250,11 +255,11 @@ class OpusSubscription: Subscription {
         return decoder
     }
 
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
+    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet!) -> Int32 {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!, data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         let date = Date.now
 
