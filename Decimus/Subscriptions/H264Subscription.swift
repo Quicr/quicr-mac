@@ -40,17 +40,20 @@ class H264Subscription: Subscription {
     private let errorWriter: ErrorWriter
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
+    private let namegate: NameGate
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter,
-         errorWriter: ErrorWriter) {
+         errorWriter: ErrorWriter,
+         namegate: NameGate) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.errorWriter = errorWriter
+        self.namegate = namegate
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -72,19 +75,27 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
-        let namegate: NameGate = SequentialObjectBlockingNameGate()
-        guard namegate.handle(groupId: groupId, objectId: objectId, lastGroup: lastGroup, lastObject: lastObject) else {
-            log("\(groupId)] (\(objectId) Ignoring blocked object. Had: [\(lastGroup)] (\(lastObject))")
-            return SubscriptionError.None.rawValue
-        }
-        lastGroup = groupId
-        lastObject = objectId
-
         let now: Date = .now
         Task(priority: .utility) {
             await self.measurement.receivedFrame(timestamp: now)
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
         }
+
+        // Should we feed this frame to the decoder?
+        guard namegate.handle(groupId: groupId, objectId: objectId, lastGroup: lastGroup, lastObject: lastObject) else {
+            var group: String = "None"
+            if let lastGroup = lastGroup {
+                group = String(lastGroup)
+            }
+            var object: String = "None"
+            if let lastObject = lastObject {
+                object = String(lastObject)
+            }
+            log("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            return SubscriptionError.None.rawValue
+        }
+        lastGroup = groupId
+        lastObject = objectId
 
         do {
             try data.withUnsafeBytes {

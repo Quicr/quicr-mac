@@ -26,6 +26,13 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.opusWindowSize,
                         format: .number)
                 }
+                LabeledContent("Video behaviour") {
+                    Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
+                        ForEach(VideoBehaviour.allCases) {
+                            Text(String(describing: $0))
+                        }
+                    }.pickerStyle(.segmented)
+                }
             }
             .formStyle(.columns)
         }

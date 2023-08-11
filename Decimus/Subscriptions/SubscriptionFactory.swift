@@ -7,14 +7,22 @@ enum SubscriptionFactoryError: Error {
 }
 // swiftlint:enable identifier_name
 
+enum VideoBehaviour: CaseIterable, Identifiable, Codable {
+    case artifact
+    case freeze
+    var id: Self { self }
+}
+
 struct SubscriptionConfig: Codable {
     var jitterMax: UInt
     var jitterDepth: UInt
     var opusWindowSize: TimeInterval
+    var videoBehaviour: VideoBehaviour
     init() {
         jitterMax = 500
         jitterDepth = 60
         opusWindowSize = 0.01
+        videoBehaviour = .freeze
     }
 }
 
@@ -30,11 +38,21 @@ class SubscriptionFactory {
             guard let config = $1 as? VideoCodecConfig else {
                 throw SubscriptionFactoryError.InvalidCodecConfig(type(of: $1))
             }
+
+            let namegate: NameGate
+            switch self.config.videoBehaviour {
+            case .artifact:
+                namegate = AllowAllNameGate()
+            case .freeze:
+                namegate = SequentialObjectBlockingNameGate()
+            }
+
             return H264Subscription(namespace: $0,
                                     config: config,
                                     participants: self.participants,
                                     metricsSubmitter: $2,
-                                    errorWriter: $3)
+                                    errorWriter: $3,
+                                    namegate: namegate)
         },
         .opus: { [weak self] in
             guard let self = self else { throw SubscriptionFactoryError.NoFactory }
