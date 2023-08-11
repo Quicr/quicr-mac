@@ -24,6 +24,6 @@ class SequentialObjectBlockingNameGate: NameGate {
         }
 
         // Otherwise, we write sequential objects only.
-        return objectId == lastObject + 1
+        return groupId == lastGroup && objectId == lastObject + 1
     }
 }

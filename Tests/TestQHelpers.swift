@@ -15,6 +15,13 @@ final class TestQHelpers: XCTestCase {
             let currentGroup: UInt32 = .random(in: 0...UInt32.max)
             let currentObject: UInt16 = .random(in: 0...UInt16.max - 1)
             XCTAssert(namegate.handle(groupId: currentGroup, objectId: currentObject + 1, lastGroup: currentGroup, lastObject: currentObject))
+            // Sequential objects in a different group should not go through.
+            var differentGroup: UInt32
+            repeat {
+                differentGroup = .random(in: 0...UInt32.max)
+            }
+            while differentGroup == currentGroup
+            XCTAssertFalse(namegate.handle(groupId: differentGroup, objectId: currentObject + 1, lastGroup: currentGroup, lastObject: currentObject))
         }
 
         // Non sequential object ID in a group should not go through.
@@ -36,5 +43,15 @@ final class TestQHelpers: XCTestCase {
             let nonZeroObject: UInt16 = .random(in: 1...UInt16.max)
             XCTAssertFalse(namegate.handle(groupId: nextGroup, objectId: nonZeroObject, lastGroup: currentGroup, lastObject: UInt16.random(in: 0...UInt16.max)))
         }
+
+        // Example series.
+        XCTAssertTrue(namegate.handle(groupId: 0, objectId: 0, lastGroup: nil, lastObject: nil))
+        XCTAssertTrue(namegate.handle(groupId: 0, objectId: 1, lastGroup: 0, lastObject: 0))
+        XCTAssertTrue(namegate.handle(groupId: 0, objectId: 2, lastGroup: 0, lastObject: 1))
+        XCTAssertTrue(namegate.handle(groupId: 0, objectId: 3, lastGroup: 0, lastObject: 2))
+        XCTAssertFalse(namegate.handle(groupId: 0, objectId: 5, lastGroup: 0, lastObject: 3))
+        XCTAssertTrue(namegate.handle(groupId: 0, objectId: 4, lastGroup: 0, lastObject: 3))
+        XCTAssertFalse(namegate.handle(groupId: 0, objectId: 6, lastGroup: 0, lastObject: 4))
+        XCTAssertFalse(namegate.handle(groupId: 0, objectId: 7, lastGroup: 0, lastObject: 4))
     }
 }
