@@ -47,8 +47,7 @@ class SubscriptionFactory {
                                         submitter: $2,
                                         errorWriter: $3,
                                         jitterDepth: self.config.jitterDepth,
-                                        jitterMax: self.config.jitterMax,
-                                        opusWindowSize: self.config.opusWindowSize)
+                                        jitterMax: self.config.jitterMax)
         }
     ]
 

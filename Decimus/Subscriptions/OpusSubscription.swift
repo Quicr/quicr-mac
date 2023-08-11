@@ -73,11 +73,13 @@ class OpusSubscription: Subscription {
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
     private let errorWriter: ErrorWriter
-    private var jitterBuffer: QJitterBuffer
+    private var jitterBuffer: QJitterBuffer?
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
+    private let jitterDepth: UInt
+    private let jitterMax: UInt
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -85,12 +87,13 @@ class OpusSubscription: Subscription {
          submitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
          jitterDepth: UInt,
-         jitterMax: UInt,
-         opusWindowSize: TimeInterval) throws {
+         jitterMax: UInt) throws {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: submitter)
+        self.jitterDepth = jitterDepth
+        self.jitterMax = jitterMax
 
         do {
             self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
@@ -100,12 +103,6 @@ class OpusSubscription: Subscription {
 
         // Create the jitter buffer.
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize
-        self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
-                                          packetElements: Int(opusPacketSize),
-                                          clockRate: UInt(asbd.pointee.mSampleRate),
-                                          maxLengthMs: jitterMax,
-                                          minLengthMs: jitterDepth)
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
@@ -151,9 +148,9 @@ class OpusSubscription: Subscription {
 
         let buffer: AudioBuffer = data.pointee.mBuffers
         assert(buffer.mDataByteSize == numFrames * asbd.pointee.mBytesPerFrame)
-        let copiedFrames = jitterBuffer.dequeue(buffer.mData,
+        let copiedFrames = jitterBuffer?.dequeue(buffer.mData,
                                                 destinationLength: Int(buffer.mDataByteSize),
-                                                elements: Int(numFrames))
+                                                elements: Int(numFrames)) ?? 0
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
             let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
@@ -318,9 +315,18 @@ class OpusSubscription: Subscription {
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
 
-        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
+        // Create the jitter buffer if it's not already created.
+        if jitterBuffer == nil {
+            self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
+                                              packetElements: packet.elements,
+                                              clockRate: UInt(asbd.pointee.mSampleRate),
+                                              maxLengthMs: jitterMax,
+                                              minLengthMs: jitterDepth)
+        }
+        guard let jitterBuffer = jitterBuffer else { throw "JitterBuffer should exist at this point" }
 
         // Copy in.
+        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
         let copied = jitterBuffer.enqueue(packet,
                                           concealmentCallback: self.plcCallback,
                                           userData: selfPtr)
