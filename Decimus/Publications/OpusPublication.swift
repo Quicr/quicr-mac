@@ -34,8 +34,7 @@ class OpusPublication: Publication {
     private var encoder: LibOpusEncoder
     private let engine: AVAudioEngine = .init()
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private var asbd: UnsafePointer<AudioStreamBasicDescription>?
-    private var format: AVAudioFormat?
+    private let format: AVAudioFormat
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
     private let errorWriter: ErrorWriter
@@ -43,7 +42,7 @@ class OpusPublication: Publication {
     private let measurement: _Measurement
     private let opusWindowSize: TimeInterval
 
-    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, asbd] timestamp, numFrames, data in
+    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
         // If this is weird multichannel audio, we need to clip.
         // Otherwise, it should be okay.
         if data.pointee.mNumberBuffers > 2 {
@@ -68,14 +67,14 @@ class OpusPublication: Publication {
                                                              &oneChannelList,
                                                              timestamp,
                                                              numFrames,
-                                                             asbd)
+                                                             format.streamDescription)
             return copied ? .zero : 1
         } else {
             let copied = TPCircularBufferCopyAudioBufferList(buffer,
                                                              data,
                                                              timestamp,
                                                              numFrames,
-                                                             asbd)
+                                                             format.streamDescription)
             return copied ? .zero : 1
         }
     }
@@ -110,30 +109,33 @@ class OpusPublication: Publication {
             // so we clip to mono.
             var oneChannelAsbd = outputFormat.streamDescription.pointee
             oneChannelAsbd.mChannelsPerFrame = 1
-            format = .init(streamDescription: &oneChannelAsbd)
+            format = .init(streamDescription: &oneChannelAsbd)!
         } else {
             format = outputFormat
         }
-        asbd = format!.streamDescription
+
+        guard format.sampleRate > 0 else {
+            throw "Invalid input format"
+        }
 
         // Create a buffer to hold raw data waiting for encode.
-        let hundredMils = Double(asbd!.pointee.mBytesPerPacket) * asbd!.pointee.mSampleRate * opusWindowSize
+        let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize
         guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
             fatalError()
         }
 
         do {
             // Try and directly use the microphone output format.
-            encoder = try .init(format: format!)
-            log("Encoder created using native format: \(format!)")
+            encoder = try .init(format: format)
+            log("Encoder created using native format: \(format)")
         } catch {
             // We need to fallback to an opus supported format if we can.
-            let sampleRate: Double = Self.isNativeOpusSampleRate(format!.sampleRate) ? format!.sampleRate : .opus48khz
-            differentEncodeFormat = .init(commonFormat: format!.commonFormat,
+            let sampleRate: Double = Self.isNativeOpusSampleRate(format.sampleRate) ? format.sampleRate : .opus48khz
+            differentEncodeFormat = .init(commonFormat: format.commonFormat,
                                           sampleRate: sampleRate,
-                                          channels: format!.channelCount,
+                                          channels: format.channelCount,
                                           interleaved: true)
-            converter = .init(from: format!, to: differentEncodeFormat!)!
+            converter = .init(from: format, to: differentEncodeFormat!)!
             encoder = try .init(format: differentEncodeFormat!)
             log("Encoder created using fallback format: \(differentEncodeFormat!)")
         }
@@ -176,28 +178,28 @@ class OpusPublication: Publication {
 
     private func encode() throws {
         guard converter == nil else {
-            let data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format!)
+            let data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format)
             guard let data = data else { return }
             try encoder.write(data: data)
             return
         }
 
         // No conversion.
-        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(asbd!.pointee.mSampleRate * self.opusWindowSize)
+        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(format.sampleRate * self.opusWindowSize)
         var timestamp: AudioTimeStamp = .init()
         let availableFrames = TPCircularBufferPeek(buffer,
                                                    &timestamp,
-                                                   asbd)
+                                                   format.streamDescription)
         guard availableFrames >= windowFrames else { return }
 
-        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format!, frameCapacity: windowFrames)!
+        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: windowFrames)!
         pcm.frameLength = windowFrames
         var inOutFrames: AVAudioFrameCount = windowFrames
         TPCircularBufferDequeueBufferListFrames(buffer,
                                                 &inOutFrames,
                                                 pcm.audioBufferList,
                                                 &timestamp,
-                                                asbd)
+                                                format.streamDescription)
         pcm.frameLength = inOutFrames
         guard inOutFrames > 0 else { return }
         guard inOutFrames == windowFrames else {
@@ -257,7 +259,7 @@ class OpusPublication: Publication {
                                          to: AVAudioFormat,
                                          from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
             // Target encode size.
-            var inOutFrames: AVAudioFrameCount = .init(asbd!.pointee.mSampleRate * self.opusWindowSize)
+            var inOutFrames: AVAudioFrameCount = .init(format.sampleRate * self.opusWindowSize)
 
             // Are there enough frames for an encode?
             let availableFrames = TPCircularBufferPeek(self.buffer,
