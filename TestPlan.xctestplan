@@ -9,6 +9,15 @@
     }
   ],
   "defaultOptions" : {
+    "codeCoverage" : {
+      "targets" : [
+        {
+          "containerPath" : "container:Decimus.xcodeproj",
+          "identifier" : "9BA27FC1297D7270007013B2",
+          "name" : "Decimus"
+        }
+      ]
+    },
     "testTimeoutsEnabled" : true
   },
   "testTargets" : [
