@@ -112,6 +112,14 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Prepare IO.
         let input: AVCaptureDeviceInput = try .init(device: device)
         let output: AVCaptureVideoDataOutput = .init()
+        let lossless420 = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+        if output.availableVideoPixelFormatTypes.contains(where: {
+            $0 == lossless420
+        }) {
+            output.videoSettings = [
+                kCVPixelBufferPixelFormatTypeKey as String: lossless420
+            ]
+        }
         output.setSampleBufferDelegate(self, queue: self.queue)
         guard session.canAddInput(input),
               session.canAddOutput(output) else {
