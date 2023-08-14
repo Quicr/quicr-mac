@@ -34,6 +34,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
     command = [
         cmake_path,
         f"-DCMAKE_TOOLCHAIN_FILE={current_directory}/ios.toolchain.cmake",
+        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
         "-S",
         source,
         "-B",
@@ -58,6 +59,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "--build",
         build_dir,
         f"--target {target}",
+        "--config RelWithDebInfo",
         f"-j{multiprocessing.cpu_count()}"
     ]
     build_process = subprocess.Popen(
