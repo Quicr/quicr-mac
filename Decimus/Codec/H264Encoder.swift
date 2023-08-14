@@ -10,7 +10,7 @@ class H264Encoder {
     private let startCodeLength = 4
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
     private let callback: EncodedCallback
-    private let bufferAllocator : BufferAllocator
+    private let bufferAllocator: BufferAllocator
     private let orientationSEI: [UInt8] = [
         // Length in little endian
         0x00, 0x00, 0x00, 0x19,
@@ -70,7 +70,7 @@ class H264Encoder {
                                        codecType: kCMVideoCodecType_H264,
                                        encoderSpecification: encoderSpecification,
                                        imageBufferAttributes: nil,
-                                       compressedDataAllocator: self.bufferAllocator.allocator().takeRetainedValue(),
+                                       compressedDataAllocator: self.bufferAllocator.allocator().takeUnretainedValue(),
                                        outputCallback: nil,
                                        refcon: nil,
                                        compressionSessionOut: &encoder)
@@ -120,6 +120,7 @@ class H264Encoder {
         }
 
         VTCompressionSessionInvalidate(session)
+        print("H264Encoder - deinit")
     }
 
     func write(sample: CMSampleBuffer) throws {

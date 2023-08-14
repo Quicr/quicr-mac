@@ -14,6 +14,7 @@
 
 @interface BufferAllocator : NSObject {
     CFAllocatorContext context;
+    CFAllocatorRef allocatorRef;
 #ifdef __cplusplus
     ExtBufferAllocator *extBufferAllocatorPtr;
 #endif

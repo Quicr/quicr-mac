@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 
 class PublisherDelegate: QPublisherDelegateObjC {
+    private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter
     private let factory: PublicationFactory
@@ -14,7 +15,8 @@ class PublisherDelegate: QPublisherDelegateObjC {
          opusWindowSize: TimeInterval) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize)
+        self.capture = captureManager
+        self.factory = .init(opusWindowSize: opusWindowSize)
         self.errorWriter = errorWriter
     }
 
@@ -23,12 +25,18 @@ class PublisherDelegate: QPublisherDelegateObjC {
                      qualityProfile: String!) -> QPublicationDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         do {
-            return try factory.create(quicrNamepace,
+            let publication = try factory.create(quicrNamepace,
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
                                        metricsSubmitter: metricsSubmitter,
                                        errorWriter: errorWriter)
+            guard let h264publication = publication as? FrameListener else { return nil }
+            Task(priority: .medium) { [weak capture] in
+                try await capture?.addInput(h264publication)
+            }
+            return publication
+
         } catch {
             errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
             return nil

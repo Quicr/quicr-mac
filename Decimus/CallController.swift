@@ -22,6 +22,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    errorWriter: errorWriter,
                                                    opusWindowSize: config.opusWindowSize)
     }
+    deinit {
+        print("CallController - deinit")
+    }
 
     func connect(config: CallConfig) async throws {
         let error = super.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)

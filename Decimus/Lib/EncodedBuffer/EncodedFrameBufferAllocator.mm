@@ -29,6 +29,7 @@
     if (extBufferAllocatorPtr) {
         delete extBufferAllocatorPtr;
     }
+    CFRelease(allocatorRef);
 }
 
 - (CFAllocatorRef)allocator {
@@ -37,7 +38,8 @@
     context.allocate = extBufferAllocatorPtr->_extendedAllocate;
     context.deallocate = extBufferAllocatorPtr->_extendedDeallocate;
     context.info = extBufferAllocatorPtr;
-    return CFAllocatorCreate(kCFAllocatorDefault, &context);
+    allocatorRef =CFAllocatorCreate(kCFAllocatorDefault, &context);
+    return allocatorRef;
 }
 
 - (void *) allocateBufferHeader: (size_t) length {
