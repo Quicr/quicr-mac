@@ -16,7 +16,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         } catch {
             errorWriter.writeError("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
-        self.player = .init(errorWriter: errorWriter)
+        self.player = .init(errorWriter: errorWriter, voiceProcessing: config.voiceProcessing)
         self.errorWriter = errorWriter
         self.submitter = submitter
         self.factory = .init(participants: self.participants, player: self.player, config: config)
