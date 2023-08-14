@@ -18,11 +18,13 @@ struct SubscriptionConfig: Codable {
     var jitterDepth: UInt
     var opusWindowSize: TimeInterval
     var videoBehaviour: VideoBehaviour
+    var voiceProcessing: Bool
     init() {
         jitterMax = 500
         jitterDepth = 60
         opusWindowSize = 0.01
         videoBehaviour = .freeze
+        voiceProcessing = true
     }
 }
 
