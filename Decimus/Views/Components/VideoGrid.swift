@@ -47,8 +47,10 @@ struct VideoGrid: View {
 struct VideoGrid_Previews: PreviewProvider {
     static let exampleParticipants: VideoParticipants = .init()
     init() {
-        _ = VideoGrid_Previews.exampleParticipants.getOrMake(identifier: "1")
-        _ = VideoGrid_Previews.exampleParticipants.getOrMake(identifier: "2")
+        // swiftlint:disable force_try
+        _ = try! VideoGrid_Previews.exampleParticipants.create(identifier: "1")
+        _ = try! VideoGrid_Previews.exampleParticipants.create(identifier: "2")
+        // swiftlint:enable force_try
     }
     static var previews: some View {
         VideoGrid(participants: exampleParticipants)
