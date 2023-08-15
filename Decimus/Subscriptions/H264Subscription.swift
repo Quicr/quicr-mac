@@ -55,15 +55,6 @@ class H264Subscription: Subscription {
         self.errorWriter = errorWriter
         self.namegate = namegate
 
-        // Create the renderer.
-        DispatchQueue.main.async {
-            do {
-                try self.participants.create(identifier: namespace)
-            } catch {
-                errorWriter.writeError("Failed to create video participant: \(error.localizedDescription)")
-            }
-        }
-
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
         }
@@ -88,16 +79,6 @@ class H264Subscription: Subscription {
         Task(priority: .utility) {
             await self.measurement.receivedFrame(timestamp: now)
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
-        }
-
-        // Let the renderer know we're still here.
-        DispatchQueue.main.async {
-            do {
-                let participant = try self.participants.get(identifier: self.namespace)
-                participant.lastUpdated = .now()
-            } catch {
-                self.errorWriter.writeError("Failed to retrieve video participant: \(error.localizedDescription)")
-            }
         }
 
         // Should we feed this frame to the decoder?
@@ -145,21 +126,18 @@ class H264Subscription: Subscription {
 
         // Enqueue the buffer.
         DispatchQueue.main.async {
-            do {
-                let participant = try self.participants.get(identifier: self.namespace)
-                guard let layer = participant.view.layer else {
-                    fatalError()
-                }
-                guard layer.status != .failed else {
-                    self.log("Layer failed: \(layer.error!)")
-                    layer.flush()
-                    return
-                }
-                layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
-                layer.enqueue(decoded)
-            } catch {
-                self.errorWriter.writeError("Failed to retrieve video participant: \(error.localizedDescription)")
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            guard let layer = participant.view.layer else {
+                fatalError()
             }
+            guard layer.status != .failed else {
+                self.log("Layer failed: \(layer.error!)")
+                layer.flush()
+                return
+            }
+            layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
+            layer.enqueue(decoded)
+            participant.lastUpdated = .now()
         }
     }
 }
