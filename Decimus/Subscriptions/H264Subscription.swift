@@ -81,6 +81,11 @@ class H264Subscription: Subscription {
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
         }
 
+        DispatchQueue.main.async {
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            participant.lastUpdated = .now()
+        }
+
         // Should we feed this frame to the decoder?
         guard namegate.handle(groupId: groupId, objectId: objectId, lastGroup: lastGroup, lastObject: lastObject) else {
             var group: String = "None"
