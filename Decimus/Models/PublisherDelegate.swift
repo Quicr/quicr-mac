@@ -31,7 +31,11 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        config: config,
                                        metricsSubmitter: metricsSubmitter,
                                        errorWriter: errorWriter)
-            guard let h264publication = publication as? FrameListener else { return nil }
+
+            guard let h264publication = publication as? FrameListener else {
+                return publication
+            }
+
             Task(priority: .medium) { [weak capture] in
                 try await capture?.addInput(h264publication)
             }
