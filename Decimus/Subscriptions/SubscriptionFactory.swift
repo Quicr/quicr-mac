@@ -13,18 +13,44 @@ enum VideoBehaviour: CaseIterable, Identifiable, Codable {
     var id: Self { self }
 }
 
+struct Reliability: Codable {
+    var publication: Bool
+    var subscription: Bool
+
+    init(publication: Bool, subscription: Bool) {
+        self.publication = publication
+        self.subscription = subscription
+    }
+
+    init(both: Bool) {
+        self.init(publication: both, subscription: both)
+    }
+}
+
+struct MediaReliability: Codable {
+    var audio: Reliability
+    var video: Reliability
+
+    init() {
+        audio = .init(both: false)
+        video = .init(both: true)
+    }
+}
+
 struct SubscriptionConfig: Codable {
     var jitterMax: UInt
     var jitterDepth: UInt
     var opusWindowSize: TimeInterval
     var videoBehaviour: VideoBehaviour
     var voiceProcessing: Bool
+    var mediaReliability: MediaReliability
     init() {
         jitterMax = 500
         jitterDepth = 60
         opusWindowSize = 0.01
         videoBehaviour = .freeze
         voiceProcessing = true
+        mediaReliability = .init()
     }
 }
 
@@ -54,7 +80,8 @@ class SubscriptionFactory {
                                     participants: self.participants,
                                     metricsSubmitter: $2,
                                     errorWriter: $3,
-                                    namegate: namegate)
+                                    namegate: namegate,
+                                    reliable: self.config.mediaReliability.video.subscription)
         },
         .opus: { [weak self] in
             guard let self = self else { throw SubscriptionFactoryError.NoFactory }
@@ -68,7 +95,8 @@ class SubscriptionFactory {
                                         errorWriter: $3,
                                         jitterDepth: self.config.jitterDepth,
                                         jitterMax: self.config.jitterMax,
-                                        opusWindowSize: self.config.opusWindowSize)
+                                        opusWindowSize: self.config.opusWindowSize,
+                                        reliable: self.config.mediaReliability.audio.subscription)
         }
     ]
 

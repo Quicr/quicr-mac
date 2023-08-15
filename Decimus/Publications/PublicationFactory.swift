@@ -10,9 +10,11 @@ class PublicationFactory {
 
     private unowned let capture: CaptureManager
     private let opusWindowSize: TimeInterval
-    init(capture: CaptureManager, opusWindowSize: TimeInterval) {
+    private let reliability: MediaReliability
+    init(capture: CaptureManager, opusWindowSize: TimeInterval, reliability: MediaReliability) {
         self.capture = capture
         self.opusWindowSize = opusWindowSize
+        self.reliability = reliability
     }
 
     private lazy var factories: [CodecType: FactoryCallbackType] = [
@@ -23,7 +25,8 @@ class PublicationFactory {
                                                   sourceID: $2,
                                                   config: config,
                                                   metricsSubmitter: $4,
-                                                  errorWriter: $5)
+                                                  errorWriter: $5,
+                                                  reliable: self?.reliability.video.publication ?? true)
 
             let capture = self?.capture
             Task(priority: .medium) {
@@ -32,14 +35,15 @@ class PublicationFactory {
 
             return publication
         },
-        .opus: {
+        .opus: { [opusWindowSize, reliability] in
             guard let config = $3 as? AudioCodecConfig else { fatalError() }
             return try OpusPublication(namespace: $0,
                                        publishDelegate: $1,
                                        sourceID: $2,
                                        metricsSubmitter: $4,
                                        errorWriter: $5,
-                                       opusWindowSize: self.opusWindowSize)
+                                       opusWindowSize: opusWindowSize,
+                                       reliable: reliability.audio.publication)
         }
     ]
 

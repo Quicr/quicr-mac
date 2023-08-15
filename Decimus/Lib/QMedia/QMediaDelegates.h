@@ -22,7 +22,7 @@ class QMediaSubscriptionDelegate : public qmedia::QSubscriptionDelegate
 public:
     QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const quicr::Namespace& quicrNamespace);
 public:
-    int prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) override;
+    int prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile, bool& reliable) override;
     int update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) override;
     //quicr::Namespace getNamespace() override;
     int subscribedObject(quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId);
@@ -37,7 +37,7 @@ class QMediaPublicationDelegate : public qmedia::QPublicationDelegate
 public:
     QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace);
 public:
-    int prepare(const std::string& sourceId,  const std::string& qualityProfile);
+    int prepare(const std::string& sourceId,  const std::string& qualityProfile, bool &reliable);
     int update(const std::string& sourceId, const std::string& qualityProfile);
     void publish(bool pubFlag);
     //quicr::Namespace getNamespace();
