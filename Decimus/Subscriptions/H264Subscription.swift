@@ -41,19 +41,22 @@ class H264Subscription: Subscription {
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
     private let namegate: NameGate
+    private let reliable: Bool
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
-         namegate: NameGate) {
+         namegate: NameGate,
+         reliable: Bool) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.errorWriter = errorWriter
         self.namegate = namegate
+        self.reliable = reliable
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -66,7 +69,11 @@ class H264Subscription: Subscription {
         try? participants.removeParticipant(identifier: namespace)
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!,
+                 label: String!,
+                 qualityProfile: String!,
+                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+        reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }
 
