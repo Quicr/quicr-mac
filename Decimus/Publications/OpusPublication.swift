@@ -47,19 +47,6 @@ class OpusPublication: Publication {
         // Otherwise, it should be okay.
         if data.pointee.mNumberBuffers > 2 {
             // FIXME: Should we ensure this is always true.
-//                let ptr: UnsafeMutableAudioBufferListPointer = .init(.init(mutating: data))
-//                var last: UnsafeMutableRawPointer?
-//                for list in ptr {
-//                    guard last != nil else {
-//                        last = list.mData
-//                        continue
-//                    }
-//                    let result = memcmp(last, list.mData, Int(list.mDataByteSize))
-//                    last = list.mData
-//                    if result != 0 {
-//                        fatalError("Mismatch")
-//                    }
-//                }
 
             // There's N duplicates of the 1 channel data in here.
             var oneChannelList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: data.pointee.mBuffers)
@@ -166,6 +153,7 @@ class OpusPublication: Publication {
     deinit {
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
+        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {

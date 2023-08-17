@@ -38,6 +38,7 @@ class H264Decoder: SampleDecoder {
             print("H264Decoder failed to flush frames")
         }
         VTDecompressionSessionInvalidate(session)
+        log("deinit")
     }
 
     /// Write a new frame to the decoder.

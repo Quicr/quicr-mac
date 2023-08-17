@@ -7,6 +7,10 @@ class PublisherDelegate: QPublisherDelegateObjC {
     private let metricsSubmitter: MetricsSubmitter
     private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter,
@@ -18,6 +22,10 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.capture = captureManager
         self.factory = .init(opusWindowSize: opusWindowSize)
         self.errorWriter = errorWriter
+    }
+    
+    deinit {
+        log("deinit")
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,

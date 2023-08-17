@@ -85,7 +85,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     }
     
     deinit {
-        print("H264Publication - deinit")
+        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {

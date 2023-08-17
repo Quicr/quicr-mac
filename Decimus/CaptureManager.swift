@@ -36,6 +36,10 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -45,9 +49,8 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session.automaticallyConfiguresApplicationAudioSession = false
         super.init()
     }
-    
     deinit {
-        print("CaptureManager - deinit")
+        log("deinit")
     }
 
     func devices() -> [AVCaptureDevice] {
@@ -157,12 +160,6 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         try addCamera(listener: listener)
-
-        /* SAH
-        // Run the session
-        if !session.isRunning {
-            session.startRunning()
-        }*/
     }
 
     func removeInput(device: AVCaptureDevice) throws {

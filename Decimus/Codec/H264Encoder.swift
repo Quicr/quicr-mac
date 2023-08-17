@@ -52,6 +52,10 @@ class H264Encoder {
         // Time in ms.
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ]
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
@@ -120,7 +124,7 @@ class H264Encoder {
         }
 
         VTCompressionSessionInvalidate(session)
-        print("H264Encoder - deinit")
+        log("deinit")
     }
 
     func write(sample: CMSampleBuffer) throws {

@@ -27,12 +27,13 @@ class PublicationFactory {
         },
         .opus: { [weak self] in
             guard let config = $3 as? AudioCodecConfig else { fatalError() }
+            guard let self = self else { fatalError() }
             return try OpusPublication(namespace: $0,
                                        publishDelegate: $1,
                                        sourceID: $2,
                                        metricsSubmitter: $4,
                                        errorWriter: $5,
-                                       opusWindowSize: self!.opusWindowSize)
+                                       opusWindowSize: self.opusWindowSize)
         }
     ]
 
