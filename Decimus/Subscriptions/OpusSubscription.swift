@@ -78,6 +78,7 @@ class OpusSubscription: Subscription {
     private let measurement: OpusSubscriptionMeasurement
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
+    private let reliable: Bool
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -86,11 +87,13 @@ class OpusSubscription: Subscription {
          errorWriter: ErrorWriter,
          jitterDepth: UInt,
          jitterMax: UInt,
-         opusWindowSize: TimeInterval) throws {
+         opusWindowSize: TimeInterval,
+         reliable: Bool) throws {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: submitter)
+        self.reliable = reliable
 
         do {
             self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
@@ -126,7 +129,8 @@ class OpusSubscription: Subscription {
         log("deinit")
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+        reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }
 

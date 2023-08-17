@@ -26,8 +26,8 @@ QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateO
 {
 }
 
-int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) {
-    return [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str())];
+int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile, bool& reliable) {
+    return [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
 }
 
 int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile)  {
@@ -51,8 +51,8 @@ QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC
 {
 }
 
-int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::string& qualityProfile)  {
-    return [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];
+int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::string& qualityProfile, bool& reliable)  {
+    return [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
 }
 int QMediaPublicationDelegate::update(const std::string& sourceId, const std::string& qualityProfile) {
     return [delegate update:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];

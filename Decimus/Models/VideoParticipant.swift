@@ -3,8 +3,6 @@ import Combine
 
 enum ParticipantError: Error {
     case notFound
-    case alreadyExists
-    case mainThreadOnly
 }
 
 class VideoParticipant: ObservableObject, Identifiable {
@@ -22,15 +20,10 @@ class VideoParticipants: ObservableObject {
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
 
-    func get(identifier: SourceIDType) throws -> VideoParticipant {
-        guard Thread.isMainThread else { throw ParticipantError.mainThreadOnly }
-        guard let participant = participants[identifier] else { throw ParticipantError.notFound }
-        return participant
-    }
-
-    func create(identifier: SourceIDType) throws {
-        guard Thread.isMainThread else { throw ParticipantError.mainThreadOnly }
-        if participants[identifier] != nil { throw ParticipantError.alreadyExists }
+    func getOrMake(identifier: SourceIDType) -> VideoParticipant {
+        if let participant = participants[identifier] {
+            return participant
+        }
 
         let new: VideoParticipant = .init(id: identifier)
         let cancellable = new.objectWillChange.sink(receiveValue: {
@@ -40,10 +33,10 @@ class VideoParticipants: ObservableObject {
         })
         cancellables[identifier] = cancellable
         participants[identifier] = new
+        return new
     }
 
     func removeParticipant(identifier: SourceIDType) throws {
-        guard Thread.isMainThread else { throw ParticipantError.mainThreadOnly }
         let removed = participants.removeValue(forKey: identifier)
         guard removed != nil else { throw ParticipantError.notFound }
         removed!.objectWillChange.send()

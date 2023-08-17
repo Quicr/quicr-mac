@@ -40,6 +40,20 @@ struct SubscriptionSettingsView: View {
             }
             .formStyle(.columns)
         }
+        Section("Reliability") {
+            HStack {
+                Text("Audio Publication")
+                Toggle(isOn: $subscriptionConfig.value.mediaReliability.audio.publication) {}
+                Text("Audio Subscription")
+                Toggle(isOn: $subscriptionConfig.value.mediaReliability.audio.subscription) {}
+            }
+            HStack {
+                Text("Video Publication")
+                Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.publication) {}
+                Text("Video Subscription")
+                Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.subscription) {}
+            }
+        }
     }
 }
 

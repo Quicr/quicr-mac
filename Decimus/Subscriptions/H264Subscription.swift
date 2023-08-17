@@ -41,28 +41,22 @@ class H264Subscription: Subscription {
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
     private let namegate: NameGate
+    private let reliable: Bool
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
-         namegate: NameGate) {
+         namegate: NameGate,
+         reliable: Bool) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.errorWriter = errorWriter
         self.namegate = namegate
-
-        // Create the renderer.
-        DispatchQueue.main.async {
-            do {
-                try self.participants.create(identifier: namespace)
-            } catch {
-                errorWriter.writeError("Failed to create video participant: \(error.localizedDescription)")
-            }
-        }
+        self.reliable = reliable
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -76,7 +70,11 @@ class H264Subscription: Subscription {
         log("deinit")
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!,
+                 label: String!,
+                 qualityProfile: String!,
+                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+        reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }
 
@@ -91,14 +89,9 @@ class H264Subscription: Subscription {
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
         }
 
-        // Let the renderer know we're still here.
         DispatchQueue.main.async {
-            do {
-                let participant = try self.participants.get(identifier: self.namespace)
-                participant.lastUpdated = .now()
-            } catch {
-                self.errorWriter.writeError("Failed to retrieve video participant: \(error.localizedDescription)")
-            }
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            participant.lastUpdated = .now()
         }
 
         // Should we feed this frame to the decoder?
@@ -146,21 +139,18 @@ class H264Subscription: Subscription {
 
         // Enqueue the buffer.
         DispatchQueue.main.async {
-            do {
-                let participant = try self.participants.get(identifier: self.namespace)
-                guard let layer = participant.view.layer else {
-                    fatalError()
-                }
-                guard layer.status != .failed else {
-                    self.log("Layer failed: \(layer.error!)")
-                    layer.flush()
-                    return
-                }
-                layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
-                layer.enqueue(decoded)
-            } catch {
-                self.errorWriter.writeError("Failed to retrieve video participant: \(error.localizedDescription)")
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            guard let layer = participant.view.layer else {
+                fatalError()
             }
+            guard layer.status != .failed else {
+                self.log("Layer failed: \(layer.error!)")
+                layer.flush()
+                return
+            }
+            layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
+            layer.enqueue(decoded)
+            participant.lastUpdated = .now()
         }
     }
 }

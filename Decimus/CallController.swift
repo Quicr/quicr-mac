@@ -24,7 +24,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,
                                                    errorWriter: errorWriter,
-                                                   opusWindowSize: config.opusWindowSize)
+                                                   opusWindowSize: config.opusWindowSize,
+                                                   reliability: config.mediaReliability)
     }
     deinit {
         log("deinit")

@@ -16,11 +16,11 @@ class PublisherDelegate: QPublisherDelegateObjC {
          metricsSubmitter: MetricsSubmitter,
          captureManager: CaptureManager,
          errorWriter: ErrorWriter,
-         opusWindowSize: TimeInterval) {
+         opusWindowSize: TimeInterval,
+         reliability: MediaReliability) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.capture = captureManager
-        self.factory = .init(opusWindowSize: opusWindowSize)
+        self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize, reliability: reliability)
         self.errorWriter = errorWriter
     }
     

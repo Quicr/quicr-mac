@@ -41,19 +41,22 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     private var encoder: H264Encoder
     private let errorWriter: ErrorWriter
+    private let reliable: Bool
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter,
-                  errorWriter: ErrorWriter) throws {
+                  errorWriter: ErrorWriter,
+                  reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.errorWriter = errorWriter
+        self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
         // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
@@ -88,7 +91,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         log("deinit")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+        reliable.pointee = self.reliable
         return PublicationError.None.rawValue
     }
 

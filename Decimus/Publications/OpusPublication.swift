@@ -41,6 +41,7 @@ class OpusPublication: Publication {
     private var encodeTimer: Timer?
     private let measurement: _Measurement
     private let opusWindowSize: TimeInterval
+    private let reliable: Bool
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
         // If this is weird multichannel audio, we need to clip.
@@ -82,12 +83,14 @@ class OpusPublication: Publication {
          sourceID: SourceIDType,
          metricsSubmitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
-         opusWindowSize: TimeInterval) throws {
+         opusWindowSize: TimeInterval,
+         reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.opusWindowSize = opusWindowSize
+        self.reliable = reliable
 
         let outputFormat = engine.inputNode.outputFormat(forBus: 0)
         if outputFormat.channelCount > 2 {
@@ -156,7 +159,8 @@ class OpusPublication: Publication {
         log("deinit")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+        reliable.pointee = self.reliable
         return PublicationError.None.rawValue
     }
 
