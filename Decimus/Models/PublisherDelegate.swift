@@ -7,7 +7,6 @@ class PublisherDelegate: QPublisherDelegateObjC {
     private let metricsSubmitter: MetricsSubmitter
     private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
-    
     func log(_ message: String) {
         print("[\(String(describing: type(of: self)))] \(message)")
     }
@@ -20,10 +19,10 @@ class PublisherDelegate: QPublisherDelegateObjC {
          reliability: MediaReliability) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize, reliability: reliability)
+        self.capture = captureManager
+        self.factory = .init(opusWindowSize: opusWindowSize, reliability: reliability)
         self.errorWriter = errorWriter
     }
-    
     deinit {
         log("deinit")
     }
