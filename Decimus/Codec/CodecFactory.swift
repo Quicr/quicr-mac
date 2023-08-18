@@ -1,11 +1,13 @@
 import AVFoundation
 import CoreImage
 import Foundation
+import os
 
 enum CodecError: Error {
     case noCodecFound(CodecType)
     case failedToCreateCodec(CodecType)
     case invalidEntry(String)
+    case invalidCodecConfig(Any)
 }
 
 /// Codec type mappings.
@@ -49,6 +51,11 @@ struct AudioCodecConfig: CodecConfig {
 }
 
 class CodecFactory {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: CodecFactory.self)
+    )
+
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
     /// - Returns The corresponding codec config.
@@ -58,6 +65,7 @@ class CodecFactory {
         guard let codec = CodecType.allCases.first(where: {
             String(describing: $0) == elements[0]
         }) else {
+            Self.logger.warning("Unknown codec provided from quality profile: \(qualityProfile)")
             return UnknownCodecConfig()
         }
 
@@ -85,7 +93,7 @@ class CodecFactory {
                 return UnknownCodecConfig()
             }
         } catch {
-            print("[CodecFactory] Failed to create codec config: \(error)")
+            Self.logger.error("Failed to create codec config: \(error)")
             return UnknownCodecConfig()
         }
     }
@@ -99,7 +107,7 @@ private func checkEntry<T: LosslessStringConvertible>(_ tokens: [String: String]
     return value
 }
 
-/// Extentension initialiser for video codec configs from token dictionary.
+/// Extension initialiser for video codec configs from token dictionary.
 fileprivate extension VideoCodecConfig {
     init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec
@@ -110,7 +118,7 @@ fileprivate extension VideoCodecConfig {
     }
 }
 
-/// Extentension initialiser for audio codec configs from token dictionary.
+/// Extension initialiser for audio codec configs from token dictionary.
 fileprivate extension AudioCodecConfig {
     init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec

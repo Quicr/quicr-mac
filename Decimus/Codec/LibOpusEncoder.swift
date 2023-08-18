@@ -1,11 +1,17 @@
 import Opus
 import AVFoundation
+import os
 
 enum OpusEncodeError: Error {
     case formatChange
 }
 
 class LibOpusEncoder: Encoder {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: LibOpusEncoder.self)
+    )
+
     private let encoder: Opus.Encoder
     internal var callback: EncodedCallback?
 

@@ -15,12 +15,4 @@ protocol Subscription: QSubscriptionDelegateObjC {
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32
-
-    func log(_ message: String)
-}
-
-extension Subscription {
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] (\(namespace)) \(message)")
-    }
 }

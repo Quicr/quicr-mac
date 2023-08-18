@@ -1,6 +1,12 @@
 import AVFoundation
+import os
 
 class H264Subscription: Subscription {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: H264Subscription.self)
+    )
+
     private actor _Measurement: Measurement {
         var name: String = "H264Subscription"
         var fields: [Date?: [String: AnyObject]] = [:]
@@ -66,7 +72,7 @@ class H264Subscription: Subscription {
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
         }
 
-        log("Subscribed to H264 stream")
+        Self.logger.info("Subscribed to H264 stream")
     }
 
     deinit {
@@ -110,7 +116,7 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            log("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            Self.logger.warning("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
             return SubscriptionError.None.rawValue
         }
         lastGroup = groupId
@@ -152,7 +158,7 @@ class H264Subscription: Subscription {
                 fatalError()
             }
             guard layer.status != .failed else {
-                self.log("Layer failed: \(layer.error!)")
+                Self.logger.error("Layer failed: \(layer.error!)")
                 layer.flush()
                 return
             }

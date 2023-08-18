@@ -1,7 +1,12 @@
 import InfluxDBSwift
 import Foundation
+import os
 
 actor InfluxMetricsSubmitter: MetricsSubmitter {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: InfluxMetricsSubmitter.self)
+    )
 
     private let client: InfluxDBClient
     private var measurements: [Measurement] = []
@@ -57,7 +62,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         do {
             try await client.makeWriteAPI().write(points: points, responseQueue: .global(qos: .utility))
         } catch {
-            print("Failed to write: \(error)")
+            Self.logger.error("Failed to write: \(error)")
         }
     }
 

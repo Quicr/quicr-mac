@@ -1,15 +1,18 @@
 import AVFoundation
 import Foundation
+import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: PublisherDelegate.self)
+    )
+
     private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter?,
@@ -17,14 +20,12 @@ class PublisherDelegate: QPublisherDelegateObjC {
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliability: MediaReliability) {
+        self.captureManager = captureManager
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
         self.factory = .init(opusWindowSize: opusWindowSize, reliability: reliability)
         self.errorWriter = errorWriter
-    }
-    deinit {
-        log("deinit")
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
