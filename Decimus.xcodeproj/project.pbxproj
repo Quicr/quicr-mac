@@ -28,7 +28,6 @@
 		9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480669297EFF040040F5D4 /* Decoder.swift */; };
 		9B48066C297F051D0040F5D4 /* Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066B297F051D0040F5D4 /* Encoder.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
-		9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480670297F320E0040F5D4 /* PreviewView.swift */; };
 		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
@@ -160,7 +159,6 @@
 		9B480669297EFF040040F5D4 /* Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Decoder.swift; sourceTree = "<group>"; };
 		9B48066B297F051D0040F5D4 /* Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Encoder.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
-		9B480670297F320E0040F5D4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
@@ -423,7 +421,6 @@
 			children = (
 				18C89A472A14EF02005B333B /* Settings */,
 				FFBF2FB529BFE47000D769CF /* Components */,
-				9B480670297F320E0040F5D4 /* PreviewView.swift */,
 				9BA27FF4297D787F007013B2 /* ConfigCallView.swift */,
 				9B480661297EAF170040F5D4 /* InCallView.swift */,
 				9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */,
@@ -748,7 +745,6 @@
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
-				9B480671297F320E0040F5D4 /* PreviewView.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,

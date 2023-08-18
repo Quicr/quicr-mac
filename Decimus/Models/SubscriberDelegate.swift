@@ -1,7 +1,13 @@
 import AVFoundation
 import Foundation
+import os
 
 class SubscriberDelegate: QSubscriberDelegateObjC {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: SubscriberDelegate.self)
+    )
+
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?

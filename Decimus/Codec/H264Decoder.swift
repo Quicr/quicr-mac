@@ -2,9 +2,14 @@ import Foundation
 import VideoToolbox
 import AVFoundation
 import CoreImage
+import os
 
 /// Provides hardware accelerated H264 decoding.
 class H264Decoder: SampleDecoder {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: H264Decoder.self)
+    )
 
     // H264 constants.
     private let spsType: UInt8 = 7
@@ -32,7 +37,7 @@ class H264Decoder: SampleDecoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            print("H264Decoder failed to flush frames")
+            Self.logger.info("H264Decoder failed to flush frames")
         }
         VTDecompressionSessionInvalidate(session)
     }
@@ -71,7 +76,7 @@ class H264Decoder: SampleDecoder {
 
             // What type is this NALU?
             type = data[thisNaluOffset + startCodeLength] & 0x1F
-            guard type == pFrame || type == idr || type == sei else { print("Unhandled NALU type: \(type)"); continue }
+            guard type == pFrame || type == idr || type == sei else { Self.logger.info("Unhandled NALU type: \(type)"); continue }
 
             // Change start code to length
             var naluDataLength = UInt32(naluTotalLength - startCodeLength).bigEndian
@@ -83,7 +88,7 @@ class H264Decoder: SampleDecoder {
                     try parseSEI(pointer: naluPtr)
                 } catch {
                     // TODO: Surface this error.
-                    print(error.localizedDescription)
+                    Self.logger.info("\(error.localizedDescription)")
                 }
                 continue
             }
@@ -146,7 +151,7 @@ class H264Decoder: SampleDecoder {
             switch decodeError {
             case kVTFormatDescriptionChangeNotSupportedErr:
                 // We need to recreate the decoder because of a format change.
-                print("H264Decoder => Recreating due to format change")
+                Self.logger.info("Recreating due to format change")
                 session = try makeDecoder(format: newFormat!)
                 try write(data: data, timestamp: timestamp)
             case .zero:
@@ -269,10 +274,10 @@ class H264Decoder: SampleDecoder {
         }
 
         // Check status code.
-        guard status == .zero else { print("Bad decode: \(status)"); return }
+        guard status == .zero else { Self.logger.info("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        guard let image = image else { print("Missing image"); return }
+        guard let image = image else { Self.logger.info("Missing image"); return }
         do {
             let created: CMVideoFormatDescription = try .init(imageBuffer: image)
             let sample: CMSampleBuffer = try .init(imageBuffer: image,
@@ -282,7 +287,7 @@ class H264Decoder: SampleDecoder {
                                                                        decodeTimeStamp: .invalid))
             callback(sample, presentation.value, orientation, verticalMirror)
         } catch {
-            print("Couldn't create CMSampleBuffer: \(error)")
+            Self.logger.info("Couldn't create CMSampleBuffer: \(error)")
         }
     }
 
@@ -307,7 +312,7 @@ class H264Decoder: SampleDecoder {
             orientation = .init(rawValue: .init(typed[7]))
             verticalMirror = typed[8] == 1
         default:
-            print("H264Decoder => Unhandled SEI type: \(seiType)")
+                Self.logger.info("Unhandled SEI App type: \(seiType)")
         }
     }
 }

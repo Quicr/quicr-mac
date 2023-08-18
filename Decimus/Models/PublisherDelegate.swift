@@ -1,7 +1,14 @@
 import AVFoundation
 import Foundation
+import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: PublisherDelegate.self)
+    )
+
+    private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
@@ -13,6 +20,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliability: MediaReliability) {
+        self.captureManager = captureManager
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize, reliability: reliability)
