@@ -22,8 +22,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
-        self.factory = .init(capture: captureManager,
-                             opusWindowSize: opusWindowSize,
+        self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
                              blocks: blocks,
                              format: format)
