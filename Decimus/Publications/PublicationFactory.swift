@@ -1,4 +1,5 @@
 import Foundation
+import AVFAudio
 
 class PublicationFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
@@ -11,10 +12,18 @@ class PublicationFactory {
     private unowned let capture: CaptureManager
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
-    init(capture: CaptureManager, opusWindowSize: TimeInterval, reliability: MediaReliability) {
+    private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
+    private let format: AVAudioFormat
+    init(capture: CaptureManager,
+         opusWindowSize: TimeInterval,
+         reliability: MediaReliability,
+         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
+         format: AVAudioFormat) {
         self.capture = capture
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
+        self.blocks = blocks
+        self.format = format
     }
 
     private lazy var factories: [CodecType: FactoryCallbackType] = [
@@ -43,7 +52,9 @@ class PublicationFactory {
                                        metricsSubmitter: $4,
                                        errorWriter: $5,
                                        opusWindowSize: opusWindowSize,
-                                       reliable: reliability.audio.publication)
+                                       reliable: reliability.audio.publication,
+                                       blocks: self.blocks,
+                                       format: self.format)
         }
     ]
 

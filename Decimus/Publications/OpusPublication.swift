@@ -32,7 +32,6 @@ class OpusPublication: Publication {
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
     private var encoder: LibOpusEncoder
-    private let engine: AVAudioEngine = .init()
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private let format: AVAudioFormat
     private var converter: AVAudioConverter?
@@ -44,40 +43,13 @@ class OpusPublication: Publication {
     private let reliable: Bool
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
-        // If this is weird multichannel audio, we need to clip.
-        // Otherwise, it should be okay.
-        if data.pointee.mNumberBuffers > 2 {
-            // FIXME: Should we ensure this is always true.
-//                let ptr: UnsafeMutableAudioBufferListPointer = .init(.init(mutating: data))
-//                var last: UnsafeMutableRawPointer?
-//                for list in ptr {
-//                    guard last != nil else {
-//                        last = list.mData
-//                        continue
-//                    }
-//                    let result = memcmp(last, list.mData, Int(list.mDataByteSize))
-//                    last = list.mData
-//                    if result != 0 {
-//                        fatalError("Mismatch")
-//                    }
-//                }
-
-            // There's N duplicates of the 1 channel data in here.
-            var oneChannelList: AudioBufferList = .init(mNumberBuffers: 1, mBuffers: data.pointee.mBuffers)
-            let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                             &oneChannelList,
-                                                             timestamp,
-                                                             numFrames,
-                                                             format.streamDescription)
-            return copied ? .zero : 1
-        } else {
-            let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                             data,
-                                                             timestamp,
-                                                             numFrames,
-                                                             format.streamDescription)
-            return copied ? .zero : 1
-        }
+        assert(data.pointee.mNumberBuffers <= 2)
+        let copied = TPCircularBufferCopyAudioBufferList(buffer,
+                                                         data,
+                                                         timestamp,
+                                                         numFrames,
+                                                         format.streamDescription)
+        return copied ? .zero : 1
     }
 
     private lazy var encodeBlock: (Timer) -> Void = { [weak self] _ in
@@ -97,29 +69,17 @@ class OpusPublication: Publication {
          metricsSubmitter: MetricsSubmitter,
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
-         reliable: Bool) throws {
+         reliable: Bool,
+         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
+         format: AVAudioFormat) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
-
-        let outputFormat = engine.inputNode.outputFormat(forBus: 0)
-        if outputFormat.channelCount > 2 {
-            // FIXME: For some unknown reason, we can get multichannel duplicate
-            // data when using voice processing. All channels appear to be the same,
-            // so we clip to mono.
-            var oneChannelAsbd = outputFormat.streamDescription.pointee
-            oneChannelAsbd.mChannelsPerFrame = 1
-            format = .init(streamDescription: &oneChannelAsbd)!
-        } else {
-            format = outputFormat
-        }
-
-        guard format.sampleRate > 0 else {
-            throw "Invalid input format"
-        }
+        guard format.sampleRate > 0 else { throw "Invalid input format" }
+        self.format = format
 
         // Create a buffer to hold raw data waiting for encode.
         let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize
@@ -158,11 +118,8 @@ class OpusPublication: Publication {
             self.encodeTimer!.tolerance = opusWindowSize / 2
         }
 
-        // Start capturing audio.
-        let sink: AVAudioSinkNode = .init(receiverBlock: block)
-        engine.attach(sink)
-        engine.connect(engine.inputNode, to: sink, format: nil)
-        try engine.start()
+        // Register our block.
+        blocks.value.append(block)
         log("Registered OPUS publication for source \(sourceID)")
     }
 
