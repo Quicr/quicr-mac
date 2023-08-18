@@ -1,5 +1,6 @@
 import AVFoundation
 import UIKit
+import os
 
 public extension AVCaptureDevice {
     var id: UInt64 {
@@ -22,6 +23,10 @@ enum CaptureManagerError: Error {
 
 /// Manages local media capture.
 actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: CaptureManager.self)
+    )
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -36,10 +41,6 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -50,7 +51,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         super.init()
     }
     deinit {
-        log("deinit")
+        Self.logger.trace("deinit")
     }
 
     func devices() -> [AVCaptureDevice] {
@@ -78,9 +79,10 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     @objc
     private nonisolated func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
+            Self.logger.error("AVCaptureSession failed for unknown reason")
             return
         }
-        print("CaptureManager => AVCaptureSession failure: \(error.localizedDescription)")
+        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
     }
 
     func stopCapturing() throws {
@@ -151,10 +153,8 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     func addInput(_ listener: FrameListener) throws {
-        // Notify upfront.
-        print("CaptureManager => Adding capture device: \(listener.device.localizedName)")
+        Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
-        // Add.
         if listener.device.deviceType == .builtInMicrophone {
             throw CaptureManagerError.noAudio
         }
@@ -177,7 +177,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             outputs.removeValue(forKey: output.key)
         }
         session.commitConfiguration()
-        print("CaptureManager => Removing input for \(device.localizedName)")
+        Self.logger.info("Removing input for \(device.localizedName)")
     }
 
     func isMuted(device: AVCaptureDevice) throws -> Bool {

@@ -1,16 +1,16 @@
 import CoreMedia
 import AVFoundation
+import os
 
 enum CallError: Error {
     case failedToConnect(Int32)
 }
 
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
-    let notifier: NotificationCenter = .default
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: CallController.self)
+    )
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
@@ -28,7 +28,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    reliability: config.mediaReliability)
     }
     deinit {
-        log("deinit")
+        Self.logger.trace("deinit")
     }
 
     func connect(config: CallConfig) async throws {

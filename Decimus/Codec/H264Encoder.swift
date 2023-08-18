@@ -2,8 +2,14 @@ import VideoToolbox
 import CoreVideo
 import UIKit
 import AVFoundation
+import os
 
 class H264Encoder {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: H264Encoder.self)
+    )
+
     typealias EncodedCallback = (UnsafeRawPointer, Int, Bool) -> Void
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
@@ -34,7 +40,7 @@ class H264Encoder {
         // Stop. -- SAH - is this required?
         0x80
     ]
-    
+
     private let timeSEI: [UInt8] = [
         // Start Code.
         0x00, 0x00, 0x00, 0x1C,
@@ -52,10 +58,6 @@ class H264Encoder {
         // Time in ms.
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ]
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
@@ -64,9 +66,9 @@ class H264Encoder {
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
         ] as CFDictionary
-        
+
         self.bufferAllocator = BufferAllocator(1*1024*1024, hdrSize: 256)
-        
+
         try OSStatusError.checked("Creation") {
             VTCompressionSessionCreate(allocator: nil,
                                        width: config.width,
@@ -120,11 +122,11 @@ class H264Encoder {
         let flushError = VTCompressionSessionCompleteFrames(session,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            print("H264 Encoder failed to flush")
+            Self.logger.info("H264 Encoder failed to flush")
         }
 
         VTCompressionSessionInvalidate(session)
-        log("deinit")
+        Self.logger.info("deinit")
     }
 
     func write(sample: CMSampleBuffer) throws {
@@ -170,7 +172,7 @@ class H264Encoder {
             }
         }
         #endif
-        
+
         #if USE_TIME_HEADERS
         var timeSEIBytes = timeSEI
         timeSEIBytes.withUnsafeMutableBytes {
@@ -180,27 +182,27 @@ class H264Encoder {
 
         timeSEIBytes.withUnsafeBytes {
             let hdrPtr = bufferAllocator.allocateBufferHeader(timeSEIBytes.count)
-            
+
             if let hdrPtr = hdrPtr {
                 hdrPtr.advanced(by: 0).copyMemory(from: $0.baseAddress!, byteCount: timeSEIBytes.count)
             }
         }
         #endif
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
-        guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
+        guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachments") }
         let key = kCMSampleAttachmentKey_NotSync as NSString
         let foundAttachment = sampleAttachments[key] as? Bool?
         let idr = !(foundAttachment != nil && foundAttachment == true)
         if idr {
             // SPS + PPS.
             guard let format = sample.formatDescription else {
-                print("Missing sample format")
+                Self.logger.error("Missing sample format")
                 return
             }
             do {
                 try handleParameterSets(encodedBufferPointer: encodedBufferPointer, format: format)
             } catch {
-                print("Error prpending SPS/PPS to encoded buffer")
+                Self.logger.error("Error prepending SPS/PPS to encoded buffer")
                 return
             }
         }
@@ -251,7 +253,7 @@ class H264Encoder {
             }
         }
     }
-    
+
     func toAnnexB(bufferPtr: UnsafeMutableRawPointer?, bufferLen: Int ) {
         var startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 

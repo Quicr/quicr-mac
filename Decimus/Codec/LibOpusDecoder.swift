@@ -1,12 +1,13 @@
 import Opus
 import AVFoundation
+import os
 
 /// Decodes audio using libopus.
 class LibOpusDecoder {
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: LibOpusDecoder.self)
+    )
 
     private let decoder: Opus.Decoder
     let decodedFormat: AVAudioFormat
@@ -17,9 +18,10 @@ class LibOpusDecoder {
         self.decodedFormat = format
         decoder = try .init(format: format, application: .voip)
     }
-    
+
     deinit {
-        log("deinit")
+        // TODO: This should be removed
+        Self.logger.trace("deinit")
     }
 
     /// Write some encoded data to the decoder.

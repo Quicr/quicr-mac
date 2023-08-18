@@ -1,11 +1,17 @@
 import Opus
 import AVFoundation
+import os
 
 enum OpusEncodeError: Error {
     case formatChange
 }
 
 class LibOpusEncoder: Encoder {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: LibOpusEncoder.self)
+    )
+
     private let encoder: Opus.Encoder
     internal var callback: EncodedCallback?
 
@@ -21,11 +27,6 @@ class LibOpusEncoder: Encoder {
     private var opusFrameSizeBytes: UInt32 = 0
     private let desiredFrameSizeMs: Double = 10
     private let format: AVAudioFormat
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
-
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
@@ -37,9 +38,10 @@ class LibOpusEncoder: Encoder {
         opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
-    
+
     deinit {
-        log("deinit")
+        // TODO: This doesn't really need to exist, we should remove this eventually (and all other deinit logs)
+        Self.logger.trace("deinit")
     }
 
     // TODO: Change to a regular non-callback return.

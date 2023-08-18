@@ -2,9 +2,14 @@ import Foundation
 import VideoToolbox
 import AVFoundation
 import CoreImage
+import os
 
 /// Provides hardware accelerated H264 decoding.
 class H264Decoder: SampleDecoder {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: H264Decoder.self)
+    )
 
     // H264 constants.
     private let spsType: UInt8 = 7
@@ -35,10 +40,11 @@ class H264Decoder: SampleDecoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            print("H264Decoder failed to flush frames")
+            Self.logger.info("H264Decoder failed to flush frames")
         }
         VTDecompressionSessionInvalidate(session)
-        log("deinit")
+        // TODO: Remove this trace
+        Self.logger.trace("deinit")
     }
 
     /// Write a new frame to the decoder.
@@ -51,7 +57,7 @@ class H264Decoder: SampleDecoder {
 
         // Extract SPS/PPS if available.
         let paramOutput = try checkParameterSets(data: data, length: data.count)
-        var offset = paramOutput.0
+        let offset = paramOutput.0
         let newFormat = paramOutput.1
 
         // There might not be any more data left.
@@ -74,7 +80,7 @@ class H264Decoder: SampleDecoder {
 
             // What type is this NALU?
             type = data[thisNaluOffset + startCodeLength] & 0x1F
-            guard type == pFrame || type == idr || type == sei else { print("Unhandled NALU type: \(type)"); continue }
+            guard type == pFrame || type == idr || type == sei else { Self.logger.info("Unhandled NALU type: \(type)"); continue }
 
             // Change start code to length
             var naluDataLength = UInt32(thisNaluLength - startCodeLength).bigEndian
@@ -88,7 +94,7 @@ class H264Decoder: SampleDecoder {
                         nalLength: UInt32(thisNaluLength) - UInt32(startCodeLength))
                 } catch {
                     // TODO: Surface this error.
-                    print(error.localizedDescription)
+                    Self.logger.info("\(error.localizedDescription)")
                 }
                 continue
             }
@@ -151,7 +157,7 @@ class H264Decoder: SampleDecoder {
             switch decodeError {
             case kVTFormatDescriptionChangeNotSupportedErr:
                 // We need to recreate the decoder because of a format change.
-                print("H264Decoder => Recreating due to format change")
+                Self.logger.info("Recreating due to format change")
                 session = try makeDecoder(format: newFormat!)
                 try write(data: data, timestamp: timestamp)
             case .zero:
@@ -274,10 +280,10 @@ class H264Decoder: SampleDecoder {
         }
 
         // Check status code.
-        guard status == .zero else { print("Bad decode: \(status)"); return }
+        guard status == .zero else { Self.logger.info("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        guard let image = image else { print("Missing image"); return }
+        guard let image = image else { Self.logger.info("Missing image"); return }
         do {
             let created: CMVideoFormatDescription = try .init(imageBuffer: image)
             let sample: CMSampleBuffer = try .init(imageBuffer: image,
@@ -287,7 +293,7 @@ class H264Decoder: SampleDecoder {
                                                                        decodeTimeStamp: .invalid))
             callback(sample, presentation.value, orientation, verticalMirror)
         } catch {
-            print("Couldn't create CMSampleBuffer: \(error)")
+            Self.logger.info("Couldn't create CMSampleBuffer: \(error)")
         }
     }
 
@@ -306,25 +312,25 @@ class H264Decoder: SampleDecoder {
         guard typed[0] == sei else { throw "This is not an SEI" }
         let payloadType = typed[1]
         if payloadType == userDataUnregisteredPayload {
-            guard nalLength > 19 else { print("User Unregistered SEI length too small"); return }
+            guard nalLength > 19 else { Self.logger.info("User Unregistered SEI length too small"); return }
             let seiAppType = typed[19]
             switch seiAppType {
             case 0x01: // Orientation
-                guard nalLength == 25 else { print("Orientation SEI length too small"); return }
+                guard nalLength == 25 else { Self.logger.info("Orientation SEI length too small"); return }
                 // Video orientation.
                 assert(typed[21] == 2)
                 orientation = .init(rawValue: .init(typed[22]))
                 verticalMirror = typed[23] == 1
             case 0x02: // Time
-                guard nalLength == 28 else { print("Time SEI length too small"); return}
+                guard nalLength == 28 else { Self.logger.info("Time SEI length too small"); return}
                 // process time here
                 var messageTime: Int64 = 0
                 memcpy(&messageTime, pointer+20, 8)
             default:
-                print("H264Decoder => Unhandled SEI App type: \(seiAppType)")
+                Self.logger.info("Unhandled SEI App type: \(seiAppType)")
             }
         } else {
-            print("H264Decoder => Unhandled SEI payload type: \(payloadType)")
+            Self.logger.info("Unhandled SEI payload type: \(payloadType)")
         }
     }
 }

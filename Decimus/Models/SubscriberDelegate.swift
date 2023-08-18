@@ -1,17 +1,19 @@
 import AVFoundation
 import Foundation
+import os
 
 class SubscriberDelegate: QSubscriberDelegateObjC {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: SubscriberDelegate.self)
+    )
+
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
     private let errorWriter: ErrorWriter
     private let submitter: MetricsSubmitter
     private let factory: SubscriptionFactory
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig) {
         self.participants = .init()
@@ -43,7 +45,8 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
 
     deinit {
         checkStaleVideoTimer!.invalidate()
-        log("deinit")
+        // TODO: Remove this trace
+        Self.logger.trace("deinit")
     }
 
     func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,

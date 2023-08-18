@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import os
 
 actor VideoMeasurement: Measurement {
     var name: String = "VideoPublication"
@@ -32,6 +33,11 @@ enum H264PublicationError: Error {
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: H264Publication.self)
+    )
+
     private let measurement: VideoMeasurement
 
     let namespace: QuicrNamespace
@@ -73,7 +79,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        
+
         let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, datalength, flag in
             let timestamp = Date.now
             Task(priority: .utility) {
@@ -84,11 +90,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.encoder = try .init(config: config, verticalMirror: device.position == .front, callback: onEncodedData)
         super.init()
 
-        log("Registered H264 publication for source \(sourceID)")
+        Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
-    
+
     deinit {
-        log("deinit")
+        Self.logger.trace("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -112,7 +118,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
 
-        log(String(describing: reason))
+        Self.logger.warning("\(String(describing: reason))")
     }
 
     /// This callback fires when a video frame arrives.
