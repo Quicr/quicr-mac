@@ -8,6 +8,10 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let errorWriter: ErrorWriter
     private let submitter: MetricsSubmitter
     private let factory: SubscriptionFactory
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig) {
         self.participants = .init()
@@ -39,6 +43,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
 
     deinit {
         checkStaleVideoTimer!.invalidate()
+        log("deinit")
     }
 
     func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,

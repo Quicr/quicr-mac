@@ -3,6 +3,10 @@ import AVFoundation
 
 /// Decodes audio using libopus.
 class LibOpusDecoder {
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     private let decoder: Opus.Decoder
     let decodedFormat: AVAudioFormat
@@ -12,6 +16,10 @@ class LibOpusDecoder {
     init(format: AVAudioFormat) throws {
         self.decodedFormat = format
         decoder = try .init(format: format, application: .voip)
+    }
+    
+    deinit {
+        log("deinit")
     }
 
     /// Write some encoded data to the decoder.

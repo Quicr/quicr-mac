@@ -36,6 +36,10 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -44,7 +48,9 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         super.init()
-        notifier.addObserver(forName: .AVCaptureSessionRuntimeError, object: nil, queue: nil, using: onStartFailure)
+    }
+    deinit {
+        log("deinit")
     }
 
     func devices() -> [AVCaptureDevice] {
@@ -63,12 +69,13 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard !session.isRunning else {
             throw CaptureManagerError.badSessionState
         }
+        notifier.addObserver(self, selector: #selector(onStartFailure), name: .AVCaptureSessionRuntimeError, object: nil)
         queue.async {
             self.session.startRunning()
         }
     }
 
-    @Sendable
+    @objc
     private nonisolated func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
             return
@@ -81,6 +88,8 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             throw CaptureManagerError.badSessionState
         }
         self.session.stopRunning()
+        notifier.removeObserver(self, name: .AVCaptureSessionRuntimeError, object: nil)
+
     }
 
     func toggleInput(device: AVCaptureDevice) -> Bool {
@@ -151,11 +160,6 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         try addCamera(listener: listener)
-
-        // Run the session
-        if !session.isRunning {
-            session.startRunning()
-        }
     }
 
     func removeInput(device: AVCaptureDevice) throws {

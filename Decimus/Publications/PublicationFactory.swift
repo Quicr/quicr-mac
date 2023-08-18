@@ -8,11 +8,10 @@ class PublicationFactory {
                                              MetricsSubmitter,
                                              ErrorWriter) throws -> Publication
 
-    private unowned let capture: CaptureManager
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
-    init(capture: CaptureManager, opusWindowSize: TimeInterval, reliability: MediaReliability) {
-        self.capture = capture
+
+    init(opusWindowSize: TimeInterval, reliability: MediaReliability) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
     }
@@ -20,18 +19,14 @@ class PublicationFactory {
     private lazy var factories: [CodecType: FactoryCallbackType] = [
         .h264: { [weak self] in
             guard let config = $3 as? VideoCodecConfig else { fatalError() }
+            guard let reliable = self?.reliability.video.publication else { fatalError() }
             let publication = try H264Publication(namespace: $0,
                                                   publishDelegate: $1,
                                                   sourceID: $2,
                                                   config: config,
                                                   metricsSubmitter: $4,
                                                   errorWriter: $5,
-                                                  reliable: self?.reliability.video.publication ?? true)
-
-            let capture = self?.capture
-            Task(priority: .medium) {
-                try await capture?.addInput(publication)
-            }
+                                                  reliable: reliable)
 
             return publication
         },

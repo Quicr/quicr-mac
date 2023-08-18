@@ -3,22 +3,70 @@ import CoreVideo
 import UIKit
 import AVFoundation
 
-class H264Encoder: Encoder {
-    internal var callback: EncodedCallback?
-
+class H264Encoder {
+    typealias EncodedCallback = (UnsafeRawPointer, Int, Bool) -> Void
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
-
     private let startCodeLength = 4
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+    private let callback: EncodedCallback
+    private let bufferAllocator: BufferAllocator
+    private let orientationSEI: [UInt8] = [
+        // Length in little endian
+        0x00, 0x00, 0x00, 0x19,
+        // SEI NALU type,
+        0x06,
+        // Payload type - user_data_unregistered (5)
+        0x05,
+        // Payload size
+        0x16,
+        // UUID uuid_iso_lec_11578 (User Data Unregistered)
+        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDB,
+        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
+        // Application specific ID
+        0x01, // Orientation/Position
+        // Display orientation
+        0x2F, 0x02,
+        // Orientation payload.
+        0x00,
+        // Device position.
+        0x00,
+        // Stop. -- SAH - is this required?
+        0x80
+    ]
+    
+    private let timeSEI: [UInt8] = [
+        // Start Code.
+        0x00, 0x00, 0x00, 0x1C,
+        // SEI NALU type,
+        0x06,
+        // Payload type - user_data_unregistered (5)
+        0x05,
+        // Payload size
+        0x15,
+        // UUID uuid_iso_lec_11578 (User Data Unregistered)
+        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDB,
+        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
+        // Application specific ID
+        0x02, // Time ms
+        // Time in ms.
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ]
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
-    init(config: VideoCodecConfig, verticalMirror: Bool) throws {
+    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
+        self.callback = callback
 
         let encoderSpecification = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
         ] as CFDictionary
-
+        
+        self.bufferAllocator = BufferAllocator(1*1024*1024, hdrSize: 256)
+        
         try OSStatusError.checked("Creation") {
             VTCompressionSessionCreate(allocator: nil,
                                        width: config.width,
@@ -26,7 +74,7 @@ class H264Encoder: Encoder {
                                        codecType: kCMVideoCodecType_H264,
                                        encoderSpecification: encoderSpecification,
                                        imageBufferAttributes: nil,
-                                       compressedDataAllocator: nil,
+                                       compressedDataAllocator: self.bufferAllocator.allocator().takeUnretainedValue(),
                                        outputCallback: nil,
                                        refcon: nil,
                                        compressionSessionOut: &encoder)
@@ -66,7 +114,6 @@ class H264Encoder: Encoder {
     }
 
     deinit {
-        callback = nil
         guard let session = encoder else { return }
 
         // Sync flush all pending frames.
@@ -77,6 +124,7 @@ class H264Encoder: Encoder {
         }
 
         VTCompressionSessionInvalidate(session)
+        log("deinit")
     }
 
     func write(sample: CMSampleBuffer) throws {
@@ -96,91 +144,98 @@ class H264Encoder: Encoder {
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // TODO: Report these errors.
-        guard let callback = callback else { fatalError("Callback not set for encoder") }
         guard status == .zero else { fatalError("Encode failure: \(status)")}
         guard let sample = sample else { return; }
+        // Get pointer to encoded buffer
+        // This is the key to be used to append headers, convert to stream headers, and
+        // to get the total buffer to be written out as a frame.
+        var length: Int = 0
+        var encodedBufferPointer: UnsafeMutablePointer<CChar>?
+        CMBlockBufferGetDataPointer(sample.dataBuffer!,
+                                    atOffset: 0,
+                                    lengthAtOffsetOut: nil,
+                                    totalLengthOut: &length,
+                                    dataPointerOut: &encodedBufferPointer)
+        // Process SEIs
+        #if !targetEnvironment(macCatalyst)
+        // Orientation SEI.
+        var bytes = orientationSEI
+        bytes[26] = UInt8(UIDevice.current.orientation.videoOrientation.rawValue)
+        bytes[27] = verticalMirror ? 0x01 : 0x00
 
-        // Annex B time.
+        bytes.withUnsafeBytes {
+            let hdrPtr = bufferAllocator.allocateBufferHeader(bytes.count)
+            if let hdrPtr = hdrPtr {
+                hdrPtr.advanced(by: 0).copyMemory(from: $0.baseAddress!, byteCount: bytes.count)
+            }
+        }
+        #endif
+        
+        #if USE_TIME_HEADERS
+        var timeSEIBytes = timeSEI
+        timeSEIBytes.withUnsafeMutableBytes {
+            var currentTime = Int64(NSDate().timeIntervalSince1970 * 1000)
+            memcpy($0.baseAddress! + 24, &currentTime, 8)
+        }
+
+        timeSEIBytes.withUnsafeBytes {
+            let hdrPtr = bufferAllocator.allocateBufferHeader(timeSEIBytes.count)
+            
+            if let hdrPtr = hdrPtr {
+                hdrPtr.advanced(by: 0).copyMemory(from: $0.baseAddress!, byteCount: timeSEIBytes.count)
+            }
+        }
+        #endif
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
         guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
-
         let key = kCMSampleAttachmentKey_NotSync as NSString
         let foundAttachment = sampleAttachments[key] as? Bool?
         let idr = !(foundAttachment != nil && foundAttachment == true)
-
         if idr {
             // SPS + PPS.
-            guard let parameterSets = try? handleParameterSets(sample: sample) else {
-                print("Failed to handle parameter sets")
+            guard let format = sample.formatDescription else {
+                print("Missing sample format")
                 return
             }
-            callback(parameterSets, true)
+            do {
+                try handleParameterSets(encodedBufferPointer: encodedBufferPointer, format: format)
+            } catch {
+                print("Error prpending SPS/PPS to encoded buffer")
+                return
+            }
         }
 
-        #if !targetEnvironment(macCatalyst)
-        // Orientation SEI.
-        guard let orientationSei = try? makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                                           verticalMirror: verticalMirror)
-        else {
-            print("Failed to make orientation SEI")
-            return
-        }
-        try? callback(orientationSei.dataBuffer!.dataBytes(), false)
-        #endif
-
-        let buffer = sample.dataBuffer!
-        var offset = 0
-        while offset < buffer.dataLength - startCodeLength {
-            guard let memory = malloc(startCodeLength) else { fatalError("malloc fail") }
-            var data: UnsafeMutablePointer<CChar>?
-            let accessError = CMBlockBufferAccessDataBytes(buffer,
-                                                           atOffset: offset,
-                                                           length: startCodeLength,
-                                                           temporaryBlock: memory,
-                                                           returnedPointerOut: &data)
-            guard accessError == .zero else { fatalError("Bad access: \(accessError)") }
-
-            var naluLength: UInt32 = 0
-            memcpy(&naluLength, data, startCodeLength)
-            free(memory)
-            naluLength = CFSwapInt32BigToHost(naluLength)
-
-            // Replace with start code.
-            CMBlockBufferReplaceDataBytes(with: startCode,
-                                          blockBuffer: buffer,
-                                          offsetIntoDestination: offset,
-                                          dataLength: startCodeLength)
-
-            // Carry on.
-            offset += startCodeLength + Int(naluLength)
-        }
-
-        // Callback the Annex-B sample.
-        try? callback(sample.dataBuffer!.dataBytes(), false)
+        var fullEncodedRawPtr: UnsafeMutableRawPointer?
+        var fullEncodedBufferLength: Int = 0
+        bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
+        toAnnexB(bufferPtr: fullEncodedRawPtr, bufferLen: fullEncodedBufferLength)
+        try callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
     }
 
-    func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
+    func handleParameterSets(encodedBufferPointer: UnsafeMutablePointer<CChar>?,
+                             format: CMFormatDescription) throws {
         // Get number of parameter sets.
         var sets: Int = 0
-        let format = CMSampleBufferGetFormatDescription(sample)
         try OSStatusError.checked("Get number of SPS/PPS") {
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format,
                                                                parameterSetIndex: 0,
                                                                parameterSetPointerOut: nil,
                                                                parameterSetSizeOut: nil,
                                                                parameterSetCountOut: &sets,
                                                                nalUnitHeaderLengthOut: nil)
         }
+        let lengthSize = MemoryLayout<UInt32>.size
 
         // Get actual parameter sets.
-        var parameterSetPointers: [UnsafePointer<UInt8>] = .init()
-        var parameterSetLengths: [Int] = .init()
-        for parameterSetIndex in 0...sets-1 {
+        // Note: this is in reverse order so the SPS
+        // will be added after the PPS and will be at the
+        // beginning of the buffer.
+        for parameterSetIndex in (0...sets-1).reversed() {
             var parameterSet: UnsafePointer<UInt8>?
             var parameterSize: Int = 0
             var naluSizeOut: Int32 = 0
             try OSStatusError.checked("Get SPS/PPS data") {
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format,
                                                                    parameterSetIndex: parameterSetIndex,
                                                                    parameterSetPointerOut: &parameterSet,
                                                                    parameterSetSizeOut: &parameterSize,
@@ -188,122 +243,28 @@ class H264Encoder: Encoder {
                                                                    nalUnitHeaderLengthOut: &naluSizeOut)
             }
             guard naluSizeOut == startCodeLength else { throw "Unexpected start code length?" }
-            parameterSetPointers.append(parameterSet!)
-            parameterSetLengths.append(parameterSize)
+            let hdrPtr = bufferAllocator.allocateBufferHeader(lengthSize + parameterSize)
+            if let hdrPtr = hdrPtr {
+                var swapped = CFSwapInt32HostToBig(UInt32(parameterSize))
+                hdrPtr.advanced(by: 0).copyMemory(from: &swapped, byteCount: lengthSize)
+                hdrPtr.advanced(by: lengthSize).copyMemory(from: parameterSet!, byteCount: parameterSize)
+            }
         }
+    }
+    
+    func toAnnexB(bufferPtr: UnsafeMutableRawPointer?, bufferLen: Int ) {
+        var startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
-        // Compute total ANNEX B parameter set size.
-        var totalLength = startCodeLength * sets
-        totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
-
-        // Make a block buffer for PPS/SPS.
-        let buffer = try makeBuffer(totalLength: totalLength)
-
+        // Annex B the actual frame data.
         var offset = 0
-        for parameterSetIndex in 0...sets-1 {
-            try OSStatusError.checked("Set SPS/PPS start code") {
-                CMBlockBufferReplaceDataBytes(with: startCode,
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: startCodeLength)
-            }
-            offset += startCodeLength
-            try OSStatusError.checked("Copy SPS/PPS data") {
-                CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: parameterSetLengths[parameterSetIndex])
-            }
-            offset += parameterSetLengths[parameterSetIndex]
+        while offset < bufferLen - startCode.count {
+            var naluLength: UInt32 = 0
+            memcpy(&naluLength, bufferPtr! + offset, startCode.count)
+            naluLength = CFSwapInt32BigToHost(naluLength)
+            bufferPtr?.advanced(by: offset).copyMemory(from: &startCode, byteCount: startCode.count)
+            // Carry on.
+            offset += startCode.count + Int(naluLength)
         }
-
-        // Return as a sample for easy callback.
-        return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
-    }
-
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                    verticalMirror: Bool) throws -> CMSampleBuffer {
-        let bytes: [UInt8] = [
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01,
-
-            // SEI NALU type,
-            0x06,
-
-            // Display orientation
-            0x2f, 0x02,
-
-            // Orientation payload.
-            UInt8(orientation.rawValue),
-
-            // Device position.
-            verticalMirror ? 0x01 : 0x00,
-
-            // Stop.
-            0x80
-        ]
-
-        let memBlock = malloc(bytes.count)
-        bytes.withUnsafeBytes { buffer in
-            _ = memcpy(memBlock, buffer.baseAddress, bytes.count)
-        }
-
-        var block: CMBlockBuffer?
-        try OSStatusError.checked("Create SEI memory block") {
-            CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                               memoryBlock: memBlock,
-                                               blockLength: bytes.count,
-                                               blockAllocator: nil,
-                                               customBlockSource: nil,
-                                               offsetToData: 0,
-                                               dataLength: bytes.count,
-                                               flags: 0,
-                                               blockBufferOut: &block)
-        }
-        return try .init(dataBuffer: block,
-                         formatDescription: nil,
-                         numSamples: 1,
-                         sampleTimings: [],
-                         sampleSizes: [bytes.count])
-    }
-
-    private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
-        var buffer: CMBlockBuffer?
-        try OSStatusError.checked("Create memory block") {
-            CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                               memoryBlock: nil,
-                                               blockLength: totalLength,
-                                               blockAllocator: nil,
-                                               customBlockSource: nil,
-                                               offsetToData: 0,
-                                               dataLength: totalLength,
-                                               flags: 0,
-                                               blockBufferOut: &buffer)
-        }
-        try OSStatusError.checked("Assure memory block") {
-            CMBlockBufferAssureBlockMemory(buffer!)
-        }
-        return buffer!
-    }
-
-    private func makeParameterSampleBuffer(sample: CMSampleBuffer,
-                                           buffer: CMBlockBuffer,
-                                           totalLength: Int) throws -> Data {
-        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
-        var parameterSample: CMSampleBuffer?
-        var length = totalLength
-        try OSStatusError.checked("Create SPS/PPS Buffer") {
-            CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
-                                      dataBuffer: buffer,
-                                      formatDescription: nil,
-                                      sampleCount: 1,
-                                      sampleTimingEntryCount: 1,
-                                      sampleTimingArray: &time,
-                                      sampleSizeEntryCount: 1,
-                                      sampleSizeArray: &length,
-                                      sampleBufferOut: &parameterSample)
-        }
-        return try parameterSample!.dataBuffer!.dataBytes()
     }
 }
 

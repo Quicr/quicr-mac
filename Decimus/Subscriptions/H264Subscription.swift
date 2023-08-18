@@ -67,6 +67,7 @@ class H264Subscription: Subscription {
 
     deinit {
         try? participants.removeParticipant(identifier: namespace)
+        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!,
