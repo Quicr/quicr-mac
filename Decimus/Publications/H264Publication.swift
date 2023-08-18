@@ -73,21 +73,22 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
+        
+        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, datalength, flag in
+            let timestamp = Date.now
+            Task(priority: .utility) {
+                await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
+            }
+            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
+        }
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front, callback: onEncodedData)
         super.init()
 
-        self.encoder.registerCallback { [weak self] data, flag in
-            guard let self = self else { return }
-
-            let timestamp = Date.now
-            let count = data.count
-            Task(priority: .utility) {
-                await self.measurement.sentBytes(sent: UInt64(count), timestamp: timestamp)
-            }
-            self.publishObjectDelegate?.publishObject(self.namespace, data: data, group: flag)
-        }
-
         log("Registered H264 publication for source \(sourceID)")
+    }
+    
+    deinit {
+        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {

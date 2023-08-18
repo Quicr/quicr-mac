@@ -9,17 +9,14 @@ class PublicationFactory {
                                              MetricsSubmitter,
                                              ErrorWriter) throws -> Publication
 
-    private unowned let capture: CaptureManager
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
     private let format: AVAudioFormat
-    init(capture: CaptureManager,
-         opusWindowSize: TimeInterval,
+    init(opusWindowSize: TimeInterval,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
          format: AVAudioFormat) {
-        self.capture = capture
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.blocks = blocks
@@ -29,18 +26,14 @@ class PublicationFactory {
     private lazy var factories: [CodecType: FactoryCallbackType] = [
         .h264: { [weak self] in
             guard let config = $3 as? VideoCodecConfig else { fatalError() }
+            guard let reliable = self?.reliability.video.publication else { fatalError() }
             let publication = try H264Publication(namespace: $0,
                                                   publishDelegate: $1,
                                                   sourceID: $2,
                                                   config: config,
                                                   metricsSubmitter: $4,
                                                   errorWriter: $5,
-                                                  reliable: self?.reliability.video.publication ?? true)
-
-            let capture = self?.capture
-            Task(priority: .medium) {
-                try await capture?.addInput(publication)
-            }
+                                                  reliable: reliable)
 
             return publication
         },

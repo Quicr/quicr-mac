@@ -16,6 +16,10 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     let notifier: NotificationCenter = .default
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
+    
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
@@ -79,6 +83,10 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    reliability: config.mediaReliability,
                                                    blocks: blocks,
                                                    format: desiredFormat ?? engine.inputNode.outputFormat(forBus: 0))
+    }
+
+    deinit {
+        log("deinit")
     }
 
     func connect(config: CallConfig) async throws {
