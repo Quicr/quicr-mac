@@ -78,7 +78,6 @@ class OpusSubscription: Subscription {
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
-    private let errorWriter: ErrorWriter
     private var jitterBuffer: QJitterBuffer
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement
@@ -90,14 +89,12 @@ class OpusSubscription: Subscription {
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter,
-         errorWriter: ErrorWriter,
          jitterDepth: UInt,
          jitterMax: UInt,
          opusWindowSize: TimeInterval,
          reliable: Bool) throws {
         self.namespace = namespace
         self.player = player
-        self.errorWriter = errorWriter
         self.measurement = .init(namespace: namespace, submitter: submitter)
         self.reliable = reliable
 
@@ -292,7 +289,7 @@ class OpusSubscription: Subscription {
             } catch {
                 let message = "Failed to write to decoder: \(error.localizedDescription)"
                 Self.logger.error("\(message)")
-                errorWriter.writeError(message)
+                ObservableError.shared.write(logger: Self.logger, message)
                 return SubscriptionError.NoDecoder
             }
         }
@@ -301,7 +298,7 @@ class OpusSubscription: Subscription {
             try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
         } catch {
             Self.logger.error("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
-            errorWriter.writeError("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
+            ObservableError.shared.write(logger: Self.logger, "Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
     }

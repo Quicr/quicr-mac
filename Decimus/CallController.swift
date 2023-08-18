@@ -12,18 +12,15 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         category: String(describing: CallController.self)
     )
 
-    init(errorWriter: ErrorWriter,
-         metricsSubmitter: MetricsSubmitter,
+    init(metricsSubmitter: MetricsSubmitter,
          captureManager: CaptureManager,
          config: SubscriptionConfig) {
         super.init()
-        self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter,
-                                                     submitter: metricsSubmitter,
+        self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,
-                                                   errorWriter: errorWriter,
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability)
     }

@@ -1,9 +1,9 @@
 import SwiftUI
 import AVFoundation
+import os
 
 @MainActor
 struct CallControls: View {
-    @EnvironmentObject private var errorHandler: ObservableError
     @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
@@ -32,8 +32,8 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, captureManager: CaptureManager?, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
+    init(captureManager: CaptureManager?, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager))
         _leaving = leaving
     }
 
@@ -162,13 +162,16 @@ struct CallControls: View {
 extension CallControls {
     @MainActor
     class ViewModel: ObservableObject {
+        private static let logger = Logger(
+            subsystem: Bundle.main.bundleIdentifier!,
+            category: String(describing: CallControls.ViewModel.self)
+        )
+
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
         private unowned let capture: CaptureManager?
-        private let errorWriter: ErrorWriter
 
-        init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
-            self.errorWriter = errorWriter
+        init(captureManager: CaptureManager?) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
         }
@@ -196,7 +199,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                errorWriter.writeError("Failed to query active devices: \(error.localizedDescription)")
+                ObservableError.shared.write(logger: Self.logger, "Failed to query active devices: \(error.localizedDescription)")
                 return []
             }
         }
@@ -221,8 +224,7 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        let errorWriter: ObservableError = .init()
         let capture: CaptureManager? = try? .init()
-        CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
+        CallControls(captureManager: capture, leaving: bool)
     }
 }

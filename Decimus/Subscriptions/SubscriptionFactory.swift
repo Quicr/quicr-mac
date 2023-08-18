@@ -57,8 +57,7 @@ struct SubscriptionConfig: Codable {
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
-                                             MetricsSubmitter,
-                                             ErrorWriter) throws -> Subscription?
+                                             MetricsSubmitter) throws -> Subscription?
 
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
@@ -71,8 +70,7 @@ class SubscriptionFactory {
 
     func create(_ namespace: QuicrNamespace,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter,
-                errorWriter: ErrorWriter) throws -> Subscription? {
+                metricsSubmitter: MetricsSubmitter) throws -> Subscription? {
 
         switch config.codec {
         case .h264:
@@ -92,7 +90,6 @@ class SubscriptionFactory {
                                     config: config,
                                     participants: self.participants,
                                     metricsSubmitter: metricsSubmitter,
-                                    errorWriter: errorWriter,
                                     namegate: namegate,
                                     reliable: self.config.mediaReliability.video.subscription)
         case .opus:
@@ -103,7 +100,6 @@ class SubscriptionFactory {
                                         player: self.player,
                                         config: config,
                                         submitter: metricsSubmitter,
-                                        errorWriter: errorWriter,
                                         jitterDepth: self.config.jitterDepth,
                                         jitterMax: self.config.jitterMax,
                                         opusWindowSize: self.config.opusWindowSize,

@@ -13,12 +13,10 @@ class FasterAVEngineAudioPlayer {
     let inputFormat: AVAudioFormat
     private var engine: AVAudioEngine = .init()
     private var mixer: AVAudioMixerNode = .init()
-    private let errorWriter: ErrorWriter
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
 
     /// Create a new `AudioPlayer`
-    init(errorWriter: ErrorWriter, voiceProcessing: Bool) {
-        self.errorWriter = errorWriter
+    init(voiceProcessing: Bool) {
         engine.attach(mixer)
         inputFormat = mixer.inputFormat(forBus: 0)
 
@@ -29,8 +27,7 @@ class FasterAVEngineAudioPlayer {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(voiceProcessing)
             } catch {
-                Self.logger.error("Failed to set output voice processing: \(error.localizedDescription)")
-                errorWriter.writeError("Failed to set output voice processing: \(error.localizedDescription)")
+                ObservableError.shared.write(logger: Self.logger, "Failed to set output voice processing: \(error.localizedDescription)")
             }
         }
         engine.prepare()
