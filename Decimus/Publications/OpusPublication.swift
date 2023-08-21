@@ -142,12 +142,12 @@ class OpusPublication: Publication {
             encoder = try .init(format: differentEncodeFormat!)
             log("Encoder created using fallback format: \(differentEncodeFormat!)")
         }
-        encoder.registerCallback(callback: { [weak self] data, flag in
+        encoder.registerCallback(callback: { [weak self] data, datalength, flag in
             guard let self = self else { return }
             Task(priority: .utility) {
-                await self.measurement.publishedBytes(sentBytes: data.count, timestamp: nil)
+                await self.measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
             }
-            self.publishObjectDelegate?.publishObject(self.namespace, data: data, group: flag)
+            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
         })
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
@@ -169,6 +169,7 @@ class OpusPublication: Publication {
     deinit {
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
+        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {

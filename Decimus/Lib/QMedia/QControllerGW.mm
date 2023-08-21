@@ -27,6 +27,10 @@
     return self;
 }
 
+- (void)dealloc {
+    NSLog(@"QControllerGW - dealloc");
+}
+
 -(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol
 {
     try {
@@ -80,6 +84,11 @@
 
 - (void)publishObject:(NSString *)quicrNamespace data:(NSData *)data group:(bool) groupFlag {
     qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)data.bytes, (int)data.length, groupFlag);
+}
+
+- (void) publishObject: (NSString*) quicrNamespace data: (const void *) dataPtr length: (size_t) dataLen group: (bool) groupFlag
+{
+    qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)dataPtr, (int)dataLen, groupFlag);
 }
 
 @end

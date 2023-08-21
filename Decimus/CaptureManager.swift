@@ -18,10 +18,11 @@ enum CaptureManagerError: Error {
     case missingInput(AVCaptureDevice)
     case couldNotAdd(AVCaptureDevice)
     case noAudio
+    case mainThread
 }
 
 /// Manages local media capture.
-actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -36,6 +37,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
+    private var observer: NSObjectProtocol?
 
     init(value: Void? = nil) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -44,27 +46,39 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         super.init()
-        notifier.addObserver(forName: .AVCaptureSessionRuntimeError, object: nil, queue: nil, using: onStartFailure)
     }
 
-    func devices() -> [AVCaptureDevice] {
+    func devices() throws -> [AVCaptureDevice] {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         return Array(connections.keys)
     }
 
     func activeDevices() throws -> [AVCaptureDevice] {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         return Array(try connections.keys.filter { try !isMuted(device: $0) })
     }
 
-    func usingInput(device: AVCaptureDevice) -> Bool {
-        inputs[device] != nil
+    func usingInput(device: AVCaptureDevice) throws -> Bool {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
+        return inputs[device] != nil
     }
 
     func startCapturing() throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard !session.isRunning else {
             throw CaptureManagerError.badSessionState
         }
-        queue.async {
+        assert(observer == nil)
+        observer = notifier.addObserver(forName: .AVCaptureSessionRuntimeError,
+                                        object: nil,
+                                        queue: nil,
+                                        using: onStartFailure)
+        queue.async { [weak self] in
+            guard let self = self else { return }
             self.session.startRunning()
+            if let observer = observer {
+                self.notifier.removeObserver(observer)
+            }
         }
     }
 
@@ -77,16 +91,21 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     func stopCapturing() throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard session.isRunning else {
             throw CaptureManagerError.badSessionState
         }
         self.session.stopRunning()
     }
 
-    func toggleInput(device: AVCaptureDevice) -> Bool {
+    func toggleInput(device: AVCaptureDevice, toggled: @escaping (Bool) -> Void) throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = self.connections[device] else { fatalError() }
-        connection.isEnabled.toggle()
-        return connection.isEnabled
+        queue.async { [weak connection] in
+            guard let connection = connection else { return }
+            connection.isEnabled.toggle()
+            toggled(connection.isEnabled)
+        }
     }
 
     private func addCamera(listener: FrameListener) throws {
@@ -142,6 +161,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     func addInput(_ listener: FrameListener) throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         // Notify upfront.
         print("CaptureManager => Adding capture device: \(listener.device.localizedName)")
 
@@ -151,14 +171,10 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         try addCamera(listener: listener)
-
-        // Run the session
-        if !session.isRunning {
-            session.startRunning()
-        }
     }
 
     func removeInput(device: AVCaptureDevice) throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         let input = inputs.removeValue(forKey: device)
         guard input != nil else {
             throw CaptureManagerError.missingInput(device)
@@ -177,6 +193,7 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     func isMuted(device: AVCaptureDevice) throws -> Bool {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = connections[device] else {
             throw CaptureManagerError.missingInput(device)
         }
@@ -191,28 +208,24 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return subscribers
     }
 
-    nonisolated func captureOutput(_ output: AVCaptureOutput,
-                                   didOutput sampleBuffer: CMSampleBuffer,
-                                   from connection: AVCaptureConnection) {
-        Task(priority: .high) {
-            let cameraFrameListeners = await getDelegate(output: output)
-            for listener in cameraFrameListeners {
-                listener.queue.async {
-                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
-                }
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        let cameraFrameListeners = getDelegate(output: output)
+        for listener in cameraFrameListeners {
+            listener.queue.async {
+                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
             }
         }
     }
 
-    nonisolated func captureOutput(_ output: AVCaptureOutput,
-                                   didDrop sampleBuffer: CMSampleBuffer,
-                                   from connection: AVCaptureConnection) {
-        Task(priority: .high) {
-            let cameraFrameListeners = await getDelegate(output: output)
-            for listener in cameraFrameListeners {
-                listener.queue.async {
-                    listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
-                }
+    func captureOutput(_ output: AVCaptureOutput,
+                       didDrop sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        let cameraFrameListeners = getDelegate(output: output)
+        for listener in cameraFrameListeners {
+            listener.queue.async {
+                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
             }
         }
     }

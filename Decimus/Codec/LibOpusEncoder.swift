@@ -22,6 +22,11 @@ class LibOpusEncoder: Encoder {
     private let desiredFrameSizeMs: Double = 10
     private let format: AVAudioFormat
 
+    func log(_ message: String) {
+        print("[\(String(describing: type(of: self)))] \(message)")
+    }
+
+
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
     init(format: AVAudioFormat) throws {
@@ -33,13 +38,19 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
+    deinit {
+        log("deinit")
+    }
+
     // TODO: Change to a regular non-callback return.
     func write(data: AVAudioPCMBuffer) throws {
         guard self.format == data.format else {
             throw OpusEncodeError.formatChange
         }
         let encodeCount = try encoder.encode(data, to: &encoded)
-        callback?(encoded, true)
+        encoded.withUnsafeBytes {
+            callback?($0, encoded.count, true)
+        }
     }
 
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
@@ -58,7 +69,7 @@ class LibOpusEncoder: Encoder {
             let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
-                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
+                callback(bytes.baseAddress!, Int(encodedBytes), true)
             }
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
         }
