@@ -5,8 +5,7 @@ class PublicationFactory {
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter?,
-                                             ErrorWriter) throws -> Publication
+                                             MetricsSubmitter?) throws -> Publication
 
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
@@ -20,8 +19,7 @@ class PublicationFactory {
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?,
-                errorWriter: ErrorWriter) throws -> Publication {
+                metricsSubmitter: MetricsSubmitter?) throws -> Publication {
 
         switch config.codec {
         case .h264:
@@ -33,7 +31,6 @@ class PublicationFactory {
                                                   sourceID: sourceID,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
-                                                  errorWriter: errorWriter,
                                                   reliable: reliability.video.publication)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
@@ -43,7 +40,6 @@ class PublicationFactory {
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        metricsSubmitter: metricsSubmitter,
-                                       errorWriter: errorWriter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication)
         default:

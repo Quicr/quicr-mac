@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
@@ -8,6 +9,11 @@ private let buttonColour = ActionButtonStyleConfig(
 )
 
 private struct LoginForm: View {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier!,
+        category: String(describing: LoginForm.self)
+    )
+
     @AppStorage("email")
     private var email: String = ""
 
@@ -28,7 +34,6 @@ private struct LoginForm: View {
                                                port: 0,
                                                connectionProtocol: .QUIC,
                                                conferenceID: 0)
-    @EnvironmentObject private var errorHandler: ObservableError
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -49,7 +54,7 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                                    ObservableError.shared.write(logger: Self.logger, "Failed to fetch manifest: \(error.localizedDescription)")
                                 }
                             }
 
@@ -129,7 +134,7 @@ private struct LoginForm: View {
                 do {
                     try await fetchManifest()
                 } catch {
-                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                    ObservableError.shared.write(logger: Self.logger, "Failed to fetch manifest: \(error.localizedDescription)")
                     return
                 }
                 if meetings.count > 0 {
@@ -162,7 +167,6 @@ private struct LoginForm: View {
 struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
     @State private var settingsOpen: Bool = false
-    @EnvironmentObject private var errorWriter: ObservableError
 
     init(_ onJoin: @escaping ConfigCallback) {
         UIApplication.shared.isIdleTimerDisabled = false

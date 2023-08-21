@@ -1,3 +1,5 @@
+import os
+
 struct OSStatusError: LocalizedError {
     let error: OSStatus
     let message: String
@@ -18,5 +20,5 @@ struct OSStatusError: LocalizedError {
 }
 
 protocol ErrorWriter {
-    func writeError(_ message: String)
+    func write(_ message: String)
 }

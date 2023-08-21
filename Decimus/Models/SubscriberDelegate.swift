@@ -11,23 +11,17 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
-    private let errorWriter: ErrorWriter
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
-
-    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter?, config: SubscriptionConfig) {
+    init(submitter: MetricsSubmitter?, config: SubscriptionConfig) {
         self.participants = .init()
         do {
             try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
         } catch {
-            errorWriter.writeError("Failed to set configure AVAudioSession: \(error.localizedDescription)")
+            ObservableError.shared.write(logger: Self.logger, "Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
-        self.player = .init(errorWriter: errorWriter, voiceProcessing: config.voiceProcessing)
-        self.errorWriter = errorWriter
+        self.player = .init(voiceProcessing: config.voiceProcessing)
         self.submitter = submitter
         self.factory = .init(participants: self.participants, player: self.player, config: config)
 
@@ -58,10 +52,9 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         do {
             return try factory.create(quicrNamepace!,
                                       config: config,
-                                      metricsSubmitter: submitter,
-                                      errorWriter: errorWriter)
+                                      metricsSubmitter: submitter)
         } catch {
-            errorWriter.writeError("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            ObservableError.shared.write(logger: Self.logger, "[SubscriberDelegate] Failed to allocate subscription: \(error)")
             return nil
         }
     }

@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import os
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
@@ -13,9 +14,6 @@ struct InCallView: View {
         viewModel.controller!.subscriberDelegate.participants.participants.isEmpty
     }
 
-    @EnvironmentObject private var errorHandler: ObservableError
-    private let errorWriter: ErrorWriter
-
     /// Callback when call is left.
     private let onLeave: () -> Void
     private let orientationChanged = NotificationCenter
@@ -24,11 +22,10 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
 
-    init(errorWriter: ErrorWriter, config: CallConfig, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
-        self.errorWriter = errorWriter
         self.onLeave = onLeave
-        _viewModel = .init(wrappedValue: .init(errorHandler: errorWriter, config: config))
+        _viewModel = .init(wrappedValue: .init(config: config))
     }
 
     var body: some View {
@@ -53,8 +50,7 @@ struct InCallView: View {
                 }
 
                 if let capture = viewModel.captureManager {
-                    CallControls(errorWriter: errorWriter,
-                                 captureManager: capture,
+                    CallControls(captureManager: capture,
                                  leaving: $leaving)
                         .disabled(leaving)
                         .padding(.bottom)
@@ -90,7 +86,11 @@ struct InCallView: View {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        private let errorHandler: ErrorWriter
+        private static let logger = Logger(
+            subsystem: Bundle.main.bundleIdentifier!,
+            category: String(describing: InCallView.ViewModel.self)
+        )
+
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
@@ -101,7 +101,7 @@ extension InCallView {
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
-        init(errorHandler: ErrorWriter, config: CallConfig) {
+        init(config: CallConfig) {
             self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -109,11 +109,10 @@ extension InCallView {
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
-            self.errorHandler = errorHandler
             do {
                 self.captureManager = try .init()
             } catch {
-                errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
+                ObservableError.shared.write(logger: Self.logger, "Failed to create camera manager: \(error.localizedDescription)")
                 return
             }
             var submitter: MetricsSubmitter?
@@ -125,8 +124,7 @@ extension InCallView {
                 }
             }
 
-            self.controller = .init(errorWriter: errorHandler,
-                                    metricsSubmitter: submitter,
+            self.controller = .init(metricsSubmitter: submitter,
                                     captureManager: captureManager!,
                                     config: subscriptionConfig.value)
         }
@@ -137,7 +135,7 @@ extension InCallView {
                 try captureManager?.startCapturing()
                 return true
             } catch {
-                errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
+                ObservableError.shared.write(logger: Self.logger, "Failed to connect to call: \(error.localizedDescription)")
                 return false
             }
         }
@@ -147,7 +145,7 @@ extension InCallView {
                 try captureManager!.stopCapturing()
                 try controller!.disconnect()
             } catch {
-                errorHandler.writeError("Error while leaving call: \(error)")
+                ObservableError.shared.write(logger: Self.logger, "Error while leaving call: \(error)")
             }
         }
     }
@@ -155,8 +153,7 @@ extension InCallView {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(errorWriter: ObservableError(),
-                   config: .init(address: "127.0.0.1",
+        InCallView(config: .init(address: "127.0.0.1",
                                  port: 5001,
                                  connectionProtocol: .QUIC)) { }
             .environmentObject(ObservableError())
