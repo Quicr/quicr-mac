@@ -148,9 +148,9 @@ class OpusSubscription: Subscription {
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
-            Self.logger.info("Got multiple buffers?")
-            for buffer in buffers {
-                Self.logger.info("Got buffer of size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
+            Self.logger.error("Got multiple buffers: \(data.pointee.mNumberBuffers)")
+            for (idx, buffer) in buffers.enumerated() {
+                Self.logger.error("Buffer \(idx) size: \(buffer.mDataByteSize), channels: \(buffer.mNumberChannels)")
             }
             return 1
         }

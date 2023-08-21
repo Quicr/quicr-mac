@@ -37,7 +37,7 @@ class H264Decoder: SampleDecoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            Self.logger.info("H264Decoder failed to flush frames")
+            Self.logger.error("H264Decoder failed to flush frames")
         }
         VTDecompressionSessionInvalidate(session)
     }
@@ -88,7 +88,7 @@ class H264Decoder: SampleDecoder {
                     try parseSEI(pointer: naluPtr)
                 } catch {
                     // TODO: Surface this error.
-                    Self.logger.info("\(error.localizedDescription)")
+                    Self.logger.error("\(error.localizedDescription)")
                 }
                 continue
             }
@@ -274,10 +274,10 @@ class H264Decoder: SampleDecoder {
         }
 
         // Check status code.
-        guard status == .zero else { Self.logger.info("Bad decode: \(status)"); return }
+        guard status == .zero else { Self.logger.error("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        guard let image = image else { Self.logger.info("Missing image"); return }
+        guard let image = image else { Self.logger.error("Missing image"); return }
         do {
             let created: CMVideoFormatDescription = try .init(imageBuffer: image)
             let sample: CMSampleBuffer = try .init(imageBuffer: image,
@@ -287,7 +287,7 @@ class H264Decoder: SampleDecoder {
                                                                        decodeTimeStamp: .invalid))
             callback(sample, presentation.value, orientation, verticalMirror)
         } catch {
-            Self.logger.info("Couldn't create CMSampleBuffer: \(error)")
+            Self.logger.error("Couldn't create CMSampleBuffer: \(error)")
         }
     }
 
