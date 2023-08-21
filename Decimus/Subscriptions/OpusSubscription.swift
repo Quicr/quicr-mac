@@ -287,9 +287,7 @@ class OpusSubscription: Subscription {
                 decoded = try decoder.write(data: $0)
                 return SubscriptionError.None
             } catch {
-                let message = "Failed to write to decoder: \(error.localizedDescription)"
-                Self.logger.error("\(message)")
-                ObservableError.shared.write(logger: Self.logger, message)
+                ObservableError.shared.write(logger: Self.logger, "Failed to write to decoder: \(error.localizedDescription)")
                 return SubscriptionError.NoDecoder
             }
         }
@@ -297,7 +295,6 @@ class OpusSubscription: Subscription {
         do {
             try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
         } catch {
-            Self.logger.error("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
             ObservableError.shared.write(logger: Self.logger, "Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
