@@ -164,7 +164,7 @@ extension CallControls {
     class ViewModel: ObservableObject {
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        private unowned let capture: CaptureManager?
+        private let capture: CaptureManager?
         private let errorWriter: ErrorWriter
 
         init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
@@ -174,10 +174,20 @@ extension CallControls {
         }
 
         func join() async {
+            do {
+                try await capture?.startCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't start video capture: \(error.localizedDescription)")
+            }
         }
 
         func leave() async {
             alteringDevice.removeAll()
+            do {
+                try await capture?.stopCapturing()
+            } catch {
+                errorWriter.writeError("Couldn't stop video capture: \(error.localizedDescription)")
+            }
         }
 
         func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {

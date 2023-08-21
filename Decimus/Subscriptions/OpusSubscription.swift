@@ -126,7 +126,6 @@ class OpusSubscription: Subscription {
 
         // Report metrics.
         log("They had \(metrics.framesEnqueuedFail) copy fails")
-        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {

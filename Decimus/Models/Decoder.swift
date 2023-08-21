@@ -6,12 +6,6 @@ protocol Decoder {
     func write(data: UnsafeRawBufferPointer, timestamp: UInt32) throws
 }
 
-extension Decoder {
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
-}
-
 protocol SampleDecoder: Decoder {
     typealias DecodedCallback = (CMSampleBuffer, CMTimeValue, AVCaptureVideoOrientation?, Bool) -> Void
     var callback: DecodedCallback? {get set}

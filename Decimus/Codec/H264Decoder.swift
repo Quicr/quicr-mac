@@ -13,9 +13,6 @@ class H264Decoder: SampleDecoder {
     private let pFrame = 1
     private let idr = 5
     private let sei = 6
-    private let userDataUnregisteredPayload = 5
-    private let seiAppIDOrientation = 1
-    private let seiAppIDTime = 2
 
     // Members.
     private var currentFormat: CMFormatDescription?
@@ -38,7 +35,6 @@ class H264Decoder: SampleDecoder {
             print("H264Decoder failed to flush frames")
         }
         VTDecompressionSessionInvalidate(session)
-        log("deinit")
     }
 
     /// Write a new frame to the decoder.
@@ -51,7 +47,7 @@ class H264Decoder: SampleDecoder {
 
         // Extract SPS/PPS if available.
         let paramOutput = try checkParameterSets(data: data, length: data.count)
-        var offset = paramOutput.0
+        let offset = paramOutput.0
         let newFormat = paramOutput.1
 
         // There might not be any more data left.
@@ -62,13 +58,14 @@ class H264Decoder: SampleDecoder {
         for byte in offset...data.count - startCodeLength where isAtStartCode(pointer: data, startIndex: byte) {
             startCodeIndices.append(byte)
         }
+
         // Handle all remaining NALUs.
-        for startCodeIndex in startCodeIndices.indices {
+        for index in startCodeIndices.indices {
             // Get NALU attributes.
-            let thisNaluOffset = startCodeIndices[startCodeIndex]
-            var thisNaluLength = data.count - thisNaluOffset
-            if startCodeIndex < startCodeIndices.count - 1 {
-                thisNaluLength = startCodeIndices[startCodeIndex + 1] - thisNaluOffset
+            let thisNaluOffset = startCodeIndices[index]
+            var naluTotalLength = data.count - index
+            if startCodeIndices.count < index + 1 {
+                naluTotalLength = startCodeIndices[index + 1] - thisNaluOffset
             }
             let naluPtr: UnsafeMutableRawPointer = .init(mutating: data.baseAddress!.advanced(by: thisNaluOffset))
 
@@ -77,15 +74,13 @@ class H264Decoder: SampleDecoder {
             guard type == pFrame || type == idr || type == sei else { print("Unhandled NALU type: \(type)"); continue }
 
             // Change start code to length
-            var naluDataLength = UInt32(thisNaluLength - startCodeLength).bigEndian
+            var naluDataLength = UInt32(naluTotalLength - startCodeLength).bigEndian
             memcpy(naluPtr, &naluDataLength, startCodeLength)
 
             // Parse any SEIs and move on.
             if type == sei {
                 do {
-                    try parseSEI(
-                        pointer: naluPtr.advanced(by: Int(startCodeLength)),
-                        nalLength: UInt32(thisNaluLength) - UInt32(startCodeLength))
+                    try parseSEI(pointer: naluPtr)
                 } catch {
                     // TODO: Surface this error.
                     print(error.localizedDescription)
@@ -97,11 +92,11 @@ class H264Decoder: SampleDecoder {
             var blockBuffer: CMBlockBuffer?
             var error = CMBlockBufferCreateWithMemoryBlock(allocator: nil,
                                                            memoryBlock: naluPtr,
-                                                           blockLength: thisNaluLength,
+                                                           blockLength: naluTotalLength,
                                                            blockAllocator: kCFAllocatorNull,
                                                            customBlockSource: nil,
                                                            offsetToData: 0,
-                                                           dataLength: thisNaluLength,
+                                                           dataLength: naluTotalLength,
                                                            flags: 0,
                                                            blockBufferOut: &blockBuffer)
             guard error == .zero else {
@@ -115,7 +110,7 @@ class H264Decoder: SampleDecoder {
                                               decodeTimeStamp: .invalid)
 
             // Create sample buffer.
-            var sampleSize = thisNaluLength
+            var sampleSize = naluTotalLength
             var sampleBuffer: CMSampleBuffer?
             error = CMSampleBufferCreate(allocator: kCFAllocatorDefault,
                                          dataBuffer: blockBuffer,
@@ -301,30 +296,18 @@ class H264Decoder: SampleDecoder {
             pointer[startIndex + 3] == 0x01
     }
 
-    private func parseSEI(pointer: UnsafeMutableRawPointer, nalLength: UInt32) throws {
+    private func parseSEI(pointer: UnsafeMutableRawPointer) throws {
         let typed: UnsafeMutablePointer<UInt8> = pointer.assumingMemoryBound(to: UInt8.self)
-        guard typed[0] == sei else { throw "This is not an SEI" }
-        let payloadType = typed[1]
-        if payloadType == userDataUnregisteredPayload {
-            guard nalLength > 19 else { print("User Unregistered SEI length too small"); return }
-            let seiAppType = typed[19]
-            switch seiAppType {
-            case 0x01: // Orientation
-                guard nalLength == 25 else { print("Orientation SEI length too small"); return }
-                // Video orientation.
-                assert(typed[21] == 2)
-                orientation = .init(rawValue: .init(typed[22]))
-                verticalMirror = typed[23] == 1
-            case 0x02: // Time
-                guard nalLength == 28 else { print("Time SEI length too small"); return}
-                // process time here
-                var messageTime: Int64 = 0
-                memcpy(&messageTime, pointer+20, 8)
-            default:
-                print("H264Decoder => Unhandled SEI App type: \(seiAppType)")
-            }
-        } else {
-            print("H264Decoder => Unhandled SEI payload type: \(payloadType)")
+        guard typed[4] == sei else { throw "This is not an SEI" }
+        let seiType = typed[5]
+        switch seiType {
+        case 0x2f:
+            // Video orientation.
+            assert(typed[6] == 2)
+            orientation = .init(rawValue: .init(typed[7]))
+            verticalMirror = typed[8] == 1
+        default:
+            print("H264Decoder => Unhandled SEI type: \(seiType)")
         }
     }
 }

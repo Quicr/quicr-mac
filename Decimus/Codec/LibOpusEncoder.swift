@@ -21,11 +21,6 @@ class LibOpusEncoder: Encoder {
     private var opusFrameSizeBytes: UInt32 = 0
     private let desiredFrameSizeMs: Double = 10
     private let format: AVAudioFormat
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
-
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
@@ -37,10 +32,6 @@ class LibOpusEncoder: Encoder {
         opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
-    
-    deinit {
-        log("deinit")
-    }
 
     // TODO: Change to a regular non-callback return.
     func write(data: AVAudioPCMBuffer) throws {
@@ -48,9 +39,7 @@ class LibOpusEncoder: Encoder {
             throw OpusEncodeError.formatChange
         }
         let encodeCount = try encoder.encode(data, to: &encoded)
-        encoded.withUnsafeBytes {
-            callback?($0, encoded.count, true)
-        }
+        callback?(encoded, true)
     }
 
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
@@ -69,7 +58,7 @@ class LibOpusEncoder: Encoder {
             let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in
-                callback(bytes.baseAddress!, Int(encodedBytes), true)
+                callback(Data(bytes: bytes.baseAddress!, count: Int(encodedBytes)), true)
             }
             buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
         }

@@ -131,7 +131,6 @@ extension InCallView {
         func join() async -> Bool {
             do {
                 try await self.controller!.connect(config: config)
-                try await captureManager?.startCapturing()
                 return true
             } catch {
                 errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
@@ -141,7 +140,6 @@ extension InCallView {
 
         func leave() async {
             do {
-                try await captureManager!.stopCapturing()
                 try controller!.disconnect()
             } catch {
                 errorHandler.writeError("Error while leaving call: \(error)")

@@ -7,10 +7,6 @@ enum CallError: Error {
 
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     let notifier: NotificationCenter = .default
-    
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(errorWriter: ErrorWriter,
          metricsSubmitter: MetricsSubmitter,
@@ -26,9 +22,6 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    errorWriter: errorWriter,
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability)
-    }
-    deinit {
-        log("deinit")
     }
 
     func connect(config: CallConfig) async throws {
