@@ -46,7 +46,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let queue: DispatchQueue
 
     private var encoder: H264Encoder
-    private let errorWriter: ErrorWriter
     private let reliable: Bool
 
     required init(namespace: QuicrNamespace,
@@ -54,7 +53,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
-                  errorWriter: ErrorWriter,
                   reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
@@ -65,7 +63,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.errorWriter = errorWriter
         self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
@@ -146,7 +143,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         do {
             try encoder.write(sample: sampleBuffer)
         } catch {
-            self.errorWriter.writeError("Failed to encode frame: \(error.localizedDescription)")
+            ObservableError.shared.write(logger: Self.logger, "Failed to encode frame: \(error.localizedDescription)")
         }
     }
 }

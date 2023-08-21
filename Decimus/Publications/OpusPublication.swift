@@ -43,7 +43,6 @@ class OpusPublication: Publication {
     private let format: AVAudioFormat
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
-    private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
     private let measurement: _Measurement?
     private let opusWindowSize: TimeInterval
@@ -101,12 +100,10 @@ class OpusPublication: Publication {
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
          metricsSubmitter: MetricsSubmitter?,
-         errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.errorWriter = errorWriter
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
