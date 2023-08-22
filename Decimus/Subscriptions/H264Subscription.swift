@@ -31,6 +31,14 @@ class H264Subscription: Subscription {
             self.bytes += UInt64(received)
             record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
         }
+
+        func receiveDelta(delta: Double, timestamp: Date?) {
+            record(field: "receiveDelta", value: delta as AnyObject, timestamp: timestamp)
+        }
+
+        func decodeDelta(delta: Double, timestamp: Date?) {
+            record(field: "decodeDelta", value: delta as AnyObject, timestamp: timestamp)
+        }
     }
 
     internal let namespace: QuicrNamespace
@@ -42,6 +50,8 @@ class H264Subscription: Subscription {
     private var lastObject: UInt16?
     private let namegate: NameGate
     private let reliable: Bool
+    private var lastReceive: Date?
+    private var lastDecode: Date?
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -84,7 +94,17 @@ class H264Subscription: Subscription {
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         let now: Date = .now
+        let delta: Double?
+        if let last = lastReceive {
+            delta = now.timeIntervalSince(last) * 1000
+        } else {
+            delta = nil
+        }
+        lastReceive = now
         Task(priority: .utility) {
+            if let delta = delta {
+                await self.measurement.receiveDelta(delta: delta, timestamp: now)
+            }
             await self.measurement.receivedFrame(timestamp: now)
             await self.measurement.receivedBytes(received: data.count, timestamp: now)
         }
@@ -125,7 +145,17 @@ class H264Subscription: Subscription {
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
         let now: Date = .now
+        let delta: Double?
+        if let last = lastDecode {
+            delta = now.timeIntervalSince(last) * 1000
+        } else {
+            delta = nil
+        }
+        lastDecode = now
         Task(priority: .utility) {
+            if let delta = delta {
+                await self.measurement.decodeDelta(delta: delta, timestamp: now)
+            }
             await self.measurement.decodedFrame(timestamp: now)
         }
 
