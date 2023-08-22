@@ -3,12 +3,12 @@ import Foundation
 
 class PublisherDelegate: QPublisherDelegateObjC {
     private unowned let publishDelegate: QPublishObjectDelegateObjC
-    private let metricsSubmitter: MetricsSubmitter
+    private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
 
     init(publishDelegate: QPublishObjectDelegateObjC,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
