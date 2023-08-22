@@ -154,8 +154,6 @@ struct CallControls: View {
         }
         .frame(maxWidth: 650)
         .scaledToFit()
-        .task { await viewModel.join() }
-        .onDisappear(perform: { Task { await viewModel.leave() }})
     }
 }
 
@@ -176,23 +174,6 @@ extension CallControls {
             self.capture = captureManager
         }
 
-        func join() async {
-            do {
-                try await capture?.startCapturing()
-            } catch {
-                errorWriter.writeError("Couldn't start video capture: \(error.localizedDescription)")
-            }
-        }
-
-        func leave() async {
-            alteringDevice.removeAll()
-            do {
-                try await capture?.stopCapturing()
-            } catch {
-                errorWriter.writeError("Couldn't stop video capture: \(error.localizedDescription)")
-            }
-        }
-
         func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
             var devices = await capture?.devices() ?? []
             if let type = type {
@@ -209,7 +190,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to query active devices: \(error.localizedDescription)")
+                Self.logger.error("Failed to query active devices: \(error.localizedDescription)")
                 return []
             }
         }

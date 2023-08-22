@@ -51,10 +51,7 @@ struct AudioCodecConfig: CodecConfig {
 }
 
 class CodecFactory {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: CodecFactory.self)
-    )
+    private static let logger = DecimusLogger(CodecFactory.self)
 
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.

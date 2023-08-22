@@ -7,10 +7,7 @@ enum CallError: Error {
 }
 
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: CallController.self)
-    )
+    private static let logger = DecimusLogger(CallController.self)
 
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,

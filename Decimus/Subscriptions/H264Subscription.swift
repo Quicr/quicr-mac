@@ -2,10 +2,7 @@ import AVFoundation
 import os
 
 class H264Subscription: Subscription {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: H264Subscription.self)
-    )
+    private static let logger = DecimusLogger(H264Subscription.self)
 
     private actor _Measurement: Measurement {
         var name: String = "H264Subscription"
@@ -123,7 +120,7 @@ class H264Subscription: Subscription {
                 try decoder.write(data: $0, timestamp: 0)
             }
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to write to decoder: \(error.localizedDescription)")
+            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
     }

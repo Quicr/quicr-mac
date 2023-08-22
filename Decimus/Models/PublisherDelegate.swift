@@ -3,12 +3,9 @@ import Foundation
 import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: PublisherDelegate.self)
-    )
+    private static let logger = DecimusLogger(PublisherDelegate.self)
 
-    private unowned let capture: CaptureManager
+    private unowned let captureManager: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
@@ -21,7 +18,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.captureManager = captureManager
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.factory = .init(opusWindowSize: opusWindowSize, reliability: reliability)
+        self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize, reliability: reliability)
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -39,13 +36,13 @@ class PublisherDelegate: QPublisherDelegateObjC {
                 return publication
             }
 
-            Task(priority: .medium) { [weak capture] in
-                try await capture?.addInput(h264publication)
+            Task(priority: .medium) { [weak captureManager] in
+                try await captureManager?.addInput(h264publication)
             }
             return publication
 
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to allocate publication: \(error.localizedDescription)")
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)")
             return nil
         }
     }

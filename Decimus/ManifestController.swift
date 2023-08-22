@@ -8,10 +8,7 @@ struct ManifestServerConfig: Codable {
 }
 
 class ManifestController {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: ManifestController.self)
-    )
+    private static let logger = DecimusLogger(ManifestController.self)
 
     static let shared = ManifestController()
 

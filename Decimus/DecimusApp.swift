@@ -2,18 +2,25 @@ import SwiftUI
 
 @main
 struct DecimusApp: App {
+    @State var columnVisibility = NavigationSplitViewVisibility.detailOnly
     var body: some Scene {
         WindowGroup {
-            ConfigCallView()
-                .preferredColorScheme(.dark)
-                .withHostingWindow { window in
-                    #if targetEnvironment(macCatalyst)
-                    if let titlebar = window?.windowScene?.titlebar {
-                        titlebar.titleVisibility = .hidden
-                        titlebar.toolbar = nil
-                    }
-                    #endif
+            NavigationSplitView(columnVisibility: $columnVisibility, sidebar: ErrorView.init) {
+                ZStack {
+                    ConfigCallView()
+                    AlertView()
                 }
+            }
+            .navigationSplitViewStyle(.prominentDetail)
+            .preferredColorScheme(.dark)
+            .withHostingWindow { window in
+                #if targetEnvironment(macCatalyst)
+                if let titlebar = window?.windowScene?.titlebar {
+                    titlebar.titleVisibility = .hidden
+                    titlebar.toolbar = nil
+                }
+                #endif
+            }
         }
     }
 }

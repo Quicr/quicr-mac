@@ -65,8 +65,6 @@ struct InCallView: View {
                 }, cancelAction: leaving = false)
                 .frame(maxWidth: 400, alignment: .center)
             }
-
-            ErrorView()
         }
         .background(.black)
         .onChange(of: noParticipants) { newValue in
@@ -86,10 +84,7 @@ struct InCallView: View {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        private static let logger = Logger(
-            subsystem: Bundle.main.bundleIdentifier!,
-            category: String(describing: InCallView.ViewModel.self)
-        )
+        private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
@@ -112,7 +107,7 @@ extension InCallView {
             do {
                 self.captureManager = try .init()
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to create camera manager: \(error.localizedDescription)")
+                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
                 return
             }
             var submitter: MetricsSubmitter?
@@ -132,18 +127,20 @@ extension InCallView {
         func join() async -> Bool {
             do {
                 try await self.controller!.connect(config: config)
+                try await captureManager?.startCapturing()
                 return true
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to connect to call: \(error.localizedDescription)")
+                Self.logger.error("Failed to connect to call: \(error.localizedDescription)", alert: true)
                 return false
             }
         }
 
         func leave() async {
             do {
+                try await captureManager?.stopCapturing()
                 try controller!.disconnect()
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Error while leaving call: \(error)")
+                Self.logger.error("Error while leaving call: \(error)", alert: true)
             }
         }
     }
@@ -154,6 +151,5 @@ struct InCallView_Previews: PreviewProvider {
         InCallView(config: .init(address: "127.0.0.1",
                                  port: 5001,
                                  connectionProtocol: .QUIC)) { }
-            .environmentObject(ObservableError())
     }
 }

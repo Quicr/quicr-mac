@@ -23,10 +23,7 @@ enum CaptureManagerError: Error {
 
 /// Manages local media capture.
 actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: CaptureManager.self)
-    )
+    private static let logger = DecimusLogger(CaptureManager.self)
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -154,11 +151,6 @@ actor CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         try addCamera(listener: listener)
-
-        // Run the session
-        if !session.isRunning {
-            session.startRunning()
-        }
     }
 
     func removeInput(device: AVCaptureDevice) throws {

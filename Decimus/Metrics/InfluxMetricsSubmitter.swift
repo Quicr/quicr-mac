@@ -3,10 +3,7 @@ import Foundation
 import os
 
 actor InfluxMetricsSubmitter: MetricsSubmitter {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: InfluxMetricsSubmitter.self)
-    )
+    private static let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
     private var measurements: [Measurement] = []

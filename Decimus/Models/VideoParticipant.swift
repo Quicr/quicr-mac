@@ -18,10 +18,7 @@ class VideoParticipant: ObservableObject, Identifiable {
 }
 
 class VideoParticipants: ObservableObject {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: VideoParticipants.self)
-    )
+    private static let logger = DecimusLogger(VideoParticipants.self)
 
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]

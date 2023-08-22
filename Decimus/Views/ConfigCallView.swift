@@ -6,8 +6,10 @@ struct ConfigCallView: View {
     var body: some View {
         if config != nil {
             InCallView(config: config!) { config = nil }
+                .navigationBarTitleDisplayMode(.inline)
         } else {
             CallSetupView { self.config = $0 }
+                .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

@@ -5,10 +5,7 @@ import os
 
 /// Plays audio samples out.
 class FasterAVEngineAudioPlayer {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: FasterAVEngineAudioPlayer.self)
-    )
+    private static let logger = DecimusLogger(FasterAVEngineAudioPlayer.self)
 
     let inputFormat: AVAudioFormat
     private var engine: AVAudioEngine = .init()
@@ -27,7 +24,7 @@ class FasterAVEngineAudioPlayer {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(voiceProcessing)
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to set output voice processing: \(error.localizedDescription)")
+                Self.logger.error("Failed to set output voice processing: \(error.localizedDescription)")
             }
         }
         engine.prepare()

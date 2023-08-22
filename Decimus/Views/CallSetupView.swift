@@ -9,10 +9,7 @@ private let buttonColour = ActionButtonStyleConfig(
 )
 
 private struct LoginForm: View {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: LoginForm.self)
-    )
+    private static let logger = DecimusLogger(LoginForm.self)
 
     @AppStorage("email")
     private var email: String = ""
@@ -54,7 +51,7 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    ObservableError.shared.write(logger: Self.logger, "Failed to fetch manifest: \(error.localizedDescription)")
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                                 }
                             }
 
@@ -134,7 +131,7 @@ private struct LoginForm: View {
                 do {
                     try await fetchManifest()
                 } catch {
-                    ObservableError.shared.write(logger: Self.logger, "Failed to fetch manifest: \(error.localizedDescription)")
+                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                     return
                 }
                 if meetings.count > 0 {
@@ -210,9 +207,6 @@ struct CallSetupView: View {
                                                    cornerRadius: 50,
                                                    isDisabled: false))
                 }
-
-                // Show any errors.
-                ErrorView()
             }
         }
     }
@@ -221,6 +215,5 @@ struct CallSetupView: View {
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
         CallSetupView { _ in }
-            .environmentObject(ObservableError())
     }
 }
