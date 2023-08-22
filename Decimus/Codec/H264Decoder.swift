@@ -6,10 +6,7 @@ import os
 
 /// Provides hardware accelerated H264 decoding.
 class H264Decoder: SampleDecoder {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: H264Decoder.self)
-    )
+    private static let logger = DecimusLogger(H264Decoder.self)
 
     // H264 constants.
     private let spsType: UInt8 = 7

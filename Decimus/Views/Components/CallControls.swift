@@ -162,7 +162,6 @@ struct CallControls: View {
         }
         .frame(maxWidth: 650)
         .scaledToFit()
-        .onDisappear(perform: { viewModel.leave() })
     }
 }
 
@@ -183,24 +182,15 @@ extension CallControls {
             self.capture = captureManager
         }
 
-        func leave() {
-            alteringDevice.removeAll()
-        }
-
-        func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
-            do {
-                var devices = try capture?.devices() ?? []
-                if let type = type {
-                    devices = devices.filter { $0.hasMediaType(type) }
-                }
-                return devices
-            } catch {
-                errorWriter.writeError("Failed to query devices: \(error.localizedDescription)")
-                return []
+        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+            var devices = await capture?.devices() ?? []
+            if let type = type {
+                devices = devices.filter { $0.hasMediaType(type) }
             }
+            return devices
         }
 
-        func activeDevices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
+        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
             do {
                 var devices = try capture?.activeDevices() ?? []
                 if let type = type {
@@ -208,7 +198,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to query active devices: \(error.localizedDescription)")
+                Self.logger.error("Failed to query active devices: \(error.localizedDescription)")
                 return []
             }
         }

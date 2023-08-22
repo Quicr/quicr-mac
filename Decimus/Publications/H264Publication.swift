@@ -33,10 +33,7 @@ enum H264PublicationError: Error {
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: H264Publication.self)
-    )
+    private static let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: VideoMeasurement?
 
@@ -146,7 +143,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         do {
             try encoder.write(sample: sampleBuffer)
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to encode frame: \(error.localizedDescription)")
+            Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
     }
 }

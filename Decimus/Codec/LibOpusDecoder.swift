@@ -4,10 +4,7 @@ import os
 
 /// Decodes audio using libopus.
 class LibOpusDecoder {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: LibOpusDecoder.self)
-    )
+    private static let logger = DecimusLogger(LibOpusDecoder.self)
 
     func log(_ message: String) {
         print("[\(String(describing: type(of: self)))] \(message)")

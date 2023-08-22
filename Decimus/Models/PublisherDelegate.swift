@@ -3,12 +3,9 @@ import Foundation
 import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: PublisherDelegate.self)
-    )
+    private static let logger = DecimusLogger(PublisherDelegate.self)
 
-    private unowned let capture: CaptureManager
+    private unowned let captureManager: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
@@ -46,7 +43,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
             return publication
 
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to allocate publication: \(error.localizedDescription)")
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)")
             return nil
         }
     }

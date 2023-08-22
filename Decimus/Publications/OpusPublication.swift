@@ -6,10 +6,7 @@ import CoreAudio
 import os
 
 class OpusPublication: Publication {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: OpusPublication.self)
-    )
+    private static let logger = DecimusLogger(OpusPublication.self)
 
     private actor _Measurement: Measurement {
         var name: String = "OpusPublication"

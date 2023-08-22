@@ -3,10 +3,7 @@ import Foundation
 import os
 
 class SubscriberDelegate: QSubscriberDelegateObjC {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: SubscriberDelegate.self)
-    )
+    private static let logger = DecimusLogger(SubscriberDelegate.self)
 
     let participants: VideoParticipants
     private let player: FasterAVEngineAudioPlayer
@@ -19,7 +16,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         do {
             try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to set configure AVAudioSession: \(error.localizedDescription)")
+            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
         self.player = .init(voiceProcessing: config.voiceProcessing)
         self.submitter = submitter
@@ -54,7 +51,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                                       config: config,
                                       metricsSubmitter: submitter)
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            Self.logger.error("[SubscriberDelegate] Failed to allocate subscription: \(error)")
             return nil
         }
     }

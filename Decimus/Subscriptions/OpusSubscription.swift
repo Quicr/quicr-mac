@@ -54,10 +54,7 @@ actor OpusSubscriptionMeasurement: Measurement {
 }
 
 class OpusSubscription: Subscription {
-    private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier!,
-        category: String(describing: OpusSubscription.self)
-    )
+    private static let logger = DecimusLogger(OpusSubscription.self)
 
     struct Metrics {
         var framesEnqueued = 0
@@ -295,7 +292,7 @@ class OpusSubscription: Subscription {
                 decoded = try decoder.write(data: $0)
                 return SubscriptionError.None
             } catch {
-                ObservableError.shared.write(logger: Self.logger, "Failed to write to decoder: \(error.localizedDescription)")
+                Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                 return SubscriptionError.NoDecoder
             }
         }
@@ -303,7 +300,7 @@ class OpusSubscription: Subscription {
         do {
             try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
         } catch {
-            ObservableError.shared.write(logger: Self.logger, "Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
+            Self.logger.error("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
     }

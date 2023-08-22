@@ -5,6 +5,8 @@ import AVFoundation
 import os
 
 class H264Encoder: Encoder {
+    private static let logger = DecimusLogger(H264Encoder.self)
+
     internal var callback: EncodedCallback?
 
     private var encoder: VTCompressionSession?
