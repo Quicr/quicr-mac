@@ -48,7 +48,7 @@ class H264Subscription: Subscription {
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitte?r,
+         metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
          reliable: Bool) {
         self.namespace = namespace
