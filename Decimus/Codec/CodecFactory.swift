@@ -90,7 +90,7 @@ class CodecFactory {
                 return UnknownCodecConfig()
             }
         } catch {
-            Self.logger.error("Failed to create codec config: \(error)")
+            Self.logger.error("Failed to create codec config: \(error)", alert: true)
             return UnknownCodecConfig()
         }
     }

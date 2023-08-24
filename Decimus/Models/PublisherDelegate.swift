@@ -36,12 +36,12 @@ class PublisherDelegate: QPublisherDelegateObjC {
                 return publication
             }
 
-            Task(priority: .medium) { [weak capture] in
-                try! capture?.addInput(h264publication) // swiftlint:disable:this force_try
+            DispatchQueue.main.async { [unowned capture] in
+                try! capture.addInput(h264publication) // swiftlint:disable:this force_try
             }
             return publication
         } catch {
-            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)")
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)", alert: true)
             return nil
         }
     }

@@ -34,7 +34,7 @@ class H264Decoder: SampleDecoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            Self.logger.error("H264Decoder failed to flush frames")
+            Self.logger.error("H264Decoder failed to flush frames", alert: true)
         }
         VTDecompressionSessionInvalidate(session)
     }

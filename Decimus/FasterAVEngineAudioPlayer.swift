@@ -24,7 +24,7 @@ class FasterAVEngineAudioPlayer {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(voiceProcessing)
             } catch {
-                Self.logger.error("Failed to set output voice processing: \(error.localizedDescription)")
+                Self.logger.error("Failed to set output voice processing: \(error.localizedDescription)", alert: true)
             }
         }
         engine.prepare()

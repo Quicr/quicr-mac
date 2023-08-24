@@ -94,7 +94,6 @@ struct ErrorView: View {
         }
         .navigationTitle("Logs")
         .navigationBarTitleDisplayMode(.inline)
-        .frame(maxWidth: .infinity)
     }
 }
 

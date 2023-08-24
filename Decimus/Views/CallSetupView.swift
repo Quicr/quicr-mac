@@ -51,7 +51,7 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                                 }
                             }
 
@@ -131,7 +131,7 @@ private struct LoginForm: View {
                 do {
                     try await fetchManifest()
                 } catch {
-                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
                 }
                 if meetings.count > 0 {

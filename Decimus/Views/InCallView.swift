@@ -107,7 +107,7 @@ extension InCallView {
             do {
                 self.captureManager = try .init()
             } catch {
-                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
+                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
                 return
             }
             var submitter: MetricsSubmitter?

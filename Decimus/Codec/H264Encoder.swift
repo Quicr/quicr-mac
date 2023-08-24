@@ -76,7 +76,7 @@ class H264Encoder: Encoder {
         let flushError = VTCompressionSessionCompleteFrames(session,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            Self.logger.error("H264 Encoder failed to flush")
+            Self.logger.error("H264 Encoder failed to flush", alert: true)
         }
 
         VTCompressionSessionInvalidate(session)

@@ -16,7 +16,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         do {
             try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
         } catch {
-            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
+            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)", alert: true)
         }
         self.player = .init(voiceProcessing: config.voiceProcessing)
         self.submitter = submitter
@@ -46,7 +46,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                                       config: config,
                                       metricsSubmitter: submitter)
         } catch {
-            Self.logger.error("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            Self.logger.error("Failed to allocate subscription: \(error)", alert: true)
             return nil
         }
     }
