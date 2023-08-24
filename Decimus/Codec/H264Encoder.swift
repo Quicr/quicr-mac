@@ -117,7 +117,9 @@ class H264Encoder: Encoder {
                 Self.logger.error("Failed to handle parameter sets")
                 return
             }
-            callback(parameterSets, true)
+            parameterSets.withUnsafeBytes {
+                callback($0.baseAddress!, $0.count, true)
+            }
         }
 
         #if !targetEnvironment(macCatalyst)
@@ -128,7 +130,9 @@ class H264Encoder: Encoder {
             print("Failed to make orientation SEI")
             return
         }
-        try? callback(orientationSei.dataBuffer!.dataBytes(), false)
+        try? orientationSei.dataBuffer?.withUnsafeMutableBytes {
+            callback($0.baseAddress!, $0.count, false)
+        }
         #endif
 
         let buffer = sample.dataBuffer!
@@ -159,7 +163,9 @@ class H264Encoder: Encoder {
         }
 
         // Callback the Annex-B sample.
-        try? callback(sample.dataBuffer!.dataBytes(), false)
+        try? sample.dataBuffer!.withUnsafeMutableBytes {
+            callback($0.baseAddress!, $0.count, false)
+        }
     }
 
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {

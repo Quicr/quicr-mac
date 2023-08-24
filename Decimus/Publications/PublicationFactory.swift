@@ -7,16 +7,13 @@ class PublicationFactory {
                                              CodecConfig,
                                              MetricsSubmitter?) throws -> Publication
 
-    private unowned let capture: CaptureManager
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
-    init(capture: CaptureManager, opusWindowSize: TimeInterval, reliability: MediaReliability) {
-        self.capture = capture
+    init(opusWindowSize: TimeInterval, reliability: MediaReliability) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
     }
 
-    // swiftlint:disable function_parameter_count - Dependency injection.
     func create(_ namespace: QuicrNamespace,
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,

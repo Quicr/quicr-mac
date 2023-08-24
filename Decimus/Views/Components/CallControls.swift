@@ -8,22 +8,18 @@ struct CallControls: View {
 
     @Binding var leaving: Bool
 
-    @State private var audioOn: Bool = false
+    @State private var audioOn: Bool = true
     @State private var videoOn: Bool = true
 
     @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
 
     private var cameras: [AVCaptureDevice] {
-        var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.video) }
-        return devices
+        viewModel.devices(.video)
     }
 
     private var audioDevices: [AVCaptureDevice] {
-        var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.audio) }
-        return devices
+        viewModel.devices(.audio)
     }
 
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(
@@ -37,19 +33,31 @@ struct CallControls: View {
         _leaving = leaving
     }
 
-    private func toggleVideo() async {
-        for camera in await viewModel.devices(.video) {
-            _ = await viewModel.toggleDevice(device: camera)
+    private func toggleVideo(device: AVCaptureDevice) {
+        videoOn = false
+        viewModel.toggleDevice(device: device) {
+            videoOn = videoOn || $0
         }
-        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
     }
 
-    private func toggleAudio() async {
-        // TODO: Mute status needs to come from elsewhere.
-        for microphone in await viewModel.devices(.audio) {
-            _ = await viewModel.toggleDevice(device: microphone)
+    private func toggleAudio(device: AVCaptureDevice) {
+        audioOn = false
+        viewModel.toggleDevice(device: device) {
+            audioOn = audioOn || $0
         }
-        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
+    }
+
+    private func toggleVideos() {
+        for camera in viewModel.devices(.video) {
+            toggleVideo(device: camera)
+        }
+    }
+
+    private func toggleAudios() {
+        // TODO: Mute status needs to come from elsewhere.
+        for microphone in viewModel.devices(.audio) {
+            toggleAudio(device: microphone)
+        }
     }
 
     private func openCameraModal() {
@@ -69,7 +77,7 @@ struct CallControls: View {
                 icon: audioOn ? "microphone-on" : "microphone-muted",
                 role: audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
-                action: toggleAudio,
+                action: toggleAudios,
                 pickerAction: openAudioModal
             ) {
                 Text("Audio Connection")
@@ -79,7 +87,7 @@ struct CallControls: View {
                         disabled: viewModel.isAlteringMicrophone(),
                         cornerRadius: 12,
                         styleConfig: deviceButtonStyleConfig,
-                        action: toggleAudio) {
+                        action: { toggleAudio(device: microphone) }) {
                             HStack {
                                 Image(systemName: microphone.deviceType == .builtInMicrophone ?
                                       "mic" : "speaker.wave.2")
@@ -92,8 +100,8 @@ struct CallControls: View {
                 }
             }
             .onChange(of: viewModel.selectedMicrophone) { _ in
-                guard viewModel.selectedMicrophone != nil else { return }
-                Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
+                guard let microphone = viewModel.selectedMicrophone else { return }
+                toggleAudio(device: microphone)
             }
             .disabled(viewModel.isAlteringMicrophone())
 
@@ -102,7 +110,7 @@ struct CallControls: View {
                 icon: videoOn ? "video-on" : "video-off",
                 role: videoOn ? nil : .destructive,
                 expanded: $cameraModalExpanded,
-                action: toggleVideo,
+                action: toggleVideos,
                 pickerAction: openCameraModal
             ) {
                 LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
@@ -125,7 +133,7 @@ struct CallControls: View {
                             disabled: viewModel.alteringDevice[camera] ?? false,
                             cornerRadius: 10,
                             styleConfig: deviceButtonStyleConfig,
-                            action: { await viewModel.toggleDevice(device: camera) },
+                            action: { toggleVideo(device: camera) },
                             title: {
                                 Text(verbatim: camera.localizedName)
                                     .lineLimit(1)
@@ -174,17 +182,22 @@ extension CallControls {
             self.capture = captureManager
         }
 
-        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
-            var devices = await capture?.devices() ?? []
-            if let type = type {
-                devices = devices.filter { $0.hasMediaType(type) }
+        func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
+            do {
+                var devices = try capture?.devices() ?? []
+                if let type = type {
+                    devices = devices.filter { $0.hasMediaType(type) }
+                }
+                return devices
+            } catch {
+                Self.logger.error("Failed to query devices: \(error.localizedDescription)")
+                return []
             }
-            return devices
         }
 
-        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+        func activeDevices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
             do {
-                var devices = try await capture?.activeDevices() ?? []
+                var devices = try capture?.activeDevices() ?? []
                 if let type = type {
                     devices = devices.filter { $0.hasMediaType(type) }
                 }
@@ -195,14 +208,22 @@ extension CallControls {
             }
         }
 
-        func toggleDevice(device: AVCaptureDevice) async {
+        func toggleDevice(device: AVCaptureDevice, callback: @escaping (Bool) -> Void) {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
             guard let capture = capture else { return }
             alteringDevice[device] = true
-            _ = await capture.toggleInput(device: device)
-            alteringDevice[device] = false
+            do {
+                try capture.toggleInput(device: device) { [weak self] enabled in
+                    DispatchQueue.main.async {
+                        self?.alteringDevice[device] = false
+                        callback(enabled)
+                    }
+                }
+            } catch {
+                Self.logger.error("Failed to toggle device: \(error.localizedDescription)")
+            }
         }
 
         func isAlteringMicrophone() -> Bool {
