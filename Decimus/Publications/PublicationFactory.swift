@@ -1,4 +1,5 @@
 import Foundation
+import AVFAudio
 
 class PublicationFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
@@ -9,9 +10,16 @@ class PublicationFactory {
 
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
-    init(opusWindowSize: TimeInterval, reliability: MediaReliability) {
+    private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
+    private let format: AVAudioFormat
+    init(opusWindowSize: TimeInterval,
+         reliability: MediaReliability,
+         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
+         format: AVAudioFormat) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
+        self.blocks = blocks
+        self.format = format
     }
 
     func create(_ namespace: QuicrNamespace,
@@ -40,7 +48,9 @@ class PublicationFactory {
                                        sourceID: sourceID,
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
-                                       reliable: reliability.audio.publication)
+                                       reliable: reliability.audio.publication,
+                                       blocks: self.blocks,
+                                       format: self.format)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

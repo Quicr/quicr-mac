@@ -11,14 +11,9 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-    init(submitter: MetricsSubmitter?, config: SubscriptionConfig) {
+        init(submitter: MetricsSubmitter?, config: SubscriptionConfig, engine: AVAudioEngine) {
         self.participants = .init()
-        do {
-            try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
-        } catch {
-            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)", alert: true)
-        }
-        self.player = .init(voiceProcessing: config.voiceProcessing)
+        self.player = .init(engine: engine)
         self.submitter = submitter
         self.factory = .init(participants: self.participants, player: self.player, config: config)
 

@@ -5,16 +5,17 @@ extension AVAudioSession {
     private static var configuredForDecimus: Bool = false
 
     /// Helper to configure the AVAudioSession for Decimus.
-    static func configureForDecimus(targetBufferTime: TimeInterval) throws {
+    static func configureForDecimus() throws {
         guard !configuredForDecimus else { return }
         let audioSession = Self.sharedInstance()
         try audioSession.setCategory(.playAndRecord,
                                      mode: .videoChat,
-                                     options: [.defaultToSpeaker, .allowBluetooth])
-        try audioSession.setPreferredIOBufferDuration(targetBufferTime)
+                                     options: [.defaultToSpeaker])
+        try audioSession.setPreferredSampleRate(.opus48khz)
         try audioSession.setActive(true)
+        try audioSession.setPreferredOutputNumberOfChannels(2)
+        try audioSession.setPreferredInputNumberOfChannels(1)
         configuredForDecimus = true
-        print("Configured")
     }
 }
 
