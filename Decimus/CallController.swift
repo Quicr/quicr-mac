@@ -38,16 +38,14 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         assert(engine.outputNode.isVoiceProcessingEnabled == engine.inputNode.isVoiceProcessingEnabled)
 
         // If voice processing is on, we want to override the format to something usable.
-        let desiredFormat: AVAudioFormat?
+        var desiredFormat: AVAudioFormat?
         let current = AVAudioSession.sharedInstance().sampleRate
-        var desiredSampleRate = Self.opusSampleRates.contains(current) ? current : .opus48khz
+        let desiredSampleRate = Self.opusSampleRates.contains(current) ? current : .opus48khz
         if engine.outputNode.isVoiceProcessingEnabled {
             desiredFormat = .init(commonFormat: engine.inputNode.outputFormat(forBus: 0).commonFormat,
                                   sampleRate: desiredSampleRate,
                                   channels: 1,
                                   interleaved: true)!
-        } else {
-            desiredFormat = nil
         }
 
         // Capture microphone audio.
