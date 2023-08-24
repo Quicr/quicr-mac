@@ -38,11 +38,6 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         }
     }
 
-    deinit {
-        checkStaleVideoTimer!.invalidate()
-        log("deinit")
-    }
-
     func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,
                      qualityProfile: String!) -> QSubscriptionDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)

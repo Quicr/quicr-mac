@@ -175,7 +175,6 @@ class OpusPublication: Publication {
     deinit {
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
-        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
