@@ -2,7 +2,7 @@ import CoreMedia
 import AVFoundation
 
 protocol Encoder {
-    typealias EncodedCallback = (Data, Bool) -> Void
+    typealias EncodedCallback = (UnsafeRawPointer, Int, Bool) -> Void
     func write(sample: CMSampleBuffer) throws
     func write(data: CMSampleBuffer, format: AVAudioFormat) throws
     var callback: EncodedCallback? {get set}
