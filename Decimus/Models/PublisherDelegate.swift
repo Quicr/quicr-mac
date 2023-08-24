@@ -5,7 +5,7 @@ import os
 class PublisherDelegate: QPublisherDelegateObjC {
     private static let logger = DecimusLogger(PublisherDelegate.self)
 
-    private unowned let captureManager: CaptureManager
+    private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
@@ -15,7 +15,6 @@ class PublisherDelegate: QPublisherDelegateObjC {
          captureManager: CaptureManager,
          opusWindowSize: TimeInterval,
          reliability: MediaReliability) {
-        self.captureManager = captureManager
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
@@ -41,7 +40,6 @@ class PublisherDelegate: QPublisherDelegateObjC {
                 try! capture?.addInput(h264publication) // swiftlint:disable:this force_try
             }
             return publication
-
         } catch {
             Self.logger.error("Failed to allocate publication: \(error.localizedDescription)")
             return nil

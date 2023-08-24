@@ -182,15 +182,20 @@ extension CallControls {
             self.capture = captureManager
         }
 
-        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
-            var devices = await capture?.devices() ?? []
-            if let type = type {
-                devices = devices.filter { $0.hasMediaType(type) }
+        func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
+            do {
+                var devices = try capture?.devices() ?? []
+                if let type = type {
+                    devices = devices.filter { $0.hasMediaType(type) }
+                }
+                return devices
+            } catch {
+                Self.logger.error("Failed to query devices: \(error.localizedDescription)")
+                return []
             }
-            return devices
         }
 
-        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+        func activeDevices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
             do {
                 var devices = try capture?.activeDevices() ?? []
                 if let type = type {
@@ -217,7 +222,7 @@ extension CallControls {
                     }
                 }
             } catch {
-                errorWriter.writeError("Failed to toggle device: \(error.localizedDescription)")
+                Self.logger.error("Failed to toggle device: \(error.localizedDescription)")
             }
         }
 

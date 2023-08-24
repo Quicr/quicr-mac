@@ -14,7 +14,6 @@ class PublicationFactory {
         self.reliability = reliability
     }
 
-    // swiftlint:disable function_parameter_count - Dependency injection.
     func create(_ namespace: QuicrNamespace,
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
