@@ -15,10 +15,6 @@ class H264Encoder: Encoder {
     init(config: VideoCodecConfig, verticalMirror: Bool) throws {
         self.verticalMirror = verticalMirror
 
-        let encoderSpecification = [
-            kVTVideoEncoderSpecification_EncoderID: "com.apple.videotoolbox.videoencoder.ave.avc" as CFString
-        ] as CFDictionary
-
         try OSStatusError.checked("Creation") {
             VTCompressionSessionCreate(allocator: nil,
                                        width: config.width,
