@@ -17,6 +17,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
     private static let logger = DecimusLogger(CallController.self)
+    private static let opusSampleRates: [Double] = [.opus8khz, .opus12khz, .opus16khz, .opus24khz, .opus48khz]
 
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
@@ -38,14 +39,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
         // If voice processing is on, we want to override the format to something usable.
         let desiredFormat: AVAudioFormat?
-        var desiredSampleRate = AVAudioSession.sharedInstance().sampleRate
-        if desiredSampleRate != .opus48khz &&
-            desiredSampleRate != .opus24khz &&
-            desiredSampleRate != .opus16khz &&
-            desiredSampleRate != .opus12khz &&
-            desiredSampleRate != .opus8khz {
-            desiredSampleRate = .opus48khz
-        }
+        let current = AVAudioSession.sharedInstance().sampleRate
+        var desiredSampleRate = Self.opusSampleRates.contains(current) ? current : .opus48khz
         if engine.outputNode.isVoiceProcessingEnabled {
             desiredFormat = .init(commonFormat: engine.inputNode.outputFormat(forBus: 0).commonFormat,
                                   sampleRate: desiredSampleRate,
