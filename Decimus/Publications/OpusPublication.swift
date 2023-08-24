@@ -3,8 +3,11 @@ import AVFAudio
 import AVFoundation
 import CTPCircularBuffer
 import CoreAudio
+import os
 
 class OpusPublication: Publication {
+    private static let logger = DecimusLogger(OpusPublication.self)
+
     private actor _Measurement: Measurement {
         var name: String = "OpusPublication"
         var fields: [Date?: [String: AnyObject]] = [:]
@@ -36,7 +39,6 @@ class OpusPublication: Publication {
     private let format: AVAudioFormat
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
-    private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
     private let measurement: _Measurement?
     private let opusWindowSize: TimeInterval
@@ -58,7 +60,7 @@ class OpusPublication: Publication {
             do {
                 try self.encode()
             } catch {
-                self.log("Failed encode: \(error)")
+                Self.logger.error("Failed encode: \(error)")
             }
         }
     }
@@ -67,14 +69,12 @@ class OpusPublication: Publication {
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
          metricsSubmitter: MetricsSubmitter?,
-         errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliable: Bool,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
          format: AVAudioFormat) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.errorWriter = errorWriter
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -94,7 +94,7 @@ class OpusPublication: Publication {
         do {
             // Try and directly use the microphone output format.
             encoder = try .init(format: format)
-            log("Encoder created using native format: \(format)")
+            Self.logger.info("Encoder created using native format: \(self.format)")
         } catch {
             // We need to fallback to an opus supported format if we can.
             let sampleRate: Double = Self.isNativeOpusSampleRate(format.sampleRate) ? format.sampleRate : .opus48khz
@@ -104,7 +104,7 @@ class OpusPublication: Publication {
                                           interleaved: true)
             converter = .init(from: format, to: differentEncodeFormat!)!
             encoder = try .init(format: differentEncodeFormat!)
-            log("Encoder created using fallback format: \(differentEncodeFormat!)")
+            Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
         }
         encoder.registerCallback(callback: { [weak self] data, datalength, flag in
             guard let self = self else { return }
@@ -126,13 +126,12 @@ class OpusPublication: Publication {
 
         // Register our block.
         blocks.value.append(block)
-        log("Registered OPUS publication for source \(sourceID)")
+        Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 
     deinit {
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
-        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -171,7 +170,7 @@ class OpusPublication: Publication {
         pcm.frameLength = inOutFrames
         guard inOutFrames > 0 else { return }
         guard inOutFrames == windowFrames else {
-            log("Dequeue only got: \(inOutFrames)/\(windowFrames)")
+            Self.logger.info("Dequeue only got: \(inOutFrames)/\(windowFrames)")
             return
         }
 

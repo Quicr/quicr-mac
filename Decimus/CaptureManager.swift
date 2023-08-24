@@ -1,5 +1,6 @@
 import AVFoundation
 import UIKit
+import os
 
 public extension AVCaptureDevice {
     var id: UInt64 {
@@ -23,6 +24,7 @@ enum CaptureManagerError: Error {
 
 /// Manages local media capture.
 class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    private static let logger = DecimusLogger(CaptureManager.self)
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -85,9 +87,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     @Sendable
     private nonisolated func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
+            Self.logger.error("AVCaptureSession failed for unknown reason", alert: true)
             return
         }
-        print("CaptureManager => AVCaptureSession failure: \(error.localizedDescription)")
+        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)", alert: true)
     }
 
     func stopCapturing() throws {
@@ -162,10 +165,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     func addInput(_ listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
-        // Notify upfront.
-        print("CaptureManager => Adding capture device: \(listener.device.localizedName)")
+        Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
-        // Add.
         if listener.device.deviceType == .builtInMicrophone {
             throw CaptureManagerError.noAudio
         }
@@ -189,7 +190,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             outputs.removeValue(forKey: output.key)
         }
         session.commitConfiguration()
-        print("CaptureManager => Removing input for \(device.localizedName)")
+        Self.logger.info("Removing input for \(device.localizedName)")
     }
 
     func isMuted(device: AVCaptureDevice) throws -> Bool {

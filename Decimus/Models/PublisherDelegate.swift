@@ -1,20 +1,18 @@
 import AVFoundation
 import Foundation
+import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
+    private static let logger = DecimusLogger(PublisherDelegate.self)
+
     private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
-    private let errorWriter: ErrorWriter
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] \(message)")
-    }
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
-         errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
@@ -26,10 +24,6 @@ class PublisherDelegate: QPublisherDelegateObjC {
                              reliability: reliability,
                              blocks: blocks,
                              format: format)
-        self.errorWriter = errorWriter
-    }
-    deinit {
-        log("deinit")
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -41,16 +35,18 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
-                                       metricsSubmitter: metricsSubmitter,
-                                       errorWriter: errorWriter)
-            if let h264publication = publication as? FrameListener {
-                DispatchQueue.main.async { [unowned capture] in
-                    try! capture.addInput(h264publication) // swiftlint:disable:this force_try
-                }
+                                       metricsSubmitter: metricsSubmitter)
+
+            guard let h264publication = publication as? FrameListener else {
+                return publication
+            }
+
+            DispatchQueue.main.async { [unowned capture] in
+                try! capture.addInput(h264publication) // swiftlint:disable:this force_try
             }
             return publication
         } catch {
-            errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)", alert: true)
             return nil
         }
     }

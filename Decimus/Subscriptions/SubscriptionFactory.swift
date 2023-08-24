@@ -57,48 +57,7 @@ struct SubscriptionConfig: Codable {
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
-                                             MetricsSubmitter?,
-                                             ErrorWriter) throws -> Subscription?
-
-    private lazy var factories: [CodecType: FactoryCallbackType] = [
-        .h264: { [weak self] in
-            guard let self = self else { throw SubscriptionFactoryError.NoFactory }
-            guard let config = $1 as? VideoCodecConfig else {
-                throw SubscriptionFactoryError.InvalidCodecConfig(type(of: $1))
-            }
-
-            let namegate: NameGate
-            switch self.config.videoBehaviour {
-            case .artifact:
-                namegate = AllowAllNameGate()
-            case .freeze:
-                namegate = SequentialObjectBlockingNameGate()
-            }
-
-            return H264Subscription(namespace: $0,
-                                    config: config,
-                                    participants: self.participants,
-                                    metricsSubmitter: $2,
-                                    errorWriter: $3,
-                                    namegate: namegate,
-                                    reliable: self.config.mediaReliability.video.subscription)
-        },
-        .opus: { [weak self] in
-            guard let self = self else { throw SubscriptionFactoryError.NoFactory }
-            guard let config = $1 as? AudioCodecConfig else {
-                throw SubscriptionFactoryError.InvalidCodecConfig(type(of: $1))
-            }
-            return try OpusSubscription(namespace: $0,
-                                        player: self.player,
-                                        config: config,
-                                        submitter: $2,
-                                        errorWriter: $3,
-                                        jitterDepth: self.config.jitterDepth,
-                                        jitterMax: self.config.jitterMax,
-                                        opusWindowSize: self.config.opusWindowSize,
-                                        reliable: self.config.mediaReliability.audio.subscription)
-        }
-    ]
+                                             MetricsSubmitter?) throws -> Subscription?
 
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
@@ -111,12 +70,42 @@ class SubscriptionFactory {
 
     func create(_ namespace: QuicrNamespace,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?,
-                errorWriter: ErrorWriter) throws -> Subscription? {
-        guard let factory = factories[config.codec] else {
+                metricsSubmitter: MetricsSubmitter?) throws -> Subscription? {
+
+        switch config.codec {
+        case .h264:
+            guard let config = config as? VideoCodecConfig else {
+                throw CodecError.invalidCodecConfig(type(of: config))
+            }
+
+            let namegate: NameGate
+            switch self.config.videoBehaviour {
+            case .artifact:
+                namegate = AllowAllNameGate()
+            case .freeze:
+                namegate = SequentialObjectBlockingNameGate()
+            }
+
+            return H264Subscription(namespace: namespace,
+                                    config: config,
+                                    participants: self.participants,
+                                    metricsSubmitter: metricsSubmitter,
+                                    namegate: namegate,
+                                    reliable: self.config.mediaReliability.video.subscription)
+        case .opus:
+            guard let config = config as? AudioCodecConfig else {
+                throw CodecError.invalidCodecConfig(type(of: config))
+            }
+            return try OpusSubscription(namespace: namespace,
+                                        player: self.player,
+                                        config: config,
+                                        submitter: metricsSubmitter,
+                                        jitterDepth: self.config.jitterDepth,
+                                        jitterMax: self.config.jitterMax,
+                                        opusWindowSize: self.config.opusWindowSize,
+                                        reliable: self.config.mediaReliability.audio.subscription)
+        default:
             throw CodecError.noCodecFound(config.codec)
         }
-
-        return try factory(namespace, config, metricsSubmitter, errorWriter)
     }
 }

@@ -1,5 +1,6 @@
 import CoreMedia
 import AVFoundation
+import os
 
 enum CallError: Error {
     case failedToConnect(Int32)
@@ -13,25 +14,24 @@ class MutableWrapper<T> {
 }
 
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
-    let notifier: NotificationCenter = .default
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
+    private static let logger = DecimusLogger(CallController.self)
 
-    init(errorWriter: ErrorWriter,
-         metricsSubmitter: MetricsSubmitter?,
+    init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          config: SubscriptionConfig) {
         do {
             try AVAudioSession.configureForDecimus()
         } catch {
-            errorWriter.writeError("Failed to set configure AVAudioSession: \(error.localizedDescription)")
+            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
         engine = .init()
         if engine.outputNode.isVoiceProcessingEnabled != config.voiceProcessing {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(config.voiceProcessing)
             } catch {
-                errorWriter.writeError("Failed to set voice processing: \(error.localizedDescription)")
+                Self.logger.error("Failed to set voice processing: \(error.localizedDescription)")
             }
         }
         assert(engine.outputNode.isVoiceProcessingEnabled == engine.inputNode.isVoiceProcessingEnabled)
@@ -67,14 +67,12 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         engine.connect(engine.inputNode, to: sink, format: desiredFormat)
 
         super.init()
-        self.subscriberDelegate = SubscriberDelegate(errorWriter: errorWriter,
-                                                     submitter: metricsSubmitter,
+        self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
                                                      engine: engine)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,
-                                                   errorWriter: errorWriter,
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability,
                                                    blocks: blocks,
