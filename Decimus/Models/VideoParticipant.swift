@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import os
 
 enum ParticipantError: Error {
     case notFound
@@ -17,6 +18,8 @@ class VideoParticipant: ObservableObject, Identifiable {
 }
 
 class VideoParticipants: ObservableObject {
+    private static let logger = DecimusLogger(VideoParticipants.self)
+
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
 
@@ -45,6 +48,6 @@ class VideoParticipants: ObservableObject {
         DispatchQueue.main.async {
             self.objectWillChange.send()
         }
-        print("VideoParticipants => [\(identifier)] Removed participant")
+        Self.logger.info("[\(identifier)] Removed participant")
     }
 }

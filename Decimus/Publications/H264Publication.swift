@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import os
 
 actor VideoMeasurement: Measurement {
     var name: String = "VideoPublication"
@@ -32,6 +33,8 @@ enum H264PublicationError: Error {
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
+    private static let logger = DecimusLogger(H264Publication.self)
+
     private let measurement: VideoMeasurement?
 
     let namespace: QuicrNamespace
@@ -40,7 +43,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let queue: DispatchQueue
 
     private var encoder: H264Encoder
-    private let errorWriter: ErrorWriter
     private let reliable: Bool
 
     required init(namespace: QuicrNamespace,
@@ -48,7 +50,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
-                  errorWriter: ErrorWriter,
                   reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
@@ -59,7 +60,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.errorWriter = errorWriter
         self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
@@ -92,11 +92,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
         }
 
-        log("Registered H264 publication for source \(sourceID)")
-    }
-
-    deinit {
-        log("deinit")
+        Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -120,7 +116,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
 
-        log(String(describing: reason))
+        Self.logger.warning("\(String(describing: reason))")
     }
 
     /// This callback fires when a video frame arrives.
@@ -143,7 +139,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         do {
             try encoder.write(sample: sampleBuffer)
         } catch {
-            self.errorWriter.writeError("Failed to encode frame: \(error.localizedDescription)")
+            Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
     }
 }

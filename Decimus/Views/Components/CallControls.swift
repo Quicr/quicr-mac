@@ -1,9 +1,9 @@
 import SwiftUI
 import AVFoundation
+import os
 
 @MainActor
 struct CallControls: View {
-    @EnvironmentObject private var errorHandler: ObservableError
     @StateObject var viewModel: ViewModel
 
     @Binding var leaving: Bool
@@ -28,8 +28,8 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, captureManager: CaptureManager?, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
+    init(captureManager: CaptureManager?, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager))
         _leaving = leaving
     }
 
@@ -162,26 +162,24 @@ struct CallControls: View {
         }
         .frame(maxWidth: 650)
         .scaledToFit()
-        .onDisappear(perform: { viewModel.leave() })
     }
 }
 
 extension CallControls {
     @MainActor
     class ViewModel: ObservableObject {
+        private static let logger = Logger(
+            subsystem: Bundle.main.bundleIdentifier!,
+            category: String(describing: CallControls.ViewModel.self)
+        )
+
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
         private unowned let capture: CaptureManager?
-        private let errorWriter: ErrorWriter
 
-        init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
-            self.errorWriter = errorWriter
+        init(captureManager: CaptureManager?) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
-        }
-
-        func leave() {
-            alteringDevice.removeAll()
         }
 
         func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
@@ -192,7 +190,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                errorWriter.writeError("Failed to query devices: \(error.localizedDescription)")
+                Self.logger.error("Failed to query devices: \(error.localizedDescription)")
                 return []
             }
         }
@@ -205,7 +203,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                errorWriter.writeError("Failed to query active devices: \(error.localizedDescription)")
+                Self.logger.error("Failed to query active devices: \(error.localizedDescription)")
                 return []
             }
         }
@@ -224,7 +222,7 @@ extension CallControls {
                     }
                 }
             } catch {
-                errorWriter.writeError("Failed to toggle device: \(error.localizedDescription)")
+                Self.logger.error("Failed to toggle device: \(error.localizedDescription)")
             }
         }
 
@@ -238,8 +236,7 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        let errorWriter: ObservableError = .init()
         let capture: CaptureManager? = try? .init()
-        CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
+        CallControls(captureManager: capture, leaving: bool)
     }
 }

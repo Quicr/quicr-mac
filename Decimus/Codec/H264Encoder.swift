@@ -2,8 +2,11 @@ import VideoToolbox
 import CoreVideo
 import UIKit
 import AVFoundation
+import os
 
 class H264Encoder: Encoder {
+    private static let logger = DecimusLogger(H264Encoder.self)
+
     internal var callback: EncodedCallback?
 
     private var encoder: VTCompressionSession?
@@ -73,7 +76,7 @@ class H264Encoder: Encoder {
         let flushError = VTCompressionSessionCompleteFrames(session,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            print("H264 Encoder failed to flush")
+            Self.logger.error("H264 Encoder failed to flush", alert: true)
         }
 
         VTCompressionSessionInvalidate(session)
@@ -111,7 +114,7 @@ class H264Encoder: Encoder {
         if idr {
             // SPS + PPS.
             guard let parameterSets = try? handleParameterSets(sample: sample) else {
-                print("Failed to handle parameter sets")
+                Self.logger.error("Failed to handle parameter sets")
                 return
             }
             parameterSets.withUnsafeBytes {

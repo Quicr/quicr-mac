@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 struct ManifestServerConfig: Codable {
     var scheme: String = "https"
@@ -7,6 +8,8 @@ struct ManifestServerConfig: Codable {
 }
 
 class ManifestController {
+    private static let logger = DecimusLogger(ManifestController.self)
+
     static let shared = ManifestController()
 
     private var components: URLComponents = .init()
@@ -37,12 +40,12 @@ class ManifestController {
             defer { self.mutex.signal() }
 
             if let error = error {
-                print("Failed to send request: \(error)")
+                Self.logger.error("Failed to send request: \(error)")
                 return
             }
 
             if let response = response as? HTTPURLResponse {
-                print("Got HTTP response with status code: \(response.statusCode)")
+                Self.logger.info("Got HTTP response with status code: \(response.statusCode)")
             }
 
             if let data = data {
