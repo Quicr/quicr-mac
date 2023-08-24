@@ -32,7 +32,7 @@ enum H264PublicationError: Error {
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
-    private let measurement: VideoMeasurement
+    private let measurement: VideoMeasurement?
 
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
@@ -47,12 +47,16 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   publishDelegate: QPublishObjectDelegateObjC,
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
-                  metricsSubmitter: MetricsSubmitter,
+                  metricsSubmitter: MetricsSubmitter?,
                   errorWriter: ErrorWriter,
                   reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.errorWriter = errorWriter
@@ -73,20 +77,24 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        
-        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, datalength, flag in
-            let timestamp = Date.now
-            Task(priority: .utility) {
-                await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
-            }
-            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
-        }
-        self.encoder = try .init(config: config, verticalMirror: device.position == .front, callback: onEncodedData)
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
         super.init()
+
+        self.encoder.registerCallback { [weak self] data, datalength, flag in
+            guard let self = self else { return }
+
+            let timestamp = Date.now
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
+                }
+            }
+            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
+        }
 
         log("Registered H264 publication for source \(sourceID)")
     }
-    
+
     deinit {
         log("deinit")
     }
@@ -125,8 +133,10 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
         let date = Date.now
-        Task(priority: .utility) {
-            await measurement.sentPixels(sent: pixels, timestamp: date)
+        if let measurement = measurement {
+            Task(priority: .utility) {
+                await measurement.sentPixels(sent: pixels, timestamp: date)
+            }
         }
 
         // Encode.

@@ -116,10 +116,13 @@ extension InCallView {
                 errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
                 return
             }
-            let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
-            Task {
-                guard influxConfig.value.submit else { return }
-                await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
+            var submitter: MetricsSubmitter?
+            if influxConfig.value.submit {
+                let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
+                submitter = influx
+                Task {
+                    await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
+                }
             }
 
             self.controller = .init(errorWriter: errorHandler,
@@ -131,7 +134,7 @@ extension InCallView {
         func join() async -> Bool {
             do {
                 try await self.controller!.connect(config: config)
-                try await captureManager?.startCapturing()
+                try captureManager?.startCapturing()
                 return true
             } catch {
                 errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
@@ -141,7 +144,7 @@ extension InCallView {
 
         func leave() async {
             do {
-                try await captureManager!.stopCapturing()
+                try captureManager!.stopCapturing()
                 try controller!.disconnect()
             } catch {
                 errorHandler.writeError("Error while leaving call: \(error)")

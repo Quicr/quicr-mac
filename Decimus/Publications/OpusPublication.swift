@@ -38,7 +38,7 @@ class OpusPublication: Publication {
     private var differentEncodeFormat: AVAudioFormat?
     private let errorWriter: ErrorWriter
     private var encodeTimer: Timer?
-    private let measurement: _Measurement
+    private let measurement: _Measurement?
     private let opusWindowSize: TimeInterval
     private let reliable: Bool
 
@@ -66,7 +66,7 @@ class OpusPublication: Publication {
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
          sourceID: SourceIDType,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
          reliable: Bool,
@@ -75,7 +75,11 @@ class OpusPublication: Publication {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.errorWriter = errorWriter
-        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         guard format.sampleRate > 0 else { throw "Invalid input format" }
@@ -104,8 +108,10 @@ class OpusPublication: Publication {
         }
         encoder.registerCallback(callback: { [weak self] data, datalength, flag in
             guard let self = self else { return }
-            Task(priority: .utility) {
-                await self.measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
+                }
             }
             self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
         })

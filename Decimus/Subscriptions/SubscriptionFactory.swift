@@ -57,7 +57,7 @@ struct SubscriptionConfig: Codable {
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
-                                             MetricsSubmitter,
+                                             MetricsSubmitter?,
                                              ErrorWriter) throws -> Subscription?
 
     private lazy var factories: [CodecType: FactoryCallbackType] = [
@@ -111,7 +111,7 @@ class SubscriptionFactory {
 
     func create(_ namespace: QuicrNamespace,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter,
+                metricsSubmitter: MetricsSubmitter?,
                 errorWriter: ErrorWriter) throws -> Subscription? {
         guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)

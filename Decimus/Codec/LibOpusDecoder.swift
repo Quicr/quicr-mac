@@ -3,7 +3,7 @@ import AVFoundation
 
 /// Decodes audio using libopus.
 class LibOpusDecoder {
-    
+
     func log(_ message: String) {
         print("[\(String(describing: type(of: self)))] \(message)")
     }
@@ -17,7 +17,7 @@ class LibOpusDecoder {
         self.decodedFormat = format
         decoder = try .init(format: format, application: .voip)
     }
-    
+
     deinit {
         log("deinit")
     }

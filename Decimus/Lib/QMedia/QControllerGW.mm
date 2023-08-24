@@ -28,7 +28,7 @@
 }
 
 - (void)dealloc {
-    NSLog(@"QControllerGWObjC - dealloc");
+    NSLog(@"QControllerGW - dealloc");
 }
 
 -(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol

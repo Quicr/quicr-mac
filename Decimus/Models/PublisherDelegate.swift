@@ -4,7 +4,7 @@ import Foundation
 class PublisherDelegate: QPublisherDelegateObjC {
     private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
-    private let metricsSubmitter: MetricsSubmitter
+    private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
     private let errorWriter: ErrorWriter
     func log(_ message: String) {
@@ -12,7 +12,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
     }
 
     init(publishDelegate: QPublishObjectDelegateObjC,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          errorWriter: ErrorWriter,
          opusWindowSize: TimeInterval,
@@ -43,16 +43,12 @@ class PublisherDelegate: QPublisherDelegateObjC {
                                        config: config,
                                        metricsSubmitter: metricsSubmitter,
                                        errorWriter: errorWriter)
-
-            guard let h264publication = publication as? FrameListener else {
-                return publication
-            }
-
-            Task(priority: .medium) { [weak capture] in
-                try await capture?.addInput(h264publication)
+            if let h264publication = publication as? FrameListener {
+                DispatchQueue.main.async { [unowned capture] in
+                    try! capture.addInput(h264publication) // swiftlint:disable:this force_try
+                }
             }
             return publication
-
         } catch {
             errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
             return nil

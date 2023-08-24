@@ -56,7 +56,6 @@
 		D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619442A28FC9D00EC0556 /* QControllerGW.mm */; };
 		D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
 		D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		D7E9C3002A7AB7C2001838BB /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7E9C2FF2A7AB7C2001838BB /* EncodedFrameBufferAllocator.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
@@ -196,9 +195,6 @@
 		D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGWObjC.h; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		D786194B2A290F1600EC0556 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = qmedia.xcframework; path = dependencies/qmedia.xcframework; sourceTree = "<group>"; };
-		D78AADC32A817CC300411EE1 /* ExtBufferAllocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ExtBufferAllocator.h; sourceTree = "<group>"; };
-		D7E9C2FE2A7AB7C2001838BB /* EncodedFrameBufferAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EncodedFrameBufferAllocator.h; sourceTree = "<group>"; };
-		D7E9C2FF2A7AB7C2001838BB /* EncodedFrameBufferAllocator.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = EncodedFrameBufferAllocator.mm; sourceTree = "<group>"; };
 		FF01709529C10013000E23A6 /* FormInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormInput.swift; sourceTree = "<group>"; };
 		FF1C5C2A29DD110600887833 /* CallControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallControls.swift; sourceTree = "<group>"; };
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
@@ -462,16 +458,6 @@
 			path = ci_scripts;
 			sourceTree = "<group>";
 		};
-		D7E9C2FD2A7AB7C2001838BB /* EncodedBuffer */ = {
-			isa = PBXGroup;
-			children = (
-				D7E9C2FE2A7AB7C2001838BB /* EncodedFrameBufferAllocator.h */,
-				D7E9C2FF2A7AB7C2001838BB /* EncodedFrameBufferAllocator.mm */,
-				D78AADC32A817CC300411EE1 /* ExtBufferAllocator.h */,
-			);
-			path = EncodedBuffer;
-			sourceTree = "<group>";
-		};
 		FF2498AE2A534E5B00C6D66D /* Publications */ = {
 			isa = PBXGroup;
 			children = (
@@ -504,7 +490,6 @@
 		FF3B952D2A60C77B00CE463F /* Lib */ = {
 			isa = PBXGroup;
 			children = (
-				D7E9C2FD2A7AB7C2001838BB /* EncodedBuffer */,
 				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
 				9B48068A298301ED0040F5D4 /* QMedia */,
 				FF3B95292A60C19800CE463F /* Jitter */,
@@ -805,7 +790,6 @@
 				FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */,
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
-				D7E9C3002A7AB7C2001838BB /* EncodedFrameBufferAllocator.mm in Sources */,
 				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,

@@ -6,14 +6,14 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
     private let errorWriter: ErrorWriter
-    private let submitter: MetricsSubmitter
+    private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
-    
+
     func log(_ message: String) {
         print("[\(String(describing: type(of: self)))] \(message)")
     }
 
-    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig, engine: AVAudioEngine) {
+    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter?, config: SubscriptionConfig, engine: AVAudioEngine) {
         self.participants = .init()
         self.player = .init(errorWriter: errorWriter, engine: engine)
         self.errorWriter = errorWriter

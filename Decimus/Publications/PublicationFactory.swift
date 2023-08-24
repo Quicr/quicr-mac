@@ -6,7 +6,7 @@ class PublicationFactory {
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter,
+                                             MetricsSubmitter?,
                                              ErrorWriter) throws -> Publication
 
     private let opusWindowSize: TimeInterval
@@ -27,15 +27,13 @@ class PublicationFactory {
         .h264: { [weak self] in
             guard let config = $3 as? VideoCodecConfig else { fatalError() }
             guard let reliable = self?.reliability.video.publication else { fatalError() }
-            let publication = try H264Publication(namespace: $0,
-                                                  publishDelegate: $1,
-                                                  sourceID: $2,
-                                                  config: config,
-                                                  metricsSubmitter: $4,
-                                                  errorWriter: $5,
-                                                  reliable: reliable)
-
-            return publication
+            return try H264Publication(namespace: $0,
+                                       publishDelegate: $1,
+                                       sourceID: $2,
+                                       config: config,
+                                       metricsSubmitter: $4,
+                                       errorWriter: $5,
+                                       reliable: reliable)
         },
         .opus: { [opusWindowSize, reliability] in
             guard let config = $3 as? AudioCodecConfig else { fatalError() }
@@ -56,7 +54,7 @@ class PublicationFactory {
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter,
+                metricsSubmitter: MetricsSubmitter?,
                 errorWriter: ErrorWriter) throws -> Publication {
         guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)

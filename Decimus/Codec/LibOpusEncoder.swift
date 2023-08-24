@@ -21,7 +21,7 @@ class LibOpusEncoder: Encoder {
     private var opusFrameSizeBytes: UInt32 = 0
     private let desiredFrameSizeMs: Double = 10
     private let format: AVAudioFormat
-    
+
     func log(_ message: String) {
         print("[\(String(describing: type(of: self)))] \(message)")
     }
@@ -37,7 +37,7 @@ class LibOpusEncoder: Encoder {
         opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
-    
+
     deinit {
         log("deinit")
     }
