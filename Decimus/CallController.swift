@@ -9,7 +9,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     let notifier: NotificationCenter = .default
 
     init(errorWriter: ErrorWriter,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          config: SubscriptionConfig) {
         super.init()

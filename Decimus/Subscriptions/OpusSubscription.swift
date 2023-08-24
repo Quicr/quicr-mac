@@ -75,7 +75,7 @@ class OpusSubscription: Subscription {
     private let errorWriter: ErrorWriter
     private var jitterBuffer: QJitterBuffer
     private var seq: UInt32 = 0
-    private let measurement: OpusSubscriptionMeasurement
+    private let measurement: OpusSubscriptionMeasurement?
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
     private let reliable: Bool
@@ -83,7 +83,7 @@ class OpusSubscription: Subscription {
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
-         submitter: MetricsSubmitter,
+         submitter: MetricsSubmitter?,
          errorWriter: ErrorWriter,
          jitterDepth: UInt,
          jitterMax: UInt,
@@ -92,7 +92,11 @@ class OpusSubscription: Subscription {
         self.namespace = namespace
         self.player = player
         self.errorWriter = errorWriter
-        self.measurement = .init(namespace: namespace, submitter: submitter)
+        if let submitter = submitter {
+            self.measurement = .init(namespace: namespace, submitter: submitter)
+        } else {
+            self.measurement = nil
+        }
         self.reliable = reliable
 
         do {
@@ -217,9 +221,11 @@ class OpusSubscription: Subscription {
                 print(error.localizedDescription)
             }
         }
-        let constConcealed = concealed
-        Task(priority: .utility) {
-            await subscription.measurement.concealmentFrames(concealed: constConcealed, timestamp: nil)
+        if let measurement = subscription.measurement {
+            let constConcealed = concealed
+            Task(priority: .utility) {
+                await measurement.concealmentFrames(concealed: constConcealed, timestamp: nil)
+            }
         }
     }
 
@@ -267,14 +273,16 @@ class OpusSubscription: Subscription {
         if groupId > self.seq {
             let missing = groupId - self.seq - 1
             let currentSeq = self.seq
-            Task(priority: .utility) {
-                await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
-                if missing > 0 {
-                    log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
-                    await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+                    if missing > 0 {
+                        log("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
+                        await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+                    }
+                    await measurement.framesUnderrun(underrun: self.underrun.value, timestamp: date)
+                    await measurement.callbacks(callbacks: self.callbacks.value, timestamp: date)
                 }
-                await measurement.framesUnderrun(underrun: self.underrun.value, timestamp: date)
-                await measurement.callbacks(callbacks: self.callbacks.value, timestamp: date)
             }
             self.seq = groupId
         }
@@ -307,8 +315,10 @@ class OpusSubscription: Subscription {
             throw "Unexpected number of buffers"
         }
 
-        Task(priority: .utility) {
-            await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
+        if let measurement = measurement {
+            Task(priority: .utility) {
+                await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
+            }
         }
 
         // Get audio data as packet list.

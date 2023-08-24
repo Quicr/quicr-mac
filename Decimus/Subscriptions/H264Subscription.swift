@@ -36,7 +36,7 @@ class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
     private var decoder: H264Decoder
     private unowned let participants: VideoParticipants
-    private let measurement: _Measurement
+    private let measurement: _Measurement?
     private let errorWriter: ErrorWriter
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
@@ -46,14 +46,18 @@ class H264Subscription: Subscription {
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          errorWriter: ErrorWriter,
          namegate: NameGate,
          reliable: Bool) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
-        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.errorWriter = errorWriter
         self.namegate = namegate
         self.reliable = reliable
@@ -83,10 +87,12 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
-        let now: Date = .now
-        Task(priority: .utility) {
-            await self.measurement.receivedFrame(timestamp: now)
-            await self.measurement.receivedBytes(received: data.count, timestamp: now)
+        if let measurement = self.measurement {
+            let now: Date = .now
+            Task(priority: .utility) {
+                await measurement.receivedFrame(timestamp: now)
+                await measurement.receivedBytes(received: data.count, timestamp: now)
+            }
         }
 
         DispatchQueue.main.async {
@@ -124,9 +130,11 @@ class H264Subscription: Subscription {
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
-        let now: Date = .now
-        Task(priority: .utility) {
-            await self.measurement.decodedFrame(timestamp: now)
+        if let measurement = self.measurement {
+            let now: Date = .now
+            Task(priority: .utility) {
+                await measurement.decodedFrame(timestamp: now)
+            }
         }
 
         // FIXME: Driving from proper timestamps probably preferable.

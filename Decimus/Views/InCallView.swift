@@ -116,10 +116,13 @@ extension InCallView {
                 errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
                 return
             }
-            let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
-            Task {
-                guard influxConfig.value.submit else { return }
-                await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
+            var submitter: MetricsSubmitter?
+            if influxConfig.value.submit {
+                let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
+                submitter = influx
+                Task {
+                    await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
+                }
             }
 
             self.controller = .init(errorWriter: errorHandler,

@@ -5,7 +5,7 @@ class PublicationFactory {
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter,
+                                             MetricsSubmitter?,
                                              ErrorWriter) throws -> Publication
 
     private let opusWindowSize: TimeInterval
@@ -44,7 +44,7 @@ class PublicationFactory {
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter,
+                metricsSubmitter: MetricsSubmitter?,
                 errorWriter: ErrorWriter) throws -> Publication {
         guard let factory = factories[config.codec] else {
             throw CodecError.noCodecFound(config.codec)
