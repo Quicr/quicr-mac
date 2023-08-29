@@ -39,11 +39,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         assert(engine.outputNode.isVoiceProcessingEnabled == engine.inputNode.isVoiceProcessingEnabled)
 
         // Ducking.
+#if compiler(>=5.9)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
             let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
                                                                                       duckingLevel: .min)
             engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
         }
+#endif
 
         // If voice processing is on, we want to override the format to something usable.
         var desiredFormat: AVAudioFormat?
