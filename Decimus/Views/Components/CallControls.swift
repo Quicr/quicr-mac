@@ -18,7 +18,7 @@ struct CallControls: View {
     )
 
     init(captureManager: CaptureManager?, engine: AVAudioEngine, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: .init(captureManager: captureManager, engine: engine))
+        _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager, engine: engine))
         _leaving = leaving
     }
 
