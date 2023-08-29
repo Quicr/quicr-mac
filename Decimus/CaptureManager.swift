@@ -78,7 +78,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.session.startRunning()
-            if let observer = observer {
+            if let observer = self.observer {
                 self.notifier.removeObserver(observer)
             }
         }

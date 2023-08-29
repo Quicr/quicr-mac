@@ -108,7 +108,7 @@ class OpusPublication: Publication {
         }
         encoder.registerCallback(callback: { [weak self] data, datalength, flag in
             guard let self = self else { return }
-            if let measurement = measurement {
+            if let measurement = self.measurement {
                 Task(priority: .utility) {
                     await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
                 }
