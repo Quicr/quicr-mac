@@ -84,7 +84,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             guard let self = self else { return }
 
             let timestamp = Date.now
-            if let measurement = measurement {
+            if let measurement = self.measurement {
                 Task(priority: .utility) {
                     await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
                 }
