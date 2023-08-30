@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import os
 
 actor VideoMeasurement: Measurement {
     var name: String = "VideoPublication"
@@ -60,7 +61,9 @@ enum H264PublicationError: Error {
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
-    private let measurement: VideoMeasurement
+    private static let logger = DecimusLogger(H264Publication.self)
+
+    private let measurement: VideoMeasurement?
 
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
@@ -68,7 +71,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let queue: DispatchQueue
 
     private var encoder: H264Encoder
-    private let errorWriter: ErrorWriter
     private let reliable: Bool
     private var lastCapture: Date?
     private var lastPublish: WrappedOptional<Date> = .init(nil)
@@ -77,15 +79,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   publishDelegate: QPublishObjectDelegateObjC,
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
-                  metricsSubmitter: MetricsSubmitter,
-                  errorWriter: ErrorWriter,
+                  metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
-        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.errorWriter = errorWriter
         self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
@@ -105,6 +109,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.device = device
 
         let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, datalength, flag in
+            // Publish.
+            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
+
+            // Metrics.
+            guard let measurement = measurement else { return }
             let timestamp = Date.now
             let delay: Double?
             if let last = lastPublish.value {
@@ -120,16 +129,12 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                 await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
                 await measurement.publishedFrame(timestamp: timestamp)
             }
-            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
         }
-        self.encoder = try .init(config: config, verticalMirror: device.position == .front, callback: onEncodedData)
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
+        self.encoder.registerCallback(callback: onEncodedData)
         super.init()
 
-        log("Registered H264 publication for source \(sourceID)")
-    }
-
-    deinit {
-        log("deinit")
+        Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -152,11 +157,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let reason = CMGetAttachment(sampleBuffer,
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
-
-        log(String(describing: reason))
+        Self.logger.warning("\(String(describing: reason))")
+        guard let measurement = self.measurement else { return }
         let now = Date.now
         Task(priority: .utility) {
-            await self.measurement.droppedFrame(timestamp: now)
+            await measurement.droppedFrame(timestamp: now)
         }
     }
 
@@ -164,7 +169,15 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        // Report pixel metrics.
+        // Encode.
+        do {
+            try encoder.write(sample: sampleBuffer)
+        } catch {
+            Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
+        }
+
+        // Metrics.
+        guard let measurement = self.measurement else { return }
         guard let buffer = sampleBuffer.imageBuffer else { return }
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
@@ -183,13 +196,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             }
             await measurement.capturedFrame(timestamp: date)
             await measurement.sentPixels(sent: pixels, timestamp: date)
-        }
-
-        // Encode.
-        do {
-            try encoder.write(sample: sampleBuffer)
-        } catch {
-            self.errorWriter.writeError("Failed to encode frame: \(error.localizedDescription)")
         }
     }
 }

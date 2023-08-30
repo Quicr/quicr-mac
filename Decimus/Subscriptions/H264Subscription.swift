@@ -1,6 +1,9 @@
 import AVFoundation
+import os
 
 class H264Subscription: Subscription {
+    private static let logger = DecimusLogger(H264Subscription.self)
+
     private actor _Measurement: Measurement {
         var name: String = "H264Subscription"
         var fields: [Date?: [String: AnyObject]] = [:]
@@ -44,8 +47,7 @@ class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
     private var decoder: H264Decoder
     private unowned let participants: VideoParticipants
-    private let measurement: _Measurement
-    private let errorWriter: ErrorWriter
+    private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
     private let namegate: NameGate
@@ -56,15 +58,17 @@ class H264Subscription: Subscription {
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter,
-         errorWriter: ErrorWriter,
+         metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
          reliable: Bool) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
-        self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
-        self.errorWriter = errorWriter
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.namegate = namegate
         self.reliable = reliable
 
@@ -72,12 +76,11 @@ class H264Subscription: Subscription {
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
         }
 
-        log("Subscribed to H264 stream")
+        Self.logger.info("Subscribed to H264 stream")
     }
 
     deinit {
         try? participants.removeParticipant(identifier: namespace)
-        log("deinit")
     }
 
     func prepare(_ sourceID: SourceIDType!,
@@ -93,22 +96,26 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
-        let now: Date = .now
-        let delta: Double?
-        if let last = lastReceive {
-            delta = now.timeIntervalSince(last) * 1000
-        } else {
-            delta = nil
-        }
-        lastReceive = now
-        Task(priority: .utility) {
-            if let delta = delta {
-                await self.measurement.receiveDelta(delta: delta, timestamp: now)
+        // Metrics.
+        if let measurement = self.measurement {
+            let now: Date = .now
+            let delta: Double?
+            if let last = lastReceive {
+                delta = now.timeIntervalSince(last) * 1000
+            } else {
+                delta = nil
             }
-            await self.measurement.receivedFrame(timestamp: now)
-            await self.measurement.receivedBytes(received: data.count, timestamp: now)
+            lastReceive = now
+            Task(priority: .utility) {
+                if let delta = delta {
+                    await measurement.receiveDelta(delta: delta, timestamp: now)
+                }
+                await measurement.receivedFrame(timestamp: now)
+                await measurement.receivedBytes(received: data.count, timestamp: now)
+            }
         }
 
+        // Update keep alive timer for showing video.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             participant.lastUpdated = .now()
@@ -124,18 +131,19 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            log("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            Self.logger.warning("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
             return SubscriptionError.None.rawValue
         }
         lastGroup = groupId
         lastObject = objectId
 
+        // Decode.
         do {
             try data.withUnsafeBytes {
                 try decoder.write(data: $0, timestamp: 0)
             }
         } catch {
-            self.errorWriter.writeError("Failed to write to decoder: \(error.localizedDescription)")
+            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
         }
         return SubscriptionError.None.rawValue
     }
@@ -144,19 +152,21 @@ class H264Subscription: Subscription {
                                   timestamp: CMTimeValue,
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
-        let now: Date = .now
-        let delta: Double?
-        if let last = lastDecode {
-            delta = now.timeIntervalSince(last) * 1000
-        } else {
-            delta = nil
-        }
-        lastDecode = now
-        Task(priority: .utility) {
-            if let delta = delta {
-                await self.measurement.decodeDelta(delta: delta, timestamp: now)
+        if let measurement = self.measurement {
+            let now: Date = .now
+            let delta: Double?
+            if let last = lastDecode {
+                delta = now.timeIntervalSince(last) * 1000
+            } else {
+                delta = nil
             }
-            await self.measurement.decodedFrame(timestamp: now)
+            lastDecode = now
+            Task(priority: .utility) {
+                if let delta = delta {
+                    await measurement.decodeDelta(delta: delta, timestamp: now)
+                }
+                await measurement.decodedFrame(timestamp: now)
+            }
         }
 
         // FIXME: Driving from proper timestamps probably preferable.
@@ -174,7 +184,7 @@ class H264Subscription: Subscription {
                 fatalError()
             }
             guard layer.status != .failed else {
-                self.log("Layer failed: \(layer.error!)")
+                Self.logger.error("Layer failed: \(layer.error!)")
                 layer.flush()
                 return
             }

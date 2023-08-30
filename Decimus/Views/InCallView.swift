@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import os
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
@@ -13,9 +14,6 @@ struct InCallView: View {
         viewModel.controller!.subscriberDelegate.participants.participants.isEmpty
     }
 
-    @EnvironmentObject private var errorHandler: ObservableError
-    private let errorWriter: ErrorWriter
-
     /// Callback when call is left.
     private let onLeave: () -> Void
     private let orientationChanged = NotificationCenter
@@ -24,11 +22,10 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
 
-    init(errorWriter: ErrorWriter, config: CallConfig, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
-        self.errorWriter = errorWriter
         self.onLeave = onLeave
-        _viewModel = .init(wrappedValue: .init(errorHandler: errorWriter, config: config))
+        _viewModel = .init(wrappedValue: .init(config: config))
     }
 
     var body: some View {
@@ -53,8 +50,8 @@ struct InCallView: View {
                 }
 
                 if let capture = viewModel.captureManager {
-                    CallControls(errorWriter: errorWriter,
-                                 captureManager: capture,
+                    CallControls(captureManager: capture,
+                                 engine: viewModel.engine,
                                  leaving: $leaving)
                         .disabled(leaving)
                         .padding(.bottom)
@@ -69,8 +66,6 @@ struct InCallView: View {
                 }, cancelAction: leaving = false)
                 .frame(maxWidth: 400, alignment: .center)
             }
-
-            ErrorView()
         }
         .background(.black)
         .onChange(of: noParticipants) { newValue in
@@ -90,7 +85,9 @@ struct InCallView: View {
 extension InCallView {
     @MainActor
     class ViewModel: ObservableObject {
-        private let errorHandler: ErrorWriter
+        private static let logger = DecimusLogger(InCallView.ViewModel.self)
+
+        let engine: AVAudioEngine = .init()
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
@@ -101,7 +98,7 @@ extension InCallView {
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
-        init(errorHandler: ErrorWriter, config: CallConfig) {
+        init(config: CallConfig) {
             self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -109,42 +106,44 @@ extension InCallView {
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
-            self.errorHandler = errorHandler
             do {
                 self.captureManager = try .init()
             } catch {
-                errorHandler.writeError("Failed to create camera manager: \(error.localizedDescription)")
+                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
                 return
             }
-            let submitter = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
-            Task {
-                guard influxConfig.value.submit else { return }
-                await submitter.startSubmitting(interval: influxConfig.value.intervalSecs)
+            var submitter: MetricsSubmitter?
+            if influxConfig.value.submit {
+                let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
+                submitter = influx
+                Task {
+                    await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
+                }
             }
 
-            self.controller = .init(errorWriter: errorHandler,
-                                    metricsSubmitter: submitter,
+            self.controller = .init(metricsSubmitter: submitter,
                                     captureManager: captureManager!,
-                                    config: subscriptionConfig.value)
+                                    config: subscriptionConfig.value,
+                                    engine: engine)
         }
 
         func join() async -> Bool {
             do {
                 try await self.controller!.connect(config: config)
-                try await captureManager?.startCapturing()
+                try captureManager?.startCapturing()
                 return true
             } catch {
-                errorHandler.writeError("Failed to connect to call: \(error.localizedDescription)")
+                Self.logger.error("Failed to connect to call: \(error.localizedDescription)", alert: true)
                 return false
             }
         }
 
         func leave() async {
             do {
-                try await captureManager!.stopCapturing()
+                try captureManager!.stopCapturing()
                 try controller!.disconnect()
             } catch {
-                errorHandler.writeError("Error while leaving call: \(error)")
+                Self.logger.error("Error while leaving call: \(error)", alert: true)
             }
         }
     }
@@ -152,10 +151,8 @@ extension InCallView {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(errorWriter: ObservableError(),
-                   config: .init(address: "127.0.0.1",
+        InCallView(config: .init(address: "127.0.0.1",
                                  port: 5001,
                                  connectionProtocol: .QUIC)) { }
-            .environmentObject(ObservableError())
     }
 }
