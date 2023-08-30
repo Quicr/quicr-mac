@@ -21,13 +21,14 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
-         config: SubscriptionConfig) {
+         config: SubscriptionConfig,
+         engine: AVAudioEngine) {
         do {
             try AVAudioSession.configureForDecimus()
         } catch {
             Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
-        engine = .init()
+        self.engine = engine
         if engine.outputNode.isVoiceProcessingEnabled != config.voiceProcessing {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(config.voiceProcessing)
@@ -36,6 +37,15 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             }
         }
         assert(engine.outputNode.isVoiceProcessingEnabled == engine.inputNode.isVoiceProcessingEnabled)
+
+        // Ducking.
+#if compiler(>=5.9)
+        if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
+            let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
+                                                                                      duckingLevel: .min)
+            engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
+        }
+#endif
 
         // If voice processing is on, we want to override the format to something usable.
         var desiredFormat: AVAudioFormat?

@@ -51,6 +51,7 @@ struct InCallView: View {
 
                 if let capture = viewModel.captureManager {
                     CallControls(captureManager: capture,
+                                 engine: viewModel.engine,
                                  leaving: $leaving)
                         .disabled(leaving)
                         .padding(.bottom)
@@ -86,6 +87,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
+        let engine: AVAudioEngine = .init()
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
@@ -121,7 +123,8 @@ extension InCallView {
 
             self.controller = .init(metricsSubmitter: submitter,
                                     captureManager: captureManager!,
-                                    config: subscriptionConfig.value)
+                                    config: subscriptionConfig.value,
+                                    engine: engine)
         }
 
         func join() async -> Bool {
