@@ -12,13 +12,17 @@ struct RelaySettingsView: View {
                     TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
                         .keyboardType(.URL)
                 }
-                ForEach(relayConfig.value.ports.sorted(by: <), id: \.key) { key, _ in
-                    LabeledContent("\(String(describing: key)) Port") {
-                        TextField("relay_port_\(String(describing: key))",
-                                  value: $relayConfig.value.ports[key],
-                                  format: .number.grouping(.never))
-                        .keyboardType(.numberPad)
-                    }
+                LabeledContent("\(String(describing: ProtocolType.QUIC)) Port") {
+                    TextField("relay_port_\(String(describing: ProtocolType.QUIC))",
+                              value: $relayConfig.value.quicPort,
+                              format: .number.grouping(.never))
+                    .keyboardType(.numberPad)
+                }
+                LabeledContent("\(String(describing: ProtocolType.UDP)) Port") {
+                    TextField("relay_port_\(String(describing: ProtocolType.UDP))",
+                              value: $relayConfig.value.udpPort,
+                              format: .number.grouping(.never))
+                    .keyboardType(.numberPad)
                 }
             }
             .formStyle(.columns)
