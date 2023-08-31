@@ -44,6 +44,14 @@ class H264Subscription: Subscription {
     private var lastObject: UInt16?
     private let namegate: NameGate
     private let reliable: Bool
+    private let jitterBuffer: VideoJitterBuffer
+    private var decodeTimer: Timer?
+
+    private lazy var decodeBlock: (Timer) -> Void = { [weak self] _ in
+        DispatchQueue.global(qos: .userInteractive).async {
+            self?.decode()
+        }
+    }
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -61,9 +69,21 @@ class H264Subscription: Subscription {
         }
         self.namegate = namegate
         self.reliable = reliable
+        self.jitterBuffer = .init(namespace: namespace,
+                                  frameDuration: 1/30,
+                                  minDepth: 1/30 * 4,
+                                  metricsSubmitter: metricsSubmitter)
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
+        }
+
+        // Decode job: timer procs on main thread, but decoding itself doesn't.
+        DispatchQueue.main.async {
+            self.decodeTimer = .scheduledTimer(withTimeInterval: 1/30,
+                                               repeats: true,
+                                               block: self.decodeBlock)
+            self.decodeTimer!.tolerance = 1/30/2
         }
 
         Self.logger.info("Subscribed to H264 stream")
@@ -99,8 +119,20 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
         }
 
+        self.jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, data: data))
+
+        return SubscriptionError.None.rawValue
+    }
+
+    private func decode() {
+        // Try and dequeue a video frame.
+        guard let dequeuedFrame = self.jitterBuffer.read() else { return }
+
         // Should we feed this frame to the decoder?
-        guard namegate.handle(groupId: groupId, objectId: objectId, lastGroup: lastGroup, lastObject: lastObject) else {
+        guard namegate.handle(groupId: dequeuedFrame.groupId,
+                              objectId: dequeuedFrame.objectId,
+                              lastGroup: lastGroup,
+                              lastObject: lastObject) else {
             var group: String = "None"
             if let lastGroup = lastGroup {
                 group = String(lastGroup)
@@ -109,20 +141,19 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            Self.logger.warning("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
-            return SubscriptionError.None.rawValue
+            // Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            return
         }
-        lastGroup = groupId
-        lastObject = objectId
 
+        lastGroup = dequeuedFrame.groupId
+        lastObject = dequeuedFrame.objectId
         do {
-            try data.withUnsafeBytes {
+            try dequeuedFrame.data.withUnsafeBytes {
                 try decoder.write(data: $0, timestamp: 0)
             }
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
         }
-        return SubscriptionError.None.rawValue
     }
 
     private func showDecodedImage(decoded: CMSampleBuffer,

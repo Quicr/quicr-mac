@@ -12,6 +12,9 @@
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
+		18B57CF32AA0B79300F9AF1E /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */; };
+		18B57CF52AA0BA1A00F9AF1E /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */; };
+		18B57CF92AA0C0AC00F9AF1E /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -144,6 +147,8 @@
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
+		18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
+		18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
 		18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSubmitter.swift; sourceTree = "<group>"; };
 		18C89A3D2A13D315005B333B /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 		18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxMetricsSubmitter.swift; sourceTree = "<group>"; };
@@ -272,6 +277,7 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
+				18B57CF92AA0C0AC00F9AF1E /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,6 +366,7 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */,
 				FF6D6D2F2A00410400B535DA /* fonts */,
 				9B85951429F03147008C813C /* TestPlan.xctestplan */,
 				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
@@ -443,6 +450,7 @@
 				FF6C80AA2A17E8980094751E /* Subscription.swift */,
 				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
 				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
+				18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -593,6 +601,7 @@
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 				188ABB552A792E9C00B31A6E /* Opus */,
+				18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -760,6 +769,7 @@
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				18B57CF52AA0BA1A00F9AF1E /* VideoFrame.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
@@ -784,6 +794,7 @@
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
 				FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */,
+				18B57CF32AA0B79300F9AF1E /* VideoJitterBuffer.swift in Sources */,
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
@@ -1220,6 +1231,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */;
 			productName = Opus;
+		};
+		18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = OrderedCollections;
 		};
 		18C89A392A13D1E4005B333B /* InfluxDBSwift */ = {
 			isa = XCSwiftPackageProductDependency;
