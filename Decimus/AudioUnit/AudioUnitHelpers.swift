@@ -13,8 +13,8 @@ extension AVAudioSession {
                                      options: [.defaultToSpeaker])
         try audioSession.setPreferredSampleRate(.opus48khz)
         try audioSession.setActive(true)
-        try audioSession.setPreferredOutputNumberOfChannels(2)
-        try audioSession.setPreferredInputNumberOfChannels(1)
+        try audioSession.setPreferredOutputNumberOfChannels(min(2, audioSession.maximumOutputNumberOfChannels))
+        try audioSession.setPreferredInputNumberOfChannels(min(1, audioSession.maximumInputNumberOfChannels))
         configuredForDecimus = true
     }
 }

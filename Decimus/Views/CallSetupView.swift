@@ -99,12 +99,12 @@ private struct LoginForm: View {
                                      labels: ["UDP", "QUIC"],
                                      tags: [
                         .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.UDP]!,
+                              port: relayConfig.value.udpPort,
                               connectionProtocol: .UDP,
                               email: callConfig.email,
                               conferenceID: callConfig.conferenceID),
                         .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.QUIC]!,
+                              port: relayConfig.value.quicPort,
                               connectionProtocol: .QUIC,
                               email: callConfig.email,
                               conferenceID: callConfig.conferenceID)
@@ -135,11 +135,14 @@ private struct LoginForm: View {
                     return
                 }
                 if meetings.count > 0 {
-                    callConfig = CallConfig(address: relayConfig.value.address,
-                                            port: relayConfig.value.ports[.QUIC]!,
-                                            connectionProtocol: .QUIC,
-                                            email: email,
-                                            conferenceID: UInt32(confId))
+                    callConfig = CallConfig(address: callConfig.address == "" ?
+                                                relayConfig.value.address : callConfig.address,
+                                            port: callConfig.port == 0 ?
+                                                relayConfig.value.quicPort : callConfig.port,
+                                            connectionProtocol: callConfig.connectionProtocol,
+                                                email: callConfig.email == "" ? email : callConfig.email,
+                                            conferenceID: callConfig.conferenceID == 0 ?
+                                                UInt32(confId) : callConfig.conferenceID)
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in

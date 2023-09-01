@@ -138,10 +138,12 @@ class H264Decoder: SampleDecoder {
                                  unsafeBitCast(kCFBooleanTrue, to: UnsafeRawPointer.self))
 
             // Pass sample to decoder.
+            var inputFlags: VTDecodeFrameFlags = .init()
+            inputFlags.insert(._EnableAsynchronousDecompression)
             var outputFlags: VTDecodeInfoFlags = .init()
             let decodeError = VTDecompressionSessionDecodeFrame(session!,
                                                                 sampleBuffer: sampleBuffer!,
-                                                                flags: .init(),
+                                                                flags: inputFlags,
                                                                 infoFlagsOut: &outputFlags,
                                                                 outputHandler: self.frameCallback)
 
