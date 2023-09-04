@@ -366,7 +366,6 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
-				18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */,
 				FF6D6D2F2A00410400B535DA /* fonts */,
 				9B85951429F03147008C813C /* TestPlan.xctestplan */,
 				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
@@ -411,6 +410,7 @@
 				9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */,
 				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
 				9B9622DB2A7A669A00949234 /* QHelpers.swift */,
+				18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
