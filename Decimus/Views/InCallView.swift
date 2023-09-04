@@ -128,7 +128,7 @@ extension InCallView {
             }
 
             do {
-                self.captureManager = try .init(metricsSubmitter: submitter)
+                self.captureManager = try .init(metricsSubmitter: submitter, granularMetrics: influxConfig.value.granular)
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
                 return
@@ -137,7 +137,8 @@ extension InCallView {
             self.controller = .init(metricsSubmitter: submitter,
                                     captureManager: captureManager!,
                                     config: subscriptionConfig.value,
-                                    engine: engine)
+                                    engine: engine,
+                                    granularMetrics: influxConfig.value.granular)
         }
 
         func join() async -> Bool {

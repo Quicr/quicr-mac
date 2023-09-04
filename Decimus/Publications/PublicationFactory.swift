@@ -12,14 +12,17 @@ class PublicationFactory {
     private let reliability: MediaReliability
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
     private let format: AVAudioFormat
+    private let granularMetrics: Bool
     init(opusWindowSize: TimeInterval,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat) {
+         format: AVAudioFormat,
+         granularMetrics: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.blocks = blocks
         self.format = format
+        self.granularMetrics = granularMetrics
     }
 
     func create(_ namespace: QuicrNamespace,
@@ -34,11 +37,12 @@ class PublicationFactory {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
             return try H264Publication(namespace: namespace,
-                                                  publishDelegate: publishDelegate,
-                                                  sourceID: sourceID,
-                                                  config: config,
-                                                  metricsSubmitter: metricsSubmitter,
-                                                  reliable: reliability.video.publication)
+                                       publishDelegate: publishDelegate,
+                                       sourceID: sourceID,
+                                       config: config,
+                                       metricsSubmitter: metricsSubmitter,
+                                       reliable: reliability.video.publication,
+                                       granularMetrics: self.granularMetrics)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
@@ -50,7 +54,8 @@ class PublicationFactory {
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,
                                        blocks: self.blocks,
-                                       format: self.format)
+                                       format: self.format,
+                                       granularMetrics: self.granularMetrics)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

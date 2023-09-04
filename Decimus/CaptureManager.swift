@@ -29,7 +29,6 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         var fields: [Date?: [String: AnyObject]] = [:]
         var tags: [String: String] = [:]
 
-        private var pixels: UInt64 = 0
         private var capturedFrames: UInt64 = 0
         private var dropped: UInt64 = 0
         private var captureDelay: Double = 0
@@ -72,13 +71,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var observer: NSObjectProtocol?
     private let measurement: _Measurement?
     private var lastCapture: Date?
+    private let granularMetrics: Bool
 
-    init(metricsSubmitter: MetricsSubmitter?) throws {
+    init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
         }
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
+        self.granularMetrics = granularMetrics
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(submitter: metricsSubmitter)
         } else {
@@ -259,7 +260,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
             self.lastCapture = now
             Task(priority: .utility) {
-                await measurement.capturedFrame(delayMs: delay, timestamp: now)
+                await measurement.capturedFrame(delayMs: self.granularMetrics ? delay : nil,
+                                                timestamp: self.granularMetrics ? now : nil)
             }
         }
         let cameraFrameListeners = getDelegate(output: output)

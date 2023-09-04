@@ -81,6 +81,7 @@ class OpusSubscription: Subscription {
     private var underrun: Weak<UInt64> = .init(value: 0)
     private var callbacks: Weak<UInt64> = .init(value: 0)
     private let reliable: Bool
+    private let granularMetrics: Bool
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -89,7 +90,8 @@ class OpusSubscription: Subscription {
          jitterDepth: UInt,
          jitterMax: UInt,
          opusWindowSize: TimeInterval,
-         reliable: Bool) throws {
+         reliable: Bool,
+         granularMetrics: Bool) throws {
         self.namespace = namespace
         self.player = player
         if let submitter = submitter {
@@ -98,6 +100,7 @@ class OpusSubscription: Subscription {
             self.measurement = nil
         }
         self.reliable = reliable
+        self.granularMetrics = granularMetrics
 
         do {
             self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
@@ -222,8 +225,9 @@ class OpusSubscription: Subscription {
         }
         if let measurement = subscription.measurement {
             let constConcealed = concealed
+            let timestamp: Date? = subscription.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                await measurement.concealmentFrames(concealed: constConcealed, timestamp: nil)
+                await measurement.concealmentFrames(concealed: constConcealed, timestamp: timestamp)
             }
         }
     }
@@ -266,7 +270,7 @@ class OpusSubscription: Subscription {
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
-        let date = Date.now
+        let date: Date? = self.granularMetrics ? .now : nil
 
         // TODO: Handle sequence rollover.
         if groupId > self.seq {
@@ -305,7 +309,7 @@ class OpusSubscription: Subscription {
         return SubscriptionError.None.rawValue
     }
 
-    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date, sequence: UInt32) throws {
+    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date?, sequence: UInt32) throws {
         // Ensure this buffer looks valid.
         let list = buffer.audioBufferList
         guard list.pointee.mNumberBuffers == 1 else {

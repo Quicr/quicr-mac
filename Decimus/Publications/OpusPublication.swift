@@ -72,7 +72,8 @@ class OpusPublication: Publication {
          opusWindowSize: TimeInterval,
          reliable: Bool,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat) throws {
+         format: AVAudioFormat,
+         granularMetrics: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         if let metricsSubmitter = metricsSubmitter {
@@ -106,11 +107,12 @@ class OpusPublication: Publication {
             encoder = try .init(format: differentEncodeFormat!)
             Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
         }
-        encoder.registerCallback(callback: { [weak self] data, datalength, flag in
+        encoder.registerCallback(callback: { [weak self, granularMetrics] data, datalength, flag in
             guard let self = self else { return }
             if let measurement = self.measurement {
+                let now: Date? = granularMetrics ? .now : nil
                 Task(priority: .utility) {
-                    await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
+                    await measurement.publishedBytes(sentBytes: datalength, timestamp: now)
                 }
             }
             self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
