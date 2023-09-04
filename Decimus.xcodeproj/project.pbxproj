@@ -1027,6 +1027,7 @@
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/logger/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1098,6 +1099,7 @@
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/logger/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
