@@ -9,6 +9,8 @@ enum PublicationError: Int32 {
 // swiftlint:enable identifier_name
 
 protocol Publication: QPublicationDelegateObjC {
+    associatedtype EncoderType: Encoder
+    var encoder: EncoderType {get}
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
 

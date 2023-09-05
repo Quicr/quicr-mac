@@ -6,7 +6,7 @@ class PublicationFactory {
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter?) throws -> Publication
+                                             MetricsSubmitter?) throws -> any Publication
 
     private let opusWindowSize: TimeInterval
     private let reliability: MediaReliability
@@ -26,7 +26,7 @@ class PublicationFactory {
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> Publication {
+                metricsSubmitter: MetricsSubmitter?) throws -> any Publication {
 
         switch config.codec {
         case .h264:

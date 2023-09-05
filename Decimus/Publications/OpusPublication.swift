@@ -34,7 +34,7 @@ class OpusPublication: Publication {
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
-    private var encoder: LibOpusEncoder
+    internal let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private let format: AVAudioFormat
     private var converter: AVAudioConverter?
@@ -91,9 +91,18 @@ class OpusPublication: Publication {
             fatalError()
         }
 
+        let encoderCallback = { [weak publishDelegate, namespace, measurement] data, datalength, flag in
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
+                }
+            }
+            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
+        }
+
         do {
             // Try and directly use the microphone output format.
-            encoder = try .init(format: format)
+            encoder = try .init(format: format, callback: encoderCallback)
             Self.logger.info("Encoder created using native format: \(self.format)")
         } catch {
             // We need to fallback to an opus supported format if we can.
@@ -103,18 +112,9 @@ class OpusPublication: Publication {
                                           channels: format.channelCount,
                                           interleaved: true)
             converter = .init(from: format, to: differentEncodeFormat!)!
-            encoder = try .init(format: differentEncodeFormat!)
+            encoder = try .init(format: differentEncodeFormat!, callback: encoderCallback)
             Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
         }
-        encoder.registerCallback(callback: { [weak self] data, datalength, flag in
-            guard let self = self else { return }
-            if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
-                }
-            }
-            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
-        })
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
         DispatchQueue.main.async {

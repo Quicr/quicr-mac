@@ -5,7 +5,7 @@ import CoreImage
 import os
 
 /// Provides hardware accelerated H264 decoding.
-class H264Decoder: SampleDecoder {
+class H264Decoder: Decoder {
     private static let logger = DecimusLogger(H264Decoder.self)
 
     // H264 constants.

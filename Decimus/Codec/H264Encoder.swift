@@ -7,7 +7,7 @@ import os
 class H264Encoder: Encoder {
     private static let logger = DecimusLogger(H264Encoder.self)
 
-    internal var callback: EncodedCallback?
+    internal let callback: EncodedCallback
 
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
@@ -15,8 +15,9 @@ class H264Encoder: Encoder {
     private let startCodeLength = 4
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
-    init(config: VideoCodecConfig, verticalMirror: Bool) throws {
+    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
+        self.callback = callback
 
         try OSStatusError.checked("Creation") {
             VTCompressionSessionCreate(allocator: nil,
@@ -65,7 +66,6 @@ class H264Encoder: Encoder {
     }
 
     deinit {
-        callback = nil
         guard let session = encoder else { return }
 
         // Sync flush all pending frames.
@@ -95,7 +95,6 @@ class H264Encoder: Encoder {
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // TODO: Report these errors.
-        guard let callback = callback else { fatalError("Callback not set for encoder") }
         guard status == .zero else { fatalError("Encode failure: \(status)")}
         guard let sample = sample else { return; }
 

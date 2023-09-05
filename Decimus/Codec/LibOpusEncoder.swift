@@ -10,7 +10,7 @@ class LibOpusEncoder: Encoder {
     private static let logger = DecimusLogger(LibOpusEncoder.self)
 
     private let encoder: Opus.Encoder
-    internal var callback: EncodedCallback?
+    internal let callback: EncodedCallback
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
 
@@ -27,8 +27,10 @@ class LibOpusEncoder: Encoder {
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
-    init(format: AVAudioFormat) throws {
+    init(format: AVAudioFormat, callback: @escaping EncodedCallback) throws {
         self.format = format
+        self.callback = callback
+
         let appMode: Opus.Application = desiredFrameSizeMs < 10 ? .restrictedLowDelay : .voip
         try encoder = .init(format: format, application: appMode)
         opusFrameSize = AVAudioFrameCount(format.sampleRate * (desiredFrameSizeMs / 1000))
@@ -41,9 +43,10 @@ class LibOpusEncoder: Encoder {
         guard self.format == data.format else {
             throw OpusEncodeError.formatChange
         }
-        let encodeCount = try encoder.encode(data, to: &encoded)
+
+        _ = try encoder.encode(data, to: &encoded)
         encoded.withUnsafeBytes {
-            callback?($0, encoded.count, true)
+            callback($0, encoded.count, true)
         }
     }
 
@@ -59,7 +62,6 @@ class LibOpusEncoder: Encoder {
 
         // Try to encode and empty the buffer
         while UInt32(buffer.count) >= opusFrameSizeBytes {
-            guard let callback = callback else { throw "Callback not set for decoder" }
             let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
             let encodedBytes = try encoder.encode(pcm, to: &encoded)
             encoded.withUnsafeBytes { bytes in

@@ -70,7 +70,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
-    private var encoder: H264Encoder
+    internal let encoder: H264Encoder
     private let reliable: Bool
     private var lastCapture: Date?
     private var lastPublish: WrappedOptional<Date> = .init(nil)
@@ -108,7 +108,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         #endif
         self.device = device
 
-        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, datalength, flag in
+        let encoderCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, datalength, flag in
             // Publish.
             publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
 
@@ -130,8 +130,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                 await measurement.publishedFrame(timestamp: timestamp)
             }
         }
-        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
-        self.encoder.registerCallback(callback: onEncodedData)
+
+        self.encoder = try .init(config: config,
+                                 verticalMirror: device.position == .front,
+                                 callback: encoderCallback)
+
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
