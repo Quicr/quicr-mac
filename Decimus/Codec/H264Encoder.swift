@@ -4,100 +4,116 @@ import UIKit
 import AVFoundation
 import os
 
-class H264Encoder: Encoder {
+class H264Encoder {
+    typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
+
     private static let logger = DecimusLogger(H264Encoder.self)
 
-    internal var callback: EncodedCallback?
-
-    private var encoder: VTCompressionSession?
+    private let callback: EncodedCallback
+    private let encoder: VTCompressionSession
     private let verticalMirror: Bool
 
-    private let startCodeLength = 4
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
-    init(config: VideoCodecConfig, verticalMirror: Bool) throws {
+    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
+        self.callback = callback
 
-        try OSStatusError.checked("Creation") {
-            VTCompressionSessionCreate(allocator: nil,
-                                       width: config.width,
-                                       height: config.height,
-                                       codecType: kCMVideoCodecType_H264,
-                                       encoderSpecification: makeEncoderSpecification(),
-                                       imageBufferAttributes: nil,
-                                       compressedDataAllocator: nil,
-                                       outputCallback: nil,
-                                       refcon: nil,
-                                       compressionSessionOut: &encoder)
-        }
+        var compressionSession: VTCompressionSession?
+        let created = VTCompressionSessionCreate(allocator: nil,
+                                                 width: config.width,
+                                                 height: config.height,
+                                                 codecType: kCMVideoCodecType_H264,
+                                                 encoderSpecification: Self.makeEncoderSpecification(),
+                                                 imageBufferAttributes: nil,
+                                                 compressedDataAllocator: nil,
+                                                 outputCallback: nil,
+                                                 refcon: nil,
+                                                 compressionSessionOut: &compressionSession)
+        guard created == .zero,
+              let compressionSession = compressionSession else {
+                  throw "Compression Session was nil"
+              }
+        self.encoder = compressionSession
 
         try OSStatusError.checked("Set realtime") {
-            VTSessionSetProperty(encoder!,
+            VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_RealTime,
                                  value: kCFBooleanTrue)
         }
 
         try OSStatusError.checked("Set Constrained High Autolevel") {
-            VTSessionSetProperty(encoder!,
+            VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_ProfileLevel,
                                  value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
         }
 
         try OSStatusError.checked("Set allow frame reordering") {
-            VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+            VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
         }
 
         try OSStatusError.checked("Set average bitrate: \(config.bitrate)") {
-            VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_AverageBitRate, value: config.bitrate as CFNumber)
+            VTSessionSetProperty(encoder,
+                                 key: kVTCompressionPropertyKey_AverageBitRate,
+                                 value: config.bitrate as CFNumber)
         }
 
         try OSStatusError.checked("Set expected frame rate: \(config.fps)") {
-            VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_ExpectedFrameRate, value: config.fps as CFNumber)
+            VTSessionSetProperty(encoder,
+                                 key: kVTCompressionPropertyKey_ExpectedFrameRate,
+                                 value: config.fps as CFNumber)
         }
 
         try OSStatusError.checked("Set max key frame interval: \(config.fps * 5)") {
-            VTSessionSetProperty(encoder!, key: kVTCompressionPropertyKey_MaxKeyFrameInterval, value: config.fps * 5 as CFNumber)
+            VTSessionSetProperty(encoder,
+                                 key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
+                                 value: config.fps * 5 as CFNumber)
         }
 
         try OSStatusError.checked("Prepare to encode frames") {
-            VTCompressionSessionPrepareToEncodeFrames(encoder!)
+            VTCompressionSessionPrepareToEncodeFrames(encoder)
         }
     }
 
     deinit {
-        callback = nil
-        guard let session = encoder else { return }
-
         // Sync flush all pending frames.
-        let flushError = VTCompressionSessionCompleteFrames(session,
+        let flushError = VTCompressionSessionCompleteFrames(encoder,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
             Self.logger.error("H264 Encoder failed to flush", alert: true)
         }
 
-        VTCompressionSessionInvalidate(session)
+        VTCompressionSessionInvalidate(encoder)
     }
 
     func write(sample: CMSampleBuffer) throws {
-        guard let compressionSession = encoder else { return }
-        guard let imageBuffer = sample.imageBuffer else { return }
+        guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
         try OSStatusError.checked("Encode") {
-            VTCompressionSessionEncodeFrame(compressionSession,
-                                                        imageBuffer: imageBuffer,
-                                                        presentationTimeStamp: timestamp,
-                                                        duration: .invalid,
-                                                        frameProperties: nil,
-                                                        infoFlagsOut: nil,
-                                                        outputHandler: self.encoded)
+            VTCompressionSessionEncodeFrame(self.encoder,
+                                            imageBuffer: imageBuffer,
+                                            presentationTimeStamp: timestamp,
+                                            duration: .invalid,
+                                            frameProperties: nil,
+                                            infoFlagsOut: nil,
+                                            outputHandler: self.encoded)
         }
     }
 
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
-        // TODO: Report these errors.
-        guard let callback = callback else { fatalError("Callback not set for encoder") }
-        guard status == .zero else { fatalError("Encode failure: \(status)")}
-        guard let sample = sample else { return; }
+        // Check the callback data.
+        guard status == .zero else {
+            Self.logger.error("Encode failure: \(status)")
+            return
+        }
+        guard !flags.contains(.frameDropped) else {
+            Self.logger.warning("Encoder dropped frame")
+            return
+        }
+        guard let sample = sample else {
+            Self.logger.error("Encoded sample was empty")
+            return
+        }
 
         // Annex B time.
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
@@ -114,7 +130,7 @@ class H264Encoder: Encoder {
                 return
             }
             parameterSets.withUnsafeBytes {
-                callback($0.baseAddress!, $0.count, true)
+                callback($0, true)
             }
         }
 
@@ -127,24 +143,24 @@ class H264Encoder: Encoder {
             return
         }
         try? orientationSei.dataBuffer?.withUnsafeMutableBytes {
-            callback($0.baseAddress!, $0.count, false)
+            callback($0, false)
         }
         #endif
 
         let buffer = sample.dataBuffer!
         var offset = 0
-        while offset < buffer.dataLength - startCodeLength {
-            guard let memory = malloc(startCodeLength) else { fatalError("malloc fail") }
+        while offset < buffer.dataLength - startCode.count {
+            guard let memory = malloc(startCode.count) else { fatalError("malloc fail") }
             var data: UnsafeMutablePointer<CChar>?
             let accessError = CMBlockBufferAccessDataBytes(buffer,
                                                            atOffset: offset,
-                                                           length: startCodeLength,
+                                                           length: startCode.count,
                                                            temporaryBlock: memory,
                                                            returnedPointerOut: &data)
             guard accessError == .zero else { fatalError("Bad access: \(accessError)") }
 
             var naluLength: UInt32 = 0
-            memcpy(&naluLength, data, startCodeLength)
+            memcpy(&naluLength, data, startCode.count)
             free(memory)
             naluLength = CFSwapInt32BigToHost(naluLength)
 
@@ -152,15 +168,15 @@ class H264Encoder: Encoder {
             CMBlockBufferReplaceDataBytes(with: startCode,
                                           blockBuffer: buffer,
                                           offsetIntoDestination: offset,
-                                          dataLength: startCodeLength)
+                                          dataLength: startCode.count)
 
             // Carry on.
-            offset += startCodeLength + Int(naluLength)
+            offset += startCode.count + Int(naluLength)
         }
 
         // Callback the Annex-B sample.
         try? sample.dataBuffer!.withUnsafeMutableBytes {
-            callback($0.baseAddress!, $0.count, false)
+            callback(.init($0), false)
         }
     }
 
@@ -192,13 +208,13 @@ class H264Encoder: Encoder {
                                                                    parameterSetCountOut: nil,
                                                                    nalUnitHeaderLengthOut: &naluSizeOut)
             }
-            guard naluSizeOut == startCodeLength else { throw "Unexpected start code length?" }
+            guard naluSizeOut == startCode.count else { throw "Unexpected start code length?" }
             parameterSetPointers.append(parameterSet!)
             parameterSetLengths.append(parameterSize)
         }
 
         // Compute total ANNEX B parameter set size.
-        var totalLength = startCodeLength * sets
+        var totalLength = startCode.count * sets
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
 
         // Make a block buffer for PPS/SPS.
@@ -210,9 +226,9 @@ class H264Encoder: Encoder {
                 CMBlockBufferReplaceDataBytes(with: startCode,
                                               blockBuffer: buffer,
                                               offsetIntoDestination: offset,
-                                              dataLength: startCodeLength)
+                                              dataLength: startCode.count)
             }
-            offset += startCodeLength
+            offset += startCode.count
             try OSStatusError.checked("Copy SPS/PPS data") {
                 CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
                                               blockBuffer: buffer,
@@ -311,8 +327,9 @@ class H264Encoder: Encoder {
         return try parameterSample!.dataBuffer!.dataBytes()
     }
 
-    /// Try to build an encoder specification dictionary. Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
-    private func makeEncoderSpecification() -> CFDictionary {
+    /// Try to build an encoder specification dictionary.
+    /// Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
+    private static func makeEncoderSpecification() -> CFDictionary {
         var availableEncodersPtr: CFArray?
         VTCopyVideoEncoderList(nil, &availableEncodersPtr)
 
