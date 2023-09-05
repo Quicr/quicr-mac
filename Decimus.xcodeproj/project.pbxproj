@@ -64,6 +64,7 @@
 		FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B12A53575D00C6D66D /* PublicationFactory.swift */; };
 		FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */; };
 		FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* H264Subscription.swift */; };
+		FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */; };
 		FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
 		FF6C80A92A16DB850094751E /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publication.swift */; };
@@ -203,6 +204,7 @@
 		FF2498B12A53575D00C6D66D /* PublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationFactory.swift; sourceTree = "<group>"; };
 		FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFactory.swift; sourceTree = "<group>"; };
 		FF2498B62A55E95E00C6D66D /* H264Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Subscription.swift; sourceTree = "<group>"; };
+		FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestTypes.swift; sourceTree = "<group>"; };
 		FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QJitterBuffer.h; sourceTree = "<group>"; };
 		FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QJitterBuffer.mm; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
@@ -446,6 +448,7 @@
 				FF6C80AA2A17E8980094751E /* Subscription.swift */,
 				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
 				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
+				FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -764,6 +767,7 @@
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
+				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,

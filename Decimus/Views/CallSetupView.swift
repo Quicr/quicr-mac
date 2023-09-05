@@ -153,8 +153,10 @@ private struct LoginForm: View {
 
     private func fetchManifest() async throws {
         isLoading = true
-        let userId = try await ManifestController.shared.getUser(email: email)
-        meetings = try await ManifestController.shared.getConferences(for: userId)
+        let user = try await ManifestController.shared.getUser(email: email)
+        meetings = try await ManifestController.shared.getConferences(for: user.id)
+            .reduce(into: [:]) { $0[$1.id] = $1.title }
+
         callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }

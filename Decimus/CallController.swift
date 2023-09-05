@@ -89,7 +89,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
 
         let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
-        super.updateManifest(manifest)
+
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.outputFormatting = .prettyPrinted
+
+        let manifestJSON = try jsonEncoder.encode(manifest)
+        super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
+
         assert(!engine.isRunning)
         try engine.start()
     }
