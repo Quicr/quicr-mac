@@ -4,15 +4,25 @@ import os
 
 enum OpusEncodeError: Error {
     case formatChange
+    case badWindowSize
 }
 
-class LibOpusEncoder: Encoder {
+enum OpusWindowSize: TimeInterval, Codable, CaseIterable, Identifiable, CustomStringConvertible {
+    case twoPointFiveMs = 0.0025
+    case fiveMs = 0.005
+    case tenMs = 0.01
+    case twentyMs = 0.02
+    case fortyMs = 0.04
+    case sixtyMs = 0.06
+    var id: Self { self }
+    var description: String { self.rawValue.description }
+}
+
+class LibOpusEncoder {
     private static let logger = DecimusLogger(LibOpusEncoder.self)
 
     private let encoder: Opus.Encoder
-    internal var callback: EncodedCallback?
-
-    private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
+    private let encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
 
     // Data holders.
     private var encoded: Data
@@ -20,52 +30,34 @@ class LibOpusEncoder: Encoder {
     private var timestamps: [UInt32] = []
 
     // Audio format.
-    private var opusFrameSize: AVAudioFrameCount = 0
-    private var opusFrameSizeBytes: UInt32 = 0
-    private let desiredFrameSizeMs: Double = 10
+    private let desiredWindowSize: OpusWindowSize
     private let format: AVAudioFormat
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
-    init(format: AVAudioFormat) throws {
+    init(format: AVAudioFormat, desiredWindowSize: OpusWindowSize) throws {
         self.format = format
-        let appMode: Opus.Application = desiredFrameSizeMs < 10 ? .restrictedLowDelay : .voip
+        self.desiredWindowSize = desiredWindowSize
+        let appMode: Opus.Application = desiredWindowSize.rawValue < 0.01 ? .restrictedLowDelay : .voip
         try encoder = .init(format: format, application: appMode)
-        opusFrameSize = AVAudioFrameCount(format.sampleRate * (desiredFrameSizeMs / 1000))
-        opusFrameSizeBytes = opusFrameSize * format.streamDescription.pointee.mBytesPerFrame
-        encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
+        let framesPerWindow: Int = .init(desiredWindowSize.rawValue * format.sampleRate)
+        let windowBytes: Int = framesPerWindow * Int(format.streamDescription.pointee.mBytesPerFrame)
+        encoded = .init(count: windowBytes)
     }
 
-    // TODO: Change to a regular non-callback return.
-    func write(data: AVAudioPCMBuffer) throws {
+    func write(data: AVAudioPCMBuffer) throws -> Data {
+        // Ensure we're using the format we started with.
         guard self.format == data.format else {
             throw OpusEncodeError.formatChange
         }
+
+        // Ensure this matches our declared encode window.
+        guard Double(data.frameLength) == self.desiredWindowSize.rawValue * self.format.sampleRate else {
+            throw OpusEncodeError.badWindowSize
+        }
+
         let encodeCount = try encoder.encode(data, to: &encoded)
-        encoded.withUnsafeBytes {
-            callback?($0, encoded.count, true)
-        }
-    }
-
-    func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
-        guard format.equivalent(other: self.format) else {
-            throw "Write format must match declared format"
-        }
-
-        // Write our samples to the buffer
-        try data.dataBuffer!.withUnsafeMutableBytes {
-            buffer.append(contentsOf: $0)
-        }
-
-        // Try to encode and empty the buffer
-        while UInt32(buffer.count) >= opusFrameSizeBytes {
-            guard let callback = callback else { throw "Callback not set for decoder" }
-            let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
-            let encodedBytes = try encoder.encode(pcm, to: &encoded)
-            encoded.withUnsafeBytes { bytes in
-                callback(bytes.baseAddress!, Int(encodedBytes), true)
-            }
-            buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
-        }
+        assert(encoded.count == encodeCount)
+        return encoded
     }
 }

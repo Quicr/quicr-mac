@@ -20,11 +20,10 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.jitterMax,
                         format: .number)
                 }
-                LabeledContent("Opus Window Size (s)") {
-                    TextField(
-                        "Opus Window Size (s)",
-                        value: $subscriptionConfig.value.opusWindowSize,
-                        format: .number)
+                Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
+                    ForEach(OpusWindowSize.allCases) {
+                        Text(String(describing: $0))
+                    }
                 }
                 LabeledContent("Video behaviour") {
                     Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
