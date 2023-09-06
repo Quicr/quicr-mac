@@ -16,7 +16,7 @@ class FasterAVEngineAudioPlayer {
     init(engine: AVAudioEngine) {
         let outputFormat = engine.outputNode.inputFormat(forBus: 0)
         inputFormat = .init(commonFormat: outputFormat.commonFormat,
-                            sampleRate: AVAudioSession.sharedInstance().sampleRate,
+                            sampleRate: .opus48khz,
                             channels: outputFormat.channelCount,
                             interleaved: outputFormat.isInterleaved)!
         Self.logger.info("Creating Audio Mixer input format is: \(self.inputFormat)")
