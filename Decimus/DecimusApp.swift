@@ -38,10 +38,12 @@ extension View {
 
     fileprivate func removeTitleBar() -> some View {
         return withHostingWindow { window in
+            #if targetEnvironment(macCatalyst)
             if let titlebar = window?.windowScene?.titlebar {
                 titlebar.titleVisibility = .hidden
                 titlebar.toolbar = nil
             }
+            #endif
         }
     }
 }
