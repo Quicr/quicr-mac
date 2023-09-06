@@ -5,7 +5,8 @@ import CoreImage
 import os
 
 /// Provides hardware accelerated H264 decoding.
-class H264Decoder: SampleDecoder {
+class H264Decoder {
+    typealias DecodedFrameCallback = (CMSampleBuffer, AVCaptureVideoOrientation?, Bool) -> Void
     private static let logger = DecimusLogger(H264Decoder.self)
 
     // H264 constants.
@@ -19,15 +20,16 @@ class H264Decoder: SampleDecoder {
     // Members.
     private var currentFormat: CMFormatDescription?
     private var session: VTDecompressionSession?
-    internal var callback: DecodedCallback?
+    private let callback: DecodedFrameCallback
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool = false
 
     /// Stored codec config. Can be updated.
     private var config: VideoCodecConfig
 
-    init(config: VideoCodecConfig) {
+    init(config: VideoCodecConfig, callback: @escaping DecodedFrameCallback) {
         self.config = config
+        self.callback = callback
     }
 
     deinit {
@@ -267,11 +269,6 @@ class H264Decoder: SampleDecoder {
                        image: CVImageBuffer?,
                        presentation: CMTime,
                        duration: CMTime) {
-        guard let callback = callback else {
-            // TODO: Surface this error.
-            fatalError("Callback not set for decoder")
-        }
-
         // Check status code.
         guard status == .zero else { Self.logger.error("Bad decode: \(status)"); return }
 
@@ -284,7 +281,7 @@ class H264Decoder: SampleDecoder {
                                                    sampleTiming: .init(duration: duration,
                                                                        presentationTimeStamp: presentation,
                                                                        decodeTimeStamp: .invalid))
-            callback(sample, presentation.value, orientation, verticalMirror)
+            callback(sample, orientation, verticalMirror)
         } catch {
             Self.logger.error("Couldn't create CMSampleBuffer: \(error)")
         }

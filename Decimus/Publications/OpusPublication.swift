@@ -106,15 +106,6 @@ class OpusPublication: Publication {
             encoder = try .init(format: differentEncodeFormat!)
             Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
         }
-        encoder.registerCallback(callback: { [weak self] data, datalength, flag in
-            guard let self = self else { return }
-            if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.publishedBytes(sentBytes: datalength, timestamp: nil)
-                }
-            }
-            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
-        })
 
         // Encode job: timer procs on main thread, but encoding itself isn't.
         DispatchQueue.main.async {
@@ -143,11 +134,25 @@ class OpusPublication: Publication {
         return PublicationError.NoSource.rawValue
     }
 
+    private func publish(data: UnsafeRawBufferPointer) {
+        if let measurement = self.measurement {
+            let now: Date = .now
+            Task(priority: .utility) {
+                await measurement.publishedBytes(sentBytes: data.count, timestamp: now)
+            }
+        }
+        self.publishObjectDelegate?.publishObject(self.namespace,
+                                                  data: data.baseAddress,
+                                                  length: data.count,
+                                                  group: true)
+    }
+
     private func encode() throws {
         guard converter == nil else {
             let data = try convertAndEncode(converter: converter!, to: differentEncodeFormat!, from: format)
             guard let data = data else { return }
-            try encoder.write(data: data)
+            let encoded = try encoder.write(data: data)
+            publish(data: encoded)
             return
         }
 
@@ -174,7 +179,8 @@ class OpusPublication: Publication {
             return
         }
 
-        try encoder.write(data: pcm)
+        let encoded = try encoder.write(data: pcm)
+        publish(data: encoded)
     }
 
     // swiftlint:disable identifier_name

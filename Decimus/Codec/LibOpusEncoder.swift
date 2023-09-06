@@ -6,11 +6,10 @@ enum OpusEncodeError: Error {
     case formatChange
 }
 
-class LibOpusEncoder: Encoder {
+class LibOpusEncoder {
     private static let logger = DecimusLogger(LibOpusEncoder.self)
 
     private let encoder: Opus.Encoder
-    internal var callback: EncodedCallback?
 
     private var encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
 
@@ -36,36 +35,9 @@ class LibOpusEncoder: Encoder {
         encoded = .init(count: Int(AVAudioFrameCount.opusMax * format.streamDescription.pointee.mBytesPerFrame))
     }
 
-    // TODO: Change to a regular non-callback return.
-    func write(data: AVAudioPCMBuffer) throws {
-        guard self.format == data.format else {
-            throw OpusEncodeError.formatChange
-        }
+    func write(data: AVAudioPCMBuffer) throws -> UnsafeRawBufferPointer {
+        guard self.format == data.format else { throw OpusEncodeError.formatChange }
         let encodeCount = try encoder.encode(data, to: &encoded)
-        encoded.withUnsafeBytes {
-            callback?($0, encoded.count, true)
-        }
-    }
-
-    func write(data: CMSampleBuffer, format: AVAudioFormat) throws {
-        guard format.equivalent(other: self.format) else {
-            throw "Write format must match declared format"
-        }
-
-        // Write our samples to the buffer
-        try data.dataBuffer!.withUnsafeMutableBytes {
-            buffer.append(contentsOf: $0)
-        }
-
-        // Try to encode and empty the buffer
-        while UInt32(buffer.count) >= opusFrameSizeBytes {
-            guard let callback = callback else { throw "Callback not set for decoder" }
-            let pcm: AVAudioPCMBuffer = try buffer.toPCM(frames: opusFrameSize, format: format)
-            let encodedBytes = try encoder.encode(pcm, to: &encoded)
-            encoded.withUnsafeBytes { bytes in
-                callback(bytes.baseAddress!, Int(encodedBytes), true)
-            }
-            buffer.removeSubrange(0...Int(opusFrameSizeBytes) - 1)
-        }
+        return encoded.withUnsafeBytes { return $0 }
     }
 }
