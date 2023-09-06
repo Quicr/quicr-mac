@@ -22,7 +22,7 @@ class FasterAVEngineAudioPlayer {
         Self.logger.info("Creating Audio Mixer input format is: \(self.inputFormat)")
         engine.attach(mixer)
         engine.connect(mixer, to: engine.outputNode, format: inputFormat)
-        assert(engine.outputNode.inputFormat(forBus: 0).sampleRate == AVAudioSession.sharedInstance().sampleRate)
+        assert(engine.outputNode.inputFormat(forBus: 0).sampleRate == inputFormat.sampleRate)
         self.engine = engine
     }
 
