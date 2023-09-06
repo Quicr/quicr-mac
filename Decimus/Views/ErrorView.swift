@@ -63,7 +63,10 @@ struct ErrorView: View {
             .symbolVariant(.circle.fill)
             .foregroundStyle(.white, .orange, .orange)
             Button(action: { filters.removeAll() }, label: {
-                Image(systemName: "xmark")
+                Text("Clear Filters")
+            })
+            Button(action: { logger.logs.removeAll() }, label: {
+                Text("Clear Logs")
             })
         }
         ScrollView(.vertical) {
