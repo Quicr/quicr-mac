@@ -1,6 +1,21 @@
 import SwiftUI
-import os
 
+private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
+    switch level {
+    case .error, .fault:
+        return .red
+    case .warning:
+        return .yellow
+    case .debug:
+        return .orange
+    case .trace:
+        return .cyan
+    default:
+        return .white
+    }
+}
+
+#if DEBUG
 struct ErrorView: View {
     @StateObject var logger = DecimusLogger.shared
     @State var filters: [DecimusLogger.LogLevel] = []
@@ -8,23 +23,7 @@ struct ErrorView: View {
     private let dateFormat = DateFormatter()
 
     init() {
-//        dateFormat.dateFormat = "yyyy-mm-dd hh:mm:ss.SSS"
         dateFormat.dateFormat = "hh:mm:ss.SSS"
-    }
-
-    func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
-        switch level {
-        case .error, .fault:
-            return .red
-        case .warning:
-            return .yellow
-        case .debug:
-            return .orange
-        case .trace:
-            return .cyan
-        default:
-            return .white
-        }
     }
 
     func addOrRemoveFilters(_ filter: DecimusLogger.LogLevel) {
@@ -110,6 +109,7 @@ struct ErrorView_Previews: PreviewProvider {
         ErrorView()
     }
 }
+#endif
 
 struct AlertView: View {
     @StateObject var logger = DecimusLogger.shared
@@ -134,7 +134,7 @@ struct AlertView: View {
                     ForEach(logger.alerts) { alert in
                         Text(alert.message)
                             .padding()
-                            .background(Color.red)
+                            .background(getLogColour(alert.level))
                     }
                 }
             }

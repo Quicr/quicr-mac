@@ -1,32 +1,31 @@
 import SwiftUI
 
+private struct DecimusAppBody: View {
+    var body: some View {
+        ZStack {
+            ConfigCallView()
+            AlertView()
+        }
+    }
+}
+
 @main
 struct DecimusApp: App {
     @State var columnVisibility = NavigationSplitViewVisibility.detailOnly
     @State var showSidebar = false
     var body: some Scene {
         WindowGroup {
-            #if targetEnvironment(macCatalyst)
-            NavigationSplitView(columnVisibility: $columnVisibility, sidebar: ErrorView.init) {
-                ZStack {
-                    ConfigCallView()
-                    AlertView()
-                }
-            }
-            .navigationSplitViewStyle(.prominentDetail)
-            .preferredColorScheme(.dark)
-            .withHostingWindow { window in
-                if let titlebar = window?.windowScene?.titlebar {
-                    titlebar.titleVisibility = .hidden
-                    titlebar.toolbar = nil
-                }
-            }
+            #if targetEnvironment(macCatalyst) && DEBUG
+            NavigationSplitView(columnVisibility: $columnVisibility,
+                                sidebar: ErrorView.init,
+                                detail: DecimusAppBody.init)
+                .navigationSplitViewStyle(.prominentDetail)
+                .preferredColorScheme(.dark)
+                .removeTitleBar()
             #else
-            ZStack {
-                ConfigCallView()
-                AlertView()
-            }
-            .preferredColorScheme(.dark)
+            DecimusAppBody()
+                .preferredColorScheme(.dark)
+                .removeTitleBar()
             #endif
         }
     }
@@ -35,6 +34,15 @@ struct DecimusApp: App {
 extension View {
     fileprivate func withHostingWindow(_ callback: @escaping (UIWindow?) -> Void) -> some View {
         self.background(HostingWindowFinder(callback: callback))
+    }
+
+    fileprivate func removeTitleBar() -> some View {
+        return withHostingWindow { window in
+            if let titlebar = window?.windowScene?.titlebar {
+                titlebar.titleVisibility = .hidden
+                titlebar.toolbar = nil
+            }
+        }
     }
 }
 

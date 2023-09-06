@@ -43,7 +43,9 @@ class DecimusLogger {
     }
 
     class ObservableLogs: ObservableObject {
+#if DEBUG
         @Published var logs: [DecimusLogEntry] = []
+#endif
         @Published var alerts: [DecimusLogEntry] = []
     }
     static let shared = ObservableLogs()
@@ -61,7 +63,9 @@ class DecimusLogger {
         logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+#if DEBUG
             Self.shared.logs.append(.init(date: now, category: self.category, level: level, message: msg))
+#endif
             if alert {
                 Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
             }
@@ -71,9 +75,12 @@ class DecimusLogger {
     func log(_ msg: String, alert: Bool = false) {
         let now = Date.now
         logger.log("\(msg)")
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+#if DEBUG
             Self.shared.logs.append(.init(date: now, category: self.category, level: .info, message: msg))
+#endif
             if alert {
                 Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
             }
@@ -86,8 +93,13 @@ class DecimusLogger {
     func warning(_ msg: String, alert: Bool = false) { log(level: .warning, msg, alert: alert) }
     func info(_ msg: String) { log(level: .info, msg) }
     func notice(_ msg: String) { log(msg) }
+#if DEBUG
     func debug(_ msg: String, alert: Bool = false) { log(level: .debug, msg, alert: alert) }
     func trace(_ msg: String, alert: Bool = false) { log(level: .trace, msg, alert: alert) }
+#else
+    func debug(_ msg: String, alert: Bool = false) { }
+    func trace(_ msg: String, alert: Bool = false) { }
+#endif
 }
 
 extension OSLogType {
