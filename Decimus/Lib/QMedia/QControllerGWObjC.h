@@ -11,10 +11,13 @@
 
 #ifdef __cplusplus
 #include "QControllerGW.h"
+#include <cantina/logger.h>
 #endif
 
 #import "QDelegatesObjC.h"
 #import "TransportConfig.h"
+
+typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 
 @interface QControllerGWObjC<PubDelegate: id<QPublisherDelegateObjC>,
                              SubDelegate: id<QSubscriberDelegateObjC>> : NSObject<QPublishObjectDelegateObjC> {
@@ -26,7 +29,7 @@
 @property (nonatomic, strong) PubDelegate publisherDelegate;
 @property (nonatomic, strong) SubDelegate subscriberDelegate;
 
--(instancetype) init;
+-(instancetype) initLogCallback:(CantinaLogCallback)logCallback;
 -(int) connect: (NSString*)remoteAddress
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol

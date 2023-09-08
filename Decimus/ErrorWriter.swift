@@ -24,13 +24,12 @@ class DecimusLogger {
     private let logger: Logger
     private let category: String
 
-    enum LogLevel {
-        case fault
+    enum LogLevel: UInt8 {
+        case critical
         case error
         case warning
         case info
         case debug
-        case trace
     }
 
     struct DecimusLogEntry: Identifiable {
@@ -43,9 +42,6 @@ class DecimusLogger {
     }
 
     class ObservableLogs: ObservableObject {
-#if DEBUG
-        @Published var logs: [DecimusLogEntry] = []
-#endif
         @Published var alerts: [DecimusLogEntry] = []
     }
     static let shared = ObservableLogs()
@@ -63,12 +59,8 @@ class DecimusLogger {
         logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-#if DEBUG
-            Self.shared.logs.append(.init(date: now, category: self.category, level: level, message: msg))
-#endif
-            if alert {
-                Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
-            }
+            guard alert else { return; }
+            Self.shared.alerts.append(.init(date: now, category: self.category, level: level, message: msg))
         }
     }
 
@@ -78,40 +70,33 @@ class DecimusLogger {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-#if DEBUG
-            Self.shared.logs.append(.init(date: now, category: self.category, level: .info, message: msg))
-#endif
-            if alert {
-                Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
-            }
+            guard alert else { return; }
+            Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
         }
     }
 
-    func fault(_ msg: String, alert: Bool = false) { log(level: .fault, msg, alert: alert) }
-    func critical(_ msg: String, alert: Bool = false) { fault(msg, alert: alert) }
+    func critical(_ msg: String) { log(level: .critical, msg, alert: true) }
     func error(_ msg: String, alert: Bool = false) { log(level: .error, msg, alert: alert) }
     func warning(_ msg: String, alert: Bool = false) { log(level: .warning, msg, alert: alert) }
     func info(_ msg: String) { log(level: .info, msg) }
-    func notice(_ msg: String) { log(msg) }
+    func notice(_ msg: String, alert: Bool = false) { log(level: .info, msg, alert: alert) }
 #if DEBUG
     func debug(_ msg: String, alert: Bool = false) { log(level: .debug, msg, alert: alert) }
-    func trace(_ msg: String, alert: Bool = false) { log(level: .trace, msg, alert: alert) }
 #else
     func debug(_ msg: String, alert: Bool = false) { }
-    func trace(_ msg: String, alert: Bool = false) { }
 #endif
 }
 
 extension OSLogType {
     init(_ level: DecimusLogger.LogLevel) {
         switch level {
-        case .fault:
+        case .critical:
             self = .fault
         case .error, .warning:
             self = .error
         case .info:
             self = .info
-        case .debug, .trace:
+        case .debug:
             self = .debug
         }
     }

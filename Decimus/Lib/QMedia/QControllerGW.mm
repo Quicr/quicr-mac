@@ -21,13 +21,18 @@
 @synthesize publisherDelegate;
 
 
-- (id)init
+- (id)initLogCallback:(CantinaLogCallback)logCallback
 {
     self = [super init];
+    self->qControllerGW.logger = std::make_shared<cantina::CustomLogger>([=](auto level, const std::string& msg, bool b) {
+        NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
+        logCallback(static_cast<uint8_t>(level), m, b);
+    });
     return self;
 }
 
-- (void)dealloc {
+- (void)dealloc
+{
     NSLog(@"QControllerGW - dealloc");
 }
 
@@ -105,7 +110,7 @@ int QControllerGW::connect(const std::string remote_address,
                            std::uint16_t protocol,
                            qtransport::TransportConfig config)
 {
-    qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate);
+    qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate, logger);
     if (qController == nullptr)
         return -1;
 
