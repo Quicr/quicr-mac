@@ -21,19 +21,19 @@
 @synthesize publisherDelegate;
 
 
-- (id)initLogCallback:(CantinaLogCallback)logCallback
+- (id)initCallback:(CantinaLogCallback)callback
 {
     self = [super init];
     self->qControllerGW.logger = std::make_shared<cantina::CustomLogger>([=](auto level, const std::string& msg, bool b) {
         NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
-        logCallback(static_cast<uint8_t>(level), m, b);
+        callback(static_cast<uint8_t>(level), m, b);
     });
     return self;
 }
 
 - (void)dealloc
 {
-    NSLog(@"QControllerGW - dealloc");
+    qControllerGW.logger->debug << "QControllerGW - dealloc" << std::flush;
 }
 
 -(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol config:(TransportConfig)config
@@ -46,10 +46,10 @@
         memcpy(&tconfig, &config, sizeof(tconfig));
         return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol, tconfig);
     } catch(const std::exception& e) {
-        NSLog(@"QControllerGW::connect | ERROR | Failed to connect: %s", e.what());
+        qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
         return -1;
     } catch(...) {
-        NSLog(@"QControllerGW::connect | ERROR | Failed to connect due to unknown error");
+        qControllerGW.logger->error << "Failed to connect due to unknown error" << std::flush;
         return -1;
     }
 }
@@ -127,7 +127,7 @@ void QControllerGW::close()
     }
     else
     {
-        NSLog(@"QControllerGW::close - qController nil");
+        logger->error << "QControllerGW::close - qController nil" << std::flush;
     }
 }
 
@@ -139,7 +139,7 @@ void QControllerGW::updateManifest(const std::string manifest)
     }
     else
     {
-        NSLog(@"QControllerGW::updateManifest - qController nil");
+        logger->error << "QControllerGW::updateManifest - qController nil" << std::flush;
     }
 }
 
@@ -162,6 +162,6 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
     }
     else
     {
-        NSLog(@"QControllerGW::publishNamedObject - qController nil");
+        logger->error << "QControllerGW::publishNamedObject - qController nil" << std::flush;
     }
 }

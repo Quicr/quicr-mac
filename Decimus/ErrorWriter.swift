@@ -59,7 +59,7 @@ class DecimusLogger {
         logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            guard alert else { return; }
+            guard alert else { return }
             Self.shared.alerts.append(.init(date: now, category: self.category, level: level, message: msg))
         }
     }
@@ -70,7 +70,7 @@ class DecimusLogger {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            guard alert else { return; }
+            guard alert else { return }
             Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
         }
     }

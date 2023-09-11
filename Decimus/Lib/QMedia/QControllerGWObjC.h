@@ -29,7 +29,7 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 @property (nonatomic, strong) PubDelegate publisherDelegate;
 @property (nonatomic, strong) SubDelegate subscriberDelegate;
 
--(instancetype) initLogCallback:(CantinaLogCallback)logCallback;
+-(instancetype) initCallback:(CantinaLogCallback)callback;
 -(int) connect: (NSString*)remoteAddress
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol

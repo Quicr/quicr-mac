@@ -115,7 +115,9 @@ class OpusSubscription: Subscription {
                                           packetElements: Int(opusPacketSize),
                                           clockRate: UInt(asbd.pointee.mSampleRate),
                                           maxLengthMs: jitterMax,
-                                          minLengthMs: jitterDepth)
+                                          minLengthMs: jitterDepth) { level, msg, alert in
+            OpusSubscription.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        }
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
