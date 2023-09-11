@@ -68,7 +68,8 @@ class H264Subscription: Subscription {
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
-         reliable: Bool) {
+         reliable: Bool,
+         minDepth: TimeInterval) {
         self.namespace = namespace
         self.participants = participants
         self.decoder = H264Decoder(config: config)
@@ -80,8 +81,8 @@ class H264Subscription: Subscription {
         self.namegate = namegate
         self.reliable = reliable
         self.jitterBuffer = .init(namespace: namespace,
-                                  frameDuration: 1/30,
-                                  minDepth: 1/30 * 4,
+                                  frameDuration: 1 / Double(config.fps),
+                                  minDepth: minDepth,
                                   metricsSubmitter: metricsSubmitter)
 
         self.decoder.registerCallback { [weak self] in
@@ -90,10 +91,10 @@ class H264Subscription: Subscription {
 
         // Decode job: timer procs on main thread, but decoding itself doesn't.
         DispatchQueue.main.async {
-            self.decodeTimer = .scheduledTimer(withTimeInterval: 1/30,
+            self.decodeTimer = .scheduledTimer(withTimeInterval: 1 / Double(config.fps),
                                                repeats: true,
                                                block: self.decodeBlock)
-            self.decodeTimer!.tolerance = 1/30/2
+            self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
         }
 
         Self.logger.info("Subscribed to H264 stream")

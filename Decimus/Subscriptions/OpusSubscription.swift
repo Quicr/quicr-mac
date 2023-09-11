@@ -86,8 +86,8 @@ class OpusSubscription: Subscription {
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter?,
-         jitterDepth: UInt,
-         jitterMax: UInt,
+         jitterDepth: TimeInterval,
+         jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
          reliable: Bool) throws {
         self.namespace = namespace
@@ -111,8 +111,8 @@ class OpusSubscription: Subscription {
         self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
                                           packetElements: Int(opusPacketSize),
                                           clockRate: UInt(asbd.pointee.mSampleRate),
-                                          maxLengthMs: jitterMax,
-                                          minLengthMs: jitterDepth)
+                                          maxLengthMs: UInt(jitterMax * 1000),
+                                          minLengthMs: UInt(jitterDepth * 1000))
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)

@@ -8,16 +8,16 @@ struct SubscriptionSettingsView: View {
     var body: some View {
         Section("Subscription Config") {
             Form {
-                LabeledContent("Jitter Target Depth (ms)") {
+                LabeledContent("Jitter Target Depth (s)") {
                     TextField(
-                        "Depth (ms)",
-                        value: $subscriptionConfig.value.jitterDepth,
+                        "Depth (s)",
+                        value: $subscriptionConfig.value.jitterDepthTime,
                         format: .number)
                 }
-                LabeledContent("Jitter Max Depth (ms)") {
+                LabeledContent("Jitter Max Depth (s)") {
                     TextField(
-                        "Depth (ms)",
-                        value: $subscriptionConfig.value.jitterMax,
+                        "Depth (s)",
+                        value: $subscriptionConfig.value.jitterMaxTime,
                         format: .number)
                 }
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {

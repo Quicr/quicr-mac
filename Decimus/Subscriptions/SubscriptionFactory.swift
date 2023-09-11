@@ -38,15 +38,15 @@ struct MediaReliability: Codable {
 }
 
 struct SubscriptionConfig: Codable {
-    var jitterMax: UInt
-    var jitterDepth: UInt
+    var jitterMaxTime: TimeInterval
+    var jitterDepthTime: TimeInterval
     var opusWindowSize: OpusWindowSize
     var videoBehaviour: VideoBehaviour
     var voiceProcessing: Bool
     var mediaReliability: MediaReliability
     init() {
-        jitterMax = 500
-        jitterDepth = 60
+        jitterMaxTime = 0.5
+        jitterDepthTime = 0.06
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         voiceProcessing = true
@@ -91,7 +91,8 @@ class SubscriptionFactory {
                                     participants: self.participants,
                                     metricsSubmitter: metricsSubmitter,
                                     namegate: namegate,
-                                    reliable: self.config.mediaReliability.video.subscription)
+                                    reliable: self.config.mediaReliability.video.subscription,
+                                    minDepth: self.config.jitterDepthTime)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
@@ -100,8 +101,8 @@ class SubscriptionFactory {
                                         player: self.player,
                                         config: config,
                                         submitter: metricsSubmitter,
-                                        jitterDepth: self.config.jitterDepth,
-                                        jitterMax: self.config.jitterMax,
+                                        jitterDepth: self.config.jitterDepthTime,
+                                        jitterMax: self.config.jitterMaxTime,
                                         opusWindowSize: self.config.opusWindowSize,
                                         reliable: self.config.mediaReliability.audio.subscription)
         default:
