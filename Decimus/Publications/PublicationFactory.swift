@@ -8,11 +8,11 @@ class PublicationFactory {
                                              CodecConfig,
                                              MetricsSubmitter?) throws -> Publication
 
-    private let opusWindowSize: TimeInterval
+    private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
     private let format: AVAudioFormat
-    init(opusWindowSize: TimeInterval,
+    init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
          format: AVAudioFormat) {

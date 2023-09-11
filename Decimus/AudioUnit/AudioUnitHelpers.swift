@@ -10,7 +10,7 @@ extension AVAudioSession {
         let audioSession = Self.sharedInstance()
         try audioSession.setCategory(.playAndRecord,
                                      mode: .videoChat,
-                                     options: [.defaultToSpeaker])
+                                     options: [.defaultToSpeaker, .allowBluetooth])
         try audioSession.setPreferredSampleRate(.opus48khz)
         try audioSession.setActive(true)
         try audioSession.setPreferredOutputNumberOfChannels(min(2, audioSession.maximumOutputNumberOfChannels))

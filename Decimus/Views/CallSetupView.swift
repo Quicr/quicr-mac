@@ -51,7 +51,8 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
+                                                      alert: true)
                                 }
                             }
 
@@ -94,22 +95,6 @@ private struct LoginForm: View {
                 }
 
                 if callConfig.conferenceID != 0 {
-                    RadioButtonGroup("Protocol",
-                                     selection: $callConfig,
-                                     labels: ["UDP", "QUIC"],
-                                     tags: [
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.udpPort,
-                              connectionProtocol: .UDP,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID),
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.quicPort,
-                              connectionProtocol: .QUIC,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID)
-                    ])
-
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
                                  disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
@@ -135,12 +120,10 @@ private struct LoginForm: View {
                     return
                 }
                 if meetings.count > 0 {
-                    callConfig = CallConfig(address: callConfig.address == "" ?
-                                                relayConfig.value.address : callConfig.address,
-                                            port: callConfig.port == 0 ?
-                                                relayConfig.value.quicPort : callConfig.port,
-                                            connectionProtocol: callConfig.connectionProtocol,
-                                                email: callConfig.email == "" ? email : callConfig.email,
+                    callConfig = CallConfig(address: relayConfig.value.address,
+                                            port: relayConfig.value.port,
+                                            connectionProtocol: relayConfig.value.connectionProtocol,
+                                            email: callConfig.email == "" ? email : callConfig.email,
                                             conferenceID: callConfig.conferenceID == 0 ?
                                                 UInt32(confId) : callConfig.conferenceID)
                 }
@@ -153,8 +136,12 @@ private struct LoginForm: View {
 
     private func fetchManifest() async throws {
         isLoading = true
-        let userId = try await ManifestController.shared.getUser(email: email)
-        meetings = try await ManifestController.shared.getConferences(for: userId)
+        guard let user = try? await ManifestController.shared.getUser(email: email) else {
+            return
+        }
+        meetings = try await ManifestController.shared.getConferences(for: user.id)
+            .reduce(into: [:]) { $0[$1.id] = $1.title }
+
         callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }
