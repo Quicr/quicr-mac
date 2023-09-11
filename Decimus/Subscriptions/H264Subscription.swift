@@ -142,6 +142,10 @@ class H264Subscription: Subscription {
                 object = String(lastObject)
             }
             // Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+
+            // If we've thrown away a frame, we should flush to the next group.
+            let targetGroup = dequeuedFrame.groupId + 1
+            self.jitterBuffer.flushTo(targetGroup: targetGroup)
             return
         }
 
