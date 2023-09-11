@@ -74,15 +74,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private let reliable: Bool
     private var lastCapture: Date?
     private var lastPublish: WrappedOptional<Date> = .init(nil)
+    private let granularMetrics: Bool
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
                   sourceID: SourceIDType,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
-                  reliable: Bool) throws {
+                  reliable: Bool,
+                  granularMetrics: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
+        self.granularMetrics = granularMetrics
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -114,14 +117,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
             // Metrics.
             guard let measurement = measurement else { return }
-            let timestamp = Date.now
+            let timestamp: Date? = granularMetrics ? Date.now : nil
             let delay: Double?
-            if let last = lastPublish.value {
-                delay = timestamp.timeIntervalSince(last) * 1000
+            if granularMetrics {
+                if let last = lastPublish.value {
+                    delay = timestamp!.timeIntervalSince(last) * 1000
+                } else {
+                    delay = nil
+                }
+                lastPublish.value = timestamp
             } else {
                 delay = nil
             }
-            lastPublish.value = timestamp
             Task(priority: .utility) {
                 if let delay = delay {
                     await measurement.publishDelay(delayMs: delay, timestamp: timestamp)
@@ -160,7 +167,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                      attachmentModeOut: &mode)
         Self.logger.warning("\(String(describing: reason))")
         guard let measurement = self.measurement else { return }
-        let now = Date.now
+        let now: Date? = self.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             await measurement.droppedFrame(timestamp: now)
         }
@@ -183,14 +190,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let date = Date.now
+        let date: Date? = self.granularMetrics ? Date.now : nil
         let delay: Double?
-        if let last = self.lastCapture {
-            delay = date.timeIntervalSince(last) * 1000
+        if self.granularMetrics {
+            if let last = self.lastCapture {
+                delay = date!.timeIntervalSince(last) * 1000
+            } else {
+                delay = nil
+            }
+            lastCapture = date
         } else {
             delay = nil
         }
-        lastCapture = date
         Task(priority: .utility) {
             if let delay = delay {
                 await measurement.captureDelay(delayMs: delay, timestamp: date)

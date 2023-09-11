@@ -43,6 +43,7 @@ class OpusPublication: Publication {
     private let measurement: _Measurement?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
+    private let granularMetrics: Bool
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
         assert(data.pointee.mNumberBuffers <= 2)
@@ -74,7 +75,8 @@ class OpusPublication: Publication {
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat) throws {
+         format: AVAudioFormat,
+         granularMetrics: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         if let metricsSubmitter = metricsSubmitter {
@@ -86,6 +88,7 @@ class OpusPublication: Publication {
         self.reliable = reliable
         guard format.sampleRate > 0 else { throw "Invalid input format" }
         self.format = format
+        self.granularMetrics = granularMetrics
 
         // Create a buffer to hold raw data waiting for encode.
         let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize.rawValue
@@ -138,8 +141,9 @@ class OpusPublication: Publication {
 
     private func publish(data: Data) {
         if let measurement = self.measurement {
+            let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
-                await measurement.publishedBytes(sentBytes: data.count, timestamp: nil)
+                await measurement.publishedBytes(sentBytes: data.count, timestamp: now)
             }
         }
         self.publishObjectDelegate?.publishObject(self.namespace, data: data, group: true)

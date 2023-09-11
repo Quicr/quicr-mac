@@ -54,13 +54,15 @@ class H264Subscription: Subscription {
     private let reliable: Bool
     private var lastReceive: Date?
     private var lastDecode: Date?
+    private let granularMetrics: Bool
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
-         reliable: Bool) {
+         reliable: Bool,
+         granularMetrics: Bool) {
         self.namespace = namespace
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
@@ -70,6 +72,7 @@ class H264Subscription: Subscription {
         }
         self.namegate = namegate
         self.reliable = reliable
+        self.granularMetrics = granularMetrics
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
             self?.showDecodedImage(decoded: sample,
                                    timestamp: sample.presentationTimeStamp.value,
@@ -98,14 +101,19 @@ class H264Subscription: Subscription {
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date = .now
+            let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
-            if let last = lastReceive {
-                delta = now.timeIntervalSince(last) * 1000
+            if granularMetrics {
+                if let last = lastReceive {
+                    delta = now!.timeIntervalSince(last) * 1000
+                } else {
+                    delta = nil
+                }
+                lastReceive = now
             } else {
                 delta = nil
             }
-            lastReceive = now
+
             Task(priority: .utility) {
                 if let delta = delta {
                     await measurement.receiveDelta(delta: delta, timestamp: now)
@@ -153,14 +161,18 @@ class H264Subscription: Subscription {
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
         if let measurement = self.measurement {
-            let now: Date = .now
+            let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
-            if let last = lastDecode {
-                delta = now.timeIntervalSince(last) * 1000
+            if self.granularMetrics {
+                if let last = lastDecode {
+                    delta = now!.timeIntervalSince(last) * 1000
+                } else {
+                    delta = nil
+                }
+                lastDecode = now
             } else {
                 delta = nil
             }
-            lastDecode = now
             Task(priority: .utility) {
                 if let delta = delta {
                     await measurement.decodeDelta(delta: delta, timestamp: now)

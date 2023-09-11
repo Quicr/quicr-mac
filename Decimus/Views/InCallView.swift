@@ -91,6 +91,8 @@ extension InCallView {
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
+        private var appMetricTimer: Timer?
+        private var measurement: _Measurement?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -106,25 +108,37 @@ extension InCallView {
                 "conference": "\(config.conferenceID)",
                 "protocol": "\(config.connectionProtocol)"
             ]
-            do {
-                self.captureManager = try .init()
-            } catch {
-                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
-                return
-            }
+
             var submitter: MetricsSubmitter?
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
+                self.measurement = .init(submitter: influx)
                 Task {
                     await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
                 }
+
+                // Application metrics timer.
+                self.appMetricTimer = .scheduledTimer(withTimeInterval: 1,
+                                                      repeats: true,
+                                                      block: self.appMetrics)
+            } else {
+                self.appMetricTimer = nil
+                self.measurement = nil
+            }
+
+            do {
+                self.captureManager = try .init(metricsSubmitter: submitter, granularMetrics: influxConfig.value.granular)
+            } catch {
+                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
+                return
             }
 
             self.controller = .init(metricsSubmitter: submitter,
                                     captureManager: captureManager!,
                                     config: subscriptionConfig.value,
-                                    engine: engine)
+                                    engine: engine,
+                                    granularMetrics: influxConfig.value.granular)
         }
 
         func join() async -> Bool {
@@ -145,6 +159,38 @@ extension InCallView {
             } catch {
                 Self.logger.error("Error while leaving call: \(error)", alert: true)
             }
+        }
+    }
+}
+
+// Metrics.
+extension InCallView.ViewModel {
+    private actor _Measurement: Measurement {
+        var name: String = "ApplicationMetrics"
+        var fields: [Date?: [String: AnyObject]] = [:]
+        var tags: [String: String] = [:]
+
+        init(submitter: MetricsSubmitter) {
+            Task {
+                await submitter.register(measurement: self)
+            }
+        }
+
+        func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
+            record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)
+        }
+    }
+
+    func appMetrics(timer: Timer) {
+        guard let measurement = self.measurement else { return }
+        let now: Date = .now
+        do {
+            let usage = try cpuUsage()
+            Task(priority: .utility) {
+                await measurement.recordCpuUsage(cpuUsage: usage, timestamp: now)
+            }
+        } catch {
+            Self.logger.error("Failed to calculate cpu usage: \(error.localizedDescription)")
         }
     }
 }

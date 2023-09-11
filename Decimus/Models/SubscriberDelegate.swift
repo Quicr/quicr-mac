@@ -11,11 +11,17 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-        init(submitter: MetricsSubmitter?, config: SubscriptionConfig, engine: AVAudioEngine) {
+        init(submitter: MetricsSubmitter?,
+             config: SubscriptionConfig,
+             engine: AVAudioEngine,
+             granularMetrics: Bool) {
         self.participants = .init()
         self.player = .init(engine: engine)
         self.submitter = submitter
-        self.factory = .init(participants: self.participants, player: self.player, config: config)
+        self.factory = .init(participants: self.participants,
+                             player: self.player,
+                             config: config,
+                             granularMetrics: granularMetrics)
 
         self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             guard let self = self else { return }
