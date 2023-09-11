@@ -13,7 +13,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
-         opusWindowSize: TimeInterval,
+         opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
          format: AVAudioFormat,

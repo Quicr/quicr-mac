@@ -51,7 +51,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         // If voice processing is on, we want to override the format to something usable.
         var desiredFormat: AVAudioFormat?
         let current = AVAudioSession.sharedInstance().sampleRate
-        let desiredSampleRate = Self.opusSampleRates.contains(current) ? current : .opus48khz
+        let desiredSampleRate: Double = .opus48khz
         if engine.outputNode.isVoiceProcessingEnabled {
             desiredFormat = .init(commonFormat: engine.inputNode.outputFormat(forBus: 0).commonFormat,
                                   sampleRate: desiredSampleRate,
@@ -92,7 +92,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
 
         let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
-        super.updateManifest(manifest)
+
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.outputFormatting = .prettyPrinted
+
+        let manifestJSON = try jsonEncoder.encode(manifest)
+        super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
+
         assert(!engine.isRunning)
         try engine.start()
     }

@@ -64,6 +64,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let session: AVCaptureMultiCamSession
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
+    private var startTime: [AVCaptureOutput: Date] = [:]
     private var connections: [AVCaptureDevice: AVCaptureConnection] = [:]
     private var multiVideoDelegate: [AVCaptureDevice: [FrameListener]] = [:]
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
@@ -72,6 +73,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let measurement: _Measurement?
     private var lastCapture: Date?
     private let granularMetrics: Bool
+    private let warmupTime: TimeInterval = 0.75
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -198,6 +200,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         outputs[output] = device
         inputs[device] = input
         connections[device] = connection
+        startTime[output] = .now
         self.multiVideoDelegate[device] = [listener]
     }
 
@@ -250,6 +253,12 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        // Discard any frames prior to camera warmup.
+        if let startTime = self.startTime[output] {
+            guard Date.now.timeIntervalSince(startTime) > self.warmupTime else { return }
+            self.startTime.removeValue(forKey: output)
+        }
+
         if let measurement = self.measurement {
             let now: Date = .now
             let delay: Double?
@@ -264,6 +273,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                                                 timestamp: self.granularMetrics ? now : nil)
             }
         }
+
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {

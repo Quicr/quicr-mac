@@ -56,71 +56,48 @@ class ManifestController {
         mutex.wait()
     }
 
-    func getUser(email: String) async throws -> String {
+    func getUser(email: String) async throws -> User {
         var url = components
         url.path = "/users"
 
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
-        guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
-            throw "Failed to deserialize JSON: \(data)"
+
+        let decoder = JSONDecoder()
+        let users = try decoder.decode([User].self, from: data)
+
+        guard let user = users.first(where: { $0.email == email }) else {
+            throw "No user found for \(email)"
         }
 
-        guard let user = try json.first(where: { user in
-            guard let userEmail = user["email"] as? String else {
-                throw "Missing user email"
-            }
-            return userEmail == email
-        }) else {
-            return ""
-        }
-
-        guard let userId = user["id"] as? String else {
-            throw "Missing user id"
-        }
-        return userId
+        return user
     }
 
-    func getConferences(for id: String) async throws -> [UInt32: String] {
+    func getConferences(for id: String) async throws -> [Conference] {
         var url = components
         url.path = "/conferences"
 
-        var meetings: [UInt32: String] = [:]
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
-        guard let json = try JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]] else {
-            throw "Failed to deserialize JSON: \(data)"
-        }
 
-        let conferences = try json.filter { conference in
-            guard let participants = conference["participants"] as? [String] else { throw "Conference missing participants" }
-            return participants.contains(id)
-        }
+        let decoder = JSONDecoder()
+        let conferences = try decoder.decode([Conference].self, from: data)
 
-        for conference in conferences {
-            guard let id = conference["id"] as? UInt32 else { throw "Conference missing id" }
-            guard let title = conference["title"] as? String else { throw "Conference missing title" }
-            meetings[id] = title
-        }
-
-        return meetings
+        return conferences.filter { $0.participants.contains(id) }
     }
 
-    func getManifest(confId: UInt32, email: String) async throws -> String {
+    func getManifest(confId: UInt32, email: String) async throws -> Manifest {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
             URLQueryItem(name: "email", value: email)
         ]
 
-        var manifest: String = ""
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
 
-        guard let json = data.prettyPrintedJSONString else { return "" }
-        manifest = json as String
-
-        return manifest
+        let decoder = JSONDecoder()
+        return try decoder.decode(Manifest.self, from: data)
     }
 
     func updateManifest() {
@@ -129,18 +106,5 @@ class ManifestController {
 
     func sendCapabilities() {
 
-    }
-}
-
-extension Data {
-    var prettyPrintedJSONString: NSString? {
-        guard let jsonObject = try? JSONSerialization.jsonObject(with: self, options: []),
-              let data = try? JSONSerialization.data(withJSONObject: jsonObject,
-                                                       options: [.prettyPrinted]),
-              let prettyJSON = NSString(data: data, encoding: String.Encoding.utf8.rawValue) else {
-                  return nil
-               }
-
-        return prettyJSON
     }
 }
