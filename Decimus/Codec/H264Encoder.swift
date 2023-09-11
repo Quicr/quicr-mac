@@ -143,7 +143,7 @@ class H264Encoder {
             return
         }
         try? orientationSei.dataBuffer?.withUnsafeMutableBytes {
-            callback($0, false)
+            callback(.init($0), false)
         }
         #endif
 
