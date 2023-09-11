@@ -10,6 +10,7 @@
 		18162CE52AAF238900A75199 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CE42AAF238900A75199 /* VideoJitterBuffer.swift */; };
 		18162CE72AAF23EF00A75199 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CE62AAF23EF00A75199 /* VideoFrame.swift */; };
 		18162CE92AAF249E00A75199 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18162CE82AAF249E00A75199 /* OrderedCollections */; };
+		18162CEB2AAF2B1E00A75199 /* TestVideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CEA2AAF2B1E00A75199 /* TestVideoJitterBuffer.swift */; };
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -145,6 +146,7 @@
 /* Begin PBXFileReference section */
 		18162CE42AAF238900A75199 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		18162CE62AAF23EF00A75199 /* VideoFrame.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
+		18162CEA2AAF2B1E00A75199 /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -351,6 +353,7 @@
 				9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */,
 				9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
+				18162CEA2AAF2B1E00A75199 /* TestVideoJitterBuffer.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -735,6 +738,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
+				18162CEB2AAF2B1E00A75199 /* TestVideoJitterBuffer.swift in Sources */,
 				9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */,
 				9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */,
 			);

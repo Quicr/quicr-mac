@@ -81,6 +81,7 @@ class VideoJitterBuffer {
                 }
             }
             self.buffer.append(videoFrame)
+            self.buffer.sort()
             return true
         }
         if let measurement = self.measurement {
@@ -150,7 +151,11 @@ class VideoJitterBuffer {
     }
 }
 
-extension VideoFrame: Hashable {
+extension VideoFrame: Hashable, Comparable {
+    static func < (lhs: VideoFrame, rhs: VideoFrame) -> Bool {
+        lhs.getSeq() < rhs.getSeq()
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(getSeq())
     }
