@@ -7,14 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18162CE52AAF238900A75199 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CE42AAF238900A75199 /* VideoJitterBuffer.swift */; };
+		18162CE72AAF23EF00A75199 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CE62AAF23EF00A75199 /* VideoFrame.swift */; };
+		18162CE92AAF249E00A75199 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18162CE82AAF249E00A75199 /* OrderedCollections */; };
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
-		18B57CF32AA0B79300F9AF1E /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */; };
-		18B57CF52AA0BA1A00F9AF1E /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */; };
-		18B57CF92AA0C0AC00F9AF1E /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -24,6 +24,7 @@
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */; };
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
+		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
@@ -106,7 +107,6 @@
 		FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D742A01CCAE00B535DA /* ManifestController.swift */; };
 		FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6D6D782A0422CE00B535DA /* CodecFactory.swift */; };
 		FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = FFA0E84F2A6F25A20027603B /* WrappingHStack */; };
-		FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
 		FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */; };
@@ -143,12 +143,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		18162CE42AAF238900A75199 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
+		18162CE62AAF23EF00A75199 /* VideoFrame.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
-		18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
-		18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
 		18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSubmitter.swift; sourceTree = "<group>"; };
 		18C89A3D2A13D315005B333B /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 		18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxMetricsSubmitter.swift; sourceTree = "<group>"; };
@@ -157,6 +157,7 @@
 		18C89A452A14E667005B333B /* AppStorageWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorageWrapper.swift; sourceTree = "<group>"; };
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
+		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
@@ -246,7 +247,6 @@
 		FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CiscoSansTT-MediumOblique.woff2"; sourceTree = "<group>"; };
 		FF6D6D742A01CCAE00B535DA /* ManifestController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestController.swift; sourceTree = "<group>"; };
 		FF6D6D782A0422CE00B535DA /* CodecFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodecFactory.swift; sourceTree = "<group>"; };
-		FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioButtonGroup.swift; sourceTree = "<group>"; };
 		FFB8CBE429C148B70093C623 /* ActionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionPicker.swift; sourceTree = "<group>"; };
 		FFBB04412A2923580038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FFBB04422A29235D0038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Decimus/Info.plist; sourceTree = SOURCE_ROOT; };
@@ -277,7 +277,7 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
-				18B57CF92AA0C0AC00F9AF1E /* OrderedCollections in Frameworks */,
+				18162CE92AAF249E00A75199 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -388,6 +388,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				18162CE42AAF238900A75199 /* VideoJitterBuffer.swift */,
 				FF3B952D2A60C77B00CE463F /* Lib */,
 				18C89A372A13D14A005B333B /* Metrics */,
 				9B87FB4C2A02A84000C92DD1 /* AudioUnit */,
@@ -410,7 +411,7 @@
 				9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */,
 				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
 				9B9622DB2A7A669A00949234 /* QHelpers.swift */,
-				18B57CF22AA0B79300F9AF1E /* VideoJitterBuffer.swift */,
+				9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -440,6 +441,7 @@
 		9BA27FF9297DD8CA007013B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				18162CE62AAF23EF00A75199 /* VideoFrame.swift */,
 				9B480669297EFF040040F5D4 /* Decoder.swift */,
 				9B48066B297F051D0040F5D4 /* Encoder.swift */,
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
@@ -450,7 +452,6 @@
 				FF6C80AA2A17E8980094751E /* Subscription.swift */,
 				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
 				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
-				18B57CF42AA0BA1A00F9AF1E /* VideoFrame.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -552,7 +553,6 @@
 				FFBF2FB629BFE48100D769CF /* ActionButton.swift */,
 				FF01709529C10013000E23A6 /* FormInput.swift */,
 				FFB8CBE429C148B70093C623 /* ActionPicker.swift */,
-				FFA4CEE829DF7BA20035A857 /* RadioButtonGroup.swift */,
 				FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */,
 			);
 			path = Components;
@@ -601,7 +601,7 @@
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 				188ABB552A792E9C00B31A6E /* Opus */,
-				18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */,
+				18162CE82AAF249E00A75199 /* OrderedCollections */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -757,6 +757,7 @@
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B48066A297EFF040040F5D4 /* Decoder.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
+				18162CE52AAF238900A75199 /* VideoJitterBuffer.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
@@ -769,9 +770,9 @@
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
-				18B57CF52AA0BA1A00F9AF1E /* VideoFrame.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
+				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
@@ -787,14 +788,13 @@
 				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
+				18162CE72AAF23EF00A75199 /* VideoFrame.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
-				FFA4CEE929DF7BA20035A857 /* RadioButtonGroup.swift in Sources */,
-				18B57CF32AA0B79300F9AF1E /* VideoJitterBuffer.swift in Sources */,
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
@@ -1034,6 +1034,7 @@
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/logger/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1105,6 +1106,7 @@
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/logger/include/**",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1227,15 +1229,15 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		18162CE82AAF249E00A75199 /* OrderedCollections */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = OrderedCollections;
+		};
 		188ABB552A792E9C00B31A6E /* Opus */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */;
 			productName = Opus;
-		};
-		18B57CF82AA0C0AC00F9AF1E /* OrderedCollections */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
-			productName = OrderedCollections;
 		};
 		18C89A392A13D1E4005B333B /* InfluxDBSwift */ = {
 			isa = XCSwiftPackageProductDependency;

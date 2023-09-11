@@ -50,7 +50,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         // If voice processing is on, we want to override the format to something usable.
         var desiredFormat: AVAudioFormat?
         let current = AVAudioSession.sharedInstance().sampleRate
-        let desiredSampleRate = Self.opusSampleRates.contains(current) ? current : .opus48khz
+        let desiredSampleRate: Double = .opus48khz
         if engine.outputNode.isVoiceProcessingEnabled {
             desiredFormat = .init(commonFormat: engine.inputNode.outputFormat(forBus: 0).commonFormat,
                                   sampleRate: desiredSampleRate,

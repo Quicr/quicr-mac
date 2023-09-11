@@ -9,6 +9,11 @@ actor VideoMeasurement: Measurement {
 
     private var bytes: UInt64 = 0
     private var pixels: UInt64 = 0
+    private var publishedFrames: UInt64 = 0
+    private var capturedFrames: UInt64 = 0
+    private var dropped: UInt64 = 0
+    private var captureDelay: Double = 0
+    private var publishDelay: Double = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -25,6 +30,29 @@ actor VideoMeasurement: Measurement {
     func sentPixels(sent: UInt64, timestamp: Date?) {
         self.pixels += sent
         record(field: "sentPixels", value: self.pixels as AnyObject, timestamp: timestamp)
+    }
+
+    func droppedFrame(timestamp: Date?) {
+        self.dropped += 1
+        record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
+    }
+
+    func publishedFrame(timestamp: Date?) {
+        self.publishedFrames += 1
+        record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: timestamp)
+    }
+
+    func capturedFrame(timestamp: Date?) {
+        self.capturedFrames += 1
+        record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
+    }
+
+    func captureDelay(delayMs: Double, timestamp: Date?) {
+        record(field: "captureDelay", value: delayMs as AnyObject, timestamp: timestamp)
+    }
+
+    func publishDelay(delayMs: Double, timestamp: Date?) {
+        record(field: "publishDelay", value: delayMs as AnyObject, timestamp: timestamp)
     }
 }
 
@@ -44,6 +72,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     private var encoder: H264Encoder
     private let reliable: Bool
+    private var lastCapture: Date?
+    private var lastPublish: WrappedOptional<Date> = .init(nil)
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
@@ -77,20 +107,32 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         #endif
         self.device = device
-        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
-        super.init()
 
-        self.encoder.registerCallback { [weak self] data, datalength, flag in
-            guard let self = self else { return }
+        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, datalength, flag in
+            // Publish.
+            publishDelegate?.publishObject(namespace, data: data, length: datalength, group: flag)
 
+            // Metrics.
+            guard let measurement = measurement else { return }
             let timestamp = Date.now
-            if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
-                }
+            let delay: Double?
+            if let last = lastPublish.value {
+                delay = timestamp.timeIntervalSince(last) * 1000
+            } else {
+                delay = nil
             }
-            self.publishObjectDelegate?.publishObject(self.namespace, data: data, length: datalength, group: flag)
+            lastPublish.value = timestamp
+            Task(priority: .utility) {
+                if let delay = delay {
+                    await measurement.publishDelay(delayMs: delay, timestamp: timestamp)
+                }
+                await measurement.sentBytes(sent: UInt64(datalength), timestamp: timestamp)
+                await measurement.publishedFrame(timestamp: timestamp)
+            }
         }
+        self.encoder = try .init(config: config, verticalMirror: device.position == .front)
+        self.encoder.registerCallback(callback: onEncodedData)
+        super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
@@ -115,31 +157,45 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let reason = CMGetAttachment(sampleBuffer,
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
-
         Self.logger.warning("\(String(describing: reason))")
+        guard let measurement = self.measurement else { return }
+        let now = Date.now
+        Task(priority: .utility) {
+            await measurement.droppedFrame(timestamp: now)
+        }
     }
 
     /// This callback fires when a video frame arrives.
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        // Report pixel metrics.
-        guard let buffer = sampleBuffer.imageBuffer else { return }
-        let width = CVPixelBufferGetWidth(buffer)
-        let height = CVPixelBufferGetHeight(buffer)
-        let pixels: UInt64 = .init(width * height)
-        let date = Date.now
-        if let measurement = measurement {
-            Task(priority: .utility) {
-                await measurement.sentPixels(sent: pixels, timestamp: date)
-            }
-        }
-
         // Encode.
         do {
             try encoder.write(sample: sampleBuffer)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
+        }
+
+        // Metrics.
+        guard let measurement = self.measurement else { return }
+        guard let buffer = sampleBuffer.imageBuffer else { return }
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let pixels: UInt64 = .init(width * height)
+        let date = Date.now
+        let delay: Double?
+        if let last = self.lastCapture {
+            delay = date.timeIntervalSince(last) * 1000
+        } else {
+            delay = nil
+        }
+        lastCapture = date
+        Task(priority: .utility) {
+            if let delay = delay {
+                await measurement.captureDelay(delayMs: delay, timestamp: date)
+            }
+            await measurement.capturedFrame(timestamp: date)
+            await measurement.sentPixels(sent: pixels, timestamp: date)
         }
     }
 }

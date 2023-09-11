@@ -34,6 +34,14 @@ class H264Subscription: Subscription {
             self.bytes += UInt64(received)
             record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
         }
+
+        func receiveDelta(delta: Double, timestamp: Date?) {
+            record(field: "receiveDelta", value: delta as AnyObject, timestamp: timestamp)
+        }
+
+        func decodeDelta(delta: Double, timestamp: Date?) {
+            record(field: "decodeDelta", value: delta as AnyObject, timestamp: timestamp)
+        }
     }
 
     internal let namespace: QuicrNamespace
@@ -52,6 +60,8 @@ class H264Subscription: Subscription {
             self?.decode()
         }
     }
+    private var lastReceive: Date?
+    private var lastDecode: Date?
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -106,14 +116,26 @@ class H264Subscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+        // Metrics.
         if let measurement = self.measurement {
             let now: Date = .now
+            let delta: Double?
+            if let last = lastReceive {
+                delta = now.timeIntervalSince(last) * 1000
+            } else {
+                delta = nil
+            }
+            lastReceive = now
             Task(priority: .utility) {
+                if let delta = delta {
+                    await measurement.receiveDelta(delta: delta, timestamp: now)
+                }
                 await measurement.receivedFrame(timestamp: now)
                 await measurement.receivedBytes(received: data.count, timestamp: now)
             }
         }
 
+        // Update keep alive timer for showing video.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             participant.lastUpdated = .now()
@@ -151,6 +173,8 @@ class H264Subscription: Subscription {
 
         lastGroup = dequeuedFrame.groupId
         lastObject = dequeuedFrame.objectId
+
+        // Decode.
         do {
             try dequeuedFrame.data.withUnsafeBytes {
                 try decoder.write(data: $0, timestamp: 0)
@@ -166,7 +190,17 @@ class H264Subscription: Subscription {
                                   verticalMirror: Bool) {
         if let measurement = self.measurement {
             let now: Date = .now
+            let delta: Double?
+            if let last = lastDecode {
+                delta = now.timeIntervalSince(last) * 1000
+            } else {
+                delta = nil
+            }
+            lastDecode = now
             Task(priority: .utility) {
+                if let delta = delta {
+                    await measurement.decodeDelta(delta: delta, timestamp: now)
+                }
                 await measurement.decodedFrame(timestamp: now)
             }
         }

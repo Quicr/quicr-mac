@@ -40,14 +40,14 @@ struct MediaReliability: Codable {
 struct SubscriptionConfig: Codable {
     var jitterMax: UInt
     var jitterDepth: UInt
-    var opusWindowSize: TimeInterval
+    var opusWindowSize: OpusWindowSize
     var videoBehaviour: VideoBehaviour
     var voiceProcessing: Bool
     var mediaReliability: MediaReliability
     init() {
         jitterMax = 500
         jitterDepth = 60
-        opusWindowSize = 0.01
+        opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         voiceProcessing = true
         mediaReliability = .init()

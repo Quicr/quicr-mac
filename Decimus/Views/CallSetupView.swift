@@ -51,7 +51,8 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
+                                                      alert: true)
                                 }
                             }
 
@@ -94,22 +95,6 @@ private struct LoginForm: View {
                 }
 
                 if callConfig.conferenceID != 0 {
-                    RadioButtonGroup("Protocol",
-                                     selection: $callConfig,
-                                     labels: ["UDP", "QUIC"],
-                                     tags: [
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.UDP]!,
-                              connectionProtocol: .UDP,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID),
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.QUIC]!,
-                              connectionProtocol: .QUIC,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID)
-                    ])
-
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
                                  disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
@@ -136,10 +121,11 @@ private struct LoginForm: View {
                 }
                 if meetings.count > 0 {
                     callConfig = CallConfig(address: relayConfig.value.address,
-                                            port: relayConfig.value.ports[.QUIC]!,
-                                            connectionProtocol: .QUIC,
-                                            email: email,
-                                            conferenceID: UInt32(confId))
+                                            port: relayConfig.value.port,
+                                            connectionProtocol: relayConfig.value.connectionProtocol,
+                                            email: callConfig.email == "" ? email : callConfig.email,
+                                            conferenceID: callConfig.conferenceID == 0 ?
+                                                UInt32(confId) : callConfig.conferenceID)
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
