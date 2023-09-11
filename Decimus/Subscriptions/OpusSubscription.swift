@@ -88,7 +88,7 @@ class OpusSubscription: Subscription {
          submitter: MetricsSubmitter?,
          jitterDepth: UInt,
          jitterMax: UInt,
-         opusWindowSize: TimeInterval,
+         opusWindowSize: OpusWindowSize,
          reliable: Bool) throws {
         self.namespace = namespace
         self.player = player
@@ -107,7 +107,7 @@ class OpusSubscription: Subscription {
 
         // Create the jitter buffer.
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize
+        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
         self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
                                           packetElements: Int(opusPacketSize),
                                           clockRate: UInt(asbd.pointee.mSampleRate),
