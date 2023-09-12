@@ -14,6 +14,7 @@
 #endif
 
 #import "QDelegatesObjC.h"
+#import "TransportConfig.h"
 
 @interface QControllerGWObjC<PubDelegate: id<QPublisherDelegateObjC>,
                              SubDelegate: id<QSubscriberDelegateObjC>> : NSObject<QPublishObjectDelegateObjC> {
@@ -28,7 +29,8 @@
 -(instancetype) init;
 -(int) connect: (NSString*)remoteAddress
                 port:(UInt16)remotePort
-                protocol:(UInt8)protocol;
+                protocol:(UInt8)protocol
+                config:(TransportConfig)config;
 -(void) close;
 -(void) updateManifest: (NSString*)manifest;
 @end
