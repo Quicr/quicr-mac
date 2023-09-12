@@ -9,7 +9,7 @@ private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
     case .debug:
         return .orange
     default:
-        return .white
+        return .blue
     }
 }
 
