@@ -62,10 +62,15 @@ class SubscriptionFactory {
     private unowned let participants: VideoParticipants
     private unowned let player: FasterAVEngineAudioPlayer
     private let config: SubscriptionConfig
-    init(participants: VideoParticipants, player: FasterAVEngineAudioPlayer, config: SubscriptionConfig) {
+    private let granularMetrics: Bool
+    init(participants: VideoParticipants,
+         player: FasterAVEngineAudioPlayer,
+         config: SubscriptionConfig,
+         granularMetrics: Bool) {
         self.participants = participants
         self.player = player
         self.config = config
+        self.granularMetrics = granularMetrics
     }
 
     func create(_ namespace: QuicrNamespace,
@@ -92,7 +97,8 @@ class SubscriptionFactory {
                                     metricsSubmitter: metricsSubmitter,
                                     namegate: namegate,
                                     reliable: self.config.mediaReliability.video.subscription,
-                                    minDepth: self.config.jitterDepthTime)
+                                    minDepth: self.config.jitterDepthTime,
+                                    granularMetrics: self.granularMetrics)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
@@ -104,7 +110,8 @@ class SubscriptionFactory {
                                         jitterDepth: self.config.jitterDepthTime,
                                         jitterMax: self.config.jitterMaxTime,
                                         opusWindowSize: self.config.opusWindowSize,
-                                        reliable: self.config.mediaReliability.audio.subscription)
+                                        reliable: self.config.mediaReliability.audio.subscription,
+                                        granularMetrics: self.granularMetrics)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

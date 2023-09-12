@@ -24,6 +24,35 @@ enum CaptureManagerError: Error {
 
 /// Manages local media capture.
 class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    private actor _Measurement: Measurement {
+        var name: String = "CaptureManager"
+        var fields: [Date?: [String: AnyObject]] = [:]
+        var tags: [String: String] = [:]
+
+        private var capturedFrames: UInt64 = 0
+        private var dropped: UInt64 = 0
+        private var captureDelay: Double = 0
+
+        init(submitter: MetricsSubmitter) {
+            Task {
+                await submitter.register(measurement: self)
+            }
+        }
+
+        func droppedFrame(timestamp: Date?) {
+            self.dropped += 1
+            record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
+        }
+
+        func capturedFrame(delayMs: Double?, timestamp: Date?) {
+            self.capturedFrames += 1
+            record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
+            if let delayMs = delayMs {
+                record(field: "captureDelay", value: delayMs as AnyObject, timestamp: timestamp)
+            }
+        }
+    }
+
     private static let logger = DecimusLogger(CaptureManager.self)
 
     /// Describe events that can happen to devices.
@@ -41,14 +70,23 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
     private var observer: NSObjectProtocol?
+    private let measurement: _Measurement?
+    private var lastCapture: Date?
+    private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
 
-    init(value: Void? = nil) throws {
+    init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
         }
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
+        self.granularMetrics = granularMetrics
+        if let metricsSubmitter = metricsSubmitter {
+            self.measurement = .init(submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         super.init()
     }
 
@@ -220,6 +258,22 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             guard Date.now.timeIntervalSince(startTime) > self.warmupTime else { return }
             self.startTime.removeValue(forKey: output)
         }
+
+        if let measurement = self.measurement {
+            let now: Date = .now
+            let delay: Double?
+            if let last = self.lastCapture {
+                delay = now.timeIntervalSince(last) * 1000
+            } else {
+                delay = nil
+            }
+            self.lastCapture = now
+            Task(priority: .utility) {
+                await measurement.capturedFrame(delayMs: self.granularMetrics ? delay : nil,
+                                                timestamp: self.granularMetrics ? now : nil)
+            }
+        }
+
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {

@@ -58,7 +58,7 @@ class DecimusLogger {
 
     func log(level: LogLevel, _ msg: String, alert: Bool = false) {
         let now = Date.now
-        logger.log(level: OSLogType(level), "\(msg)")
+        logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             Self.shared.logs.append(.init(date: now, category: self.category, level: level, message: msg))

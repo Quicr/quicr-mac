@@ -22,7 +22,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          config: SubscriptionConfig,
-         engine: AVAudioEngine) {
+         engine: AVAudioEngine,
+         granularMetrics: Bool) {
         do {
             try AVAudioSession.configureForDecimus()
         } catch {
@@ -72,14 +73,16 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         super.init()
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
-                                                     engine: engine)
+                                                     engine: engine,
+                                                     granularMetrics: granularMetrics)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability,
                                                    blocks: blocks,
-                                                   format: desiredFormat ?? engine.inputNode.outputFormat(forBus: 0))
+                                                   format: desiredFormat ?? engine.inputNode.outputFormat(forBus: 0),
+                                                   granularMetrics: granularMetrics)
     }
 
     func connect(config: CallConfig) async throws {
@@ -89,7 +92,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
 
         let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
-        super.updateManifest(manifest)
+
+        let jsonEncoder = JSONEncoder()
+        jsonEncoder.outputFormatting = .prettyPrinted
+
+        let manifestJSON = try jsonEncoder.encode(manifest)
+        super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
+
         assert(!engine.isRunning)
         try engine.start()
     }

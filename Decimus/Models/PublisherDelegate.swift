@@ -16,14 +16,16 @@ class PublisherDelegate: QPublisherDelegateObjC {
          opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat) {
+         format: AVAudioFormat,
+         granularMetrics: Bool) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
         self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
                              blocks: blocks,
-                             format: format)
+                             format: format,
+                             granularMetrics: granularMetrics)
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,

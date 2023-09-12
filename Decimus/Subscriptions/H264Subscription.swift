@@ -45,7 +45,7 @@ class H264Subscription: Subscription {
     }
 
     internal let namespace: QuicrNamespace
-    private var decoder: H264Decoder
+    private var decoder: H264Decoder?
     private unowned let participants: VideoParticipants
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
@@ -62,6 +62,7 @@ class H264Subscription: Subscription {
     }
     private var lastReceive: Date?
     private var lastDecode: Date?
+    private let granularMetrics: Bool
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -69,10 +70,10 @@ class H264Subscription: Subscription {
          metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
          reliable: Bool,
-         minDepth: TimeInterval) {
+         minDepth: TimeInterval,
+         granularMetrics: Bool) {
         self.namespace = namespace
         self.participants = participants
-        self.decoder = H264Decoder(config: config)
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -85,10 +86,7 @@ class H264Subscription: Subscription {
                                   minDepth: minDepth,
                                   metricsSubmitter: metricsSubmitter,
                                   sort: !reliable)
-
-        self.decoder.registerCallback { [weak self] in
-            self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
-        }
+        self.granularMetrics = granularMetrics
 
         // Decode job: timer procs on main thread, but decoding itself doesn't.
         DispatchQueue.main.async {
@@ -97,6 +95,13 @@ class H264Subscription: Subscription {
                                                block: self.decodeBlock)
             self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
         }
+
+        self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
+            self?.showDecodedImage(decoded: sample,
+                                   timestamp: sample.presentationTimeStamp.value,
+                                   orientation: orientation,
+                                   verticalMirror: mirror)
+        })
 
         Self.logger.info("Subscribed to H264 stream")
     }
@@ -120,14 +125,19 @@ class H264Subscription: Subscription {
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date = .now
+            let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
-            if let last = lastReceive {
-                delta = now.timeIntervalSince(last) * 1000
+            if granularMetrics {
+                if let last = lastReceive {
+                    delta = now!.timeIntervalSince(last) * 1000
+                } else {
+                    delta = nil
+                }
+                lastReceive = now
             } else {
                 delta = nil
             }
-            lastReceive = now
+
             Task(priority: .utility) {
                 if let delta = delta {
                     await measurement.receiveDelta(delta: delta, timestamp: now)
@@ -179,7 +189,7 @@ class H264Subscription: Subscription {
         // Decode.
         do {
             try dequeuedFrame.data.withUnsafeBytes {
-                try decoder.write(data: $0, timestamp: 0)
+                try decoder!.write(data: $0, timestamp: 0)
             }
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
@@ -191,14 +201,18 @@ class H264Subscription: Subscription {
                                   orientation: AVCaptureVideoOrientation?,
                                   verticalMirror: Bool) {
         if let measurement = self.measurement {
-            let now: Date = .now
+            let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
-            if let last = lastDecode {
-                delta = now.timeIntervalSince(last) * 1000
+            if self.granularMetrics {
+                if let last = lastDecode {
+                    delta = now!.timeIntervalSince(last) * 1000
+                } else {
+                    delta = nil
+                }
+                lastDecode = now
             } else {
                 delta = nil
             }
-            lastDecode = now
             Task(priority: .utility) {
                 if let delta = delta {
                     await measurement.decodeDelta(delta: delta, timestamp: now)

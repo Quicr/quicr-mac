@@ -9,8 +9,14 @@ struct InfluxSettingsView: View {
         Section("Influx Connection") {
             Form {
                 HStack {
-                    Text("Submit Metrics")
-                    Toggle(isOn: $influxConfig.value.submit) {}
+                    HStack {
+                        Text("Submit Metrics")
+                        Toggle(isOn: $influxConfig.value.submit) {}
+                    }
+                    HStack {
+                        Text("Granular")
+                        Toggle(isOn: $influxConfig.value.granular) {}
+                    }
                 }
 
                 LabeledContent("Interval (s)") {
