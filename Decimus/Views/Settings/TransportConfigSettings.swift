@@ -21,7 +21,3 @@ struct TransportConfigSettings: View {
         }
     }
 }
-
-#Preview {
-    TransportConfigSettings(quicCwinMinimumKiB: .constant(128))
-}
