@@ -53,6 +53,9 @@ struct SubscriptionSettingsView: View {
                 Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.subscription) {}
             }
         }
+        Section("Transport") {
+            TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB)
+        }
     }
 }
 

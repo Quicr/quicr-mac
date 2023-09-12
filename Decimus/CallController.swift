@@ -16,6 +16,7 @@ class MutableWrapper<T> {
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
+    private let config: SubscriptionConfig
     private static let logger = DecimusLogger(CallController.self)
     private static let opusSampleRates: [Double] = [.opus8khz, .opus12khz, .opus16khz, .opus24khz, .opus48khz]
 
@@ -30,6 +31,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
         }
         self.engine = engine
+        self.config = config
         if engine.outputNode.isVoiceProcessingEnabled != config.voiceProcessing {
             do {
                 try engine.outputNode.setVoiceProcessingEnabled(config.voiceProcessing)
@@ -92,7 +94,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      time_queue_max_duration: 1000,
                                                      time_queue_bucket_interval: 1,
                                                      time_queue_size_rx: 1000,
-                                                     debug: false)
+                                                     debug: false,
+                                                     quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024)
         let error = super.connect(config.address,
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
