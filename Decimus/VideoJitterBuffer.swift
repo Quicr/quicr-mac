@@ -48,16 +48,19 @@ class VideoJitterBuffer {
     private let measurement: _Measurement?
     private var play: Bool = false
     private var lastSequenceRead: UInt64?
+    private let sort: Bool
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
     /// - Parameter frameDuration The duration of the video frames contained within the buffer.
     /// - Parameter minDepth The target depth of the jitter buffer in time.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
+    /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
     init(namespace: QuicrNamespace,
          frameDuration: TimeInterval,
          minDepth: TimeInterval,
-         metricsSubmitter: MetricsSubmitter?) {
+         metricsSubmitter: MetricsSubmitter?,
+         sort: Bool) {
         self.frameDuration = frameDuration
         self.minDepth = minDepth
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
@@ -66,6 +69,7 @@ class VideoJitterBuffer {
         } else {
             measurement = nil
         }
+        self.sort = sort
     }
 
     /// Write a video frame into the jitter buffer.
@@ -81,7 +85,9 @@ class VideoJitterBuffer {
                 }
             }
             self.buffer.append(videoFrame)
-            self.buffer.sort()
+            if self.sort {
+                self.buffer.sort()
+            }
             return true
         }
         if let measurement = self.measurement {

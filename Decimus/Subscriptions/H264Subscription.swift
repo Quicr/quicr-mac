@@ -83,7 +83,8 @@ class H264Subscription: Subscription {
         self.jitterBuffer = .init(namespace: namespace,
                                   frameDuration: 1 / Double(config.fps),
                                   minDepth: minDepth,
-                                  metricsSubmitter: metricsSubmitter)
+                                  metricsSubmitter: metricsSubmitter,
+                                  sort: !reliable)
 
         self.decoder.registerCallback { [weak self] in
             self?.showDecodedImage(decoded: $0, timestamp: $1, orientation: $2, verticalMirror: $3)
@@ -164,7 +165,7 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            // Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
 
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = dequeuedFrame.groupId + 1
