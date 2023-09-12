@@ -2,12 +2,19 @@ import XCTest
 @testable import Decimus
 
 final class TestVideoJitterBuffer: XCTestCase {
+
     /// Nothing should be returned until the min depth has been exceeded.
-    func testPlayout() {
+    func TestPlayout() {
+        testPlayout(sort: true)
+        testPlayout(sort: false)
+    }
+
+    func testPlayout(sort: Bool) {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               minDepth: 1/30 * 2.5,
-                                              metricsSubmitter: nil)
+                                              metricsSubmitter: nil,
+                                              sort: sort)
         
         // Write 1, no play.
         let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
@@ -40,7 +47,8 @@ final class TestVideoJitterBuffer: XCTestCase {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               minDepth: 0,
-                                              metricsSubmitter: nil)
+                                              metricsSubmitter: nil,
+                                              sort: true)
         
         // Write newer.
         let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
@@ -58,13 +66,19 @@ final class TestVideoJitterBuffer: XCTestCase {
         let read2 = buffer.read()
         XCTAssertEqual(frame2, read2)
     }
-    
+
     // Out of orders should not be allowed past a read.
     func testOlderFrame() {
+        testOlderFrame(true)
+        testOlderFrame(false)
+    }
+
+    func testOlderFrame(_ sort: Bool) {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               minDepth: 0,
-                                              metricsSubmitter: nil)
+                                              metricsSubmitter: nil,
+                                              sort: sort)
 
         // Write newer.
         let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
