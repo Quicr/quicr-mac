@@ -9,6 +9,7 @@
 
 #include "qmedia/QController.hpp"
 #include "qmedia/QDelegates.hpp"
+#include "transport/transport.h"
 #include "QDelegatesObjC.h"
 #import "QControllerGWObjC.h"
 
@@ -19,7 +20,8 @@ public:
 
     int connect(const std::string remote_address,
                 std::uint16_t remote_port,
-                std::uint16_t protocol);
+                std::uint16_t protocol,
+                qtransport::TransportConfig config);
     
     void close();
     

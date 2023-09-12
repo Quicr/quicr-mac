@@ -86,7 +86,17 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
-        let error = super.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)
+        let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
+                                                     tls_key_filename: nil,
+                                                     time_queue_init_queue_size: 1000,
+                                                     time_queue_max_duration: 1000,
+                                                     time_queue_bucket_interval: 1,
+                                                     time_queue_size_rx: 1000,
+                                                     debug: false)
+        let error = super.connect(config.address,
+                                  port: config.port,
+                                  protocol: config.connectionProtocol.rawValue,
+                                  config: transportConfig)
         guard error == .zero else {
             throw CallError.failedToConnect(error)
         }

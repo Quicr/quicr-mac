@@ -31,10 +31,15 @@
     NSLog(@"QControllerGW - dealloc");
 }
 
--(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol
+-(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol config:(TransportConfig)config
 {
     try {
-        return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol);
+        qtransport::TransportConfig tconfig;
+        static_assert(std::is_trivially_copyable<qtransport::TransportConfig>() &&
+                      std::is_trivially_copyable<TransportConfig>() &&
+                      sizeof(tconfig) == sizeof(config));
+        memcpy(&tconfig, &config, sizeof(tconfig));
+        return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol, tconfig);
     } catch(const std::exception& e) {
         NSLog(@"QControllerGW::connect | ERROR | Failed to connect: %s", e.what());
         return -1;
@@ -97,7 +102,8 @@
 
 int QControllerGW::connect(const std::string remote_address,
                            std::uint16_t remote_port,
-                           std::uint16_t protocol)
+                           std::uint16_t protocol,
+                           qtransport::TransportConfig config)
 {
     qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate);
     if (qController == nullptr)
@@ -105,7 +111,7 @@ int QControllerGW::connect(const std::string remote_address,
 
     quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
     std::string address = remote_address;
-    return qController->connect(address, remote_port, proto);
+    return qController->connect(address, remote_port, proto, config);
 }
 
 void QControllerGW::close()
