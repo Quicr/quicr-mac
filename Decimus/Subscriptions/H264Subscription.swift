@@ -139,7 +139,7 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            Self.logger.warning("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+//            Self.logger.debug("[\(groupId)] (\(objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
             return SubscriptionError.None.rawValue
         }
         lastGroup = groupId

@@ -16,7 +16,9 @@ class MutableWrapper<T> {
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
+
     private static let logger = DecimusLogger(CallController.self)
+
     private static let opusSampleRates: [Double] = [.opus8khz, .opus12khz, .opus16khz, .opus24khz, .opus48khz]
 
     init(metricsSubmitter: MetricsSubmitter?,
@@ -70,7 +72,10 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: desiredFormat)
 
-        super.init()
+        super.init { level, msg, alert in
+            CallController.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        }
+
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
                                                      engine: engine,
