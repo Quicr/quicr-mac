@@ -121,7 +121,9 @@ extension InCallView {
                 // Application metrics timer.
                 self.appMetricTimer = .scheduledTimer(withTimeInterval: 1,
                                                       repeats: true,
-                                                      block: self.appMetrics)
+                                                      block: { [weak self] timer in
+                    self?.appMetrics(timer: timer)
+                })
             } else {
                 self.appMetricTimer = nil
                 self.measurement = nil
