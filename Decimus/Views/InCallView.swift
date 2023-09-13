@@ -91,7 +91,7 @@ extension InCallView {
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
-        private var appMetricTimer: Timer?
+        private var appMetricTimer: Task<(), Error>?
         private var measurement: _Measurement?
 
         @AppStorage("influxConfig")
@@ -119,9 +119,14 @@ extension InCallView {
                 }
 
                 // Application metrics timer.
-                self.appMetricTimer = .scheduledTimer(withTimeInterval: 1,
-                                                      repeats: true,
-                                                      block: self.appMetrics)
+                self.appMetricTimer = .init(priority: .utility) { [weak self] in
+                    while !Task.isCancelled,
+                          let self = self {
+                        let usage = try cpuUsage()
+                        await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                        try? await Task.sleep(for: .seconds(1), tolerance: .seconds(1))
+                    }
+                }
             } else {
                 self.appMetricTimer = nil
                 self.measurement = nil
@@ -178,19 +183,6 @@ extension InCallView.ViewModel {
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)
-        }
-    }
-
-    func appMetrics(timer: Timer) {
-        guard let measurement = self.measurement else { return }
-        let now: Date = .now
-        do {
-            let usage = try cpuUsage()
-            Task(priority: .utility) {
-                await measurement.recordCpuUsage(cpuUsage: usage, timestamp: now)
-            }
-        } catch {
-            Self.logger.error("Failed to calculate cpu usage: \(error.localizedDescription)")
         }
     }
 }
