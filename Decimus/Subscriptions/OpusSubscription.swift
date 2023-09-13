@@ -87,8 +87,8 @@ class OpusSubscription: Subscription {
          player: FasterAVEngineAudioPlayer,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter?,
-         jitterDepth: UInt,
-         jitterMax: UInt,
+         jitterDepth: TimeInterval,
+         jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          granularMetrics: Bool) throws {
@@ -114,8 +114,8 @@ class OpusSubscription: Subscription {
         self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
                                           packetElements: Int(opusPacketSize),
                                           clockRate: UInt(asbd.pointee.mSampleRate),
-                                          maxLengthMs: jitterMax,
-                                          minLengthMs: jitterDepth) { level, msg, alert in
+                                          maxLengthMs: UInt(jitterMax * 1000),
+                                          minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
             OpusSubscription.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
         }
 

@@ -38,19 +38,21 @@ struct MediaReliability: Codable {
 }
 
 struct SubscriptionConfig: Codable {
-    var jitterMax: UInt
-    var jitterDepth: UInt
+    var jitterMaxTime: TimeInterval
+    var jitterDepthTime: TimeInterval
     var opusWindowSize: OpusWindowSize
     var videoBehaviour: VideoBehaviour
     var voiceProcessing: Bool
     var mediaReliability: MediaReliability
+    var videoJitterBuffer: Bool
     init() {
-        jitterMax = 500
-        jitterDepth = 60
+        jitterMaxTime = 0.5
+        jitterDepthTime = 0.06
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         voiceProcessing = true
         mediaReliability = .init()
+        videoJitterBuffer = false
     }
 }
 
@@ -97,7 +99,9 @@ class SubscriptionFactory {
                                     metricsSubmitter: metricsSubmitter,
                                     namegate: namegate,
                                     reliable: self.config.mediaReliability.video.subscription,
-                                    granularMetrics: self.granularMetrics)
+                                    minDepth: self.config.jitterDepthTime,
+                                    granularMetrics: self.granularMetrics,
+                                    useJitterBuffer: self.config.videoJitterBuffer)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
@@ -106,8 +110,8 @@ class SubscriptionFactory {
                                         player: self.player,
                                         config: config,
                                         submitter: metricsSubmitter,
-                                        jitterDepth: self.config.jitterDepth,
-                                        jitterMax: self.config.jitterMax,
+                                        jitterDepth: self.config.jitterDepthTime,
+                                        jitterMax: self.config.jitterMaxTime,
                                         opusWindowSize: self.config.opusWindowSize,
                                         reliable: self.config.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics)
