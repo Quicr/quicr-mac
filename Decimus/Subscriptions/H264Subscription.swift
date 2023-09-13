@@ -26,7 +26,7 @@ class H264Subscription: Subscription {
         }
 
         func decodedFrame(timestamp: Date?) {
-            self.frames += 1
+            self.decoded += 1
             record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)
         }
 
