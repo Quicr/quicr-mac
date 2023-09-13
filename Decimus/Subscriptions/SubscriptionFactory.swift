@@ -44,6 +44,7 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var voiceProcessing: Bool
     var mediaReliability: MediaReliability
+    var quicCwinMinimumKiB: UInt64
     var videoJitterBuffer: Bool
     init() {
         jitterMaxTime = 0.5
@@ -52,6 +53,7 @@ struct SubscriptionConfig: Codable {
         videoBehaviour = .freeze
         voiceProcessing = true
         mediaReliability = .init()
+        quicCwinMinimumKiB = 128
         videoJitterBuffer = false
     }
 }
