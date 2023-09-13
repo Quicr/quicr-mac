@@ -9,6 +9,7 @@
 
 #include "qmedia/QController.hpp"
 #include "qmedia/QDelegates.hpp"
+#include "transport/transport.h"
 #include "QDelegatesObjC.h"
 #import "QControllerGWObjC.h"
 
@@ -19,7 +20,8 @@ public:
 
     int connect(const std::string remote_address,
                 std::uint16_t remote_port,
-                std::uint16_t protocol);
+                std::uint16_t protocol,
+                qtransport::TransportConfig config);
     
     void close();
     
@@ -29,7 +31,10 @@ public:
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
     
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
-    
+
+public:
+    std::shared_ptr<cantina::Logger> logger;
+
 private:
     std::unique_ptr<qmedia::QController> qController;
     std::shared_ptr<qmedia::QSubscriberDelegate> subscriberDelegate;

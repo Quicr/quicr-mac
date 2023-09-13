@@ -6,28 +6,12 @@ struct DecimusApp: App {
     @State var showSidebar = false
     var body: some Scene {
         WindowGroup {
-            #if targetEnvironment(macCatalyst)
-            NavigationSplitView(columnVisibility: $columnVisibility, sidebar: ErrorView.init) {
-                ZStack {
-                    ConfigCallView()
-                    AlertView()
-                }
-            }
-            .navigationSplitViewStyle(.prominentDetail)
-            .preferredColorScheme(.dark)
-            .withHostingWindow { window in
-                if let titlebar = window?.windowScene?.titlebar {
-                    titlebar.titleVisibility = .hidden
-                    titlebar.toolbar = nil
-                }
-            }
-            #else
             ZStack {
                 ConfigCallView()
                 AlertView()
             }
             .preferredColorScheme(.dark)
-            #endif
+            .removeTitleBar()
         }
     }
 }
@@ -35,6 +19,17 @@ struct DecimusApp: App {
 extension View {
     fileprivate func withHostingWindow(_ callback: @escaping (UIWindow?) -> Void) -> some View {
         self.background(HostingWindowFinder(callback: callback))
+    }
+
+    fileprivate func removeTitleBar() -> some View {
+        return withHostingWindow { window in
+            #if targetEnvironment(macCatalyst)
+            if let titlebar = window?.windowScene?.titlebar {
+                titlebar.titleVisibility = .hidden
+                titlebar.toolbar = nil
+            }
+            #endif
+        }
     }
 }
 

@@ -16,7 +16,9 @@ class MutableWrapper<T> {
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]> = .init(value: [])
+
     private static let logger = DecimusLogger(CallController.self)
+
     private static let opusSampleRates: [Double] = [.opus8khz, .opus12khz, .opus16khz, .opus24khz, .opus48khz]
 
     init(metricsSubmitter: MetricsSubmitter?,
@@ -70,7 +72,10 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: desiredFormat)
 
-        super.init()
+        super.init { level, msg, alert in
+            CallController.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        }
+
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
                                                      engine: engine,
@@ -86,7 +91,17 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
-        let error = super.connect(config.address, port: config.port, protocol: config.connectionProtocol.rawValue)
+        let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
+                                                     tls_key_filename: nil,
+                                                     time_queue_init_queue_size: 1000,
+                                                     time_queue_max_duration: 1000,
+                                                     time_queue_bucket_interval: 1,
+                                                     time_queue_size_rx: 1000,
+                                                     debug: false)
+        let error = super.connect(config.address,
+                                  port: config.port,
+                                  protocol: config.connectionProtocol.rawValue,
+                                  config: transportConfig)
         guard error == .zero else {
             throw CallError.failedToConnect(error)
         }

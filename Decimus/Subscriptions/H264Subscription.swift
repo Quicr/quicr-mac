@@ -175,7 +175,7 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            // Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
 
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = dequeuedFrame.groupId + 1

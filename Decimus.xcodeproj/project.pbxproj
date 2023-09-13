@@ -22,6 +22,9 @@
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */; };
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
+		18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */; };
+		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
+		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
 		9B480660297E9DDF0040F5D4 /* AudioVideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */; };
@@ -48,9 +51,6 @@
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */; };
-		9BCC0E832AB0B2AA00BA97F6 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCC0E822AB0B2AA00BA97F6 /* VideoJitterBuffer.swift */; };
-		9BCC0E852AB0B2B100BA97F6 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCC0E842AB0B2B100BA97F6 /* VideoFrame.swift */; };
-		9BCC0E872AB0B2EE00BA97F6 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCC0E862AB0B2EE00BA97F6 /* OrderedCollections */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
@@ -156,6 +156,8 @@
 		18C89A452A14E667005B333B /* AppStorageWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorageWrapper.swift; sourceTree = "<group>"; };
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
+		18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
+		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
 		9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioVideoDevices.swift; sourceTree = "<group>"; };
@@ -185,8 +187,7 @@
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPCMExtensions.swift; sourceTree = "<group>"; };
-		9BCC0E822AB0B2AA00BA97F6 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
-		9BCC0E842AB0B2B100BA97F6 /* VideoFrame.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
+		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
@@ -277,7 +278,7 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
-				9BCC0E872AB0B2EE00BA97F6 /* OrderedCollections in Frameworks */,
+				18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -332,6 +333,7 @@
 				D78619412A28FC9C00EC0556 /* QMediaDelegates.h */,
 				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
+				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
 			);
 			path = QMedia;
 			sourceTree = "<group>";
@@ -388,7 +390,6 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
-				9BCC0E822AB0B2AA00BA97F6 /* VideoJitterBuffer.swift */,
 				FF3B952D2A60C77B00CE463F /* Lib */,
 				18C89A372A13D14A005B333B /* Metrics */,
 				9B87FB4C2A02A84000C92DD1 /* AudioUnit */,
@@ -413,6 +414,7 @@
 				9B9622DB2A7A669A00949234 /* QHelpers.swift */,
 				9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */,
 				18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */,
+				18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -442,7 +444,7 @@
 		9BA27FF9297DD8CA007013B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				9BCC0E842AB0B2B100BA97F6 /* VideoFrame.swift */,
+				18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */,
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
@@ -592,7 +594,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				9B165A21298807AF0017079F /* PBXTargetDependency */,
 			);
 			name = Decimus;
 			packageProductDependencies = (
@@ -601,7 +602,7 @@
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 				188ABB552A792E9C00B31A6E /* Opus */,
-				9BCC0E862AB0B2EE00BA97F6 /* OrderedCollections */,
+				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -757,6 +758,7 @@
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
+				18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */,
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
@@ -769,7 +771,6 @@
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
-				9BCC0E852AB0B2B100BA97F6 /* VideoFrame.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
@@ -794,7 +795,7 @@
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
-				9BCC0E832AB0B2AA00BA97F6 /* VideoJitterBuffer.swift in Sources */,
+				18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */,
 				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
@@ -810,10 +811,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		9B165A21298807AF0017079F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = 9B165A20298807AF0017079F /* SwiftLintPlugin */;
-		};
 		9B85952029F04521008C813C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
@@ -1014,7 +1011,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1086,7 +1083,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1239,20 +1236,15 @@
 			package = 18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */;
 			productName = InfluxDBSwift;
 		};
-		9B165A20298807AF0017079F /* SwiftLintPlugin */ = {
+		18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
-			productName = "plugin:SwiftLintPlugin";
+			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
+			productName = OrderedCollections;
 		};
 		9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */;
 			productName = TPCircularBuffer;
-		};
-		9BCC0E862AB0B2EE00BA97F6 /* OrderedCollections */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
-			productName = OrderedCollections;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;
