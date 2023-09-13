@@ -8,6 +8,10 @@ struct SubscriptionSettingsView: View {
     var body: some View {
         Section("Subscription Config") {
             Form {
+                HStack {
+                    Text("Use Video Jitter Buffer")
+                    Toggle(isOn: $subscriptionConfig.value.videoJitterBuffer) {}
+                }
                 LabeledContent("Jitter Target Depth (s)") {
                     TextField(
                         "Depth (s)",

@@ -52,12 +52,12 @@ class H264Subscription: Subscription {
     private var lastObject: UInt16?
     private let namegate: NameGate
     private let reliable: Bool
-    private let jitterBuffer: VideoJitterBuffer
+    private var jitterBuffer: VideoJitterBuffer?
     private var decodeTimer: Timer?
 
     private lazy var decodeBlock: (Timer) -> Void = { [weak self] _ in
         DispatchQueue.global(qos: .userInteractive).async {
-            self?.decode()
+            self?.dequeue()
         }
     }
     private var lastReceive: Date?
@@ -71,7 +71,8 @@ class H264Subscription: Subscription {
          namegate: NameGate,
          reliable: Bool,
          minDepth: TimeInterval,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         useJitterBuffer: Bool) {
         self.namespace = namespace
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
@@ -81,21 +82,21 @@ class H264Subscription: Subscription {
         }
         self.namegate = namegate
         self.reliable = reliable
-        self.jitterBuffer = .init(namespace: namespace,
-                                  frameDuration: 1 / Double(config.fps),
-                                  minDepth: minDepth,
-                                  metricsSubmitter: metricsSubmitter,
-                                  sort: !reliable)
         self.granularMetrics = granularMetrics
-
-        // Decode job: timer procs on main thread, but decoding itself doesn't.
-        DispatchQueue.main.async {
-            self.decodeTimer = .scheduledTimer(withTimeInterval: 1 / Double(config.fps),
-                                               repeats: true,
-                                               block: self.decodeBlock)
-            self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
+        if useJitterBuffer {
+            self.jitterBuffer = .init(namespace: namespace,
+                                      frameDuration: 1 / Double(config.fps),
+                                      minDepth: minDepth,
+                                      metricsSubmitter: metricsSubmitter,
+                                      sort: !reliable)
+            // Decode job: timer procs on main thread, but decoding itself doesn't.
+            DispatchQueue.main.async {
+                self.decodeTimer = .scheduledTimer(withTimeInterval: 1 / Double(config.fps),
+                                                   repeats: true,
+                                                   block: self.decodeBlock)
+                self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
+            }
         }
-
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
             self?.showDecodedImage(decoded: sample,
                                    timestamp: sample.presentationTimeStamp.value,
@@ -153,18 +154,25 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
         }
 
-        self.jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, data: data))
-
+        let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: data)
+        if let jitterBuffer = self.jitterBuffer {
+            _ = jitterBuffer.write(videoFrame: videoFrame)
+        } else {
+            decode(frame: videoFrame)
+        }
         return SubscriptionError.None.rawValue
     }
 
-    private func decode() {
+    private func dequeue() {
         // Try and dequeue a video frame.
-        guard let dequeuedFrame = self.jitterBuffer.read() else { return }
+        guard let dequeuedFrame = self.jitterBuffer!.read() else { return }
+        decode(frame: dequeuedFrame)
+    }
 
+    private func decode(frame: VideoFrame) {
         // Should we feed this frame to the decoder?
-        guard namegate.handle(groupId: dequeuedFrame.groupId,
-                              objectId: dequeuedFrame.objectId,
+        guard namegate.handle(groupId: frame.groupId,
+                              objectId: frame.objectId,
                               lastGroup: lastGroup,
                               lastObject: lastObject) else {
             var group: String = "None"
@@ -175,20 +183,20 @@ class H264Subscription: Subscription {
             if let lastObject = lastObject {
                 object = String(lastObject)
             }
-            // Self.logger.warning("[\(dequeuedFrame.groupId)] (\(dequeuedFrame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
+            // Self.logger.warning("[\(frame.groupId)] (\(frame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
 
             // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = dequeuedFrame.groupId + 1
-            self.jitterBuffer.flushTo(targetGroup: targetGroup)
+            let targetGroup = frame.groupId + 1
+            self.jitterBuffer?.flushTo(targetGroup: targetGroup)
             return
         }
 
-        lastGroup = dequeuedFrame.groupId
-        lastObject = dequeuedFrame.objectId
+        lastGroup = frame.groupId
+        lastObject = frame.objectId
 
         // Decode.
         do {
-            try dequeuedFrame.data.withUnsafeBytes {
+            try frame.data.withUnsafeBytes {
                 try decoder!.write(data: $0, timestamp: 0)
             }
         } catch {
