@@ -72,7 +72,10 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         engine.attach(sink)
         engine.connect(engine.inputNode, to: sink, format: desiredFormat)
 
-        super.init()
+        super.init { level, msg, alert in
+            CallController.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        }
+
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
                                                      engine: engine,

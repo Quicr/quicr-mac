@@ -10,7 +10,7 @@
 #endif
 
 typedef void(*PacketCallback)(struct Packet*, size_t, void*);
-
+typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 
 @interface QJitterBuffer : NSObject {
 #ifdef __cplusplus
@@ -22,7 +22,8 @@ typedef void(*PacketCallback)(struct Packet*, size_t, void*);
                     packetElements:(size_t)packet_elements
                     clockRate:(unsigned long)clock_rate
                     maxLengthMs:(unsigned long)max_length_ms
-                    minLengthMs:(unsigned long)min_length_ms;
+                    minLengthMs:(unsigned long)min_length_ms
+                    logCallback:(CantinaLogCallback)logCallback;
 
 -(size_t)enqueuePacket:(struct Packet)packet
                 concealmentCallback:(PacketCallback)concealment_callback

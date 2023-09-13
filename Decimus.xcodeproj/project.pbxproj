@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */; };
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -48,8 +49,6 @@
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */; };
-		9BCC0E812AB093E200BA97F6 /* TransportConfigSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCC0E802AB093E200BA97F6 /* TransportConfigSettings.swift */; };
-		9BCC0E892AB0B6BC00BA97F6 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 9BCC0E882AB0B6BC00BA97F6 /* OrderedCollections */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
@@ -142,6 +141,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransportConfigSettings.swift; sourceTree = "<group>"; };
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -185,7 +185,6 @@
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPCMExtensions.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
-		9BCC0E802AB093E200BA97F6 /* TransportConfigSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportConfigSettings.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
@@ -276,7 +275,6 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
-				9BCC0E892AB0B6BC00BA97F6 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -298,13 +296,13 @@
 		18C89A472A14EF02005B333B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */,
 				18C89A452A14E667005B333B /* AppStorageWrapper.swift */,
 				9B87FB612A03B91E00C92DD1 /* SettingsView.swift */,
 				18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */,
 				FFFF72DA2A280A8000D4D5EE /* RelaySettingsView.swift */,
 				FFFF72DC2A280B6300D4D5EE /* ManifestSettingsView.swift */,
 				18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */,
-				9BCC0E802AB093E200BA97F6 /* TransportConfigSettings.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -600,7 +598,6 @@
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 				188ABB552A792E9C00B31A6E /* Opus */,
-				9BCC0E882AB0B6BC00BA97F6 /* OrderedCollections */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -760,7 +757,7 @@
 				9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */,
 				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
-				9BCC0E812AB093E200BA97F6 /* TransportConfigSettings.swift in Sources */,
+				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
 				FFFF72DB2A280A8000D4D5EE /* RelaySettingsView.swift in Sources */,
@@ -1246,11 +1243,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */;
 			productName = TPCircularBuffer;
-		};
-		9BCC0E882AB0B6BC00BA97F6 /* OrderedCollections */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
-			productName = OrderedCollections;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;
