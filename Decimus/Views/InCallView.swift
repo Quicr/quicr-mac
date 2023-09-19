@@ -51,9 +51,10 @@ struct InCallView: View {
                     }
                 }
 
-                if let capture = viewModel.captureManager {
+                if let capture = viewModel.captureManager,
+                   let engine = viewModel.engine {
                     CallControls(captureManager: capture,
-                                 engine: viewModel.engine,
+                                 engine: engine,
                                  leaving: $leaving)
                         .disabled(leaving)
                         .padding(.bottom)
@@ -89,7 +90,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
-        let engine: AudioEngine
+        let engine: AudioEngine?
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
@@ -103,8 +104,14 @@ extension InCallView {
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
         init(config: CallConfig) {
-            self.engine = try! .init()
             self.config = config
+            do {
+                self.engine = try .init()
+            } catch {
+                Self.logger.critical("Failed to create AudioEngine: \(error.localizedDescription)")
+                self.engine = nil
+                return
+            }
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
                 "email": config.email,
@@ -146,7 +153,7 @@ extension InCallView {
                 self.controller = try .init(metricsSubmitter: submitter,
                                             captureManager: captureManager!,
                                             config: subscriptionConfig.value,
-                                            engine: engine,
+                                            engine: engine!,
                                             granularMetrics: influxConfig.value.granular)
             } catch {
                 Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
