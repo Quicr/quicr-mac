@@ -5,7 +5,11 @@ import CTPCircularBuffer
 import CoreAudio
 import os
 
-class OpusPublication: Publication {
+class OpusPublication: Hashable, Publication {
+    static func == (lhs: OpusPublication, rhs: OpusPublication) -> Bool {
+        lhs.namespace == rhs.namespace
+    }
+
     private static let logger = DecimusLogger(OpusPublication.self)
 
     private actor _Measurement: Measurement {
@@ -34,9 +38,9 @@ class OpusPublication: Publication {
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
-    private var encoder: LibOpusEncoder
+    private var encoder: LibOpusEncoder?
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private let format: AVAudioFormat
+    private var format: AVAudioFormat?
     private var converter: AVAudioConverter?
     private var differentEncodeFormat: AVAudioFormat?
     private var encodeTimer: Timer?
@@ -44,20 +48,27 @@ class OpusPublication: Publication {
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
+    private unowned let engine: AudioEngine
+    private var reconfig = false
 
-    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
+    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format, reconfig] timestamp, numFrames, data in
+        Self.logger.info("Sink block called")
+        guard !reconfig else { fatalError("Reconfiguring") }
         assert(data.pointee.mNumberBuffers <= 2)
         let copied = TPCircularBufferCopyAudioBufferList(buffer,
                                                          data,
                                                          timestamp,
                                                          numFrames,
-                                                         format.streamDescription)
+                                                         format?.streamDescription)
         return copied ? .zero : 1
     }
 
     private lazy var encodeBlock: (Timer) -> Void = { [weak self] _ in
+        Self.logger.info("Encode timer proc")
         DispatchQueue.global(qos: .userInteractive).async {
+            Self.logger.info("Encode timer queue proc")
             guard let self = self else { return }
+            guard !self.reconfig else { fatalError("Reconfiguring") }
             do {
                 while let data = try self.encode() {
                     self.publish(data: data)
@@ -74,11 +85,11 @@ class OpusPublication: Publication {
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
-         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat,
+         engine: AudioEngine,
          granularMetrics: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
+        self.engine = engine
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -86,48 +97,91 @@ class OpusPublication: Publication {
         }
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
-        guard format.sampleRate > 0 else { throw "Invalid input format" }
-        self.format = format
         self.granularMetrics = granularMetrics
 
-        // Create a buffer to hold raw data waiting for encode.
-        let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize.rawValue
-        guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
-            fatalError()
-        }
-
-        do {
-            // Try and directly use the microphone output format.
-            encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
-            Self.logger.info("Encoder created using native format: \(self.format)")
-        } catch {
-            // We need to fallback to an opus supported format if we can.
-            let sampleRate: Double = Self.isNativeOpusSampleRate(format.sampleRate) ? format.sampleRate : .opus48khz
-            differentEncodeFormat = .init(commonFormat: format.commonFormat,
-                                          sampleRate: sampleRate,
-                                          channels: format.channelCount,
-                                          interleaved: true)
-            converter = .init(from: format, to: differentEncodeFormat!)!
-            encoder = try .init(format: differentEncodeFormat!, desiredWindowSize: opusWindowSize)
-            Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
-        }
-
-        // Encode job: timer procs on main thread, but encoding itself doesn't.
-        DispatchQueue.main.async {
-            self.encodeTimer = .scheduledTimer(withTimeInterval: opusWindowSize.rawValue,
-                                               repeats: true,
-                                               block: self.encodeBlock)
-            self.encodeTimer!.tolerance = opusWindowSize.rawValue / 2
-        }
+        // Configure opus encoder.
+        try _reconfigure()
 
         // Register our block.
-        blocks.value.append(block)
+        engine.blocks.value.append(block)
+        engine.registerReconfigureInterest(id: self, callback: reconfigure)
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 
     deinit {
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(namespace)
+    }
+
+    private func _reconfigure() throws {
+        // Reconfigure the opus encoder based on the input format.
+        guard engine.desiredFormat!.sampleRate > 0 else { throw "Invalid input format" }
+        let format = engine.desiredFormat!
+        Self.logger.info("Reconfiguring: \(format)")
+
+        if format != self.format {
+            if self.format != nil {
+                // Additional explicit cleanup.
+                self.reconfig = true
+                TPCircularBufferCleanup(buffer)
+                self.encodeTimer!.invalidate()
+                Self.logger.info("Stopped the timer, flushed the buffer")
+            }
+
+            // Create a buffer to hold raw data waiting for encode.
+            let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize.rawValue
+            guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
+                fatalError()
+            }
+
+            // Make an opus encoder.
+            var encoder: LibOpusEncoder
+            do {
+                // Try and directly use the microphone output format.
+                encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
+                Self.logger.info("Encoder created using native format: \(format)")
+            } catch {
+                // We need to fallback to an opus supported format if we can.
+                let sampleRate: Double = Self.isNativeOpusSampleRate(format.sampleRate) ? format.sampleRate : .opus48khz
+                differentEncodeFormat = .init(commonFormat: format.commonFormat,
+                                              sampleRate: sampleRate,
+                                              channels: format.channelCount,
+                                              interleaved: true)
+                converter = .init(from: format, to: differentEncodeFormat!)!
+                encoder = try .init(format: differentEncodeFormat!, desiredWindowSize: opusWindowSize)
+                Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
+            }
+
+            // Done.
+            self.encoder = encoder
+            self.format = format
+            self.reconfig = false
+        }
+
+        // Start encode job: timer procs on main thread, but encoding itself isn't.
+        if self.encodeTimer == nil {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.encodeTimer = .scheduledTimer(withTimeInterval: self.opusWindowSize.rawValue,
+                                                   repeats: true,
+                                                   block: self.encodeBlock)
+                self.encodeTimer!.tolerance = self.opusWindowSize.rawValue / 2
+            }
+        }
+
+        Self.logger.info("Finished reconfiguring")
+    }
+
+    func reconfigure() {
+        do {
+            try _reconfigure()
+        } catch {
+            Self.logger.error(error.localizedDescription)
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -150,9 +204,12 @@ class OpusPublication: Publication {
     }
 
     private func encode() throws -> Data? {
+        guard let format = self.format else { throw "Missing expected format" }
+
         guard converter == nil else {
             let data = try convert(converter: converter!, to: differentEncodeFormat!, from: format)
             guard let data = data else { return nil }
+            guard let encoder = self.encoder else { throw "Missing expected encoder" }
             return try encoder.write(data: data)
         }
 
@@ -178,6 +235,7 @@ class OpusPublication: Publication {
             return nil
         }
 
+        guard let encoder = self.encoder else { throw "Missing expected encoder" }
         return try encoder.write(data: pcm)
     }
 
@@ -229,6 +287,8 @@ class OpusPublication: Publication {
     private func trivialConvert(converter: AVAudioConverter,
                                 to: AVAudioFormat,
                                 from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
+        guard let format = self.format else { throw "Missing expected format" }
+        
         // Target encode size.
         var inOutFrames: AVAudioFrameCount = .init(format.sampleRate * self.opusWindowSize.rawValue)
 

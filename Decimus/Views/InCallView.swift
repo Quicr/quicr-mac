@@ -89,7 +89,7 @@ extension InCallView {
     class ViewModel: ObservableObject {
         private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
-        let engine: AVAudioEngine = .init()
+        let engine: AudioEngine
         private(set) var controller: CallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
@@ -103,6 +103,7 @@ extension InCallView {
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
         init(config: CallConfig) {
+            self.engine = try! .init()
             self.config = config
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",

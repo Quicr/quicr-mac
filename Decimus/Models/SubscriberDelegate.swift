@@ -6,20 +6,18 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private static let logger = DecimusLogger(SubscriberDelegate.self)
 
     let participants: VideoParticipants
-    private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-        init(submitter: MetricsSubmitter?,
+    init(submitter: MetricsSubmitter?,
              config: SubscriptionConfig,
-             engine: AVAudioEngine,
+             player: FasterAVEngineAudioPlayer,
              granularMetrics: Bool) {
         self.participants = .init()
-        self.player = .init(engine: engine)
         self.submitter = submitter
         self.factory = .init(participants: self.participants,
-                             player: self.player,
+                             player: player,
                              config: config,
                              granularMetrics: granularMetrics)
 
@@ -33,7 +31,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                 do {
                     try self.participants.removeParticipant(identifier: id)
                 } catch {
-                    self.player.removePlayer(identifier: id)
+                    player.removePlayer(identifier: id)
                 }
             }
         }
