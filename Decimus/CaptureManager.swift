@@ -11,6 +11,7 @@ public extension AVCaptureDevice {
 protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
     var queue: DispatchQueue { get }
     var device: AVCaptureDevice { get }
+    var codec: VideoCodecConfig { get }
 }
 
 enum CaptureManagerError: Error {
@@ -151,25 +152,46 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
 
+    private func setBestDeviceFormat(device: AVCaptureDevice, listener: FrameListener) throws {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+
+        let allowableFormats = device.formats.reversed().filter { format in
+            return format.isMultiCamSupported &&
+                   format.formatDescription.dimensions.width == listener.codec.width &&
+                   format.formatDescription.dimensions.height == listener.codec.height
+        }
+
+        guard let bestFormat = allowableFormats.first(where: { format in
+            return format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(listener.codec.fps) }
+        }) else {
+            return
+        }
+
+        device.activeFormat = bestFormat
+
+    }
+
     private func addCamera(listener: FrameListener) throws {
         // Device is already setup, add this delegate.
         let device = listener.device
+
         if var cameraFrameListeners = self.multiVideoDelegate[device] {
+            guard let maxFramerateRange = device.activeFormat.videoSupportedFrameRateRanges.max(by: { $0.maxFrameRate > $1.maxFrameRate }) else {
+                throw "No framerate set"
+            }
+
+            if maxFramerateRange.maxFrameRate < Float64(listener.codec.fps) {
+                try setBestDeviceFormat(device: device, listener: listener)
+            }
+
             cameraFrameListeners.append(listener)
             self.multiVideoDelegate[device] = cameraFrameListeners
             return
         }
 
         // Setup device.
-        try device.lockForConfiguration()
-
-        // Pick the highest quality multi-cam format.
-        for format in device.formats.reversed() where format.isMultiCamSupported &&
-                                                  format.isHighestPhotoQualitySupported {
-            device.activeFormat = format
-            break
-        }
-        device.unlockForConfiguration()
+        try setBestDeviceFormat(device: device, listener: listener)
 
         // Prepare IO.
         let input: AVCaptureDeviceInput = try .init(device: device)
