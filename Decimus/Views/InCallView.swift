@@ -11,7 +11,7 @@ struct InCallView: View {
     @State private var connecting: Bool = false
     @State private var noParticipantsDetected = false
     var noParticipants: Bool {
-        viewModel.controller!.subscriberDelegate.participants.participants.isEmpty
+        viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
     }
 
     /// Callback when call is left.
@@ -45,8 +45,10 @@ struct InCallView: View {
                         }
                     }
                 } else {
-                    VideoGrid(participants: viewModel.controller!.subscriberDelegate.participants)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    if let controller = viewModel.controller {
+                        VideoGrid(participants: controller.subscriberDelegate.participants)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    }
                 }
 
                 if let capture = viewModel.captureManager {
@@ -139,16 +141,20 @@ extension InCallView {
                 return
             }
 
-            self.controller = .init(metricsSubmitter: submitter,
-                                    captureManager: captureManager!,
-                                    config: subscriptionConfig.value,
-                                    engine: engine,
-                                    granularMetrics: influxConfig.value.granular)
+            do {
+                self.controller = try .init(metricsSubmitter: submitter,
+                                            captureManager: captureManager!,
+                                            config: subscriptionConfig.value,
+                                            engine: engine,
+                                            granularMetrics: influxConfig.value.granular)
+            } catch {
+                Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+            }
         }
 
         func join() async -> Bool {
             do {
-                try await self.controller!.connect(config: config)
+                try await self.controller?.connect(config: config)
                 try captureManager?.startCapturing()
                 return true
             } catch {
@@ -159,8 +165,8 @@ extension InCallView {
 
         func leave() async {
             do {
-                try captureManager!.stopCapturing()
-                try controller!.disconnect()
+                try captureManager?.stopCapturing()
+                try controller?.disconnect()
             } catch {
                 Self.logger.error("Error while leaving call: \(error)", alert: true)
             }

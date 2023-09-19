@@ -14,6 +14,8 @@ class FasterAVEngineAudioPlayer {
 
     /// Create a new `AudioPlayer`
     init(engine: AVAudioEngine) {
+        assert(engine.outputNode.isVoiceProcessingEnabled)
+        assert(engine.outputNode.numberOfInputs == 1)
         let outputFormat = engine.outputNode.inputFormat(forBus: 0)
         inputFormat = .init(commonFormat: outputFormat.commonFormat,
                             sampleRate: .opus48khz,
