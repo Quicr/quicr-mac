@@ -24,22 +24,19 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
          captureManager: CaptureManager,
          config: SubscriptionConfig,
          engine: AVAudioEngine,
-         granularMetrics: Bool) {
-        do {
-            try AVAudioSession.configureForDecimus()
-        } catch {
-            Self.logger.error("Failed to set configure AVAudioSession: \(error.localizedDescription)")
-        }
+         granularMetrics: Bool) throws {
+        try AVAudioSession.configureForDecimus()
         self.engine = engine
         self.config = config
-        if engine.outputNode.isVoiceProcessingEnabled != config.voiceProcessing {
-            do {
-                try engine.outputNode.setVoiceProcessingEnabled(config.voiceProcessing)
-            } catch {
-                Self.logger.error("Failed to set voice processing: \(error.localizedDescription)")
-            }
+
+        // Enable voice processing.
+        if !engine.outputNode.isVoiceProcessingEnabled {
+            try engine.outputNode.setVoiceProcessingEnabled(true)
         }
-        assert(engine.outputNode.isVoiceProcessingEnabled == engine.inputNode.isVoiceProcessingEnabled)
+        guard engine.outputNode.isVoiceProcessingEnabled,
+              engine.inputNode.isVoiceProcessingEnabled else {
+                  throw "Voice processing missmatch"
+        }
 
         // Ducking.
 #if compiler(>=5.9)
@@ -50,16 +47,17 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
 #endif
 
-        // If voice processing is on, we want to override the format to something usable.
-        var desiredFormat: AVAudioFormat?
+        // We want to override the format to something usable.
         let current = AVAudioSession.sharedInstance().sampleRate
         let desiredSampleRate: Double = .opus48khz
-        if engine.outputNode.isVoiceProcessingEnabled {
-            desiredFormat = .init(commonFormat: engine.inputNode.outputFormat(forBus: 0).commonFormat,
+        guard engine.inputNode.numberOfOutputs == 1 else {
+            throw "Input node had >1 output busses. Report this!"
+        }
+        let commonFormat = engine.inputNode.outputFormat(forBus: 0).commonFormat
+        let desiredFormat: AVAudioFormat = .init(commonFormat: commonFormat,
                                   sampleRate: desiredSampleRate,
                                   channels: 1,
                                   interleaved: true)!
-        }
 
         // Capture microphone audio.
         let sink: AVAudioSinkNode = .init { [blocks] timestamp, frames, data in
@@ -86,7 +84,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability,
                                                    blocks: blocks,
-                                                   format: desiredFormat ?? engine.inputNode.outputFormat(forBus: 0),
+                                                   format: desiredFormat,
                                                    granularMetrics: granularMetrics)
     }
 

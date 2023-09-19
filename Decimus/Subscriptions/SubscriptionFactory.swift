@@ -42,7 +42,6 @@ struct SubscriptionConfig: Codable {
     var jitterDepthTime: TimeInterval
     var opusWindowSize: OpusWindowSize
     var videoBehaviour: VideoBehaviour
-    var voiceProcessing: Bool
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
     var videoJitterBuffer: Bool
@@ -51,7 +50,6 @@ struct SubscriptionConfig: Codable {
         jitterDepthTime = 0.06
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
-        voiceProcessing = true
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
         videoJitterBuffer = false

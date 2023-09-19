@@ -36,10 +36,6 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
-                HStack {
-                    Text("Voice Processing")
-                    Toggle(isOn: $subscriptionConfig.value.voiceProcessing) {}
-                }
             }
             .formStyle(.columns)
         }
