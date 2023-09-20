@@ -188,7 +188,8 @@ extension InCallView.ViewModel {
         }
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
-            record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)
+            let usage = cpuUsage.truncatingRemainder(dividingBy: 1) == 0 ? cpuUsage + 0.01 : cpuUsage
+            record(field: "cpuUsage", value: usage as AnyObject, timestamp: timestamp)
         }
     }
 }
