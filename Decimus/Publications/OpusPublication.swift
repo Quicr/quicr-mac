@@ -34,24 +34,22 @@ class OpusPublication: Publication {
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
-    private var encoder: LibOpusEncoder
+    private let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private let format: AVAudioFormat
-    private var converter: AVAudioConverter?
-    private var differentEncodeFormat: AVAudioFormat?
     private var encodeTimer: Timer?
     private let measurement: _Measurement?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
+    private let engine: DecimusAudioEngine
 
-    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format] timestamp, numFrames, data in
+    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer] timestamp, numFrames, data in
         assert(data.pointee.mNumberBuffers <= 2)
         let copied = TPCircularBufferCopyAudioBufferList(buffer,
                                                          data,
                                                          timestamp,
                                                          numFrames,
-                                                         format.streamDescription)
+                                                         DecimusAudioEngine.format.streamDescription)
         return copied ? .zero : 1
     }
 
@@ -74,11 +72,11 @@ class OpusPublication: Publication {
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
-         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat,
+         engine: DecimusAudioEngine,
          granularMetrics: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
+        self.engine = engine
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -86,32 +84,19 @@ class OpusPublication: Publication {
         }
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
-        guard format.sampleRate > 0 else { throw "Invalid input format" }
-        self.format = format
         self.granularMetrics = granularMetrics
 
         // Create a buffer to hold raw data waiting for encode.
+        let format = DecimusAudioEngine.format
         let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize.rawValue
         guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
             fatalError()
         }
 
-        do {
-            // Try and directly use the microphone output format.
-            encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
-            Self.logger.info("Encoder created using native format: \(self.format)")
-        } catch {
-            // We need to fallback to an opus supported format if we can.
-            let sampleRate: Double = Self.isNativeOpusSampleRate(format.sampleRate) ? format.sampleRate : .opus48khz
-            differentEncodeFormat = .init(commonFormat: format.commonFormat,
-                                          sampleRate: sampleRate,
-                                          channels: format.channelCount,
-                                          interleaved: true)
-            converter = .init(from: format, to: differentEncodeFormat!)!
-            encoder = try .init(format: differentEncodeFormat!, desiredWindowSize: opusWindowSize)
-            Self.logger.info("Encoder created using fallback format: \(self.differentEncodeFormat!)")
-        }
+        encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
+        Self.logger.info("Created Opus Encoder")
 
+        // TODO: Move to concurrency.
         // Encode job: timer procs on main thread, but encoding itself doesn't.
         DispatchQueue.main.async {
             self.encodeTimer = .scheduledTimer(withTimeInterval: opusWindowSize.rawValue,
@@ -121,11 +106,16 @@ class OpusPublication: Publication {
         }
 
         // Register our block.
-        blocks.value.append(block)
+        try engine.registerSinkBlock(identifier: namespace, block: block)
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 
     deinit {
+        do {
+            try engine.unregisterSinkBlock(identifier: self.namespace)
+        } catch {
+            Self.logger.critical("Failed to unregister sink block: \(error.localizedDescription)")
+        }
         encodeTimer?.invalidate()
         TPCircularBufferCleanup(self.buffer)
     }
@@ -150,13 +140,7 @@ class OpusPublication: Publication {
     }
 
     private func encode() throws -> Data? {
-        guard converter == nil else {
-            let data = try convert(converter: converter!, to: differentEncodeFormat!, from: format)
-            guard let data = data else { return nil }
-            return try encoder.write(data: data)
-        }
-
-        // No conversion.
+        let format = DecimusAudioEngine.format
         let windowFrames: AVAudioFrameCount = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
         var timestamp: AudioTimeStamp = .init()
         let availableFrames = TPCircularBufferPeek(buffer,
@@ -181,95 +165,5 @@ class OpusPublication: Publication {
         return try encoder.write(data: pcm)
     }
 
-    // swiftlint:disable identifier_name
-    private func convert(converter: AVAudioConverter,
-                         to: AVAudioFormat,
-                         from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
-        // Is it a trivial conversion?
-        if to.commonFormat == from.commonFormat &&
-            to.sampleRate == from.sampleRate {
-            return try trivialConvert(converter: converter, to: to, from: from)
-        }
-
-        let windowFrames: AVAudioFrameCount = .init(to.sampleRate * self.opusWindowSize.rawValue)
-        let converted: AVAudioPCMBuffer = .init(pcmFormat: to, frameCapacity: windowFrames)!
-        var error: NSError? = .init()
-        converter.convert(to: converted,
-                          error: &error) { [weak self] packets, status in
-            guard let self = self else {
-                status.pointee = .endOfStream
-                return nil
-            }
-            var timestamp: AudioTimeStamp = .init()
-            let availableFrames = TPCircularBufferPeek(self.buffer,
-                                                       &timestamp,
-                                                       from.streamDescription)
-            guard availableFrames >= packets else {
-                status.pointee = .noDataNow
-                return .init()
-            }
-
-            // We have enough data.
-            var inOutFrames: AVAudioFrameCount = packets
-            let pcm: AVAudioPCMBuffer = .init(pcmFormat: from, frameCapacity: packets)!
-            pcm.frameLength = packets
-            TPCircularBufferDequeueBufferListFrames(self.buffer,
-                                                    &inOutFrames,
-                                                    pcm.audioBufferList,
-                                                    &timestamp,
-                                                    from.streamDescription)
-            assert(inOutFrames == packets)
-            pcm.frameLength = inOutFrames
-            status.pointee = .haveData
-            return pcm
-        }
-        return converted.frameLength > 0 ? converted : nil
-    }
-
-    private func trivialConvert(converter: AVAudioConverter,
-                                to: AVAudioFormat,
-                                from: AVAudioFormat) throws -> AVAudioPCMBuffer? {
-        // Target encode size.
-        var inOutFrames: AVAudioFrameCount = .init(format.sampleRate * self.opusWindowSize.rawValue)
-
-        // Are there enough frames for an encode?
-        let availableFrames = TPCircularBufferPeek(self.buffer,
-                                                       nil,
-                                                       from.streamDescription)
-        guard availableFrames >= inOutFrames else {
-            return nil
-        }
-
-        // Data holders.
-        let dequeued: AVAudioPCMBuffer = .init(pcmFormat: from,
-                                               frameCapacity: inOutFrames)!
-        dequeued.frameLength = inOutFrames
-        let converted: AVAudioPCMBuffer = .init(pcmFormat: to,
-                                                frameCapacity: inOutFrames)!
-        converted.frameLength = inOutFrames
-
-        // Get some data to encode.
-        TPCircularBufferDequeueBufferListFrames(self.buffer,
-                                                &inOutFrames,
-                                                dequeued.audioBufferList,
-                                                nil,
-                                                from.streamDescription)
-        dequeued.frameLength = inOutFrames
-        converted.frameLength = inOutFrames
-
-        // Convert and encode.
-        try converter.convert(to: converted, from: dequeued)
-        return converted
-    }
-
     func publish(_ flag: Bool) {}
-
-    private static func isNativeOpusSampleRate(_ sampleRate: Double) -> Bool {
-        switch sampleRate {
-        case .opus48khz, .opus24khz, .opus12khz, .opus16khz, .opus8khz:
-            return true
-        default:
-            return false
-        }
-    }
 }

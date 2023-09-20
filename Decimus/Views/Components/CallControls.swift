@@ -17,7 +17,7 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(captureManager: CaptureManager?, engine: AVAudioEngine, leaving: Binding<Bool>) {
+    init(captureManager: CaptureManager?, engine: DecimusAudioEngine, leaving: Binding<Bool>) {
         _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager, engine: engine))
         _leaving = leaving
     }
@@ -145,14 +145,14 @@ extension CallControls {
         private unowned let capture: CaptureManager?
         private unowned let engine: AVAudioEngine
 
-        init(captureManager: CaptureManager?, engine: AVAudioEngine) {
+        init(captureManager: CaptureManager?, engine: DecimusAudioEngine) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
-            self.engine = engine
-            audioOn = !engine.inputNode.isVoiceProcessingInputMuted
+            self.engine = engine.engine
+            audioOn = !self.engine.inputNode.isVoiceProcessingInputMuted
 #if compiler(>=5.9)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
-                let success = engine.inputNode.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
+                let success = self.engine.inputNode.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
                     guard let self = self else { return }
                     switch voiceEvent {
                     case .started:
@@ -252,6 +252,6 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
-        CallControls(captureManager: capture, engine: .init(), leaving: bool)
+        CallControls(captureManager: capture, engine: try! .init(), leaving: bool)
     }
 }

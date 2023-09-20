@@ -10,19 +10,16 @@ class PublicationFactory {
 
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
-    private var blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>
-    private let format: AVAudioFormat
     private let granularMetrics: Bool
+    private let engine: DecimusAudioEngine
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
-         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat,
+         engine: DecimusAudioEngine,
          granularMetrics: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
-        self.blocks = blocks
-        self.format = format
+        self.engine = engine
         self.granularMetrics = granularMetrics
     }
 
@@ -54,8 +51,7 @@ class PublicationFactory {
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,
-                                       blocks: self.blocks,
-                                       format: self.format,
+                                       engine: self.engine,
                                        granularMetrics: self.granularMetrics)
         default:
             throw CodecError.noCodecFound(config.codec)

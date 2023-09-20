@@ -15,16 +15,14 @@ class PublisherDelegate: QPublisherDelegateObjC {
          captureManager: CaptureManager,
          opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
-         blocks: MutableWrapper<[AVAudioSinkNodeReceiverBlock]>,
-         format: AVAudioFormat,
+         engine: DecimusAudioEngine,
          granularMetrics: Bool) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
         self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
-                             blocks: blocks,
-                             format: format,
+                             engine: engine,
                              granularMetrics: granularMetrics)
     }
 

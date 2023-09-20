@@ -103,7 +103,7 @@ class OpusSubscription: Subscription {
         self.granularMetrics = granularMetrics
 
         do {
-            self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
+            self.decoder = try .init(format: DecimusAudioEngine.format)
         } catch {
             throw OpusSubscriptionError.FailedDecoderCreation
         }
@@ -128,7 +128,11 @@ class OpusSubscription: Subscription {
 
     deinit {
         // Remove the audio playout.
-        player.removePlayer(identifier: namespace)
+        do {
+            try player.removePlayer(identifier: namespace)
+        } catch {
+            Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
+        }
 
         // Reset the node.
         node?.reset()
@@ -232,38 +236,6 @@ class OpusSubscription: Subscription {
                 await measurement.concealmentFrames(concealed: constConcealed, timestamp: timestamp)
             }
         }
-    }
-
-    private static func createOpusDecoder(config: CodecConfig,
-                                          player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
-        guard config.codec == .opus else {
-            fatalError("Codec mismatch")
-        }
-
-        let decoder: LibOpusDecoder
-        do {
-            // First, try and decode directly into the output's input format.
-            decoder = try .init(format: player.inputFormat)
-            Self.logger.info("Created decoder with native format: \(player.inputFormat)")
-        } catch {
-            // That may not be supported, so decode into standard output instead.
-            let format: AVAudioFormat.OpusPCMFormat
-            switch player.inputFormat.commonFormat {
-            case .pcmFormatInt16:
-                format = .int16
-            case .pcmFormatFloat32:
-                format = .float32
-            default:
-                fatalError()
-            }
-
-            let fallbackFormat: AVAudioFormat = .init(opusPCMFormat: format,
-                                                      sampleRate: 48000,
-                                                      channels: player.inputFormat.channelCount)!
-            decoder = try .init(format: fallbackFormat)
-            Self.logger.info("Created decoder with native format: \(fallbackFormat)")
-        }
-        return decoder
     }
 
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
