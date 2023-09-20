@@ -28,7 +28,7 @@ class DecimusAudioEngine {
         guard let self = self else { return }
         guard !self.stopped else { return }
 
-        Self.logger.info("AVAudioEngineConfigurationChange")
+        Self.logger.log(level: .info, "AVAudioEngineConfigurationChange", alert: true)
         if self.engine.isRunning {
             self.engine.stop()
         }
