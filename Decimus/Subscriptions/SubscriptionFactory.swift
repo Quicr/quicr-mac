@@ -62,15 +62,15 @@ class SubscriptionFactory {
                                              MetricsSubmitter?) throws -> Subscription?
 
     private unowned let participants: VideoParticipants
-    private let player: FasterAVEngineAudioPlayer
+    private let engine: DecimusAudioEngine
     private let config: SubscriptionConfig
     private let granularMetrics: Bool
     init(participants: VideoParticipants,
-         player: FasterAVEngineAudioPlayer,
+         engine: DecimusAudioEngine,
          config: SubscriptionConfig,
          granularMetrics: Bool) {
         self.participants = participants
-        self.player = player
+        self.engine = engine
         self.config = config
         self.granularMetrics = granularMetrics
     }
@@ -107,7 +107,7 @@ class SubscriptionFactory {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
             return try OpusSubscription(namespace: namespace,
-                                        player: self.player,
+                                        engine: self.engine,
                                         config: config,
                                         submitter: metricsSubmitter,
                                         jitterDepth: self.config.jitterDepthTime,

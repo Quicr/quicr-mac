@@ -23,6 +23,7 @@ class DecimusAudioEngine {
     private var reconfigureListeners: [AnyHashable: ReconfigureEvent] = [:]
     private let sink: AVAudioSinkNode
     private var stopped: Bool = false
+    private var elements: [SourceIDType: AVAudioSourceNode] = [:]
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
@@ -134,6 +135,29 @@ class DecimusAudioEngine {
         stopped = true
     }
 
+    /// Add a source node to this engine, to be mixed with any others.
+    /// - Parameter identifier: Identifier for this source.
+    /// - Parameter node: The source node supplying audio.
+    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
+        engine.attach(node)
+        engine.connect(node, to: engine.mainMixerNode, format: Self.format)
+        assert(node.numberOfOutputs == 1)
+        assert(node.outputFormat(forBus: 0) == Self.format)
+        Self.logger.info("(\(identifier)) Attached node")
+        guard self.elements[identifier] == nil else { throw "Add called for existing entry" }
+        self.elements[identifier] = node
+    }
+
+    /// Remove a previously added source node.
+    /// - Parameter identifier: Identifier of the source node to remove.
+    func removePlayer(identifier: SourceIDType) throws {
+        guard let element = elements.removeValue(forKey: identifier) else {
+            throw "Remove called for non existent entry"
+        }
+        engine.detach(element)
+        Self.logger.info("(\(identifier)) Removed player node")
+    }
+
     /// Register a handler that will be called when the audio engine reconfigures.
     /// Any connected blocks will need to be reconnected, and the format may have changed.
     /// - Parameter id: The identifier for this callback holder.
@@ -165,8 +189,10 @@ class DecimusAudioEngine {
         let postSetOutput = session.outputNumberOfChannels
         assert(preSetOutput == postSetOutput)
 
-        // Reconfigure ourselves.
+        // We shouldn't be running at this point.
         assert(!engine.isRunning)
+
+        // Sink for microphone output.
         engine.connect(engine.inputNode, to: sink, format: Self.format)
         assert(engine.inputNode.numberOfOutputs == 1)
         let inputOutputFormat = engine.inputNode.outputFormat(forBus: 0)
@@ -174,5 +200,25 @@ class DecimusAudioEngine {
         assert(inputOutputFormat == Self.format)
         assert(sink.numberOfInputs == 1)
         assert(sink.inputFormat(forBus: 0) == Self.format)
+
+        // Mixer for player nodes.
+        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: Self.format)
+        assert(engine.mainMixerNode.numberOfOutputs == 1)
+        let mixerOutputFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+        Self.logger.info("Connected mixer: \(mixerOutputFormat)")
+        assert(mixerOutputFormat == Self.format)
+
+        // Sanity check the output format.
+        assert(engine.outputNode.numberOfInputs == 1)
+        assert(engine.outputNode.isVoiceProcessingEnabled)
+        assert(engine.outputNode.inputFormat(forBus: 0) == Self.format)
+
+        // We shouldn't need to reconnect source nodes to the mixer,
+        // as the format should not have changed.
+        for element in self.elements {
+            assert(element.value.numberOfOutputs == 1)
+            let sourceOutputFormat = element.value.outputFormat(forBus: 0)
+            assert(sourceOutputFormat == Self.format)
+        }
     }
 }

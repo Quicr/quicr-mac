@@ -41,7 +41,6 @@
 		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
-		9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
@@ -177,7 +176,6 @@
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FasterAVEngineAudioPlayer.swift; sourceTree = "<group>"; };
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
@@ -405,7 +403,6 @@
 				9B48065F297E9DDF0040F5D4 /* AudioVideoDevices.swift */,
 				9B48066D297F19700040F5D4 /* CaptureManager.swift */,
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
-				9B87FB632A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift */,
 				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
 				9B9622DB2A7A669A00949234 /* QHelpers.swift */,
 				9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */,
@@ -778,7 +775,6 @@
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
-				9B87FB642A04420000C92DD1 /* FasterAVEngineAudioPlayer.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,

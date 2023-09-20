@@ -16,13 +16,12 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
              granularMetrics: Bool) {
         self.participants = .init()
         self.submitter = submitter
-        let player: FasterAVEngineAudioPlayer = .init(engine: engine)
         self.factory = .init(participants: self.participants,
-                             player: player,
+                             engine: engine,
                              config: config,
                              granularMetrics: granularMetrics)
 
-        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self, weak player] _ in
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self, weak engine] _ in
             guard let self = self else { return }
 
             let staleVideos = self.participants.participants.filter { _, participant in
@@ -34,7 +33,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
                     try self.participants.removeParticipant(identifier: id)
                 } catch {
                     do {
-                        try player?.removePlayer(identifier: id)
+                        try engine?.removePlayer(identifier: id)
                     } catch {
                         Self.logger.critical("Failed to remove audio player: \(error.localizedDescription)")
                     }
