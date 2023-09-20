@@ -6,34 +6,38 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private static let logger = DecimusLogger(SubscriberDelegate.self)
 
     let participants: VideoParticipants
-    private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
         init(submitter: MetricsSubmitter?,
              config: SubscriptionConfig,
-             engine: AVAudioEngine,
+             engine: DecimusAudioEngine,
              granularMetrics: Bool) {
         self.participants = .init()
-        self.player = .init(engine: engine)
         self.submitter = submitter
+        let player: FasterAVEngineAudioPlayer = .init(engine: engine)
         self.factory = .init(participants: self.participants,
-                             player: self.player,
+                             player: player,
                              config: config,
                              granularMetrics: granularMetrics)
 
-        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self, weak player] _ in
             guard let self = self else { return }
 
             let staleVideos = self.participants.participants.filter { _, participant in
                 return participant.lastUpdated.advanced(by: DispatchTimeInterval.seconds(2)) < .now()
             }
             for id in staleVideos.keys {
+                // FIXME: This feels wrong.
                 do {
                     try self.participants.removeParticipant(identifier: id)
                 } catch {
-                    self.player.removePlayer(identifier: id)
+                    do {
+                        try player?.removePlayer(identifier: id)
+                    } catch {
+                        Self.logger.critical("Failed to remove audio player: \(error.localizedDescription)")
+                    }
                 }
             }
         }

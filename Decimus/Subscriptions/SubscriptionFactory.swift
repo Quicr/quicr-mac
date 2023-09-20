@@ -62,7 +62,7 @@ class SubscriptionFactory {
                                              MetricsSubmitter?) throws -> Subscription?
 
     private unowned let participants: VideoParticipants
-    private unowned let player: FasterAVEngineAudioPlayer
+    private let player: FasterAVEngineAudioPlayer
     private let config: SubscriptionConfig
     private let granularMetrics: Bool
     init(participants: VideoParticipants,

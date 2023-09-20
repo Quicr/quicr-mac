@@ -7,54 +7,78 @@ import os
 class FasterAVEngineAudioPlayer {
     private static let logger = DecimusLogger(FasterAVEngineAudioPlayer.self)
 
-    let inputFormat: AVAudioFormat
-    private unowned let engine: AVAudioEngine
+    private let engine: DecimusAudioEngine
     private var mixer: AVAudioMixerNode = .init()
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
+    
+    private lazy var reconfigure: DecimusAudioEngine.ReconfigureEvent = { [weak self] in
+        guard let self = self else { return }
+        let engine = self.engine.engine
+
+        // Reconnect the mixer and ensure the format.
+        engine.connect(self.mixer, to: engine.outputNode, format: DecimusAudioEngine.format)
+        assert(self.mixer.numberOfOutputs == 1)
+        let mixerOutputFormat = self.mixer.outputFormat(forBus: 0)
+        Self.logger.info("Connected mixer: \(mixerOutputFormat)")
+        assert(mixerOutputFormat == DecimusAudioEngine.format)
+
+        // Sanity check the output format.
+        assert(engine.outputNode.numberOfInputs == 1)
+        assert(engine.outputNode.isVoiceProcessingEnabled)
+        assert(engine.outputNode.inputFormat(forBus: 0) == DecimusAudioEngine.format)
+
+        // We shouldn't need to reconnect source nodes to the mixer,
+        // as the format should not have changed.
+        for element in self.elements {
+            assert(element.value.numberOfOutputs == 1)
+            let sourceOutputFormat = element.value.outputFormat(forBus: 0)
+            assert(sourceOutputFormat == DecimusAudioEngine.format)
+        }
+    }
 
     /// Create a new `AudioPlayer`
-    init(engine: AVAudioEngine) {
-        assert(engine.outputNode.isVoiceProcessingEnabled)
-        assert(engine.outputNode.numberOfInputs == 1)
-        let outputFormat = engine.outputNode.inputFormat(forBus: 0)
-        inputFormat = .init(commonFormat: outputFormat.commonFormat,
-                            sampleRate: .opus48khz,
-                            channels: outputFormat.channelCount,
-                            interleaved: outputFormat.isInterleaved)!
-        Self.logger.info("Creating Audio Mixer input format is: \(self.inputFormat)")
-        engine.attach(mixer)
-        engine.connect(mixer, to: engine.outputNode, format: inputFormat)
-        assert(engine.outputNode.inputFormat(forBus: 0).sampleRate == inputFormat.sampleRate)
+    init(engine: DecimusAudioEngine) {
         self.engine = engine
+        engine.engine.attach(mixer)
+        reconfigure()
+        engine.registerReconfigureInterest(id: "Player", callback: reconfigure)
     }
 
     deinit {
         for identifier in elements.keys {
-            removePlayer(identifier: identifier)
+            do {
+                try removePlayer(identifier: identifier)
+            } catch {
+                Self.logger.critical(error.localizedDescription)
+            }
         }
         elements.removeAll()
 
-        if let engine = mixer.engine {
-            engine.disconnectNodeInput(mixer)
-            engine.detach(mixer)
-        }
+        engine.engine.detach(self.mixer)
+        engine.unregisterReconfigureInterest(id: "Player")
     }
 
+    /// Add a source node to this player, to be mixed with any others.
+    /// - Parameter identifier: Identifier for this source.
+    /// - Parameter node: The source node supplying audio.
     func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
+        let engine = engine.engine
         engine.attach(node)
-        engine.connect(node, to: mixer, format: self.inputFormat)
-        Self.logger.info("(\(identifier)) Attached node: \(node.outputFormat(forBus: 0))")
+        engine.connect(node, to: mixer, format: DecimusAudioEngine.format)
+        assert(node.numberOfOutputs == 1)
+        assert(node.outputFormat(forBus: 0) == DecimusAudioEngine.format)
+        Self.logger.info("(\(identifier)) Attached node")
+        guard self.elements[identifier] == nil else { throw "Add called for existing entry" }
+        self.elements[identifier] = node
     }
 
-    func removePlayer(identifier: SourceIDType) {
-
-        guard let element = elements.removeValue(forKey: identifier) else { return }
-        Self.logger.info("(\(identifier)) Removing")
-
-        // Dispose of the element's resources.
-        if let engine = element.engine {
-            engine.disconnectNodeInput(element)
-            engine.detach(element)
+    /// Remove a previously added source node.
+    /// - Parameter identifier: Identifier of the source node to remove.
+    func removePlayer(identifier: SourceIDType) throws {
+        guard let element = elements.removeValue(forKey: identifier) else {
+            throw "Remove called for non existent entry"
         }
+        self.engine.engine.detach(element)
+        Self.logger.info("(\(identifier)) Removed player node")
     }
 }
