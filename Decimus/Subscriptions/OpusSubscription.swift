@@ -61,27 +61,25 @@ class OpusSubscription: Subscription {
         var framesEnqueuedFail = 0
     }
 
-    private class Weak<T> {
-        var value: T
-        init(value: T) {
-            self.value = value
-        }
-    }
-
     let namespace: String
-    private var decoder: LibOpusDecoder
+    private var decoder: LibOpusDecoder?
 
     private unowned let player: FasterAVEngineAudioPlayer
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
-    private var jitterBuffer: QJitterBuffer
+    private var jitterBuffer: QJitterBuffer?
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement?
-    private var underrun: Weak<UInt64> = .init(value: 0)
-    private var callbacks: Weak<UInt64> = .init(value: 0)
+    private var underrun: Wrapped<UInt64> = .init(0)
+    private var callbacks: Wrapped<UInt64> = .init(0)
     private let reliable: Bool
     private let granularMetrics: Bool
+    private let config: AudioCodecConfig
+    private let opusWindowSize: OpusWindowSize
+    private let jitterMax: TimeInterval
+    private let jitterDepth: TimeInterval
+    private var reconfiguring: Wrapped<Bool> = .init(false)
 
     init(namespace: QuicrNamespace,
          player: FasterAVEngineAudioPlayer,
@@ -94,35 +92,22 @@ class OpusSubscription: Subscription {
          granularMetrics: Bool) throws {
         self.namespace = namespace
         self.player = player
+        self.config = config
         if let submitter = submitter {
             self.measurement = .init(namespace: namespace, submitter: submitter)
         } else {
             self.measurement = nil
         }
+        self.jitterDepth = jitterDepth
+        self.jitterMax = jitterMax
+        self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
 
-        do {
-            self.decoder = try OpusSubscription.createOpusDecoder(config: config, player: player)
-        } catch {
-            throw OpusSubscriptionError.FailedDecoderCreation
-        }
-
-        // Create the jitter buffer.
-        self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
-        self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
-                                          packetElements: Int(opusPacketSize),
-                                          clockRate: UInt(asbd.pointee.mSampleRate),
-                                          maxLengthMs: UInt(jitterMax * 1000),
-                                          minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
-            OpusSubscription.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
-        }
-
         // Create the player node.
-        self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
+        try _reconfigure()
+        self.node = .init(format: decoder!.decodedFormat, renderBlock: renderBlock)
         try self.player.addPlayer(identifier: namespace, node: node!)
-
         Self.logger.info("Subscribed to OPUS stream")
     }
 
@@ -131,14 +116,43 @@ class OpusSubscription: Subscription {
         player.removePlayer(identifier: namespace)
 
         // Reset the node.
-        node?.reset()
+        node!.reset()
 
         // Report metrics.
         Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
     }
     
-    func reconfigure() {
+    func _reconfigure() throws {
+        // Stop all the things.
+        self.reconfiguring.value = true
         
+        do {
+            guard let inputFormat = player.inputFormat else { throw "Missing player input format" }
+            self.decoder = try OpusSubscription.createOpusDecoder(config: config, desiredOutputFormat: inputFormat)
+        } catch {
+            throw OpusSubscriptionError.FailedDecoderCreation
+        }
+        
+        // Create the jitter buffer.
+        self.asbd = .init(mutating: decoder!.decodedFormat.streamDescription)
+        let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
+        self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
+                                          packetElements: Int(opusPacketSize),
+                                          clockRate: UInt(asbd.pointee.mSampleRate),
+                                          maxLengthMs: UInt(jitterMax * 1000),
+                                          minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
+            OpusSubscription.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        }
+        
+        self.reconfiguring.value = false
+    }
+    
+    func reconfigure() {
+        do {
+            try _reconfigure()
+        } catch {
+            Self.logger.critical("Failed to reconfigure OpusSubscription: \(error.localizedDescription)")
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
@@ -146,7 +160,9 @@ class OpusSubscription: Subscription {
         return SubscriptionError.None.rawValue
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks, reconfiguring] silence, _, numFrames, data in
+        assert(!reconfiguring.value)
+        
         // Fill the buffers as best we can.
         if let callbacks = callbacks {
             callbacks.value += 1
@@ -168,9 +184,9 @@ class OpusSubscription: Subscription {
 
         let buffer: AudioBuffer = data.pointee.mBuffers
         assert(buffer.mDataByteSize == numFrames * asbd.pointee.mBytesPerFrame)
-        let copiedFrames = jitterBuffer.dequeue(buffer.mData,
-                                                destinationLength: Int(buffer.mDataByteSize),
-                                                elements: Int(numFrames))
+        let copiedFrames = jitterBuffer!.dequeue(buffer.mData,
+                                                 destinationLength: Int(buffer.mDataByteSize),
+                                                 elements: Int(numFrames))
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
             let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
@@ -211,7 +227,7 @@ class OpusSubscription: Subscription {
             var packet = packets!.advanced(by: index)
             do {
                 // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
-                let plcData = try subscription.decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
+                let plcData = try subscription.decoder!.plc(frames: AVAudioFrameCount(packet.pointee.elements))
                 let list = plcData.audioBufferList
                 guard list.pointee.mNumberBuffers == 1 else {
                     throw "Not sure what to do with this"
@@ -239,19 +255,18 @@ class OpusSubscription: Subscription {
     }
 
     private static func createOpusDecoder(config: CodecConfig,
-                                          player: FasterAVEngineAudioPlayer) throws -> LibOpusDecoder {
+                                          desiredOutputFormat: AVAudioFormat) throws -> LibOpusDecoder {
         guard config.codec == .opus else { fatalError("Codec mismatch") }
-        guard let inputFormat = player.inputFormat else { fatalError("Should exist at this point") }
 
         let decoder: LibOpusDecoder
         do {
             // First, try and decode directly into the output's input format.
-            decoder = try .init(format: inputFormat)
-            Self.logger.info("Created decoder with native format: \(inputFormat)")
+            decoder = try .init(format: desiredOutputFormat)
+            Self.logger.info("Created decoder with native format: \(desiredOutputFormat)")
         } catch {
             // That may not be supported, so decode into standard output instead.
             let format: AVAudioFormat.OpusPCMFormat
-            switch inputFormat.commonFormat {
+            switch desiredOutputFormat.commonFormat {
             case .pcmFormatInt16:
                 format = .int16
             case .pcmFormatFloat32:
@@ -261,8 +276,8 @@ class OpusSubscription: Subscription {
             }
 
             let fallbackFormat: AVAudioFormat = .init(opusPCMFormat: format,
-                                                      sampleRate: 48000,
-                                                      channels: inputFormat.channelCount)!
+                                                      sampleRate: .opus48khz,
+                                                      channels: desiredOutputFormat.channelCount)!
             decoder = try .init(format: fallbackFormat)
             Self.logger.info("Created decoder with native format: \(fallbackFormat)")
         }
@@ -295,10 +310,11 @@ class OpusSubscription: Subscription {
             self.seq = groupId
         }
 
+        guard !self.reconfiguring.value else { return SubscriptionError.None.rawValue }
         var decoded: AVAudioPCMBuffer?
         let result: SubscriptionError = data.withUnsafeBytes {
             do {
-                decoded = try decoder.write(data: $0)
+                decoded = try decoder!.write(data: $0)
                 return SubscriptionError.None
             } catch {
                 Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
@@ -342,9 +358,9 @@ class OpusSubscription: Subscription {
         let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
 
         // Copy in.
-        let copied = jitterBuffer.enqueue(packet,
-                                          concealmentCallback: self.plcCallback,
-                                          userData: selfPtr)
+        let copied = jitterBuffer!.enqueue(packet,
+                                           concealmentCallback: self.plcCallback,
+                                           userData: selfPtr)
         self.metrics.framesEnqueued += copied
         guard copied >= buffer.frameLength else {
             Self.logger.warning("Only managed to enqueue: \(copied)/\(buffer.frameLength)")

@@ -49,26 +49,23 @@ class OpusPublication: Hashable, Publication {
     private let reliable: Bool
     private let granularMetrics: Bool
     private unowned let engine: AudioEngine
-    private var reconfig = false
+    private let reconfig: Wrapped<Bool> = .init(false)
 
     lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, format, reconfig] timestamp, numFrames, data in
-        Self.logger.info("Sink block called")
-        guard !reconfig else { fatalError("Reconfiguring") }
+        assert(!reconfig.value)
         assert(data.pointee.mNumberBuffers <= 2)
         let copied = TPCircularBufferCopyAudioBufferList(buffer,
                                                          data,
                                                          timestamp,
                                                          numFrames,
-                                                         format?.streamDescription)
+                                                         format!.streamDescription)
         return copied ? .zero : 1
     }
 
     private lazy var encodeBlock: (Timer) -> Void = { [weak self] _ in
-        Self.logger.info("Encode timer proc")
         DispatchQueue.global(qos: .userInteractive).async {
-            Self.logger.info("Encode timer queue proc")
             guard let self = self else { return }
-            guard !self.reconfig else { fatalError("Reconfiguring") }
+            assert(!self.reconfig.value)
             do {
                 while let data = try self.encode() {
                     self.publish(data: data)
@@ -103,7 +100,7 @@ class OpusPublication: Hashable, Publication {
         try _reconfigure()
 
         // Register our block.
-        engine.blocks.value.append(block)
+        engine.registerSinkBlock(block)
         engine.registerReconfigureInterest(id: self, callback: reconfigure)
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
@@ -119,16 +116,18 @@ class OpusPublication: Hashable, Publication {
 
     private func _reconfigure() throws {
         // Reconfigure the opus encoder based on the input format.
-        guard engine.desiredFormat!.sampleRate > 0 else { throw "Invalid input format" }
-        let format = engine.desiredFormat!
+        guard engine.inputFormat.sampleRate > 0 else { throw "Invalid input format" }
+        let format = engine.inputFormat
         Self.logger.info("Reconfiguring: \(format)")
 
         if format != self.format {
             if self.format != nil {
                 // Additional explicit cleanup.
-                self.reconfig = true
+                self.reconfig.value = true
+                DispatchQueue.main.async {
+                    self.encodeTimer!.invalidate()
+                }
                 TPCircularBufferCleanup(buffer)
-                self.encodeTimer!.invalidate()
                 Self.logger.info("Stopped the timer, flushed the buffer")
             }
 
@@ -159,7 +158,7 @@ class OpusPublication: Hashable, Publication {
             // Done.
             self.encoder = encoder
             self.format = format
-            self.reconfig = false
+            self.reconfig.value = false
         }
 
         // Start encode job: timer procs on main thread, but encoding itself isn't.

@@ -13,6 +13,7 @@ class FasterAVEngineAudioPlayer: Hashable {
     private static let logger = DecimusLogger(FasterAVEngineAudioPlayer.self)
 
     private(set) var inputFormat: AVAudioFormat?
+    private var lastInputFormat: AVAudioFormat?
     private unowned let engine: AudioEngine
     private var mixer: AVAudioMixerNode = .init()
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
@@ -22,6 +23,7 @@ class FasterAVEngineAudioPlayer: Hashable {
         assert(engine.engine.outputNode.isVoiceProcessingEnabled)
         assert(engine.engine.outputNode.numberOfInputs == 1)
         self.engine = engine
+        engine.engine.attach(mixer)
         reconnect()
         self.engine.registerReconfigureInterest(id: self, callback: reconnect)
     }
@@ -44,15 +46,24 @@ class FasterAVEngineAudioPlayer: Hashable {
 
     func reconnect() {
         let engine = engine.engine
+        assert(engine.outputNode.numberOfInputs == 1)
         let outputFormat = engine.outputNode.inputFormat(forBus: 0)
         inputFormat = .init(commonFormat: outputFormat.commonFormat,
-                            sampleRate: AVAudioSession.sharedInstance().sampleRate,
+                            sampleRate: .opus48khz,
                             channels: outputFormat.channelCount,
                             interleaved: outputFormat.isInterleaved)!
-        Self.logger.info("Creating Audio Mixer input format is: \(self.inputFormat!)")
-        engine.attach(mixer)
-        engine.connect(mixer, to: engine.outputNode, format: inputFormat)
-        assert(engine.outputNode.inputFormat(forBus: 0).sampleRate == AVAudioSession.sharedInstance().sampleRate)
+        if self.inputFormat != self.lastInputFormat {
+            Self.logger.info("Reconnecting audio mixer node. Input format is: \(self.inputFormat!), was: \(String(describing: self.lastInputFormat))")
+            engine.connect(mixer, to: engine.outputNode, format: self.inputFormat)
+
+            // Update all the input nodes.
+            for element in elements {
+                Self.logger.info("Reconnecting audio source node. Input format is: \(self.inputFormat!), was: \(String(describing: self.lastInputFormat))")
+                engine.connect(element.value, to: self.mixer, format: self.inputFormat)
+            }
+        }
+        self.lastInputFormat = self.inputFormat
+        // assert(engine.outputNode.inputFormat(forBus: 0).sampleRate == AVAudioSession.sharedInstance().sampleRate)
     }
 
     func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
