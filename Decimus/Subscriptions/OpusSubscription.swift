@@ -71,7 +71,7 @@ class OpusSubscription: Subscription {
     let namespace: String
     private var decoder: LibOpusDecoder
 
-    private unowned let player: FasterAVEngineAudioPlayer
+    private let engine: DecimusAudioEngine
     private var asbd: UnsafeMutablePointer<AudioStreamBasicDescription> = .allocate(capacity: 1)
     private var metrics: Metrics = .init()
     private var node: AVAudioSourceNode?
@@ -84,7 +84,7 @@ class OpusSubscription: Subscription {
     private let granularMetrics: Bool
 
     init(namespace: QuicrNamespace,
-         player: FasterAVEngineAudioPlayer,
+         engine: DecimusAudioEngine,
          config: AudioCodecConfig,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
@@ -93,7 +93,7 @@ class OpusSubscription: Subscription {
          reliable: Bool,
          granularMetrics: Bool) throws {
         self.namespace = namespace
-        self.player = player
+        self.engine = engine
         if let submitter = submitter {
             self.measurement = .init(namespace: namespace, submitter: submitter)
         } else {
@@ -121,7 +121,7 @@ class OpusSubscription: Subscription {
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        try self.player.addPlayer(identifier: namespace, node: node!)
+        try self.engine.addPlayer(identifier: namespace, node: node!)
 
         Self.logger.info("Subscribed to OPUS stream")
     }
@@ -129,7 +129,7 @@ class OpusSubscription: Subscription {
     deinit {
         // Remove the audio playout.
         do {
-            try player.removePlayer(identifier: namespace)
+            try engine.removePlayer(identifier: namespace)
         } catch {
             Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
         }
