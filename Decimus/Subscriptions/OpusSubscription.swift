@@ -149,7 +149,7 @@ class OpusSubscription: Subscription {
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
         // Fill the buffers as best we can.
         if let callbacks = callbacks {
-            callbacks.value += 1
+            callbacks.value += UInt64(numFrames)
         }
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
@@ -174,6 +174,7 @@ class OpusSubscription: Subscription {
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
             let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
+            silence.pointee = .init(framesUnderan == numFrames)
             if let underrun = underrun {
                 underrun.value += framesUnderan
             }
@@ -190,9 +191,6 @@ class OpusSubscription: Subscription {
                     break
                 }
                 memset(dataPointer + discontinuityStartOffset, 0, Int(numberOfSilenceBytes))
-                let thisBufferSilence = numberOfSilenceBytes == buffer.mDataByteSize
-                let silenceSoFar = silence.pointee.boolValue
-                silence.pointee = .init(thisBufferSilence && silenceSoFar)
             }
             return .zero
         }
