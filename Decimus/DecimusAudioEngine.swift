@@ -22,7 +22,7 @@ class DecimusAudioEngine {
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
-        Self.logger.log(level: .info, "AVAudioEngineConfigurationChange", alert: true)
+        Self.logger.notice("AVAudioEngineConfigurationChange", alert: true)
         do {
             try self.reconfigureAndRestart()
         } catch {
@@ -47,7 +47,7 @@ class DecimusAudioEngine {
             do {
                 try AVAudioSession.sharedInstance().setActive(true)
                 try self.reconfigureAndRestart()
-                Self.logger.log(level: .info, "Audio resumed", alert: true)
+                Self.logger.notice("Audio resumed", alert: true)
             } catch {
                 Self.logger.error("Failed to resume audio session", alert: true)
             }
@@ -56,18 +56,17 @@ class DecimusAudioEngine {
         }
     }
 
-    private lazy var reset: (Notification) -> Void = { [weak self] _ in
+    private lazy var reset: (Notification) -> Void = { _ in
         Self.logger.warning("Media services reset. Report this.", alert: true)
     }
 
-    private lazy var routeChange: (Notification) -> Void = { [weak self] notification in
-        guard let self = self,
-              let userInfo = notification.userInfo,
+    private lazy var routeChange: (Notification) -> Void = { notification in
+        guard let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
             return
         }
-        Self.logger.log(level: .info, "Route change: \(reason)", alert: true)
+        Self.logger.notice("Route change: \(reason)", alert: true)
     }
 
     init() throws {
