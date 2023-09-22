@@ -22,7 +22,7 @@ class VideoJitterBuffer {
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {
-            record(field: "currentDepth", value: depth as AnyObject, timestamp: timestamp)
+            record(field: "currentDepth", value: UInt32(depth * 1000) as AnyObject, timestamp: timestamp)
         }
 
         func underrun(timestamp: Date?) {
@@ -41,6 +41,7 @@ class VideoJitterBuffer {
         }
     }
 
+    typealias FrameAvailble = (VideoFrame) -> Void
     private var buffer: OrderedSet<VideoFrame>
     private let frameDuration: TimeInterval
     private let minDepth: TimeInterval
@@ -49,6 +50,16 @@ class VideoJitterBuffer {
     private var play: Bool = false
     private var lastSequenceRead: UInt64?
     private let sort: Bool
+    private let frameAvailable: FrameAvailble
+    private var dequeueTask: Task<(),Never>?
+    private let minTimeToNextFrame: Duration = .milliseconds(1)
+
+    // PID tuning.
+    private var kp: Double = 0.01
+    private var ki: Double = 0.001
+    private var kd: Double = 0.001
+    private var integral: Double = 0
+    private var lastError: Double = 0
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -60,9 +71,10 @@ class VideoJitterBuffer {
          frameDuration: TimeInterval,
          minDepth: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
-         sort: Bool) {
+         sort: Bool,
+         frameAvailable: @escaping FrameAvailble) {
         self.frameDuration = frameDuration
-        self.minDepth = minDepth
+        self.minDepth = ceil(minDepth / frameDuration) * frameDuration
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -70,6 +82,24 @@ class VideoJitterBuffer {
             measurement = nil
         }
         self.sort = sort
+        self.frameAvailable = frameAvailable
+        self.dequeueTask = .init(priority: .high) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+                
+                // Wait until we expect to have a frame available.
+                let waitTime = calculateWaitTime()
+                let ns = waitTime * 1_000_000_000
+                if ns > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(ns))
+                }
+
+                // Attempt to dequeue a frame.
+                if let frame = self.read() {
+                    self.frameAvailable(frame)
+                }
+            }
+        }
     }
 
     /// Write a video frame into the jitter buffer.
@@ -103,10 +133,10 @@ class VideoJitterBuffer {
     /// - Returns Either the oldest available frame, or nil.
     func read() -> VideoFrame? {
         let now: Date = .now
+        let depth: TimeInterval = TimeInterval(self.buffer.count) * self.frameDuration
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.currentDepth(depth: Double(self.buffer.count) * self.frameDuration,
-                                               timestamp: now)
+                await measurement.currentDepth(depth: depth, timestamp: now)
             }
         }
 
@@ -154,6 +184,15 @@ class VideoJitterBuffer {
                 await measurement.flushed(count: metric, timestamp: now)
             }
         }
+    }
+    
+    private func calculateWaitTime() -> TimeInterval {
+        let currentDepth = TimeInterval(self.buffer.count) * self.frameDuration
+        let error = self.minDepth - currentDepth
+        self.integral += error
+        let derivative = error - self.lastError
+        self.lastError = error
+        return self.frameDuration + (self.kp * error + self.ki * self.integral + self.kd * derivative)
     }
 }
 

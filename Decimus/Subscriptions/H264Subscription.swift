@@ -53,13 +53,6 @@ class H264Subscription: Subscription {
     private let namegate: NameGate
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
-    private var decodeTimer: Timer?
-
-    private lazy var decodeBlock: (Timer) -> Void = { [weak self] _ in
-        DispatchQueue.global(qos: .userInteractive).async {
-            self?.dequeue()
-        }
-    }
     private var lastReceive: Date?
     private var lastDecode: Date?
     private let granularMetrics: Bool
@@ -88,13 +81,8 @@ class H264Subscription: Subscription {
                                       frameDuration: 1 / Double(config.fps),
                                       minDepth: minDepth,
                                       metricsSubmitter: metricsSubmitter,
-                                      sort: !reliable)
-            // Decode job: timer procs on main thread, but decoding itself doesn't.
-            DispatchQueue.main.async {
-                self.decodeTimer = .scheduledTimer(withTimeInterval: 1 / Double(config.fps),
-                                                   repeats: true,
-                                                   block: self.decodeBlock)
-                self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
+                                      sort: !reliable) { [weak self] frame in
+                self?.decode(frame: frame)
             }
         }
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
