@@ -82,6 +82,10 @@ class OpusSubscription: Subscription {
     private var callbacks: Weak<UInt64> = .init(value: 0)
     private let reliable: Bool
     private let granularMetrics: Bool
+    private var added: Bool = false
+    private var lastReceivedAudio: Date?
+    private let lastReceivedAudioThreshold: TimeInterval = 2
+    private var cleanupTask: Task<(), Never>?
 
     init(namespace: QuicrNamespace,
          engine: DecimusAudioEngine,
@@ -121,21 +125,22 @@ class OpusSubscription: Subscription {
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        try self.engine.addPlayer(identifier: namespace, node: node!)
-
         Self.logger.info("Subscribed to OPUS stream")
     }
 
     deinit {
         // Remove the audio playout.
-        do {
-            try engine.removePlayer(identifier: namespace)
-        } catch {
-            Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
+        cleanupTask?.cancel()
+        if engine.hasPlayer(identifier: namespace) {
+            do {
+                try engine.removePlayer(identifier: namespace)
+            } catch {
+                Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
+            }
         }
 
         // Reset the node.
-        node?.reset()
+        node!.reset()
 
         // Report metrics.
         Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
@@ -241,6 +246,33 @@ class OpusSubscription: Subscription {
     }
 
     func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+        // Add the player node if not already.
+        if !self.added {
+            do {
+                try self.engine.addPlayer(identifier: self.namespace, node: self.node!)
+            } catch {
+                Self.logger.error("Failed to add player node: \(error.localizedDescription)", alert: true)
+            }
+            self.added = true
+            self.cleanupTask = .init(priority: .medium) { [weak self] in
+                guard let self = self else { return }
+                while !Task.isCancelled && self.added {
+                    try! await Task.sleep(for: .seconds(2))
+                    guard let lastReceivedAudio = self.lastReceivedAudio,
+                          Date.now.timeIntervalSince(lastReceivedAudio) > self.lastReceivedAudioThreshold,
+                          self.engine.hasPlayer(identifier: self.namespace) else { continue }
+                    Self.logger.info("Removing audio player for: \(self.namespace)")
+                    do {
+                        try self.engine.removePlayer(identifier: self.namespace)
+                        self.added = false
+                    } catch {
+                        Self.logger.error("Failed to timeout audio player for: \(self.namespace): \(error.localizedDescription)", alert: true)
+                    }
+                }
+            }
+        }
+        self.lastReceivedAudio = .now
+
         // Metrics.
         let date: Date? = self.granularMetrics ? .now : nil
 

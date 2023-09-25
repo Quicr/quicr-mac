@@ -167,6 +167,13 @@ class DecimusAudioEngine {
         stopped = true
     }
 
+    /// Returns true of the engine has a player node for the given identifier.
+    /// - Parameter identifier: Identifier for this player/source node.
+    /// - Returns True if node attached to the engine.
+    func hasPlayer(identifier: SourceIDType) -> Bool {
+        self.elements[identifier] != nil
+    }
+
     /// Add a source node to this engine, to be mixed with any others.
     /// - Parameter identifier: Identifier for this source.
     /// - Parameter node: The source node supplying audio.
