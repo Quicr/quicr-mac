@@ -3,6 +3,10 @@ import OrderedCollections
 
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
+    
+    enum Mode {
+        case pid; case interval
+    }
 
     private actor _Measurement: Measurement {
         var name: String = "VideoJitterBuffer"
@@ -53,6 +57,7 @@ class VideoJitterBuffer {
     private let frameAvailable: FrameAvailble
     private var dequeueTask: Task<(),Never>?
     private let minTimeToNextFrame: Duration = .milliseconds(1)
+    private let mode: Mode = .interval
 
     // PID tuning.
     private var kp: Double = 0.01
@@ -60,6 +65,11 @@ class VideoJitterBuffer {
     private var kd: Double = 0.001
     private var integral: Double = 0
     private var lastError: Double = 0
+    
+    // Time calculation.
+    private var firstSeq: UInt64?
+    private var firstDequeueTime: Date?
+    private var dequeuedCount: UInt64 = 0
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -83,23 +93,6 @@ class VideoJitterBuffer {
         }
         self.sort = sort
         self.frameAvailable = frameAvailable
-        self.dequeueTask = .init(priority: .high) { [weak self] in
-            while !Task.isCancelled {
-                guard let self = self else { return }
-                
-                // Wait until we expect to have a frame available.
-                let waitTime = calculateWaitTime()
-                let ns = waitTime * 1_000_000_000
-                if ns > 0 {
-                    try? await Task.sleep(nanoseconds: UInt64(ns))
-                }
-
-                // Attempt to dequeue a frame.
-                if let frame = self.read() {
-                    self.frameAvailable(frame)
-                }
-            }
-        }
     }
 
     /// Write a video frame into the jitter buffer.
@@ -118,6 +111,33 @@ class VideoJitterBuffer {
             if self.sort {
                 self.buffer.sort()
             }
+            
+            if self.dequeueTask == nil {
+                let required: Int = .init(ceil(self.minDepth / self.frameDuration))
+                if self.buffer.count >= required {
+                    self.dequeueTask = .init(priority: .high) { [weak self] in
+                        while !Task.isCancelled {
+                            guard let self = self else { return }
+
+                            // Wait until we expect to have a frame available.
+                            let waitTime = self.lock.withLock {
+                                self.calculateWaitTime()
+                            }
+                            let ns = waitTime * 1_000_000_000
+                            if ns > 0 {
+                                try? await Task.sleep(nanoseconds: UInt64(ns))
+                            }
+
+                            // Attempt to dequeue a frame.
+                            self.lock.withLock {
+                                if let frame = self.read() {
+                                    self.frameAvailable(frame)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return true
         }
         if let measurement = self.measurement {
@@ -130,8 +150,9 @@ class VideoJitterBuffer {
     }
 
     /// Attempt to read a frame from the front of the buffer.
+    /// The lock should already be held by the caller.
     /// - Returns Either the oldest available frame, or nil.
-    func read() -> VideoFrame? {
+    private func read() -> VideoFrame? {
         let now: Date = .now
         let depth: TimeInterval = TimeInterval(self.buffer.count) * self.frameDuration
         if let measurement = self.measurement {
@@ -140,29 +161,25 @@ class VideoJitterBuffer {
             }
         }
 
-        return lock.withLock {
-            // Ensure there's something to get.
-            guard self.buffer.count > 0 else {
-                if let measurement = self.measurement {
-                    Task(priority: .utility) {
-                        await measurement.underrun(timestamp: now)
-                    }
+        // Ensure there's something to get.
+        guard self.buffer.count > 0 else {
+            if let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await measurement.underrun(timestamp: now)
                 }
-                return nil
             }
-
-            // Is it time to play yet?
-            if !play {
-                let required: Int = .init(ceil(self.minDepth / self.frameDuration))
-                guard self.buffer.count >= required else { return nil }
-                play = true
-            }
-
-            // Get the oldest available frame.
-            let oldest = self.buffer.removeFirst()
-            self.lastSequenceRead = oldest.getSeq()
-            return oldest
+            return nil
         }
+
+        // Get the oldest available frame.
+        let oldest = self.buffer.removeFirst()
+        self.lastSequenceRead = oldest.getSeq()
+        if self.firstSeq == nil {
+            self.firstSeq = self.lastSequenceRead
+            self.firstDequeueTime = .now
+        }
+        self.dequeuedCount += 1
+        return oldest
     }
 
     /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
@@ -187,12 +204,29 @@ class VideoJitterBuffer {
     }
     
     private func calculateWaitTime() -> TimeInterval {
+        switch self.mode {
+        case .interval:
+            calculateWaitTimeInterval()
+        case .pid:
+            calculateWaitTimePid()
+        }
+    }
+    
+    private func calculateWaitTimePid() -> TimeInterval {
         let currentDepth = TimeInterval(self.buffer.count) * self.frameDuration
         let error = self.minDepth - currentDepth
         self.integral += error
         let derivative = error - self.lastError
         self.lastError = error
         return self.frameDuration + (self.kp * error + self.ki * self.integral + self.kd * derivative)
+    }
+    
+    private func calculateWaitTimeInterval() -> TimeInterval {
+        guard let firstDequeueTime = self.firstDequeueTime else {
+            return self.frameDuration
+        }
+        let expectedTime: Date = firstDequeueTime + (self.frameDuration * Double(dequeuedCount))
+        return expectedTime.timeIntervalSinceNow
     }
 }
 
