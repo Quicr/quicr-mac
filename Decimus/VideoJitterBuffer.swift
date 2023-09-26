@@ -4,8 +4,14 @@ import OrderedCollections
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
     
-    enum Mode {
-        case pid; case interval
+    struct Config: Codable {
+        var mode: Mode = .none
+        var minDepth: TimeInterval = 0.2
+    }
+    
+    enum Mode: CaseIterable, Identifiable, Codable {
+        case pid; case interval; case none
+        var id: Self { self }
     }
 
     private actor _Measurement: Measurement {
@@ -56,8 +62,7 @@ class VideoJitterBuffer {
     private let sort: Bool
     private let frameAvailable: FrameAvailble
     private var dequeueTask: Task<(),Never>?
-    private let minTimeToNextFrame: Duration = .milliseconds(1)
-    private let mode: Mode = .interval
+    private let config: Config
 
     // PID tuning.
     private var kp: Double = 0.01
@@ -74,17 +79,18 @@ class VideoJitterBuffer {
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
     /// - Parameter frameDuration The duration of the video frames contained within the buffer.
-    /// - Parameter minDepth The target depth of the jitter buffer in time.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
     /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
+    /// - Parameter config Jitter buffer configuration.
+    /// - Parameter frameAvailable Callback with a paced frame to render.
     init(namespace: QuicrNamespace,
          frameDuration: TimeInterval,
-         minDepth: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
-         frameAvailable: @escaping FrameAvailble) {
+         config: Config,
+         frameAvailable: @escaping FrameAvailble) throws {
         self.frameDuration = frameDuration
-        self.minDepth = ceil(minDepth / frameDuration) * frameDuration
+        self.minDepth = ceil(config.minDepth / frameDuration) * frameDuration
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -92,6 +98,10 @@ class VideoJitterBuffer {
             measurement = nil
         }
         self.sort = sort
+        guard config.mode != .none else {
+            throw "Jitter buffer shouldn't be created when mode none"
+        }
+        self.config = config
         self.frameAvailable = frameAvailable
     }
 
@@ -126,6 +136,8 @@ class VideoJitterBuffer {
                             let ns = waitTime * 1_000_000_000
                             if ns > 0 {
                                 try? await Task.sleep(nanoseconds: UInt64(ns))
+                            } else {
+                                print("Instant catchup")
                             }
 
                             // Attempt to dequeue a frame.
@@ -204,11 +216,13 @@ class VideoJitterBuffer {
     }
     
     private func calculateWaitTime() -> TimeInterval {
-        switch self.mode {
+        switch self.config.mode {
         case .interval:
             calculateWaitTimeInterval()
         case .pid:
             calculateWaitTimePid()
+        case .none:
+            fatalError()
         }
     }
     

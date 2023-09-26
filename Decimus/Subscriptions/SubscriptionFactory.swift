@@ -44,7 +44,7 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
-    var videoJitterBuffer: Bool
+    var videoJitterBuffer: VideoJitterBuffer.Config
     init() {
         jitterMaxTime = 0.5
         jitterDepthTime = 0.06
@@ -52,7 +52,7 @@ struct SubscriptionConfig: Codable {
         videoBehaviour = .freeze
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
-        videoJitterBuffer = false
+        videoJitterBuffer = .init()
     }
 }
 
@@ -99,9 +99,8 @@ class SubscriptionFactory {
                                     metricsSubmitter: metricsSubmitter,
                                     namegate: namegate,
                                     reliable: self.config.mediaReliability.video.subscription,
-                                    minDepth: self.config.jitterDepthTime,
                                     granularMetrics: self.granularMetrics,
-                                    useJitterBuffer: self.config.videoJitterBuffer)
+                                    jitterBufferConfig: self.config.videoJitterBuffer)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))

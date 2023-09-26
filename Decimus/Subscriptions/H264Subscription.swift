@@ -63,9 +63,8 @@ class H264Subscription: Subscription {
          metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
          reliable: Bool,
-         minDepth: TimeInterval,
          granularMetrics: Bool,
-         useJitterBuffer: Bool) {
+         jitterBufferConfig: VideoJitterBuffer.Config) {
         self.namespace = namespace
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
@@ -76,13 +75,17 @@ class H264Subscription: Subscription {
         self.namegate = namegate
         self.reliable = reliable
         self.granularMetrics = granularMetrics
-        if useJitterBuffer {
-            self.jitterBuffer = .init(namespace: namespace,
-                                      frameDuration: 1 / Double(config.fps),
-                                      minDepth: minDepth,
-                                      metricsSubmitter: metricsSubmitter,
-                                      sort: !reliable) { [weak self] frame in
-                self?.decode(frame: frame)
+        if jitterBufferConfig.mode != .none {
+            do {
+                self.jitterBuffer = try .init(namespace: namespace,
+                                              frameDuration: 1 / Double(config.fps),
+                                              metricsSubmitter: metricsSubmitter,
+                                              sort: !reliable,
+                                              config: jitterBufferConfig) { [weak self] frame in
+                    self?.decode(frame: frame)
+                }
+            } catch {
+                Self.logger.error("Failed to create VideoJitterBuffer: \(error.localizedDescription)", alert: true)
             }
         }
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
@@ -149,12 +152,6 @@ class H264Subscription: Subscription {
             decode(frame: videoFrame)
         }
         return SubscriptionError.None.rawValue
-    }
-
-    private func dequeue() {
-        // Try and dequeue a video frame.
-        guard let dequeuedFrame = self.jitterBuffer!.read() else { return }
-        decode(frame: dequeuedFrame)
     }
 
     private func decode(frame: VideoFrame) {

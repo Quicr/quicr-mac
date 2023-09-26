@@ -4,19 +4,24 @@ struct SubscriptionSettingsView: View {
 
     @AppStorage("subscriptionConfig")
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+    
+    init() {
+        self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterMaxTime
+    }
 
     var body: some View {
         Section("Subscription Config") {
             Form {
-                HStack {
-                    Text("Use Video Jitter Buffer")
-                    Toggle(isOn: $subscriptionConfig.value.videoJitterBuffer) {}
-                }
+                VideoJitterBufferSettingsView(config: $subscriptionConfig.value.videoJitterBuffer)
+
                 LabeledContent("Jitter Target Depth (s)") {
                     TextField(
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterDepthTime,
                         format: .number)
+                    .onChange(of: subscriptionConfig.value.jitterDepthTime) {
+                        subscriptionConfig.value.videoJitterBuffer.minDepth = $0
+                    }
                 }
                 LabeledContent("Jitter Max Depth (s)") {
                     TextField(
