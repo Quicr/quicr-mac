@@ -70,10 +70,9 @@ class VideoJitterBuffer {
     private var kd: Double = 0.001
     private var integral: Double = 0
     private var lastError: Double = 0
-    
+
     // Time calculation.
-    private var firstSeq: UInt64?
-    private var firstDequeueTime: Date?
+    private var firstTime: Date?
     private var dequeuedCount: UInt64 = 0
 
     /// Create a new video jitter buffer.
@@ -90,7 +89,7 @@ class VideoJitterBuffer {
          config: Config,
          frameAvailable: @escaping FrameAvailble) throws {
         self.frameDuration = frameDuration
-        self.minDepth = ceil(config.minDepth / frameDuration) * frameDuration
+        self.minDepth = config.minDepth
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -110,6 +109,9 @@ class VideoJitterBuffer {
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
         let result = lock.withLock {
+            if self.firstTime == nil {
+                self.firstTime = .now
+            }
             let thisSeq = videoFrame.getSeq()
             if let lastSequenceRead = self.lastSequenceRead {
                 guard thisSeq > lastSequenceRead else {
@@ -136,8 +138,6 @@ class VideoJitterBuffer {
                             let ns = waitTime * 1_000_000_000
                             if ns > 0 {
                                 try? await Task.sleep(nanoseconds: UInt64(ns))
-                            } else {
-                                print("Instant catchup")
                             }
 
                             // Attempt to dequeue a frame.
@@ -186,10 +186,6 @@ class VideoJitterBuffer {
         // Get the oldest available frame.
         let oldest = self.buffer.removeFirst()
         self.lastSequenceRead = oldest.getSeq()
-        if self.firstSeq == nil {
-            self.firstSeq = self.lastSequenceRead
-            self.firstDequeueTime = .now
-        }
         self.dequeuedCount += 1
         return oldest
     }
@@ -236,10 +232,7 @@ class VideoJitterBuffer {
     }
     
     private func calculateWaitTimeInterval() -> TimeInterval {
-        guard let firstDequeueTime = self.firstDequeueTime else {
-            return self.frameDuration
-        }
-        let expectedTime: Date = firstDequeueTime + (self.frameDuration * Double(dequeuedCount))
+        let expectedTime: Date = firstTime! + minDepth + (frameDuration * Double(dequeuedCount))
         return expectedTime.timeIntervalSinceNow
     }
 }
