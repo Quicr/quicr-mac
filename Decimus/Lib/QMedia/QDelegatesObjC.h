@@ -12,7 +12,7 @@
 @protocol QSubscriptionDelegateObjC
 - (int) prepare: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile reliable: (bool*) reliable;
 - (int) update: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
-- (int) subscribedObject: (NSData*) data groupId: (UInt32) groupId objectId: (UInt16) objectId;
+- (int) subscribedObject: (const void*) data length: (size_t) length groupId: (UInt32) groupId objectId: (UInt16) objectId;
 @end
 
 @protocol QPublicationDelegateObjC
