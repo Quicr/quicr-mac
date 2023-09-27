@@ -7,7 +7,7 @@ class DecimusAudioEngine {
     static let format: AVAudioFormat = .init(commonFormat: .pcmFormatFloat32,
                                              sampleRate: .opus48khz,
                                              channels: 1,
-                                             interleaved: true)!
+                                             interleaved: false)!
 
     private static let logger: DecimusLogger = .init(DecimusAudioEngine.self)
     
