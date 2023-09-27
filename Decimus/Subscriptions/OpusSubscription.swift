@@ -240,7 +240,7 @@ class OpusSubscription: Subscription {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         let date: Date? = self.granularMetrics ? .now : nil
 
@@ -250,7 +250,7 @@ class OpusSubscription: Subscription {
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
-                    await measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+                    await measurement.receivedBytes(received: UInt(length), timestamp: date)
                     if missing > 0 {
                         Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
                         await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
@@ -262,19 +262,15 @@ class OpusSubscription: Subscription {
             self.seq = groupId
         }
 
-        var decoded: AVAudioPCMBuffer?
-        let result: SubscriptionError = data.withUnsafeBytes {
-            do {
-                decoded = try decoder.write(data: $0)
-                return SubscriptionError.None
-            } catch {
-                Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-                return SubscriptionError.NoDecoder
-            }
-        }
-        guard result == .None else { return result.rawValue }
+        let decoded: AVAudioPCMBuffer
         do {
-            try queueDecodedAudio(buffer: decoded!, timestamp: date, sequence: groupId)
+            decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
+        } catch {
+            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+            return SubscriptionError.NoDecoder.rawValue
+        }
+        do {
+            try queueDecodedAudio(buffer: decoded, timestamp: date, sequence: groupId)
         } catch {
             Self.logger.error("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
         }
