@@ -56,6 +56,10 @@ class H264Subscription: Subscription {
     private var lastReceive: Date?
     private var lastDecode: Date?
     private let granularMetrics: Bool
+    private var dequeueTask: Task<(), Never>?
+    private var dequeueBehaviour: VideoDequeuer?
+    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let config: VideoCodecConfig
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -66,6 +70,7 @@ class H264Subscription: Subscription {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config) {
         self.namespace = namespace
+        self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -75,15 +80,22 @@ class H264Subscription: Subscription {
         self.namegate = namegate
         self.reliable = reliable
         self.granularMetrics = granularMetrics
+        self.jitterBufferConfig = jitterBufferConfig
         if jitterBufferConfig.mode != .none {
+            let duration = 1 / Double(config.fps)
             do {
+                if jitterBufferConfig.mode == .pid {
+                    self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
+                                                        frameDuration: duration,
+                                                        kp: 0.01,
+                                                        ki: 0.001,
+                                                        kd: 0.001)
+                }
                 self.jitterBuffer = try .init(namespace: namespace,
-                                              frameDuration: 1 / Double(config.fps),
+                                              frameDuration: duration,
                                               metricsSubmitter: metricsSubmitter,
                                               sort: !reliable,
-                                              config: jitterBufferConfig) { [weak self] frame in
-                    self?.decode(frame: frame)
-                }
+                                              minDepth: jitterBufferConfig.minDepth)
             } catch {
                 Self.logger.error("Failed to create VideoJitterBuffer: \(error.localizedDescription)", alert: true)
             }
@@ -148,6 +160,43 @@ class H264Subscription: Subscription {
         if let jitterBuffer = self.jitterBuffer {
             let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: .init(bytes: data, count: length))
             _ = jitterBuffer.write(videoFrame: videoFrame)
+            if self.dequeueTask == nil {
+                // We know everything to create the interval dequeuer at this point.
+                if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
+                    self.dequeueBehaviour = IntervalDequeuer(minDepth: self.jitterBufferConfig.minDepth,
+                                                             frameDuration: 1 / Double(self.config.fps),
+                                                             firstWriteTime: .now)
+                }
+
+                // Start the frame dequeue task.
+                self.dequeueTask = .init(priority: .high) { [weak self] in
+                    while !Task.isCancelled {
+                        guard let self = self else { return }
+
+                        // Wait until we expect to have a frame available.
+                        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                        if let pid = self.dequeueBehaviour! as? PIDDequeuer {
+                            pid.currentDepth = jitterBuffer.getDepth()
+                        }
+                        let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
+                        let ns = waitTime * 1_000_000_000
+                        if ns > 0 {
+                            try? await Task.sleep(nanoseconds: UInt64(ns))
+                        }
+
+                        // Attempt to dequeue a frame.
+                        if let frame = jitterBuffer.read() {
+                            // Interval dequeuer needs to know where we are.
+                            // TODO: With frame timestamps, we won't need this.
+                            if self.jitterBufferConfig.mode == .interval {
+                                let interval = self.dequeueBehaviour as! IntervalDequeuer
+                                interval.dequeuedCount += 1
+                            }
+                            self.decode(frame: frame)
+                        }
+                    }
+                }
+            }
         } else {
             let zeroCopy: Data = .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
             let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: zeroCopy)
