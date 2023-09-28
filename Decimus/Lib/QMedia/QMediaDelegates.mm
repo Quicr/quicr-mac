@@ -73,7 +73,7 @@ QMediaSubsciberDelegate::QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> del
 
 std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
 {
-    NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
+    NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
@@ -94,7 +94,7 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 
 std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
 {
-    NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
+    NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *quicrSourceIdNSString = [NSString stringWithCString:sourceID.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
