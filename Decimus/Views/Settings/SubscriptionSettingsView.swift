@@ -6,7 +6,7 @@ struct SubscriptionSettingsView: View {
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
     
     init() {
-        self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterMaxTime
+        self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterDepthTime
     }
 
     var body: some View {

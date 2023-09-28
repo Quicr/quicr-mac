@@ -47,7 +47,7 @@ struct SubscriptionConfig: Codable {
     var videoJitterBuffer: VideoJitterBuffer.Config
     init() {
         jitterMaxTime = 0.5
-        jitterDepthTime = 0.06
+        jitterDepthTime = 0.2
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         mediaReliability = .init()

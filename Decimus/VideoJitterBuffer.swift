@@ -72,8 +72,8 @@ class VideoJitterBuffer {
     private var lastError: Double = 0
 
     // Time calculation.
-    private var firstTime: Date?
-    private var dequeuedCount: UInt64 = 0
+    private var firstWriteTime: Date?
+    private var dequeuedCount: UInt = 0
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -105,12 +105,13 @@ class VideoJitterBuffer {
     }
 
     /// Write a video frame into the jitter buffer.
+    /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The video frame structure to attempt to sort into the buffer.
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
         let result = lock.withLock {
-            if self.firstTime == nil {
-                self.firstTime = .now
+            if self.firstWriteTime == nil {
+                self.firstWriteTime = .now
             }
             let thisSeq = videoFrame.getSeq()
             if let lastSequenceRead = self.lastSequenceRead {
@@ -123,35 +124,35 @@ class VideoJitterBuffer {
             if self.sort {
                 self.buffer.sort()
             }
+            return true
+        }
             
-            if self.dequeueTask == nil {
-                let required: Int = .init(ceil(self.minDepth / self.frameDuration))
-                if self.buffer.count >= required {
-                    self.dequeueTask = .init(priority: .high) { [weak self] in
-                        while !Task.isCancelled {
-                            guard let self = self else { return }
+        // Start the dequeue task if not already.
+        if self.dequeueTask == nil {
+            self.dequeueTask = .init(priority: .high) { [weak self] in
+                while !Task.isCancelled {
+                    guard let self = self else { return }
 
-                            // Wait until we expect to have a frame available.
-                            let waitTime = self.lock.withLock {
-                                self.calculateWaitTime()
-                            }
-                            let ns = waitTime * 1_000_000_000
-                            if ns > 0 {
-                                try? await Task.sleep(nanoseconds: UInt64(ns))
-                            }
+                    // Wait until we expect to have a frame available.
+                    let waitTime = self.lock.withLock {
+                        self.calculateWaitTime()
+                    }
+                    let ns = waitTime * 1_000_000_000
+                    if ns > 0 {
+                        try? await Task.sleep(nanoseconds: UInt64(ns))
+                    }
 
-                            // Attempt to dequeue a frame.
-                            self.lock.withLock {
-                                if let frame = self.read() {
-                                    self.frameAvailable(frame)
-                                }
-                            }
+                    // Attempt to dequeue a frame.
+                    self.lock.withLock {
+                        if let frame = self.read() {
+                            self.frameAvailable(frame)
                         }
                     }
                 }
             }
-            return true
         }
+
+        // Metrics.
         if let measurement = self.measurement {
             let now: Date = .now
             Task(priority: .utility) {
@@ -214,25 +215,44 @@ class VideoJitterBuffer {
     private func calculateWaitTime() -> TimeInterval {
         switch self.config.mode {
         case .interval:
-            calculateWaitTimeInterval()
+            Self.calculateWaitTimeInterval(firstWriteTime: self.firstWriteTime!,
+                                           minDepth: self.minDepth,
+                                           frameDuration: self.frameDuration,
+                                           dequeuedCount: self.dequeuedCount)
         case .pid:
-            calculateWaitTimePid()
+            Self.calculateWaitTimePid(currentDepth: Double(self.buffer.count) * self.frameDuration,
+                                      targetDepth: self.minDepth,
+                                      frameDuration: self.frameDuration,
+                                      integral: &self.integral,
+                                      lastError: &self.lastError,
+                                      kp: self.kp,
+                                      ki: self.ki,
+                                      kd: self.kd)
         case .none:
             fatalError()
         }
     }
     
-    private func calculateWaitTimePid() -> TimeInterval {
-        let currentDepth = TimeInterval(self.buffer.count) * self.frameDuration
-        let error = self.minDepth - currentDepth
-        self.integral += error
-        let derivative = error - self.lastError
-        self.lastError = error
-        return self.frameDuration + (self.kp * error + self.ki * self.integral + self.kd * derivative)
+    private static func calculateWaitTimePid(currentDepth: TimeInterval,
+                                             targetDepth: TimeInterval,
+                                             frameDuration: TimeInterval,
+                                             integral: inout Double,
+                                             lastError: inout Double,
+                                             kp: Double,
+                                             ki: Double,
+                                             kd: Double) -> TimeInterval {
+        let error = targetDepth - currentDepth
+        integral += error
+        let derivative = error - lastError
+        lastError = error
+        return frameDuration + (kp * error + ki * integral + kd * derivative)
     }
     
-    private func calculateWaitTimeInterval() -> TimeInterval {
-        let expectedTime: Date = firstTime! + minDepth + (frameDuration * Double(dequeuedCount))
+    private static func calculateWaitTimeInterval(firstWriteTime: Date,
+                                                  minDepth: TimeInterval,
+                                                  frameDuration: TimeInterval,
+                                                  dequeuedCount: UInt) -> TimeInterval {
+        let expectedTime: Date = firstWriteTime + minDepth + (frameDuration * Double(dequeuedCount))
         return expectedTime.timeIntervalSinceNow
     }
 }
