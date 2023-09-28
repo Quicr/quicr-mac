@@ -123,7 +123,7 @@ void QControllerGW::close()
 {
     if (qController)
     {
-        qController->close();
+        qController->disconnect();
     }
     else
     {
