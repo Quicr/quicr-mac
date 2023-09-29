@@ -30,7 +30,7 @@ class PIDDequeuer: VideoDequeuer {
 }
 
 class IntervalDequeuer: VideoDequeuer {
-    var dequeuedCount = 0
+    var dequeuedCount: UInt = 0
     private let minDepth: TimeInterval
     private let frameDuration: TimeInterval
     private let firstWriteTime: Date
@@ -42,7 +42,11 @@ class IntervalDequeuer: VideoDequeuer {
     }
     
     func calculateWaitTime() -> TimeInterval {
+        calculateWaitTime(from: .now)
+    }
+    
+    func calculateWaitTime(from: Date) -> TimeInterval {
         let expectedTime: Date = self.firstWriteTime + self.minDepth + (self.frameDuration * Double(self.dequeuedCount))
-        return expectedTime.timeIntervalSinceNow
+        return expectedTime.timeIntervalSince(from)
     }
 }

@@ -12,9 +12,9 @@ final class TestVideoJitterBuffer: XCTestCase {
     func testPlayout(sort: Bool) {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
-                                              minDepth: 1/30 * 2.5,
                                               metricsSubmitter: nil,
-                                              sort: sort)
+                                              sort: sort,
+                                              minDepth: 1/30 * 2.5)
         
         // Write 1, no play.
         let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
@@ -46,9 +46,9 @@ final class TestVideoJitterBuffer: XCTestCase {
     func testOutOfOrder() {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
-                                              minDepth: 0,
                                               metricsSubmitter: nil,
-                                              sort: true)
+                                              sort: true,
+                                              minDepth: 0)
         
         // Write newer.
         let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
@@ -76,9 +76,9 @@ final class TestVideoJitterBuffer: XCTestCase {
     func testOlderFrame(_ sort: Bool) {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
-                                              minDepth: 0,
                                               metricsSubmitter: nil,
-                                              sort: sort)
+                                              sort: sort,
+                                              minDepth: 0)
 
         // Write newer.
         let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
@@ -91,5 +91,32 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Write older should fail.
         let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
         XCTAssertFalse(buffer.write(videoFrame: frame1))
+    }
+    
+    func testIntervalCalculations() {
+        let minDepth: TimeInterval = 0.2
+        let duration: TimeInterval = 1 / 30
+        let firstWriteTime: Date = .now
+        let interval: IntervalDequeuer = .init(minDepth: minDepth, frameDuration: duration, firstWriteTime: firstWriteTime)
+        // At first write, and no dequeued frames, we should wait min depth.
+        XCTAssertEqual(interval.calculateWaitTime(from: .now), minDepth, accuracy: 1 / 1000)
+            
+        // Dequeued N, should be minDepth + frameDuration from "now".
+        interval.dequeuedCount = .random(in: UInt.min...20000)
+        let doubleCount: Double = .init(interval.dequeuedCount)
+        XCTAssertEqual(interval.calculateWaitTime(from: firstWriteTime),
+                       minDepth + (doubleCount * duration),
+                       accuracy: 1 / 1000)
+
+        // If we query the time at the expected time, should be 0.
+        XCTAssertEqual(interval.calculateWaitTime(from: firstWriteTime + (minDepth + (doubleCount * duration))),
+                                                  0,
+                                                  accuracy: 1 / 1000)
+        
+        // If we query the time past the time, should be negative by that much.
+        let offset: TimeInterval = .random(in: 0.01...1000)
+        XCTAssertEqual(interval.calculateWaitTime(from: firstWriteTime + (minDepth + (doubleCount * duration) + offset)),
+                       -offset,
+                       accuracy: 1/1000)
     }
 }

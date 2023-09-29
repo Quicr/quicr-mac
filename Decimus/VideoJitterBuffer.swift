@@ -71,7 +71,7 @@ class VideoJitterBuffer {
          frameDuration: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
-         minDepth: TimeInterval) throws {
+         minDepth: TimeInterval) {
         self.frameDuration = frameDuration
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
         if let metricsSubmitter = metricsSubmitter {
