@@ -81,25 +81,25 @@ class H264Subscription: Subscription {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
+
+        // Create the video jitter buffer if requested.
         if jitterBufferConfig.mode != .none {
             let duration = 1 / Double(config.fps)
-            do {
-                if jitterBufferConfig.mode == .pid {
-                    self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
-                                                        frameDuration: duration,
-                                                        kp: 0.01,
-                                                        ki: 0.001,
-                                                        kd: 0.001)
-                }
-                self.jitterBuffer = try .init(namespace: namespace,
-                                              frameDuration: duration,
-                                              metricsSubmitter: metricsSubmitter,
-                                              sort: !reliable,
-                                              minDepth: jitterBufferConfig.minDepth)
-            } catch {
-                Self.logger.error("Failed to create VideoJitterBuffer: \(error.localizedDescription)", alert: true)
+            if jitterBufferConfig.mode == .pid {
+                self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
+                                                    frameDuration: duration,
+                                                    kp: 0.01,
+                                                    ki: 0.001,
+                                                    kd: 0.001)
             }
+            self.jitterBuffer = .init(namespace: namespace,
+                                      frameDuration: duration,
+                                      metricsSubmitter: metricsSubmitter,
+                                      sort: !reliable,
+                                      minDepth: jitterBufferConfig.minDepth)
         }
+
+        // Create the H264 decoder.
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
             self?.showDecodedImage(decoded: sample,
                                    timestamp: sample.presentationTimeStamp.value,
