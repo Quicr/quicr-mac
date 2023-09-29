@@ -34,7 +34,7 @@ class H264Decoder {
     }
 
     /// Write a new frame to the decoder.
-    func write(data: UnsafeRawBufferPointer, timestamp: UInt64) throws {
+    func write(data: UnsafeRawBufferPointer, timestamp: UInt64?) throws {
         // Get NALU type.
         var type = H264Types(rawValue: data[startCodeLength] & 0x1F)
 
@@ -104,7 +104,7 @@ class H264Decoder {
             }
 
             // CMTime presentation.
-            let time = CMTimeMake(value: Int64(timestamp), timescale: Int32(config.fps))
+            let time = CMTimeMake(value: Int64(timestamp ?? 0), timescale: Int32(config.fps))
             var timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
                                               presentationTimeStamp: time,
                                               decodeTimeStamp: .invalid)
@@ -133,6 +133,16 @@ class H264Decoder {
                 Self.logger.error("Failed to create sample buffer")
                 return
             }
+
+            // Set to display immediately
+            if timestamp == nil {
+                let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: true)
+                let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+                CFDictionarySetValue(dict,
+                                     unsafeBitCast(kCMSampleAttachmentKey_DisplayImmediately, to: UnsafeRawPointer.self),
+                                     unsafeBitCast(kCFBooleanTrue, to: UnsafeRawPointer.self))
+            }
+
 
             callback(sampleBuffer, orientation, verticalMirror)
         }
