@@ -3,6 +3,16 @@ import OrderedCollections
 
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
+    
+    struct Config: Codable {
+        var mode: Mode = .none
+        var minDepth: TimeInterval = 0.2
+    }
+    
+    enum Mode: CaseIterable, Identifiable, Codable {
+        case pid; case interval; case none
+        var id: Self { self }
+    }
 
     private actor _Measurement: Measurement {
         var name: String = "VideoJitterBuffer"
@@ -22,7 +32,7 @@ class VideoJitterBuffer {
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {
-            record(field: "currentDepth", value: depth as AnyObject, timestamp: timestamp)
+            record(field: "currentDepth", value: UInt32(depth * 1000) as AnyObject, timestamp: timestamp)
         }
 
         func underrun(timestamp: Date?) {
@@ -41,9 +51,9 @@ class VideoJitterBuffer {
         }
     }
 
+    private let minDepth: TimeInterval
     private var buffer: OrderedSet<VideoFrame>
     private let frameDuration: TimeInterval
-    private let minDepth: TimeInterval
     private let lock: NSLock = .init()
     private let measurement: _Measurement?
     private var play: Bool = false
@@ -53,16 +63,16 @@ class VideoJitterBuffer {
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
     /// - Parameter frameDuration The duration of the video frames contained within the buffer.
-    /// - Parameter minDepth The target depth of the jitter buffer in time.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
     /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
+    /// - Parameter config Jitter buffer configuration.
+    /// - Parameter frameAvailable Callback with a paced frame to render.
     init(namespace: QuicrNamespace,
          frameDuration: TimeInterval,
-         minDepth: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
-         sort: Bool) {
+         sort: Bool,
+         minDepth: TimeInterval) {
         self.frameDuration = frameDuration
-        self.minDepth = minDepth
         self.buffer = .init(minimumCapacity: Int(ceil(minDepth / frameDuration)))
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -70,9 +80,11 @@ class VideoJitterBuffer {
             measurement = nil
         }
         self.sort = sort
+        self.minDepth = minDepth
     }
 
     /// Write a video frame into the jitter buffer.
+    /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The video frame structure to attempt to sort into the buffer.
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
@@ -90,6 +102,8 @@ class VideoJitterBuffer {
             }
             return true
         }
+
+        // Metrics.
         if let measurement = self.measurement {
             let now: Date = .now
             Task(priority: .utility) {
@@ -103,32 +117,37 @@ class VideoJitterBuffer {
     /// - Returns Either the oldest available frame, or nil.
     func read() -> VideoFrame? {
         let now: Date = .now
+        let count = self.lock.withLock {
+            self.buffer.count
+        }
+        
+        let depth: TimeInterval = TimeInterval(count) * self.frameDuration
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.currentDepth(depth: Double(self.buffer.count) * self.frameDuration,
-                                               timestamp: now)
+                await measurement.currentDepth(depth: depth, timestamp: now)
             }
         }
+        
+        // Are we playing out?
+        if !self.play && depth > self.minDepth {
+            self.play = true
+        }
+        guard self.play else {
+            return nil
+        }
 
-        return lock.withLock {
-            // Ensure there's something to get.
-            guard self.buffer.count > 0 else {
-                if let measurement = self.measurement {
-                    Task(priority: .utility) {
-                        await measurement.underrun(timestamp: now)
-                    }
+        // Ensure there's something to get.
+        guard count > 0 else {
+            if let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await measurement.underrun(timestamp: now)
                 }
-                return nil
             }
+            return nil
+        }
 
-            // Is it time to play yet?
-            if !play {
-                let required: Int = .init(ceil(self.minDepth / self.frameDuration))
-                guard self.buffer.count >= required else { return nil }
-                play = true
-            }
-
-            // Get the oldest available frame.
+        // Get the oldest available frame.
+        return self.lock.withLock {
             let oldest = self.buffer.removeFirst()
             self.lastSequenceRead = oldest.getSeq()
             return oldest
@@ -153,6 +172,12 @@ class VideoJitterBuffer {
             Task(priority: .utility) {
                 await measurement.flushed(count: metric, timestamp: now)
             }
+        }
+    }
+    
+    func getDepth() -> TimeInterval {
+        self.lock.withLock {
+            Double(self.buffer.count) * self.frameDuration
         }
     }
 }
