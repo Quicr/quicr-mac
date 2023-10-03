@@ -36,34 +36,37 @@ class OpusPublication: Publication {
 
     private let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private var encodeTimer: Timer?
     private let measurement: _Measurement?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private var encodeTask: Task<(), Never>?
+    private let silence: NSData = .init(data: .init(count: 4096)) // TODO: Derive this number.
 
-    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer] timestamp, numFrames, data in
-        assert(data.pointee.mNumberBuffers <= 2)
+    private lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer, silence] timestamp, numFrames, data in
+        let wrappedPtr = UnsafeMutableAudioBufferListPointer(.init(mutating: data))
+        assert(wrappedPtr.count == 1)
+
+        // Skip over pure silence.
+        let firstBuffer = wrappedPtr.first!
+        assert(firstBuffer.mDataByteSize <= silence.count)
+        let cmp = memcmp(silence.bytes, firstBuffer.mData, Int(firstBuffer.mDataByteSize))
+        guard cmp != .zero else {
+            return .zero
+        }
+
+        // Enqueue real audio.
         let copied = TPCircularBufferCopyAudioBufferList(buffer,
                                                          data,
                                                          timestamp,
                                                          numFrames,
                                                          DecimusAudioEngine.format.streamDescription)
-        return copied ? .zero : 1
-    }
-
-    private lazy var encodeBlock: (Timer) -> Void = { [weak self] _ in
-        DispatchQueue.global(qos: .userInteractive).async {
-            guard let self = self else { return }
-            do {
-                while let data = try self.encode() {
-                    self.publish(data: data)
-                }
-            } catch {
-                Self.logger.error("Failed encode: \(error)")
-            }
+        guard copied else {
+            Self.logger.error("Failed to enqueue microphone buffer into encode buffer")
+            return .zero
         }
+        return .zero
     }
 
     init(namespace: QuicrNamespace,
@@ -95,14 +98,19 @@ class OpusPublication: Publication {
 
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
         Self.logger.info("Created Opus Encoder")
-
-        // TODO: Move to concurrency.
-        // Encode job: timer procs on main thread, but encoding itself doesn't.
-        DispatchQueue.main.async {
-            self.encodeTimer = .scheduledTimer(withTimeInterval: opusWindowSize.rawValue,
-                                               repeats: true,
-                                               block: self.encodeBlock)
-            self.encodeTimer!.tolerance = opusWindowSize.rawValue / 2
+        self.encodeTask = .init(priority: .high) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+                do {
+                    while let data = try self.encode() {
+                        self.publish(data: data)
+                    }
+                } catch {
+                    Self.logger.error("Failed encode: \(error)")
+                }
+                let ns = self.opusWindowSize.rawValue * 1_000_000_000
+                try? await Task.sleep(nanoseconds: UInt64(ns))
+            }
         }
 
         // Register our block.
@@ -116,7 +124,7 @@ class OpusPublication: Publication {
         } catch {
             Self.logger.critical("Failed to unregister sink block: \(error.localizedDescription)")
         }
-        encodeTimer?.invalidate()
+        encodeTask?.cancel()
         TPCircularBufferCleanup(self.buffer)
     }
 
