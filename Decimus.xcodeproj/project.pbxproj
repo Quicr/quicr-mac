@@ -13,6 +13,8 @@
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		188143F82AC9EE76000CA010 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188143F72AC9EE76000CA010 /* H264Utilities.swift */; };
+		188143FA2ACC246F000CA010 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188143F92ACC246F000CA010 /* TestH264Utilities.swift */; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
@@ -152,6 +154,8 @@
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		188143F72AC9EE76000CA010 /* H264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
+		188143F92ACC246F000CA010 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
@@ -327,6 +331,7 @@
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
 				9B647C9B29A6267B000AD358 /* PCMExtensions.swift */,
 				FF6D6D782A0422CE00B535DA /* CodecFactory.swift */,
+				188143F72AC9EE76000CA010 /* H264Utilities.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -362,6 +367,7 @@
 				9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */,
 				9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
+				188143F92ACC246F000CA010 /* TestH264Utilities.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -740,6 +746,7 @@
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
 				9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */,
 				9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */,
+				188143FA2ACC246F000CA010 /* TestH264Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -756,6 +763,7 @@
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
 				184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
+				188143F82AC9EE76000CA010 /* H264Utilities.swift in Sources */,
 				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
