@@ -162,7 +162,9 @@ class OpusPublication: Publication {
             return nil
         }
 
-        return try encoder.write(data: pcm)
+        // return try encoder.write(data: pcm)
+        let bufferData = pcm.audioBufferList.pointee.mBuffers
+        return Data(bytesNoCopy: bufferData.mData!, count: Int(bufferData.mDataByteSize), deallocator: .none)
     }
 
     func publish(_ flag: Bool) {}

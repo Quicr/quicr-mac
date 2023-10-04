@@ -264,7 +264,11 @@ class OpusSubscription: Subscription {
 
         let decoded: AVAudioPCMBuffer
         do {
-            decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
+            // decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
+            let frames = AVAudioFrameCount(UInt32(length) / DecimusAudioEngine.format.streamDescription.pointee.mBytesPerFrame)
+            decoded = .init(pcmFormat: DecimusAudioEngine.format, frameCapacity: frames)!
+            decoded.audioBufferList.pointee.mBuffers.mData?.copyMemory(from: data, byteCount: length)
+            decoded.frameLength = frames
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
             return SubscriptionError.NoDecoder.rawValue
