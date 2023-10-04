@@ -207,25 +207,26 @@ class OpusSubscription: Subscription {
         for index in 0..<count {
             // Make PLC packets.
             var packet = packets!.advanced(by: index)
-            do {
-                // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
-                let plcData = try subscription.decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
-                let list = plcData.audioBufferList
-                guard list.pointee.mNumberBuffers == 1 else {
-                    throw "Not sure what to do with this"
-                }
-
-                // Get audio data as packet list.
-                let audioBuffer = list.pointee.mBuffers
-                guard let data = audioBuffer.mData else {
-                    throw "AudioBuffer data was nil"
-                }
-                assert(packet.pointee.length == audioBuffer.mDataByteSize)
-                memcpy(packet.pointee.data, data, packet.pointee.length)
-                concealed += UInt64(packet.pointee.elements)
-            } catch {
-                OpusSubscription.logger.error("\(error.localizedDescription)")
-            }
+            memset(packet.pointee.data, 0, packet.pointee.length)
+//            do {
+//                // TODO: This can be optimized with some further work to decode PLC directly into the buffer.
+//                let plcData = try subscription.decoder.plc(frames: AVAudioFrameCount(packet.pointee.elements))
+//                let list = plcData.audioBufferList
+//                guard list.pointee.mNumberBuffers == 1 else {
+//                    throw "Not sure what to do with this"
+//                }
+//
+//                // Get audio data as packet list.
+//                let audioBuffer = list.pointee.mBuffers
+//                guard let data = audioBuffer.mData else {
+//                    throw "AudioBuffer data was nil"
+//                }
+//                assert(packet.pointee.length == audioBuffer.mDataByteSize)
+//                memcpy(packet.pointee.data, data, packet.pointee.length)
+//                concealed += UInt64(packet.pointee.elements)
+//            } catch {
+//                OpusSubscription.logger.error("\(error.localizedDescription)")
+//            }
         }
         if let measurement = subscription.measurement {
             let constConcealed = concealed
