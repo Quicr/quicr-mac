@@ -41,8 +41,8 @@ struct CallControls: View {
                       (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
                 role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
-                action: viewModel.toggleMicrophone,
-                pickerAction: openAudioModal
+                action:  { viewModel.toggleMicrophone() },
+                pickerAction: { openAudioModal() }
             ) {
                 Text("Audio Connection")
                     .foregroundColor(.gray)
@@ -74,8 +74,8 @@ struct CallControls: View {
                 icon: viewModel.videoOn ? "video-on" : "video-off",
                 role: viewModel.videoOn ? nil : .destructive,
                 expanded: $cameraModalExpanded,
-                action: viewModel.toggleVideos,
-                pickerAction: openCameraModal
+                action: { viewModel.toggleVideos() },
+                pickerAction: { openCameraModal() }
             ) {
                 LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
                           alignment: .leading) {
