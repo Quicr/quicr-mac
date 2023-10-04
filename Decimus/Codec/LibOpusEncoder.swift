@@ -56,8 +56,9 @@ class LibOpusEncoder {
             throw OpusEncodeError.badWindowSize
         }
 
-        let encodeCount = try encoder.encode(data, to: &encoded)
-        assert(encoded.count == encodeCount)
-        return encoded
+        var encodedData = Data(count: Int(data.frameLength * self.format.streamDescription.pointee.mBytesPerFrame))
+        let encodeCount = try encoder.encode(data, to: &encodedData)
+        assert(encodedData.count == encodeCount)
+        return encodedData
     }
 }
