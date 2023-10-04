@@ -45,8 +45,6 @@ class H264Subscription: Subscription {
     }
 
     internal let namespace: QuicrNamespace
-    private let jitterFrameDepth: UInt64
-    private var currentJitterFramesCount: UInt64
 
     private var decoder: H264Decoder?
     private unowned let participants: VideoParticipants
@@ -63,6 +61,7 @@ class H264Subscription: Subscription {
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
     private let config: VideoCodecConfig
+    private var currentJitterFramesCount: UInt64
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -84,7 +83,7 @@ class H264Subscription: Subscription {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
-        self.currentJitterFramesCount = UInt64(ceil(jitterBufferConfig.minDepth * Float64(config.fps)))
+        self.currentJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(config.fps)))
 
         // Create the video jitter buffer if requested.
         if jitterBufferConfig.mode != .none {
@@ -302,7 +301,7 @@ class H264Subscription: Subscription {
                 Self.logger.error("Could not flush layer: \(error)")
             }
 
-            self.currentJitterFramesCount = self.jitterFrameDepth
+            self.currentJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
             Self.logger.debug("Flushing display layer")
         }
     }
