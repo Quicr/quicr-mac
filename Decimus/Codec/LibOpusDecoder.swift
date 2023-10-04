@@ -18,14 +18,8 @@ class LibOpusDecoder {
 
     /// Write some encoded data to the decoder.
     /// - Parameter data: Pointer to some encoded opus data.
-    func write(data: UnsafeRawBufferPointer) throws -> AVAudioPCMBuffer {
-        // Create buffer for the decoded data.
-        let decoded: AVAudioPCMBuffer = .init(pcmFormat: decodedFormat,
-                                              frameCapacity: .opusMax)!
-        try data.withMemoryRebound(to: UInt8.self) {
-            try decoder.decode($0, to: decoded)
-        }
-        return decoded
+    func write(data: Data) throws -> AVAudioPCMBuffer {
+        return try decoder.decode(data)
     }
 
     func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer {

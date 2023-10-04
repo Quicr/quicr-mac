@@ -39,8 +39,7 @@ quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
 }*/
 
 int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
-    NSData * nsdata= [NSData dataWithBytes:data.data() length:data.size()];
-    return [delegate subscribedObject:nsdata groupId:group objectId:object];
+    return [delegate subscribedObject:data.data() length:data.size() groupId:group objectId:object];
 }
 
 

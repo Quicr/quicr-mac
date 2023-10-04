@@ -130,7 +130,7 @@ class H264Subscription: Subscription {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
@@ -151,7 +151,7 @@ class H264Subscription: Subscription {
                     await measurement.receiveDelta(delta: delta, timestamp: now)
                 }
                 await measurement.receivedFrame(timestamp: now)
-                await measurement.receivedBytes(received: data.count, timestamp: now)
+                await measurement.receivedBytes(received: length, timestamp: now)
             }
         }
 
@@ -161,10 +161,12 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
         }
 
-        let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: data)
         if let jitterBuffer = self.jitterBuffer {
+            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: .init(bytes: data, count: length))
             _ = jitterBuffer.write(videoFrame: videoFrame)
         } else {
+            let zeroCopy: Data = .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
+            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: zeroCopy)
             decode(frame: videoFrame)
         }
         return SubscriptionError.None.rawValue
