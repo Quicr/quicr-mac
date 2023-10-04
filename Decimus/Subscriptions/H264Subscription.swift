@@ -105,10 +105,13 @@ class H264Subscription: Subscription {
 
         // Create the H264 decoder.
         self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
-            self?.enqueueModifiedSamples(samples: sample,
-                                   timestamp: sample.presentationTimeStamp.value,
-                                   orientation: orientation,
-                                   verticalMirror: mirror)
+            do {
+                try self?.enqueueModifiedSamples(samples: sample,
+                                                 orientation: orientation,
+                                                 verticalMirror: mirror)
+            } catch {
+                Self.logger.error("Failed to enqueue sample: \(error)")
+            }
         })
 
         Self.logger.info("Subscribed to H264 stream")
@@ -240,9 +243,8 @@ class H264Subscription: Subscription {
     }
 
     private func enqueueModifiedSamples(samples: CMSampleBuffer,
-                                        timestamp: CMTimeValue,
                                         orientation: AVCaptureVideoOrientation?,
-                                        verticalMirror: Bool) {
+                                        verticalMirror: Bool) throws {
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
@@ -264,11 +266,26 @@ class H264Subscription: Subscription {
             }
         }
 
-        // Enqueue the buffer.
+        // Deep copy the sample.
+        let copied = malloc(samples.dataBuffer!.dataLength)
+        try samples.dataBuffer!.withUnsafeMutableBytes {
+            _ = memcpy(copied, $0.baseAddress, $0.count)
+        }
+        let blockBuffer = try CMBlockBuffer(buffer: .init(start: copied,
+                                                          count: samples.dataBuffer!.dataLength)) { ptr, _ in
+            free(ptr)
+        }
+        let copiedSample = try! CMSampleBuffer(dataBuffer: blockBuffer,
+                                               formatDescription: samples.formatDescription,
+                                               numSamples: samples.numSamples,
+                                               sampleTimings: samples.sampleTimingInfos(),
+                                               sampleSizes: samples.sampleSizes())
+
+        // Enqueue the copied sample on the main thread.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
-                try participant.view.enqueue(samples, transform: orientation?.toTransform(verticalMirror))
+                try participant.view.enqueue(copiedSample, transform: orientation?.toTransform(verticalMirror))
             } catch {
                 Self.logger.error("Could not enqueue decoded sample: \(error)")
             }
