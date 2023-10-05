@@ -22,15 +22,6 @@ class H264Decoder {
         self.callback = callback
     }
 
-    deinit {
-        guard let session = self.session else { return }
-        let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
-        if flush != .zero {
-            Self.logger.error("H264Decoder failed to flush frames", alert: true)
-        }
-        VTDecompressionSessionInvalidate(session)
-    }
-
     /// Write a new frame to the decoder.
     func write(_ sample: CMSampleBuffer) throws {
         guard let format = sample.formatDescription else {
