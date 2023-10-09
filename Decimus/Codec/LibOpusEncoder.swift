@@ -24,10 +24,8 @@ class LibOpusEncoder {
     private let encoder: Opus.Encoder
     private let encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
 
-    // Data holders.
-    private var encoded: Data
-    private var buffer: [UInt8] = []
-    private var timestamps: [UInt32] = []
+    // Data holder.
+    private var encoded: UnsafeMutableRawBufferPointer
 
     // Audio format.
     private let desiredWindowSize: OpusWindowSize
@@ -42,7 +40,11 @@ class LibOpusEncoder {
         try encoder = .init(format: format, application: appMode)
         let framesPerWindow: Int = .init(desiredWindowSize.rawValue * format.sampleRate)
         let windowBytes: Int = framesPerWindow * Int(format.streamDescription.pointee.mBytesPerFrame)
-        encoded = .init(count: windowBytes)
+        encoded = .allocate(byteCount: windowBytes, alignment: MemoryLayout<UInt8>.alignment)
+    }
+
+    deinit {
+        encoded.deallocate()
     }
 
     func write(data: AVAudioPCMBuffer) throws -> Data {
@@ -56,8 +58,7 @@ class LibOpusEncoder {
             throw OpusEncodeError.badWindowSize
         }
 
-        let encodeCount = try encoder.encode(data, to: &encoded)
-        assert(encoded.count == encodeCount)
-        return encoded
+        let encodeCount = try encoder.encode(data, to: self.encoded)
+        return .init(bytesNoCopy: self.encoded.baseAddress!, count: encodeCount, deallocator: .none)
     }
 }
