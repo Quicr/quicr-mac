@@ -61,7 +61,24 @@ class H264Subscription: Subscription {
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
     private let config: VideoCodecConfig
+    private var orientation: AVCaptureVideoOrientation?
+    private var verticalMirror: Bool = false
+    private var currentFormat: CMFormatDescription?
     private var currentJitterFramesCount: UInt64
+
+    private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
+        guard let self = self else { return }
+        let seiType = data[5]
+        switch seiType {
+        case 0x2f:
+            // Video orientation.
+            assert(data[6] == 2)
+            self.orientation = .init(rawValue: .init(data[7]))
+            self.verticalMirror = data[8] == 1
+        default:
+            Self.logger.info("Unhandled SEI App type: \(seiType)")
+        }
+    }
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -103,11 +120,12 @@ class H264Subscription: Subscription {
         }
 
         // Create the H264 decoder.
-        self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
+        self.decoder = .init(config: config, callback: { [weak self] sample in
+            guard let self = self else { return }
             do {
-                try self?.enqueueModifiedSamples(samples: sample,
-                                                 orientation: orientation,
-                                                 verticalMirror: mirror)
+                try self.enqueueModifiedSamples(samples: sample,
+                                                orientation: self.orientation,
+                                                verticalMirror: self.verticalMirror)
             } catch {
                 Self.logger.error("Failed to enqueue sample: \(error)")
             }
@@ -231,8 +249,19 @@ class H264Subscription: Subscription {
 
         // Decode.
         do {
-            try frame.data.withUnsafeBytes {
-                try decoder!.write(data: $0, timestamp: currentJitterFramesCount)
+            let time = CMTimeMake(value: Int64(self.currentJitterFramesCount), timescale: Int32(config.fps))
+            let timeInfo = CMSampleTimingInfo(duration: .init(value: 1, timescale: CMTimeScale(self.config.fps)),
+                                              presentationTimeStamp: time,
+                                              decodeTimeStamp: .invalid)
+            var mutable = frame
+            let depacketized = try H264Utilities.depacketize(&mutable.data,
+                                                             timeInfo: timeInfo,
+                                                             format: &self.currentFormat,
+                                                             sei: self.seiCallback)
+            for sample in depacketized {
+                try self.enqueueModifiedSamples(samples: sample,
+                                                orientation: self.orientation,
+                                                verticalMirror: self.verticalMirror)
             }
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
