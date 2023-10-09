@@ -60,12 +60,11 @@ class H264Subscription: Subscription {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private var currentLayerJitterFramesCount: UInt64?
     private let config: VideoCodecConfig
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool = false
     private var currentFormat: CMFormatDescription?
-    private var currentJitterFramesCount: UInt64?
+    private var currentLayerJitterFramesCount: UInt64?
 
     private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
         guard let self = self else { return }
@@ -355,7 +354,7 @@ class H264Subscription: Subscription {
                 Self.logger.error("Could not flush layer: \(error)")
             }
 
-            self.currentJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
+            self.currentLayerJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
             Self.logger.debug("Flushing display layer")
         }
     }
