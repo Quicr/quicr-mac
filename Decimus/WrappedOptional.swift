@@ -1,6 +1,7 @@
-class WrappedOptional<T> {
-    var value: T?
-    init(_ value: T?) {
+/// Reference wrapper for type T.
+class Wrapped<T> {
+    var value: T
+    init(_ value: T) {
         self.value = value
     }
 }

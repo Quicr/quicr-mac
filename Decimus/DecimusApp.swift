@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Application entry point, starting with call config.
 @main
 struct DecimusApp: App {
     @State var columnVisibility = NavigationSplitViewVisibility.detailOnly

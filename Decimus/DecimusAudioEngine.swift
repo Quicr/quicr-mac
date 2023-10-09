@@ -14,7 +14,7 @@ class DecimusAudioEngine {
     /// The AVAudioEngine instance this AudioEngine wraps.
     let engine: AVAudioEngine = .init()
 
-    private var blocks: MutableWrapper<[AnyHashable: AVAudioSinkNodeReceiverBlock]> = .init(value: [:])
+    private var blocks: Wrapped<[AnyHashable: AVAudioSinkNodeReceiverBlock]> = .init([:])
     private var notificationObservers: [NSObjectProtocol] = []
     private let sink: AVAudioSinkNode
     private var stopped: Bool = false
