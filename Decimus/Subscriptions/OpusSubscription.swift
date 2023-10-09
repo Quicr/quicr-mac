@@ -141,7 +141,10 @@ class OpusSubscription: Subscription {
         Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+    func prepare(_ sourceID: SourceIDType!,
+                 label: String!,
+                 qualityProfile: String!,
+                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }

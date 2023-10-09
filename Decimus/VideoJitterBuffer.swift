@@ -3,12 +3,12 @@ import OrderedCollections
 
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
-    
+
     struct Config: Codable {
         var mode: Mode = .none
         var minDepth: TimeInterval = 0.2
     }
-    
+
     enum Mode: CaseIterable, Identifiable, Codable {
         case pid; case interval; case none
         var id: Self { self }
@@ -120,14 +120,14 @@ class VideoJitterBuffer {
         let count = self.lock.withLock {
             self.buffer.count
         }
-        
+
         let depth: TimeInterval = TimeInterval(count) * self.frameDuration
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.currentDepth(depth: depth, timestamp: now)
             }
         }
-        
+
         // Are we playing out?
         if !self.play && depth > self.minDepth {
             self.play = true
@@ -174,7 +174,7 @@ class VideoJitterBuffer {
             }
         }
     }
-    
+
     func getDepth() -> TimeInterval {
         self.lock.withLock {
             Double(self.buffer.count) * self.frameDuration
