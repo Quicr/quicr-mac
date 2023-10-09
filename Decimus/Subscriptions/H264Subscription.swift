@@ -207,7 +207,7 @@ class H264Subscription: Subscription {
                         let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
                         let nanoseconds = waitTime * 1_000_000_000
                         if nanoseconds > 0 {
-                            try? await Task.sleep(nanoseconds: UInt64(ns))
+                            try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
                         }
 
                         // Attempt to dequeue a frame.
