@@ -38,10 +38,8 @@
 		9B4806812980170B0040F5D4 /* H264Encoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4806802980170B0040F5D4 /* H264Encoder.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
-		9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B647C9B29A6267B000AD358 /* PCMExtensions.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
-		9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */; };
 		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
@@ -54,7 +52,6 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
-		9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
@@ -176,12 +173,10 @@
 		9B4806802980170B0040F5D4 /* H264Encoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Encoder.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
-		9B647C9B29A6267B000AD358 /* PCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMExtensions.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUnitHelpers.swift; sourceTree = "<group>"; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
@@ -195,7 +190,6 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
-		9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPCMExtensions.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
@@ -330,7 +324,6 @@
 				9B4806802980170B0040F5D4 /* H264Encoder.swift */,
 				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
-				9B647C9B29A6267B000AD358 /* PCMExtensions.swift */,
 				FF6D6D782A0422CE00B535DA /* CodecFactory.swift */,
 			);
 			path = Codec;
@@ -364,8 +357,6 @@
 			isa = PBXGroup;
 			children = (
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
-				9BC692DD29F128D700062A2A /* TestPCMExtensions.swift */,
-				9B87FB512A02AA6300C92DD1 /* TestAudioUnitHelpers.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
 				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
 			);
@@ -744,8 +735,6 @@
 			files = (
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
-				9B87FB522A02AA6300C92DD1 /* TestAudioUnitHelpers.swift in Sources */,
-				9BC692DE29F128D700062A2A /* TestPCMExtensions.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -809,7 +798,6 @@
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B480664297EBD930040F5D4 /* H264Decoder.swift in Sources */,
 				18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */,
-				9B647C9C29A6267B000AD358 /* PCMExtensions.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
