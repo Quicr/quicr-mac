@@ -10,7 +10,10 @@ class VideoJitterBuffer {
     }
     
     enum Mode: CaseIterable, Identifiable, Codable {
-        case pid; case interval; case none
+        case pid
+        case interval
+        case layer
+        case none
         var id: Self { self }
     }
 
