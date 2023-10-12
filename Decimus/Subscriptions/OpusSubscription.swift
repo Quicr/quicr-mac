@@ -141,7 +141,7 @@ class OpusSubscription: Subscription {
         Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
     }
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+    func prepare(_ label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }
@@ -236,7 +236,7 @@ class OpusSubscription: Subscription {
         }
     }
 
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
+    func update(_ label: String!, qualityProfile: String!) -> Int32 {
         return SubscriptionError.NoDecoder.rawValue
     }
 
@@ -297,7 +297,7 @@ class OpusSubscription: Subscription {
             return
         }
 
-        var packet: Packet = .init(sequence_number: UInt(sequence),
+        let packet: Packet = .init(sequence_number: UInt(sequence),
                                    data: data,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))

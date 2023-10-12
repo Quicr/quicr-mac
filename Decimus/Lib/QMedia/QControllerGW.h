@@ -22,14 +22,14 @@ public:
                 std::uint16_t remote_port,
                 std::uint16_t protocol,
                 qtransport::TransportConfig config);
-    
-    void close();
-    
+
+    int disconnect();
+
     void updateManifest(const std::string manifest);
-       
+
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
-    
+
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
 
 public:
@@ -37,8 +37,8 @@ public:
 
 private:
     std::unique_ptr<qmedia::QController> qController;
-    std::shared_ptr<qmedia::QSubscriberDelegate> subscriberDelegate;
-    std::shared_ptr<qmedia::QPublisherDelegate> publisherDelegate;
+    std::shared_ptr<qmedia::SubscriberDelegate> subscriberDelegate;
+    std::shared_ptr<qmedia::PublisherDelegate> publisherDelegate;
 };
 
 #endif /* QMediaClient */

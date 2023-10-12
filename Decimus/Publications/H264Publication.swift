@@ -147,12 +147,12 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
+    func prepare(_ qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
         return PublicationError.None.rawValue
     }
 
-    func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
+    func update(_ qualityProfile: String!) -> Int32 {
         return PublicationError.NoSource.rawValue
     }
 

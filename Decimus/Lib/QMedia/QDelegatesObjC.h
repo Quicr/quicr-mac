@@ -10,14 +10,14 @@
 #import <Foundation/Foundation.h>
 
 @protocol QSubscriptionDelegateObjC
-- (int) prepare: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile reliable: (bool*) reliable;
-- (int) update: (NSString*) sourceID label: (NSString*) label qualityProfile: (NSString*) qualityProfile;
+- (int) prepare: (NSString*) label qualityProfile: (NSString*) qualityProfile reliable: (bool*) reliable;
+- (int) update: (NSString*) label qualityProfile: (NSString*) qualityProfile;
 - (int) subscribedObject: (const void*) data length: (size_t) length groupId: (UInt32) groupId objectId: (UInt16) objectId;
 @end
 
 @protocol QPublicationDelegateObjC
-- (int) prepare: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile reliable: (bool*) reliable;
-- (int) update: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile;
+- (int) prepare: (NSString*) qualityProfile reliable: (bool*) reliable;
+- (int) update: (NSString*) qualityProfile;
 - (void) publish: (bool) flag;
 @end
 

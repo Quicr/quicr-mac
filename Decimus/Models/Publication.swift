@@ -12,8 +12,8 @@ protocol Publication: QPublicationDelegateObjC {
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
-    func update(_ sourceId: String!, qualityProfile: String!) -> Int32
+    func prepare(_ qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
+    func update(_ qualityProfile: String!) -> Int32
     func publish(_ flag: Bool)
 }
 

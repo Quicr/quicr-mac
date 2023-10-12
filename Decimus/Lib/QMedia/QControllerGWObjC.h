@@ -34,7 +34,7 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol
                 config:(TransportConfig)config;
--(void) close;
+-(int) disconnect;
 -(void) updateManifest: (NSString*)manifest;
 @end
 

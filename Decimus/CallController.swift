@@ -64,8 +64,4 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         let manifestJSON = try jsonEncoder.encode(manifest)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
-
-    func disconnect() throws {
-        super.close()
-    }
 }

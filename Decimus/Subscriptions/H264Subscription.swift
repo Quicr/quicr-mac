@@ -141,15 +141,14 @@ class H264Subscription: Subscription {
         try? participants.removeParticipant(identifier: namespace)
     }
 
-    func prepare(_ sourceID: SourceIDType!,
-                 label: String!,
+    func prepare(_ label: String!,
                  qualityProfile: String!,
                  reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
         return SubscriptionError.None.rawValue
     }
 
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
+    func update(_ label: String!, qualityProfile: String!) -> Int32 {
         return SubscriptionError.NoDecoder.rawValue
     }
 

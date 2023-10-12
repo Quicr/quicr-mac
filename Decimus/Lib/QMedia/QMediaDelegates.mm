@@ -21,22 +21,20 @@ namespace qclient
 {
 
 // SUBSCRIPTION
-QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const quicr::Namespace& quicrNamespace) :
-    delegate(delegate), quicrNamespace(quicrNamespace)
+QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate,
+                                                       const quicr::Namespace& quicrNamespace,
+                                                       const std::shared_ptr<cantina::Logger>& logger)
+    : qmedia::SubscriptionDelegate(quicrNamespace, logger), delegate(delegate)
 {
 }
 
-int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile, bool& reliable) {
-    return [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
+int QMediaSubscriptionDelegate::prepare(const std::string& label, const std::string& qualityProfile, bool& reliable) {
+    return [delegate prepare:@(label.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
 }
 
-int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile)  {
-    return [delegate update:@(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str())];
+int  QMediaSubscriptionDelegate::update(const std::string& label, const std::string& qualityProfile)  {
+    return [delegate update:@(label.c_str()) qualityProfile:@(qualityProfile.c_str())];
 }
-/*
-quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
-    return quicrNamespace;
-}*/
 
 int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
     return [delegate subscribedObject:data.data() length:data.size() groupId:group objectId:object];
@@ -44,21 +42,22 @@ int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint3
 
 
 // PUBLICATION
-QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace)
-    : delegate(delegate), quicrNamespace(quicrNamespace)
+QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate,
+                                                     const quicr::Namespace& quicrNamespace,
+                                                     const std::vector<std::uint8_t>& priorities,
+                                                     std::uint16_t expiry,
+                                                     const std::shared_ptr<cantina::Logger>& logger)
+    : qmedia::PublicationDelegate("", quicrNamespace, priorities, expiry, logger), delegate(delegate)
 {
 }
 
-int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::string& qualityProfile, bool& reliable)  {
-    return [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
+int QMediaPublicationDelegate::prepare(const std::string& qualityProfile, bool& reliable)  {
+    return [delegate prepare:@(qualityProfile.c_str()) reliable:&reliable];
 }
-int QMediaPublicationDelegate::update(const std::string& sourceId, const std::string& qualityProfile) {
-    return [delegate update:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];
+
+int QMediaPublicationDelegate::update(const std::string& qualityProfile) {
+    return [delegate update:@(qualityProfile.c_str())];
 }
-/*
-quicr::Namespace QMediaPublicationDelegate::getNamespace()  {
-    return;
-}*/
 
 void QMediaPublicationDelegate::publish(bool pubFlag) {
     return [delegate publish: pubFlag];
@@ -69,14 +68,16 @@ QMediaSubsciberDelegate::QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> del
 {
 }
 
-std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
+std::shared_ptr<qmedia::SubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace,
+                                                                                              const std::string& qualityProfile,
+                                                                                              const cantina::LoggerPointer& logger)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
-    return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, quicrNamespace);
+    return qclient::QMediaSubscriptionDelegate::create(subscription, quicrNamespace, logger);
 }
 
 int QMediaSubsciberDelegate::removeSubByNamespace(const quicr::Namespace& quicrNamespace)
@@ -90,7 +91,12 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 {
 }
 
-std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
+std::shared_ptr<qmedia::PublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace,
+                                                                                             const std::string& sourceID,
+                                                                                             const std::vector<std::uint8_t>& priorities,
+                                                                                             std::uint16_t expiry,
+                                                                                             const std::string& qualityProfile,
+                                                                                             const cantina::LoggerPointer& logger)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
@@ -99,7 +105,7 @@ std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocateP
     NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     id<QPublicationDelegateObjC> publication = [delegate allocatePubByNamespace:quicrNamespaceNSString sourceID:quicrSourceIdNSString qualityProfile:qualityProfileNSString];
-    return std::make_shared<qclient::QMediaPublicationDelegate>(publication, quicrNamespace);
+    return qclient::QMediaPublicationDelegate::create(publication, quicrNamespace, priorities, expiry, logger);
 }
 
 int QMediaPublisherDelegate::removePubByNamespace(const quicr::Namespace& quicrNamespace)
