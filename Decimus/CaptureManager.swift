@@ -11,7 +11,15 @@ public extension AVCaptureDevice {
 protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
     var queue: DispatchQueue { get }
     var device: AVCaptureDevice { get }
-    var codec: VideoCodecConfig { get }
+    var codec: VideoCodecConfig? { get }
+}
+
+fileprivate extension FrameListener {
+    func isEqual(_ other: FrameListener) -> Bool {
+        self.queue == other.queue &&
+        self.device == other.device &&
+        self.codec == other.codec
+    }
 }
 
 enum CaptureManagerError: Error {
@@ -152,18 +160,18 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
 
-    private func setBestDeviceFormat(device: AVCaptureDevice, listener: FrameListener) throws {
+    private func setBestDeviceFormat(device: AVCaptureDevice, config: VideoCodecConfig) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
 
         let allowableFormats = device.formats.reversed().filter { format in
             return format.isMultiCamSupported &&
-                   format.formatDescription.dimensions.width == listener.codec.width &&
-                   format.formatDescription.dimensions.height == listener.codec.height
+                   format.formatDescription.dimensions.width == config.width &&
+                   format.formatDescription.dimensions.height == config.height
         }
 
         guard let bestFormat = allowableFormats.first(where: { format in
-            return format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(listener.codec.fps) }
+            return format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(config.fps) }
         }) else {
             return
         }
@@ -181,8 +189,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                 throw "No framerate set"
             }
 
-            if maxFramerateRange.maxFrameRate < Float64(listener.codec.fps) {
-                try setBestDeviceFormat(device: device, listener: listener)
+            if let config = listener.codec {
+                if maxFramerateRange.maxFrameRate < Float64(config.fps) {
+                    try setBestDeviceFormat(device: device, config: config)
+                }
             }
 
             cameraFrameListeners.append(listener)
@@ -191,7 +201,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         // Setup device.
-        try setBestDeviceFormat(device: device, listener: listener)
+        if let config = listener.codec {
+            try setBestDeviceFormat(device: device, config: config)
+        }
 
         // Prepare IO.
         let input: AVCaptureDeviceInput = try .init(device: device)
@@ -237,12 +249,29 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         try addCamera(listener: listener)
     }
 
-    func removeInput(device: AVCaptureDevice) throws {
+    func removeInput(listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
-        let input = inputs.removeValue(forKey: device)
-        guard input != nil else {
+
+        let device = listener.device
+        guard var deviceListeners = self.multiVideoDelegate[device] else {
             throw CaptureManagerError.missingInput(device)
         }
+
+        // Remove this frame listener from the list.
+        deviceListeners.removeAll {
+            listener.isEqual($0)
+        }
+
+        guard deviceListeners.count == 0 else {
+            // There are other listeners still, so update and stop.
+            self.multiVideoDelegate[device] = deviceListeners
+            return
+        }
+
+        // There are no more delegates left, we should remove the device.
+        self.multiVideoDelegate.removeValue(forKey: device)
+        let input = inputs.removeValue(forKey: device)
+        assert(input != nil)
         session.beginConfiguration()
         let connection = connections.removeValue(forKey: device)
         if connection != nil {
@@ -262,6 +291,18 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             throw CaptureManagerError.missingInput(device)
         }
         return !connection.isEnabled
+    }
+
+    func addPreview(device: AVCaptureDevice, preview: AVCaptureVideoPreviewLayer) throws {
+        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
+        guard let connection = connections[device] else {
+            throw CaptureManagerError.missingInput(device)
+        }
+        let previewConnection = AVCaptureConnection(inputPort: connection.inputPorts.first!, videoPreviewLayer: preview)
+        guard self.session.canAddConnection(previewConnection) else {
+            throw CaptureManagerError.couldNotAdd(device)
+        }
+        self.session.addConnection(previewConnection)
     }
 
     private func getDelegate(output: AVCaptureOutput) -> [FrameListener] {
