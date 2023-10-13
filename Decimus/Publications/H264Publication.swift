@@ -75,7 +75,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private var lastCapture: Date?
     private var lastPublish: WrappedOptional<Date> = .init(nil)
     private let granularMetrics: Bool
-    let codec: VideoCodecConfig
+    let codec: VideoCodecConfig?
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,

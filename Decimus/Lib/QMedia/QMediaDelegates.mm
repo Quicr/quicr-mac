@@ -39,15 +39,13 @@ quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
 }*/
 
 int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
-    NSData * nsdata= [NSData dataWithBytes:data.data() length:data.size()];
-    return [delegate subscribedObject:nsdata groupId:group objectId:object];
+    return [delegate subscribedObject:data.data() length:data.size() groupId:group objectId:object];
 }
 
 
 // PUBLICATION
-QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace) :
-    qmedia::QPublicationDelegate(quicrNamespace),
-    delegate(delegate), quicrNamespace(quicrNamespace)
+QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace)
+    : delegate(delegate), quicrNamespace(quicrNamespace)
 {
 }
 
@@ -73,7 +71,7 @@ QMediaSubsciberDelegate::QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> del
 
 std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
 {
-    NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
+    NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
@@ -94,7 +92,7 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 
 std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
 {
-    NSString *quicrNamespaceNSString = [NSString stringWithCString:quicrNamespace.to_hex().c_str()
+    NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     NSString *quicrSourceIdNSString = [NSString stringWithCString:sourceID.c_str()
                                        encoding:[NSString defaultCStringEncoding]];

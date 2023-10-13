@@ -11,7 +11,6 @@
 #include "QMediaDelegates.h"
 #include "QDelegatesObjC.h"
 
-
 // objective c
 @implementation QControllerGWObjC
 
@@ -28,6 +27,13 @@
         NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
         callback(static_cast<uint8_t>(level), m, b);
     });
+
+#ifdef DEBUG
+    self->qControllerGW.logger->SetLogLevel(cantina::LogLevel::Debug);
+#else
+    self->qControllerGW.logger->SetLogLevel(cantina::LogLevel::Info);
+#endif
+
     return self;
 }
 
@@ -123,7 +129,7 @@ void QControllerGW::close()
 {
     if (qController)
     {
-        qController->close();
+        qController->disconnect();
     }
     else
     {
@@ -135,7 +141,7 @@ void QControllerGW::updateManifest(const std::string manifest)
 {
     if (qController)
     {
-        qController->updateManifest(manifest);
+        qController->updateManifest(json::parse(manifest).get<qmedia::manifest::Manifest>());
     }
     else
     {

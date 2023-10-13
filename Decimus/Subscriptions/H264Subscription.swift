@@ -45,6 +45,7 @@ class H264Subscription: Subscription {
     }
 
     internal let namespace: QuicrNamespace
+
     private var decoder: H264Decoder?
     private unowned let participants: VideoParticipants
     private let measurement: _Measurement?
@@ -53,16 +54,31 @@ class H264Subscription: Subscription {
     private let namegate: NameGate
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
-    private var decodeTimer: Timer?
-
-    private lazy var decodeBlock: (Timer) -> Void = { [weak self] _ in
-        DispatchQueue.global(qos: .userInteractive).async {
-            self?.dequeue()
-        }
-    }
     private var lastReceive: Date?
     private var lastDecode: Date?
     private let granularMetrics: Bool
+    private var dequeueTask: Task<(), Never>?
+    private var dequeueBehaviour: VideoDequeuer?
+    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let config: VideoCodecConfig
+    private var orientation: AVCaptureVideoOrientation?
+    private var verticalMirror: Bool = false
+    private var currentFormat: CMFormatDescription?
+    private var currentLayerJitterFramesCount: UInt64?
+
+    private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
+        guard let self = self else { return }
+        let seiType = data[5]
+        switch seiType {
+        case 0x2f:
+            // Video orientation.
+            assert(data[6] == 2)
+            self.orientation = .init(rawValue: .init(data[7]))
+            self.verticalMirror = data[8] == 1
+        default:
+            Self.logger.info("Unhandled SEI App type: \(seiType)")
+        }
+    }
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -70,10 +86,10 @@ class H264Subscription: Subscription {
          metricsSubmitter: MetricsSubmitter?,
          namegate: NameGate,
          reliable: Bool,
-         minDepth: TimeInterval,
          granularMetrics: Bool,
-         useJitterBuffer: Bool) {
+         jitterBufferConfig: VideoJitterBuffer.Config) {
         self.namespace = namespace
+        self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -83,26 +99,40 @@ class H264Subscription: Subscription {
         self.namegate = namegate
         self.reliable = reliable
         self.granularMetrics = granularMetrics
-        if useJitterBuffer {
-            self.jitterBuffer = .init(namespace: namespace,
-                                      frameDuration: 1 / Double(config.fps),
-                                      minDepth: minDepth,
-                                      metricsSubmitter: metricsSubmitter,
-                                      sort: !reliable)
-            // Decode job: timer procs on main thread, but decoding itself doesn't.
-            DispatchQueue.main.async {
-                self.decodeTimer = .scheduledTimer(withTimeInterval: 1 / Double(config.fps),
-                                                   repeats: true,
-                                                   block: self.decodeBlock)
-                self.decodeTimer!.tolerance = 1 / Double(config.fps) / 4
+        self.jitterBufferConfig = jitterBufferConfig
+
+        if jitterBufferConfig.mode == .layer {
+            self.currentLayerJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(config.fps)))
+        } else {
+            // Create the decoder.
+            self.decoder = .init(config: config) { [weak self] sample in
+                guard let self = self else { return }
+                do {
+                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                } catch {
+                    Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                }
+            }
+
+            // We have what we need to configure the PID dequeuer if using.
+            let duration = 1 / Double(config.fps)
+            if jitterBufferConfig.mode == .pid {
+                self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
+                                                    frameDuration: duration,
+                                                    kp: 0.01,
+                                                    ki: 0.001,
+                                                    kd: 0.001)
+            }
+
+            // Create the video jitter buffer.
+            if jitterBufferConfig.mode != .none {
+                self.jitterBuffer = .init(namespace: namespace,
+                                          frameDuration: duration,
+                                          metricsSubmitter: metricsSubmitter,
+                                          sort: !reliable,
+                                          minDepth: jitterBufferConfig.minDepth)
             }
         }
-        self.decoder = .init(config: config, callback: { [weak self] sample, orientation, mirror in
-            self?.showDecodedImage(decoded: sample,
-                                   timestamp: sample.presentationTimeStamp.value,
-                                   orientation: orientation,
-                                   verticalMirror: mirror)
-        })
 
         Self.logger.info("Subscribed to H264 stream")
     }
@@ -123,7 +153,7 @@ class H264Subscription: Subscription {
         return SubscriptionError.NoDecoder.rawValue
     }
 
-    func subscribedObject(_ data: Data!, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
@@ -144,7 +174,7 @@ class H264Subscription: Subscription {
                     await measurement.receiveDelta(delta: delta, timestamp: now)
                 }
                 await measurement.receivedFrame(timestamp: now)
-                await measurement.receivedBytes(received: data.count, timestamp: now)
+                await measurement.receivedBytes(received: length, timestamp: now)
             }
         }
 
@@ -154,19 +184,52 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
         }
 
-        let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: data)
         if let jitterBuffer = self.jitterBuffer {
+            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: .init(bytes: data, count: length))
             _ = jitterBuffer.write(videoFrame: videoFrame)
+            if self.dequeueTask == nil {
+                // We know everything to create the interval dequeuer at this point.
+                if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
+                    self.dequeueBehaviour = IntervalDequeuer(minDepth: self.jitterBufferConfig.minDepth,
+                                                             frameDuration: 1 / Double(self.config.fps),
+                                                             firstWriteTime: .now)
+                }
+
+                // Start the frame dequeue task.
+                self.dequeueTask = .init(priority: .high) { [weak self] in
+                    while !Task.isCancelled {
+                        guard let self = self else { return }
+
+                        // Wait until we expect to have a frame available.
+                        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                        if let pid = self.dequeueBehaviour! as? PIDDequeuer {
+                            pid.currentDepth = jitterBuffer.getDepth()
+                        }
+                        let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
+                        let ns = waitTime * 1_000_000_000
+                        if ns > 0 {
+                            try? await Task.sleep(nanoseconds: UInt64(ns))
+                        }
+
+                        // Attempt to dequeue a frame.
+                        if let frame = jitterBuffer.read() {
+                            // Interval dequeuer needs to know where we are.
+                            // TODO: With frame timestamps, we won't need this.
+                            if self.jitterBufferConfig.mode == .interval {
+                                let interval = self.dequeueBehaviour as! IntervalDequeuer
+                                interval.dequeuedCount += 1
+                            }
+                            self.decode(frame: frame)
+                        }
+                    }
+                }
+            }
         } else {
+            let zeroCopy: Data = .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
+            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: zeroCopy)
             decode(frame: videoFrame)
         }
         return SubscriptionError.None.rawValue
-    }
-
-    private func dequeue() {
-        // Try and dequeue a video frame.
-        guard let dequeuedFrame = self.jitterBuffer!.read() else { return }
-        decode(frame: dequeuedFrame)
     }
 
     private func decode(frame: VideoFrame) {
@@ -175,40 +238,57 @@ class H264Subscription: Subscription {
                               objectId: frame.objectId,
                               lastGroup: lastGroup,
                               lastObject: lastObject) else {
-            var group: String = "None"
-            if let lastGroup = lastGroup {
-                group = String(lastGroup)
-            }
-            var object: String = "None"
-            if let lastObject = lastObject {
-                object = String(lastObject)
-            }
-            // Self.logger.warning("[\(frame.groupId)] (\(frame.objectId)) Ignoring blocked object. Had: [\(group)] (\(object))")
-
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = frame.groupId + 1
-            self.jitterBuffer?.flushTo(targetGroup: targetGroup)
+            if let jitterBuffer = self.jitterBuffer {
+                jitterBuffer.flushTo(targetGroup: targetGroup)
+            } else if self.jitterBufferConfig.mode == .layer {
+                flushDisplayLayer()
+            }
             return
         }
 
         lastGroup = frame.groupId
         lastObject = frame.objectId
+        
+        // Timestamp.
+        let timestamp: Int64
+        if self.jitterBufferConfig.mode == .layer {
+            timestamp = Int64(self.currentLayerJitterFramesCount!)
+            self.currentLayerJitterFramesCount! += 1
+        } else {
+            timestamp = 0
+        }
+        let time = CMTimeMake(value: timestamp,
+                              timescale: Int32(config.fps))
+        let timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
+                                          presentationTimeStamp: time,
+                                          decodeTimeStamp: .invalid)
 
         // Decode.
+        var data = frame.data
         do {
-            try frame.data.withUnsafeBytes {
-                try decoder!.write(data: $0, timestamp: 0)
+            let depacketized = try H264Utilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
+            if self.jitterBufferConfig.mode == .layer {
+                for sample in depacketized {
+                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                }
+            } else {
+                for sample in depacketized {
+                    // Write to decoder.
+                    try decoder!.write(sample)
+                }
             }
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
         }
     }
 
-    private func showDecodedImage(decoded: CMSampleBuffer,
-                                  timestamp: CMTimeValue,
-                                  orientation: AVCaptureVideoOrientation?,
-                                  verticalMirror: Bool) {
-        if let measurement = self.measurement {
+    private func enqueueSample(sample: CMSampleBuffer,
+                               orientation: AVCaptureVideoOrientation?,
+                               verticalMirror: Bool) throws {
+        if let measurement = self.measurement,
+           self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? .now : nil
             let delta: Double?
             if self.granularMetrics {
@@ -229,28 +309,53 @@ class H264Subscription: Subscription {
             }
         }
 
-        // FIXME: Driving from proper timestamps probably preferable.
-        let array: CFArray! = CMSampleBufferGetSampleAttachmentsArray(decoded, createIfNecessary: true)
-        let dictionary: CFMutableDictionary = unsafeBitCast(CFArrayGetValueAtIndex(array, 0),
-                                                            to: CFMutableDictionary.self)
-        CFDictionarySetValue(dictionary,
-                             Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                             Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
+        let sampleToEnqueue: CMSampleBuffer
+        if self.jitterBufferConfig.mode == .layer {
+            // Deep copy the sample.
+            let copied = malloc(sample.dataBuffer!.dataLength)
+            try sample.dataBuffer!.withUnsafeMutableBytes {
+                _ = memcpy(copied, $0.baseAddress, $0.count)
+            }
+            let blockBuffer = try CMBlockBuffer(buffer: .init(start: copied,
+                                                              count: sample.dataBuffer!.dataLength)) { ptr, _ in
+                free(ptr)
+            }
+            sampleToEnqueue = try! CMSampleBuffer(dataBuffer: blockBuffer,
+                                                  formatDescription: sample.formatDescription,
+                                                  numSamples: sample.numSamples,
+                                                  sampleTimings: sample.sampleTimingInfos(),
+                                                  sampleSizes: sample.sampleSizes())
+        } else {
+            // FIXME: Driving from proper timestamps probably preferable.
+            if sample.sampleAttachments.count > 0 {
+                sample.sampleAttachments[0][.displayImmediately] = true
+            }
+            sampleToEnqueue = sample
+        }
 
-        // Enqueue the buffer.
+        // Enqueue the sample on the main thread.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
-            guard let layer = participant.view.layer else {
-                fatalError()
+            do {
+                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror))
+            } catch {
+                Self.logger.error("Could not enqueue sample: \(error)")
             }
-            guard layer.status != .failed else {
-                Self.logger.error("Layer failed: \(layer.error!)")
-                layer.flush()
-                return
-            }
-            layer.transform = orientation?.toTransform(verticalMirror) ?? CATransform3DIdentity
-            layer.enqueue(decoded)
             participant.lastUpdated = .now()
+        }
+    }
+
+    private func flushDisplayLayer() {
+        DispatchQueue.main.async {
+            let participant = self.participants.getOrMake(identifier: self.namespace)
+            do {
+                try participant.view.flush()
+            } catch {
+                Self.logger.error("Could not flush layer: \(error)")
+            }
+
+            self.currentLayerJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
+            Self.logger.debug("Flushing display layer")
         }
     }
 }
