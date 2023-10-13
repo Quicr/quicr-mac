@@ -69,4 +69,23 @@ final class TestH264Utilities: XCTestCase {
             }
         }
     }
+
+    func testseiCallback() throws {
+        let values: [UInt8] = [
+            0x00,0x00,0x00,0x01,
+            H264Utilities.H264Types.sei.rawValue,2,3,4,5
+        ]
+        let data = Data(values)
+        var copied = data
+        var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
+        var foundSei = false
+        let samples = try H264Utilities.depacketize(&copied,
+                                                timeInfo: .init(),
+                                                format: &format) { sei in
+            XCTAssertEqual(data, sei)
+            foundSei = true
+        }
+        XCTAssert(foundSei)
+        XCTAssertEqual(samples.count, 0)
+    }
 }
