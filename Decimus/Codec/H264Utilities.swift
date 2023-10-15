@@ -97,12 +97,12 @@ class H264Utilities {
                 continue
             }
 
-            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format!))
+            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
         }
         return results
     }
     
-    static func depacketizeNalu(_ nalu: inout Data, timeInfo: CMSampleTimingInfo, format: CMFormatDescription) throws -> CMSampleBuffer {
+    static func depacketizeNalu(_ nalu: inout Data, timeInfo: CMSampleTimingInfo, format: CMFormatDescription?) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
