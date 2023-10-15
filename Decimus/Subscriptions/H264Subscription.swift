@@ -47,7 +47,7 @@ class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
 
     private var decoder: H264Decoder?
-    private unowned let participants: VideoParticipants
+    private let participants: VideoParticipants
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
