@@ -4,10 +4,10 @@ import AVFoundation
 import CoreImage
 import os
 
-/// Provides hardware accelerated H264 decoding.
-class H264Decoder {
+/// Provides hardware accelerated decoding.
+class VTDecoder {
     typealias DecodedFrameCallback = (CMSampleBuffer) -> Void
-    private static let logger = DecimusLogger(H264Decoder.self)
+    private static let logger = DecimusLogger(VTDecoder.self)
 
     // Members.
     private var currentFormat: CMFormatDescription?
@@ -26,7 +26,7 @@ class H264Decoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            Self.logger.error("H264Decoder failed to flush frames", alert: true)
+            Self.logger.error("VTDecoder failed to flush frames", alert: true)
         }
         VTDecompressionSessionInvalidate(session)
     }
@@ -69,8 +69,18 @@ class H264Decoder {
     private func makeDecoder(format: CMFormatDescription) throws -> VTDecompressionSession {
         // Output format properties.
         var outputFormat: [String: Any] = [:]
-        if CVIsCompressedPixelFormatAvailable(kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange) {
-            outputFormat[kCVPixelBufferPixelFormatTypeKey as String] = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+        let targetFormat: OSType?
+        switch format.mediaSubType {
+        case .h264:
+            targetFormat = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+        default:
+            targetFormat = nil
+        }
+        
+        if let targetFormat = targetFormat {
+            if CVIsCompressedPixelFormatAvailable(targetFormat) {
+                outputFormat[kCVPixelBufferPixelFormatTypeKey as String] = targetFormat
+            }
         }
 
         // Create the session.

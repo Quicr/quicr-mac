@@ -4,27 +4,38 @@ import UIKit
 import AVFoundation
 import os
 
-class H264Encoder {
+class VTEncoder {
     typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
 
-    private static let logger = DecimusLogger(H264Encoder.self)
+    private static let logger = DecimusLogger(VTEncoder.self)
 
     private let callback: EncodedCallback
     private let encoder: VTCompressionSession
     private let verticalMirror: Bool
+    private let config: VideoCodecConfig
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
+        self.config = config
         self.verticalMirror = verticalMirror
         self.callback = callback
 
         var compressionSession: VTCompressionSession?
+        let codec: CMVideoCodecType
+        switch config.codec {
+        case .h264:
+            codec = kCMVideoCodecType_H264
+        case .hevc:
+            codec = kCMVideoCodecType_HEVC
+        default:
+            fatalError()
+        }
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
                                                  height: config.height,
-                                                 codecType: kCMVideoCodecType_H264,
-                                                 encoderSpecification: Self.makeEncoderSpecification(),
+                                                 codecType: codec,
+                                                 encoderSpecification: config.codec == .h264 ? Self.makeEncoderSpecification() : nil,
                                                  imageBufferAttributes: nil,
                                                  compressedDataAllocator: nil,
                                                  outputCallback: nil,
@@ -42,10 +53,19 @@ class H264Encoder {
                                  value: kCFBooleanTrue)
         }
 
-        try OSStatusError.checked("Set Constrained High Autolevel") {
-            VTSessionSetProperty(encoder,
-                                 key: kVTCompressionPropertyKey_ProfileLevel,
-                                 value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+        try OSStatusError.checked("Set Profile Level") {
+            return switch config.codec {
+            case .h264:
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_ProfileLevel,
+                                     value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+            case .hevc:
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_ProfileLevel,
+                                     value: kVTProfileLevel_HEVC_Main42210_AutoLevel)
+            default:
+                1
+            }
         }
 
         try OSStatusError.checked("Set allow frame reordering") {
@@ -69,6 +89,32 @@ class H264Encoder {
                                  key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
                                  value: config.fps * 5 as CFNumber)
         }
+        
+        if config.codec == .hevc {
+            try OSStatusError.checked("Color Primaries") {
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_ColorPrimaries,
+                                     value: kCMFormatDescriptionColorPrimaries_ITU_R_2020)
+            }
+            
+            try OSStatusError.checked("Transfer Function") {
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_TransferFunction,
+                                     value: kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG)
+            }
+            
+            try OSStatusError.checked("YCbCrMatrix") {
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_YCbCrMatrix,
+                                     value: kCMFormatDescriptionYCbCrMatrix_ITU_R_2020)
+            }
+            
+            try OSStatusError.checked("Preserve Metadata") {
+                VTSessionSetProperty(encoder,
+                                     key: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
+                                     value: kCFBooleanTrue)
+            }
+        }
 
         try OSStatusError.checked("Prepare to encode frames") {
             VTCompressionSessionPrepareToEncodeFrames(encoder)
@@ -80,7 +126,7 @@ class H264Encoder {
         let flushError = VTCompressionSessionCompleteFrames(encoder,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            Self.logger.error("H264 Encoder failed to flush", alert: true)
+            Self.logger.error("Encoder failed to flush", alert: true)
         }
 
         VTCompressionSessionInvalidate(encoder)
@@ -185,12 +231,25 @@ class H264Encoder {
         var sets: Int = 0
         let format = CMSampleBufferGetFormatDescription(sample)
         try OSStatusError.checked("Get number of SPS/PPS") {
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
-                                                               parameterSetIndex: 0,
-                                                               parameterSetPointerOut: nil,
-                                                               parameterSetSizeOut: nil,
-                                                               parameterSetCountOut: &sets,
-                                                               nalUnitHeaderLengthOut: nil)
+            switch self.config.codec {
+            case .h264:
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                                                                   parameterSetIndex: 0,
+                                                                   parameterSetPointerOut: nil,
+                                                                   parameterSetSizeOut: nil,
+                                                                   parameterSetCountOut: &sets,
+                                                                   nalUnitHeaderLengthOut: nil)
+            case .hevc:
+                CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format!,
+                                                                   parameterSetIndex: 0,
+                                                                   parameterSetPointerOut: nil,
+                                                                   parameterSetSizeOut: nil,
+                                                                   parameterSetCountOut: &sets,
+                                                                   nalUnitHeaderLengthOut: nil)
+            default:
+                1
+            }
+            
         }
 
         // Get actual parameter sets.
@@ -201,12 +260,25 @@ class H264Encoder {
             var parameterSize: Int = 0
             var naluSizeOut: Int32 = 0
             try OSStatusError.checked("Get SPS/PPS data") {
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
-                                                                   parameterSetIndex: parameterSetIndex,
-                                                                   parameterSetPointerOut: &parameterSet,
-                                                                   parameterSetSizeOut: &parameterSize,
-                                                                   parameterSetCountOut: nil,
-                                                                   nalUnitHeaderLengthOut: &naluSizeOut)
+                switch self.config.codec {
+                case .h264:
+                    CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                                                                       parameterSetIndex: parameterSetIndex,
+                                                                       parameterSetPointerOut: &parameterSet,
+                                                                       parameterSetSizeOut: &parameterSize,
+                                                                       parameterSetCountOut: nil,
+                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
+                case .hevc:
+                    CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format!,
+                                                                       parameterSetIndex: parameterSetIndex,
+                                                                       parameterSetPointerOut: &parameterSet,
+                                                                       parameterSetSizeOut: &parameterSize,
+                                                                       parameterSetCountOut: nil,
+                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
+                default:
+                    1
+                }
+                
             }
             guard naluSizeOut == startCode.count else { throw "Unexpected start code length?" }
             parameterSetPointers.append(parameterSet!)
@@ -241,15 +313,15 @@ class H264Encoder {
         // Return as a sample for easy callback.
         return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
     }
-
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                    verticalMirror: Bool) throws -> CMSampleBuffer {
-        let bytes: [UInt8] = [
+    
+    private func getH264OrientationBytes(orientation: AVCaptureVideoOrientation,
+                                         verticalMirror: Bool) -> [UInt8] {
+        [
             // Start Code.
             0x00, 0x00, 0x00, 0x01,
 
             // SEI NALU type,
-            0x06,
+            H264Utilities.H264Types.sei.rawValue,
 
             // Display orientation
             0x2f, 0x02,
@@ -263,6 +335,41 @@ class H264Encoder {
             // Stop.
             0x80
         ]
+    }
+    
+    private func getHEVCOrientationBytes(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) -> [UInt8] {
+        [
+            // Start Code.
+            0x00, 0x00, 0x00, 0x01,
+
+            // SEI NALU type,
+            HEVCUtilities.HEVCTypes.sei.rawValue << 1, 0x00,
+
+            // Display orientation
+            0x2f, 0x02,
+
+            // Orientation payload.
+            UInt8(orientation.rawValue),
+
+            // Device position.
+            verticalMirror ? 0x01 : 0x00,
+
+            // Stop.
+            0x80
+        ]
+    }
+
+    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
+                                    verticalMirror: Bool) throws -> CMSampleBuffer {
+        let bytes: [UInt8]
+        switch self.config.codec {
+        case .h264:
+            bytes = getH264OrientationBytes(orientation: orientation, verticalMirror: verticalMirror)
+        case .hevc:
+            bytes = getHEVCOrientationBytes(orientation: orientation, verticalMirror: verticalMirror)
+        default:
+            throw "Codec \(self.config.codec) doesn't provide orientation data"
+        }
 
         let memBlock = malloc(bytes.count)
         bytes.withUnsafeBytes { buffer in

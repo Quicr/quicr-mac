@@ -70,7 +70,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
-    private var encoder: H264Encoder
+    private var encoder: VTEncoder
     private let reliable: Bool
     private var lastCapture: Date?
     private var lastPublish: WrappedOptional<Date> = .init(nil)
@@ -83,11 +83,12 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool,
-                  granularMetrics: Bool) throws {
+                  granularMetrics: Bool,
+                  hevcOverride: Bool) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.granularMetrics = granularMetrics
-        self.codec = config
+        self.codec = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
@@ -113,7 +114,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         #endif
         self.device = device
 
-        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
@@ -139,7 +140,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                 await measurement.publishedFrame(timestamp: timestamp)
             }
         }
-        self.encoder = try .init(config: config,
+        self.encoder = try .init(config: self.codec!,
                                  verticalMirror: device.position == .front,
                                  callback: onEncodedData)
         super.init()

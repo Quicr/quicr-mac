@@ -199,7 +199,7 @@ extension InCallView {
             }
 
             do {
-                self.captureManager = try .init(metricsSubmitter: submitter, granularMetrics: influxConfig.value.granular)
+                self.captureManager = try .init(metricsSubmitter: submitter, granularMetrics: influxConfig.value.granular, hdr: subscriptionConfig.value.hevcOverride)
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
                 return

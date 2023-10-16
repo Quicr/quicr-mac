@@ -41,6 +41,10 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
+                HStack {
+                    Text("HEVC override")
+                    Toggle(isOn: $subscriptionConfig.value.hevcOverride) {}
+                }
             }
             .formStyle(.columns)
         }

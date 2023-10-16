@@ -46,7 +46,7 @@ class H264Subscription: Subscription {
 
     internal let namespace: QuicrNamespace
 
-    private var decoder: H264Decoder?
+    private var decoder: VTDecoder?
     private unowned let participants: VideoParticipants
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
@@ -68,15 +68,31 @@ class H264Subscription: Subscription {
 
     private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
         guard let self = self else { return }
-        let seiType = data[5]
-        switch seiType {
-        case 0x2f:
-            // Video orientation.
-            assert(data[6] == 2)
-            self.orientation = .init(rawValue: .init(data[7]))
-            self.verticalMirror = data[8] == 1
+        switch self.config.codec {
+        case .h264:
+            let seiType = data[5]
+            switch seiType {
+            case 0x2f:
+                // Video orientation.
+                assert(data[6] == 2)
+                self.orientation = .init(rawValue: .init(data[7]))
+                self.verticalMirror = data[8] == 1
+            default:
+                Self.logger.info("Unhandled SEI App type: \(seiType)")
+            }
+        case .hevc:
+            let seiType = data[6]
+            switch seiType {
+            case 0x2f:
+                // Video orientation.
+                assert(data[7] == 2)
+                self.orientation = .init(rawValue: .init(data[8]))
+                self.verticalMirror = data[9] == 1
+            default:
+                Self.logger.info("Unhandled SEI App type: \(seiType)")
+            }
         default:
-            Self.logger.info("Unhandled SEI App type: \(seiType)")
+            break
         }
     }
 
@@ -87,9 +103,10 @@ class H264Subscription: Subscription {
          namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config) {
+         jitterBufferConfig: VideoJitterBuffer.Config,
+         hevcOverride: Bool) {
         self.namespace = namespace
-        self.config = config
+        self.config = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -102,10 +119,10 @@ class H264Subscription: Subscription {
         self.jitterBufferConfig = jitterBufferConfig
 
         if jitterBufferConfig.mode == .layer {
-            self.currentLayerJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(config.fps)))
+            self.currentLayerJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(self.config.fps)))
         } else {
             // Create the decoder.
-            self.decoder = .init(config: config) { [weak self] sample in
+            self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 do {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
@@ -115,7 +132,7 @@ class H264Subscription: Subscription {
             }
 
             // We have what we need to configure the PID dequeuer if using.
-            let duration = 1 / Double(config.fps)
+            let duration = 1 / Double(self.config.fps)
             if jitterBufferConfig.mode == .pid {
                 self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
                                                     frameDuration: duration,
@@ -268,7 +285,15 @@ class H264Subscription: Subscription {
         // Decode.
         var data = frame.data
         do {
-            let depacketized = try H264Utilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
+            let depacketized: [CMSampleBuffer]
+            switch (self.config.codec) {
+            case .h264:
+                depacketized = try H264Utilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
+            case .hevc:
+                depacketized = try HEVCUtilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
+            default:
+                fatalError("Unsupported")
+            }
             if self.jitterBufferConfig.mode == .layer {
                 for sample in depacketized {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)

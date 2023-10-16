@@ -12,15 +12,18 @@ class PublicationFactory {
     private let reliability: MediaReliability
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private let hevcOverride: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         hevcOverride: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
         self.granularMetrics = granularMetrics
+        self.hevcOverride = hevcOverride
     }
 
     func create(_ namespace: QuicrNamespace,
@@ -40,7 +43,8 @@ class PublicationFactory {
                                        config: config,
                                        metricsSubmitter: metricsSubmitter,
                                        reliable: reliability.video.publication,
-                                       granularMetrics: self.granularMetrics)
+                                       granularMetrics: self.granularMetrics,
+                                       hevcOverride: self.hevcOverride)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
