@@ -94,9 +94,9 @@ class H264Utilities {
             // Callback any SEIs.
             if type == .sei {
                 sei(nalu)
+            } else {
+                results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format!))
             }
-
-            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format!))
         }
         return results
     }
