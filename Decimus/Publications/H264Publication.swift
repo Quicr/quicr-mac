@@ -98,20 +98,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
-        // guard let device = AVCaptureDevice.init(uniqueID: sourceId) else {
-        #if !targetEnvironment(macCatalyst)
-        guard let device = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera,
-                                                                          .builtInTelephotoCamera],
-                                                            mediaType: .video,
-                                                            position: .front).devices.first else {
-            throw H264PublicationError.noCamera(sourceID)
+        if #available(iOS 17.0, *) {
+            guard let preferred = AVCaptureDevice.systemPreferredCamera else {
+                throw H264PublicationError.noCamera(sourceID)
+            }
+            self.device = preferred
+        } else {
+            guard let preferred = AVCaptureDevice.default(for: .video) else {
+                throw H264PublicationError.noCamera(sourceID)
+            }
+            self.device = preferred
         }
-        #else
-        guard let device = AVCaptureDevice.default(for: .video) else {
-            throw H264PublicationError.noCamera(sourceID)
-        }
-        #endif
-        self.device = device
 
         let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
             // Publish.
