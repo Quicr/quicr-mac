@@ -52,25 +52,23 @@ struct SubscriptionSettingsView: View {
                     }.pickerStyle(.segmented)
                 }
 
-                Picker("Preferred Camera", selection: $preferredCamera) {
-                    Text("None").tag("None")
-                    ForEach(devices.cameras, id: \.uniqueID) {
-                        Text($0.localizedName)
-                            .tag($0.uniqueID)
-                    }.onChange(of: preferredCamera) { _ in
-                        guard self.preferredCamera != self.noPreference else {
-                            if #available(iOS 17.0, *) {
+                if #available(iOS 17.0, *) {
+                    Picker("Preferred Camera", selection: $preferredCamera) {
+                        Text("None").tag("None")
+                        ForEach(devices.cameras, id: \.uniqueID) {
+                            Text($0.localizedName)
+                                .tag($0.uniqueID)
+                        }.onChange(of: preferredCamera) { _ in
+                            guard self.preferredCamera != self.noPreference else {
                                 AVCaptureDevice.userPreferredCamera = nil
+                                return
                             }
-                            return
-                        }
 
-                        for camera in devices.cameras {
-                            if camera.uniqueID == preferredCamera {
-                                if #available(iOS 17.0, *) {
+                            for camera in devices.cameras {
+                                if camera.uniqueID == preferredCamera {
                                     AVCaptureDevice.userPreferredCamera = camera
+                                    break
                                 }
-                                break
                             }
                         }
                     }
