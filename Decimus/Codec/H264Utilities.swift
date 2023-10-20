@@ -38,7 +38,7 @@ class H264Utilities {
 
         // Extract SPS/PPS if available.
         let paramOutput = try checkParameterSets(data)
-        var data = paramOutput.0
+        let data = paramOutput.0
         if let newFormat = paramOutput.1 {
             format = newFormat
         }

@@ -16,6 +16,30 @@ class H264Encoder {
     private var sequenceNumber : Int64 = 0
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+    
+    private let timestampSEIBytes: [UInt8] = [ // total 44
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01, // 0x28 - size
+        // SEI NALU type,
+        0x06,
+        // Payload type - user_data_unregistered (5)
+        0x05,
+        // Payload size
+        0x25,
+        // UUID (User Data Unregistered)
+        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
+        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
+        // Application specific ID
+        0x02, // Time ms --- offset 24 bytes from beginning
+        // Time Value Int64
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Time timescale Int32
+        0x00, 0x00, 0x00, 0x00,
+        // Sequence number
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Stop bit?
+        0x80
+    ]
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
@@ -118,16 +142,23 @@ class H264Encoder {
             return
         }
         
+        // Increment frame sequence number
+        // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
-
         prependTimestampSEI(timestamp: CMSampleBufferGetPresentationTimeStamp(sample),
                             sequenceNumber: self.sequenceNumber,
                             bufferAllocator: bufferAllocator)
+        
+        // Append Orientation SEI to buffer
+        #if !targetEnvironment(macCatalyst)
+        // Orientation SEI.
+        prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+                                                              verticalMirror: verticalMirror, bufferAllocator: bufferAllocator)
+        #endif
 
         // Annex B time.
         let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
         guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
-
         let key = kCMSampleAttachmentKey_NotSync as NSString
         let foundAttachment = sampleAttachments[key] as? Bool?
         let idr = !(foundAttachment != nil && foundAttachment == true)
@@ -138,35 +169,17 @@ class H264Encoder {
                 Self.logger.error("Failed to handle parameter sets")
                 return
             }
-           /* SAH parameterSets.withUnsafeBytes {
-                callback($0, true)
-            } */
-            
+
+            // append SPS/PPS to beginning of buffer
             parameterSets.withUnsafeMutableBytes {
                 guard let parameterPtr = bufferAllocator.allocateBufferHeader($0.count) else {
                     Self.logger.error("Couldn't allocate parameters buffer")
                     return
                 }
                 // already Annex-B
-                
                 memcpy(parameterPtr, $0.baseAddress!, $0.count)
-                //callback($0.baseAddress!, $0.count, true)
             }
-
         }
-
-        #if !targetEnvironment(macCatalyst)
-        // Orientation SEI.
-        guard let orientationSei = try? makeOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                                           verticalMirror: verticalMirror)
-        else {
-            print("Failed to make orientation SEI")
-            return
-        }
-        try? orientationSei.dataBuffer?.withUnsafeMutableBytes {
-            callback(.init($0), false)
-        }
-        #endif
 
         let buffer = sample.dataBuffer!
         var offset = 0
@@ -198,30 +211,9 @@ class H264Encoder {
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
-        //toAnnexB(bufferPtr: fullEncodedRawPtr, bufferLen: fullEncodedBufferLength)
-        try callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
-        /*
-        // Callback the Annex-B sample.
-        try? sample.dataBuffer!.withUnsafeMutableBytes {
-            callback(.init($0), false)
-        }*/
+        callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
     }
     
-    func toAnnexB(bufferPtr: UnsafeMutableRawPointer?, bufferLen: Int ) {
-        var startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
-
-        // Annex B the actual frame data.
-        var offset = 0
-        while offset < bufferLen - startCode.count {
-            var naluLength: UInt32 = 0
-            memcpy(&naluLength, bufferPtr! + offset, startCode.count)
-            naluLength = CFSwapInt32BigToHost(naluLength)
-            bufferPtr?.advanced(by: offset).copyMemory(from: &startCode, byteCount: startCode.count)
-            // Carry on.
-            offset += startCode.count + Int(naluLength)
-        }
-    }
-
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
         // Get number of parameter sets.
         var sets: Int = 0
@@ -285,38 +277,53 @@ class H264Encoder {
     }
     
     private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, bufferAllocator: BufferAllocator) {
-        let bytes: [UInt8] = [ // total 44
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01, // 0x28 - size
-            // SEI NALU type,
-            0x06,
-            // Payload type - user_data_unregistered (5)
-            0x05,
-            // Payload size
-            0x15,
-            // UUID (User Data Unregistered)
-            0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
-            0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
-            // Application specific ID
-            0x02, // Time ms --- offset 24 bytes from beginning
-            // Time Value Int64
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            // Time timescale Int32
-            0x00, 0x00, 0x00, 0x00,
-            // Sequence number
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        ]
-        
-        let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count)
-        bytes.withUnsafeBytes { buffer in
-            _ = memcpy(timestampPtr, buffer.baseAddress, bytes.count)
-            var time = timestamp
-            // TODO: convert time fields to network byte order...
-            memcpy(timestampPtr! + 24, &time.value, MemoryLayout<Int64>.size)
-            memcpy(timestampPtr! + 32, &time.timescale, MemoryLayout<Int32>.size)
+        let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count)
+        timestampSEIBytes.withUnsafeBytes { buffer in
+            guard let pointer = timestampPtr else { return }
+            // convert time fields to network byte order...
+            var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
+            var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
+            var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+            // copy to buffer
+            memcpy(pointer.advanced(by: 0),  buffer.baseAddress!, buffer.count)
+            memcpy(pointer.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size)
+            memcpy(pointer.advanced(by: 32), &networkTimeScale, MemoryLayout<Int32>.size)
+            memcpy(pointer.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
         }
     }
+    
+    private func extractTimestampSEI(time: inout CMTime, sequenceNumber: inout Int64, bufferPtr: UnsafeRawPointer) {
+        
+    }
 
+    
+    private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
+                                    verticalMirror: Bool, bufferAllocator: BufferAllocator)  {
+        let bytes: [UInt8] = [
+            // Start Code.
+            0x00, 0x00, 0x00, 0x01,
+            // SEI NALU type,
+            0x06,
+            // Display orientation
+            0x2f,
+            // Payload length
+            0x02,
+            // Orientation payload.
+            UInt8(orientation.rawValue),
+            // Device position.
+            verticalMirror ? 0x01 : 0x00,
+            // Stop bit
+            0x80
+        ]
+
+        let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count)
+        bytes.withUnsafeBytes { buffer in
+            guard let pointer = orientationPtr else { return }
+            memcpy(pointer.advanced(by: 0),  buffer.baseAddress!, buffer.count)
+        }
+    }
+    
+    /*
 
     private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
                                     verticalMirror: Bool) throws -> CMSampleBuffer {
@@ -363,6 +370,7 @@ class H264Encoder {
                          sampleTimings: [],
                          sampleSizes: [bytes.count])
     }
+     */
 
     private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
         var buffer: CMBlockBuffer?

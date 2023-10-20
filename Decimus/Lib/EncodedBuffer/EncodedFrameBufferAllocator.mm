@@ -38,7 +38,7 @@
     context.allocate = extBufferAllocatorPtr->_extendedAllocate;
     context.deallocate = extBufferAllocatorPtr->_extendedDeallocate;
     context.info = extBufferAllocatorPtr;
-    allocatorRef =CFAllocatorCreate(kCFAllocatorDefault, &context);
+    allocatorRef = CFAllocatorCreate(kCFAllocatorDefault, &context);
     return allocatorRef;
 }
 
