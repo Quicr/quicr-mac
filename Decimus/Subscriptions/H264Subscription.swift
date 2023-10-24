@@ -254,7 +254,7 @@ class H264Subscription: Subscription {
 
         lastGroup = frame.groupId
         lastObject = frame.objectId
-        
+
         // Timestamp.
         let timestamp: Int64
         if self.jitterBufferConfig.mode == .layer {
