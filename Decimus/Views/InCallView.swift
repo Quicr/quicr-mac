@@ -10,6 +10,9 @@ struct InCallView: View {
     @State private var leaving: Bool = false
     @State private var connecting: Bool = false
     @State private var noParticipantsDetected = false
+    @State private var showPreview = true
+    @State private var lastTap: Date = .now
+    @State private var offset: CGSize = .zero
     var noParticipants: Bool {
         viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
     }
@@ -28,29 +31,59 @@ struct InCallView: View {
         _viewModel = .init(wrappedValue: .init(config: config))
     }
 
+    private var previewDrag: some Gesture {
+        DragGesture()
+            .onChanged {
+                self.offset = $0.translation
+                self.lastTap = .now
+                self.showPreview = true
+            }
+    }
+
     var body: some View {
         ZStack {
             VStack {
-                if connecting || noParticipantsDetected {
-                    ZStack {
-                        Image("RTMC-Background")
-                            .resizable()
-                            .frame(maxHeight: .infinity,
-                                   alignment: .center)
-                            .cornerRadius(12)
-                            .padding([.horizontal, .bottom])
-                        if connecting {
-                            ProgressView()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                GeometryReader { geometry in
+                    Group {
+                        if connecting || noParticipantsDetected {
+                            // Waiting for other participants / connecting.
+                            ZStack {
+                                Image("RTMC-Background")
+                                    .resizable()
+                                    .frame(maxHeight: .infinity,
+                                           alignment: .center)
+                                    .cornerRadius(12)
+                                    .padding([.horizontal, .bottom])
+                                if connecting {
+                                    ProgressView()
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                }
+                            }
+                        } else {
+                            // Incoming videos.
+                            if let controller = viewModel.controller {
+                                VideoGrid(participants: controller.subscriberDelegate.participants)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            }
                         }
                     }
-                } else {
-                    if let controller = viewModel.controller {
-                        VideoGrid(participants: controller.subscriberDelegate.participants)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .overlay {
+                        // Preview / self-view.
+                        if let capture = viewModel.captureManager, showPreview {
+                            ForEach(try! capture.activeDevices(), id: \.self) {
+                                try! PreviewView(captureManager: capture, device: $0)
+                                    .frame(maxWidth: geometry.size.width / 7)
+                                    .offset(self.offset == .zero ?
+                                            CGSize(width: geometry.size.width / 2 - geometry.size.width / 7,
+                                                   height: geometry.size.height / 2) :
+                                            self.offset)
+                                    .gesture(self.previewDrag)
+                            }
+                        }
                     }
                 }
 
+                // Call controls panel.
                 if let capture = viewModel.captureManager,
                    let engine = viewModel.engine {
                     CallControls(captureManager: capture,
@@ -81,6 +114,29 @@ struct InCallView: View {
                 return onLeave()
             }
             connecting = false
+        }.onTapGesture {
+            // Show the preview when we tap.
+            self.lastTap = .now
+            withAnimation {
+                self.showPreview.toggle()
+            }
+        }
+        .task {
+            // Hide the preview if we didn't tap for a while.
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    return
+                }
+                if self.lastTap.timeIntervalSince(.now) < -5 {
+                    withAnimation {
+                        if self.showPreview {
+                            self.showPreview = false
+                        }
+                    }
+                }
+            }
         }
     }
 }

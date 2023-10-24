@@ -94,16 +94,17 @@ class H264Utilities {
             // Callback any SEIs.
             if type == .sei {
                 sei(nalu)
+                continue
             }
 
-            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format!))
+            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
         }
         return results
     }
 
     static func depacketizeNalu(_ nalu: inout Data,
                                 timeInfo: CMSampleTimingInfo,
-                                format: CMFormatDescription) throws -> CMSampleBuffer {
+                                format: CMFormatDescription?) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
