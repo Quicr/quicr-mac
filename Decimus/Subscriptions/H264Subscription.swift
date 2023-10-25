@@ -66,6 +66,7 @@ class H264Subscription: Subscription {
     private var currentFormat: CMFormatDescription?
     private var currentLayerJitterFramesCount: UInt64?
     private var timeInfo: CMSampleTimingInfo?
+    private var startTimeSet = false
 
     private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
         guard let self = self else { return }
@@ -251,28 +252,11 @@ class H264Subscription: Subscription {
 
         lastGroup = frame.groupId
         lastObject = frame.objectId
-        
-        // Timestamp.
-        let timestamp: Int64
-        if self.jitterBufferConfig.mode == .layer {
-            timestamp = Int64(self.currentLayerJitterFramesCount!)
-            self.currentLayerJitterFramesCount! += 1
-        } else {
-            timestamp = 0
-        }
-        
-        /*
-        let time = CMTimeMake(value: timestamp,
-                              timescale: Int32(config.fps))
-        var timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
-                                          presentationTimeStamp: time,
-                                          decodeTimeStamp: .invalid)
-         */
 
         // Decode.
         var data = frame.data
         do {
-            let depacketized = try H264Utilities.depacketize(data, timeInfo: &self.timeInfo, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+            let depacketized = try H264Utilities.depacketize(data, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
             if self.jitterBufferConfig.mode == .layer {
                 for sample in depacketized {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
@@ -341,12 +325,30 @@ class H264Subscription: Subscription {
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
+                // Set the layer's start time to the first sample's timestamp minus the target depth.
+                if !self.startTimeSet {
+                    try self.setLayerStartTime(layer: participant.view.layer!, time: sampleToEnqueue.presentationTimeStamp)
+                    self.startTimeSet = true
+                }
                 try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror!))
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
             participant.lastUpdated = .now()
         }
+    }
+
+    private func setLayerStartTime(layer: AVSampleBufferDisplayLayer, time: CMTime) throws {
+        guard Thread.isMainThread else {
+            throw "Should be called from the main thread"
+        }
+        let timebase = try CMTimebase(sourceClock: .hostTimeClock)
+        let delay = CMTime(seconds: self.jitterBufferConfig.minDepth,
+                           preferredTimescale: 1000)
+        let startTime = CMTimeSubtract(time, delay)
+        try timebase.setTime(startTime)
+        try timebase.setRate(1.0)
+        layer.controlTimebase = timebase
     }
 
     private func flushDisplayLayer() {
@@ -360,6 +362,7 @@ class H264Subscription: Subscription {
 
             self.currentLayerJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
             Self.logger.debug("Flushing display layer")
+            self.startTimeSet = false
         }
     }
 }
