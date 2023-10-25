@@ -281,6 +281,7 @@ class H264Encoder {
         timestampSEIBytes.withUnsafeBytes { buffer in
             guard let pointer = timestampPtr else { return }
             // convert time fields to network byte order...
+
             var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
             var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
             var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
@@ -291,11 +292,6 @@ class H264Encoder {
             memcpy(pointer.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
         }
     }
-    
-    private func extractTimestampSEI(time: inout CMTime, sequenceNumber: inout Int64, bufferPtr: UnsafeRawPointer) {
-        
-    }
-
     
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
                                     verticalMirror: Bool, bufferAllocator: BufferAllocator)  {

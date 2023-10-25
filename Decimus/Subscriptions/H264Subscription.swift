@@ -62,9 +62,10 @@ class H264Subscription: Subscription {
     private let jitterBufferConfig: VideoJitterBuffer.Config
     private let config: VideoCodecConfig
     private var orientation: AVCaptureVideoOrientation?
-    private var verticalMirror: Bool = false
+    private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var currentLayerJitterFramesCount: UInt64?
+    private var timeInfo: CMSampleTimingInfo?
 
     private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
         guard let self = self else { return }
@@ -259,16 +260,19 @@ class H264Subscription: Subscription {
         } else {
             timestamp = 0
         }
+        
+        /*
         let time = CMTimeMake(value: timestamp,
                               timescale: Int32(config.fps))
-        let timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
+        var timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
                                           presentationTimeStamp: time,
                                           decodeTimeStamp: .invalid)
+         */
 
         // Decode.
         var data = frame.data
         do {
-            let depacketized = try H264Utilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
+            let depacketized = try H264Utilities.depacketize(data, timeInfo: &self.timeInfo, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
             if self.jitterBufferConfig.mode == .layer {
                 for sample in depacketized {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
@@ -286,7 +290,7 @@ class H264Subscription: Subscription {
 
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: AVCaptureVideoOrientation?,
-                               verticalMirror: Bool) throws {
+                               verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? .now : nil
@@ -337,7 +341,7 @@ class H264Subscription: Subscription {
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
-                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror))
+                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror!))
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
