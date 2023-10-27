@@ -45,6 +45,12 @@ class H264Encoder {
         self.verticalMirror = verticalMirror
         self.callback = callback
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
+        let allocator: CFAllocator?
+        #if targetEnvironment(macCatalyst)
+        allocator = self.bufferAllocator.allocator().takeUnretainedValue()
+        #else
+        allocator = nil
+        #endif
 
         var compressionSession: VTCompressionSession?
         let created = VTCompressionSessionCreate(allocator: nil,
@@ -53,7 +59,7 @@ class H264Encoder {
                                                  codecType: kCMVideoCodecType_H264,
                                                  encoderSpecification: Self.makeEncoderSpecification(),
                                                  imageBufferAttributes: nil,
-                                                 compressedDataAllocator: self.bufferAllocator.allocator().takeUnretainedValue(),
+                                                 compressedDataAllocator: allocator,
                                                  outputCallback: nil,
                                                  refcon: nil,
                                                  compressionSessionOut: &compressionSession)
@@ -142,27 +148,32 @@ class H264Encoder {
             return
         }
         
+        let buffer: CMBlockBuffer
         #if !targetEnvironment(macCatalyst)
-        let bufferSize : Int = CMBlockBufferGetDataLength(sample.dataBuffer!)
+        let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
-        let bufferPtr : UnsafeMutableRawPointer = bufferAllocator.iosAllocBuffer(bufferSize)
-        _ = try? sample.dataBuffer?.withUnsafeMutableBytes {
-            memcpy(bufferPtr, $0.baseAddress, bufferSize)
+        guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
+            fatalError()
         }
+        let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
+        buffer = try! .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
+        try! sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
+        #else
+        buffer  = sample.dataBuffer!
         #endif
         
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
-        prependTimestampSEI(timestamp: CMSampleBufferGetPresentationTimeStamp(sample),
+        prependTimestampSEI(timestamp: sample.presentationTimeStamp,
                             sequenceNumber: self.sequenceNumber,
                             bufferAllocator: bufferAllocator)
-        
+
         // Append Orientation SEI to buffer
         #if !targetEnvironment(macCatalyst)
-        // Orientation SEI.
         prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                                              verticalMirror: verticalMirror, bufferAllocator: bufferAllocator)
+                              verticalMirror: verticalMirror,
+                              bufferAllocator: bufferAllocator)
         #endif
 
         // Annex B time.
@@ -187,10 +198,10 @@ class H264Encoder {
                 }
                 // already Annex-B
                 memcpy(parameterPtr, $0.baseAddress!, $0.count)
+                assert($0.starts(with: self.startCode))
             }
         }
 
-        let buffer = sample.dataBuffer!
         var offset = 0
         while offset < buffer.dataLength - startCode.count {
             guard let memory = malloc(startCode.count) else { fatalError("malloc fail") }
@@ -212,6 +223,7 @@ class H264Encoder {
                                           blockBuffer: buffer,
                                           offsetIntoDestination: offset,
                                           dataLength: startCode.count)
+            assert(try! buffer.dataBytes().starts(with: self.startCode))
 
             // Carry on.
             offset += startCode.count + Int(naluLength)
@@ -220,8 +232,8 @@ class H264Encoder {
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
+        assert(UnsafeMutableRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength).starts(with: self.startCode))
         callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
-        
     }
     
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
@@ -322,11 +334,10 @@ class H264Encoder {
             0x80
         ]
 
-        let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count)
-        bytes.withUnsafeBytes { buffer in
-            guard let pointer = orientationPtr else { return }
-            memcpy(pointer.advanced(by: 0),  buffer.baseAddress!, buffer.count)
-        }
+        guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else { fatalError() }
+        let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
+        bytes.copyBytes(to: orientationBufferPtr)
+        assert(orientationBufferPtr.starts(with: bytes))
     }
     
     /*

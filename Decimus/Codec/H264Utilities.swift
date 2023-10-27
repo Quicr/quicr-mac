@@ -119,8 +119,8 @@ class H264Utilities {
                 var seiData = nalu.subdata(in: naluStartCode.count..<nalu.count)
                 if seiData.count == 6 { // Orientation
                     if seiData[2] == 0x02 { // yep - orientation
-                        orientation = .init(rawValue: .init(Int(data[3])))
-                        verticalMirror = data[4] == 1
+                        orientation = .init(rawValue: .init(Int(seiData[3])))
+                        verticalMirror = seiData[4] == 1
                     }
                 } else if seiData.count == 41 { // timestamp?
                     if seiData[19] == 2 { // good enough - timstamp!
