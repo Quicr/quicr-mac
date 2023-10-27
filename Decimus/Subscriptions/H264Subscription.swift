@@ -64,7 +64,6 @@ class H264Subscription: Subscription {
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
-    private var currentLayerJitterFramesCount: UInt64?
     private var timeInfo: CMSampleTimingInfo?
     private var startTimeSet = false
 
@@ -103,9 +102,7 @@ class H264Subscription: Subscription {
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
 
-        if jitterBufferConfig.mode == .layer {
-            self.currentLayerJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(config.fps)))
-        } else {
+        if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: config) { [weak self] sample in
                 guard let self = self else { return }
@@ -258,7 +255,7 @@ class H264Subscription: Subscription {
         lastObject = frame.objectId
 
         // Decode.
-        var data = frame.data
+        let data = frame.data
         do {
             let depacketized = try H264Utilities.depacketize(data, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
             if self.jitterBufferConfig.mode == .layer {
@@ -318,10 +315,6 @@ class H264Subscription: Subscription {
                                                   sampleTimings: sample.sampleTimingInfos(),
                                                   sampleSizes: sample.sampleSizes())
         } else {
-            // FIXME: Driving from proper timestamps probably preferable.
-            if sample.sampleAttachments.count > 0 {
-                sample.sampleAttachments[0][.displayImmediately] = true
-            }
             sampleToEnqueue = sample
         }
 
@@ -347,9 +340,14 @@ class H264Subscription: Subscription {
             throw "Should be called from the main thread"
         }
         let timebase = try CMTimebase(sourceClock: .hostTimeClock)
-        let delay = CMTime(seconds: self.jitterBufferConfig.minDepth,
-                           preferredTimescale: 1000)
-        let startTime = CMTimeSubtract(time, delay)
+        let startTime: CMTime
+        if self.jitterBufferConfig.mode == .layer {
+            let delay = CMTime(seconds: self.jitterBufferConfig.minDepth,
+                               preferredTimescale: 1000)
+            startTime = CMTimeSubtract(time, delay)
+        } else {
+            startTime = time
+        }
         try timebase.setTime(startTime)
         try timebase.setRate(1.0)
         layer.controlTimebase = timebase
@@ -363,8 +361,6 @@ class H264Subscription: Subscription {
             } catch {
                 Self.logger.error("Could not flush layer: \(error)")
             }
-
-            self.currentLayerJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
             Self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
