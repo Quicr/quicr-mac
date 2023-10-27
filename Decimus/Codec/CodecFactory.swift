@@ -108,7 +108,7 @@ private func checkEntry<T: LosslessStringConvertible>(_ tokens: [String: String]
 fileprivate extension VideoCodecConfig {
     init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec
-        self.bitrate = try checkEntry(tokens, entry: "br") * 1024
+        self.bitrate = try checkEntry(tokens, entry: "br") * 1000
         self.fps = try checkEntry(tokens, entry: "fps")
         self.width = try checkEntry(tokens, entry: "width")
         self.height = try checkEntry(tokens, entry: "height")
@@ -119,6 +119,6 @@ fileprivate extension VideoCodecConfig {
 fileprivate extension AudioCodecConfig {
     init(codec: CodecType, tokens: [String: String]) throws {
         self.codec = codec
-        self.bitrate = try checkEntry(tokens, entry: "br") * 1024
+        self.bitrate = try checkEntry(tokens, entry: "br") * 1000
     }
 }
