@@ -110,9 +110,9 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.device = preferred
         }
 
-        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, length, flag in
+        let onEncodedData: H264Encoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
             // Publish.
-            publishDelegate?.publishObject(namespace, data: data, length: length, group: flag)
+            publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
             // Metrics.
             guard let measurement = measurement else { return }
@@ -132,7 +132,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                 if let delay = delay {
                     await measurement.publishDelay(delayMs: delay, timestamp: timestamp)
                 }
-                await measurement.sentBytes(sent: UInt64(length), timestamp: timestamp)
+                await measurement.sentBytes(sent: UInt64(data.count), timestamp: timestamp)
                 await measurement.publishedFrame(timestamp: timestamp)
             }
         }

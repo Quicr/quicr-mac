@@ -5,7 +5,7 @@ import AVFoundation
 import os
 
 class H264Encoder {
-    typealias EncodedCallback = (UnsafeMutableRawPointer, Int, Bool) -> Void
+    typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
 
     private static let logger = DecimusLogger(H264Encoder.self)
 
@@ -232,8 +232,9 @@ class H264Encoder {
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
-        assert(UnsafeMutableRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength).starts(with: self.startCode))
-        callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
+        let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
+        assert(fullEncodedBuffer.starts(with: self.startCode))
+        callback(fullEncodedBuffer, idr)
     }
     
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
