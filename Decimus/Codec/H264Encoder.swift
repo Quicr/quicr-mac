@@ -185,20 +185,21 @@ class H264Encoder {
 
         if idr {
             // SPS + PPS.
-            guard var parameterSets = try? handleParameterSets(sample: sample) else {
+            guard let parameterSets = try? handleParameterSets(sample: sample) else {
                 Self.logger.error("Failed to handle parameter sets")
                 return
             }
 
             // append SPS/PPS to beginning of buffer
-            parameterSets.withUnsafeMutableBytes {
-                guard let parameterPtr = bufferAllocator.allocateBufferHeader($0.count) else {
-                    Self.logger.error("Couldn't allocate parameters buffer")
-                    return
-                }
-                // already Annex-B
-                memcpy(parameterPtr, $0.baseAddress!, $0.count)
-                assert($0.starts(with: self.startCode))
+            guard let parameterDestination = bufferAllocator.allocateBufferHeader(parameterSets.count) else {
+                Self.logger.error("Couldn't allocate parameters buffer")
+                return
+            }
+            parameterDestination.withMemoryRebound(to: UInt8.self, capacity: parameterSets.count) {
+                let destBuffer = UnsafeMutableBufferPointer<UInt8>(start: $0, count: parameterSets.count)
+                let copied = parameterSets.copyBytes(to: destBuffer)
+                assert(copied == parameterSets.count)
+                assert(destBuffer.starts(with: self.startCode))
             }
         }
 
@@ -236,13 +237,12 @@ class H264Encoder {
         assert(fullEncodedBuffer.starts(with: self.startCode))
         callback(fullEncodedBuffer, idr)
     }
-    
+
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
         // Get number of parameter sets.
         var sets: Int = 0
-        let format = CMSampleBufferGetFormatDescription(sample)
         try OSStatusError.checked("Get number of SPS/PPS") {
-            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+            CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
                                                                parameterSetIndex: 0,
                                                                parameterSetPointerOut: nil,
                                                                parameterSetSizeOut: nil,
@@ -258,7 +258,7 @@ class H264Encoder {
             var parameterSize: Int = 0
             var naluSizeOut: Int32 = 0
             try OSStatusError.checked("Get SPS/PPS data") {
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format!,
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
                                                                    parameterSetIndex: parameterSetIndex,
                                                                    parameterSetPointerOut: &parameterSet,
                                                                    parameterSetSizeOut: &parameterSize,
@@ -273,30 +273,18 @@ class H264Encoder {
         // Compute total ANNEX B parameter set size.
         var totalLength = startCode.count * sets
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
-
-        // Make a block buffer for PPS/SPS.
-        let buffer = try makeBuffer(totalLength: totalLength)
-
-        var offset = 0
+        
+        // Make SPS/PPS buffer.
+        var buffer = Data(capacity: totalLength)
         for parameterSetIndex in 0...sets-1 {
-            try OSStatusError.checked("Set SPS/PPS start code") {
-                CMBlockBufferReplaceDataBytes(with: startCode,
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: startCode.count)
-            }
-            offset += startCode.count
-            try OSStatusError.checked("Copy SPS/PPS data") {
-                CMBlockBufferReplaceDataBytes(with: parameterSetPointers[parameterSetIndex],
-                                              blockBuffer: buffer,
-                                              offsetIntoDestination: offset,
-                                              dataLength: parameterSetLengths[parameterSetIndex])
-            }
-            offset += parameterSetLengths[parameterSetIndex]
+            // Start code first.
+            buffer.append(contentsOf: startCode)
+            // Copy in parameter data.
+            let pointer = parameterSetPointers[parameterSetIndex]
+            let length = parameterSetLengths[parameterSetIndex]
+            buffer.append(pointer, count: length)
         }
-
-        // Return as a sample for easy callback.
-        return try makeParameterSampleBuffer(sample: sample, buffer: buffer, totalLength: totalLength)
+        return buffer
     }
     
     private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, bufferAllocator: BufferAllocator) {
@@ -340,55 +328,6 @@ class H264Encoder {
         bytes.copyBytes(to: orientationBufferPtr)
         assert(orientationBufferPtr.starts(with: bytes))
     }
-    
-    /*
-
-    private func makeOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                    verticalMirror: Bool) throws -> CMSampleBuffer {
-        let bytes: [UInt8] = [
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01,
-
-            // SEI NALU type,
-            0x06,
-
-            // Display orientation
-            0x2f, 0x02,
-
-            // Orientation payload.
-            UInt8(orientation.rawValue),
-
-            // Device position.
-            verticalMirror ? 0x01 : 0x00,
-
-            // Stop.
-            0x80
-        ]
-
-        let memBlock = malloc(bytes.count)
-        bytes.withUnsafeBytes { buffer in
-            _ = memcpy(memBlock, buffer.baseAddress, bytes.count)
-        }
-
-        var block: CMBlockBuffer?
-        try OSStatusError.checked("Create SEI memory block") {
-            CMBlockBufferCreateWithMemoryBlock(allocator: nil,
-                                               memoryBlock: memBlock,
-                                               blockLength: bytes.count,
-                                               blockAllocator: nil,
-                                               customBlockSource: nil,
-                                               offsetToData: 0,
-                                               dataLength: bytes.count,
-                                               flags: 0,
-                                               blockBufferOut: &block)
-        }
-        return try .init(dataBuffer: block,
-                         formatDescription: nil,
-                         numSamples: 1,
-                         sampleTimings: [],
-                         sampleSizes: [bytes.count])
-    }
-     */
 
     private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {
         var buffer: CMBlockBuffer?
@@ -407,26 +346,6 @@ class H264Encoder {
             CMBlockBufferAssureBlockMemory(buffer!)
         }
         return buffer!
-    }
-
-    private func makeParameterSampleBuffer(sample: CMSampleBuffer,
-                                           buffer: CMBlockBuffer,
-                                           totalLength: Int) throws -> Data {
-        var time: CMSampleTimingInfo = try sample.sampleTimingInfo(at: 0)
-        var parameterSample: CMSampleBuffer?
-        var length = totalLength
-        try OSStatusError.checked("Create SPS/PPS Buffer") {
-            CMSampleBufferCreateReady(allocator: kCFAllocatorDefault,
-                                      dataBuffer: buffer,
-                                      formatDescription: nil,
-                                      sampleCount: 1,
-                                      sampleTimingEntryCount: 1,
-                                      sampleTimingArray: &time,
-                                      sampleSizeEntryCount: 1,
-                                      sampleSizeArray: &length,
-                                      sampleBufferOut: &parameterSample)
-        }
-        return try parameterSample!.dataBuffer!.dataBytes()
     }
 
     /// Try to build an encoder specification dictionary.
