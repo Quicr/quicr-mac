@@ -30,7 +30,6 @@ class H264Utilities {
     /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     static func depacketize(_ data: Data,
-                            timeInfo: inout CMSampleTimingInfo?,
                             format: inout CMFormatDescription?,
                             orientation: inout AVCaptureVideoOrientation?,
                             verticalMirror: inout Bool?) throws -> [CMSampleBuffer] {
@@ -100,6 +99,7 @@ class H264Utilities {
         var sequenceNumber : UInt64 = 0
 
         // Create sample buffers from NALUs.
+        var timeInfo: CMSampleTimingInfo?
         var results: [CMSampleBuffer] = []
         for index in 0..<nalus.count {
             // What type is this NALU?
@@ -134,9 +134,9 @@ class H264Utilities {
                             sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
                             let timeStamp = CMTimeMake(value: Int64(timeValue),
                                                   timescale: Int32(timeScale))
-                            timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0,      preferredTimescale: 30),
-                                                              presentationTimeStamp: timeStamp,
-                                                              decodeTimeStamp: .invalid)
+                            timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                                          presentationTimeStamp: timeStamp,
+                                                          decodeTimeStamp: .invalid)
                         }
                     } else {
                         print("Unhanbled SEI")
@@ -145,19 +145,20 @@ class H264Utilities {
             }
             
 
-            if spsData != nil && ppsData != nil {
-                format = try CMVideoFormatDescription(h264ParameterSets: [spsData!, ppsData!], nalUnitHeaderLength: naluStartCode.count)
+            if let spsData = spsData,
+               let ppsData = ppsData {
+                format = try CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
             }
         
             if type == .pFrame || type == .idr {
-                results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo!, format: format!))
+                results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
             }
         }
         return results
     }
-
+    
     static func depacketizeNalu(_ nalu: inout Data,
-                                timeInfo: CMSampleTimingInfo,
+                                timeInfo: CMSampleTimingInfo?,
                                 format: CMFormatDescription?) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
@@ -167,6 +168,8 @@ class H264Utilities {
         var naluDataLength = UInt32(nalu.count - naluStartCode.count).bigEndian
         nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
 
+        let timeInfo: CMSampleTimingInfo = timeInfo ?? .invalid
+
         // Return the sample buffer.
         let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
                                                           count: nalu.count)) { _, _ in }
@@ -175,65 +178,5 @@ class H264Utilities {
                          numSamples: 1,
                          sampleTimings: [timeInfo],
                          sampleSizes: [blockBuffer.dataLength])
-    }
-
-    func createFormat() {
-        
-    }
-    
-    /// Extracts parameter sets from the given pointer, if any.
-    /// - Parameter data Encoded NALU data to check with 4 byte start code / length at the start.
-    /// - Returns data read forwards to the next unprocessed start code, if any, and the extracted format, if any.
-    private static func checkParameterSets(_ data: Data) throws -> (Data, CMFormatDescription?) {
-        assert(data.starts(with: naluStartCode))
-
-        // Is this SPS?
-        let type = H264Types(rawValue: data[naluStartCode.count] & 0x1F)
-        guard type == .sps else {
-            return (data, nil)
-        }
-        var ppsStartCodeIndex: Int = 0
-        var spsLength: Int = 0
-        if type == .sps {
-            for byte in naluStartCode.count...data.count - 1 where data.advanced(by: byte).starts(with: naluStartCode) {
-                // Found the next start code.
-                ppsStartCodeIndex = byte
-                spsLength = ppsStartCodeIndex
-                break
-            }
-
-            guard ppsStartCodeIndex != 0 else {
-                throw "Expected to find PPS start code after SPS"
-            }
-        }
-        let spsRawData = data.subdata(in: naluStartCode.count..<spsLength)
-
-        // Check for PPS.
-        var idrStartCodeIndex: Int = 0
-        var ppsRawData = data.advanced(by: ppsStartCodeIndex).advanced(by: naluStartCode.count)
-        let secondType = H264Types(rawValue: ppsRawData[0] & 0x1F)
-        guard secondType == .pps else {
-            let offsetted = data.advanced(by: ppsStartCodeIndex)
-            assert(offsetted.starts(with: self.naluStartCode))
-            return (offsetted, nil)
-        }
-
-        // Is there another start code in this data?
-        for byte in 0...ppsRawData.count where
-        ppsRawData.advanced(by: byte).starts(with: naluStartCode) {
-            idrStartCodeIndex = byte
-            break
-        }
-        if idrStartCodeIndex > 0 {
-            ppsRawData = ppsRawData.subdata(in: 0..<idrStartCodeIndex)
-        }
-
-        // Collate SPS & PPS.
-        let format = try CMVideoFormatDescription(h264ParameterSets: [spsRawData, ppsRawData], nalUnitHeaderLength: naluStartCode.count)
-        let offsetted = data.advanced(by: idrStartCodeIndex > 0 ? idrStartCodeIndex : data.count)
-        if offsetted.count > 0 {
-            assert(offsetted.starts(with: self.naluStartCode))
-        }
-        return (offsetted, format)
     }
 }
