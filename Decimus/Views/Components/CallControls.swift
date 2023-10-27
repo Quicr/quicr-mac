@@ -41,7 +41,7 @@ struct CallControls: View {
                       (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
                 role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
-                action:  { viewModel.toggleMicrophone() },
+                action: { viewModel.toggleMicrophone() },
                 pickerAction: { openAudioModal() }
             ) {
                 Text("Audio Connection")
@@ -252,6 +252,6 @@ struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
         let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
-        CallControls(captureManager: capture, engine: try! .init(), leaving: bool)
+        CallControls(captureManager: capture, engine: try! .init(), leaving: bool) // swiftlint:disable:this force_try
     }
 }

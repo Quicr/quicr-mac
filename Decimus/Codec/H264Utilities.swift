@@ -4,10 +4,10 @@ import AVFoundation
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities {
     private static let logger = DecimusLogger(H264Utilities.self)
-    
+
     // Bytes that precede every NALU.
     static let naluStartCode: [UInt8] = [0x00, 0x00, 0x00, 0x01]
-    
+
     // H264 frame type identifiers.
     enum H264Types: UInt8 {
         case pFrame = 1
@@ -16,16 +16,16 @@ class H264Utilities {
         case sps = 7
         case pps = 8
     }
-    
+
     enum PacketizationError: Error {
         case missingStartCode
     }
 
     /// Callback type to signal the caller an SEI has been found in the bitstream.
     typealias SEICallback = (Data) -> Void
-    
+
     /// Turns an H264 Annex B bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The H264 data. This is used in place and will be modified, so much outlive any use of the created samples.
+    /// - Parameter data The H264 data. This is used in place and will be modified, so must outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
     /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
@@ -155,8 +155,10 @@ class H264Utilities {
         }
         return results
     }
-    
-    static func depacketizeNalu(_ nalu: inout Data, timeInfo: CMSampleTimingInfo, format: CMFormatDescription) throws -> CMSampleBuffer {
+
+    static func depacketizeNalu(_ nalu: inout Data,
+                                timeInfo: CMSampleTimingInfo,
+                                format: CMFormatDescription?) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -164,7 +166,7 @@ class H264Utilities {
         // Change start code to length
         var naluDataLength = UInt32(nalu.count - naluStartCode.count).bigEndian
         nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
-        
+
         // Return the sample buffer.
         let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
                                                           count: nalu.count)) { _, _ in }
@@ -184,7 +186,7 @@ class H264Utilities {
     /// - Returns data read forwards to the next unprocessed start code, if any, and the extracted format, if any.
     private static func checkParameterSets(_ data: Data) throws -> (Data, CMFormatDescription?) {
         assert(data.starts(with: naluStartCode))
-        
+
         // Is this SPS?
         let type = H264Types(rawValue: data[naluStartCode.count] & 0x1F)
         guard type == .sps else {
@@ -199,13 +201,13 @@ class H264Utilities {
                 spsLength = ppsStartCodeIndex
                 break
             }
-            
+
             guard ppsStartCodeIndex != 0 else {
                 throw "Expected to find PPS start code after SPS"
             }
         }
         let spsRawData = data.subdata(in: naluStartCode.count..<spsLength)
-        
+
         // Check for PPS.
         var idrStartCodeIndex: Int = 0
         var ppsRawData = data.advanced(by: ppsStartCodeIndex).advanced(by: naluStartCode.count)
@@ -215,7 +217,7 @@ class H264Utilities {
             assert(offsetted.starts(with: self.naluStartCode))
             return (offsetted, nil)
         }
-        
+
         // Is there another start code in this data?
         for byte in 0...ppsRawData.count where
         ppsRawData.advanced(by: byte).starts(with: naluStartCode) {
@@ -225,7 +227,7 @@ class H264Utilities {
         if idrStartCodeIndex > 0 {
             ppsRawData = ppsRawData.subdata(in: 0..<idrStartCodeIndex)
         }
-        
+
         // Collate SPS & PPS.
         let format = try CMVideoFormatDescription(h264ParameterSets: [spsRawData, ppsRawData], nalUnitHeaderLength: naluStartCode.count)
         let offsetted = data.advanced(by: idrStartCodeIndex > 0 ? idrStartCodeIndex : data.count)

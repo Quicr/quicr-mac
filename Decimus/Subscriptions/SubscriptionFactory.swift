@@ -61,7 +61,7 @@ class SubscriptionFactory {
                                              CodecConfig,
                                              MetricsSubmitter?) throws -> Subscription?
 
-    private unowned let participants: VideoParticipants
+    private let participants: VideoParticipants
     private let engine: DecimusAudioEngine
     private let config: SubscriptionConfig
     private let granularMetrics: Bool

@@ -31,7 +31,7 @@ class PIDDequeuer: VideoDequeuer {
         self.ki = ki
         self.kd = kd
     }
-    
+
     func calculateWaitTime() -> TimeInterval {
         let error = self.targetDepth - self.currentDepth
         self.integral += error

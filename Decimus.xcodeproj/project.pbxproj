@@ -13,6 +13,8 @@
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186397A02ADE0B9100FBF877 /* VideoDevices.swift */; };
+		1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867950A2AD58E54008F99C6 /* PreviewView.swift */; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
@@ -152,6 +154,8 @@
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		186397A02ADE0B9100FBF877 /* VideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDevices.swift; sourceTree = "<group>"; };
+		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
@@ -417,6 +421,7 @@
 				1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */,
 				1848B86E2ABAE51A00275F71 /* OSStatusError.swift */,
 				18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */,
+				186397A02ADE0B9100FBF877 /* VideoDevices.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -569,6 +574,7 @@
 				FF01709529C10013000E23A6 /* FormInput.swift */,
 				FFB8CBE429C148B70093C623 /* ActionPicker.swift */,
 				FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */,
+				1867950A2AD58E54008F99C6 /* PreviewView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -760,6 +766,7 @@
 			files = (
 				FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */,
 				1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */,
+				1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */,
 				9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */,
@@ -796,6 +803,7 @@
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
+				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,

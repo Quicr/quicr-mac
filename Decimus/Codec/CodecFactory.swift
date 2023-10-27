@@ -36,7 +36,7 @@ struct UnknownCodecConfig: CodecConfig {
 }
 
 /// Video codec specific configuration type.
-struct VideoCodecConfig: CodecConfig {
+struct VideoCodecConfig: CodecConfig, Equatable {
     let codec: CodecType
     let bitrate: UInt32
     let fps: UInt16

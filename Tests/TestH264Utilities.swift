@@ -6,9 +6,9 @@ final class TestH264Utilities: XCTestCase {
     func testDepacketization() throws {
         let values: [UInt8] = [
             0x00, 0x00, 0x00, 0x01,
-            1,2,3,4,5,
+            1, 2, 3, 4, 5,
             0x00, 0x00, 0x00, 0x01,
-            1,8,9,10,11,
+            1, 8, 9, 10, 11
         ]
         var data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
@@ -35,7 +35,7 @@ final class TestH264Utilities: XCTestCase {
                                      $0.baseAddress!.advanced(by: 4),
                                      dataBuffer1.dataLength - 4))
         }
-        
+
         // Sample 2.
         let sample2 = samples[1]
         let dataBuffer2 = sample2.dataBuffer!
@@ -49,16 +49,16 @@ final class TestH264Utilities: XCTestCase {
                                      dataBuffer2.dataLength))
         }
     }
-    
+
     func testNaluDepacketize() throws {
         let values: [UInt8] = [
-            0x00,0x00,0x00,0x01,
-            1,2,3,4,5
+            0x00, 0x00, 0x00, 0x01,
+            1, 2, 3, 4, 5
         ]
         let format: CMFormatDescription = try .init(mediaType: .video, mediaSubType: .h264)
         var data = Data(values)
         let sample = try H264Utilities.depacketizeNalu(&data, timeInfo: .init(), format: format)
-        
+
         XCTAssertNotNil(sample.dataBuffer)
         try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
             values.withUnsafeBytes { packetized in
@@ -68,5 +68,24 @@ final class TestH264Utilities: XCTestCase {
                                       values.count - 4))
             }
         }
+    }
+
+    func testseiCallback() throws {
+        let values: [UInt8] = [
+            0x00, 0x00, 0x00, 0x01,
+            H264Utilities.H264Types.sei.rawValue, 2, 3, 4, 5
+        ]
+        let data = Data(values)
+        var copied = data
+        var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
+        var foundSei = false
+        let samples = try H264Utilities.depacketize(&copied,
+                                                timeInfo: .init(),
+                                                format: &format) { sei in
+            XCTAssertEqual(data, sei)
+            foundSei = true
+        }
+        XCTAssert(foundSei)
+        XCTAssertEqual(samples.count, 0)
     }
 }

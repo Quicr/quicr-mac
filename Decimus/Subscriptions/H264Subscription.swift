@@ -47,7 +47,7 @@ class H264Subscription: Subscription {
     internal let namespace: QuicrNamespace
 
     private var decoder: H264Decoder?
-    private unowned let participants: VideoParticipants
+    private let participants: VideoParticipants
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
@@ -186,7 +186,9 @@ class H264Subscription: Subscription {
         }
 
         if let jitterBuffer = self.jitterBuffer {
-            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: .init(bytes: data, count: length))
+            let videoFrame: VideoFrame = .init(groupId: groupId,
+                                               objectId: objectId,
+                                               data: .init(bytes: data, count: length))
             _ = jitterBuffer.write(videoFrame: videoFrame)
             if self.dequeueTask == nil {
                 // We know everything to create the interval dequeuer at this point.
@@ -207,9 +209,9 @@ class H264Subscription: Subscription {
                             pid.currentDepth = jitterBuffer.getDepth()
                         }
                         let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
-                        let ns = waitTime * 1_000_000_000
-                        if ns > 0 {
-                            try? await Task.sleep(nanoseconds: UInt64(ns))
+                        let nanoseconds = waitTime * 1_000_000_000
+                        if nanoseconds > 0 {
+                            try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
                         }
 
                         // Attempt to dequeue a frame.
@@ -217,7 +219,9 @@ class H264Subscription: Subscription {
                             // Interval dequeuer needs to know where we are.
                             // TODO: With frame timestamps, we won't need this.
                             if self.jitterBufferConfig.mode == .interval {
-                                let interval = self.dequeueBehaviour as! IntervalDequeuer
+                                guard let interval = self.dequeueBehaviour as? IntervalDequeuer else {
+                                    fatalError("Mode/type mismatch")
+                                }
                                 interval.dequeuedCount += 1
                             }
                             self.decode(frame: frame)
@@ -251,7 +255,7 @@ class H264Subscription: Subscription {
 
         lastGroup = frame.groupId
         lastObject = frame.objectId
-        
+
         // Timestamp.
         let timestamp: Int64
         if self.jitterBufferConfig.mode == .layer {
