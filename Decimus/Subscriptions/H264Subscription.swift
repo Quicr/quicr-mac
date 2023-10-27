@@ -333,6 +333,12 @@ class H264Subscription: Subscription {
                                                   sampleTimings: sample.sampleTimingInfos(),
                                                   sampleSizes: sample.sampleSizes())
         } else {
+            // We're taking care of time already, show immediately.
+            if sample.sampleAttachments.count > 0 {
+                sample.sampleAttachments[0][.displayImmediately] = true
+            } else {
+                Self.logger.warning("Couldn't set display immediately attachment")
+            }
             sampleToEnqueue = sample
         }
 
