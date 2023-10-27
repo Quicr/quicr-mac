@@ -1,3 +1,4 @@
+import CoreMedia
 import XCTest
 @testable import Decimus
 
@@ -8,6 +9,11 @@ final class TestVideoJitterBuffer: XCTestCase {
         testPlayout(sort: true)
         testPlayout(sort: false)
     }
+    
+    func exampleSample() -> [CMSampleBuffer] {
+        let sample = try! CMSampleBuffer(dataBuffer: nil, formatDescription: nil, numSamples: 0, sampleTimings: [], sampleSizes: [])
+        return [sample]
+    }
 
     func testPlayout(sort: Bool) {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
@@ -17,22 +23,22 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 1/30 * 2.5)
 
         // Write 1, no play.
-        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
+        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame1))
         XCTAssertNil(buffer.read())
 
         // Write 2, no play.
-        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
+        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame2))
         XCTAssertNil(buffer.read())
 
         // Write 3, play, get 1.
-        let frame3: VideoFrame = .init(groupId: 0, objectId: 2, data: .init())
+        let frame3: VideoFrame = .init(groupId: 0, objectId: 2, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame3))
         XCTAssertEqual(frame1, buffer.read())
 
         // Write 4, get 2.
-        let frame4: VideoFrame = .init(groupId: 0, objectId: 3, data: .init())
+        let frame4: VideoFrame = .init(groupId: 0, objectId: 3, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame4))
         XCTAssertEqual(frame2, buffer.read())
 
@@ -51,11 +57,11 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 0)
 
         // Write newer.
-        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
+        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame2))
 
         // Write older.
-        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
+        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame1))
 
         // Get older first.
@@ -81,7 +87,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 0)
 
         // Write newer.
-        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, data: .init())
+        let frame2: VideoFrame = .init(groupId: 0, objectId: 1, samples: exampleSample())
         XCTAssertTrue(buffer.write(videoFrame: frame2))
 
         // Read newer.
@@ -89,7 +95,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertEqual(frame2, read1)
 
         // Write older should fail.
-        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, data: .init())
+        let frame1: VideoFrame = .init(groupId: 0, objectId: 0, samples: exampleSample())
         XCTAssertFalse(buffer.write(videoFrame: frame1))
     }
 

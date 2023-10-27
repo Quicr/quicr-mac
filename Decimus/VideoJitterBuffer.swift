@@ -62,6 +62,7 @@ class VideoJitterBuffer {
     private var play: Bool = false
     private var lastSequenceRead: UInt64?
     private let sort: Bool
+    private var timestampTimeDiff: TimeInterval?
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -91,7 +92,11 @@ class VideoJitterBuffer {
     /// - Parameter videoFrame The video frame structure to attempt to sort into the buffer.
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
+        let timestamp = videoFrame.samples.first!.presentationTimeStamp.seconds
         let result = lock.withLock {
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - timestamp
+            }
             let thisSeq = videoFrame.getSeq()
             if let lastSequenceRead = self.lastSequenceRead {
                 guard thisSeq > lastSequenceRead else {
@@ -181,6 +186,23 @@ class VideoJitterBuffer {
     func getDepth() -> TimeInterval {
         self.lock.withLock {
             Double(self.buffer.count) * self.frameDuration
+        }
+    }
+    
+    func calculateWaitTime() -> TimeInterval {
+        calculateWaitTime(from: .now)
+    }
+    
+    func calculateWaitTime(from: Date) -> TimeInterval {
+        self.lock.withLock {
+            guard let peek = self.buffer.first,
+                  let diff = self.timestampTimeDiff else {
+                return self.frameDuration
+            }
+            let timestampValue = peek.samples.first!.presentationTimeStamp.seconds
+            let targetTimeRef = timestampValue + diff
+            let targetDate = Date(timeIntervalSinceReferenceDate: targetTimeRef)
+            return targetDate.timeIntervalSinceNow + self.minDepth
         }
     }
 }

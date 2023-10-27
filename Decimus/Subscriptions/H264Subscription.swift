@@ -62,9 +62,10 @@ class H264Subscription: Subscription {
     private let jitterBufferConfig: VideoJitterBuffer.Config
     private let config: VideoCodecConfig
     private var orientation: AVCaptureVideoOrientation?
-    private var verticalMirror: Bool = false
+    private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
-    private var currentLayerJitterFramesCount: UInt64?
+    private var timeInfo: CMSampleTimingInfo?
+    private var startTimeSet = false
 
     private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
         guard let self = self else { return }
@@ -101,9 +102,7 @@ class H264Subscription: Subscription {
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
 
-        if jitterBufferConfig.mode == .layer {
-            self.currentLayerJitterFramesCount = UInt64(round(jitterBufferConfig.minDepth * Float64(config.fps)))
-        } else {
+        if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: config) { [weak self] sample in
                 guard let self = self else { return }
@@ -185,10 +184,22 @@ class H264Subscription: Subscription {
         }
 
         if let jitterBuffer = self.jitterBuffer {
-            let videoFrame: VideoFrame = .init(groupId: groupId,
-                                               objectId: objectId,
-                                               data: .init(bytes: data, count: length))
-            _ = jitterBuffer.write(videoFrame: videoFrame)
+            let samples: [CMSampleBuffer]?
+            do {
+                // TODO: No copy?
+                samples = try H264Utilities.depacketize(.init(bytes: data, count: length),
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror)
+            } catch {
+                Self.logger.error("Failed to depacketize")
+                return 0
+            }
+            
+            if let samples = samples {
+                _ = jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, samples: samples))
+            }
+
             if self.dequeueTask == nil {
                 // We know everything to create the interval dequeuer at this point.
                 if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
@@ -204,10 +215,13 @@ class H264Subscription: Subscription {
 
                         // Wait until we expect to have a frame available.
                         let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                        let waitTime: TimeInterval
                         if let pid = self.dequeueBehaviour! as? PIDDequeuer {
                             pid.currentDepth = jitterBuffer.getDepth()
+                            waitTime = self.dequeueBehaviour!.calculateWaitTime()
+                        } else {
+                            waitTime = jitterBuffer.calculateWaitTime()
                         }
-                        let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
                         let nanoseconds = waitTime * 1_000_000_000
                         if nanoseconds > 0 {
                             try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
@@ -229,9 +243,17 @@ class H264Subscription: Subscription {
                 }
             }
         } else {
-            let zeroCopy: Data = .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
-            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: zeroCopy)
-            decode(frame: videoFrame)
+            let samples: [CMSampleBuffer]?
+            do {
+                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+            } catch {
+                Self.logger.error("Failed to depacketize")
+                return 0
+            }
+            
+            if let samples = samples {
+                decode(frame: .init(groupId: groupId, objectId: objectId, samples: samples))
+            }
         }
         return SubscriptionError.None.rawValue
     }
@@ -255,31 +277,12 @@ class H264Subscription: Subscription {
         lastGroup = frame.groupId
         lastObject = frame.objectId
 
-        // Timestamp.
-        let timestamp: Int64
-        if self.jitterBufferConfig.mode == .layer {
-            timestamp = Int64(self.currentLayerJitterFramesCount!)
-            self.currentLayerJitterFramesCount! += 1
-        } else {
-            timestamp = 0
-        }
-        let time = CMTimeMake(value: timestamp,
-                              timescale: Int32(config.fps))
-        let timeInfo = CMSampleTimingInfo(duration: CMTimeMakeWithSeconds(1.0, preferredTimescale: Int32(config.fps)),
-                                          presentationTimeStamp: time,
-                                          decodeTimeStamp: .invalid)
-
         // Decode.
-        var data = frame.data
         do {
-            let depacketized = try H264Utilities.depacketize(&data, timeInfo: timeInfo, format: &self.currentFormat, sei: self.seiCallback)
-            if self.jitterBufferConfig.mode == .layer {
-                for sample in depacketized {
+            for sample in frame.samples {
+                if self.jitterBufferConfig.mode == .layer {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-                }
-            } else {
-                for sample in depacketized {
-                    // Write to decoder.
+                } else {
                     try decoder!.write(sample)
                 }
             }
@@ -290,7 +293,7 @@ class H264Subscription: Subscription {
 
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: AVCaptureVideoOrientation?,
-                               verticalMirror: Bool) throws {
+                               verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? .now : nil
@@ -330,10 +333,6 @@ class H264Subscription: Subscription {
                                                   sampleTimings: sample.sampleTimingInfos(),
                                                   sampleSizes: sample.sampleSizes())
         } else {
-            // FIXME: Driving from proper timestamps probably preferable.
-            if sample.sampleAttachments.count > 0 {
-                sample.sampleAttachments[0][.displayImmediately] = true
-            }
             sampleToEnqueue = sample
         }
 
@@ -341,12 +340,35 @@ class H264Subscription: Subscription {
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
-                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror))
+                // Set the layer's start time to the first sample's timestamp minus the target depth.
+                if !self.startTimeSet {
+                    try self.setLayerStartTime(layer: participant.view.layer!, time: sampleToEnqueue.presentationTimeStamp)
+                    self.startTimeSet = true
+                }
+                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror!))
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
             participant.lastUpdated = .now()
         }
+    }
+
+    private func setLayerStartTime(layer: AVSampleBufferDisplayLayer, time: CMTime) throws {
+        guard Thread.isMainThread else {
+            throw "Should be called from the main thread"
+        }
+        let timebase = try CMTimebase(sourceClock: .hostTimeClock)
+        let startTime: CMTime
+        if self.jitterBufferConfig.mode == .layer {
+            let delay = CMTime(seconds: self.jitterBufferConfig.minDepth,
+                               preferredTimescale: 1000)
+            startTime = CMTimeSubtract(time, delay)
+        } else {
+            startTime = time
+        }
+        try timebase.setTime(startTime)
+        try timebase.setRate(1.0)
+        layer.controlTimebase = timebase
     }
 
     private func flushDisplayLayer() {
@@ -357,9 +379,8 @@ class H264Subscription: Subscription {
             } catch {
                 Self.logger.error("Could not flush layer: \(error)")
             }
-
-            self.currentLayerJitterFramesCount = UInt64(round(self.jitterBufferConfig.minDepth * Float64(self.config.fps)))
             Self.logger.debug("Flushing display layer")
+            self.startTimeSet = false
         }
     }
 }
