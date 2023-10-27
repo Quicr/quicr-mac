@@ -24,9 +24,9 @@
 - (CFAllocatorRef) allocator;
 - (void *) allocateBufferHeader: (size_t) length;
 - (void) retrieveFullBufferPointer: (void **) fullBufferPtr len: (size_t *) length;
+- (void *) iosAllocBuffer: (CFIndex) allocSize;
+- (void) iosDeallocBuffer: (void *) bufferPtr;
 @end
-
-
 
 #endif /* EncodedFrameBufferAllocator_h */
 

@@ -44,7 +44,7 @@ class H264Encoder {
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
         self.callback = callback
-        self.bufferAllocator = .init(1*1024*1024, hdrSize: 256)
+        self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
 
         var compressionSession: VTCompressionSession?
         let created = VTCompressionSessionCreate(allocator: nil,
@@ -142,6 +142,15 @@ class H264Encoder {
             return
         }
         
+        #if !targetEnvironment(macCatalyst)
+        let bufferSize : Int = CMBlockBufferGetDataLength(sample.dataBuffer!)
+        bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
+        let bufferPtr : UnsafeMutableRawPointer = bufferAllocator.iosAllocBuffer(bufferSize)
+        _ = try? sample.dataBuffer?.withUnsafeMutableBytes {
+            memcpy(bufferPtr, $0.baseAddress, bufferSize)
+        }
+        #endif
+        
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
@@ -212,6 +221,7 @@ class H264Encoder {
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
         callback(fullEncodedRawPtr!, fullEncodedBufferLength, idr)
+        
     }
     
     func handleParameterSets(sample: CMSampleBuffer) throws -> Data {

@@ -9,8 +9,9 @@
 #import <Foundation/Foundation.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#include <cstddef>
-#include <cstdint>
+//#include <cstddef>
+//#include <cstdint>
+
 
 class ExtBufferAllocator {
 public:
@@ -38,4 +39,5 @@ private:
     
     std::uint8_t *firstHeaderPtr;
 };
+
 #endif /* ExtBufferAllocator_h */
