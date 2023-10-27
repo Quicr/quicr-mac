@@ -288,20 +288,20 @@ class H264Encoder {
     }
     
     private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, bufferAllocator: BufferAllocator) {
-        let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count)
-        timestampSEIBytes.withUnsafeBytes { buffer in
-            guard let pointer = timestampPtr else { return }
-            // convert time fields to network byte order...
-
-            var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
-            var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
-            var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
-            // copy to buffer
-            memcpy(pointer.advanced(by: 0),  buffer.baseAddress!, buffer.count)
-            memcpy(pointer.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size)
-            memcpy(pointer.advanced(by: 32), &networkTimeScale, MemoryLayout<Int32>.size)
-            memcpy(pointer.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
+        guard let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count) else {
+            Self.logger.error("Couldn't allocate timestamp buffer")
+            return
         }
+
+        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
+        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
+        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        
+        // Copy to buffer.
+        timestampSEIBytes.copyBytes(to: .init(start: timestampPtr, count: timestampSEIBytes.count))
+        memcpy(timestampPtr.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size)
+        memcpy(timestampPtr.advanced(by: 32), &networkTimeScale, MemoryLayout<Int32>.size)
+        memcpy(timestampPtr.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
     }
     
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,

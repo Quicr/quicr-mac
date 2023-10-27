@@ -184,10 +184,22 @@ class H264Subscription: Subscription {
         }
 
         if let jitterBuffer = self.jitterBuffer {
-            let videoFrame: VideoFrame = .init(groupId: groupId,
-                                               objectId: objectId,
-                                               data: .init(bytes: data, count: length))
-            _ = jitterBuffer.write(videoFrame: videoFrame)
+            let samples: [CMSampleBuffer]?
+            do {
+                // TODO: No copy?
+                samples = try H264Utilities.depacketize(.init(bytes: data, count: length),
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror)
+            } catch {
+                Self.logger.error("Failed to depacketize")
+                return 0
+            }
+            
+            if let samples = samples {
+                _ = jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, samples: samples))
+            }
+
             if self.dequeueTask == nil {
                 // We know everything to create the interval dequeuer at this point.
                 if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
@@ -203,10 +215,13 @@ class H264Subscription: Subscription {
 
                         // Wait until we expect to have a frame available.
                         let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                        let waitTime: TimeInterval
                         if let pid = self.dequeueBehaviour! as? PIDDequeuer {
                             pid.currentDepth = jitterBuffer.getDepth()
+                            waitTime = self.dequeueBehaviour!.calculateWaitTime()
+                        } else {
+                            waitTime = jitterBuffer.calculateWaitTime()
                         }
-                        let waitTime = self.dequeueBehaviour!.calculateWaitTime() // Dequeue behaviour must exist at this point.
                         let nanoseconds = waitTime * 1_000_000_000
                         if nanoseconds > 0 {
                             try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
@@ -228,9 +243,17 @@ class H264Subscription: Subscription {
                 }
             }
         } else {
-            let zeroCopy: Data = .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
-            let videoFrame: VideoFrame = .init(groupId: groupId, objectId: objectId, data: zeroCopy)
-            decode(frame: videoFrame)
+            let samples: [CMSampleBuffer]?
+            do {
+                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+            } catch {
+                Self.logger.error("Failed to depacketize")
+                return 0
+            }
+            
+            if let samples = samples {
+                decode(frame: .init(groupId: groupId, objectId: objectId, samples: samples))
+            }
         }
         return SubscriptionError.None.rawValue
     }
@@ -255,16 +278,11 @@ class H264Subscription: Subscription {
         lastObject = frame.objectId
 
         // Decode.
-        let data = frame.data
         do {
-            let depacketized = try H264Utilities.depacketize(data, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
-            if self.jitterBufferConfig.mode == .layer {
-                for sample in depacketized {
+            for sample in frame.samples {
+                if self.jitterBufferConfig.mode == .layer {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-                }
-            } else {
-                for sample in depacketized {
-                    // Write to decoder.
+                } else {
                     try decoder!.write(sample)
                 }
             }

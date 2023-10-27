@@ -32,7 +32,7 @@ class H264Utilities {
     static func depacketize(_ data: Data,
                             format: inout CMFormatDescription?,
                             orientation: inout AVCaptureVideoOrientation?,
-                            verticalMirror: inout Bool?) throws -> [CMSampleBuffer] {
+                            verticalMirror: inout Bool?) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -147,14 +147,14 @@ class H264Utilities {
 
             if let spsData = spsData,
                let ppsData = ppsData {
-                format = try CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
+                format = try! CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
             }
         
             if type == .pFrame || type == .idr {
                 results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
             }
         }
-        return results
+        return results.count > 0 ? results : nil
     }
     
     static func depacketizeNalu(_ nalu: inout Data,
