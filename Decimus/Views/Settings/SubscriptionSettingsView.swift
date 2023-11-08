@@ -64,11 +64,9 @@ struct SubscriptionSettingsView: View {
                                 return
                             }
 
-                            for camera in devices.cameras {
-                                if camera.uniqueID == preferredCamera {
-                                    AVCaptureDevice.userPreferredCamera = camera
-                                    break
-                                }
+                            for camera in devices.cameras where camera.uniqueID == preferredCamera {
+                                AVCaptureDevice.userPreferredCamera = camera
+                                break
                             }
                         }
                     }

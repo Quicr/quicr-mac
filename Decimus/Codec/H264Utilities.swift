@@ -25,9 +25,11 @@ class H264Utilities {
     typealias SEICallback = (Data) -> Void
 
     /// Turns an H264 Annex B bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The H264 data. This is used in place and will be modified, so must outlive any use of the created samples.
+    /// - Parameter data The H264 data. This is used in place and will be modified,
+    /// so must outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
-    /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
+    /// - Parameter format The current format of the stream if known. If SPS/PPS are found,
+    /// it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     static func depacketize(_ data: Data,
                             format: inout CMFormatDescription?,
@@ -36,37 +38,37 @@ class H264Utilities {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
-        
+
         // Identify all NALUs by start code.
         assert(data.starts(with: naluStartCode))
         var ranges: [Range<Data.Index>] = []
-        var naluRanges : [Range<Data.Index>] = []
+        var naluRanges: [Range<Data.Index>] = []
         var startIndex = 0
         var index = 0
         var naluRangesIndex = 0
-        while var range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
+        while let range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
             ranges.append(range)
             startIndex = range.upperBound
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-                
+
                 if naluRangesIndex > 0 {
-                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound  {
+                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound {
                         index += 1
                         continue
                     }
                 }
 
                 let type = H264Types(rawValue: data[lastRange.upperBound] & 0x1F)
-                
+
                 // RBSP types can have data that might include a "0001". So,
                 // use the payload size to get the whole sub buffer.
                 if type == .sei { // RBSP
                     let payloadSize = data[lastRange.upperBound + 2]
                     let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
                     naluRanges.append(.init(lastRange.lowerBound...upperBound))
-  
+
                 } else {
                     naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
                 }
@@ -89,14 +91,13 @@ class H264Utilities {
                               count: range.count,
                               deallocator: .none))
         }
-        
-        
+
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
-        var timeValue : UInt64 = 0
-        var timeScale : UInt32 = 100000
-        var sequenceNumber : UInt64 = 0
+        var timeValue: UInt64 = 0
+        var timeScale: UInt32 = 100000
+        var sequenceNumber: UInt64 = 0
 
         // Create sample buffers from NALUs.
         var timeInfo: CMSampleTimingInfo?
@@ -106,15 +107,15 @@ class H264Utilities {
             var nalu = nalus[index]
             assert(nalu.starts(with: self.naluStartCode))
             let type = H264Types(rawValue: nalu[naluStartCode.count] & 0x1F)
-            
+
             if type == .sps {
                 spsData = nalu.subdata(in: naluStartCode.count..<nalu.count)
             }
-            
+
             if type == .pps {
                 ppsData = nalu.subdata(in: naluStartCode.count..<nalu.count)
             }
-            
+
             if type == .sei {
                 var seiData = nalu.subdata(in: naluStartCode.count..<nalu.count)
                 if seiData.count == 6 { // Orientation
@@ -124,39 +125,41 @@ class H264Utilities {
                     }
                 } else if seiData.count == 41 { // timestamp?
                     if seiData[19] == 2 { // good enough - timstamp!
-                        seiData.withUnsafeMutableBytes {
-                            guard let ptr = $0.baseAddress else { return }
-                            memcpy(&timeValue, $0.baseAddress?.advanced(by: 20), MemoryLayout<Int64>.size)
-                            memcpy(&timeScale, $0.baseAddress?.advanced(by: 28), MemoryLayout<Int32>.size)
-                            memcpy(&sequenceNumber, $0.baseAddress?.advanced(by: 32), MemoryLayout<Int64>.size)
-                            timeValue = CFSwapInt64BigToHost(timeValue)
-                            timeScale = CFSwapInt32BigToHost(timeScale)
-                            sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
-                            let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                                  timescale: Int32(timeScale))
-                            timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                                          presentationTimeStamp: timeStamp,
-                                                          decodeTimeStamp: .invalid)
+                        try seiData.withUnsafeMutableBytes {
+                            guard let ptr = $0.baseAddress else {
+                                throw "Failed to read SEI data pointer"
+                            }
+                            memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
+                            memcpy(&timeScale, ptr.advanced(by: 28), MemoryLayout<Int32>.size)
+                            memcpy(&sequenceNumber, ptr.advanced(by: 32), MemoryLayout<Int64>.size)
                         }
+                        timeValue = CFSwapInt64BigToHost(timeValue)
+                        timeScale = CFSwapInt32BigToHost(timeScale)
+                        sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
+                        let timeStamp = CMTimeMake(value: Int64(timeValue),
+                                              timescale: Int32(timeScale))
+                        timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                                      presentationTimeStamp: timeStamp,
+                                                      decodeTimeStamp: .invalid)
                     } else {
-                        print("Unhanbled SEI")
+                        print("Unhandled SEI")
                     }
                 }
             }
-            
 
             if let spsData = spsData,
                let ppsData = ppsData {
-                format = try! CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
+                format = try CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData],
+                                                      nalUnitHeaderLength: naluStartCode.count)
             }
-        
+
             if type == .pFrame || type == .idr {
                 results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
             }
         }
         return results.count > 0 ? results : nil
     }
-    
+
     static func depacketizeNalu(_ nalu: inout Data,
                                 timeInfo: CMSampleTimingInfo?,
                                 format: CMFormatDescription?) throws -> CMSampleBuffer {

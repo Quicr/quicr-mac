@@ -13,10 +13,10 @@ class H264Encoder {
     private let encoder: VTCompressionSession
     private let verticalMirror: Bool
     private let bufferAllocator: BufferAllocator
-    private var sequenceNumber : Int64 = 0
+    private var sequenceNumber: Int64 = 0
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
-    
+
     private let timestampSEIBytes: [UInt8] = [ // total 44
         // Start Code.
         0x00, 0x00, 0x00, 0x01, // 0x28 - size
@@ -147,7 +147,7 @@ class H264Encoder {
             Self.logger.error("Encoded sample was empty")
             return
         }
-        
+
         let buffer: CMBlockBuffer
         #if !targetEnvironment(macCatalyst)
         let bufferSize = sample.dataBuffer!.dataLength
@@ -156,12 +156,17 @@ class H264Encoder {
             fatalError()
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
-        buffer = try! .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
-        try! sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
+        do {
+            buffer = try .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
+            try sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
+        } catch {
+            Self.logger.error("Failed to copy sample to allocate buffer: \(error.localizedDescription)")
+            return
+        }
         #else
         buffer  = sample.dataBuffer!
         #endif
-        
+
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
@@ -224,12 +229,12 @@ class H264Encoder {
                                           blockBuffer: buffer,
                                           offsetIntoDestination: offset,
                                           dataLength: startCode.count)
-            assert(try! buffer.dataBytes().starts(with: self.startCode))
+            assert(try! buffer.dataBytes().starts(with: self.startCode)) // swiftlint:disable:this force_try
 
             // Carry on.
             offset += startCode.count + Int(naluLength)
         }
-        
+
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
@@ -273,7 +278,7 @@ class H264Encoder {
         // Compute total ANNEX B parameter set size.
         var totalLength = startCode.count * sets
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
-        
+
         // Make SPS/PPS buffer.
         var buffer = Data(capacity: totalLength)
         for parameterSetIndex in 0...sets-1 {
@@ -286,7 +291,7 @@ class H264Encoder {
         }
         return buffer
     }
-    
+
     private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, bufferAllocator: BufferAllocator) {
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
@@ -296,16 +301,17 @@ class H264Encoder {
         var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
         var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
         var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
-        
+
         // Copy to buffer.
         timestampSEIBytes.copyBytes(to: .init(start: timestampPtr, count: timestampSEIBytes.count))
         memcpy(timestampPtr.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size)
         memcpy(timestampPtr.advanced(by: 32), &networkTimeScale, MemoryLayout<Int32>.size)
         memcpy(timestampPtr.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
     }
-    
+
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                    verticalMirror: Bool, bufferAllocator: BufferAllocator)  {
+                                       verticalMirror: Bool,
+                                       bufferAllocator: BufferAllocator) {
         let bytes: [UInt8] = [
             // Start Code.
             0x00, 0x00, 0x00, 0x01,

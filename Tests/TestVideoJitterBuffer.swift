@@ -9,7 +9,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         testPlayout(sort: true)
         testPlayout(sort: false)
     }
-    
+
     func exampleSample() -> [CMSampleBuffer] {
         let sample = try! CMSampleBuffer(dataBuffer: nil, formatDescription: nil, numSamples: 0, sampleTimings: [], sampleSizes: [])
         return [sample]

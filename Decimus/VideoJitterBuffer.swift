@@ -188,11 +188,11 @@ class VideoJitterBuffer {
             Double(self.buffer.count) * self.frameDuration
         }
     }
-    
+
     func calculateWaitTime() -> TimeInterval {
         calculateWaitTime(from: .now)
     }
-    
+
     func calculateWaitTime(from: Date) -> TimeInterval {
         self.lock.withLock {
             guard let peek = self.buffer.first,

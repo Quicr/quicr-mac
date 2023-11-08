@@ -107,7 +107,9 @@ class H264Subscription: Subscription {
             self.decoder = .init(config: config) { [weak self] sample in
                 guard let self = self else { return }
                 do {
-                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                    try self.enqueueSample(sample: sample,
+                                           orientation: self.orientation,
+                                           verticalMirror: self.verticalMirror)
                 } catch {
                     Self.logger.error("Failed to enqueue decoded sample: \(error)")
                 }
@@ -195,7 +197,7 @@ class H264Subscription: Subscription {
                 Self.logger.error("Failed to depacketize")
                 return 0
             }
-            
+
             if let samples = samples {
                 _ = jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, samples: samples))
             }
@@ -245,12 +247,17 @@ class H264Subscription: Subscription {
         } else {
             let samples: [CMSampleBuffer]?
             do {
-                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data),
+                                                              count: length,
+                                                              deallocator: .none),
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror)
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0
             }
-            
+
             if let samples = samples {
                 decode(frame: .init(groupId: groupId, objectId: objectId, samples: samples))
             }
@@ -281,7 +288,9 @@ class H264Subscription: Subscription {
         do {
             for sample in frame.samples {
                 if self.jitterBufferConfig.mode == .layer {
-                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                    try self.enqueueSample(sample: sample,
+                                           orientation: self.orientation,
+                                           verticalMirror: self.verticalMirror)
                 } else {
                     try decoder!.write(sample)
                 }
@@ -327,11 +336,11 @@ class H264Subscription: Subscription {
                                                               count: sample.dataBuffer!.dataLength)) { ptr, _ in
                 free(ptr)
             }
-            sampleToEnqueue = try! CMSampleBuffer(dataBuffer: blockBuffer,
-                                                  formatDescription: sample.formatDescription,
-                                                  numSamples: sample.numSamples,
-                                                  sampleTimings: sample.sampleTimingInfos(),
-                                                  sampleSizes: sample.sampleSizes())
+            sampleToEnqueue = try CMSampleBuffer(dataBuffer: blockBuffer,
+                                                 formatDescription: sample.formatDescription,
+                                                 numSamples: sample.numSamples,
+                                                 sampleTimings: sample.sampleTimingInfos(),
+                                                 sampleSizes: sample.sampleSizes())
         } else {
             // We're taking care of time already, show immediately.
             if sample.sampleAttachments.count > 0 {
@@ -348,7 +357,8 @@ class H264Subscription: Subscription {
             do {
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
-                    try self.setLayerStartTime(layer: participant.view.layer!, time: sampleToEnqueue.presentationTimeStamp)
+                    try self.setLayerStartTime(layer: participant.view.layer!,
+                                               time: sampleToEnqueue.presentationTimeStamp)
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror!))

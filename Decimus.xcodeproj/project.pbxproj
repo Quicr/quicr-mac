@@ -613,6 +613,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				18ED748E2AFB8ECF00A62F55 /* PBXTargetDependency */,
 			);
 			name = Decimus;
 			packageProductDependencies = (
@@ -835,6 +836,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		18ED748E2AFB8ECF00A62F55 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 18ED748D2AFB8ECF00A62F55 /* SwiftLintPlugin */;
+		};
 		9B85952029F04521008C813C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
@@ -1259,6 +1264,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */;
 			productName = InfluxDBSwift;
+		};
+		18ED748D2AFB8ECF00A62F55 /* SwiftLintPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
+			productName = "plugin:SwiftLintPlugin";
 		};
 		18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */ = {
 			isa = XCSwiftPackageProductDependency;

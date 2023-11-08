@@ -267,7 +267,9 @@ class OpusSubscription: Subscription {
 
         let decoded: AVAudioPCMBuffer
         do {
-            decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
+            decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data),
+                                                    count: length,
+                                                    deallocator: .none))
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
             return SubscriptionError.NoDecoder.rawValue
@@ -300,7 +302,7 @@ class OpusSubscription: Subscription {
             return
         }
 
-        var packet: Packet = .init(sequence_number: UInt(sequence),
+        let packet: Packet = .init(sequence_number: UInt(sequence),
                                    data: data,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
