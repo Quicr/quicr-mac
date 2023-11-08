@@ -33,7 +33,7 @@ class LibOpusEncoder {
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
-    init(format: AVAudioFormat, desiredWindowSize: OpusWindowSize) throws {
+    init(format: AVAudioFormat, desiredWindowSize: OpusWindowSize, bitrate: Int) throws {
         self.format = format
         self.desiredWindowSize = desiredWindowSize
         let appMode: Opus.Application = desiredWindowSize.rawValue < 0.01 ? .restrictedLowDelay : .voip
@@ -41,6 +41,7 @@ class LibOpusEncoder {
         let framesPerWindow: Int = .init(desiredWindowSize.rawValue * format.sampleRate)
         let windowBytes: Int = framesPerWindow * Int(format.streamDescription.pointee.mBytesPerFrame)
         encoded = .allocate(byteCount: windowBytes, alignment: MemoryLayout<UInt8>.alignment)
+        _ = try encoder.ctl(request: OPUS_SET_BITRATE_REQUEST, args: [bitrate])
     }
 
     deinit {

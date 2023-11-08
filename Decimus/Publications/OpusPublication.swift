@@ -73,7 +73,8 @@ class OpusPublication: Publication {
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) throws {
+         granularMetrics: Bool,
+         config: AudioCodecConfig) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.engine = engine
@@ -93,7 +94,7 @@ class OpusPublication: Publication {
             fatalError()
         }
 
-        encoder = try .init(format: format, desiredWindowSize: opusWindowSize)
+        encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
         // TODO: Move to concurrency.
