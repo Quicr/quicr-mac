@@ -1203,7 +1203,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/RichLogan/swift-opus.git";
 			requirement = {
-				branch = plc;
+				branch = "ctl-plc";
 				kind = branch;
 			};
 		};
