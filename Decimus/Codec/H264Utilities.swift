@@ -32,7 +32,8 @@ class H264Utilities {
     static func depacketize(_ data: Data,
                             format: inout CMFormatDescription?,
                             orientation: inout AVCaptureVideoOrientation?,
-                            verticalMirror: inout Bool?) throws -> [CMSampleBuffer]? {
+                            verticalMirror: inout Bool?,
+                            copy: Bool) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -151,7 +152,7 @@ class H264Utilities {
             }
         
             if type == .pFrame || type == .idr {
-                results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
+                results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format, copy: copy))
             }
         }
         return results.count > 0 ? results : nil
@@ -159,7 +160,8 @@ class H264Utilities {
     
     static func depacketizeNalu(_ nalu: inout Data,
                                 timeInfo: CMSampleTimingInfo?,
-                                format: CMFormatDescription?) throws -> CMSampleBuffer {
+                                format: CMFormatDescription?,
+                                copy: Bool) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -170,9 +172,19 @@ class H264Utilities {
 
         let timeInfo: CMSampleTimingInfo = timeInfo ?? .invalid
 
-        // Return the sample buffer.
-        let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
+        let blockBuffer: CMBlockBuffer
+        if copy {
+            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count, alignment: MemoryLayout<UInt8>.alignment)
+            nalu.copyBytes(to: copied)
+            blockBuffer = try .init(buffer: copied, deallocator: { buffer, _ in
+                buffer.deallocate()
+            })
+        } else {
+            blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
                                                           count: nalu.count)) { _, _ in }
+        }
+
+        // Return the sample buffer.
         return try .init(dataBuffer: blockBuffer,
                          formatDescription: format,
                          numSamples: 1,
