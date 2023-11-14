@@ -17,6 +17,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     private var bytes: UInt64 = 0
     private var missing: UInt64 = 0
     private var callbacks: UInt64 = 0
+    private var dropped: UInt64 = 0
 
     init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
         tags["namespace"] = namespace
@@ -51,15 +52,23 @@ actor OpusSubscriptionMeasurement: Measurement {
     func callbacks(callbacks: UInt64, timestamp: Date?) {
         record(field: "callbacks", value: callbacks as AnyObject, timestamp: timestamp)
     }
+    
+    func recordLibJitterMetrics(metrics: Metrics, timestamp: Date?) {
+        record(field: "concealed", value: metrics.concealed_packets as AnyObject, timestamp: timestamp)
+        record(field: "filled", value: metrics.filled_packets as AnyObject, timestamp: timestamp)
+        record(field: "skipped", value: metrics.skipped_frames as AnyObject, timestamp: timestamp)
+        record(field: "missed", value: metrics.update_missed_frames as AnyObject, timestamp: timestamp)
+        record(field: "updated", value: metrics.updated_frames as AnyObject, timestamp: timestamp)
+    }
+    
+    func droppedFrames(dropped: Int, timestamp: Date?) {
+        self.dropped += UInt64(dropped)
+        record(field: "dropped", value: self.dropped as AnyObject, timestamp: timestamp)
+    }
 }
 
 class OpusSubscription: Subscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
-
-    struct Metrics {
-        var framesEnqueued = 0
-        var framesEnqueuedFail = 0
-    }
 
     private class Weak<T> {
         var value: T
@@ -138,7 +147,7 @@ class OpusSubscription: Subscription {
         node?.reset()
 
         // Report metrics.
-        Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
+        // Self.logger.info("They had \(self.metrics.framesEnqueuedFail) copy fails")
     }
 
     func prepare(_ sourceID: SourceIDType!,
@@ -287,12 +296,6 @@ class OpusSubscription: Subscription {
             throw "Unexpected number of buffers"
         }
 
-        if let measurement = measurement {
-            Task(priority: .utility) {
-                await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
-            }
-        }
-
         // Get audio data as packet list.
         let audioBuffer = list.pointee.mBuffers
         guard let data = audioBuffer.mData else {
@@ -311,12 +314,15 @@ class OpusSubscription: Subscription {
         let copied = jitterBuffer.enqueue(packet,
                                           concealmentCallback: self.plcCallback,
                                           userData: selfPtr)
-        self.metrics.framesEnqueued += copied
-        guard copied >= buffer.frameLength else {
-            Self.logger.warning("Only managed to enqueue: \(copied)/\(buffer.frameLength)")
-            let missing = Int(buffer.frameLength) - copied
-            self.metrics.framesEnqueuedFail += missing
-            return
+
+        let missing = copied < buffer.frameLength ? Int(buffer.frameLength) - copied : 0
+        if let measurement = measurement {
+            Task(priority: .utility) {
+                await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
+                await measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
+                                                         timestamp: timestamp)
+                await measurement.droppedFrames(dropped: missing, timestamp: timestamp)
+            }
         }
     }
 }

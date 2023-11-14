@@ -84,4 +84,10 @@
         return 0;
     }
 }
+
+-(Metrics)getMetrics
+{
+    // if (!jitterBuffer) return 0;
+    return jitterBuffer->GetMetrics();
+}
 @end
