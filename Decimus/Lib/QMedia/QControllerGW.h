@@ -29,7 +29,10 @@ public:
        
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
-    
+
+    void setSubscriptionSingleOrdered(bool new_value);
+    void setPublicationSingleOrdered(bool new_value);
+
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
 
 public:

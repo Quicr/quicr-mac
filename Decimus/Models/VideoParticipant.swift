@@ -8,7 +8,7 @@ enum ParticipantError: Error {
 
 class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
-    let view: VideoView = .init()
+    var view: VideoView = .init()
     @Published var lastUpdated: DispatchTime
 
     init(id: SourceIDType) {
