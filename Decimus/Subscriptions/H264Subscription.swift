@@ -64,22 +64,8 @@ class H264Subscription: Subscription {
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
-    private var timeInfo: CMSampleTimingInfo?
     private var startTimeSet = false
 
-    private lazy var seiCallback: H264Utilities.SEICallback = { [weak self] data in
-        guard let self = self else { return }
-        let seiType = data[5]
-        switch seiType {
-        case 0x2f:
-            // Video orientation.
-            assert(data[6] == 2)
-            self.orientation = .init(rawValue: .init(data[7]))
-            self.verticalMirror = data[8] == 1
-        default:
-            Self.logger.info("Unhandled SEI App type: \(seiType)")
-        }
-    }
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -188,6 +174,8 @@ class H264Subscription: Subscription {
             do {
                 // TODO: No copy?
                 samples = try H264Utilities.depacketize(.init(bytes: data, count: length),
+                                                        groupId: groupId,
+                                                        objectId: objectId,
                                                         format: &self.currentFormat,
                                                         orientation: &self.orientation,
                                                         verticalMirror: &self.verticalMirror)
@@ -196,8 +184,10 @@ class H264Subscription: Subscription {
                 return 0
             }
             
+            
+            
             if let samples = samples {
-                _ = jitterBuffer.write(videoFrame: .init(groupId: groupId, objectId: objectId, samples: samples))
+                _ = jitterBuffer.write(videoFrame: .init(samples: samples))
             }
 
             if self.dequeueTask == nil {
@@ -245,14 +235,14 @@ class H264Subscription: Subscription {
         } else {
             let samples: [CMSampleBuffer]?
             do {
-                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), groupId: groupId, objectId: objectId, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0
             }
             
             if let samples = samples {
-                decode(frame: .init(groupId: groupId, objectId: objectId, samples: samples))
+                decode(frame: .init(samples: samples))
             }
         }
         return SubscriptionError.None.rawValue
@@ -260,12 +250,16 @@ class H264Subscription: Subscription {
 
     private func decode(frame: VideoFrame) {
         // Should we feed this frame to the decoder?
-        guard namegate.handle(groupId: frame.groupId,
-                              objectId: frame.objectId,
+        // get groupId and objectId from the frame (1st frame)
+        let groupId = frame.getGroupId()
+        let objectId = frame.getObjectId()
+
+        guard namegate.handle(groupId: groupId,
+                              objectId: objectId,
                               lastGroup: lastGroup,
                               lastObject: lastObject) else {
             // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = frame.groupId + 1
+            let targetGroup = groupId + 1
             if let jitterBuffer = self.jitterBuffer {
                 jitterBuffer.flushTo(targetGroup: targetGroup)
             } else if self.jitterBufferConfig.mode == .layer {
@@ -274,8 +268,8 @@ class H264Subscription: Subscription {
             return
         }
 
-        lastGroup = frame.groupId
-        lastObject = frame.objectId
+        lastGroup = groupId
+        lastObject = objectId
 
         // Decode.
         do {
