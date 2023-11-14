@@ -49,7 +49,7 @@ class DecimusAudioEngine {
                 try self.reconfigureAndRestart()
                 Self.logger.notice("Audio resumed")
             } catch {
-                Self.logger.error("Failed to resume audio session", alert: true)
+                Self.logger.error("Failed to resume audio session")
             }
         @unknown default:
             Self.logger.warning("Got unexpected audio interuption value")
@@ -57,7 +57,7 @@ class DecimusAudioEngine {
     }
 
     private lazy var reset: (Notification) -> Void = { _ in
-        Self.logger.warning("Media services reset. Report this.", alert: true)
+        Self.logger.warning("Media services reset. Report this.")
     }
 
     private lazy var routeChange: (Notification) -> Void = { notification in
