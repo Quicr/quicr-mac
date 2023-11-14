@@ -65,6 +65,7 @@ class H264Subscription: Subscription {
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
+    private var label: String = ""
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -130,12 +131,7 @@ class H264Subscription: Subscription {
                  qualityProfile: String!,
                  reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
-
-        DispatchQueue.main.async {
-            let config = self.config
-            let participant = self.participants.getOrMake(identifier: self.namespace)
-            participant.view.label = "\(label!): \(String(describing: config.codec)) \(config.width)x\(config.height) \(config.fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
-        }
+        self.label = "\(label!): \(String(describing: config.codec)) \(config.width)x\(config.height) \(config.fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
 
         return SubscriptionError.None.rawValue
     }
@@ -173,6 +169,7 @@ class H264Subscription: Subscription {
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
             participant.lastUpdated = .now()
+            participant.view.label = self.label
         }
 
         if let jitterBuffer = self.jitterBuffer {
