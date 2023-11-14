@@ -184,17 +184,17 @@ class H264Subscription: Subscription {
                 return 0
             }
             
-            
-            
+            var remoteFPS = self.config.fps
             if let samples = samples {
                 _ = jitterBuffer.write(videoFrame: .init(samples: samples))
+                remoteFPS = UInt16(samples[0].getFPS())
             }
-
+        
             if self.dequeueTask == nil {
                 // We know everything to create the interval dequeuer at this point.
                 if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
                     self.dequeueBehaviour = IntervalDequeuer(minDepth: self.jitterBufferConfig.minDepth,
-                                                             frameDuration: 1 / Double(self.config.fps),
+                                                             frameDuration: 1 / Double(remoteFPS),
                                                              firstWriteTime: .now)
                 }
 
