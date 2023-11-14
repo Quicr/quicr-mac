@@ -45,6 +45,9 @@ struct SubscriptionConfig: Codable {
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
     var videoJitterBuffer: VideoJitterBuffer.Config
+    var isSingleOrderedSub: Bool
+    var isSingleOrderedPub: Bool
+
     init() {
         jitterMaxTime = 0.5
         jitterDepthTime = 0.2
@@ -53,6 +56,8 @@ struct SubscriptionConfig: Codable {
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
         videoJitterBuffer = .init()
+        isSingleOrderedSub = true
+        isSingleOrderedPub = false
     }
 }
 

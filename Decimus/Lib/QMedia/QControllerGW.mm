@@ -107,6 +107,14 @@
     qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)dataPtr, (int)dataLen, groupFlag);
 }
 
+- (void) setSubscriptionSingleOrdered:(bool)new_value {
+    qControllerGW.setSubscriptionSingleOrdered(new_value);
+}
+
+- (void) setPublicationSingleOrdered:(bool)new_value {
+    qControllerGW.setPublicationSingleOrdered(new_value);
+}
+
 @end
 
 // C++
@@ -170,4 +178,12 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
     {
         logger->error << "QControllerGW::publishNamedObject - qController nil" << std::flush;
     }
+}
+
+void QControllerGW::setSubscriptionSingleOrdered(bool new_value) {
+    qController->setSubscriptionSingleOrdered(new_value);
+}
+
+void QControllerGW::setPublicationSingleOrdered(bool new_value) {
+    qController->setPublicationSingleOrdered(new_value);
 }

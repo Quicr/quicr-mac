@@ -73,6 +73,16 @@ struct SubscriptionSettingsView: View {
                         }
                     }
                 }
+
+                HStack {
+                    Text("Single Publication")
+                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedPub) {}
+                }
+
+                HStack {
+                    Text("Single Subscription")
+                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedSub) {}
+                }
             }
             .formStyle(.columns)
         }
