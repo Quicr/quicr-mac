@@ -138,7 +138,8 @@ class H264Utilities {
                             objectId: UInt16,
                             format: inout CMFormatDescription?,
                             orientation: inout AVCaptureVideoOrientation?,
-                            verticalMirror: inout Bool?) throws -> [CMSampleBuffer]? {
+                            verticalMirror: inout Bool?,
+                            copy: Bool) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -265,6 +266,7 @@ class H264Utilities {
                                                    objectId: objectId,
                                                    timeInfo: timeInfo,
                                                    format: format,
+                                                   copy: copy,
                                                    orientation: orientation,
                                                    verticalMirror: verticalMirror,
                                                    sequenceNumber: sequenceNumber,
@@ -279,6 +281,7 @@ class H264Utilities {
                                 objectId: UInt16,
                                 timeInfo: CMSampleTimingInfo?,
                                 format: CMFormatDescription?,
+                                copy: Bool,
                                 orientation: AVCaptureVideoOrientation?,
                                 verticalMirror: Bool?,
                                 sequenceNumber: UInt64,
@@ -293,15 +296,23 @@ class H264Utilities {
 
         let timeInfo: CMSampleTimingInfo = timeInfo ?? .invalid
 
-        // Return the sample buffer.
-        let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
+        let blockBuffer: CMBlockBuffer
+        if copy {
+            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count, alignment: MemoryLayout<UInt8>.alignment)
+            nalu.copyBytes(to: copied)
+            blockBuffer = try .init(buffer: copied, deallocator: { buffer, _ in
+                buffer.deallocate()
+            })
+        } else {
+            blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
                                                           count: nalu.count)) { _, _ in }
-        
-        let sample: CMSampleBuffer =  try .init(dataBuffer: blockBuffer,
-                                            formatDescription: format,
-                                            numSamples: 1,
-                                            sampleTimings: [timeInfo],
-                                            sampleSizes: [blockBuffer.dataLength])
+        }
+
+        let sample = try CMSampleBuffer(dataBuffer: blockBuffer,
+                                        formatDescription: format,
+                                        numSamples: 1,
+                                        sampleTimings: [timeInfo],
+                                        sampleSizes: [blockBuffer.dataLength])
         sample.setGroupId(groupId)
         sample.setObjectId(objectId)
         sample.setSequenceNumber(sequenceNumber)

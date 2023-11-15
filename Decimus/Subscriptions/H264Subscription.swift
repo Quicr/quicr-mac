@@ -171,17 +171,18 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
             participant.view.label = self.label
         }
-
+        
+        let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
         if let jitterBuffer = self.jitterBuffer {
             let samples: [CMSampleBuffer]?
             do {
-                // TODO: No copy?
-                samples = try H264Utilities.depacketize(.init(bytes: data, count: length),
+                samples = try H264Utilities.depacketize(zeroCopiedData,
                                                         groupId: groupId,
                                                         objectId: objectId,
                                                         format: &self.currentFormat,
                                                         orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror)
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: true)
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0
@@ -238,7 +239,13 @@ class H264Subscription: Subscription {
         } else {
             let samples: [CMSampleBuffer]?
             do {
-                samples = try H264Utilities.depacketize(.init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none), groupId: groupId, objectId: objectId, format: &self.currentFormat, orientation: &self.orientation, verticalMirror: &self.verticalMirror)
+                samples = try H264Utilities.depacketize(zeroCopiedData,
+                                                        groupId: groupId,
+                                                        objectId: objectId,
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: self.jitterBufferConfig.mode == .layer)
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0
@@ -313,30 +320,13 @@ class H264Subscription: Subscription {
             }
         }
 
-        let sampleToEnqueue: CMSampleBuffer
-        if self.jitterBufferConfig.mode == .layer {
-            // Deep copy the sample.
-            let copied = malloc(sample.dataBuffer!.dataLength)
-            try sample.dataBuffer!.withUnsafeMutableBytes {
-                _ = memcpy(copied, $0.baseAddress, $0.count)
-            }
-            let blockBuffer = try CMBlockBuffer(buffer: .init(start: copied,
-                                                              count: sample.dataBuffer!.dataLength)) { ptr, _ in
-                free(ptr)
-            }
-            sampleToEnqueue = try! CMSampleBuffer(dataBuffer: blockBuffer,
-                                                  formatDescription: sample.formatDescription,
-                                                  numSamples: sample.numSamples,
-                                                  sampleTimings: sample.sampleTimingInfos(),
-                                                  sampleSizes: sample.sampleSizes())
-        } else {
+        if self.jitterBufferConfig.mode != .layer {
             // We're taking care of time already, show immediately.
             if sample.sampleAttachments.count > 0 {
                 sample.sampleAttachments[0][.displayImmediately] = true
             } else {
                 Self.logger.warning("Couldn't set display immediately attachment")
             }
-            sampleToEnqueue = sample
         }
 
         // Enqueue the sample on the main thread.
@@ -345,10 +335,10 @@ class H264Subscription: Subscription {
             do {
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
-                    try self.setLayerStartTime(layer: participant.view.layer!, time: sampleToEnqueue.presentationTimeStamp)
+                    try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
                     self.startTimeSet = true
                 }
-                try participant.view.enqueue(sampleToEnqueue, transform: orientation?.toTransform(verticalMirror!))
+                try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
