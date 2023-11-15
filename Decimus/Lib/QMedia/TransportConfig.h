@@ -16,6 +16,7 @@ struct TransportConfig
   uint32_t time_queue_size_rx;            /// Receive queue size
   bool debug;                             /// Enable debug logging/processing
   uint64_t quic_cwin_minimum;             /// QUIC congestion control minimum size (default is 128k)
+  uint32_t quic_wifi_shadow_rtt_us;       /// QUIC wifi shadow RTT in microseconds
 };
 typedef struct TransportConfig TransportConfig;
 

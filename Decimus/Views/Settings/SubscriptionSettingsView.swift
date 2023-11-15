@@ -101,7 +101,8 @@ struct SubscriptionSettingsView: View {
             }
         }
         Section("Transport") {
-            TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB)
+            TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB,
+                                    quicWifiShadowRttUs: $subscriptionConfig.value.quicWifiShadowRttUs)
         }
     }
 }
