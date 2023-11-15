@@ -10,6 +10,7 @@ class H264Encoder {
     private static let logger = DecimusLogger(H264Encoder.self)
 
     private let callback: EncodedCallback
+    private let config: VideoCodecConfig
     private let encoder: VTCompressionSession
     private let verticalMirror: Bool
     private let bufferAllocator: BufferAllocator
@@ -17,7 +18,7 @@ class H264Encoder {
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
     
-    private let timestampSEIBytes: [UInt8] = [ // total 44
+    private let timestampSEIBytes: [UInt8] = [ // total 47
         // Start Code.
         0x00, 0x00, 0x00, 0x01, // 0x28 - size
         // SEI NALU type,
@@ -25,7 +26,7 @@ class H264Encoder {
         // Payload type - user_data_unregistered (5)
         0x05,
         // Payload size
-        0x25,
+        0x26,
         // UUID (User Data Unregistered)
         0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
         0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
@@ -37,6 +38,8 @@ class H264Encoder {
         0x00, 0x00, 0x00, 0x00,
         // Sequence number
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // FPS
+        0x00,
         // Stop bit?
         0x80
     ]
@@ -44,6 +47,7 @@ class H264Encoder {
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.verticalMirror = verticalMirror
         self.callback = callback
+        self.config = config
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
         let allocator: CFAllocator?
         #if targetEnvironment(macCatalyst)
@@ -54,8 +58,8 @@ class H264Encoder {
 
         var compressionSession: VTCompressionSession?
         let created = VTCompressionSessionCreate(allocator: nil,
-                                                 width: config.width,
-                                                 height: config.height,
+                                                 width: self.config.width,
+                                                 height: self.config.height,
                                                  codecType: kCMVideoCodecType_H264,
                                                  encoderSpecification: Self.makeEncoderSpecification(),
                                                  imageBufferAttributes: nil,
@@ -85,19 +89,19 @@ class H264Encoder {
             VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
         }
 
-        try OSStatusError.checked("Set average bitrate: \(config.bitrate)") {
+        try OSStatusError.checked("Set average bitrate: \(self.config.bitrate)") {
             VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_AverageBitRate,
                                  value: config.bitrate as CFNumber)
         }
 
-        try OSStatusError.checked("Set expected frame rate: \(config.fps)") {
+        try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
             VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_ExpectedFrameRate,
                                  value: config.fps as CFNumber)
         }
 
-        try OSStatusError.checked("Set max key frame interval: \(config.fps * 5)") {
+        try OSStatusError.checked("Set max key frame interval: \(self.config.fps * 5)") {
             VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
                                  value: config.fps * 5 as CFNumber)
@@ -165,8 +169,11 @@ class H264Encoder {
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
+        // Todo: assigning fps for now. Come up with the correct value.
+        let fps: UInt8 = UInt8(self.config.fps)
         prependTimestampSEI(timestamp: sample.presentationTimeStamp,
                             sequenceNumber: self.sequenceNumber,
+                            fps: fps,
                             bufferAllocator: bufferAllocator)
 
         // Append Orientation SEI to buffer
@@ -177,12 +184,7 @@ class H264Encoder {
         #endif
 
         // Annex B time.
-        let attachments: NSArray = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false)! as NSArray
-        guard let sampleAttachments = attachments[0] as? NSDictionary else { fatalError("Failed to get attachements") }
-        let key = kCMSampleAttachmentKey_NotSync as NSString
-        let foundAttachment = sampleAttachments[key] as? Bool?
-        let idr = !(foundAttachment != nil && foundAttachment == true)
-
+        let idr = sample.isIDR()
         if idr {
             // SPS + PPS.
             guard let parameterSets = try? handleParameterSets(sample: sample) else {
@@ -287,7 +289,7 @@ class H264Encoder {
         return buffer
     }
     
-    private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, bufferAllocator: BufferAllocator) {
+    private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8, bufferAllocator: BufferAllocator) {
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
             return
@@ -296,12 +298,14 @@ class H264Encoder {
         var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
         var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
         var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        var fps = fps
         
         // Copy to buffer.
         timestampSEIBytes.copyBytes(to: .init(start: timestampPtr, count: timestampSEIBytes.count))
-        memcpy(timestampPtr.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size)
-        memcpy(timestampPtr.advanced(by: 32), &networkTimeScale, MemoryLayout<Int32>.size)
-        memcpy(timestampPtr.advanced(by: 36), &seq, MemoryLayout<Int64>.size)
+        memcpy(timestampPtr.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size) // 8
+        memcpy(timestampPtr.advanced(by: 24+8), &networkTimeScale, MemoryLayout<Int32>.size) // 4
+        memcpy(timestampPtr.advanced(by: 24+8+4), &seq, MemoryLayout<Int64>.size) // 8
+        memcpy(timestampPtr.advanced(by: 24+8+4+8), &fps, MemoryLayout<UInt8>.size) // 4
     }
     
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,

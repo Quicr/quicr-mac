@@ -62,6 +62,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         jsonEncoder.outputFormatting = .prettyPrinted
 
         let manifestJSON = try jsonEncoder.encode(manifest)
+        self.setSubscriptionSingleOrdered(self.config.isSingleOrderedSub)
+        self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
 

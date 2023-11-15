@@ -16,6 +16,7 @@ enum VideoError: Error {
 struct VideoView: UIViewRepresentable {
     let view: VideoUIView = .init()
     var layer: AVSampleBufferDisplayLayer? { return view.layer as? AVSampleBufferDisplayLayer }
+    var label: String = ""
 
     func flush() throws {
         guard let layer = layer else {
