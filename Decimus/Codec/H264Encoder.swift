@@ -9,6 +9,7 @@ class H264Encoder {
 
     private static let logger = DecimusLogger(H264Encoder.self)
 
+    var frameRate: Float64?
     private let callback: EncodedCallback
     private let config: VideoCodecConfig
     private let encoder: VTCompressionSession
@@ -169,8 +170,7 @@ class H264Encoder {
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
-        // Todo: assigning fps for now. Come up with the correct value.
-        let fps: UInt8 = UInt8(self.config.fps)
+        let fps = UInt8(self.frameRate ?? Float64(self.config.fps))
         prependTimestampSEI(timestamp: sample.presentationTimeStamp,
                             sequenceNumber: self.sequenceNumber,
                             fps: fps,

@@ -66,6 +66,7 @@ class H264Subscription: Subscription {
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private var label: String = ""
+    private let metricsSubmitter: MetricsSubmitter?
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -87,6 +88,7 @@ class H264Subscription: Subscription {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
+        self.metricsSubmitter = metricsSubmitter
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -97,25 +99,6 @@ class H264Subscription: Subscription {
                 } catch {
                     Self.logger.error("Failed to enqueue decoded sample: \(error)")
                 }
-            }
-
-            // We have what we need to configure the PID dequeuer if using.
-            let duration = 1 / Double(config.fps)
-            if jitterBufferConfig.mode == .pid {
-                self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
-                                                    frameDuration: duration,
-                                                    kp: 0.01,
-                                                    ki: 0.001,
-                                                    kd: 0.001)
-            }
-
-            // Create the video jitter buffer.
-            if jitterBufferConfig.mode != .none {
-                self.jitterBuffer = .init(namespace: namespace,
-                                          frameDuration: duration,
-                                          metricsSubmitter: metricsSubmitter,
-                                          sort: !reliable,
-                                          minDepth: jitterBufferConfig.minDepth)
             }
         }
 
@@ -187,21 +170,33 @@ class H264Subscription: Subscription {
                 Self.logger.error("Failed to depacketize")
                 return 0
             }
-            
+
             var remoteFPS = self.config.fps
             if let samples = samples {
                 _ = jitterBuffer.write(videoFrame: .init(samples: samples))
                 remoteFPS = UInt16(samples[0].getFPS())
             }
+
+            // We have what we need to configure the PID dequeuer if using.
+            let duration = 1 / Double(remoteFPS)
+            if jitterBufferConfig.mode == .pid && self.dequeueBehaviour == nil {
+                self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
+                                                    frameDuration: duration,
+                                                    kp: 0.01,
+                                                    ki: 0.001,
+                                                    kd: 0.001)
+            }
+
+            // Create the video jitter buffer.
+            if jitterBufferConfig.mode != .none && self.jitterBuffer == nil {
+                self.jitterBuffer = .init(namespace: self.namespace,
+                                          frameDuration: duration,
+                                          metricsSubmitter: self.metricsSubmitter,
+                                          sort: !self.reliable,
+                                          minDepth: self.jitterBufferConfig.minDepth)
+            }
         
             if self.dequeueTask == nil {
-                // We know everything to create the interval dequeuer at this point.
-                if self.dequeueBehaviour == nil && self.jitterBufferConfig.mode == .interval {
-                    self.dequeueBehaviour = IntervalDequeuer(minDepth: self.jitterBufferConfig.minDepth,
-                                                             frameDuration: 1 / Double(remoteFPS),
-                                                             firstWriteTime: .now)
-                }
-
                 // Start the frame dequeue task.
                 self.dequeueTask = .init(priority: .high) { [weak self] in
                     while !Task.isCancelled {
