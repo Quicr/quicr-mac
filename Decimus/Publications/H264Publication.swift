@@ -76,6 +76,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private var lastPublish: WrappedOptional<Date> = .init(nil)
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
+    private var frameRate: Float64?
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
@@ -176,6 +177,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        // Configure FPS.
+        if self.encoder.frameRate == nil {
+            self.encoder.frameRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
+        }
+
         // Encode.
         do {
             try encoder.write(sample: sampleBuffer)
