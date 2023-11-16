@@ -233,6 +233,11 @@ extension InCallView {
             do {
                 try captureManager?.stopCapturing()
                 try engine?.stop()
+            } catch {
+                Self.logger.error("Error while stopping media: \(error)", alert: true)
+            }
+
+            do {
                 try controller?.disconnect()
             } catch {
                 Self.logger.error("Error while leaving call: \(error)", alert: true)
