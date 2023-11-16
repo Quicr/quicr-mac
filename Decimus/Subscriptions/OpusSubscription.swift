@@ -59,6 +59,7 @@ actor OpusSubscriptionMeasurement: Measurement {
         record(field: "skipped", value: metrics.skipped_frames as AnyObject, timestamp: timestamp)
         record(field: "missed", value: metrics.update_missed_frames as AnyObject, timestamp: timestamp)
         record(field: "updated", value: metrics.updated_frames as AnyObject, timestamp: timestamp)
+        record(field: "depth", value: metrics.depth as AnyObject, timestamp: timestamp)
     }
     
     func droppedFrames(dropped: Int, timestamp: Date?) {
