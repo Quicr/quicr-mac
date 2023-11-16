@@ -66,6 +66,7 @@ class H264Subscription: Subscription {
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private var label: String = ""
+    private var labelName: String = ""
     private let metricsSubmitter: MetricsSubmitter?
 
     init(namespace: QuicrNamespace,
@@ -114,7 +115,8 @@ class H264Subscription: Subscription {
                  qualityProfile: String!,
                  reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
-        self.label = "\(label!): \(String(describing: config.codec)) \(config.width)x\(config.height) \(config.fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+        self.labelName = label!
+        self.label = self.labelName
 
         return SubscriptionError.None.rawValue
     }
@@ -175,6 +177,10 @@ class H264Subscription: Subscription {
             if let samples = samples {
                 _ = jitterBuffer.write(videoFrame: .init(samples: samples))
                 remoteFPS = UInt16(samples[0].getFPS())
+
+                if let desc = CMSampleBufferGetFormatDescription(samples[0]) {
+                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(samples[0].getFPS()))
+                }
             }
 
             // We have what we need to configure the PID dequeuer if using.
@@ -247,6 +253,9 @@ class H264Subscription: Subscription {
             }
             
             if let samples = samples {
+                if let desc = CMSampleBufferGetFormatDescription(samples[0]) {
+                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(samples[0].getFPS()))
+                }
                 decode(frame: .init(samples: samples))
             }
         }
@@ -370,6 +379,10 @@ class H264Subscription: Subscription {
             Self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
+    }
+
+    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
+        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 }
 
