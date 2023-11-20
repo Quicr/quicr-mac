@@ -174,12 +174,22 @@ class H264Subscription: Subscription {
             }
 
             var remoteFPS = self.config.fps
-            if let samples = samples {
-                _ = jitterBuffer.write(videoFrame: .init(samples: samples))
-                remoteFPS = UInt16(samples[0].getFPS())
-
-                if let desc = CMSampleBufferGetFormatDescription(samples[0]) {
-                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(samples[0].getFPS()))
+            if let samples = samples,
+               let first = samples.first {
+                let frame: VideoFrame
+                do {
+                    frame = try .init(samples: samples)
+                } catch {
+                    Self.logger.error("Failed to create video frame: \(error.localizedDescription)")
+                    return 0
+                }
+                _ = jitterBuffer.write(videoFrame: frame)
+                if let fps = first.getFPS() {
+                    remoteFPS = UInt16(fps)
+                }
+                
+                if let desc = CMSampleBufferGetFormatDescription(first) {
+                    self.label = formatLabel(size: desc.dimensions, fps: remoteFPS)
                 }
             }
 
@@ -252,11 +262,21 @@ class H264Subscription: Subscription {
                 return 0
             }
             
-            if let samples = samples {
-                if let desc = CMSampleBufferGetFormatDescription(samples[0]) {
-                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(samples[0].getFPS()))
+            if let samples = samples,
+               let first = samples.first {
+                if let desc = first.formatDescription,
+                   let fps = first.getFPS() {
+                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(fps))
                 }
-                decode(frame: .init(samples: samples))
+
+                let frame: VideoFrame
+                do {
+                    frame = try .init(samples: samples)
+                } catch {
+                    Self.logger.error("Failed to create video frame: \(error.localizedDescription)")
+                    return 0
+                }
+                decode(frame: frame)
             }
         }
         return SubscriptionError.None.rawValue
@@ -265,15 +285,12 @@ class H264Subscription: Subscription {
     private func decode(frame: VideoFrame) {
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
-        let groupId = frame.getGroupId()
-        let objectId = frame.getObjectId()
-
-        guard namegate.handle(groupId: groupId,
-                              objectId: objectId,
+        guard namegate.handle(groupId: frame.groupId,
+                              objectId: frame.objectId,
                               lastGroup: lastGroup,
                               lastObject: lastObject) else {
             // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = groupId + 1
+            let targetGroup = frame.groupId + 1
             if let jitterBuffer = self.jitterBuffer {
                 jitterBuffer.flushTo(targetGroup: targetGroup)
             } else if self.jitterBufferConfig.mode == .layer {
@@ -282,8 +299,8 @@ class H264Subscription: Subscription {
             return
         }
 
-        lastGroup = groupId
-        lastObject = objectId
+        lastGroup = frame.groupId
+        lastObject = frame.objectId
 
         // Decode.
         do {
