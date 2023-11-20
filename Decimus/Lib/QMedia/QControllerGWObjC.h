@@ -36,6 +36,8 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
                 config:(TransportConfig)config;
 -(void) close;
 -(void) updateManifest: (NSString*)manifest;
+-(void) setSubscriptionSingleOrdered:(bool) new_value;
+-(void) setPublicationSingleOrdered:(bool) new_value;
 @end
 
 #endif /* QControllerGWObj_h */

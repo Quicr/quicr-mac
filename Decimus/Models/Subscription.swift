@@ -12,7 +12,12 @@ enum SubscriptionError: Int32 {
 protocol Subscription: QSubscriptionDelegateObjC {
     var namespace: QuicrNamespace {get}
 
-    func prepare(_ sourceID: SourceIDType!, label: String!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
+    func prepare(_ sourceID: SourceIDType!,
+                 label: String!,
+                 qualityProfile: String!,
+                 reliable: UnsafeMutablePointer<Bool>!) -> Int32
+
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32
+
     func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32
 }

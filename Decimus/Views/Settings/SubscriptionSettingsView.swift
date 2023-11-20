@@ -1,11 +1,21 @@
 import SwiftUI
+import AVFoundation
 
 struct SubscriptionSettingsView: View {
 
     @AppStorage("subscriptionConfig")
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
-    
+
+    @StateObject private var devices = VideoDevices()
+    @State private var preferredCamera: String
+    private let noPreference = "None"
+
     init() {
+        if #available(iOS 17.0, *) {
+            self.preferredCamera = AVCaptureDevice.userPreferredCamera?.uniqueID ?? self.noPreference
+        } else {
+            self.preferredCamera = self.noPreference
+        }
         self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterDepthTime
     }
 
@@ -45,6 +55,38 @@ struct SubscriptionSettingsView: View {
                     Text("HEVC override")
                     Toggle(isOn: $subscriptionConfig.value.hevcOverride) {}
                 }
+
+                if #available(iOS 17.0, *) {
+                    Picker("Preferred Camera", selection: $preferredCamera) {
+                        Text("None").tag("None")
+                        ForEach(devices.cameras, id: \.uniqueID) {
+                            Text($0.localizedName)
+                                .tag($0.uniqueID)
+                        }.onChange(of: preferredCamera) { _ in
+                            guard self.preferredCamera != self.noPreference else {
+                                AVCaptureDevice.userPreferredCamera = nil
+                                return
+                            }
+
+                            for camera in devices.cameras {
+                                if camera.uniqueID == preferredCamera {
+                                    AVCaptureDevice.userPreferredCamera = camera
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+
+                HStack {
+                    Text("Single Publication")
+                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedPub) {}
+                }
+
+                HStack {
+                    Text("Single Subscription")
+                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedSub) {}
+                }
             }
             .formStyle(.columns)
         }
@@ -63,7 +105,8 @@ struct SubscriptionSettingsView: View {
             }
         }
         Section("Transport") {
-            TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB)
+            TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB,
+                                    quicWifiShadowRttUs: $subscriptionConfig.value.quicWifiShadowRttUs)
         }
     }
 }

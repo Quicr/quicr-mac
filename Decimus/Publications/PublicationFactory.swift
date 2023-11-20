@@ -56,7 +56,8 @@ class PublicationFactory {
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,
                                        engine: self.engine,
-                                       granularMetrics: self.granularMetrics)
+                                       granularMetrics: self.granularMetrics,
+                                       config: config)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

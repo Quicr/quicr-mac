@@ -8,18 +8,19 @@ class VideoUIView: UIView {
 }
 
 enum VideoError: Error {
-    case InvalidLayer
-    case LayerFailed
-    case LayerTimebaseFailed(Error)
+    case invalidLayer
+    case layerFailed
+    case layerTimebaseFailed(Error)
 }
 
 struct VideoView: UIViewRepresentable {
     let view: VideoUIView = .init()
     var layer: AVSampleBufferDisplayLayer? { return view.layer as? AVSampleBufferDisplayLayer }
+    var label: String = ""
 
     func flush() throws {
         guard let layer = layer else {
-            throw VideoError.InvalidLayer
+            throw VideoError.invalidLayer
         }
 
         layer.flush()
@@ -28,18 +29,18 @@ struct VideoView: UIViewRepresentable {
             try layer.controlTimebase?.setTime(.zero)
             try layer.controlTimebase?.setRate(1.0)
         } catch {
-            throw VideoError.LayerTimebaseFailed(error)
+            throw VideoError.layerTimebaseFailed(error)
         }
     }
 
     func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
         guard let layer = layer else {
-            throw VideoError.InvalidLayer
+            throw VideoError.invalidLayer
         }
 
         guard layer.status != .failed else {
             layer.flush()
-            throw VideoError.LayerFailed
+            throw VideoError.layerFailed
         }
 
         layer.transform = transform ?? CATransform3DIdentity

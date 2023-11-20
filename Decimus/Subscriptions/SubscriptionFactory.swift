@@ -44,8 +44,12 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
+    var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
     var hevcOverride: Bool
+    var isSingleOrderedSub: Bool
+    var isSingleOrderedPub: Bool
+
     init() {
         jitterMaxTime = 0.5
         jitterDepthTime = 0.2
@@ -53,8 +57,11 @@ struct SubscriptionConfig: Codable {
         videoBehaviour = .freeze
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
+        quicWifiShadowRttUs = 0.150
         videoJitterBuffer = .init()
         hevcOverride = false
+        isSingleOrderedSub = true
+        isSingleOrderedPub = false
     }
 }
 
@@ -63,7 +70,7 @@ class SubscriptionFactory {
                                              CodecConfig,
                                              MetricsSubmitter?) throws -> Subscription?
 
-    private unowned let participants: VideoParticipants
+    private let participants: VideoParticipants
     private let engine: DecimusAudioEngine
     private let config: SubscriptionConfig
     private let granularMetrics: Bool

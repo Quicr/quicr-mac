@@ -36,12 +36,12 @@ class VTDecoder {
         guard let format = sample.formatDescription else {
             throw "Sample missing format"
         }
-        
+
         // Make the decoder if not already.
         if session == nil {
             session = try makeDecoder(format: format)
         }
-        
+
         // Pass sample to decoder.
         var inputFlags: VTDecodeFrameFlags = .init()
         inputFlags.insert(._EnableAsynchronousDecompression)

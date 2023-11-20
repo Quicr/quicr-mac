@@ -44,11 +44,12 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                      tls_key_filename: nil,
                                                      time_queue_init_queue_size: 1000,
-                                                     time_queue_max_duration: 1000,
+                                                     time_queue_max_duration: 5000,
                                                      time_queue_bucket_interval: 1,
                                                      time_queue_size_rx: 1000,
                                                      debug: false,
-                                                     quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024)
+                                                     quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
+                                                     quic_wifi_shadow_rtt_us: UInt32(self.config.quicWifiShadowRttUs * 1_000_000))
         let error = super.connect(config.address,
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
@@ -63,6 +64,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         jsonEncoder.outputFormatting = .prettyPrinted
 
         let manifestJSON = try jsonEncoder.encode(manifest)
+        self.setSubscriptionSingleOrdered(self.config.isSingleOrderedSub)
+        self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
 

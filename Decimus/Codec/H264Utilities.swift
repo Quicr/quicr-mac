@@ -1,12 +1,120 @@
 import CoreMedia
+import AVFoundation
+
+
+// Todo: Figure out where to put this.
+extension CMSampleBuffer {
+    private static let logger = DecimusLogger(CMSampleBuffer.self)
+     func getAttachmentValue(for key:  CMSampleBuffer.PerSampleAttachmentsDictionary.Key) -> Any? {
+        for attachment in self.sampleAttachments {
+            let val = attachment[key]
+            if (val != nil) {
+                return val
+            }
+        }
+        return nil
+    }
+    
+    func setAttachmentValue(atIndex index: Int, for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key, value: Any?) -> Bool {
+        if self.sampleAttachments.count > index {
+            self.sampleAttachments[index][key] = value
+            return true
+        }
+        return false
+    }
+
+    func isIDR() -> Bool {
+        guard let value = self.getAttachmentValue(for: .dependsOnOthers) else { return false }
+        guard let dependsOnOthers = value as? Bool else { return false }
+        return !dependsOnOthers
+    }
+    
+    func setGroupId(_ groupId: UInt32) {
+        let keyString: CFString = "groupId" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: groupId)
+    }
+    
+    func getGroupId() -> UInt32 {
+        let keyString: CFString = "groupId" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        guard let value = self.getAttachmentValue(for: key) as? UInt32 else { Self.logger.error("groupId not found in CMSampleBuffer", alert: true); return 0 }
+        return value
+    }
+    
+    func setObjectId(_ objectId: UInt16) {
+        let keyString: CFString = "objectId" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: objectId)
+    }
+    
+    func getObjectId() -> UInt16 {
+        let keyString: CFString = "objectId" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        guard let value = self.getAttachmentValue(for: key) as? UInt16 else { Self.logger.error("objectId not found in CMSampleBuffer", alert: true); return 0 }
+        return value
+    }
+    
+    func setSequenceNumber(_ sequenceNumber: UInt64) {
+        let keyString: CFString = "sequenceNumber" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: sequenceNumber)
+    }
+    
+    func getSequenceNumber() -> UInt64 {
+        let keyString: CFString = "sequenceNumber" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        guard let value = self.getAttachmentValue(for: key) as? UInt64 else { Self.logger.error("sequenceNumber not found in CMSampleBuffer", alert: true); return 0 }
+        return value
+    }
+    
+    func setFPS(_ fps: UInt8) {
+        let keyString: CFString = "FPS" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: fps)
+    }
+    
+    func getFPS() -> UInt8 {
+        let keyString: CFString = "FPS" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        guard let value = self.getAttachmentValue(for: key) as? UInt8 else { Self.logger.error("FPS not found in CMSampleBuffer", alert: true); return 0 }
+        return value
+    }
+    
+    func setOrientation(_ orientation: AVCaptureVideoOrientation?) {
+        let keyString: CFString = "Orientation" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: orientation)
+    }
+    
+    func getOrienation() -> AVCaptureVideoOrientation? {
+        let keyString: CFString = "Orientation" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let value = self.getAttachmentValue(for: key) as? AVCaptureVideoOrientation
+        return value
+    }
+    
+    func setVerticalMirror(_ verticalMirror: Bool?) {
+        let keyString: CFString = "verticalMirror" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: verticalMirror)
+    }
+    
+    func getVerticalMirror() -> Bool? {
+        let keyString: CFString = "verticalMirror" as CFString
+        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
+        let value = self.getAttachmentValue(for: key) as? Bool
+        return value
+    }
+}
 
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities {
     private static let logger = DecimusLogger(H264Utilities.self)
-    
+
     // Bytes that precede every NALU.
     static let naluStartCode: [UInt8] = [0x00, 0x00, 0x00, 0x01]
-    
+
     // H264 frame type identifiers.
     enum H264Types: UInt8 {
         case pFrame = 1
@@ -15,51 +123,61 @@ class H264Utilities {
         case sps = 7
         case pps = 8
     }
-    
+
     enum PacketizationError: Error {
         case missingStartCode
     }
 
-    /// Callback type to signal the caller an SEI has been found in the bitstream.
-    typealias SEICallback = (Data) -> Void
-    
     /// Turns an H264 Annex B bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The H264 data. This is used in place and will be modified, so much outlive any use of the created samples.
+    /// - Parameter data The H264 data. This is used in place and will be modified, so must outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
     /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    static func depacketize(_ data: inout Data,
-                            timeInfo: CMSampleTimingInfo,
+    static func depacketize(_ data: Data,
+                            groupId: UInt32,
+                            objectId: UInt16,
                             format: inout CMFormatDescription?,
-                            sei: SEICallback) throws -> [CMSampleBuffer] {
+                            orientation: inout AVCaptureVideoOrientation?,
+                            verticalMirror: inout Bool?,
+                            copy: Bool) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
-
-        // Extract SPS/PPS if available.
-        let paramOutput = try checkParameterSets(data)
-        var data = paramOutput.0
-        if let newFormat = paramOutput.1 {
-            format = newFormat
-        }
-
-        // Ensure there's space for any more NALUs.
-        guard data.count > 0 else {
-            return []
-        }
-
+        
         // Identify all NALUs by start code.
         assert(data.starts(with: naluStartCode))
         var ranges: [Range<Data.Index>] = []
+        var naluRanges : [Range<Data.Index>] = []
         var startIndex = 0
         var index = 0
+        var naluRangesIndex = 0
         while let range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
             ranges.append(range)
             startIndex = range.upperBound
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-                ranges[index - 1] = .init(lastRange.lowerBound...range.lowerBound - 1)
+                
+                if naluRangesIndex > 0 {
+                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound  {
+                        index += 1
+                        continue
+                    }
+                }
+
+                let type = H264Types(rawValue: data[lastRange.upperBound] & 0x1F)
+                
+                // RBSP types can have data that might include a "0001". So,
+                // use the payload size to get the whole sub buffer.
+                if type == .sei { // RBSP
+                    let payloadSize = data[lastRange.upperBound + 2]
+                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
+                    naluRanges.append(.init(lastRange.lowerBound...upperBound))
+  
+                } else {
+                    naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
+                }
+                naluRangesIndex += 1
             }
             index += 1
         }
@@ -67,42 +185,108 @@ class H264Utilities {
         // Adjust the last range to run to the end of data.
         if let lastRange = ranges.last {
             let range = Range<Data.Index>(lastRange.lowerBound...data.count-1)
-            ranges[ranges.count - 1] = range
+            naluRanges.append(range)
         }
 
         // Get NALU data objects (zero copy).
         var nalus: [Data] = []
         let nsData = data as NSData
-        for range in ranges {
+        for range in naluRanges {
             nalus.append(Data(bytesNoCopy: .init(mutating: nsData.bytes.advanced(by: range.lowerBound)),
                               count: range.count,
                               deallocator: .none))
         }
+        
+        
+        // Finally! We have all of the nalu ranges for this frame...
+        var spsData: Data?
+        var ppsData: Data?
+        var timeValue: UInt64 = 0
+        var timeScale: UInt32 = 100_000
+        var sequenceNumber: UInt64 = 0
+        var fps: UInt8 = 30
 
         // Create sample buffers from NALUs.
+        var timeInfo: CMSampleTimingInfo?
         var results: [CMSampleBuffer] = []
         for index in 0..<nalus.count {
             // What type is this NALU?
             var nalu = nalus[index]
             assert(nalu.starts(with: self.naluStartCode))
             let type = H264Types(rawValue: nalu[naluStartCode.count] & 0x1F)
-            guard type == .pFrame || type == .idr || type == .sei else {
-                Self.logger.info("Unhandled NALU type: \(String(describing: type))")
-                continue
+            let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
+            
+            if type == .sps {
+                spsData = rangedData
             }
-
-            // Callback any SEIs.
+            
+            if type == .pps {
+                ppsData = rangedData
+            }
+            
             if type == .sei {
-                sei(nalu)
-                continue
+                var seiData = rangedData
+                if seiData.count == 6 { // Orientation
+                    if seiData[2] == 0x02 { // yep - orientation
+                        orientation = .init(rawValue: .init(Int(seiData[3])))
+                        verticalMirror = seiData[4] == 1
+                    }
+                } else if seiData.count == 42 { // timestamp?
+                    if seiData[19] == 2 { // good enough - timstamp!
+                        seiData.withUnsafeMutableBytes {
+                            guard let ptr = $0.baseAddress else { return }
+                            memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
+                            memcpy(&timeScale, ptr.advanced(by: 20+8), MemoryLayout<Int32>.size)
+                            memcpy(&sequenceNumber, ptr.advanced(by: 20+8+4), MemoryLayout<Int64>.size)
+                            memcpy(&fps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
+                            timeValue = CFSwapInt64BigToHost(timeValue)
+                            timeScale = CFSwapInt32BigToHost(timeScale)
+                            sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
+                            let timeStamp = CMTimeMake(value: Int64(timeValue),
+                                                  timescale: Int32(timeScale))
+                            
+                            timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                                          presentationTimeStamp: timeStamp,
+                                                          decodeTimeStamp: .invalid)
+                        }
+                    } else {
+                        // Unhandled SEI
+                    }
+                }
             }
+            
 
-            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format!))
+            if let spsData = spsData,
+               let ppsData = ppsData {
+                format = try! CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
+            }
+        
+            if type == .pFrame || type == .idr {
+                results.append(try depacketizeNalu(&nalu, 
+                                                   groupId: groupId,
+                                                   objectId: objectId,
+                                                   timeInfo: timeInfo,
+                                                   format: format,
+                                                   copy: copy,
+                                                   orientation: orientation,
+                                                   verticalMirror: verticalMirror,
+                                                   sequenceNumber: sequenceNumber,
+                                                   fps: fps))
+            }
         }
-        return results
+        return results.count > 0 ? results : nil
     }
     
-    static func depacketizeNalu(_ nalu: inout Data, timeInfo: CMSampleTimingInfo, format: CMFormatDescription) throws -> CMSampleBuffer {
+    static func depacketizeNalu(_ nalu: inout Data,
+                                groupId: UInt32,
+                                objectId: UInt16,
+                                timeInfo: CMSampleTimingInfo?,
+                                format: CMFormatDescription?,
+                                copy: Bool,
+                                orientation: AVCaptureVideoOrientation?,
+                                verticalMirror: Bool?,
+                                sequenceNumber: UInt64,
+                                fps: UInt8) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -110,70 +294,32 @@ class H264Utilities {
         // Change start code to length
         var naluDataLength = UInt32(nalu.count - naluStartCode.count).bigEndian
         nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
-        
-        // Return the sample buffer.
-        let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
+
+        let timeInfo: CMSampleTimingInfo = timeInfo ?? .invalid
+
+        let blockBuffer: CMBlockBuffer
+        if copy {
+            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count, alignment: MemoryLayout<UInt8>.alignment)
+            nalu.copyBytes(to: copied)
+            blockBuffer = try .init(buffer: copied, deallocator: { buffer, _ in
+                buffer.deallocate()
+            })
+        } else {
+            blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
                                                           count: nalu.count)) { _, _ in }
-        return try .init(dataBuffer: blockBuffer,
-                         formatDescription: format,
-                         numSamples: 1,
-                         sampleTimings: [timeInfo],
-                         sampleSizes: [blockBuffer.dataLength])
-    }
-    
-    /// Extracts parameter sets from the given pointer, if any.
-    /// - Parameter data Encoded NALU data to check with 4 byte start code / length at the start.
-    /// - Returns data read forwards to the next unprocessed start code, if any, and the extracted format, if any.
-    private static func checkParameterSets(_ data: Data) throws -> (Data, CMFormatDescription?) {
-        assert(data.starts(with: naluStartCode))
-        
-        // Is this SPS?
-        let type = H264Types(rawValue: data[naluStartCode.count] & 0x1F)
-        guard type == .sps else {
-            return (data, nil)
         }
-        var ppsStartCodeIndex: Int = 0
-        var spsLength: Int = 0
-        if type == .sps {
-            for byte in naluStartCode.count...data.count - 1 where data.advanced(by: byte).starts(with: naluStartCode) {
-                // Found the next start code.
-                ppsStartCodeIndex = byte
-                spsLength = ppsStartCodeIndex
-                break
-            }
-            
-            guard ppsStartCodeIndex != 0 else {
-                throw "Expected to find PPS start code after SPS"
-            }
-        }
-        let spsRawData = data.subdata(in: naluStartCode.count..<spsLength)
-        
-        // Check for PPS.
-        var idrStartCodeIndex: Int = 0
-        var ppsRawData = data.advanced(by: ppsStartCodeIndex).advanced(by: naluStartCode.count)
-        let secondType = H264Types(rawValue: ppsRawData[0] & 0x1F)
-        guard secondType == .pps else {
-            let offsetted = data.advanced(by: ppsStartCodeIndex)
-            assert(offsetted.starts(with: self.naluStartCode))
-            return (offsetted, nil)
-        }
-        
-        // Is there another start code in this data?
-        for byte in 0...ppsRawData.count where
-        ppsRawData.advanced(by: byte).starts(with: naluStartCode) {
-            idrStartCodeIndex = byte
-            break
-        }
-        if idrStartCodeIndex > 0 {
-            ppsRawData = ppsRawData.subdata(in: 0..<idrStartCodeIndex)
-        }
-        
-        // Collate SPS & PPS.
-        let format = try CMVideoFormatDescription(h264ParameterSets: [spsRawData, ppsRawData], nalUnitHeaderLength: naluStartCode.count)
-        let offsetted = data.advanced(by: idrStartCodeIndex > 0 ? idrStartCodeIndex : data.count)
-        if offsetted.count > 0 {
-            assert(offsetted.starts(with: self.naluStartCode))
-        }
-        return (offsetted, format)
+
+        let sample = try CMSampleBuffer(dataBuffer: blockBuffer,
+                                        formatDescription: format,
+                                        numSamples: 1,
+                                        sampleTimings: [timeInfo],
+                                        sampleSizes: [blockBuffer.dataLength])
+        sample.setGroupId(groupId)
+        sample.setObjectId(objectId)
+        sample.setSequenceNumber(sequenceNumber)
+        sample.setOrientation(orientation)
+        sample.setVerticalMirror(verticalMirror)
+        sample.setFPS(fps)
+        return sample
     }
 }

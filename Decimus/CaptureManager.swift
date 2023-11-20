@@ -206,7 +206,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let device = listener.device
 
         if var cameraFrameListeners = self.multiVideoDelegate[device] {
-            guard let maxFramerateRange = device.activeFormat.videoSupportedFrameRateRanges.max(by: { $0.maxFrameRate > $1.maxFrameRate }) else {
+            let ranges = device.activeFormat.videoSupportedFrameRateRanges
+            guard let maxFramerateRange = ranges.max(by: { $0.maxFrameRate > $1.maxFrameRate }) else {
                 throw "No framerate set"
             }
 

@@ -4,6 +4,7 @@
 #import <Foundation/Foundation.h>
 
 #include "Packet.h"
+#include "Metrics.h"
 #ifdef __cplusplus
 #include <memory>
 #include "JitterBuffer.hh"
@@ -37,6 +38,8 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 -(size_t)dequeue:(uint8_t*)destination
                 destinationLength:(size_t)destination_length
                 elements:(size_t)elements;
+
+-(struct Metrics)getMetrics;
 
 @end
 

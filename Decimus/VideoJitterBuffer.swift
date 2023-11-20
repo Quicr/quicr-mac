@@ -1,14 +1,15 @@
 import Foundation
 import OrderedCollections
+import AVFoundation
 
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
-    
+
     struct Config: Codable {
         var mode: Mode = .none
         var minDepth: TimeInterval = 0.2
     }
-    
+
     enum Mode: CaseIterable, Identifiable, Codable {
         case pid
         case interval
@@ -62,6 +63,7 @@ class VideoJitterBuffer {
     private var play: Bool = false
     private var lastSequenceRead: UInt64?
     private let sort: Bool
+    private var timestampTimeDiff: TimeInterval?
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -91,7 +93,11 @@ class VideoJitterBuffer {
     /// - Parameter videoFrame The video frame structure to attempt to sort into the buffer.
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
+        let timestamp = videoFrame.getTimestampInSeconds()
         let result = lock.withLock {
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - timestamp
+            }
             let thisSeq = videoFrame.getSeq()
             if let lastSequenceRead = self.lastSequenceRead {
                 guard thisSeq > lastSequenceRead else {
@@ -123,14 +129,14 @@ class VideoJitterBuffer {
         let count = self.lock.withLock {
             self.buffer.count
         }
-        
+
         let depth: TimeInterval = TimeInterval(count) * self.frameDuration
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.currentDepth(depth: depth, timestamp: now)
             }
         }
-        
+
         // Are we playing out?
         if !self.play && depth > self.minDepth {
             self.play = true
@@ -162,7 +168,7 @@ class VideoJitterBuffer {
     func flushTo(targetGroup groupId: UInt32) {
         var flushCount: UInt = 0
         lock.withLock {
-            while self.buffer.count > 0 && self.buffer[0].groupId < groupId {
+            while self.buffer.count > 0 && self.buffer[0].getGroupId() < groupId {
                 let flushed = self.buffer.removeFirst()
                 self.lastSequenceRead = flushed.getSeq()
                 flushCount += 1
@@ -177,10 +183,27 @@ class VideoJitterBuffer {
             }
         }
     }
-    
+
     func getDepth() -> TimeInterval {
         self.lock.withLock {
             Double(self.buffer.count) * self.frameDuration
+        }
+    }
+    
+    func calculateWaitTime() -> TimeInterval {
+        calculateWaitTime(from: .now)
+    }
+    
+    func calculateWaitTime(from: Date) -> TimeInterval {
+        self.lock.withLock {
+            guard let peek = self.buffer.first,
+                  let diff = self.timestampTimeDiff else {
+                return self.frameDuration
+            }
+            let timestampValue = peek.getTimestampInSeconds()
+            let targetTimeRef = timestampValue + diff
+            let targetDate = Date(timeIntervalSinceReferenceDate: targetTimeRef)
+            return targetDate.timeIntervalSinceNow + self.minDepth
         }
     }
 }
@@ -198,7 +221,5 @@ extension VideoFrame: Hashable, Comparable {
         lhs.getSeq() == rhs.getSeq()
     }
 
-    func getSeq() -> UInt64 {
-        (UInt64(self.groupId) << 16) | UInt64(self.objectId)
-    }
+
 }

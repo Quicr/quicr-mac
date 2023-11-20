@@ -1,4 +1,5 @@
 import CoreMedia
+import AVFoundation
 
 /// Utility functions for working with HEVC bitstreams.
 class HEVCUtilities {
@@ -29,38 +30,51 @@ class HEVCUtilities {
     /// - Parameter timeInfo The timing info for this frame.
     /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    static func depacketize(_ data: inout Data,
-                            timeInfo: CMSampleTimingInfo,
+    static func depacketize(_ data: Data,
+                            groupId: UInt32,
+                            objectId: UInt16,
                             format: inout CMFormatDescription?,
-                            sei: SEICallback) throws -> [CMSampleBuffer] {
+                            orientation: inout AVCaptureVideoOrientation?,
+                            verticalMirror: inout Bool?,
+                            copy: Bool) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
-        }
-
-        // Extract VPS/SPS/PPS if available.
-        let paramOutput = try checkParameterSets(data)
-        let data = paramOutput.0
-        if let newFormat = paramOutput.1 {
-            format = newFormat
-        }
-
-        // Ensure there's space for any more NALUs.
-        guard data.count > 0 else {
-            return []
         }
 
         // Identify all NALUs by start code.
         assert(data.starts(with: naluStartCode))
         var ranges: [Range<Data.Index>] = []
+        var naluRanges: [Range<Data.Index>] = []
         var startIndex = 0
         var index = 0
+        var naluRangesIndex = 0
         while let range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
             ranges.append(range)
             startIndex = range.upperBound
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-                ranges[index - 1] = .init(lastRange.lowerBound...range.lowerBound - 1)
+                
+                if naluRangesIndex > 0 {
+                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound {
+                        index += 1
+                        continue
+                    }
+                }
+                
+                let naluType = (data[lastRange.upperBound] >> 1) & 0x3f
+                let type = HEVCTypes(rawValue: naluType)
+                
+                // RBSP types can have data that include a "0001". So,
+                // use the playload size to the whole sub buffer.
+                if type == .sei { // RBSP
+                    let payloadSize = data[lastRange.upperBound + 2]
+                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
+                    naluRanges.append(.init(lastRange.lowerBound...upperBound))
+                } else {
+                    naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
+                }
+                naluRangesIndex += 1
             }
             index += 1
         }
@@ -68,19 +82,29 @@ class HEVCUtilities {
         // Adjust the last range to run to the end of data.
         if let lastRange = ranges.last {
             let range = Range<Data.Index>(lastRange.lowerBound...data.count-1)
-            ranges[ranges.count - 1] = range
+            naluRanges.append(range)
         }
 
         // Get NALU data objects (zero copy).
         var nalus: [Data] = []
         let nsData = data as NSData
-        for range in ranges {
+        for range in naluRanges {
             nalus.append(Data(bytesNoCopy: .init(mutating: nsData.bytes.advanced(by: range.lowerBound)),
                               count: range.count,
                               deallocator: .none))
         }
+        
+        // Finally! We have all of the nalu ranges for this frame...
+        var spsData: Data?
+        var ppsData: Data?
+        var vpsData: Data?
+        var timeValue: UInt64 = 0
+        var timeScale: UInt32 = 100_000
+        var sequenceNumber: UInt64 = 0
+        var fps: UInt8 = 30
 
         // Create sample buffers from NALUs.
+        var timeInfo: CMSampleTimingInfo?
         var results: [CMSampleBuffer] = []
         for index in 0..<nalus.count {
             // What type is this NALU?
@@ -88,122 +112,77 @@ class HEVCUtilities {
             assert(nalu.starts(with: self.naluStartCode))
             let naluType = (nalu[naluStartCode.count] >> 1) & 0x3f
             let type = HEVCTypes(rawValue: naluType)
-
-            // Callback any SEIs.
-            if type == .sei {
-                sei(nalu)
-                continue
+            let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
+            
+            if type == .vps {
+                print("Found VPS")
+                vpsData = rangedData
             }
 
-            results.append(try depacketizeNalu(&nalu, timeInfo: timeInfo, format: format))
-        }
-        return results
-    }
-    
-    static func depacketizeNalu(_ nalu: inout Data, timeInfo: CMSampleTimingInfo, format: CMFormatDescription?) throws -> CMSampleBuffer {
-        guard nalu.starts(with: naluStartCode) else {
-            throw PacketizationError.missingStartCode
-        }
-
-        // Change start code to length
-        var naluDataLength = UInt32(nalu.count - naluStartCode.count).bigEndian
-        nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
-        
-        // Return the sample buffer.
-        let blockBuffer = try CMBlockBuffer(buffer: .init(start: .init(mutating: (nalu as NSData).bytes),
-                                                          count: nalu.count)) { _, _ in }
-        return try .init(dataBuffer: blockBuffer,
-                         formatDescription: format,
-                         numSamples: 1,
-                         sampleTimings: [timeInfo],
-                         sampleSizes: [blockBuffer.dataLength])
-    }
-    
-    /// Extracts parameter sets from the given pointer, if any.
-    /// - Parameter data Encoded NALU data to check with 4 byte start code / length at the start.
-    /// - Returns data read forwards to the next unprocessed start code, if any, and the extracted format, if any.
-    private static func checkParameterSets(_ data: Data) throws -> (Data, CMFormatDescription?) {
-        assert(data.starts(with: naluStartCode))
-        
-        let naluType = (data[naluStartCode.count] >> 1) & 0x3f
-        let type = HEVCTypes(rawValue: naluType)
-        
-        // Is this VPS?
-        guard type == .vps else {
-            return (data, nil)
-        }
-        
-        var spsStartCodeIndex: Int = 0
-        var vpsLength: Int = 0
-        if type == .vps {
-            for byte in naluStartCode.count...data.count - 1 where data.advanced(by: byte).starts(with: naluStartCode) {
-                // Found the next start code.
-                spsStartCodeIndex = byte
-                vpsLength = spsStartCodeIndex
-                break
-            }
-        }
-        
-        guard spsStartCodeIndex != 0 else {
-            throw "Expected to find SPS start code index after VPS"
-        }
-        
-        let vpsRawData = data.subdata(in: naluStartCode.count..<vpsLength)
-        
-        // Check for SPS.
-        var spsRawData = data.advanced(by: spsStartCodeIndex).advanced(by: naluStartCode.count)
-        let rawSecondType = (spsRawData[0] >> 1) & 0x3F
-        let secondType = HEVCTypes(rawValue: rawSecondType)
-        guard secondType == .sps else {
-            let offsetted = data.advanced(by: spsStartCodeIndex)
-            assert(offsetted.starts(with: self.naluStartCode))
-            return (offsetted, nil)
-        }
-        
-        // Check for PPS.
-        var ppsStartCodeIndex: Int = 0
-        var spsLength = 0
-        if secondType == .sps {
-            for byte in spsStartCodeIndex+naluStartCode.count...data.count - 1 where data.advanced(by: byte).starts(with: naluStartCode) {
-                // Found the next start code.
-                ppsStartCodeIndex = byte
-                spsLength = ppsStartCodeIndex - spsStartCodeIndex
-                break
+            if type == .sps {
+                print("Found SPS")
+                spsData = rangedData
             }
             
-            guard ppsStartCodeIndex != 0 else {
-                throw "Expected to find PPS start code after SPS"
+            if type == .pps {
+                print("Found PPS")
+                ppsData = rangedData
             }
+
+            if type == .sei {
+                var seiData = nalu.subdata(in: naluStartCode.count..<nalu.count)
+                if seiData.count == 6 { // Orientation
+                    if seiData[2] == 0x02 { // yep - orientation
+                        orientation = .init(rawValue: .init(Int(seiData[3])))
+                        verticalMirror = seiData[4] == 1
+                    }
+                } else if seiData.count == 42 { // timestamp?
+                    if seiData[19] == 2 { // good enough - timstamp!
+                        seiData.withUnsafeMutableBytes {
+                            guard let ptr = $0.baseAddress else { return }
+                            memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
+                            memcpy(&timeScale, ptr.advanced(by: 20+8), MemoryLayout<Int32>.size)
+                            memcpy(&sequenceNumber, ptr.advanced(by: 20+8+4), MemoryLayout<Int64>.size)
+                            memcpy(&fps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
+                            timeValue = CFSwapInt64BigToHost(timeValue)
+                            timeScale = CFSwapInt32BigToHost(timeScale)
+                            sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
+                            let timeStamp = CMTimeMake(value: Int64(timeValue),
+                                                       timescale: Int32(timeScale))
+                            
+                            timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                                          presentationTimeStamp: timeStamp,
+                                                          decodeTimeStamp: .invalid)
+                        }
+                    } else {
+                        // Unhandled SEI
+                    }
+                }
+            }
+            
+            if let vpsData = vpsData,
+               let spsData = spsData,
+               let ppsData = ppsData {
+                if format == nil {
+                    print("Creating format from HEVC params")
+                    format = try! CMVideoFormatDescription(hevcParameterSets: [vpsData, spsData, ppsData],
+                                                           nalUnitHeaderLength: naluStartCode.count)
+                    print(format!)
+                }
+            }
+            
+
+            results.append(try H264Utilities.depacketizeNalu(&nalu,
+                                                             groupId: groupId,
+                                                             objectId: objectId,
+                                                             timeInfo: timeInfo,
+                                                             format: format,
+                                                             copy: copy,
+                                                             orientation: orientation,
+                                                             verticalMirror: verticalMirror,
+                                                             sequenceNumber: sequenceNumber,
+                                                             fps: fps))
         }
-        spsRawData.count = spsLength
-        
-        // Check for PPS.
-        var idrStartCodeIndex: Int = 0
-        var ppsRawData = data.advanced(by: ppsStartCodeIndex).advanced(by: naluStartCode.count)
-        let rawThirdType = (ppsRawData[0] >> 1) & 0x3f
-        let thirdType = HEVCTypes(rawValue: rawThirdType)
-        guard thirdType == .pps else {
-            let offsetted = data.advanced(by: ppsStartCodeIndex)
-            assert(offsetted.starts(with: self.naluStartCode))
-            return (offsetted, nil)
-        }
-        
-        // Is there another start code in this data?
-        for byte in 0...ppsRawData.count where
-        ppsRawData.advanced(by: byte).starts(with: naluStartCode) {
-            idrStartCodeIndex = byte
-            break
-        }
-        if idrStartCodeIndex > 0 {
-            ppsRawData = ppsRawData.subdata(in: 0..<idrStartCodeIndex)
-        }
-        
-        // Collate SPS & PPS.
-        let format = try! CMVideoFormatDescription(hevcParameterSets: [vpsRawData, spsRawData, ppsRawData], nalUnitHeaderLength: naluStartCode.count)
-        let offsetted = data.advanced(by: idrStartCodeIndex > 0 ? idrStartCodeIndex : data.count)
-        if offsetted.count > 0 {
-            assert(offsetted.starts(with: self.naluStartCode))
-        }
-        return (offsetted, format)
+        return results.count > 0 ? results : nil
     }
 }

@@ -10,7 +10,7 @@ class DecimusAudioEngine {
                                              interleaved: false)!
 
     private static let logger: DecimusLogger = .init(DecimusAudioEngine.self)
-    
+
     /// The AVAudioEngine instance this AudioEngine wraps.
     let engine: AVAudioEngine = .init()
 
@@ -22,7 +22,7 @@ class DecimusAudioEngine {
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
-        Self.logger.notice("AVAudioEngineConfigurationChange", alert: true)
+        Self.logger.notice("AVAudioEngineConfigurationChange")
         do {
             try self.reconfigureAndRestart()
         } catch {
@@ -41,15 +41,15 @@ class DecimusAudioEngine {
         switch type {
         case .began:
             // We got interupted.
-            Self.logger.warning("Audio interuption", alert: true)
+            Self.logger.warning("Audio interuption")
         case .ended:
             // Resume.
             do {
                 try AVAudioSession.sharedInstance().setActive(true)
                 try self.reconfigureAndRestart()
-                Self.logger.notice("Audio resumed", alert: true)
+                Self.logger.notice("Audio resumed")
             } catch {
-                Self.logger.error("Failed to resume audio session", alert: true)
+                Self.logger.error("Failed to resume audio session")
             }
         @unknown default:
             Self.logger.warning("Got unexpected audio interuption value")
@@ -57,7 +57,7 @@ class DecimusAudioEngine {
     }
 
     private lazy var reset: (Notification) -> Void = { _ in
-        Self.logger.warning("Media services reset. Report this.", alert: true)
+        Self.logger.warning("Media services reset. Report this.")
     }
 
     private lazy var routeChange: (Notification) -> Void = { notification in
@@ -66,7 +66,7 @@ class DecimusAudioEngine {
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
             return
         }
-        Self.logger.notice("Route change: \(reason)", alert: true)
+        Self.logger.notice("Route change: \(reason)")
     }
 
     init() throws {
@@ -76,7 +76,7 @@ class DecimusAudioEngine {
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
                                 options: [.defaultToSpeaker, .allowBluetooth])
-        
+
         // Enable voice processing.
         if !engine.outputNode.isVoiceProcessingEnabled {
             try engine.outputNode.setVoiceProcessingEnabled(true)
@@ -85,7 +85,7 @@ class DecimusAudioEngine {
               engine.inputNode.isVoiceProcessingEnabled else {
             throw "Voice processing missmatch"
         }
-        
+
         // Ducking.
 #if compiler(>=5.9)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
@@ -110,23 +110,23 @@ class DecimusAudioEngine {
         try localReconfigure()
 
         // Register interest in reconfigure events.
-        let nc: NotificationCenter = .default
-        notificationObservers.append(nc.addObserver(forName: .AVAudioEngineConfigurationChange,
-                                                    object: nil,
-                                                    queue: nil,
-                                                    using: reconfigure))
-        notificationObservers.append(nc.addObserver(forName: AVAudioSession.interruptionNotification,
-                                                    object: AVAudioSession.sharedInstance(),
-                                                    queue: nil,
-                                                    using: interupt))
-        notificationObservers.append(nc.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
-                                                    object: AVAudioSession.sharedInstance(),
-                                                    queue: nil,
-                                                    using: reset))
-        notificationObservers.append(nc.addObserver(forName: AVAudioSession.routeChangeNotification,
-                                                    object: AVAudioSession.sharedInstance(),
-                                                    queue: nil,
-                                                    using: routeChange))
+        let notifications: NotificationCenter = .default
+        notificationObservers.append(notifications.addObserver(forName: .AVAudioEngineConfigurationChange,
+                                                               object: nil,
+                                                               queue: nil,
+                                                               using: reconfigure))
+        notificationObservers.append(notifications.addObserver(forName: AVAudioSession.interruptionNotification,
+                                                               object: AVAudioSession.sharedInstance(),
+                                                               queue: nil,
+                                                               using: interupt))
+        notificationObservers.append(notifications.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+                                                               object: AVAudioSession.sharedInstance(),
+                                                               queue: nil,
+                                                               using: reset))
+        notificationObservers.append(notifications.addObserver(forName: AVAudioSession.routeChangeNotification,
+                                                               object: AVAudioSession.sharedInstance(),
+                                                               queue: nil,
+                                                               using: routeChange))
     }
 
     deinit {
