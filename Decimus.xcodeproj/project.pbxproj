@@ -20,6 +20,8 @@
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
 		18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */; };
 		18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */; };
+		18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */; };
+		18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -160,6 +162,8 @@
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
 		18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDequeuer.swift; sourceTree = "<group>"; };
+		18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
+		18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestCMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
 		18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSubmitter.swift; sourceTree = "<group>"; };
 		18C89A3D2A13D315005B333B /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 		18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxMetricsSubmitter.swift; sourceTree = "<group>"; };
@@ -367,6 +371,7 @@
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
 				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
+				18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -422,6 +427,7 @@
 				1848B86E2ABAE51A00275F71 /* OSStatusError.swift */,
 				18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */,
 				186397A02ADE0B9100FBF877 /* VideoDevices.swift */,
+				18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -756,6 +762,7 @@
 			files = (
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
+				18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -802,6 +809,7 @@
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
+				18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
