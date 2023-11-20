@@ -23,7 +23,7 @@ public:
                 std::uint16_t protocol,
                 qtransport::TransportConfig config);
     
-    void close();
+    void disconnect();
     
     void updateManifest(const std::string manifest);
        
