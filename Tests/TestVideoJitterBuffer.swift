@@ -15,10 +15,10 @@ final class TestVideoJitterBuffer: XCTestCase {
                        sequenceNumber: UInt64,
                        fps: UInt8) -> [CMSampleBuffer] {
         let sample = try! CMSampleBuffer(dataBuffer: nil, formatDescription: nil, numSamples: 1, sampleTimings: [], sampleSizes: [])
-        sample.setGroupId(groupId)
-        sample.setObjectId(objectId)
-        sample.setSequenceNumber(sequenceNumber)
-        sample.setFPS(fps)
+        try! sample.setGroupId(groupId)
+        try! sample.setObjectId(objectId)
+        try! sample.setSequenceNumber(sequenceNumber)
+        try! sample.setFPS(fps)
         return [sample]
     }
 

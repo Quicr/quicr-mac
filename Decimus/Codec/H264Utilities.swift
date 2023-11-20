@@ -209,19 +209,19 @@ class H264Utilities {
                                         numSamples: 1,
                                         sampleTimings: [timeInfo],
                                         sampleSizes: [blockBuffer.dataLength])
-        sample.setGroupId(groupId)
-        sample.setObjectId(objectId)
+        try sample.setGroupId(groupId)
+        try sample.setObjectId(objectId)
         if let sequenceNumber = sequenceNumber {
-            sample.setSequenceNumber(sequenceNumber)
+            try sample.setSequenceNumber(sequenceNumber)
         }
         if let orientation = orientation {
-            sample.setOrientation(orientation)
+            try sample.setOrientation(orientation)
         }
         if let verticalMirror = verticalMirror {
-            sample.setVerticalMirror(verticalMirror)
+            try sample.setVerticalMirror(verticalMirror)
         }
         if let fps = fps {
-            sample.setFPS(fps)
+            try sample.setFPS(fps)
         }
         return sample
     }
