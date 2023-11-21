@@ -21,9 +21,6 @@ class HEVCUtilities {
     enum PacketizationError: Error {
         case missingStartCode
     }
-
-    /// Callback type to signal the caller an SEI has been found in the bitstream.
-    typealias SEICallback = (Data) -> Void
     
     /// Turns an HEVC Annex B bitstream into CMSampleBuffer per NALU.
     /// - Parameter data The HEVC data. This is used in place and will be modified, so much outlive any use of the created samples.
@@ -68,8 +65,8 @@ class HEVCUtilities {
                 // RBSP types can have data that include a "0001". So,
                 // use the playload size to the whole sub buffer.
                 if type == .sei { // RBSP
-                    let payloadSize = data[lastRange.upperBound + 2]
-                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
+                    let payloadSize = data[lastRange.upperBound + 3]
+                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 4
                     naluRanges.append(.init(lastRange.lowerBound...upperBound))
                 } else {
                     naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
@@ -98,10 +95,8 @@ class HEVCUtilities {
         var spsData: Data?
         var ppsData: Data?
         var vpsData: Data?
-        var timeValue: UInt64 = 0
-        var timeScale: UInt32 = 100_000
-        var sequenceNumber: UInt64 = 0
-        var fps: UInt8 = 30
+        var sequenceNumber: UInt64?
+        var fps: UInt8?
 
         // Create sample buffers from NALUs.
         var timeInfo: CMSampleTimingInfo?
@@ -115,62 +110,66 @@ class HEVCUtilities {
             let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
             
             if type == .vps {
-                print("Found VPS")
                 vpsData = rangedData
             }
 
             if type == .sps {
-                print("Found SPS")
                 spsData = rangedData
             }
             
             if type == .pps {
-                print("Found PPS")
                 ppsData = rangedData
             }
 
             if type == .sei {
-                var seiData = nalu.subdata(in: naluStartCode.count..<nalu.count)
-                if seiData.count == 6 { // Orientation
-                    if seiData[2] == 0x02 { // yep - orientation
-                        orientation = .init(rawValue: .init(Int(seiData[3])))
-                        verticalMirror = seiData[4] == 1
+                let seiData = nalu
+                if seiData.count == orientationSEI.count { // Orientation
+                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == 0x02 { // yep - orientation
+                        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
+                        verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
                     }
-                } else if seiData.count == 42 { // timestamp?
-                    if seiData[19] == 2 { // good enough - timstamp!
-                        seiData.withUnsafeMutableBytes {
-                            guard let ptr = $0.baseAddress else { return }
-                            memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
-                            memcpy(&timeScale, ptr.advanced(by: 20+8), MemoryLayout<Int32>.size)
-                            memcpy(&sequenceNumber, ptr.advanced(by: 20+8+4), MemoryLayout<Int64>.size)
-                            memcpy(&fps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
-                            timeValue = CFSwapInt64BigToHost(timeValue)
-                            timeScale = CFSwapInt32BigToHost(timeScale)
-                            sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
-                            let timeStamp = CMTimeMake(value: Int64(timeValue),
+                } else if seiData.count == timestampSEIBytes.count { // timestamp?
+                    if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timstamp!
+                        let tempTimeValue: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
+                        let tempTimeScale: UnsafeMutableBufferPointer<UInt32> = .allocate(capacity: 1)
+                        _ = data.advanced(by: TimestampSeiOffsets.timeValue.rawValue).copyBytes(to: tempTimeValue)
+                        _ = data.advanced(by: TimestampSeiOffsets.timeScale.rawValue).copyBytes(to: tempTimeScale)
+                        let tempSequence: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
+                        _ = data.advanced(by: TimestampSeiOffsets.sequence.rawValue).copyBytes(to: tempSequence)
+                        var tempFps: UInt8 = 0
+                        data.advanced(by: TimestampSeiOffsets.fps.rawValue).copyBytes(to: &tempFps, count: 1)
+                        fps = tempFps
+                        let timeValue = CFSwapInt64BigToHost(tempTimeValue.baseAddress!.pointee)
+                        let timeScale = CFSwapInt32BigToHost(tempTimeScale.baseAddress!.pointee)
+                        sequenceNumber = CFSwapInt64BigToHost(tempSequence.baseAddress!.pointee)
+                        let timeStamp = CMTimeMake(value: Int64(timeValue),
                                                        timescale: Int32(timeScale))
-                            
-                            timeInfo = CMSampleTimingInfo(duration: .invalid,
+                        timeInfo = CMSampleTimingInfo(duration: .invalid,
                                                           presentationTimeStamp: timeStamp,
                                                           decodeTimeStamp: .invalid)
-                        }
                     } else {
                         // Unhandled SEI
                     }
                 }
             }
             
-            if let vpsData = vpsData,
-               let spsData = spsData,
-               let ppsData = ppsData {
-                if format == nil {
-                    print("Creating format from HEVC params")
-                    format = try! CMVideoFormatDescription(hevcParameterSets: [vpsData, spsData, ppsData],
+            if let vps = vpsData,
+               let sps = spsData,
+               let pps = ppsData {
+                format = try! CMVideoFormatDescription(hevcParameterSets: [vps, sps, pps],
                                                            nalUnitHeaderLength: naluStartCode.count)
-                    print(format!)
-                }
+                vpsData = nil
+                spsData = nil
+                ppsData = nil
+                print(format!)
             }
-            
+
+            guard type != .vps,
+                  type != .sps,
+                  type != .pps,
+                  type != .sei else {
+                continue
+            }
 
             results.append(try H264Utilities.depacketizeNalu(&nalu,
                                                              groupId: groupId,
@@ -184,5 +183,94 @@ class HEVCUtilities {
                                                              fps: fps))
         }
         return results.count > 0 ? results : nil
+    }
+    
+    fileprivate enum OrientationSeiOffsets: Int {
+        case tag = 6
+        case payloadLength = 7
+        case orientation = 8
+        case mirror = 9
+    }
+    
+    fileprivate static let orientationSEI: [UInt8] = [
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01,
+
+        // SEI NALU type,
+        HEVCTypes.sei.rawValue << 1, 0x00,
+
+        // Display orientation
+        0x2f,
+
+        // Payload length.
+        0x02,
+
+        // Orientation payload.
+        0x00,
+
+        // Device position.
+        0x00,
+
+        // Stop.
+        0x80
+    ]
+    
+    static func getHEVCOrientationSEI(orientation: AVCaptureVideoOrientation,
+                                      verticalMirror: Bool) -> [UInt8] {
+        var bytes = orientationSEI
+        bytes[8] = UInt8(orientation.rawValue)
+        bytes[9] = verticalMirror ? 0x01 : 0x00
+        return bytes
+    }
+    
+    fileprivate enum TimestampSeiOffsets: Int {
+        case type = 6
+        case size = 7
+        case id = 24
+        case timeValue = 25
+        case timeScale = 33
+        case sequence = 37
+        case fps = 45
+    }
+
+    fileprivate static let timestampSEIBytes: [UInt8] = [ // total 47
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01, // 0x28 - size
+        // SEI NALU type,
+        HEVCTypes.sei.rawValue << 1, 0x00,
+        // Payload type - user_data_unregistered (5)
+        0x05,
+        // Payload size
+        0x26,
+        // UUID (User Data Unregistered)
+        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
+        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
+        // Application specific ID
+        0x02, // Time ms --- offset 24 bytes from beginning
+        // Time Value Int64
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Time timescale Int32
+        0x00, 0x00, 0x00, 0x00,
+        // Sequence number
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // FPS
+        0x00,
+        // Stop bit?
+        0x80
+    ]
+    
+    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8) -> [UInt8] {
+        var bytes = timestampSEIBytes
+        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
+        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
+        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        var fps = fps
+        bytes.withUnsafeMutableBytes {
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<Int32>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue), &fps, MemoryLayout<UInt8>.size) // 4
+        }
+        return bytes
     }
 }

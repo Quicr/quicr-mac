@@ -18,32 +18,6 @@ class VTEncoder {
     private var sequenceNumber : Int64 = 0
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
-    
-    private let timestampSEIBytes: [UInt8] = [ // total 47
-        // Start Code.
-        0x00, 0x00, 0x00, 0x01, // 0x28 - size
-        // SEI NALU type,
-        0x06,
-        // Payload type - user_data_unregistered (5)
-        0x05,
-        // Payload size
-        0x26,
-        // UUID (User Data Unregistered)
-        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
-        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
-        // Application specific ID
-        0x02, // Time ms --- offset 24 bytes from beginning
-        // Time Value Int64
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // Time timescale Int32
-        0x00, 0x00, 0x00, 0x00,
-        // Sequence number
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // FPS
-        0x00,
-        // Stop bit?
-        0x80
-    ]
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
         self.config = config
@@ -358,67 +332,23 @@ class VTEncoder {
     }
     
     private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8, bufferAllocator: BufferAllocator) {
-        guard let timestampPtr = bufferAllocator.allocateBufferHeader(timestampSEIBytes.count) else {
+        let bytes: [UInt8]
+        switch self.config.codec {
+        case .h264:
+            bytes = H264Utilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
+        case .hevc:
+            bytes = HEVCUtilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
+        default:
+            fatalError()
+        }
+        
+        guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
             return
         }
-
-        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
-        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
-        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
-        var fps = fps
         
         // Copy to buffer.
-        timestampSEIBytes.copyBytes(to: .init(start: timestampPtr, count: timestampSEIBytes.count))
-        memcpy(timestampPtr.advanced(by: 24), &networkTimeValue, MemoryLayout<Int64>.size) // 8
-        memcpy(timestampPtr.advanced(by: 24+8), &networkTimeScale, MemoryLayout<Int32>.size) // 4
-        memcpy(timestampPtr.advanced(by: 24+8+4), &seq, MemoryLayout<Int64>.size) // 8
-        memcpy(timestampPtr.advanced(by: 24+8+4+8), &fps, MemoryLayout<UInt8>.size) // 4
-    }
-    
-    private func prependH264OrientationSEI(orientation: AVCaptureVideoOrientation,
-                                           verticalMirror: Bool,
-                                           bufferAllocator: BufferAllocator) -> [UInt8] {
-        [
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01,
-            // SEI NALU type,
-            H264Utilities.H264Types.sei.rawValue,
-            // Display orientation
-            0x2f,
-            // Payload length
-            0x02,
-            // Orientation payload.
-            UInt8(orientation.rawValue),
-            // Device position.
-            verticalMirror ? 0x01 : 0x00,
-            // Stop bit
-            0x80
-        ]
-    }
-    
-    private func prependHEVCOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                           verticalMirror: Bool,
-                                           bufferAllocator: BufferAllocator) -> [UInt8] {
-        [
-            // Start Code.
-            0x00, 0x00, 0x00, 0x01,
-
-            // SEI NALU type,
-            HEVCUtilities.HEVCTypes.sei.rawValue << 1, 0x00,
-
-            // Display orientation
-            0x2f, 0x02,
-
-            // Orientation payload.
-            UInt8(orientation.rawValue),
-
-            // Device position.
-            verticalMirror ? 0x01 : 0x00,
-
-            // Stop.
-            0x80
-        ]
+        bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
     }
 
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
@@ -427,13 +357,11 @@ class VTEncoder {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:
-            bytes = prependH264OrientationSEI(orientation: orientation,
-                                              verticalMirror: verticalMirror,
-                                              bufferAllocator: bufferAllocator)
+            bytes = H264Utilities.getH264OrientationSEI(orientation: orientation,
+                                                        verticalMirror: verticalMirror)
         case .hevc:
-            bytes = prependHEVCOrientationSEI(orientation: orientation,
-                                              verticalMirror: verticalMirror,
-                                              bufferAllocator: bufferAllocator)
+            bytes = HEVCUtilities.getHEVCOrientationSEI(orientation: orientation,
+                                                        verticalMirror: verticalMirror)
         default:
             throw "Codec \(self.config.codec) doesn't provide orientation data"
         }

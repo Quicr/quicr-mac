@@ -116,24 +116,27 @@ class H264Utilities {
             }
             
             if type == .sei {
-                var seiData = rangedData
-                if seiData.count == 6 { // Orientation
-                    if seiData[2] == 0x02 { // yep - orientation
-                        orientation = .init(rawValue: .init(Int(seiData[3])))
-                        verticalMirror = seiData[4] == 1
+                var seiData = nalu
+                if seiData.count == orientationSei.count { // Orientation
+                    print("This looks like orientation")
+                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == orientationSei[OrientationSeiOffsets.payloadLength.rawValue] { // yep - orientation
+                        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
+                        verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
+                    } else {
+                        fatalError()
                     }
-                } else if seiData.count == 42 { // timestamp?
-                    if seiData[19] == 2 { // good enough - timstamp!
+                } else if seiData.count == timestampSEIBytes.count { // timestamp?
+                    if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timstamp!
                         seiData.withUnsafeMutableBytes {
-                            guard let ptr = $0.baseAddress else { return }
+                            guard let ptr = $0.baseAddress else { fatalError() }
                             var timeValue: UInt64 = 0
-                            var timeScale: UInt32 = 100000
-                            memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
-                            memcpy(&timeScale, ptr.advanced(by: 20+8), MemoryLayout<Int32>.size)
+                            var timeScale: UInt32 = 0
+                            memcpy(&timeValue, ptr.advanced(by: TimestampSeiOffsets.timeValue.rawValue), MemoryLayout<Int64>.size)
+                            memcpy(&timeScale, ptr.advanced(by: TimestampSeiOffsets.timeScale.rawValue), MemoryLayout<Int32>.size)
                             var tempSequence: UInt64 = 0
-                            memcpy(&tempSequence, ptr.advanced(by: 20+8+4), MemoryLayout<UInt64>.size)
+                            memcpy(&tempSequence, ptr.advanced(by: TimestampSeiOffsets.sequence.rawValue), MemoryLayout<UInt64>.size)
                             var tempFps: UInt8 = 0
-                            memcpy(&tempFps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
+                            memcpy(&tempFps, ptr.advanced(by: TimestampSeiOffsets.fps.rawValue), MemoryLayout<UInt8>.size)
                             fps = tempFps
                             timeValue = CFSwapInt64BigToHost(timeValue)
                             timeScale = CFSwapInt32BigToHost(timeScale)
@@ -225,5 +228,88 @@ class H264Utilities {
             try sample.setFPS(fps)
         }
         return sample
+    }
+    
+    fileprivate enum OrientationSeiOffsets: Int {
+        case tag = 5
+        case payloadLength = 6
+        case orientation = 7
+        case mirror = 8
+    }
+    
+    fileprivate static let orientationSei: [UInt8] = [
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01,
+        // SEI NALU type,
+        H264Types.sei.rawValue,
+        // Display orientation
+        0x2f,
+        // Payload length
+        0x02,
+        // Orientation payload.
+        0x00,
+        // Device position.
+        0x00,
+        // Stop bit
+        0x80
+    ]
+
+    static func getH264OrientationSEI(orientation: AVCaptureVideoOrientation,
+                                       verticalMirror: Bool) -> [UInt8] {
+        var bytes = orientationSei
+        bytes[7] = UInt8(orientation.rawValue)
+        bytes[8] = verticalMirror ? 0x01 : 0x00
+        return bytes
+    }
+    
+    fileprivate enum TimestampSeiOffsets: Int {
+        case type = 5
+        case size = 6
+        case id = 23
+        case timeValue = 24
+        case timeScale = 32
+        case sequence = 36
+        case fps = 44
+    }
+
+    fileprivate static let timestampSEIBytes: [UInt8] = [ // total 46
+        // Start Code.
+        0x00, 0x00, 0x00, 0x01, // 0x28 - size
+        // SEI NALU type,
+        H264Types.sei.rawValue,
+        // Payload type - user_data_unregistered (5)
+        0x05,
+        // Payload size
+        0x26,
+        // UUID (User Data Unregistered)
+        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
+        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
+        // Application specific ID
+        0x02, // Time ms --- offset 24 bytes from beginning
+        // Time Value Int64
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Time timescale Int32
+        0x00, 0x00, 0x00, 0x00,
+        // Sequence number
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // FPS
+        0x00,
+        // Stop bit?
+        0x80
+    ]
+    
+    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8) -> [UInt8] {
+        var bytes = timestampSEIBytes
+        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
+        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
+        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        var fps = fps
+        bytes.withUnsafeMutableBytes {
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<Int32>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue), &fps, MemoryLayout<UInt8>.size) // 4
+        }
+        return bytes
     }
 }
