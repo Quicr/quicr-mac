@@ -5,19 +5,24 @@ import XCTest
 final class TestVideoJitterBuffer: XCTestCase {
 
     /// Nothing should be returned until the min depth has been exceeded.
-    func TestPlayout() {
-        testPlayout(sort: true)
-        testPlayout(sort: false)
+    func TestPlayout() throws {
+        try testPlayout(sort: true)
+        try testPlayout(sort: false)
     }
     
-    func exampleSample(groupId: UInt32, objectId: UInt16) -> [CMSampleBuffer] {
-        let sample = try! CMSampleBuffer(dataBuffer: nil, formatDescription: nil, numSamples: 0, sampleTimings: [], sampleSizes: [])
-        sample.setGroupId(groupId)
-        sample.setObjectId(objectId)
+    func exampleSample(groupId: UInt32,
+                       objectId: UInt16,
+                       sequenceNumber: UInt64,
+                       fps: UInt8) -> [CMSampleBuffer] {
+        let sample = try! CMSampleBuffer(dataBuffer: nil, formatDescription: nil, numSamples: 1, sampleTimings: [], sampleSizes: [])
+        try! sample.setGroupId(groupId)
+        try! sample.setObjectId(objectId)
+        try! sample.setSequenceNumber(sequenceNumber)
+        try! sample.setFPS(fps)
         return [sample]
     }
 
-    func testPlayout(sort: Bool) {
+    func testPlayout(sort: Bool) throws {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               metricsSubmitter: nil,
@@ -25,22 +30,34 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 1/30 * 2.5)
 
         // Write 1, no play.
-        let frame1: VideoFrame = .init( samples: exampleSample(groupId: 0,objectId: 0))
+        let frame1: VideoFrame = try .init( samples: exampleSample(groupId: 0,
+                                                                   objectId: 0,
+                                                                   sequenceNumber: 0,
+                                                                   fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame1))
         XCTAssertNil(buffer.read())
 
         // Write 2, no play.
-        let frame2: VideoFrame = .init(samples: exampleSample(groupId: 0,objectId: 1))
+        let frame2: VideoFrame = try .init( samples: exampleSample(groupId: 0,
+                                                                   objectId: 1,
+                                                                   sequenceNumber: 1,
+                                                                   fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame2))
         XCTAssertNil(buffer.read())
 
         // Write 3, play, get 1.
-        let frame3: VideoFrame = .init(samples: exampleSample(groupId: 0,objectId: 2))
+        let frame3: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 2,
+                                                                  sequenceNumber: 2,
+                                                                  fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame3))
         XCTAssertEqual(frame1, buffer.read())
 
         // Write 4, get 2.
-        let frame4: VideoFrame = .init(samples: exampleSample(groupId: 0,objectId: 3))
+        let frame4: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 3,
+                                                                  sequenceNumber: 3,
+                                                                  fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame4))
         XCTAssertEqual(frame2, buffer.read())
 
@@ -51,7 +68,7 @@ final class TestVideoJitterBuffer: XCTestCase {
     }
 
     // Out of orders should go in order.
-    func testOutOfOrder() {
+    func testOutOfOrder() throws {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               metricsSubmitter: nil,
@@ -59,13 +76,19 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 0)
 
         // Write newer.
-        let frame2: VideoFrame = .init(samples:  exampleSample(groupId: 0,objectId: 1))
+        let frame2: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 1,
+                                                                  sequenceNumber: 1,
+                                                                  fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame2))
 
         // Write older.
-        let frame1: VideoFrame = .init(samples:  exampleSample(groupId: 0,objectId: 0))
+        let frame1: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 0,
+                                                                  sequenceNumber: 0,
+                                                                  fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame1))
-/* Fixme ----
+
         // Get older first.
         let read1 = buffer.read()
         XCTAssertEqual(frame1, read1)
@@ -73,16 +96,15 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Then newer.
         let read2 = buffer.read()
         XCTAssertEqual(frame2, read2)
- */
     }
 
     // Out of orders should not be allowed past a read.
-    func testOlderFrame() {
-        testOlderFrame(true)
-        testOlderFrame(false)
+    func testOlderFrame() throws {
+        try testOlderFrame(true)
+        try testOlderFrame(false)
     }
 
-    func testOlderFrame(_ sort: Bool) {
+    func testOlderFrame(_ sort: Bool) throws {
         let buffer: VideoJitterBuffer = .init(namespace: .init(),
                                               frameDuration: 1 / 30,
                                               metricsSubmitter: nil,
@@ -90,7 +112,10 @@ final class TestVideoJitterBuffer: XCTestCase {
                                               minDepth: 0)
 
         // Write newer.
-        let frame2: VideoFrame = .init(samples:  exampleSample(groupId: 0,objectId: 1))
+        let frame2: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 1,
+                                                                  sequenceNumber: 1,
+                                                                  fps: 30))
         XCTAssertTrue(buffer.write(videoFrame: frame2))
 
         // Read newer.
@@ -98,7 +123,10 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertEqual(frame2, read1)
 
         // Write older should fail.
-        let frame1: VideoFrame = .init(samples:  exampleSample(groupId: 0,objectId: 0))
+        let frame1: VideoFrame = try .init(samples: exampleSample(groupId: 0,
+                                                                  objectId: 0,
+                                                                  sequenceNumber: 0,
+                                                                  fps: 30))
         XCTAssertFalse(buffer.write(videoFrame: frame1))
     }
 

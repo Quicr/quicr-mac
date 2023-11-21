@@ -68,8 +68,4 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
-
-    func disconnect() throws {
-        super.close()
-    }
 }

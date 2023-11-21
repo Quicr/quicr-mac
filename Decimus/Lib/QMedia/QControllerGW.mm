@@ -60,9 +60,16 @@
     }
 }
 
--(void) close
+-(void)disconnect
 {
-    qControllerGW.close();
+    @try
+    {
+        qControllerGW.disconnect();
+    }
+    @catch(...)
+    {
+        @throw;
+    }
 }
 
 -(void)updateManifest:(NSString*)manifest
@@ -133,17 +140,16 @@ int QControllerGW::connect(const std::string remote_address,
     return qController->connect(address, remote_port, proto, config);
 }
 
-void QControllerGW::close()
+void QControllerGW::disconnect()
 {
-    if (qController)
+    if (!qController)
     {
-        qController->disconnect();
+        logger->error << "QControllerGW::disconnect - qController nil" << std::flush;
+        return;
     }
-    else
-    {
-        logger->error << "QControllerGW::close - qController nil" << std::flush;
-    }
-}
+
+    qController->disconnect();
+ }
 
 void QControllerGW::updateManifest(const std::string manifest)
 {

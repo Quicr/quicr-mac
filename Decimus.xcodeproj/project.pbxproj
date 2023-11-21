@@ -20,9 +20,11 @@
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
 		18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */; };
 		18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */; };
-		18BF45662B06BF71006E8E24 /* VTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45632B06BF71006E8E24 /* VTDecoder.swift */; };
-		18BF45672B06BF71006E8E24 /* VTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45642B06BF71006E8E24 /* VTEncoder.swift */; };
-		18BF45682B06BF71006E8E24 /* HEVCUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45652B06BF71006E8E24 /* HEVCUtilities.swift */; };
+		18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */; };
+		18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */; };
+		18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456D2B0CD632006E8E24 /* VTDecoder.swift */; };
+		18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456E2B0CD632006E8E24 /* VTEncoder.swift */; };
+		18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -161,9 +163,11 @@
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
 		18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDequeuer.swift; sourceTree = "<group>"; };
-		18BF45632B06BF71006E8E24 /* VTDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTDecoder.swift; sourceTree = "<group>"; };
-		18BF45642B06BF71006E8E24 /* VTEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTEncoder.swift; sourceTree = "<group>"; };
-		18BF45652B06BF71006E8E24 /* HEVCUtilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HEVCUtilities.swift; sourceTree = "<group>"; };
+		18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
+		18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestCMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
+		18BF456D2B0CD632006E8E24 /* VTDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTDecoder.swift; sourceTree = "<group>"; };
+		18BF456E2B0CD632006E8E24 /* VTEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTEncoder.swift; sourceTree = "<group>"; };
+		18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HEVCUtilities.swift; sourceTree = "<group>"; };
 		18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSubmitter.swift; sourceTree = "<group>"; };
 		18C89A3D2A13D315005B333B /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 		18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxMetricsSubmitter.swift; sourceTree = "<group>"; };
@@ -329,9 +333,9 @@
 		9B48067F298016FD0040F5D4 /* Codec */ = {
 			isa = PBXGroup;
 			children = (
-				18BF45652B06BF71006E8E24 /* HEVCUtilities.swift */,
-				18BF45632B06BF71006E8E24 /* VTDecoder.swift */,
-				18BF45642B06BF71006E8E24 /* VTEncoder.swift */,
+				18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */,
+				18BF456D2B0CD632006E8E24 /* VTDecoder.swift */,
+				18BF456E2B0CD632006E8E24 /* VTEncoder.swift */,
 				9B7F40012ACB1914003333C3 /* H264Utilities.swift */,
 				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
@@ -370,6 +374,7 @@
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
 				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
+				18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -425,6 +430,7 @@
 				1848B86E2ABAE51A00275F71 /* OSStatusError.swift */,
 				18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */,
 				186397A02ADE0B9100FBF877 /* VideoDevices.swift */,
+				18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -759,6 +765,7 @@
 			files = (
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
+				18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -769,6 +776,7 @@
 			files = (
 				FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */,
 				1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */,
+				18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */,
 				1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */,
@@ -782,6 +790,7 @@
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */,
+				18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */,
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
@@ -790,7 +799,6 @@
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
-				18BF45672B06BF71006E8E24 /* VTEncoder.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
 				FFFF72DB2A280A8000D4D5EE /* RelaySettingsView.swift in Sources */,
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
@@ -805,8 +813,8 @@
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* Subscription.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
+				18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
-				18BF45682B06BF71006E8E24 /* HEVCUtilities.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
@@ -831,7 +839,7 @@
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
-				18BF45662B06BF71006E8E24 /* VTDecoder.swift in Sources */,
+				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
 				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

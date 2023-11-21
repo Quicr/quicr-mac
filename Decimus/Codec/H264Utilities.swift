@@ -1,113 +1,6 @@
 import CoreMedia
 import AVFoundation
 
-
-// Todo: Figure out where to put this.
-extension CMSampleBuffer {
-    private static let logger = DecimusLogger(CMSampleBuffer.self)
-     func getAttachmentValue(for key:  CMSampleBuffer.PerSampleAttachmentsDictionary.Key) -> Any? {
-        for attachment in self.sampleAttachments {
-            let val = attachment[key]
-            if (val != nil) {
-                return val
-            }
-        }
-        return nil
-    }
-    
-    func setAttachmentValue(atIndex index: Int, for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key, value: Any?) -> Bool {
-        if self.sampleAttachments.count > index {
-            self.sampleAttachments[index][key] = value
-            return true
-        }
-        return false
-    }
-
-    func isIDR() -> Bool {
-        guard let value = self.getAttachmentValue(for: .dependsOnOthers) else { return false }
-        guard let dependsOnOthers = value as? Bool else { return false }
-        return !dependsOnOthers
-    }
-    
-    func setGroupId(_ groupId: UInt32) {
-        let keyString: CFString = "groupId" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: groupId)
-    }
-    
-    func getGroupId() -> UInt32 {
-        let keyString: CFString = "groupId" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        guard let value = self.getAttachmentValue(for: key) as? UInt32 else { Self.logger.error("groupId not found in CMSampleBuffer", alert: true); return 0 }
-        return value
-    }
-    
-    func setObjectId(_ objectId: UInt16) {
-        let keyString: CFString = "objectId" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: objectId)
-    }
-    
-    func getObjectId() -> UInt16 {
-        let keyString: CFString = "objectId" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        guard let value = self.getAttachmentValue(for: key) as? UInt16 else { Self.logger.error("objectId not found in CMSampleBuffer", alert: true); return 0 }
-        return value
-    }
-    
-    func setSequenceNumber(_ sequenceNumber: UInt64) {
-        let keyString: CFString = "sequenceNumber" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: sequenceNumber)
-    }
-    
-    func getSequenceNumber() -> UInt64 {
-        let keyString: CFString = "sequenceNumber" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        guard let value = self.getAttachmentValue(for: key) as? UInt64 else { Self.logger.error("sequenceNumber not found in CMSampleBuffer", alert: true); return 0 }
-        return value
-    }
-    
-    func setFPS(_ fps: UInt8) {
-        let keyString: CFString = "FPS" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: fps)
-    }
-    
-    func getFPS() -> UInt8 {
-        let keyString: CFString = "FPS" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        guard let value = self.getAttachmentValue(for: key) as? UInt8 else { Self.logger.error("FPS not found in CMSampleBuffer", alert: true); return 0 }
-        return value
-    }
-    
-    func setOrientation(_ orientation: AVCaptureVideoOrientation?) {
-        let keyString: CFString = "Orientation" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: orientation)
-    }
-    
-    func getOrienation() -> AVCaptureVideoOrientation? {
-        let keyString: CFString = "Orientation" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let value = self.getAttachmentValue(for: key) as? AVCaptureVideoOrientation
-        return value
-    }
-    
-    func setVerticalMirror(_ verticalMirror: Bool?) {
-        let keyString: CFString = "verticalMirror" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let _ = self.setAttachmentValue(atIndex: 0, for: key, value: verticalMirror)
-    }
-    
-    func getVerticalMirror() -> Bool? {
-        let keyString: CFString = "verticalMirror" as CFString
-        let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let value = self.getAttachmentValue(for: key) as? Bool
-        return value
-    }
-}
-
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities {
     private static let logger = DecimusLogger(H264Utilities.self)
@@ -201,10 +94,8 @@ class H264Utilities {
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
-        var timeValue: UInt64 = 0
-        var timeScale: UInt32 = 100_000
-        var sequenceNumber: UInt64 = 0
-        var fps: UInt8 = 30
+        var sequenceNumber: UInt64?
+        var fps: UInt8?
 
         // Create sample buffers from NALUs.
         var timeInfo: CMSampleTimingInfo?
@@ -235,13 +126,18 @@ class H264Utilities {
                     if seiData[19] == 2 { // good enough - timstamp!
                         seiData.withUnsafeMutableBytes {
                             guard let ptr = $0.baseAddress else { return }
+                            var timeValue: UInt64 = 0
+                            var timeScale: UInt32 = 100000
                             memcpy(&timeValue, ptr.advanced(by: 20), MemoryLayout<Int64>.size)
                             memcpy(&timeScale, ptr.advanced(by: 20+8), MemoryLayout<Int32>.size)
-                            memcpy(&sequenceNumber, ptr.advanced(by: 20+8+4), MemoryLayout<Int64>.size)
-                            memcpy(&fps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
+                            var tempSequence: UInt64 = 0
+                            memcpy(&tempSequence, ptr.advanced(by: 20+8+4), MemoryLayout<UInt64>.size)
+                            var tempFps: UInt8 = 0
+                            memcpy(&tempFps, ptr.advanced(by: 20+8+4+8), MemoryLayout<UInt8>.size)
+                            fps = tempFps
                             timeValue = CFSwapInt64BigToHost(timeValue)
                             timeScale = CFSwapInt32BigToHost(timeScale)
-                            sequenceNumber = CFSwapInt64BigToHost(sequenceNumber)
+                            sequenceNumber = CFSwapInt64BigToHost(tempSequence)
                             let timeStamp = CMTimeMake(value: Int64(timeValue),
                                                   timescale: Int32(timeScale))
                             
@@ -285,8 +181,8 @@ class H264Utilities {
                                 copy: Bool,
                                 orientation: AVCaptureVideoOrientation?,
                                 verticalMirror: Bool?,
-                                sequenceNumber: UInt64,
-                                fps: UInt8) throws -> CMSampleBuffer {
+                                sequenceNumber: UInt64?,
+                                fps: UInt8?) throws -> CMSampleBuffer {
         guard nalu.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -314,12 +210,20 @@ class H264Utilities {
                                         numSamples: 1,
                                         sampleTimings: [timeInfo],
                                         sampleSizes: [blockBuffer.dataLength])
-        sample.setGroupId(groupId)
-        sample.setObjectId(objectId)
-        sample.setSequenceNumber(sequenceNumber)
-        sample.setOrientation(orientation)
-        sample.setVerticalMirror(verticalMirror)
-        sample.setFPS(fps)
+        try sample.setGroupId(groupId)
+        try sample.setObjectId(objectId)
+        if let sequenceNumber = sequenceNumber {
+            try sample.setSequenceNumber(sequenceNumber)
+        }
+        if let orientation = orientation {
+            try sample.setOrientation(orientation)
+        }
+        if let verticalMirror = verticalMirror {
+            try sample.setVerticalMirror(verticalMirror)
+        }
+        if let fps = fps {
+            try sample.setFPS(fps)
+        }
         return sample
     }
 }

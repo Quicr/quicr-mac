@@ -2,38 +2,38 @@ import CoreMedia
 import Foundation
 import AVFoundation
 
-struct VideoFrame {
-    let samples: [CMSampleBuffer]
+enum VideoFrameError: Error {
+    case missingSample
+    case missingAttachments
 }
 
-extension VideoFrame {
+struct VideoFrame {
+    let samples: [CMSampleBuffer]
+    let groupId: UInt32
+    let objectId: UInt16
+    let sequenceNumber: UInt64
+    let timestamp: TimeInterval
+    let orientation: AVCaptureVideoOrientation?
+    let verticalMirror: Bool?
+    let fps: UInt8
     
-    func getGroupId() -> UInt32 {
-        return self.samples.first!.getGroupId()
+    init(samples: [CMSampleBuffer]) throws {
+        self.samples = samples
+        guard let first = self.samples.first else {
+            throw VideoFrameError.missingSample
+        }
+        guard let groupId = first.getGroupId(),
+              let objectId = first.getObjectId(),
+              let sequenceNumber = first.getSequenceNumber(),
+              let fps = first.getFPS() else {
+            throw VideoFrameError.missingAttachments
+        }
+        self.groupId = groupId
+        self.objectId = objectId
+        self.sequenceNumber = sequenceNumber
+        self.fps = fps
+        self.timestamp = first.presentationTimeStamp.seconds
+        self.orientation = first.getOrientation()
+        self.verticalMirror = first.getVerticalMirror()
     }
-    
-    func getObjectId() -> UInt16 {
-        return self.samples.first!.getObjectId()
-    }
-    
-    func getSeq() -> UInt64 {
-        return self.samples.first!.getSequenceNumber()
-    }
-    
-    func getTimestampInSeconds() -> Double {
-        return self.samples.first!.presentationTimeStamp.seconds
-    }
-    
-    func getOrientation() -> AVCaptureVideoOrientation? {
-        return self.samples.first!.getOrienation()
-    }
-    
-    func getVerticalMirror() -> Bool? {
-        return self.samples.first!.getVerticalMirror()
-    }
-    
-    func getFPS() -> UInt8 {
-        return self.samples.first!.getFPS()
-    }
-    
 }

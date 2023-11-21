@@ -93,12 +93,12 @@ class VideoJitterBuffer {
     /// - Parameter videoFrame The video frame structure to attempt to sort into the buffer.
     /// - Returns True if successfully enqueued, false if it was older than the last read and thus dropped.
     func write(videoFrame: VideoFrame) -> Bool {
-        let timestamp = videoFrame.getTimestampInSeconds()
+        let timestamp = videoFrame.timestamp
         let result = lock.withLock {
             if self.timestampTimeDiff == nil {
                 self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - timestamp
             }
-            let thisSeq = videoFrame.getSeq()
+            let thisSeq = videoFrame.sequenceNumber
             if let lastSequenceRead = self.lastSequenceRead {
                 guard thisSeq > lastSequenceRead else {
                     print("[VideoJitterBuffer] Skipping \(thisSeq), had \(lastSequenceRead)")
@@ -158,7 +158,7 @@ class VideoJitterBuffer {
         // Get the oldest available frame.
         return self.lock.withLock {
             let oldest = self.buffer.removeFirst()
-            self.lastSequenceRead = oldest.getSeq()
+            self.lastSequenceRead = oldest.sequenceNumber
             return oldest
         }
     }
@@ -168,9 +168,9 @@ class VideoJitterBuffer {
     func flushTo(targetGroup groupId: UInt32) {
         var flushCount: UInt = 0
         lock.withLock {
-            while self.buffer.count > 0 && self.buffer[0].getGroupId() < groupId {
+            while self.buffer.count > 0 && self.buffer[0].groupId < groupId {
                 let flushed = self.buffer.removeFirst()
-                self.lastSequenceRead = flushed.getSeq()
+                self.lastSequenceRead = flushed.sequenceNumber
                 flushCount += 1
             }
         }
@@ -200,7 +200,7 @@ class VideoJitterBuffer {
                   let diff = self.timestampTimeDiff else {
                 return self.frameDuration
             }
-            let timestampValue = peek.getTimestampInSeconds()
+            let timestampValue = peek.timestamp
             let targetTimeRef = timestampValue + diff
             let targetDate = Date(timeIntervalSinceReferenceDate: targetTimeRef)
             return targetDate.timeIntervalSinceNow + self.minDepth
@@ -210,15 +210,15 @@ class VideoJitterBuffer {
 
 extension VideoFrame: Hashable, Comparable {
     static func < (lhs: VideoFrame, rhs: VideoFrame) -> Bool {
-        lhs.getSeq() < rhs.getSeq()
+        lhs.sequenceNumber < rhs.sequenceNumber
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(getSeq())
+        hasher.combine(self.sequenceNumber)
     }
 
     static func == (lhs: VideoFrame, rhs: VideoFrame) -> Bool {
-        lhs.getSeq() == rhs.getSeq()
+        lhs.sequenceNumber == rhs.sequenceNumber
     }
 
 
