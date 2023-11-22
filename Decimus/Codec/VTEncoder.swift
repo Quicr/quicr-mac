@@ -196,9 +196,13 @@ class VTEncoder {
 
         // Append Orientation SEI to buffer
         #if !targetEnvironment(macCatalyst)
-        prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                              verticalMirror: verticalMirror,
-                              bufferAllocator: bufferAllocator)
+        do {
+            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+                                      verticalMirror: verticalMirror,
+                                      bufferAllocator: bufferAllocator)
+        } catch {
+            Self.logger.error("Failed to prepend orientation SEI: \(error.localizedDescription)")
+        }
         #endif
 
         // Annex B time.
