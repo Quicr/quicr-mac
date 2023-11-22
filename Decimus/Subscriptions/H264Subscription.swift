@@ -46,7 +46,7 @@ class H264Subscription: Subscription {
 
     internal let namespace: QuicrNamespace
 
-    private var decoder: H264Decoder?
+    private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
@@ -76,9 +76,10 @@ class H264Subscription: Subscription {
          namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config) {
+         jitterBufferConfig: VideoJitterBuffer.Config,
+         hevcOverride: Bool) {
         self.namespace = namespace
-        self.config = config
+        self.config = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
@@ -93,7 +94,7 @@ class H264Subscription: Subscription {
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
-            self.decoder = .init(config: config) { [weak self] sample in
+            self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 do {
                     try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
@@ -161,13 +162,27 @@ class H264Subscription: Subscription {
         if let jitterBuffer = self.jitterBuffer {
             let samples: [CMSampleBuffer]?
             do {
-                samples = try H264Utilities.depacketize(zeroCopiedData,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: true)
+                switch self.config.codec {
+                case .h264:
+                    samples = try H264Utilities.depacketize(zeroCopiedData,
+                                                            groupId: groupId,
+                                                            objectId: objectId,
+                                                            format: &self.currentFormat,
+                                                            orientation: &self.orientation,
+                                                            verticalMirror: &self.verticalMirror,
+                                                            copy: true)
+                case .hevc:
+                    samples = try HEVCUtilities.depacketize(zeroCopiedData,
+                                                            groupId: groupId,
+                                                            objectId: objectId,
+                                                            format: &self.currentFormat,
+                                                            orientation: &self.orientation,
+                                                            verticalMirror: &self.verticalMirror,
+                                                            copy: true)
+                default:
+                    Self.logger.error("Unsupported video codec: \(self.config.codec)")
+                    return 0
+                }
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0
@@ -250,13 +265,28 @@ class H264Subscription: Subscription {
         } else {
             let samples: [CMSampleBuffer]?
             do {
-                samples = try H264Utilities.depacketize(zeroCopiedData,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: self.jitterBufferConfig.mode == .layer)
+                switch self.config.codec {
+                case .h264:
+                    samples = try H264Utilities.depacketize(zeroCopiedData,
+                                                            groupId: groupId,
+                                                            objectId: objectId,
+                                                            format: &self.currentFormat,
+                                                            orientation: &self.orientation,
+                                                            verticalMirror: &self.verticalMirror,
+                                                            copy: self.jitterBufferConfig.mode == .layer)
+                case .hevc:
+                    samples = try HEVCUtilities.depacketize(zeroCopiedData,
+                                                            groupId: groupId,
+                                                            objectId: objectId,
+                                                            format: &self.currentFormat,
+                                                            orientation: &self.orientation,
+                                                            verticalMirror: &self.verticalMirror,
+                                                            copy: self.jitterBufferConfig.mode == .layer)
+                default:
+                    Self.logger.error("Unsupported video codec: \(self.config.codec)")
+                    return 0
+                }
+                
             } catch {
                 Self.logger.error("Failed to depacketize")
                 return 0

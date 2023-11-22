@@ -36,7 +36,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    opusWindowSize: config.opusWindowSize,
                                                    reliability: config.mediaReliability,
                                                    engine: engine,
-                                                   granularMetrics: granularMetrics)
+                                                   granularMetrics: granularMetrics,
+                                                   hevcOverride: config.hevcOverride)
     }
 
     func connect(config: CallConfig) async throws {

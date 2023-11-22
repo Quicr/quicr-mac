@@ -16,14 +16,16 @@ class PublisherDelegate: QPublisherDelegateObjC {
          opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         hevcOverride: Bool) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
         self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
                              engine: engine,
-                             granularMetrics: granularMetrics)
+                             granularMetrics: granularMetrics,
+                             hevcOverride: hevcOverride)
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,

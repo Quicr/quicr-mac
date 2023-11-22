@@ -51,6 +51,10 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
+                HStack {
+                    Text("HEVC override")
+                    Toggle(isOn: $subscriptionConfig.value.hevcOverride) {}
+                }
 
                 if #available(iOS 17.0, *) {
                     Picker("Preferred Camera", selection: $preferredCamera) {

@@ -21,6 +21,8 @@ enum CodecType: UInt8, CaseIterable {
     // Audio
     case opus
     case xcodec
+
+    case hevc
 }
 
 /// Abstract configuration for initialising codecs.

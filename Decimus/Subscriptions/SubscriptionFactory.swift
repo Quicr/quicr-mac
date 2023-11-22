@@ -46,6 +46,7 @@ struct SubscriptionConfig: Codable {
     var quicCwinMinimumKiB: UInt64
     var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
+    var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
 
@@ -58,6 +59,7 @@ struct SubscriptionConfig: Codable {
         quicCwinMinimumKiB = 128
         quicWifiShadowRttUs = 0.150
         videoJitterBuffer = .init()
+        hevcOverride = false
         isSingleOrderedSub = true
         isSingleOrderedPub = false
     }
@@ -107,7 +109,8 @@ class SubscriptionFactory {
                                     namegate: namegate,
                                     reliable: self.config.mediaReliability.video.subscription,
                                     granularMetrics: self.granularMetrics,
-                                    jitterBufferConfig: self.config.videoJitterBuffer)
+                                    jitterBufferConfig: self.config.videoJitterBuffer,
+                                    hevcOverride: self.config.hevcOverride)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
