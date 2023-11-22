@@ -251,7 +251,7 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false, hdr: false)
+        let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
         CallControls(captureManager: capture, engine: try! .init(), leaving: bool) // swiftlint:disable:this force_try
     }
 }

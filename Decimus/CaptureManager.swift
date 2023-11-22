@@ -83,16 +83,14 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var lastCapture: Date?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
-    private let hdr: Bool
 
-    init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool, hdr: Bool) throws {
+    init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
         }
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         self.granularMetrics = granularMetrics
-        self.hdr = hdr
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(submitter: metricsSubmitter)
         } else {
@@ -170,7 +168,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             var supported = format.isMultiCamSupported &&
                             format.formatDescription.dimensions.width == config.width &&
                             format.formatDescription.dimensions.height == config.height
-            if self.hdr {
+            if config.codec == .hevc {
                 supported = supported && format.isVideoHDRSupported
             }
             return supported
@@ -186,7 +184,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         device.activeFormat = bestFormat
         device.automaticallyAdjustsVideoHDREnabled = false
         
-        if self.hdr {
+        if config.codec == .hevc {
             if device.activeFormat.isVideoHDRSupported {
                 device.isVideoHDREnabled = true
             }
@@ -237,10 +235,16 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }) {
             output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
         }
+        let hdr: Bool
+        if let config = listener.codec {
+            hdr = config.codec == .hevc
+        } else {
+            hdr = true
+        }
         output.videoSettings[AVVideoColorPropertiesKey] = [
-            AVVideoColorPrimariesKey: self.hdr ? AVVideoColorPrimaries_ITU_R_2020 : AVVideoColorPrimaries_ITU_R_709_2,
-            AVVideoTransferFunctionKey: self.hdr ? AVVideoTransferFunction_ITU_R_2100_HLG : AVVideoTransferFunction_ITU_R_709_2,
-            AVVideoYCbCrMatrixKey: self.hdr ? AVVideoYCbCrMatrix_ITU_R_2020 : AVVideoYCbCrMatrix_ITU_R_709_2
+            AVVideoColorPrimariesKey: hdr ? AVVideoColorPrimaries_ITU_R_2020 : AVVideoColorPrimaries_ITU_R_709_2,
+            AVVideoTransferFunctionKey: hdr ? AVVideoTransferFunction_ITU_R_2100_HLG : AVVideoTransferFunction_ITU_R_709_2,
+            AVVideoYCbCrMatrixKey: hdr ? AVVideoYCbCrMatrix_ITU_R_2020 : AVVideoYCbCrMatrix_ITU_R_709_2
         ]
         output.setSampleBufferDelegate(self, queue: self.queue)
         guard session.canAddInput(input),
