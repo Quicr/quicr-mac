@@ -161,7 +161,6 @@ class HEVCUtilities {
                 vpsData = nil
                 spsData = nil
                 ppsData = nil
-                print(format!)
             }
 
             guard type != .vps,

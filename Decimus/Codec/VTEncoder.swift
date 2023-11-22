@@ -20,9 +20,9 @@ class VTEncoder {
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
     init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
-        self.config = config
         self.verticalMirror = verticalMirror
         self.callback = callback
+        self.config = config
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
         let allocator: CFAllocator?
         #if targetEnvironment(macCatalyst)
@@ -72,7 +72,7 @@ class VTEncoder {
             case .hevc:
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_ProfileLevel,
-                                     value: kVTProfileLevel_HEVC_Main42210_AutoLevel)
+                                     value: kVTProfileLevel_HEVC_Main_AutoLevel)
             default:
                 1
             }

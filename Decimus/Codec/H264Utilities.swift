@@ -118,12 +118,9 @@ class H264Utilities {
             if type == .sei {
                 var seiData = nalu
                 if seiData.count == orientationSei.count { // Orientation
-                    print("This looks like orientation")
                     if seiData[OrientationSeiOffsets.payloadLength.rawValue] == orientationSei[OrientationSeiOffsets.payloadLength.rawValue] { // yep - orientation
                         orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
                         verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
-                    } else {
-                        fatalError()
                     }
                 } else if seiData.count == timestampSEIBytes.count { // timestamp?
                     if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timstamp!
@@ -153,15 +150,16 @@ class H264Utilities {
                     }
                 }
             }
-            
 
-            if let spsData = spsData,
-               let ppsData = ppsData {
-                format = try! CMVideoFormatDescription(h264ParameterSets: [spsData, ppsData], nalUnitHeaderLength: naluStartCode.count)
+            if let sps = spsData,
+               let pps = ppsData {
+                format = try! CMVideoFormatDescription(h264ParameterSets: [sps, pps], nalUnitHeaderLength: naluStartCode.count)
+                spsData = nil
+                ppsData = nil
             }
-        
+
             if type == .pFrame || type == .idr {
-                results.append(try depacketizeNalu(&nalu, 
+                results.append(try depacketizeNalu(&nalu,
                                                    groupId: groupId,
                                                    objectId: objectId,
                                                    timeInfo: timeInfo,
