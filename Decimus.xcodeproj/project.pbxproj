@@ -25,6 +25,7 @@
 		18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456D2B0CD632006E8E24 /* VTDecoder.swift */; };
 		18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456E2B0CD632006E8E24 /* VTEncoder.swift */; };
 		18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */; };
+		18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */; };
 		18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 18C89A392A13D1E4005B333B /* InfluxDBSwift */; };
 		18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */; };
 		18C89A3E2A13D315005B333B /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A3D2A13D315005B333B /* Measurement.swift */; };
@@ -45,7 +46,6 @@
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
-		9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */ = {isa = PBXBuildFile; productRef = 9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
@@ -293,8 +293,8 @@
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */,
+				18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */,
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
-				9B87FB552A02B0CA00C92DD1 /* TPCircularBuffer in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
 				18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
@@ -626,11 +626,11 @@
 			name = Decimus;
 			packageProductDependencies = (
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
-				9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */,
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
 				FFA0E84F2A6F25A20027603B /* WrappingHStack */,
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
+				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -668,10 +668,10 @@
 			packageReferences = (
 				9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */,
 				9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */,
-				9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */,
 				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
+				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -1047,7 +1047,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1119,7 +1119,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1219,6 +1219,14 @@
 				kind = branch;
 			};
 		};
+		18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/michaeltyson/TPCircularBuffer.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.6.2;
+			};
+		};
 		18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/influxdata/influxdb-client-swift";
@@ -1233,14 +1241,6 @@
 			requirement = {
 				branch = main;
 				kind = branch;
-			};
-		};
-		9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "git@github.com:michaeltyson/TPCircularBuffer.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
 			};
 		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
@@ -1267,6 +1267,11 @@
 			package = 188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */;
 			productName = Opus;
 		};
+		18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */;
+			productName = TPCircularBuffer;
+		};
 		18C89A392A13D1E4005B333B /* InfluxDBSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 18C89A382A13D1E4005B333B /* XCRemoteSwiftPackageReference "influxdb-client-swift" */;
@@ -1276,11 +1281,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
-		};
-		9B87FB542A02B0CA00C92DD1 /* TPCircularBuffer */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9B87FB532A02B0CA00C92DD1 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */;
-			productName = TPCircularBuffer;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;
