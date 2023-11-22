@@ -1,21 +1,31 @@
 import AVFoundation
 import Foundation
+import os
 
 class PublisherDelegate: QPublisherDelegateObjC {
+    private static let logger = DecimusLogger(PublisherDelegate.self)
+
+    private unowned let capture: CaptureManager
     private unowned let publishDelegate: QPublishObjectDelegateObjC
-    private let metricsSubmitter: MetricsSubmitter
+    private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
-    private let errorWriter: ErrorWriter
 
     init(publishDelegate: QPublishObjectDelegateObjC,
-         metricsSubmitter: MetricsSubmitter,
+         metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
-         errorWriter: ErrorWriter,
-         opusWindowSize: TimeInterval) {
+         opusWindowSize: OpusWindowSize,
+         reliability: MediaReliability,
+         engine: DecimusAudioEngine,
+         granularMetrics: Bool,
+         hevcOverride: Bool) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
-        self.factory = .init(capture: captureManager, opusWindowSize: opusWindowSize)
-        self.errorWriter = errorWriter
+        self.capture = captureManager
+        self.factory = .init(opusWindowSize: opusWindowSize,
+                             reliability: reliability,
+                             engine: engine,
+                             granularMetrics: granularMetrics,
+                             hevcOverride: hevcOverride)
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -23,14 +33,22 @@ class PublisherDelegate: QPublisherDelegateObjC {
                      qualityProfile: String!) -> QPublicationDelegateObjC? {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         do {
-            return try factory.create(quicrNamepace,
+            let publication = try factory.create(quicrNamepace,
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
-                                       metricsSubmitter: metricsSubmitter,
-                                       errorWriter: errorWriter)
+                                       metricsSubmitter: metricsSubmitter)
+
+            guard let h264publication = publication as? FrameListener else {
+                return publication
+            }
+
+            DispatchQueue.main.async { [unowned capture] in
+                try! capture.addInput(h264publication) // swiftlint:disable:this force_try
+            }
+            return publication
         } catch {
-            errorWriter.writeError("Failed to allocate publication: \(error.localizedDescription)")
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)", alert: true)
             return nil
         }
     }

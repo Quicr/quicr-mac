@@ -1,30 +1,15 @@
 import SwiftUI
 import AVFoundation
+import os
 
 @MainActor
 struct CallControls: View {
-    @EnvironmentObject private var errorHandler: ObservableError
-    @StateObject var viewModel: ViewModel
+    @StateObject private var viewModel: ViewModel
 
     @Binding var leaving: Bool
 
-    @State private var audioOn: Bool = false
-    @State private var videoOn: Bool = true
-
     @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
-
-    private var cameras: [AVCaptureDevice] {
-        var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.video) }
-        return devices
-    }
-
-    private var audioDevices: [AVCaptureDevice] {
-        var devices: [AVCaptureDevice] = []
-        Task { devices = await viewModel.devices(.audio) }
-        return devices
-    }
 
     private let deviceButtonStyleConfig = ActionButtonStyleConfig(
         background: .black,
@@ -32,24 +17,9 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(errorWriter: ErrorWriter, captureManager: CaptureManager?, leaving: Binding<Bool>) {
-        _viewModel = StateObject(wrappedValue: ViewModel(errorWriter: errorWriter, captureManager: captureManager))
+    init(captureManager: CaptureManager?, engine: DecimusAudioEngine, leaving: Binding<Bool>) {
+        _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager, engine: engine))
         _leaving = leaving
-    }
-
-    private func toggleVideo() async {
-        for camera in await viewModel.devices(.video) {
-            _ = await viewModel.toggleDevice(device: camera)
-        }
-        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
-    }
-
-    private func toggleAudio() async {
-        // TODO: Mute status needs to come from elsewhere.
-        for microphone in await viewModel.devices(.audio) {
-            _ = await viewModel.toggleDevice(device: microphone)
-        }
-        videoOn = !(await viewModel.activeDevices(.video).isEmpty)
     }
 
     private func openCameraModal() {
@@ -65,21 +35,23 @@ struct CallControls: View {
     var body: some View {
         HStack(alignment: .center) {
             ActionPicker(
-                audioOn ? "Mute" : "Unmute",
-                icon: audioOn ? "microphone-on" : "microphone-muted",
-                role: audioOn ? nil : .destructive,
+                viewModel.audioOn ? "Mute" : viewModel.talkingWhileMuted ? "Talking while muted" : "Unmute",
+                icon: viewModel.audioOn ?
+                      "microphone-on" :
+                      (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
+                role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
-                action: toggleAudio,
-                pickerAction: openAudioModal
+                action: { viewModel.toggleMicrophone() },
+                pickerAction: { openAudioModal() }
             ) {
                 Text("Audio Connection")
                     .foregroundColor(.gray)
-                ForEach(audioDevices, id: \.uniqueID) { microphone in
+                ForEach(viewModel.devices(.audio), id: \.uniqueID) { microphone in
                     ActionButton(
                         disabled: viewModel.isAlteringMicrophone(),
                         cornerRadius: 12,
                         styleConfig: deviceButtonStyleConfig,
-                        action: toggleAudio) {
+                        action: { viewModel.toggleDevice(device: microphone) }) {
                             HStack {
                                 Image(systemName: microphone.deviceType == .builtInMicrophone ?
                                       "mic" : "speaker.wave.2")
@@ -92,18 +64,18 @@ struct CallControls: View {
                 }
             }
             .onChange(of: viewModel.selectedMicrophone) { _ in
-                guard viewModel.selectedMicrophone != nil else { return }
-                Task { await viewModel.toggleDevice(device: viewModel.selectedMicrophone!) }
+                guard let microphone = viewModel.selectedMicrophone else { return }
+                viewModel.toggleDevice(device: microphone)
             }
             .disabled(viewModel.isAlteringMicrophone())
 
             ActionPicker(
-                videoOn ? "Stop Video" : "Start Video",
-                icon: videoOn ? "video-on" : "video-off",
-                role: videoOn ? nil : .destructive,
+                viewModel.videoOn ? "Stop Video" : "Start Video",
+                icon: viewModel.videoOn ? "video-on" : "video-off",
+                role: viewModel.videoOn ? nil : .destructive,
                 expanded: $cameraModalExpanded,
-                action: toggleVideo,
-                pickerAction: openCameraModal
+                action: { viewModel.toggleVideos() },
+                pickerAction: { openCameraModal() }
             ) {
                 LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
                           alignment: .leading) {
@@ -113,10 +85,10 @@ struct CallControls: View {
                     Text("Camera")
                         .padding(.leading)
                         .foregroundColor(.gray)
-                    ForEach(cameras, id: \.self) { camera in
+                    ForEach(viewModel.devices(.video), id: \.self) { camera in
                         if viewModel.alteringDevice[camera] ?? false {
                             ProgressView()
-                        } else if cameras.contains(camera) {
+                        } else if viewModel.devices(.video).contains(camera) {
                             Image(systemName: "checkmark")
                         } else {
                             Spacer()
@@ -125,7 +97,7 @@ struct CallControls: View {
                             disabled: viewModel.alteringDevice[camera] ?? false,
                             cornerRadius: 10,
                             styleConfig: deviceButtonStyleConfig,
-                            action: { await viewModel.toggleDevice(device: camera) },
+                            action: { viewModel.toggleDevice(device: camera) },
                             title: {
                                 Text(verbatim: camera.localizedName)
                                     .lineLimit(1)
@@ -136,7 +108,7 @@ struct CallControls: View {
                 .frame(maxWidth: 300, alignment: .bottomTrailing)
                 .padding(.bottom)
             }
-            .disabled(cameras.allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
+            .disabled(viewModel.devices(.video).allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
 
             Button(action: {
                 leaving = true
@@ -154,71 +126,119 @@ struct CallControls: View {
         }
         .frame(maxWidth: 650)
         .scaledToFit()
-        .task { await viewModel.join() }
-        .onDisappear(perform: { Task { await viewModel.leave() }})
     }
 }
 
 extension CallControls {
     @MainActor
     class ViewModel: ObservableObject {
+        private static let logger = Logger(
+            subsystem: Bundle.main.bundleIdentifier!,
+            category: String(describing: CallControls.ViewModel.self)
+        )
+
         @Published private(set) var alteringDevice: [AVCaptureDevice: Bool] = [:]
         @Published var selectedMicrophone: AVCaptureDevice?
-        private let capture: CaptureManager?
-        private let errorWriter: ErrorWriter
+        @Published var audioOn: Bool = true
+        @Published var videoOn: Bool = true
+        @Published var talkingWhileMuted: Bool = false
+        private unowned let capture: CaptureManager?
+        private unowned let engine: AVAudioEngine
 
-        init(errorWriter: ErrorWriter, captureManager: CaptureManager?) {
-            self.errorWriter = errorWriter
+        init(captureManager: CaptureManager?, engine: DecimusAudioEngine) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
-        }
-
-        func join() async {
-            do {
-                try await capture?.startCapturing()
-            } catch {
-                errorWriter.writeError("Couldn't start video capture: \(error.localizedDescription)")
+            self.engine = engine.engine
+            audioOn = !self.engine.inputNode.isVoiceProcessingInputMuted
+#if compiler(>=5.9)
+            if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
+                let success = self.engine.inputNode.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
+                    guard let self = self else { return }
+                    switch voiceEvent {
+                    case .started:
+                        self.talkingWhileMuted = true
+                        Self.logger.info("Talking while muted")
+                    case .ended:
+                        self.talkingWhileMuted = false
+                        Self.logger.info("Stopped talking while muted")
+                    default:
+                        break
+                    }
+                }
+                guard success else {
+                    Self.logger.error("Unable to set muted speech activity listener")
+                    return
+                }
             }
+#endif
         }
 
-        func leave() async {
-            alteringDevice.removeAll()
-            do {
-                try await capture?.stopCapturing()
-            } catch {
-                errorWriter.writeError("Couldn't stop video capture: \(error.localizedDescription)")
+        deinit {
+#if compiler(>=5.9)
+            if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
+                let success = engine.inputNode.setMutedSpeechActivityEventListener(nil)
+                guard success else {
+                    Self.logger.warning("Unable to unset muted speech activity listener")
+                    return
+                }
             }
+#endif
         }
 
-        func devices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
-            var devices = await capture?.devices() ?? []
-            if let type = type {
-                devices = devices.filter { $0.hasMediaType(type) }
-            }
-            return devices
-        }
+        func toggleVideos() {
+           for camera in devices(.video) {
+               toggleDevice(device: camera)
+           }
+       }
 
-        func activeDevices(_ type: AVMediaType? = nil) async -> [AVCaptureDevice] {
+        func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
             do {
-                var devices = try await capture?.activeDevices() ?? []
+                var devices = try capture?.devices() ?? []
                 if let type = type {
                     devices = devices.filter { $0.hasMediaType(type) }
                 }
                 return devices
             } catch {
-                errorWriter.writeError("Failed to query active devices: \(error.localizedDescription)")
+                Self.logger.error("Failed to query devices: \(error.localizedDescription)")
                 return []
             }
         }
 
-        func toggleDevice(device: AVCaptureDevice) async {
+        func activeDevices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
+            do {
+                var devices = try capture?.activeDevices() ?? []
+                if let type = type {
+                    devices = devices.filter { $0.hasMediaType(type) }
+                }
+                return devices
+            } catch {
+                Self.logger.error("Failed to query active devices: \(error.localizedDescription)")
+                return []
+            }
+        }
+
+        func toggleMicrophone() {
+            engine.inputNode.isVoiceProcessingInputMuted.toggle()
+            self.audioOn = !engine.inputNode.isVoiceProcessingInputMuted
+        }
+
+        func toggleDevice(device: AVCaptureDevice) {
             guard !(alteringDevice[device] ?? false) else {
                 return
             }
             guard let capture = capture else { return }
             alteringDevice[device] = true
-            _ = await capture.toggleInput(device: device)
-            alteringDevice[device] = false
+            do {
+                try capture.toggleInput(device: device) { [weak self] enabled in
+                    DispatchQueue.main.async {
+                        guard let self = self else { return }
+                        self.alteringDevice[device] = false
+                        self.videoOn = enabled
+                    }
+                }
+            } catch {
+                Self.logger.error("Failed to toggle device: \(error.localizedDescription)")
+            }
         }
 
         func isAlteringMicrophone() -> Bool {
@@ -231,8 +251,7 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
-        let errorWriter: ObservableError = .init()
-        let capture: CaptureManager? = try? .init()
-        CallControls(errorWriter: errorWriter, captureManager: capture, leaving: bool)
+        let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
+        CallControls(captureManager: capture, engine: try! .init(), leaving: bool) // swiftlint:disable:this force_try
     }
 }

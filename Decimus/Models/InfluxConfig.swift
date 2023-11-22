@@ -1,24 +1,13 @@
 import Foundation
 
 struct InfluxConfig: Codable {
-
-    init() {
-        submit = false
-        url = "http://metrics.m10x.ctgpoc.com:8086"
-        username = "admin"
-        password = "ctoMedia10x"
-        bucket = "Media10x"
-        org = "Cisco"
-        token = "cisco-cto-media10x"
-        intervalSecs = 5
-    }
-
-    var submit: Bool
-    var url: String
-    var username: String
-    var password: String
-    var bucket: String
-    var org: String
-    var token: String
-    var intervalSecs: Int
+    var submit: Bool  = false
+    var granular: Bool = false
+    var url: String = "http://metrics.m10x.ctgpoc.com:8086"
+    var username: String = "admin"
+    var password: String = "ctoMedia10x"
+    var bucket: String = "Media10x"
+    var org: String = "Cisco"
+    var token: String = "cisco-cto-media10x"
+    var intervalSecs: Int = 5
 }

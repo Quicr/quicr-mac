@@ -11,15 +11,15 @@ enum SubscriptionError: Int32 {
 
 protocol Subscription: QSubscriptionDelegateObjC {
     var sourceId: SourceIDType {get}
-    func prepare(_ sourceID: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32
-    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32
-    func subscribedObject(_ name: String!, data: Data!, groupId: UInt32, objectId: UInt16) -> Int32
 
-    func log(_ message: String)
-}
+    func prepare(_ sourceID: SourceIDType!,
+                 label: String!,
+                 profileSet: QClientProfileSet!,
+                 reliable: UnsafeMutablePointer<Bool>!) -> Int32
 
-extension Subscription {
-    func log(_ message: String) {
-        print("[\(String(describing: type(of: self)))] (\(sourceId)) \(message)")
-    }
+    func update(_ sourceId: String!,
+                label: String!,
+                profileSet: QClientProfileSet!) -> Int32
+
+    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32
 }

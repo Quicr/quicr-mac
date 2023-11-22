@@ -1,44 +1,50 @@
 import AVFoundation
 import Foundation
+import os
 
 class SubscriberDelegate: QSubscriberDelegateObjC {
+    private static let logger = DecimusLogger(SubscriberDelegate.self)
+
     let participants: VideoParticipants
-    private let player: FasterAVEngineAudioPlayer
     private var checkStaleVideoTimer: Timer?
-    private let errorWriter: ErrorWriter
-    private let submitter: MetricsSubmitter
+    private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-    init(errorWriter: ErrorWriter, submitter: MetricsSubmitter, config: SubscriptionConfig) {
+        init(submitter: MetricsSubmitter?,
+             config: SubscriptionConfig,
+             engine: DecimusAudioEngine,
+             granularMetrics: Bool) {
         self.participants = .init()
-        do {
-            try AVAudioSession.configureForDecimus(targetBufferTime: config.opusWindowSize)
-        } catch {
-            errorWriter.writeError("Failed to set configure AVAudioSession: \(error.localizedDescription)")
-        }
-        self.player = .init(errorWriter: errorWriter)
-        self.errorWriter = errorWriter
         self.submitter = submitter
-        self.factory = .init(participants: self.participants, player: self.player, config: config)
+        self.factory = .init(participants: self.participants,
+                             engine: engine,
+                             config: config,
+                             granularMetrics: granularMetrics)
 
-        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        self.checkStaleVideoTimer = .scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self, weak engine] _ in
             guard let self = self else { return }
 
             let staleVideos = self.participants.participants.filter { _, participant in
                 return participant.lastUpdated.advanced(by: DispatchTimeInterval.seconds(2)) < .now()
             }
             for id in staleVideos.keys {
+                // FIXME: This feels wrong.
                 do {
                     try self.participants.removeParticipant(identifier: id)
                 } catch {
-                    self.player.removePlayer(identifier: id)
+                    do {
+                        try engine?.removePlayer(identifier: id)
+                    } catch {
+                        Self.logger.critical("Failed to remove audio player: \(error.localizedDescription)")
+                    }
                 }
             }
         }
     }
-
-    deinit {
-        checkStaleVideoTimer!.invalidate()
+    
+    func allocateSub(bySourceId sourceId: SourceIDType,
+                     profileSet: QClientProfileSet) -> QSubscriptionDelegateObjC? {
+        let config = 
     }
 
     func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,
@@ -47,10 +53,9 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
         do {
             return try factory.create(quicrNamepace!,
                                       config: config,
-                                      metricsSubmitter: submitter,
-                                      errorWriter: errorWriter)
+                                      metricsSubmitter: submitter)
         } catch {
-            errorWriter.writeError("[SubscriberDelegate] Failed to allocate subscription: \(error)")
+            Self.logger.error("Failed to allocate subscription: \(error)", alert: true)
             return nil
         }
     }

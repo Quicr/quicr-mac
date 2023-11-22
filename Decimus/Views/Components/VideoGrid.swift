@@ -34,6 +34,14 @@ struct VideoGrid: View {
                         .frame(maxWidth: (geo.size.width / numColumns) - (2 * spacing),
                                maxHeight: abs(geo.size.height) / calcRows(numColumns))
                         .cornerRadius(cornerRadius)
+                        .overlay(alignment: .bottom) {
+                            Text(participant.view.label)
+                                .padding(5)
+                                .foregroundColor(.black)
+                                .background(.white)
+                                .cornerRadius(12)
+                                .padding(.bottom)
+                        }
                 }
             }
             .cornerRadius(cornerRadius)

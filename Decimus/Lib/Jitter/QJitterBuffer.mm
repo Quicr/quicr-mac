@@ -14,13 +14,23 @@
             clockRate:(unsigned long)clock_rate
             maxLengthMs:(unsigned long)max_length_ms
             minLengthMs:(unsigned long)min_length_ms
+            logCallback:(CantinaLogCallback)logCallback
 {
     self = [super init];
-    if (self) jitterBuffer = std::make_unique<JitterBuffer>(elementSize,
-                                                            packet_elements,
-                                                            clock_rate,
-                                                            std::chrono::milliseconds{max_length_ms},
-                                                            std::chrono::milliseconds{min_length_ms});
+    if (self)
+    {
+        jitterBuffer = std::make_unique<JitterBuffer>(
+            elementSize,
+            packet_elements,
+            clock_rate,
+            std::chrono::milliseconds{max_length_ms},
+            std::chrono::milliseconds{min_length_ms},
+            std::make_shared<cantina::CustomLogger>([=](auto level, const std::string& msg, bool b) {
+              NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
+              logCallback(static_cast<uint8_t>(level), m, b);
+            })
+        );
+    }
     return self;
 }
 
@@ -73,5 +83,11 @@
     {
         return 0;
     }
+}
+
+-(Metrics)getMetrics
+{
+    // if (!jitterBuffer) return 0;
+    return jitterBuffer->GetMetrics();
 }
 @end

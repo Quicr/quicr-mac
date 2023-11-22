@@ -1,59 +1,65 @@
 import Foundation
+import AVFAudio
 
 class PublicationFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              QPublishObjectDelegateObjC,
                                              SourceIDType,
                                              CodecConfig,
-                                             MetricsSubmitter,
-                                             ErrorWriter) throws -> Publication
+                                             MetricsSubmitter?) throws -> Publication
 
-    private unowned let capture: CaptureManager
-    private let opusWindowSize: TimeInterval
-    init(capture: CaptureManager, opusWindowSize: TimeInterval) {
-        self.capture = capture
+    private let opusWindowSize: OpusWindowSize
+    private let reliability: MediaReliability
+    private let granularMetrics: Bool
+    private let engine: DecimusAudioEngine
+    private let hevcOverride: Bool
+
+    init(opusWindowSize: OpusWindowSize,
+         reliability: MediaReliability,
+         engine: DecimusAudioEngine,
+         granularMetrics: Bool,
+         hevcOverride: Bool) {
         self.opusWindowSize = opusWindowSize
+        self.reliability = reliability
+        self.engine = engine
+        self.granularMetrics = granularMetrics
+        self.hevcOverride = hevcOverride
     }
 
-    private lazy var factories: [CodecType: FactoryCallbackType] = [
-        .h264: { [weak self] in
-            guard let config = $3 as? VideoCodecConfig else { fatalError() }
-            let publication = try H264Publication(namespace: $0,
-                                                  publishDelegate: $1,
-                                                  sourceID: $2,
-                                                  config: config,
-                                                  metricsSubmitter: $4,
-                                                  errorWriter: $5)
-
-            let capture = self?.capture
-            Task(priority: .medium) {
-                try await capture?.addInput(publication)
-            }
-
-            return publication
-        },
-        .opus: {
-            guard let config = $3 as? AudioCodecConfig else { fatalError() }
-            return try OpusPublication(namespace: $0,
-                                       publishDelegate: $1,
-                                       sourceID: $2,
-                                       metricsSubmitter: $4,
-                                       errorWriter: $5,
-                                       opusWindowSize: self.opusWindowSize)
-        }
-    ]
-
-    // swiftlint:disable function_parameter_count - Dependency injection.
     func create(_ namespace: QuicrNamespace,
                 publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter,
-                errorWriter: ErrorWriter) throws -> Publication {
-        guard let factory = factories[config.codec] else {
+                metricsSubmitter: MetricsSubmitter?) throws -> Publication {
+
+        switch config.codec {
+        case .h264:
+            guard let config = config as? VideoCodecConfig else {
+                throw CodecError.invalidCodecConfig(type(of: config))
+            }
+            return try H264Publication(namespace: namespace,
+                                       publishDelegate: publishDelegate,
+                                       sourceID: sourceID,
+                                       config: config,
+                                       metricsSubmitter: metricsSubmitter,
+                                       reliable: reliability.video.publication,
+                                       granularMetrics: self.granularMetrics,
+                                       hevcOverride: self.hevcOverride)
+        case .opus:
+            guard let config = config as? AudioCodecConfig else {
+                throw CodecError.invalidCodecConfig(type(of: config))
+            }
+            return try OpusPublication(namespace: namespace,
+                                       publishDelegate: publishDelegate,
+                                       sourceID: sourceID,
+                                       metricsSubmitter: metricsSubmitter,
+                                       opusWindowSize: opusWindowSize,
+                                       reliable: reliability.audio.publication,
+                                       engine: self.engine,
+                                       granularMetrics: self.granularMetrics,
+                                       config: config)
+        default:
             throw CodecError.noCodecFound(config.codec)
         }
-
-        return try factory(namespace, publishDelegate, sourceID, config, metricsSubmitter, errorWriter)
     }
 }

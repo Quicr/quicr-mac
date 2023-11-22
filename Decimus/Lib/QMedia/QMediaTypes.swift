@@ -1,6 +1,5 @@
 import Foundation
 
-
 typealias QuicrNamespace = String
 typealias SourceIDType = String
 

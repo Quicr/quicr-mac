@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
@@ -8,6 +9,8 @@ private let buttonColour = ActionButtonStyleConfig(
 )
 
 private struct LoginForm: View {
+    private static let logger = DecimusLogger(LoginForm.self)
+
     @AppStorage("email")
     private var email: String = ""
 
@@ -28,7 +31,6 @@ private struct LoginForm: View {
                                                port: 0,
                                                connectionProtocol: .QUIC,
                                                conferenceID: 0)
-    @EnvironmentObject private var errorHandler: ObservableError
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -49,7 +51,8 @@ private struct LoginForm: View {
                                 do {
                                     try await fetchManifest()
                                 } catch {
-                                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
+                                                      alert: true)
                                 }
                             }
 
@@ -92,22 +95,6 @@ private struct LoginForm: View {
                 }
 
                 if callConfig.conferenceID != 0 {
-                    RadioButtonGroup("Protocol",
-                                     selection: $callConfig,
-                                     labels: ["UDP", "QUIC"],
-                                     tags: [
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.UDP]!,
-                              connectionProtocol: .UDP,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID),
-                        .init(address: relayConfig.value.address,
-                              port: relayConfig.value.ports[.QUIC]!,
-                              connectionProtocol: .QUIC,
-                              email: callConfig.email,
-                              conferenceID: callConfig.conferenceID)
-                    ])
-
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
                                  disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
@@ -129,15 +116,16 @@ private struct LoginForm: View {
                 do {
                     try await fetchManifest()
                 } catch {
-                    errorHandler.writeError("Failed to fetch manifest: \(error.localizedDescription)")
+                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
                 }
                 if meetings.count > 0 {
                     callConfig = CallConfig(address: relayConfig.value.address,
-                                            port: relayConfig.value.ports[.QUIC]!,
-                                            connectionProtocol: .QUIC,
-                                            email: email,
-                                            conferenceID: UInt32(confId))
+                                            port: relayConfig.value.port,
+                                            connectionProtocol: relayConfig.value.connectionProtocol,
+                                            email: callConfig.email == "" ? email : callConfig.email,
+                                            conferenceID: callConfig.conferenceID == 0 ?
+                                                UInt32(confId) : callConfig.conferenceID)
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -148,8 +136,12 @@ private struct LoginForm: View {
 
     private func fetchManifest() async throws {
         isLoading = true
-        let userId = try await ManifestController.shared.getUser(email: email)
-        meetings = try await ManifestController.shared.getConferences(for: userId)
+        guard let user = try? await ManifestController.shared.getUser(email: email) else {
+            return
+        }
+        meetings = try await ManifestController.shared.getConferences(for: user.id)
+            .reduce(into: [:]) { $0[$1.id] = $1.title }
+
         callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }
@@ -162,7 +154,6 @@ private struct LoginForm: View {
 struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
     @State private var settingsOpen: Bool = false
-    @EnvironmentObject private var errorWriter: ObservableError
 
     init(_ onJoin: @escaping ConfigCallback) {
         UIApplication.shared.isIdleTimerDisabled = false
@@ -206,9 +197,6 @@ struct CallSetupView: View {
                                                    cornerRadius: 50,
                                                    isDisabled: false))
                 }
-
-                // Show any errors.
-                ErrorView()
             }
         }
     }
@@ -217,6 +205,5 @@ struct CallSetupView: View {
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
         CallSetupView { _ in }
-            .environmentObject(ObservableError())
     }
 }

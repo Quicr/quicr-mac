@@ -2,18 +2,18 @@ import SwiftUI
 
 @main
 struct DecimusApp: App {
+    @State var columnVisibility = NavigationSplitViewVisibility.detailOnly
+    @State var showSidebar = false
     var body: some Scene {
         WindowGroup {
-            ConfigCallView()
-                .preferredColorScheme(.dark)
-                .withHostingWindow { window in
-                    #if targetEnvironment(macCatalyst)
-                    if let titlebar = window?.windowScene?.titlebar {
-                        titlebar.titleVisibility = .hidden
-                        titlebar.toolbar = nil
-                    }
-                    #endif
-                }
+            ZStack {
+                ConfigCallView()
+#if DEBUG
+                AlertView()
+#endif
+            }
+            .preferredColorScheme(.dark)
+            .removeTitleBar()
         }
     }
 }
@@ -21,6 +21,17 @@ struct DecimusApp: App {
 extension View {
     fileprivate func withHostingWindow(_ callback: @escaping (UIWindow?) -> Void) -> some View {
         self.background(HostingWindowFinder(callback: callback))
+    }
+
+    fileprivate func removeTitleBar() -> some View {
+        return withHostingWindow { window in
+            #if targetEnvironment(macCatalyst)
+            if let titlebar = window?.windowScene?.titlebar {
+                titlebar.titleVisibility = .hidden
+                titlebar.toolbar = nil
+            }
+            #endif
+        }
     }
 }
 

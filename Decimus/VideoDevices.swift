@@ -1,10 +1,7 @@
-import Foundation
 import AVFoundation
 
-/// Allows access to cameras, microphones and speakers.
-class AudioVideoDevices: ObservableObject {
-
-    @Published var audioInputs: [AVCaptureDevice]
+/// Allows access to cameras.
+class VideoDevices: ObservableObject {
     @Published var cameras: [AVCaptureDevice]
 
     init() {
@@ -22,16 +19,14 @@ class AudioVideoDevices: ObservableObject {
         if #available(iOS 15.4, *) {
             types.append(.builtInLiDARDepthCamera)
         }
+        if #available(macCatalyst 17.0, iOS 17.0, *) {
+            types.append(.continuityCamera)
+        }
 
         let cameraDiscovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: types,
             mediaType: .video,
             position: .unspecified)
         cameras = cameraDiscovery.devices
-
-        let microphoneDiscovery = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInMicrophone],
-                                                                   mediaType: .audio,
-                                                                   position: .unspecified)
-        audioInputs = microphoneDiscovery.devices
     }
 }

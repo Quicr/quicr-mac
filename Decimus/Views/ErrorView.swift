@@ -1,33 +1,31 @@
 import SwiftUI
 
-@MainActor
-class ObservableError: ObservableObject, ErrorWriter {
-    struct StringError: Identifiable {
-        let id = UUID()
-        let message: String
-    }
-
-    @Published var messages: [StringError] = []
-    nonisolated func writeError(_ message: String) {
-        print("[Decimus Error] => \(message)")
-        DispatchQueue.main.async {
-            self.messages.append(.init(message: message))
-       }
+private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
+    switch level {
+    case .error, .critical:
+        return .red
+    case .warning:
+        return .yellow
+    case .debug:
+        return .orange
+    default:
+        return .blue
     }
 }
 
-struct ErrorView: View {
-    @EnvironmentObject var errorHandler: ObservableError
+struct AlertView: View {
+    @StateObject var logger = DecimusLogger.shared
+
     var body: some View {
         VStack {
-            if !errorHandler.messages.isEmpty {
+            if !logger.alerts.isEmpty {
                 Text("Errors:")
                     .font(.title)
                     .foregroundColor(.red)
 
                 // Clear all.
                 Button {
-                    errorHandler.messages.removeAll()
+                    logger.alerts.removeAll()
                 } label: {
                     Text("Clear Errors")
                 }
@@ -35,10 +33,10 @@ struct ErrorView: View {
 
                 // Show the messages.
                 ScrollView {
-                    ForEach(errorHandler.messages) { message in
-                        Text(message.message)
+                    ForEach(logger.alerts) { alert in
+                        Text(alert.message)
                             .padding()
-                            .background(Color.red)
+                            .background(getLogColour(alert.level))
                     }
                 }
             }

@@ -4,6 +4,7 @@
 #import "Qmedia/ProfileSet.h"
 #import "Qmedia/QControllerGWObjC.h"
 #import "Jitter/QJitterBuffer.h"
+#import "EncodedBuffer/EncodedFrameBufferAllocator.h"
 
 #endif
 

@@ -22,8 +22,8 @@ class QMediaSubscriptionDelegate : public qmedia::QSubscriptionDelegate
 public:
     QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const SourceId& sourceId);
 public:
-    int prepare(const std::string& sourceId,  const std::string& label, const qmedia::ProfileSet& profileSet) override;
-    int update(const std::string& sourceId,  const std::string& label, const qmedia::ProfileSet& profileSet) override;
+    int prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) override;
+    int update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet) override;
     int subscribedObject(const quicr::Name& name, quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
 private:
     std::string sourceId;
@@ -34,11 +34,12 @@ class QMediaPublicationDelegate : public qmedia::QPublicationDelegate
 {
 public:
     QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace);
+
 public:
-    int prepare(const std::string& sourceId,  const std::string& qualityProfile);
+    int prepare(const std::string& sourceId,  const std::string& qualityProfile, bool &reliable);
     int update(const std::string& sourceId, const std::string& qualityProfile);
     void publish(bool pubFlag);
-    //quicr::Namespace getNamespace();
+
 private:
     quicr::Namespace quicrNamespace;
     id<QPublicationDelegateObjC> delegate;
@@ -48,7 +49,7 @@ class QMediaSubsciberDelegate : public qmedia::QSubscriberDelegate
 {
 public:
     QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> delegate);
-    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubBySourceId(const std::string& sourceId, const qmedia::ProfileSet& qualityProfile);
+    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubBySourceId(const std::string& sourceId, const qmedia::manifest::ProfileSet& qualityProfile);
     int removeSubBySourceId(const std::string& sourceId);
 private:
     id<QSubscriberDelegateObjC> delegate;
