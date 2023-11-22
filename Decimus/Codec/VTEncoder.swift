@@ -15,7 +15,7 @@ class VTEncoder {
     private let encoder: VTCompressionSession
     private let verticalMirror: Bool
     private let bufferAllocator: BufferAllocator
-    private var sequenceNumber : Int64 = 0
+    private var sequenceNumber: UInt64 = 0
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -335,7 +335,7 @@ class VTEncoder {
         return buffer
     }
     
-    private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8, bufferAllocator: BufferAllocator) {
+    private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8, bufferAllocator: BufferAllocator) {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:

@@ -129,21 +129,28 @@ class HEVCUtilities {
                         verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
                     }
                 } else if seiData.count == timestampSEIBytes.count { // timestamp?
-                    if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timstamp!
+                    var match: Bool = false
+                    seiData.withUnsafeBytes { seiBytes in
+                        timestampSEIBytes.withUnsafeBytes { timestampBytes in
+                            match = memcmp(seiBytes.baseAddress, timestampBytes.baseAddress, timestampFixedBytes) == 0
+                        }
+                    }
+                    
+                    if match {
                         let tempTimeValue: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
                         let tempTimeScale: UnsafeMutableBufferPointer<UInt32> = .allocate(capacity: 1)
-                        _ = data.advanced(by: TimestampSeiOffsets.timeValue.rawValue).copyBytes(to: tempTimeValue)
-                        _ = data.advanced(by: TimestampSeiOffsets.timeScale.rawValue).copyBytes(to: tempTimeScale)
+                        _ = seiData.advanced(by: TimestampSeiOffsets.timeValue.rawValue).copyBytes(to: tempTimeValue)
+                        _ = seiData.advanced(by: TimestampSeiOffsets.timeScale.rawValue).copyBytes(to: tempTimeScale)
                         let tempSequence: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
-                        _ = data.advanced(by: TimestampSeiOffsets.sequence.rawValue).copyBytes(to: tempSequence)
+                        _ = seiData.advanced(by: TimestampSeiOffsets.sequence.rawValue).copyBytes(to: tempSequence)
                         var tempFps: UInt8 = 0
-                        data.advanced(by: TimestampSeiOffsets.fps.rawValue).copyBytes(to: &tempFps, count: 1)
+                        seiData.advanced(by: TimestampSeiOffsets.fps.rawValue).copyBytes(to: &tempFps, count: 1)
                         fps = tempFps
                         let timeValue = CFSwapInt64BigToHost(tempTimeValue.baseAddress!.pointee)
                         let timeScale = CFSwapInt32BigToHost(tempTimeScale.baseAddress!.pointee)
                         sequenceNumber = CFSwapInt64BigToHost(tempSequence.baseAddress!.pointee)
                         let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                                       timescale: Int32(timeScale))
+                                                   timescale: Int32(timeScale))
                         timeInfo = CMSampleTimingInfo(duration: .invalid,
                                                           presentationTimeStamp: timeStamp,
                                                           decodeTimeStamp: .invalid)
@@ -223,14 +230,13 @@ class HEVCUtilities {
     }
     
     fileprivate enum TimestampSeiOffsets: Int {
-        case type = 6
-        case size = 7
-        case id = 24
         case timeValue = 25
         case timeScale = 33
         case sequence = 37
         case fps = 45
     }
+    
+    fileprivate static let timestampFixedBytes = 25
 
     fileprivate static let timestampSEIBytes: [UInt8] = [ // total 47
         // Start Code.
@@ -258,16 +264,16 @@ class HEVCUtilities {
         0x80
     ]
     
-    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8) -> [UInt8] {
+    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
         var bytes = timestampSEIBytes
-        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
-        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
-        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        var networkTimeValue = timestamp.value.bigEndian
+        var networkTimeScale = timestamp.timescale.bigEndian
+        var seq = sequenceNumber.bigEndian
         var fps = fps
         bytes.withUnsafeMutableBytes {
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<Int64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<Int32>.size) // 4
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<UInt64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<UInt32>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<UInt64>.size) // 8
             memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue), &fps, MemoryLayout<UInt8>.size) // 4
         }
         return bytes

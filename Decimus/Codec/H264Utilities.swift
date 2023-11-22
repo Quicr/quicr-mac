@@ -296,11 +296,11 @@ class H264Utilities {
         0x80
     ]
     
-    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: Int64, fps: UInt8) -> [UInt8] {
+    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
         var bytes = timestampSEIBytes
         var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
         var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
-        var seq = CFSwapInt64HostToBig(UInt64(sequenceNumber))
+        var seq = CFSwapInt64HostToBig(sequenceNumber)
         var fps = fps
         bytes.withUnsafeMutableBytes {
             memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<Int64>.size) // 8
