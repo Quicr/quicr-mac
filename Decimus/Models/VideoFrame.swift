@@ -35,5 +35,22 @@ struct VideoFrame {
         self.timestamp = first.presentationTimeStamp.seconds
         self.orientation = first.getOrientation()
         self.verticalMirror = first.getVerticalMirror()
+
+        // Clear custom attachments.
+        for sample in self.samples {
+            let array = CMSampleBufferGetSampleAttachmentsArray(sample,
+                                                                createIfNecessary: false)
+            if let array = array,
+               let first = (array as NSArray).firstObject {
+                let dict = first as! CFMutableDictionary
+                let nsDict = dict as NSMutableDictionary
+                nsDict.removeObjects(forKeys: [CMSampleBuffer.fpsKey,
+                                               CMSampleBuffer.groupIdKey,
+                                               CMSampleBuffer.objectIdKey,
+                                               CMSampleBuffer.sequenceNumberKey,
+                                               CMSampleBuffer.orientationKey,
+                                               CMSampleBuffer.verticalMirrorKey])
+            }
+        }
     }
 }
