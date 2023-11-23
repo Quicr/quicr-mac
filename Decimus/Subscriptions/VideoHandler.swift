@@ -1,11 +1,8 @@
 import AVFoundation
-import os
 
-class H264Subscription: Subscription {
-    private static let logger = DecimusLogger(H264Subscription.self)
-
+class VideoHandler {
     private actor _Measurement: Measurement {
-        var name: String = "H264Subscription"
+        var name: String = "VideoHandler"
         var fields: [Date?: [String: AnyObject]] = [:]
         var tags: [String: String] = [:]
 
@@ -43,55 +40,54 @@ class H264Subscription: Subscription {
             record(field: "decodeDelta", value: delta as AnyObject, timestamp: timestamp)
         }
     }
+    
+    private static let logger = DecimusLogger(VideoHandler.self)
 
-    internal let namespace: QuicrNamespace
-
-    private var decoder: VTDecoder?
     private let participants: VideoParticipants
-    private let measurement: _Measurement?
-    private var lastGroup: UInt32?
-    private var lastObject: UInt16?
-    private let namegate: NameGate
-    private let reliable: Bool
-    private var jitterBuffer: VideoJitterBuffer?
-    private var lastReceive: Date?
-    private var lastDecode: Date?
-    private let granularMetrics: Bool
-    private var dequeueTask: Task<(), Never>?
-    private var dequeueBehaviour: VideoDequeuer?
-    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private var decoder: VTDecoder?
+    private let namespace: QuicrNamespace
     private let config: VideoCodecConfig
+    private let measurement: _Measurement?
+    private var jitterBuffer: VideoJitterBuffer?
+    private let jitterBufferConfig: VideoJitterBuffer.Config
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
+    var label: String = ""
+    var labelName: String = ""
+    private var lastDecode: Date?
+    private var lastGroup: UInt32?
+    private var lastObject: UInt16?
+    private var lastReceive: Date?
+    private let granularMetrics: Bool
+    private var dequeueBehaviour: VideoDequeuer?
+    private var dequeueTask: Task<(), Never>?
     private var startTimeSet = false
-    private var label: String = ""
-    private var labelName: String = ""
     private let metricsSubmitter: MetricsSubmitter?
+    private let reliable: Bool
+    private let namegate: NameGate
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
-         participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter?,
-         namegate: NameGate,
-         reliable: Bool,
          granularMetrics: Bool,
+         metricsSubmitter: MetricsSubmitter?,
          jitterBufferConfig: VideoJitterBuffer.Config,
-         hevcOverride: Bool) {
+         participants: VideoParticipants,
+         reliable: Bool,
+         namegate: NameGate) {
         self.namespace = namespace
-        self.config = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
-        self.participants = participants
-        if let metricsSubmitter = metricsSubmitter {
+        self.config = config
+        self.granularMetrics = granularMetrics
+        self.metricsSubmitter = metricsSubmitter
+        if let metricsSubmitter = self.metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
         }
-        self.namegate = namegate
-        self.reliable = reliable
-        self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
-        self.metricsSubmitter = metricsSubmitter
-
+        self.participants = participants
+        self.reliable = reliable
+        self.namegate = namegate
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
@@ -103,30 +99,13 @@ class H264Subscription: Subscription {
                 }
             }
         }
-
-        Self.logger.info("Subscribed to H264 stream")
     }
-
+    
     deinit {
         try? participants.removeParticipant(identifier: namespace)
     }
-
-    func prepare(_ sourceID: SourceIDType!,
-                 label: String!,
-                 qualityProfile: String!,
-                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
-        self.labelName = label!
-        self.label = self.labelName
-
-        return SubscriptionError.None.rawValue
-    }
-
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
-        return SubscriptionError.NoDecoder.rawValue
-    }
-
-    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    
+    func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
@@ -147,10 +126,10 @@ class H264Subscription: Subscription {
                     await measurement.receiveDelta(delta: delta, timestamp: now)
                 }
                 await measurement.receivedFrame(timestamp: now)
-                await measurement.receivedBytes(received: length, timestamp: now)
+                await measurement.receivedBytes(received: data.count, timestamp: now)
             }
         }
-
+        
         // Update keep alive timer for showing video.
         DispatchQueue.main.async {
             let participant = self.participants.getOrMake(identifier: self.namespace)
@@ -158,46 +137,33 @@ class H264Subscription: Subscription {
             participant.view.label = self.label
         }
         
-        let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
         if let jitterBuffer = self.jitterBuffer {
             let samples: [CMSampleBuffer]?
-            do {
-                switch self.config.codec {
-                case .h264:
-                    samples = try H264Utilities.depacketize(zeroCopiedData,
-                                                            groupId: groupId,
-                                                            objectId: objectId,
-                                                            format: &self.currentFormat,
-                                                            orientation: &self.orientation,
-                                                            verticalMirror: &self.verticalMirror,
-                                                            copy: true)
-                case .hevc:
-                    samples = try HEVCUtilities.depacketize(zeroCopiedData,
-                                                            groupId: groupId,
-                                                            objectId: objectId,
-                                                            format: &self.currentFormat,
-                                                            orientation: &self.orientation,
-                                                            verticalMirror: &self.verticalMirror,
-                                                            copy: true)
-                default:
-                    Self.logger.error("Unsupported video codec: \(self.config.codec)")
-                    return 0
-                }
-            } catch {
-                Self.logger.error("Failed to depacketize")
-                return 0
+            switch self.config.codec {
+            case .h264:
+                samples = try H264Utilities.depacketize(data,
+                                                        groupId: groupId,
+                                                        objectId: objectId,
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: true)
+            case .hevc:
+                samples = try HEVCUtilities.depacketize(data,
+                                                        groupId: groupId,
+                                                        objectId: objectId,
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: true)
+            default:
+                throw "Unsupported video codec: \(self.config.codec)"
             }
 
             var remoteFPS = self.config.fps
             if let samples = samples,
                let first = samples.first {
-                let frame: VideoFrame
-                do {
-                    frame = try .init(samples: samples)
-                } catch {
-                    Self.logger.error("Failed to create video frame: \(error.localizedDescription)")
-                    return 0
-                }
+                let frame = try VideoFrame(samples: samples)
                 _ = jitterBuffer.write(videoFrame: frame)
                 if let fps = first.getFPS() {
                     remoteFPS = UInt16(fps)
@@ -264,32 +230,25 @@ class H264Subscription: Subscription {
             }
         } else {
             let samples: [CMSampleBuffer]?
-            do {
-                switch self.config.codec {
-                case .h264:
-                    samples = try H264Utilities.depacketize(zeroCopiedData,
-                                                            groupId: groupId,
-                                                            objectId: objectId,
-                                                            format: &self.currentFormat,
-                                                            orientation: &self.orientation,
-                                                            verticalMirror: &self.verticalMirror,
-                                                            copy: self.jitterBufferConfig.mode == .layer)
-                case .hevc:
-                    samples = try HEVCUtilities.depacketize(zeroCopiedData,
-                                                            groupId: groupId,
-                                                            objectId: objectId,
-                                                            format: &self.currentFormat,
-                                                            orientation: &self.orientation,
-                                                            verticalMirror: &self.verticalMirror,
-                                                            copy: self.jitterBufferConfig.mode == .layer)
-                default:
-                    Self.logger.error("Unsupported video codec: \(self.config.codec)")
-                    return 0
-                }
-                
-            } catch {
-                Self.logger.error("Failed to depacketize")
-                return 0
+            switch self.config.codec {
+            case .h264:
+                samples = try H264Utilities.depacketize(data,
+                                                        groupId: groupId,
+                                                        objectId: objectId,
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: self.jitterBufferConfig.mode == .layer)
+            case .hevc:
+                samples = try HEVCUtilities.depacketize(data,
+                                                        groupId: groupId,
+                                                        objectId: objectId,
+                                                        format: &self.currentFormat,
+                                                        orientation: &self.orientation,
+                                                        verticalMirror: &self.verticalMirror,
+                                                        copy: self.jitterBufferConfig.mode == .layer)
+            default:
+                throw "Unsupported video codec: \(self.config.codec)"
             }
             
             if let samples = samples,
@@ -299,53 +258,12 @@ class H264Subscription: Subscription {
                     self.label = formatLabel(size: desc.dimensions, fps: UInt16(fps))
                 }
 
-                let frame: VideoFrame
-                do {
-                    frame = try .init(samples: samples)
-                } catch {
-                    Self.logger.error("Failed to create video frame: \(error.localizedDescription)")
-                    return 0
-                }
+                let frame = try VideoFrame(samples: samples)
                 decode(frame: frame)
             }
         }
-        return SubscriptionError.None.rawValue
     }
-
-    private func decode(frame: VideoFrame) {
-        // Should we feed this frame to the decoder?
-        // get groupId and objectId from the frame (1st frame)
-        guard namegate.handle(groupId: frame.groupId,
-                              objectId: frame.objectId,
-                              lastGroup: lastGroup,
-                              lastObject: lastObject) else {
-            // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = frame.groupId + 1
-            if let jitterBuffer = self.jitterBuffer {
-                jitterBuffer.flushTo(targetGroup: targetGroup)
-            } else if self.jitterBufferConfig.mode == .layer {
-                flushDisplayLayer()
-            }
-            return
-        }
-
-        lastGroup = frame.groupId
-        lastObject = frame.objectId
-
-        // Decode.
-        do {
-            for sample in frame.samples {
-                if self.jitterBufferConfig.mode == .layer {
-                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-                } else {
-                    try decoder!.write(sample)
-                }
-            }
-        } catch {
-            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-        }
-    }
-
+    
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: AVCaptureVideoOrientation?,
                                verticalMirror: Bool?) throws {
@@ -396,6 +314,44 @@ class H264Subscription: Subscription {
             participant.lastUpdated = .now()
         }
     }
+    
+    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
+        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+    }
+    
+    private func decode(frame: VideoFrame) {
+        // Should we feed this frame to the decoder?
+        // get groupId and objectId from the frame (1st frame)
+        guard namegate.handle(groupId: frame.groupId,
+                              objectId: frame.objectId,
+                              lastGroup: lastGroup,
+                              lastObject: lastObject) else {
+            // If we've thrown away a frame, we should flush to the next group.
+            let targetGroup = frame.groupId + 1
+            if let jitterBuffer = self.jitterBuffer {
+                jitterBuffer.flushTo(targetGroup: targetGroup)
+            } else if self.jitterBufferConfig.mode == .layer {
+                flushDisplayLayer()
+            }
+            return
+        }
+
+        lastGroup = frame.groupId
+        lastObject = frame.objectId
+
+        // Decode.
+        do {
+            for sample in frame.samples {
+                if self.jitterBufferConfig.mode == .layer {
+                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                } else {
+                    try decoder!.write(sample)
+                }
+            }
+        } catch {
+            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+        }
+    }
 
     private func setLayerStartTime(layer: AVSampleBufferDisplayLayer, time: CMTime) throws {
         guard Thread.isMainThread else {
@@ -426,10 +382,6 @@ class H264Subscription: Subscription {
             Self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
-    }
-
-    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
-        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 }
 
