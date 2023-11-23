@@ -1,6 +1,8 @@
 import AVFoundation
 
 class VideoHandler {
+    private static let logger = DecimusLogger(VideoHandler.self)
+
     private actor _Measurement: Measurement {
         var name: String = "VideoHandler"
         var fields: [Date?: [String: AnyObject]] = [:]
@@ -40,54 +42,53 @@ class VideoHandler {
             record(field: "decodeDelta", value: delta as AnyObject, timestamp: timestamp)
         }
     }
-    
-    private static let logger = DecimusLogger(VideoHandler.self)
 
-    private let participants: VideoParticipants
-    private var decoder: VTDecoder?
     private let namespace: QuicrNamespace
-    private let config: VideoCodecConfig
+    private var decoder: VTDecoder?
+    private let participants: VideoParticipants
     private let measurement: _Measurement?
+    private var lastGroup: UInt32?
+    private var lastObject: UInt16?
+    private let namegate: NameGate
+    private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
+    private var lastReceive: Date?
+    private var lastDecode: Date?
+    private let granularMetrics: Bool
+    private var dequeueTask: Task<(), Never>?
+    private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let config: VideoCodecConfig
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
+    private var startTimeSet = false
     var label: String = ""
     var labelName: String = ""
-    private var lastDecode: Date?
-    private var lastGroup: UInt32?
-    private var lastObject: UInt16?
-    private var lastReceive: Date?
-    private let granularMetrics: Bool
-    private var dequeueBehaviour: VideoDequeuer?
-    private var dequeueTask: Task<(), Never>?
-    private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
-    private let reliable: Bool
-    private let namegate: NameGate
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
-         granularMetrics: Bool,
-         metricsSubmitter: MetricsSubmitter?,
-         jitterBufferConfig: VideoJitterBuffer.Config,
          participants: VideoParticipants,
+         metricsSubmitter: MetricsSubmitter?,
+         namegate: NameGate,
          reliable: Bool,
-         namegate: NameGate) {
+         granularMetrics: Bool,
+         jitterBufferConfig: VideoJitterBuffer.Config) {
         self.namespace = namespace
         self.config = config
-        self.granularMetrics = granularMetrics
-        self.metricsSubmitter = metricsSubmitter
-        if let metricsSubmitter = self.metricsSubmitter {
+        self.participants = participants
+        if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
         }
-        self.jitterBufferConfig = jitterBufferConfig
-        self.participants = participants
-        self.reliable = reliable
         self.namegate = namegate
+        self.reliable = reliable
+        self.granularMetrics = granularMetrics
+        self.jitterBufferConfig = jitterBufferConfig
+        self.metricsSubmitter = metricsSubmitter
+
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
@@ -223,7 +224,11 @@ class VideoHandler {
                                 }
                                 interval.dequeuedCount += 1
                             }
-                            self.decode(frame: frame)
+                            do {
+                                try self.decode(frame: frame)
+                            } catch {
+                                Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            }
                         }
                     }
                 }
@@ -259,7 +264,37 @@ class VideoHandler {
                 }
 
                 let frame = try VideoFrame(samples: samples)
-                decode(frame: frame)
+                try decode(frame: frame)
+            }
+        }
+    }
+    
+    private func decode(frame: VideoFrame) throws {
+        // Should we feed this frame to the decoder?
+        // get groupId and objectId from the frame (1st frame)
+        guard namegate.handle(groupId: frame.groupId,
+                              objectId: frame.objectId,
+                              lastGroup: lastGroup,
+                              lastObject: lastObject) else {
+            // If we've thrown away a frame, we should flush to the next group.
+            let targetGroup = frame.groupId + 1
+            if let jitterBuffer = self.jitterBuffer {
+                jitterBuffer.flushTo(targetGroup: targetGroup)
+            } else if self.jitterBufferConfig.mode == .layer {
+                flushDisplayLayer()
+            }
+            return
+        }
+
+        lastGroup = frame.groupId
+        lastObject = frame.objectId
+
+        // Decode.
+        for sample in frame.samples {
+            if self.jitterBufferConfig.mode == .layer {
+                try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+            } else {
+                try decoder!.write(sample)
             }
         }
     }
@@ -314,44 +349,6 @@ class VideoHandler {
             participant.lastUpdated = .now()
         }
     }
-    
-    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
-        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
-    }
-    
-    private func decode(frame: VideoFrame) {
-        // Should we feed this frame to the decoder?
-        // get groupId and objectId from the frame (1st frame)
-        guard namegate.handle(groupId: frame.groupId,
-                              objectId: frame.objectId,
-                              lastGroup: lastGroup,
-                              lastObject: lastObject) else {
-            // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = frame.groupId + 1
-            if let jitterBuffer = self.jitterBuffer {
-                jitterBuffer.flushTo(targetGroup: targetGroup)
-            } else if self.jitterBufferConfig.mode == .layer {
-                flushDisplayLayer()
-            }
-            return
-        }
-
-        lastGroup = frame.groupId
-        lastObject = frame.objectId
-
-        // Decode.
-        do {
-            for sample in frame.samples {
-                if self.jitterBufferConfig.mode == .layer {
-                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-                } else {
-                    try decoder!.write(sample)
-                }
-            }
-        } catch {
-            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-        }
-    }
 
     private func setLayerStartTime(layer: AVSampleBufferDisplayLayer, time: CMTime) throws {
         guard Thread.isMainThread else {
@@ -382,6 +379,10 @@ class VideoHandler {
             Self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
+    }
+
+    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
+        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 }
 

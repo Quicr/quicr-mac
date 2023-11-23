@@ -19,12 +19,12 @@ class VideoSubscription: Subscription {
         self.reliable = reliable
         self.video = .init(namespace: namespace,
                            config: adjustedConfig,
-                           granularMetrics: granularMetrics,
-                           metricsSubmitter: metricsSubmitter,
-                           jitterBufferConfig: jitterBufferConfig,
                            participants: participants,
+                           metricsSubmitter: metricsSubmitter,
+                           namegate: namegate,
                            reliable: reliable,
-                           namegate: namegate)
+                           granularMetrics: granularMetrics,
+                           jitterBufferConfig: jitterBufferConfig)
 
         Self.logger.info("Subscribed to video stream")
     }
