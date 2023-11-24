@@ -102,15 +102,15 @@ class SubscriptionFactory {
                 namegate = SequentialObjectBlockingNameGate()
             }
 
-            return H264Subscription(namespace: namespace,
-                                    config: config,
-                                    participants: self.participants,
-                                    metricsSubmitter: metricsSubmitter,
-                                    namegate: namegate,
-                                    reliable: self.config.mediaReliability.video.subscription,
-                                    granularMetrics: self.granularMetrics,
-                                    jitterBufferConfig: self.config.videoJitterBuffer,
-                                    hevcOverride: self.config.hevcOverride)
+            return VideoSubscription(namespace: namespace,
+                                     config: config,
+                                     participants: self.participants,
+                                     metricsSubmitter: metricsSubmitter,
+                                     namegate: namegate,
+                                     reliable: self.config.mediaReliability.video.subscription,
+                                     granularMetrics: self.granularMetrics,
+                                     jitterBufferConfig: self.config.videoJitterBuffer,
+                                     hevcOverride: self.config.hevcOverride)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
