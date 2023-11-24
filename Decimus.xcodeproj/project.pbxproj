@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */; };
 		18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */; };
 		1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */; };
 		1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86E2ABAE51A00275F71 /* OSStatusError.swift */; };
@@ -73,7 +74,7 @@
 		FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498AF2A534E8E00C6D66D /* H264Publication.swift */; };
 		FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B12A53575D00C6D66D /* PublicationFactory.swift */; };
 		FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */; };
-		FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* H264Subscription.swift */; };
+		FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */; };
 		FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */; };
 		FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
@@ -151,7 +152,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		180E74622B0E376B0045B9D6 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
+		180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoHandler.swift; sourceTree = "<group>"; };
 		18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransportConfigSettings.swift; sourceTree = "<group>"; };
 		1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusAudioEngine.swift; sourceTree = "<group>"; };
 		1848B86E2ABAE51A00275F71 /* OSStatusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSStatusError.swift; sourceTree = "<group>"; };
@@ -160,6 +161,7 @@
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		186397A02ADE0B9100FBF877 /* VideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDevices.swift; sourceTree = "<group>"; };
 		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		18821A2A2B10A604009BBA62 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
@@ -225,7 +227,7 @@
 		FF2498AF2A534E8E00C6D66D /* H264Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Publication.swift; sourceTree = "<group>"; };
 		FF2498B12A53575D00C6D66D /* PublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationFactory.swift; sourceTree = "<group>"; };
 		FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFactory.swift; sourceTree = "<group>"; };
-		FF2498B62A55E95E00C6D66D /* H264Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Subscription.swift; sourceTree = "<group>"; };
+		FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestTypes.swift; sourceTree = "<group>"; };
 		FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QJitterBuffer.h; sourceTree = "<group>"; };
 		FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QJitterBuffer.mm; sourceTree = "<group>"; };
@@ -348,7 +350,7 @@
 		9B48068A298301ED0040F5D4 /* QMedia */ = {
 			isa = PBXGroup;
 			children = (
-				180E74622B0E376B0045B9D6 /* ProfileSet.h */,
+				18821A2A2B10A604009BBA62 /* ProfileSet.h */,
 				D78619432A28FC9D00EC0556 /* QControllerGW.h */,
 				D78619442A28FC9D00EC0556 /* QControllerGW.mm */,
 				D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */,
@@ -508,8 +510,9 @@
 			isa = PBXGroup;
 			children = (
 				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
-				FF2498B62A55E95E00C6D66D /* H264Subscription.swift */,
+				FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */,
 				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
+				180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */,
 			);
 			path = Subscriptions;
 			sourceTree = "<group>";
@@ -836,12 +839,13 @@
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
-				FF2498B72A55E95E00C6D66D /* H264Subscription.swift in Sources */,
+				FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
+				180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */,
 				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -864,7 +868,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -888,7 +892,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -1049,7 +1053,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1121,7 +1125,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

@@ -23,88 +23,100 @@ extension CMSampleBuffer {
         guard let dependsOnOthers = value as? Bool else { return false }
         return !dependsOnOthers
     }
-    
+
+    static let groupIdKey = "groupId"
+
     func setGroupId(_ groupId: UInt32) throws {
-        let keyString: CFString = "groupId" as CFString
+        let keyString = Self.groupIdKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: groupId)
     }
-    
+
     func getGroupId() -> UInt32? {
-        let keyString: CFString = "groupId" as CFString
+        let keyString = Self.groupIdKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         guard let value = self.getAttachmentValue(for: key) as? UInt32 else {
             return nil
         }
         return value
     }
-    
+
+    static let objectIdKey = "objectId"
+
     func setObjectId(_ objectId: UInt16) throws {
-        let keyString: CFString = "objectId" as CFString
+        let keyString = Self.objectIdKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: objectId)
     }
-    
+
     func getObjectId() -> UInt16? {
-        let keyString: CFString = "objectId" as CFString
+        let keyString = Self.objectIdKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         guard let value = self.getAttachmentValue(for: key) as? UInt16 else {
             return nil
         }
         return value
     }
-    
+
+    static let sequenceNumberKey = "seq"
+
     func setSequenceNumber(_ sequenceNumber: UInt64) throws {
-        let keyString: CFString = "sequenceNumber" as CFString
+        let keyString = Self.sequenceNumberKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: sequenceNumber)
     }
     
     func getSequenceNumber() -> UInt64? {
-        let keyString: CFString = "sequenceNumber" as CFString
+        let keyString = Self.sequenceNumberKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         guard let value = self.getAttachmentValue(for: key) as? UInt64 else {
             return nil
         }
         return value
     }
-    
+
+    static let fpsKey = "FPS"
+
     func setFPS(_ fps: UInt8) throws {
-        let keyString: CFString = "FPS" as CFString
+        let keyString = Self.fpsKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: fps)
     }
     
     func getFPS() -> UInt8? {
-        let keyString: CFString = "FPS" as CFString
+        let keyString = Self.fpsKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         guard let value = self.getAttachmentValue(for: key) as? UInt8 else {
             return nil
         }
         return value
     }
-    
+
+    static let orientationKey = "Orientation"
+
     func setOrientation(_ orientation: AVCaptureVideoOrientation) throws {
-        let keyString: CFString = "Orientation" as CFString
+        let keyString = Self.orientationKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: orientation)
     }
     
     func getOrientation() -> AVCaptureVideoOrientation? {
-        let keyString: CFString = "Orientation" as CFString
+        let keyString = Self.orientationKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         let value = self.getAttachmentValue(for: key) as? AVCaptureVideoOrientation
         return value
     }
-    
+
+    static let verticalMirrorKey = "verticalMirror"
+
     func setVerticalMirror(_ verticalMirror: Bool) throws {
-        let keyString: CFString = "verticalMirror" as CFString
+        let keyString = Self.verticalMirrorKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: verticalMirror)
     }
     
     func getVerticalMirror() -> Bool? {
-        let keyString: CFString = "verticalMirror" as CFString
+        let keyString = Self.verticalMirrorKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         let value = self.getAttachmentValue(for: key) as? Bool
         return value
