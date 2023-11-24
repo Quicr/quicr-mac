@@ -68,7 +68,7 @@ struct SubscriptionConfig: Codable {
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
-                                             MetricsSubmitter?) throws -> Subscription?
+                                             MetricsSubmitter?) throws -> QSubscriptionDelegateObjC?
 
     private let participants: VideoParticipants
     private let engine: DecimusAudioEngine
@@ -86,7 +86,7 @@ class SubscriptionFactory {
 
     func create(_ namespace: QuicrNamespace,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> Subscription? {
+                metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
 
         switch config.codec {
         case .h264:

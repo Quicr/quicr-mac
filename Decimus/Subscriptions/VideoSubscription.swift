@@ -1,7 +1,6 @@
-class VideoSubscription: Subscription {
+class VideoSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
-    internal let namespace: QuicrNamespace
     private let reliable: Bool
     private let video: VideoHandler
 
@@ -14,7 +13,6 @@ class VideoSubscription: Subscription {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
          hevcOverride: Bool) {
-        self.namespace = namespace
         let adjustedConfig = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
         self.reliable = reliable
         self.video = .init(namespace: namespace,
@@ -36,11 +34,11 @@ class VideoSubscription: Subscription {
         reliable.pointee = self.reliable
         self.video.labelName = label!
         self.video.label = self.video.labelName
-        return SubscriptionError.None.rawValue
+        return SubscriptionError.none.rawValue
     }
 
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
-        return SubscriptionError.NoDecoder.rawValue
+        return SubscriptionError.noDecoder.rawValue
     }
 
     func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
@@ -50,6 +48,6 @@ class VideoSubscription: Subscription {
         } catch {
             Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
         }
-        return SubscriptionError.None.rawValue
+        return SubscriptionError.none.rawValue
     }
 }
