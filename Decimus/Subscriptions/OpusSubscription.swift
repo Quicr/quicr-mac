@@ -314,7 +314,11 @@ class OpusSubscription: Subscription {
         if !self.reliable {
             // Always PLC the next packet.
             let plc = try self.decoder.plc(frames: buffer.frameLength)
-            let plcBuffer = list.pointee.mBuffers
+            let plcList = plc.audioBufferList
+            guard plcList.pointee.mNumberBuffers == 1 else {
+                throw "Unexpected number of buffers"
+            }
+            let plcBuffer = plc.audioBufferList.pointee.mBuffers
             guard let plcData = plcBuffer.mData else {
                 Self.logger.error("PLC buffer data was nil")
                 return
