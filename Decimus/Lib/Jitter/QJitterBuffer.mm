@@ -34,6 +34,22 @@
     return self;
 }
 
+-(size_t)prepare:(const unsigned long)sequence_number
+                 concealmentCallback:(PacketCallback)concealment_callback
+                 userData: (void*)user_data
+{
+    if (!jitterBuffer) return 0;
+    try
+    {
+        return jitterBuffer->Prepare((const std::uint32_t)sequence_number,
+                                     [&](std::vector<Packet>& p) { return concealment_callback(p.data(), p.size(), user_data); });
+    }
+    catch(...)
+    {
+        return 0;
+    }
+}
+
 -(size_t)enqueuePacket:(Packet)packet
                 concealmentCallback:(PacketCallback)concealment_callback
                 userData:(void*)user_data

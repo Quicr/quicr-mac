@@ -274,6 +274,12 @@ class OpusSubscription: Subscription {
             self.seq = groupId
         }
 
+        // Generate PLC prior to real decode.
+        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
+        jitterBuffer.prepare(UInt(groupId),
+                             concealmentCallback: self.plcCallback,
+                             userData: selfPtr)
+
         let decoded: AVAudioPCMBuffer
         do {
             decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
