@@ -239,13 +239,6 @@ class OpusSubscription: Subscription {
                 OpusSubscription.logger.error("\(error.localizedDescription)")
             }
         }
-        if let measurement = subscription.measurement {
-            let constConcealed = concealed
-            let timestamp: Date? = subscription.granularMetrics ? .now : nil
-            Task(priority: .utility) {
-                await measurement.concealmentFrames(concealed: constConcealed, timestamp: timestamp)
-            }
-        }
     }
 
     func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
@@ -303,7 +296,7 @@ class OpusSubscription: Subscription {
             return
         }
 
-        var packet: Packet = .init(sequence_number: UInt(sequence),
+        let packet: Packet = .init(sequence_number: UInt(sequence),
                                    data: data,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))
@@ -316,12 +309,36 @@ class OpusSubscription: Subscription {
                                           userData: selfPtr)
 
         let missing = copied < buffer.frameLength ? Int(buffer.frameLength) - copied : 0
+
+        let plcCopied: Int?
+        if !self.reliable {
+            // Always PLC the next packet.
+            let plc = try self.decoder.plc(frames: buffer.frameLength)
+            let plcBuffer = list.pointee.mBuffers
+            guard let plcData = plcBuffer.mData else {
+                Self.logger.error("PLC buffer data was nil")
+                return
+            }
+            let plcPacket = Packet(sequence_number: UInt(sequence + 1),
+                                   data: plcData,
+                                   length: Int(plcBuffer.mDataByteSize),
+                                   elements: Int(plc.frameLength))
+            plcCopied = jitterBuffer.enqueue(plcPacket,
+                                             concealmentCallback: self.plcCallback,
+                                             userData: selfPtr)
+        } else {
+            plcCopied = nil
+        }
+
         if let measurement = measurement {
             Task(priority: .utility) {
                 await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
                 await measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
                                                          timestamp: timestamp)
                 await measurement.droppedFrames(dropped: missing, timestamp: timestamp)
+                if let plcCopied = plcCopied {
+                    await measurement.concealmentFrames(concealed: UInt64(plcCopied), timestamp: timestamp)
+                }
             }
         }
     }
