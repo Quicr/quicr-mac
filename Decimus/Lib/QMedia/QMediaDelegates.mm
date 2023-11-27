@@ -41,8 +41,7 @@ static QClientProfileSet fromProfileSet(const qmedia::manifest::ProfileSet& prof
     QClientProfileSet clientProfileSet;
     clientProfileSet.type = profileSet.type.c_str();
     clientProfileSet.profilesCount = profileSet.profiles.size();
-    QClientProfile profiles[clientProfileSet.profilesCount];
-    clientProfileSet.profiles = profiles;
+    clientProfileSet.profiles = new QClientProfile[clientProfileSet.profilesCount];
     for (size_t profileIndex = 0; profileIndex < clientProfileSet.profilesCount; profileIndex++)
     {
         clientProfileSet.profiles[profileIndex] = fromProfile(profileSet.profiles[profileIndex]);

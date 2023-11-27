@@ -22,7 +22,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
             let adjustedConfig = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
             let namespace = QuicrNamespace(cString: profile.quicrNamespace)
-            self.videoHandlers[namespace] = .init(namespace: .init(cString: profile.quicrNamespace),
+            self.videoHandlers[namespace] = .init(namespace: namespace,
                                                   config: adjustedConfig,
                                                   participants: participants,
                                                   metricsSubmitter: metricsSubmitter,
