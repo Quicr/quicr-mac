@@ -4,15 +4,15 @@
 #import <Foundation/Foundation.h>
 
 struct QClientProfile {
-    NSString* qualityProfile;
-    int timeToLive;
-    NSString* quicrNamespace;
-    int* priorities;
+    const char* qualityProfile;
+    const char* quicrNamespace;
+    const unsigned char* priorities;
     size_t prioritiesCount;
+    int32_t expiry;
 };
 
 struct QClientProfileSet {
-    NSString* type;
+    const char* type;
     struct QClientProfile* profiles;
     size_t profilesCount;
 };

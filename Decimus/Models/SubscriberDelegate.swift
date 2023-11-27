@@ -41,26 +41,20 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
             }
         }
     }
-    
+
     func allocateSub(bySourceId sourceId: SourceIDType,
                      profileSet: QClientProfileSet) -> QSubscriptionDelegateObjC? {
-        let config = 
-    }
-
-    func allocateSub(byNamespace quicrNamepace: QuicrNamespace!,
-                     qualityProfile: String!) -> QSubscriptionDelegateObjC? {
-        let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         do {
-            return try factory.create(quicrNamepace!,
-                                      config: config,
-                                      metricsSubmitter: submitter)
+            return try factory.create(sourceId,
+                                      profileSet: profileSet,
+                                      metricsSubmitter: self.submitter)
         } catch {
             Self.logger.error("Failed to allocate subscription: \(error)", alert: true)
             return nil
         }
     }
-
-    func remove(byNamespace quicrNamepace: QuicrNamespace!) -> Int32 {
+    
+    func remove(bySourceId sourceId: SourceIDType) -> Int32 {
         return 0
     }
 }

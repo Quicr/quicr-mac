@@ -68,7 +68,7 @@ struct SubscriptionConfig: Codable {
 class SubscriptionFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
                                              CodecConfig,
-                                             MetricsSubmitter?) throws -> Subscription?
+                                             MetricsSubmitter?) throws -> QSubscriptionDelegateObjC?
 
     private let participants: VideoParticipants
     private let engine: DecimusAudioEngine
@@ -86,14 +86,22 @@ class SubscriptionFactory {
 
     func create(_ sourceId: SourceIDType,
                 profileSet: QClientProfileSet,
-                metricsSubmitter: MetricsSubmitter?) throws -> Subscription? {
-        
-        switch config.codec {
-        case .h264:
-            guard let config = config as? VideoCodecConfig else {
-                throw CodecError.invalidCodecConfig(type(of: config))
+                metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
+        // TODO: This is sketchy.
+        var codecType: CodecType?
+        let factory = CodecFactory()
+        for profileIndex in 0..<profileSet.profilesCount {
+            let profile = profileSet.profiles.advanced(by: profileIndex).pointee
+            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
+            if let codecType = codecType {
+                assert(codecType == config.codec)
+            } else {
+                codecType = config.codec
             }
-
+        }
+        
+        switch codecType {
+        case .h264:
             let namegate: NameGate
             switch self.config.videoBehaviour {
             case .artifact:
@@ -102,8 +110,8 @@ class SubscriptionFactory {
                 namegate = SequentialObjectBlockingNameGate()
             }
 
-            return VideoSubscription(namespace: namespace,
-                                     config: config,
+            return VideoSubscription(sourceId: sourceId,
+                                     profileSet: profileSet,
                                      participants: self.participants,
                                      metricsSubmitter: metricsSubmitter,
                                      namegate: namegate,
@@ -112,12 +120,9 @@ class SubscriptionFactory {
                                      jitterBufferConfig: self.config.videoJitterBuffer,
                                      hevcOverride: self.config.hevcOverride)
         case .opus:
-            guard let config = config as? AudioCodecConfig else {
-                throw CodecError.invalidCodecConfig(type(of: config))
-            }
-            return try OpusSubscription(namespace: namespace,
+            return try OpusSubscription(sourceId: sourceId,
+                                        profileSet: profileSet,
                                         engine: self.engine,
-                                        config: config,
                                         submitter: metricsSubmitter,
                                         jitterDepth: self.config.jitterDepthTime,
                                         jitterMax: self.config.jitterMaxTime,
@@ -125,7 +130,7 @@ class SubscriptionFactory {
                                         reliable: self.config.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics)
         default:
-            throw CodecError.noCodecFound(config.codec)
+            throw CodecError.noCodecFound(codecType ?? .unknown)
         }
     }
 }

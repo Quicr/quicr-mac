@@ -24,20 +24,26 @@ namespace qclient
 static QClientProfile fromProfile(qmedia::manifest::Profile profile)
 {
     QClientProfile clientProfile;
-    clientProfile.qualityProfile = @(profile.qualityProfile.c_str());
-    clientProfile.quicrNamespace = @(std::string(UrlEncoder().EncodeUrl(profile.quicrNamespaceUrl)).c_str());
+    clientProfile.qualityProfile = strdup(profile.qualityProfile.c_str());
+    clientProfile.quicrNamespace = strdup(std::string(profile.quicrNamespace).c_str());
     clientProfile.prioritiesCount = profile.priorities.size();
-    clientProfile.priorities = &profile.priorities[0];
+    clientProfile.priorities = profile.priorities.data();
+    if (profile.expiry.has_value()) {
+        clientProfile.expiry = profile.expiry.value();
+    } else {
+        clientProfile.expiry = -1;
+    }
     return clientProfile;
 }
 
 static QClientProfileSet fromProfileSet(const qmedia::manifest::ProfileSet& profileSet)
 {
     QClientProfileSet clientProfileSet;
-    clientProfileSet.type = @(profileSet.type.c_str());
+    clientProfileSet.type = profileSet.type.c_str();
     clientProfileSet.profilesCount = profileSet.profiles.size();
-    clientProfileSet.profiles = new qmedia::manifest::Profile[clientProfileSet.profilesCount];
-    for (size_t profileIndex = 0; profileIndex <= clientProfileSet.profilesCount; profileIndex++)
+    QClientProfile profiles[clientProfileSet.profilesCount];
+    clientProfileSet.profiles = profiles;
+    for (size_t profileIndex = 0; profileIndex < clientProfileSet.profilesCount; profileIndex++)
     {
         clientProfileSet.profiles[profileIndex] = fromProfile(profileSet.profiles[profileIndex]);
     }
@@ -64,8 +70,8 @@ quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
     return quicrNamespace;
 }*/
 
-int QMediaSubscriptionDelegate::subscribedObject(const quicr::Name& name, quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
-    return [delegate subscribedObject:@(std::string(name).c_str()) data:data.data() length:data.size() groupId:group objectId:object];
+int QMediaSubscriptionDelegate::subscribedObject(const quicr::Namespace& quicrNamespace, quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
+    return [delegate subscribedObject:@(std::string(quicrNamespace).c_str()) data:data.data() length:data.size() groupId:group objectId:object];
 }
 
 
@@ -100,7 +106,7 @@ std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocate
     NSString *sourceIdNSString = [NSString stringWithCString:sourceId.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
     QClientProfileSet qClientProfileSet = fromProfileSet(profileSet);
-    id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubBySourceId:@(sourceId.c_str()) profileSet:qClientProfileSet];
+    id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubBySourceId:sourceIdNSString profileSet:qClientProfileSet];
     return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, sourceId);
 }
 

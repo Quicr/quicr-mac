@@ -24,7 +24,7 @@ public:
 public:
     int prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) override;
     int update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet) override;
-    int subscribedObject(const quicr::Name& name, quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
+    int subscribedObject(const quicr::Namespace& quicrNamespace, quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
 private:
     std::string sourceId;
     id<QSubscriptionDelegateObjC> delegate;
