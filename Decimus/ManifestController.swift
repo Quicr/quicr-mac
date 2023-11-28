@@ -14,12 +14,16 @@ class ManifestController {
 
     private var components: URLComponents = .init()
     private var mutex: DispatchSemaphore = .init(value: 0)
+    private var configs: [Config] = []
 
     func setServer(config: ManifestServerConfig) {
         self.components = URLComponents()
         self.components.scheme = config.scheme
         self.components.host = config.url
-        self.components.port = config.port
+        self.components.port = config.port  
+        Task {
+            try self.configs = await queryConfigs()
+        }
     }
 
     private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
@@ -55,41 +59,72 @@ class ManifestController {
         task.resume()
         mutex.wait()
     }
-
-    func getUser(email: String) async throws -> User {
+    
+    func getConfigs() -> [Config] {
+        return self.configs
+    }
+    
+    func queryConfigs() async throws -> [Config] {
         var url = components
-        url.path = "/users"
+        url.path = "/configs"
+        let request = try makeRequest(method: "GET", components: url)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        
+        let decoder = JSONDecoder()
+        let configs = try decoder.decode([Config].self, from: data)
+        
+        guard configs.count > 0 else {
+            throw "No configs found."
+        }
+        
+        
+        return configs
+    }
+
+    func getUser(in configProfile: String, email: String) async throws -> User {
+        var url = components
+        url.path = "/users/"
+        
+        url.queryItems = [
+            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
+            URLQueryItem(name: "email", value: "\(String(describing: email))")
+        ]
 
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let decoder = JSONDecoder()
-        let users = try decoder.decode([User].self, from: data)
-
-        guard let user = users.first(where: { $0.email == email }) else {
+        let user = try decoder.decode([User].self, from: data)
+        
+        guard user.count == 1 else {
             throw "No user found for \(email)"
         }
 
-        return user
+        return user[0]
     }
 
-    func getConferences(for id: String) async throws -> [Conference] {
+    func getConferences(in configProfile: String, for email: String) async throws -> [Conference] {
         var url = components
         url.path = "/conferences"
+        
+        url.queryItems = [
+            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
+            URLQueryItem(name: "email", value: "\(String(describing: email))")
+        ]
 
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let decoder = JSONDecoder()
         let conferences = try decoder.decode([Conference].self, from: data)
-
-        return conferences.filter { $0.participants.contains(id) }
+        return conferences
     }
 
-    func getManifest(confId: UInt32, email: String) async throws -> Manifest {
+    func getManifest(in configProfile: String, confId: UInt32, email: String) async throws -> Manifest {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
+            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
             URLQueryItem(name: "email", value: email)
         ]
 

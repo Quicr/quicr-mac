@@ -69,6 +69,11 @@ struct Conference: Codable {
     let participants, invitees: [String]
 }
 
+struct Config: Codable {
+    let id: UInt32
+    let configProfile: String
+}
+
 struct User: Codable {
     let id, name, email: String
     let clients: [Client]

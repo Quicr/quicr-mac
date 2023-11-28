@@ -12,4 +12,6 @@ struct CallConfig: Hashable {
     var email: String = ""
     /// Conference ID to join
     var conferenceID: UInt32 = 1
+    /// Config Profile
+    var configProfile: String = ""
 }

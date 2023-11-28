@@ -22,15 +22,20 @@ private struct LoginForm: View {
 
     @AppStorage("confId")
     private var confId: Int = 0
+    
+    private var configProfileId: Int = 0
 
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
+    @State private var configs: [UInt32: String] = [:]
+    @State private var currentConfigProfile : String = ""
 
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
                                                connectionProtocol: .QUIC,
-                                               conferenceID: 0)
+                                               conferenceID: 0,
+                                               configProfile: "")
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -42,6 +47,17 @@ private struct LoginForm: View {
         Form {
             Section {
                 VStack(alignment: .leading) {
+                    Text("Config")
+                    Picker("", selection: $callConfig.configProfile) {
+                        ForEach(configs.sorted(by: <), id: \.key) { id, config in
+                            Text(config).tag(id)
+                        }
+                    }
+                    .onChange(of: currentConfigProfile) { value in
+                        print(value)
+                        currentConfigProfile = String(value)
+                    }
+
                     Text("Email")
                     TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
                         .keyboardType(.emailAddress)
@@ -49,7 +65,7 @@ private struct LoginForm: View {
                             email = value
                             Task {
                                 do {
-                                    try await fetchManifest()
+                                    try await fetchManifest(in: currentConfigProfile)
                                 } catch {
                                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
                                                       alert: true)
@@ -114,7 +130,8 @@ private struct LoginForm: View {
         .onAppear {
             Task {
                 do {
-                    try await fetchManifest()
+                    try await fetchConfigs()
+                    try await fetchManifest(in: currentConfigProfile)
                 } catch {
                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
@@ -125,7 +142,7 @@ private struct LoginForm: View {
                                             connectionProtocol: relayConfig.value.connectionProtocol,
                                             email: callConfig.email == "" ? email : callConfig.email,
                                             conferenceID: callConfig.conferenceID == 0 ?
-                                                UInt32(confId) : callConfig.conferenceID)
+                                            UInt32(confId) : callConfig.conferenceID)
                 }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
@@ -134,15 +151,19 @@ private struct LoginForm: View {
         }
     }
 
-    private func fetchManifest() async throws {
+    private func fetchManifest(in configProfile: String) async throws {
         isLoading = true
-        guard let user = try? await ManifestController.shared.getUser(email: email) else {
-            return
-        }
-        meetings = try await ManifestController.shared.getConferences(for: user.id)
+        meetings = try await
+        ManifestController.shared.getConferences(in: configProfile, for: email)
             .reduce(into: [:]) { $0[$1.id] = $1.title }
-
         callConfig.conferenceID = UInt32(confId)
+        isLoading = false
+    }
+    
+    private func fetchConfigs() async throws {
+        isLoading = true
+        configs = ManifestController.shared.getConfigs()
+            .reduce(into: [:]) { $0[$1.id] = $1.configProfile }
         isLoading = false
     }
 
