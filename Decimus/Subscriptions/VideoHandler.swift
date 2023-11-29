@@ -137,35 +137,17 @@ class VideoHandler {
             participant.lastUpdated = .now()
             participant.view.label = self.label
         }
-        
-        if let jitterBuffer = self.jitterBuffer {
-            let samples: [CMSampleBuffer]?
-            switch self.config.codec {
-            case .h264:
-                samples = try H264Utilities.depacketize(data,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: true)
-            case .hevc:
-                samples = try HEVCUtilities.depacketize(data,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: true)
-            default:
-                throw "Unsupported video codec: \(self.config.codec)"
-            }
 
+        // Do we need to create a jitter buffer?
+        var samples: [CMSampleBuffer]?
+        if self.jitterBuffer == nil,
+           self.jitterBufferConfig.mode != .layer,
+           self.jitterBufferConfig.mode != .none {
+            // Create the video jitter buffer.
+            samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
             var remoteFPS = self.config.fps
             if let samples = samples,
                let first = samples.first {
-                let frame = try VideoFrame(samples: samples)
-                _ = jitterBuffer.write(videoFrame: frame)
                 if let fps = first.getFPS() {
                     remoteFPS = UInt16(fps)
                 }
@@ -177,7 +159,8 @@ class VideoHandler {
 
             // We have what we need to configure the PID dequeuer if using.
             let duration = 1 / Double(remoteFPS)
-            if jitterBufferConfig.mode == .pid && self.dequeueBehaviour == nil {
+            assert(self.dequeueBehaviour == nil)
+            if jitterBufferConfig.mode == .pid {
                 self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
                                                     frameDuration: duration,
                                                     kp: 0.01,
@@ -186,77 +169,55 @@ class VideoHandler {
             }
 
             // Create the video jitter buffer.
-            if jitterBufferConfig.mode != .none && self.jitterBuffer == nil {
-                self.jitterBuffer = .init(namespace: self.namespace,
-                                          frameDuration: duration,
-                                          metricsSubmitter: self.metricsSubmitter,
-                                          sort: !self.reliable,
-                                          minDepth: self.jitterBufferConfig.minDepth)
-            }
-        
-            if self.dequeueTask == nil {
-                // Start the frame dequeue task.
-                self.dequeueTask = .init(priority: .high) { [weak self] in
-                    while !Task.isCancelled {
-                        guard let self = self else { return }
+            self.jitterBuffer = .init(namespace: self.namespace,
+                                      frameDuration: duration,
+                                      metricsSubmitter: self.metricsSubmitter,
+                                      sort: !self.reliable,
+                                      minDepth: self.jitterBufferConfig.minDepth)
 
-                        // Wait until we expect to have a frame available.
-                        let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
-                        let waitTime: TimeInterval
-                        if let pid = self.dequeueBehaviour! as? PIDDequeuer {
-                            pid.currentDepth = jitterBuffer.getDepth()
-                            waitTime = self.dequeueBehaviour!.calculateWaitTime()
-                        } else {
-                            waitTime = jitterBuffer.calculateWaitTime()
-                        }
-                        let nanoseconds = waitTime * 1_000_000_000
-                        if nanoseconds > 0 {
-                            try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
-                        }
+            assert(self.dequeueTask == nil)
+            // Start the frame dequeue task.
+            self.dequeueTask = .init(priority: .high) { [weak self] in
+                while !Task.isCancelled {
+                    guard let self = self else { return }
 
-                        // Attempt to dequeue a frame.
-                        if let frame = jitterBuffer.read() {
-                            // Interval dequeuer needs to know where we are.
-                            // TODO: With frame timestamps, we won't need this.
-                            if self.jitterBufferConfig.mode == .interval {
-                                guard let interval = self.dequeueBehaviour as? IntervalDequeuer else {
-                                    fatalError("Mode/type mismatch")
-                                }
-                                interval.dequeuedCount += 1
-                            }
-                            do {
-                                try self.decode(frame: frame)
-                            } catch {
-                                Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-                            }
+                    // Wait until we expect to have a frame available.
+                    let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                    let waitTime: TimeInterval
+                    if let pid = self.dequeueBehaviour as? PIDDequeuer {
+                        pid.currentDepth = jitterBuffer.getDepth()
+                        waitTime = self.dequeueBehaviour!.calculateWaitTime()
+                    } else {
+                        waitTime = jitterBuffer.calculateWaitTime()
+                    }
+                    let nanoseconds = waitTime * 1_000_000_000
+                    if nanoseconds > 0 {
+                        try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
+                    }
+
+                    // Attempt to dequeue a frame.
+                    if let frame = jitterBuffer.read() {
+                        do {
+                            try self.decode(frame: frame)
+                        } catch {
+                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
             }
-        } else {
-            let samples: [CMSampleBuffer]?
-            switch self.config.codec {
-            case .h264:
-                samples = try H264Utilities.depacketize(data,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: self.jitterBufferConfig.mode == .layer)
-            case .hevc:
-                samples = try HEVCUtilities.depacketize(data,
-                                                        groupId: groupId,
-                                                        objectId: objectId,
-                                                        format: &self.currentFormat,
-                                                        orientation: &self.orientation,
-                                                        verticalMirror: &self.verticalMirror,
-                                                        copy: self.jitterBufferConfig.mode == .layer)
-            default:
-                throw "Unsupported video codec: \(self.config.codec)"
+        }
+
+        // Either write the frame to the jitter buffer or otherwise decode it.
+        if let jitterBuffer = self.jitterBuffer {
+            if samples == nil {
+                samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
             }
-            
-            if let samples = samples,
+            if let samples = samples {
+                let frame = try VideoFrame(samples: samples)
+                _ = jitterBuffer.write(videoFrame: frame)
+            }
+        } else {
+            if let samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: self.jitterBufferConfig.mode == .layer),
                let first = samples.first {
                 if let desc = first.formatDescription,
                    let fps = first.getFPS() {
@@ -266,6 +227,29 @@ class VideoHandler {
                 let frame = try VideoFrame(samples: samples)
                 try decode(frame: frame)
             }
+        }
+    }
+    
+    private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {
+        switch self.config.codec {
+        case .h264:
+            return try H264Utilities.depacketize(data,
+                                                 groupId: groupId,
+                                                 objectId: objectId,
+                                                 format: &self.currentFormat,
+                                                 orientation: &self.orientation,
+                                                 verticalMirror: &self.verticalMirror,
+                                                 copy: copy)
+        case .hevc:
+            return try HEVCUtilities.depacketize(data,
+                                                 groupId: groupId,
+                                                 objectId: objectId,
+                                                 format: &self.currentFormat,
+                                                 orientation: &self.orientation,
+                                                 verticalMirror: &self.verticalMirror,
+                                                 copy: copy)
+        default:
+            throw "Unsupported codec: \(self.config.codec)"
         }
     }
     
