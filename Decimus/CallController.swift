@@ -57,7 +57,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             throw CallError.failedToConnect(error)
         }
 
-        let manifest = try await ManifestController.shared.getManifest(in: "demo", confId: config.conferenceID, email: config.email)
+        let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
 
         let jsonEncoder = JSONEncoder()
         jsonEncoder.outputFormatting = .prettyPrinted

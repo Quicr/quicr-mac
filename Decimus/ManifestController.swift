@@ -5,6 +5,7 @@ struct ManifestServerConfig: Codable {
     var scheme: String = "https"
     var url: String = "conf.quicr.ctgpoc.com"
     var port: Int = 411
+    var config: String = "demo"
 }
 
 class ManifestController {
@@ -14,16 +15,14 @@ class ManifestController {
 
     private var components: URLComponents = .init()
     private var mutex: DispatchSemaphore = .init(value: 0)
-    private var configs: [Config] = []
+    private var currentConfig: String = "demo"
 
     func setServer(config: ManifestServerConfig) {
         self.components = URLComponents()
         self.components.scheme = config.scheme
         self.components.host = config.url
-        self.components.port = config.port  
-        Task {
-            try self.configs = await queryConfigs()
-        }
+        self.components.port = config.port
+        self.currentConfig = config.config
     }
 
     private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
@@ -60,11 +59,7 @@ class ManifestController {
         mutex.wait()
     }
     
-    func getConfigs() -> [Config] {
-        return self.configs
-    }
-    
-    func queryConfigs() async throws -> [Config] {
+    func getConfigs() async throws -> [Config] {
         var url = components
         url.path = "/configs"
         let request = try makeRequest(method: "GET", components: url)
@@ -81,12 +76,12 @@ class ManifestController {
         return configs
     }
 
-    func getUser(in configProfile: String, email: String) async throws -> User {
+    func getUser(email: String) async throws -> User {
         var url = components
         url.path = "/users/"
         
         url.queryItems = [
-            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
+            URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: "\(String(describing: email))")
         ]
 
@@ -103,12 +98,12 @@ class ManifestController {
         return user[0]
     }
 
-    func getConferences(in configProfile: String, for email: String) async throws -> [Conference] {
+    func getConferences(for email: String) async throws -> [Conference] {
         var url = components
         url.path = "/conferences"
         
         url.queryItems = [
-            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
+            URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: "\(String(describing: email))")
         ]
 
@@ -120,11 +115,11 @@ class ManifestController {
         return conferences
     }
 
-    func getManifest(in configProfile: String, confId: UInt32, email: String) async throws -> Manifest {
+    func getManifest(confId: UInt32, email: String) async throws -> Manifest {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
-            URLQueryItem(name: "configProfile", value: "\(String(describing: configProfile))"),
+            URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: email)
         ]
 

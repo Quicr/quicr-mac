@@ -22,20 +22,15 @@ private struct LoginForm: View {
 
     @AppStorage("confId")
     private var confId: Int = 0
-    
-    private var configProfileId: Int = 0
 
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
-    @State private var configs: [UInt32: String] = [:]
-    @State private var currentConfigProfile : String = ""
 
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
                                                connectionProtocol: .QUIC,
-                                               conferenceID: 0,
-                                               configProfile: "")
+                                               conferenceID: 0)
     private var joinMeetingCallback: ConfigCallback
 
     init(_ onJoin: @escaping ConfigCallback) {
@@ -47,31 +42,11 @@ private struct LoginForm: View {
         Form {
             Section {
                 VStack(alignment: .leading) {
-                    Text("Config")
-                    Picker("", selection: $callConfig.configProfile) {
-                        ForEach(configs.sorted(by: <), id: \.key) { id, config in
-                            Text(config).tag(id)
-                        }
-                    }
-                    .onChange(of: currentConfigProfile) { value in
-                        print(value)
-                        currentConfigProfile = String(value)
-                    }
-
                     Text("Email")
                     TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
                         .keyboardType(.emailAddress)
                         .onChange(of: callConfig.email, perform: { value in
                             email = value
-                            Task {
-                                do {
-                                    try await fetchManifest(in: currentConfigProfile)
-                                } catch {
-                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
-                                                      alert: true)
-                                }
-                            }
-
                             if !meetings.keys.contains(UInt32(confId)) {
                                 confId = 1
                                 callConfig.conferenceID = 1
@@ -130,8 +105,7 @@ private struct LoginForm: View {
         .onAppear {
             Task {
                 do {
-                    try await fetchConfigs()
-                    try await fetchManifest(in: currentConfigProfile)
+                    try await fetchManifest(in: self.manifestConfig.value.config)
                 } catch {
                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
@@ -154,16 +128,9 @@ private struct LoginForm: View {
     private func fetchManifest(in configProfile: String) async throws {
         isLoading = true
         meetings = try await
-        ManifestController.shared.getConferences(in: configProfile, for: email)
+        ManifestController.shared.getConferences(for: email)
             .reduce(into: [:]) { $0[$1.id] = $1.title }
         callConfig.conferenceID = UInt32(confId)
-        isLoading = false
-    }
-    
-    private func fetchConfigs() async throws {
-        isLoading = true
-        configs = ManifestController.shared.getConfigs()
-            .reduce(into: [:]) { $0[$1.id] = $1.configProfile }
         isLoading = false
     }
 

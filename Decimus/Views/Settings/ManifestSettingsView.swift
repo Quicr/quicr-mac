@@ -8,17 +8,25 @@ enum URLScheme: String, CaseIterable {
 struct ManifestSettingsView: View {
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
+    
+    @State private var configs: [String] = []
 
     var body: some View {
         Section("Manifest") {
             Form {
-                Picker("Scheme", selection: $manifestConfig.value.scheme) {
-                    ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
-                        Text(scheme.rawValue)
+                LabeledContent("Scheme") {
+                    Picker("Scheme", selection: $manifestConfig.value.scheme) {
+                        ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
+                            Text(scheme.rawValue)
+                        }
                     }
-                }
-                .onChange(of: manifestConfig.value.scheme) { _ in
-                    ManifestController.shared.setServer(config: manifestConfig.value)
+                    .onChange(of: manifestConfig.value.scheme) { _ in
+                        ManifestController.shared.setServer(config: manifestConfig.value)
+                        Task {
+                            self.configs = await getConfigs()
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 LabeledContent("Address") {
@@ -26,6 +34,9 @@ struct ManifestSettingsView: View {
                         .keyboardType(.URL)
                         .onChange(of: manifestConfig.value.url) { _ in
                             ManifestController.shared.setServer(config: manifestConfig.value)
+                            Task {
+                                self.configs = await getConfigs()
+                            }
                         }
                 }
 
@@ -34,10 +45,41 @@ struct ManifestSettingsView: View {
                         .keyboardType(.numberPad)
                         .onChange(of: manifestConfig.value.port) { _ in
                             ManifestController.shared.setServer(config: manifestConfig.value)
+                            Task {
+                                self.configs = await getConfigs()
+                            }
                         }
+                }
+
+                LabeledContent("Config") {
+                    Picker("Config", selection: $manifestConfig.value.config) {
+                        ForEach(self.configs, id: \.self) { config in
+                            Text(config)
+                        }
+                    }
+                    .onChange(of: manifestConfig.value.scheme) { _ in
+                        ManifestController.shared.setServer(config: manifestConfig.value)
+                        Task {
+                            self.configs = await getConfigs()
+                        }
+                    }
+                    .pickerStyle(.segmented)
                 }
             }
             .formStyle(.columns)
+        }.task {
+            self.configs = await getConfigs()
+        }
+    }
+    
+    private func getConfigs() async -> [String] {
+        do {
+            let configs = try await ManifestController.shared.getConfigs()
+            let sorted = configs.sorted { $0.id > $1.id }
+            return sorted.reduce(into: [], { $0.append($1.configProfile) })
+        } catch {
+            print("Failed to fetch manifest configs: \(error.localizedDescription)")
+            return []
         }
     }
 }
