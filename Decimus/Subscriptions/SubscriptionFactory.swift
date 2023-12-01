@@ -49,6 +49,8 @@ struct SubscriptionConfig: Codable {
     var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
+    var simulreceive: Bool
+    var qualityMissThreshold: Int
 
     init() {
         jitterMaxTime = 0.5
@@ -62,6 +64,8 @@ struct SubscriptionConfig: Codable {
         hevcOverride = false
         isSingleOrderedSub = true
         isSingleOrderedPub = false
+        simulreceive = false
+        qualityMissThreshold = 3
     }
 }
 
@@ -118,7 +122,9 @@ class SubscriptionFactory {
                                      reliable: self.config.mediaReliability.video.subscription,
                                      granularMetrics: self.granularMetrics,
                                      jitterBufferConfig: self.config.videoJitterBuffer,
-                                     hevcOverride: self.config.hevcOverride)
+                                     hevcOverride: self.config.hevcOverride,
+                                     simulreceive: self.config.simulreceive,
+                                     qualityMissThreshold: self.config.qualityMissThreshold)
         case .opus:
             return try OpusSubscription(sourceId: sourceId,
                                         profileSet: profileSet,

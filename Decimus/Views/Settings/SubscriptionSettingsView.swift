@@ -87,6 +87,18 @@ struct SubscriptionSettingsView: View {
                     Text("Single Subscription")
                     Toggle(isOn: $subscriptionConfig.value.isSingleOrderedSub) {}
                 }
+
+                HStack {
+                    Text("Simulreceive")
+                    Toggle(isOn: $subscriptionConfig.value.simulreceive) {}
+                }
+
+                LabeledContent("Quality miss threshold (frames)") {
+                    TextField(
+                        "Quality miss threshold (frames)",
+                        value: $subscriptionConfig.value.qualityMissThreshold,
+                        format: .number)
+                }
             }
             .formStyle(.columns)
         }
