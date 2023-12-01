@@ -78,7 +78,7 @@ class ManifestController {
 
     func getUser(email: String) async throws -> User {
         var url = components
-        url.path = "/users/"
+        url.path = "/users"
         
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
@@ -89,13 +89,12 @@ class ManifestController {
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let decoder = JSONDecoder()
-        let user = try decoder.decode([User].self, from: data)
-        
-        guard user.count == 1 else {
+        let users = try decoder.decode([User].self, from: data)
+        guard let user = users.first(where: { $0.email == email }) else {
             throw "No user found for \(email)"
         }
 
-        return user[0]
+        return user
     }
 
     func getConferences(for email: String) async throws -> [Conference] {

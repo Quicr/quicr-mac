@@ -47,6 +47,14 @@ private struct LoginForm: View {
                         .keyboardType(.emailAddress)
                         .onChange(of: callConfig.email, perform: { value in
                             email = value
+                            Task {
+                                do {
+                                    try await fetchManifest()
+                                } catch {
+                                    Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)",
+                                                      alert: true)
+                                }
+                            }
                             if !meetings.keys.contains(UInt32(confId)) {
                                 confId = 1
                                 callConfig.conferenceID = 1
@@ -59,7 +67,7 @@ private struct LoginForm: View {
                     }
                 }
 
-                if email != "" && meetings.keys.contains(UInt32(confId)) {
+                if email != "" {
                     VStack(alignment: .leading) {
                         if meetings.count > 0 {
                             Text("Meeting")
@@ -105,7 +113,7 @@ private struct LoginForm: View {
         .onAppear {
             Task {
                 do {
-                    try await fetchManifest(in: self.manifestConfig.value.config)
+                    try await fetchManifest()
                 } catch {
                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
@@ -125,7 +133,7 @@ private struct LoginForm: View {
         }
     }
 
-    private func fetchManifest(in configProfile: String) async throws {
+    private func fetchManifest() async throws {
         isLoading = true
         meetings = try await
         ManifestController.shared.getConferences(for: email)

@@ -57,17 +57,15 @@ struct ManifestSettingsView: View {
                             Text(config)
                         }
                     }
-                    .onChange(of: manifestConfig.value.scheme) { _ in
+                    .onChange(of: manifestConfig.value.config) { _ in
                         ManifestController.shared.setServer(config: manifestConfig.value)
-                        Task {
-                            self.configs = await getConfigs()
-                        }
                     }
                     .pickerStyle(.segmented)
                 }
             }
             .formStyle(.columns)
-        }.task {
+        }
+        .task {
             self.configs = await getConfigs()
         }
     }
