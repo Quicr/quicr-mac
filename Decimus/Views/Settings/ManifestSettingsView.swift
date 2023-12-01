@@ -50,17 +50,13 @@ struct ManifestSettingsView: View {
                             }
                         }
                 }
-
-                LabeledContent("Config") {
-                    Picker("Config", selection: $manifestConfig.value.config) {
-                        ForEach(self.configs, id: \.self) { config in
-                            Text(config)
-                        }
+                Picker("Config", selection: $manifestConfig.value.config) {
+                    ForEach(self.configs, id: \.self) { config in
+                        Text(config)
                     }
-                    .onChange(of: manifestConfig.value.config) { _ in
-                        ManifestController.shared.setServer(config: manifestConfig.value)
-                    }
-                    .pickerStyle(.segmented)
+                }
+                .onChange(of: manifestConfig.value.config) { _ in
+                    ManifestController.shared.setServer(config: manifestConfig.value)
                 }
             }
             .formStyle(.columns)
@@ -73,7 +69,7 @@ struct ManifestSettingsView: View {
     private func getConfigs() async -> [String] {
         do {
             let configs = try await ManifestController.shared.getConfigs()
-            let sorted = configs.sorted { $0.id > $1.id }
+            let sorted = configs.sorted { $0.configProfile < $1.configProfile }
             return sorted.reduce(into: [], { $0.append($1.configProfile) })
         } catch {
             print("Failed to fetch manifest configs: \(error.localizedDescription)")

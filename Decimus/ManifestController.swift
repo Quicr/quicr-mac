@@ -5,7 +5,7 @@ struct ManifestServerConfig: Codable {
     var scheme: String = "https"
     var url: String = "conf.quicr.ctgpoc.com"
     var port: Int = 411
-    var config: String = "demo"
+    var config: String = ""
 }
 
 class ManifestController {
@@ -15,7 +15,7 @@ class ManifestController {
 
     private var components: URLComponents = .init()
     private var mutex: DispatchSemaphore = .init(value: 0)
-    private var currentConfig: String = "demo"
+    private var currentConfig: String = ""
 
     func setServer(config: ManifestServerConfig) {
         self.components = URLComponents()
