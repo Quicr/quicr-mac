@@ -30,6 +30,7 @@ private struct LoginForm: View {
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
                                                connectionProtocol: .QUIC,
+                                               email: "",
                                                conferenceID: 0)
     private var joinMeetingCallback: ConfigCallback
 
@@ -55,44 +56,50 @@ private struct LoginForm: View {
                                                       alert: true)
                                 }
                             }
-                            if !meetings.keys.contains(UInt32(confId)) {
-                                confId = 1
-                                callConfig.conferenceID = 1
-                            }
                         })
+                        .onChange(of: meetings) { _ in
+                            if meetings.count > 0 {
+                                if !meetings.keys.contains(UInt32(confId)) {
+                                    confId = Int(meetings.keys.sorted()[0])
+                                    callConfig.conferenceID = UInt32(confId)
+                                }
+                            } else {
+                                callConfig.conferenceID = 0
+                            }
+                        }
                         .textFieldStyle(FormInputStyle())
                     if isLoading {
                         Spacer()
                         ProgressView()
                     }
                 }
-
+                
                 if email != "" {
-                    VStack(alignment: .leading) {
-                        if meetings.count > 0 {
-                            Text("Meeting")
-                                .padding(.horizontal)
-                                .foregroundColor(.white)
-                            Picker("", selection: $callConfig.conferenceID) {
-                                ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
-                                    Text(meeting).tag(id)
-                                }
-                            }
-                            .onChange(of: callConfig.conferenceID) { _ in
-                                confId = Int(callConfig.conferenceID)
-                            }
-                            .labelsHidden()
-                        } else {
-                            Text("No meetings")
-                                .padding(.horizontal)
-                                .foregroundColor(.white)
-                                .onAppear {
-                                    callConfig.conferenceID = 0
-                                }
-                        }
-                    }
-                }
-
+                              VStack(alignment: .leading) {
+                                  if meetings.count > 0 {
+                                      Text("Meeting")
+                                          .padding(.horizontal)
+                                          .foregroundColor(.white)
+                                      Picker("", selection: $callConfig.conferenceID) {
+                                          ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                              Text(meeting).tag(id)
+                                          }
+                                      }
+                                      .onChange(of: callConfig.conferenceID) { _ in
+                                          confId = Int(callConfig.conferenceID)
+                                      }
+                                      .labelsHidden()
+                                  } else {
+                                      Text("No meetings")
+                                          .padding(.horizontal)
+                                          .foregroundColor(.white)
+                                          .onAppear {
+                                             callConfig.conferenceID = 0
+                                             // confId = 0
+                                          }
+                                  }
+                              }
+                          }
                 if callConfig.conferenceID != 0 {
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
@@ -118,14 +125,6 @@ private struct LoginForm: View {
                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)", alert: true)
                     return
                 }
-                if meetings.count > 0 {
-                    callConfig = CallConfig(address: relayConfig.value.address,
-                                            port: relayConfig.value.port,
-                                            connectionProtocol: relayConfig.value.connectionProtocol,
-                                            email: callConfig.email == "" ? email : callConfig.email,
-                                            conferenceID: callConfig.conferenceID == 0 ?
-                                            UInt32(confId) : callConfig.conferenceID)
-                }
             }
             Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { _ in
                 isAllowedJoin = true
@@ -134,11 +133,15 @@ private struct LoginForm: View {
     }
 
     private func fetchManifest() async throws {
+        callConfig = CallConfig(address: relayConfig.value.address,
+                                port: relayConfig.value.port,
+                                connectionProtocol: relayConfig.value.connectionProtocol,
+                                email: email,
+                                conferenceID: UInt32(confId))
         isLoading = true
         meetings = try await
-        ManifestController.shared.getConferences(for: email)
+        ManifestController.shared.getConferences(for: callConfig.email)
             .reduce(into: [:]) { $0[$1.id] = $1.title }
-        callConfig.conferenceID = UInt32(confId)
         isLoading = false
     }
 
