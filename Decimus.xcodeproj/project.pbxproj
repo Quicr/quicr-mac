@@ -161,6 +161,7 @@
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		186397A02ADE0B9100FBF877 /* VideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDevices.swift; sourceTree = "<group>"; };
 		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		18821A2A2B10A604009BBA62 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
@@ -349,6 +350,7 @@
 		9B48068A298301ED0040F5D4 /* QMedia */ = {
 			isa = PBXGroup;
 			children = (
+				18821A2A2B10A604009BBA62 /* ProfileSet.h */,
 				D78619432A28FC9D00EC0556 /* QControllerGW.h */,
 				D78619442A28FC9D00EC0556 /* QControllerGW.mm */,
 				D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */,

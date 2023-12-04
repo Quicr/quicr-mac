@@ -43,6 +43,9 @@ class VideoHandler {
         }
     }
 
+    let config: VideoCodecConfig
+    var label: String = ""
+    var labelName: String = ""
     private let namespace: QuicrNamespace
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
@@ -58,14 +61,14 @@ class VideoHandler {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private let config: VideoCodecConfig
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
-    var label: String = ""
-    var labelName: String = ""
     private let metricsSubmitter: MetricsSubmitter?
+    private let simulreceive: Bool
+    private var lastDecodedImage: CMSampleBuffer?
+    private let lastDecodedImageLock = NSLock()
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -74,7 +77,8 @@ class VideoHandler {
          namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config) {
+         jitterBufferConfig: VideoJitterBuffer.Config,
+         simulreceive: Bool) {
         self.namespace = namespace
         self.config = config
         self.participants = participants
@@ -87,23 +91,57 @@ class VideoHandler {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
+        self.labelName = self.namespace
+        self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
-                do {
-                    try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-                } catch {
-                    Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                if simulreceive {
+                    // When we do simulreceive, we're not responsible for rendering.
+                    self.lastDecodedImageLock.withLock {
+                        self.lastDecodedImage = sample
+                    }
+                } else {
+                    // Enqueue for rendering.
+                    do {
+                        try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                    } catch {
+                        Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                    }
                 }
             }
         }
     }
     
     deinit {
-        try? participants.removeParticipant(identifier: namespace)
+        if !self.simulreceive {
+            try? participants.removeParticipant(identifier: namespace)
+        }
+    }
+
+    func getLastImage() -> CMSampleBuffer? {
+        self.lastDecodedImageLock.withLock {
+            let image = self.lastDecodedImage
+            return image
+        }
+    }
+
+    func removeLastImage(sample: CMSampleBuffer) {
+        self.lastDecodedImageLock.withLock {
+            if sample == self.lastDecodedImage {
+                self.lastDecodedImage = nil
+            }
+        }
+    }
+
+    func calculateWaitTime() -> TimeInterval {
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't call this with no jitter buffer")
+        }
+        return jitterBuffer.calculateWaitTime()
     }
     
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
@@ -131,11 +169,13 @@ class VideoHandler {
             }
         }
         
-        // Update keep alive timer for showing video.
-        DispatchQueue.main.async {
-            let participant = self.participants.getOrMake(identifier: self.namespace)
-            participant.lastUpdated = .now()
-            participant.view.label = self.label
+        if !simulreceive {
+            // Update keep alive timer for showing video.
+            DispatchQueue.main.async {
+                let participant = self.participants.getOrMake(identifier: self.namespace)
+                participant.lastUpdated = .now()
+                participant.view.label = self.label
+            }
         }
 
         // Do we need to create a jitter buffer?
@@ -276,6 +316,9 @@ class VideoHandler {
         // Decode.
         for sample in frame.samples {
             if self.jitterBufferConfig.mode == .layer {
+                guard !self.simulreceive else {
+                    throw "Simulreceive and layer are incompatible"
+                }
                 try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
             } else {
                 try decoder!.write(sample)
@@ -398,5 +441,15 @@ extension AVCaptureVideoOrientation {
             break
         }
         return transform
+    }
+}
+
+extension VideoHandler: Hashable {
+    static func == (lhs: VideoHandler, rhs: VideoHandler) -> Bool {
+        return lhs.namespace == rhs.namespace
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.namespace)
     }
 }

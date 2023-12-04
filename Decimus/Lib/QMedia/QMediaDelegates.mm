@@ -20,26 +20,76 @@
 namespace qclient
 {
 
+// Helpers.
+static QClientProfile fromProfile(qmedia::manifest::Profile profile)
+{
+    QClientProfile clientProfile;
+    clientProfile.qualityProfile = strdup(profile.qualityProfile.c_str());
+    clientProfile.quicrNamespace = strdup(std::string(profile.quicrNamespace).c_str());
+    clientProfile.prioritiesCount = profile.priorities.size();
+    clientProfile.priorities = profile.priorities.data();
+    if (profile.expiry.has_value()) {
+        clientProfile.expiry = profile.expiry.value();
+    } else {
+        clientProfile.expiry = -1;
+    }
+    return clientProfile;
+}
+
+static void deleteProfile(QClientProfile profile)
+{
+    free((void*)profile.qualityProfile);
+    free((void*)profile.quicrNamespace);
+}
+
+static QClientProfileSet fromProfileSet(const qmedia::manifest::ProfileSet& profileSet)
+{
+    QClientProfileSet clientProfileSet;
+    clientProfileSet.type = profileSet.type.c_str();
+    clientProfileSet.profilesCount = profileSet.profiles.size();
+    clientProfileSet.profiles = new QClientProfile[clientProfileSet.profilesCount];
+    for (size_t profileIndex = 0; profileIndex < clientProfileSet.profilesCount; profileIndex++)
+    {
+        clientProfileSet.profiles[profileIndex] = fromProfile(profileSet.profiles[profileIndex]);
+    }
+    return clientProfileSet;
+}
+
+static void deleteProfileSet(QClientProfileSet profileSet)
+{
+    for (size_t profileIndex = 0; profileIndex < profileSet.profilesCount; profileIndex++)
+    {
+        deleteProfile(profileSet.profiles[profileIndex]);
+    }
+    delete[] profileSet.profiles;
+}
+
 // SUBSCRIPTION
-QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const quicr::Namespace& quicrNamespace) :
-    delegate(delegate), quicrNamespace(quicrNamespace)
+QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const std::string& sourceId) :
+    delegate(delegate), sourceId(sourceId)
 {
 }
 
-int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile, bool& reliable) {
-    return [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
+int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) {
+    QClientProfileSet clientProfileSet = fromProfileSet(profileSet);
+    const int prepareResult = [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet reliable:&reliable];
+    deleteProfileSet(clientProfileSet);
+    return prepareResult;
 }
 
-int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile)  {
-    return [delegate update:@(sourceId.c_str()) label:@(label.c_str()) qualityProfile:@(qualityProfile.c_str())];
+int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet)  {
+    QClientProfileSet clientProfileSet = fromProfileSet(profileSet);
+    const int updateResult = [delegate update:@(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet];
+    deleteProfileSet(clientProfileSet);
+    return updateResult;
 }
 /*
 quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
     return quicrNamespace;
 }*/
 
-int QMediaSubscriptionDelegate::subscribedObject(quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
-    return [delegate subscribedObject:data.data() length:data.size() groupId:group objectId:object];
+int QMediaSubscriptionDelegate::subscribedObject(const quicr::Namespace& quicrNamespace, quicr::bytes&& data, std::uint32_t group, std::uint16_t object) {
+    return [delegate subscribedObject:@(std::string(quicrNamespace).c_str()) data:data.data() length:data.size() groupId:group objectId:object];
 }
 
 
@@ -69,17 +119,16 @@ QMediaSubsciberDelegate::QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> del
 {
 }
 
-std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile)
+std::shared_ptr<qmedia::QSubscriptionDelegate> QMediaSubsciberDelegate::allocateSubBySourceId(const std::string& sourceId, const qmedia::manifest::ProfileSet& profileSet)
 {
-    NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
+    NSString *sourceIdNSString = [NSString stringWithCString:sourceId.c_str()
                                        encoding:[NSString defaultCStringEncoding]];
-    NSString *qualityProfileNSString = [NSString stringWithCString:qualityProfile.c_str()
-                                       encoding:[NSString defaultCStringEncoding]];
-    id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubByNamespace:quicrNamespaceNSString qualityProfile:qualityProfileNSString];
-    return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, quicrNamespace);
+    QClientProfileSet qClientProfileSet = fromProfileSet(profileSet);
+    id<QSubscriptionDelegateObjC> subscription = [delegate allocateSubBySourceId:sourceIdNSString profileSet:qClientProfileSet];
+    return std::make_shared<qclient::QMediaSubscriptionDelegate>(subscription, sourceId);
 }
 
-int QMediaSubsciberDelegate::removeSubByNamespace(const quicr::Namespace& quicrNamespace)
+int QMediaSubsciberDelegate::removeSubBySourceId(const std::string& sourceId)
 {
    return 0;
 }

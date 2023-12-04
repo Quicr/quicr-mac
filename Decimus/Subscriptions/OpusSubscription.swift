@@ -77,7 +77,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
     }
 
-    let namespace: String
+    let sourceId: SourceIDType
     private var decoder: LibOpusDecoder
 
     private let engine: DecimusAudioEngine
@@ -92,19 +92,19 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private let reliable: Bool
     private let granularMetrics: Bool
 
-    init(namespace: QuicrNamespace,
+    init(sourceId: SourceIDType,
+         profileSet: QClientProfileSet,
          engine: DecimusAudioEngine,
-         config: AudioCodecConfig,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          granularMetrics: Bool) throws {
-        self.namespace = namespace
+        self.sourceId = sourceId
         self.engine = engine
         if let submitter = submitter {
-            self.measurement = .init(namespace: namespace, submitter: submitter)
+            self.measurement = .init(namespace: sourceId, submitter: submitter)
         } else {
             self.measurement = nil
         }
@@ -130,7 +130,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        try self.engine.addPlayer(identifier: namespace, node: node!)
+        try self.engine.addPlayer(identifier: sourceId, node: node!)
 
         Self.logger.info("Subscribed to OPUS stream")
     }
@@ -138,7 +138,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     deinit {
         // Remove the audio playout.
         do {
-            try engine.removePlayer(identifier: namespace)
+            try engine.removePlayer(identifier: sourceId)
         } catch {
             Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
         }
@@ -152,7 +152,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
     func prepare(_ sourceID: SourceIDType!,
                  label: String!,
-                 qualityProfile: String!,
+                 profileSet: QClientProfileSet,
                  reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
         return SubscriptionError.none.rawValue
@@ -248,11 +248,11 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
     }
 
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
+    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32 {
         return SubscriptionError.noDecoder.rawValue
     }
 
-    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         let date: Date? = self.granularMetrics ? .now : nil
 
