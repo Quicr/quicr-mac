@@ -36,6 +36,12 @@ static QClientProfile fromProfile(qmedia::manifest::Profile profile)
     return clientProfile;
 }
 
+static void deleteProfile(QClientProfile profile)
+{
+    free((void*)profile.qualityProfile);
+    free((void*)profile.quicrNamespace);
+}
+
 static QClientProfileSet fromProfileSet(const qmedia::manifest::ProfileSet& profileSet)
 {
     QClientProfileSet clientProfileSet;
@@ -49,6 +55,15 @@ static QClientProfileSet fromProfileSet(const qmedia::manifest::ProfileSet& prof
     return clientProfileSet;
 }
 
+static void deleteProfileSet(QClientProfileSet profileSet)
+{
+    for (size_t profileIndex = 0; profileIndex < profileSet.profilesCount; profileIndex++)
+    {
+        deleteProfile(profileSet.profiles[profileIndex]);
+    }
+    delete[] profileSet.profiles;
+}
+
 // SUBSCRIPTION
 QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const std::string& sourceId) :
     delegate(delegate), sourceId(sourceId)
@@ -57,12 +72,16 @@ QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateO
 
 int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) {
     QClientProfileSet clientProfileSet = fromProfileSet(profileSet);
-    return [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet reliable:&reliable];
+    const int prepareResult = [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet reliable:&reliable];
+    deleteProfileSet(clientProfileSet);
+    return prepareResult;
 }
 
 int  QMediaSubscriptionDelegate::update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet)  {
     QClientProfileSet clientProfileSet = fromProfileSet(profileSet);
-    return [delegate update:@(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet];
+    const int updateResult = [delegate update:@(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet];
+    deleteProfileSet(clientProfileSet);
+    return updateResult;
 }
 /*
 quicr::Namespace QMediaSubscriptionDelegate::getNamespace() {
