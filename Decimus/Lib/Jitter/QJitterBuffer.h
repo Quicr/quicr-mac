@@ -26,6 +26,10 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
                     minLengthMs:(unsigned long)min_length_ms
                     logCallback:(CantinaLogCallback)logCallback;
 
+-(size_t)prepare:(const unsigned long)sequence_number
+                 concealmentCallback:(PacketCallback)concealment_callback
+                 userData: (void*)user_data;
+
 -(size_t)enqueuePacket:(struct Packet)packet
                 concealmentCallback:(PacketCallback)concealment_callback
                 userData: (void*)user_data;

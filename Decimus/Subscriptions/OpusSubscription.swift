@@ -54,7 +54,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     }
     
     func recordLibJitterMetrics(metrics: Metrics, timestamp: Date?) {
-        record(field: "concealed", value: metrics.concealed_packets as AnyObject, timestamp: timestamp)
+        record(field: "concealed", value: metrics.concealed_frames as AnyObject, timestamp: timestamp)
         record(field: "filled", value: metrics.filled_packets as AnyObject, timestamp: timestamp)
         record(field: "skipped", value: metrics.skipped_frames as AnyObject, timestamp: timestamp)
         record(field: "missed", value: metrics.update_missed_frames as AnyObject, timestamp: timestamp)
@@ -273,6 +273,12 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             }
             self.seq = groupId
         }
+
+        // Generate PLC prior to real decode.
+        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
+        jitterBuffer.prepare(UInt(groupId),
+                             concealmentCallback: self.plcCallback,
+                             userData: selfPtr)
 
         let decoded: AVAudioPCMBuffer
         do {
