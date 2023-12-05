@@ -67,7 +67,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     }
 }
 
-class OpusSubscription: Subscription {
+class OpusSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
     private class Weak<T> {
@@ -77,7 +77,7 @@ class OpusSubscription: Subscription {
         }
     }
 
-    let namespace: String
+    let sourceId: SourceIDType
     private var decoder: LibOpusDecoder
 
     private let engine: DecimusAudioEngine
@@ -92,19 +92,19 @@ class OpusSubscription: Subscription {
     private let reliable: Bool
     private let granularMetrics: Bool
 
-    init(namespace: QuicrNamespace,
+    init(sourceId: SourceIDType,
+         profileSet: QClientProfileSet,
          engine: DecimusAudioEngine,
-         config: AudioCodecConfig,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          granularMetrics: Bool) throws {
-        self.namespace = namespace
+        self.sourceId = sourceId
         self.engine = engine
         if let submitter = submitter {
-            self.measurement = .init(namespace: namespace, submitter: submitter)
+            self.measurement = .init(namespace: sourceId, submitter: submitter)
         } else {
             self.measurement = nil
         }
@@ -130,7 +130,7 @@ class OpusSubscription: Subscription {
 
         // Create the player node.
         self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        try self.engine.addPlayer(identifier: namespace, node: node!)
+        try self.engine.addPlayer(identifier: sourceId, node: node!)
 
         Self.logger.info("Subscribed to OPUS stream")
     }
@@ -138,7 +138,7 @@ class OpusSubscription: Subscription {
     deinit {
         // Remove the audio playout.
         do {
-            try engine.removePlayer(identifier: namespace)
+            try engine.removePlayer(identifier: sourceId)
         } catch {
             Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
         }
@@ -152,10 +152,10 @@ class OpusSubscription: Subscription {
 
     func prepare(_ sourceID: SourceIDType!,
                  label: String!,
-                 qualityProfile: String!,
+                 profileSet: QClientProfileSet,
                  reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
         reliable.pointee = self.reliable
-        return SubscriptionError.None.rawValue
+        return SubscriptionError.none.rawValue
     }
 
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
@@ -248,11 +248,11 @@ class OpusSubscription: Subscription {
         }
     }
 
-    func update(_ sourceId: String!, label: String!, qualityProfile: String!) -> Int32 {
-        return SubscriptionError.NoDecoder.rawValue
+    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32 {
+        return SubscriptionError.noDecoder.rawValue
     }
 
-    func subscribedObject(_ data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Metrics.
         let date: Date? = self.granularMetrics ? .now : nil
 
@@ -285,14 +285,14 @@ class OpusSubscription: Subscription {
             decoded = try decoder.write(data: .init(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none))
         } catch {
             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-            return SubscriptionError.NoDecoder.rawValue
+            return SubscriptionError.noDecoder.rawValue
         }
         do {
             try queueDecodedAudio(buffer: decoded, timestamp: date, sequence: groupId)
         } catch {
             Self.logger.error("Failed to enqueue decoded audio for playout: \(error.localizedDescription)")
         }
-        return SubscriptionError.None.rawValue
+        return SubscriptionError.none.rawValue
     }
 
     private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date?, sequence: UInt32) throws {

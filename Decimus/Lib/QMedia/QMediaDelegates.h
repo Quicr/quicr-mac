@@ -20,15 +20,13 @@ namespace qclient
 class QMediaSubscriptionDelegate : public qmedia::QSubscriptionDelegate
 {
 public:
-    QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const quicr::Namespace& quicrNamespace);
-
+    QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const SourceId& sourceId);
 public:
-    int prepare(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile, bool& reliable) override;
-    int update(const std::string& sourceId,  const std::string& label, const std::string& qualityProfile) override;
-    int subscribedObject(quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
-
+    int prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) override;
+    int update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet) override;
+    int subscribedObject(const quicr::Namespace& quicrNamespace, quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
 private:
-    quicr::Namespace quicrNamespace;
+    std::string sourceId;
     id<QSubscriptionDelegateObjC> delegate;
 };
 
@@ -51,9 +49,8 @@ class QMediaSubsciberDelegate : public qmedia::QSubscriberDelegate
 {
 public:
     QMediaSubsciberDelegate(id<QSubscriberDelegateObjC> delegate);
-    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& qualityProfile);
-    int removeSubByNamespace(const quicr::Namespace& quicrNamespace);
-
+    std::shared_ptr<qmedia::QSubscriptionDelegate> allocateSubBySourceId(const std::string& sourceId, const qmedia::manifest::ProfileSet& qualityProfile);
+    int removeSubBySourceId(const std::string& sourceId);
 private:
     id<QSubscriberDelegateObjC> delegate;
 };

@@ -126,37 +126,33 @@ class VideoJitterBuffer {
     /// - Returns Either the oldest available frame, or nil.
     func read() -> VideoFrame? {
         let now: Date = .now
-        let count = self.lock.withLock {
-            self.buffer.count
-        }
-
-        let depth: TimeInterval = TimeInterval(count) * self.frameDuration
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.currentDepth(depth: depth, timestamp: now)
-            }
-        }
-
-        // Are we playing out?
-        if !self.play && depth > self.minDepth {
-            self.play = true
-        }
-        guard self.play else {
-            return nil
-        }
-
-        // Ensure there's something to get.
-        guard count > 0 else {
+        return self.lock.withLock {
+            let depth: TimeInterval = TimeInterval(self.buffer.count) * self.frameDuration
             if let measurement = self.measurement {
                 Task(priority: .utility) {
-                    await measurement.underrun(timestamp: now)
+                    await measurement.currentDepth(depth: depth, timestamp: now)
                 }
             }
-            return nil
-        }
 
-        // Get the oldest available frame.
-        return self.lock.withLock {
+            // Are we playing out?
+            if !self.play && depth > self.minDepth {
+                self.play = true
+            }
+            guard self.play else {
+                return nil
+            }
+            
+            // Ensure there's something to get.
+            guard self.buffer.count > 0 else {
+                if let measurement = self.measurement {
+                    Task(priority: .utility) {
+                        await measurement.underrun(timestamp: now)
+                    }
+                }
+                return nil
+            }
+            
+            // Get the oldest available frame.
             let oldest = self.buffer.removeFirst()
             self.lastSequenceRead = oldest.sequenceNumber
             return oldest
