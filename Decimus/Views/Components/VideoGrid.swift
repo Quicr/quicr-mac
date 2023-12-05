@@ -42,6 +42,7 @@ struct VideoGrid: View {
                                 .cornerRadius(12)
                                 .padding(.bottom)
                         }
+                        .border(.green, width: participant.view.highlight ? 3 : 0)
                 }
             }
             .cornerRadius(cornerRadius)

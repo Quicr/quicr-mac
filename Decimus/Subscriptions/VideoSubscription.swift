@@ -1,5 +1,12 @@
 import AVFoundation
 
+enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
+    case none
+    case visualizeOnly
+    case enable
+    var id: Self { self }
+}
+
 class VideoSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
@@ -8,7 +15,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let reliable: Bool
     private var videoHandlers: [QuicrNamespace: VideoHandler] = [:]
     private var renderTask: Task<(), Never>?
-    private let simulreceive: Bool
+    private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
     private var lastQuality: Int32?
@@ -23,8 +30,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
          hevcOverride: Bool,
-         simulreceive: Bool,
-         qualityMissThreshold: Int) {
+         simulreceive: SimulreceiveMode,
+         qualityMissThreshold: Int) throws {
+        if simulreceive != .none && jitterBufferConfig.mode == .layer {
+            throw "Simulreceive and layer are not compatible"
+        }
+        
         self.sourceId = sourceId
         self.participants = participants
         self.reliable = reliable
@@ -34,7 +45,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
             guard let config = config as? VideoCodecConfig else {
-                fatalError("Codec mismatch")
+                throw "Codec mismatch"
             }
             let adjustedConfig = hevcOverride ? .init(codec: .hevc,
                                                       bitrate: config.bitrate,
@@ -42,19 +53,19 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                       width: config.width,
                                                       height: config.height) : config
             let namespace = QuicrNamespace(cString: profile.quicrNamespace)
-            self.videoHandlers[namespace] = .init(namespace: namespace,
-                                                  config: adjustedConfig,
-                                                  participants: participants,
-                                                  metricsSubmitter: metricsSubmitter,
-                                                  namegate: namegate,
-                                                  reliable: reliable,
-                                                  granularMetrics: granularMetrics,
-                                                  jitterBufferConfig: jitterBufferConfig,
-                                                  simulreceive: self.simulreceive)
+            self.videoHandlers[namespace] = try .init(namespace: namespace,
+                                                      config: adjustedConfig,
+                                                      participants: participants,
+                                                      metricsSubmitter: metricsSubmitter,
+                                                      namegate: namegate,
+                                                      reliable: reliable,
+                                                      granularMetrics: granularMetrics,
+                                                      jitterBufferConfig: jitterBufferConfig,
+                                                      simulreceive: self.simulreceive)
         }
 
         // Make task to do simulreceive.
-        if self.simulreceive {
+        if self.simulreceive != .none {
             self.renderTask = .init(priority: .high) { [weak self] in
                 while !Task.isCancelled {
                     guard let self = self else { return }
@@ -67,7 +78,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
     
     deinit {
-        if self.simulreceive {
+        if self.simulreceive != .none {
             do {
                 try self.participants.removeParticipant(identifier: self.sourceId)
             } catch {
@@ -90,7 +101,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
     func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         // Update keep alive timer for showing video.
-        if self.simulreceive {
+        if self.simulreceive == .enable {
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
                 participant.lastUpdated = .now()
@@ -173,28 +184,38 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // Proceed with rendering this frame.
         self.qualityMisses = 0
         self.lastQuality = sample.formatDescription!.dimensions.width
-        if sample.sampleAttachments.count > 0 {
-            sample.sampleAttachments[0][.displayImmediately] = true
-        } else {
-            Self.logger.warning("Couldn't set display immediately attachment")
-        }
 
-        // Enqueue the sample on the main thread.
-        DispatchQueue.main.async {
-            let participant = self.participants.getOrMake(identifier: self.sourceId)
-            participant.view.label = first.key.label
-            do {
-                try participant.view.enqueue(sample, transform: CATransform3DIdentity)
-            } catch {
-                Self.logger.error("Could not enqueue sample: \(error)")
+        if self.simulreceive == .enable {
+            // Set to display immediately.
+            if sample.sampleAttachments.count > 0 {
+                sample.sampleAttachments[0][.displayImmediately] = true
+            } else {
+                Self.logger.warning("Couldn't set display immediately attachment")
             }
-            participant.lastUpdated = .now()
+            
+            // Enqueue the sample on the main thread.
+            DispatchQueue.main.async {
+                let participant = self.participants.getOrMake(identifier: self.sourceId)
+                participant.view.label = first.key.label
+                do {
+                    try participant.view.enqueue(sample, transform: CATransform3DIdentity)
+                } catch {
+                    Self.logger.error("Could not enqueue sample: \(error)")
+                }
+                participant.lastUpdated = .now()
+            }
+        } else if self.simulreceive == .visualizeOnly {
+            DispatchQueue.main.async {
+                for participant in self.participants.participants {
+                    participant.value.view.highlight = participant.key == first.key.namespace
+                }
+            }
         }
 
         // Wait until we have expect to have the next frame available.
         await calculateWaitTime(videoHandler: first.key)
     }
-    
+
     private func calculateWaitTime(videoHandler: VideoHandler?) async {
         // Wait until we have expect to have the next frame available.
         guard let videoHandler = videoHandler else { return }

@@ -49,7 +49,7 @@ struct SubscriptionConfig: Codable {
     var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
-    var simulreceive: Bool
+    var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
 
     init() {
@@ -64,7 +64,7 @@ struct SubscriptionConfig: Codable {
         hevcOverride = false
         isSingleOrderedSub = true
         isSingleOrderedPub = false
-        simulreceive = false
+        simulreceive = .none
         qualityMissThreshold = 3
     }
 }
@@ -93,7 +93,6 @@ class SubscriptionFactory {
                 metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
         // TODO: This is sketchy.
         var codecType: CodecType?
-        let factory = CodecFactory()
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
@@ -114,17 +113,17 @@ class SubscriptionFactory {
                 namegate = SequentialObjectBlockingNameGate()
             }
 
-            return VideoSubscription(sourceId: sourceId,
-                                     profileSet: profileSet,
-                                     participants: self.participants,
-                                     metricsSubmitter: metricsSubmitter,
-                                     namegate: namegate,
-                                     reliable: self.config.mediaReliability.video.subscription,
-                                     granularMetrics: self.granularMetrics,
-                                     jitterBufferConfig: self.config.videoJitterBuffer,
-                                     hevcOverride: self.config.hevcOverride,
-                                     simulreceive: self.config.simulreceive,
-                                     qualityMissThreshold: self.config.qualityMissThreshold)
+            return try VideoSubscription(sourceId: sourceId,
+                                         profileSet: profileSet,
+                                         participants: self.participants,
+                                         metricsSubmitter: metricsSubmitter,
+                                         namegate: namegate,
+                                         reliable: self.config.mediaReliability.video.subscription,
+                                         granularMetrics: self.granularMetrics,
+                                         jitterBufferConfig: self.config.videoJitterBuffer,
+                                         hevcOverride: self.config.hevcOverride,
+                                         simulreceive: self.config.simulreceive,
+                                         qualityMissThreshold: self.config.qualityMissThreshold)
         case .opus:
             return try OpusSubscription(sourceId: sourceId,
                                         profileSet: profileSet,
