@@ -46,7 +46,7 @@ class VideoHandler {
     let config: VideoCodecConfig
     var label: String = ""
     var labelName: String = ""
-    private let namespace: QuicrNamespace
+    let namespace: QuicrNamespace
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: _Measurement?
@@ -66,7 +66,7 @@ class VideoHandler {
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
-    private let simulreceive: Bool
+    private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
 
@@ -78,7 +78,11 @@ class VideoHandler {
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
-         simulreceive: Bool) {
+         simulreceive: SimulreceiveMode) throws {
+        if simulreceive != .none && jitterBufferConfig.mode == .layer {
+            throw "Simulreceive and layer are not compatible"
+        }
+
         self.namespace = namespace
         self.config = config
         self.participants = participants
@@ -99,12 +103,12 @@ class VideoHandler {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
-                if simulreceive {
-                    // When we do simulreceive, we're not responsible for rendering.
+                if simulreceive != .none {
                     self.lastDecodedImageLock.withLock {
                         self.lastDecodedImage = sample
                     }
-                } else {
+                }
+                if simulreceive != .enable {
                     // Enqueue for rendering.
                     do {
                         try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
@@ -117,7 +121,7 @@ class VideoHandler {
     }
     
     deinit {
-        if !self.simulreceive {
+        if self.simulreceive != .enable {
             try? participants.removeParticipant(identifier: namespace)
         }
     }
@@ -169,7 +173,7 @@ class VideoHandler {
             }
         }
         
-        if !simulreceive {
+        if simulreceive != .enable {
             // Update keep alive timer for showing video.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.namespace)
@@ -316,9 +320,6 @@ class VideoHandler {
         // Decode.
         for sample in frame.samples {
             if self.jitterBufferConfig.mode == .layer {
-                guard !self.simulreceive else {
-                    throw "Simulreceive and layer are incompatible"
-                }
                 try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
             } else {
                 try decoder!.write(sample)

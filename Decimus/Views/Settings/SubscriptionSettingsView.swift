@@ -88,9 +88,27 @@ struct SubscriptionSettingsView: View {
                     Toggle(isOn: $subscriptionConfig.value.isSingleOrderedSub) {}
                 }
 
-                HStack {
-                    Text("Simulreceive")
-                    Toggle(isOn: $subscriptionConfig.value.simulreceive) {}
+                LabeledContent("Simulreceive") {
+                    Picker("Simulreceive", selection: $subscriptionConfig.value.simulreceive) {
+                        ForEach(SimulreceiveMode.allCases) {
+                            if subscriptionConfig.value.videoJitterBuffer.mode == .layer && $0 != .none {
+                                EmptyView()
+                            } else {
+                                Text(String(describing: $0))
+                            }
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: subscriptionConfig.value.videoJitterBuffer.mode) {
+                        if $0 == .layer && subscriptionConfig.value.simulreceive != .none {
+                            subscriptionConfig.value.simulreceive = .none
+                        }
+                    }
+                    .onAppear {
+                        if subscriptionConfig.value.videoJitterBuffer.mode == .layer && subscriptionConfig.value.simulreceive != .none {
+                            subscriptionConfig.value.simulreceive = .none
+                        }
+                    }
                 }
 
                 LabeledContent("Quality miss threshold (frames)") {
