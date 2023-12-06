@@ -11,5 +11,5 @@ struct CallConfig: Hashable {
     /// Email address of the user joining the call
     var email: String = ""
     /// Conference ID to join
-    var conferenceID: UInt32 = 1
+    var conferenceID: UInt32 = 0
 }
