@@ -167,7 +167,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let allowableFormats = device.formats.reversed().filter { format in
             var supported = format.isMultiCamSupported &&
                             format.formatDescription.dimensions.width == config.width &&
-                            format.formatDescription.dimensions.height == config.height
+                            format.formatDescription.dimensions.height == config.height &&
+                            format.supportedColorSpaces.contains(.sRGB)
             if config.codec == .hevc {
                 supported = supported && format.isVideoHDRSupported
             }
@@ -182,19 +183,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         self.session.beginConfiguration()
         device.activeFormat = bestFormat
-        device.automaticallyAdjustsVideoHDREnabled = false
-        
-        if config.codec == .hevc {
-            if device.activeFormat.isVideoHDRSupported {
-                device.isVideoHDREnabled = true
-            }
-            if device.activeFormat.supportedColorSpaces.contains(.HLG_BT2020) {
-                device.activeColorSpace = .HLG_BT2020
-            }
-        } else {
-            if device.activeFormat.supportedColorSpaces.contains(.sRGB) {
-                device.activeColorSpace = .sRGB
-            }
+        if device.activeFormat.supportedColorSpaces.contains(.sRGB) {
+            device.activeColorSpace = .sRGB
         }
         self.session.commitConfiguration()
     }
@@ -235,16 +225,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }) {
             output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
         }
-        let hdr: Bool
-        if let config = listener.codec {
-            hdr = config.codec == .hevc
-        } else {
-            hdr = true
-        }
         output.videoSettings[AVVideoColorPropertiesKey] = [
-            AVVideoColorPrimariesKey: hdr ? AVVideoColorPrimaries_ITU_R_2020 : AVVideoColorPrimaries_ITU_R_709_2,
-            AVVideoTransferFunctionKey: hdr ? AVVideoTransferFunction_ITU_R_2100_HLG : AVVideoTransferFunction_ITU_R_709_2,
-            AVVideoYCbCrMatrixKey: hdr ? AVVideoYCbCrMatrix_ITU_R_2020 : AVVideoYCbCrMatrix_ITU_R_709_2
+            AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+            AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+            AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
         ]
         output.setSampleBufferDelegate(self, queue: self.queue)
         guard session.canAddInput(input),
