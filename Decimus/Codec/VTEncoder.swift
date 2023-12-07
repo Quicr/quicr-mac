@@ -104,19 +104,19 @@ class VTEncoder {
             try OSStatusError.checked("Color Primaries") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_ColorPrimaries,
-                                     value: kCMFormatDescriptionColorPrimaries_ITU_R_2020)
+                                     value: kCMFormatDescriptionColorPrimaries_ITU_R_709_2)
             }
             
             try OSStatusError.checked("Transfer Function") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_TransferFunction,
-                                     value: kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG)
+                                     value: kCMFormatDescriptionTransferFunction_ITU_R_709_2)
             }
             
             try OSStatusError.checked("YCbCrMatrix") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_YCbCrMatrix,
-                                     value: kCMFormatDescriptionYCbCrMatrix_ITU_R_2020)
+                                     value: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2)
             }
             
             try OSStatusError.checked("Preserve Metadata") {
