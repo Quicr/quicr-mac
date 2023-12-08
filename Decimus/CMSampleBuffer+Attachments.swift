@@ -121,4 +121,21 @@ extension CMSampleBuffer {
         let value = self.getAttachmentValue(for: key) as? Bool
         return value
     }
+
+    func clearDecimusCustomAttachments() {
+        // Clear custom attachments.
+        let array = CMSampleBufferGetSampleAttachmentsArray(self,
+                                                            createIfNecessary: false)
+        if let array = array,
+           let first = (array as NSArray).firstObject {
+            let dict = first as! CFMutableDictionary
+            let nsDict = dict as NSMutableDictionary
+            nsDict.removeObjects(forKeys: [CMSampleBuffer.fpsKey,
+                                           CMSampleBuffer.groupIdKey,
+                                           CMSampleBuffer.objectIdKey,
+                                           CMSampleBuffer.sequenceNumberKey,
+                                           CMSampleBuffer.orientationKey,
+                                           CMSampleBuffer.verticalMirrorKey])
+        }
+    }
 }

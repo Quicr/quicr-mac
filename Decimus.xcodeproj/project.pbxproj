@@ -36,7 +36,6 @@
 		18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A452A14E667005B333B /* AppStorageWrapper.swift */; };
 		18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */; };
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
-		18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */; };
 		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
@@ -179,7 +178,6 @@
 		18C89A452A14E667005B333B /* AppStorageWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorageWrapper.swift; sourceTree = "<group>"; };
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
-		18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoFrame.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
@@ -464,7 +462,6 @@
 		9BA27FF9297DD8CA007013B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				18F7C4D52AB1C795005EDB88 /* VideoFrame.swift */,
 				9BA27FFA297DD8D9007013B2 /* CallConfig.swift */,
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
@@ -837,7 +834,6 @@
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
-				18F7C4D62AB1C795005EDB88 /* VideoFrame.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
