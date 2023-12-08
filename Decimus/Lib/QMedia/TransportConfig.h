@@ -19,6 +19,7 @@ struct TransportConfig
   uint32_t quic_wifi_shadow_rtt_us;       /// QUIC wifi shadow RTT in microseconds
   uint64_t pacing_decrease_threshold_Bps; /// QUIC pacing rate decrease threshold for notification in Bps
   uint64_t pacing_increase_threshold_Bps; /// QUIC pacing rate increase threshold for notification in Bps
+  uint64_t idle_timeout_ms;               /// QUIC idle timeout for connection(s) in milliseconds
 };
 typedef struct TransportConfig TransportConfig;
 
