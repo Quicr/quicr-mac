@@ -51,7 +51,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
                                                      quic_wifi_shadow_rtt_us: UInt32(self.config.quicWifiShadowRttUs * 1_000_000),
                                                      pacing_decrease_threshold_Bps: 16000,
-                                                     pacing_increase_threshold_Bps: 16000)
+                                                     pacing_increase_threshold_Bps: 16000,
+                                                     idle_timeout_ms: 30000)
         let error = super.connect(config.address,
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
