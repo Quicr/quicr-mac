@@ -41,6 +41,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
+        let shadowRtt = UInt32(self.config.quicWifiShadowRttUs * 1_000_000)
         let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                      tls_key_filename: nil,
                                                      time_queue_init_queue_size: 1000,
@@ -49,7 +50,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      time_queue_size_rx: 1000,
                                                      debug: false,
                                                      quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
-                                                     quic_wifi_shadow_rtt_us: UInt32(self.config.quicWifiShadowRttUs * 1_000_000),
+                                                     quic_wifi_shadow_rtt_us: shadowRtt,
                                                      pacing_decrease_threshold_Bps: 16000,
                                                      pacing_increase_threshold_Bps: 16000,
                                                      idle_timeout_ms: 30000)

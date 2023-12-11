@@ -10,10 +10,10 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     private let submitter: MetricsSubmitter?
     private let factory: SubscriptionFactory
 
-        init(submitter: MetricsSubmitter?,
-             config: SubscriptionConfig,
-             engine: DecimusAudioEngine,
-             granularMetrics: Bool) {
+    init(submitter: MetricsSubmitter?,
+         config: SubscriptionConfig,
+         engine: DecimusAudioEngine,
+         granularMetrics: Bool) {
         self.participants = .init()
         self.submitter = submitter
         self.factory = .init(participants: self.participants,
@@ -53,7 +53,7 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
             return nil
         }
     }
-    
+
     func remove(bySourceId sourceId: SourceIDType) -> Int32 {
         return 0
     }

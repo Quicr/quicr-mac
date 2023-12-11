@@ -51,7 +51,7 @@ struct ActionButtonStyle: ButtonStyle {
             )
             .onHover { hovered in
                 borderColour = (hovered ? styleConfig.hoverColour : styleConfig.borderColour) ??
-                                                                    styleConfig.borderColour ?? .clear
+                    styleConfig.borderColour ?? .clear
             }
     }
 }
@@ -94,9 +94,9 @@ struct ActionButton<Content>: View where Content: View {
                 self.title.frame(maxWidth: .infinity)
             }
             .buttonStyle(ActionButtonStyle(
-                styleConfig: self.styleConfig,
-                cornerRadius: self.cornerRadius,
-                isDisabled: disabled))
+                            styleConfig: self.styleConfig,
+                            cornerRadius: self.cornerRadius,
+                            isDisabled: disabled))
             .disabled(self.disabled)
         }
     }

@@ -16,11 +16,11 @@ final class TestH264Utilities: XCTestCase {
         var orientation: AVCaptureVideoOrientation? = .portrait
         var mirror: Bool? = false
         guard let samples = try H264Utilities.depacketize(data,
-                                                    groupId: 0,
-                                                    objectId: 1,
-                                                    format: &format,
-                                                    orientation: &orientation,
-                                                    verticalMirror:&mirror,
+                                                          groupId: 0,
+                                                          objectId: 1,
+                                                          format: &format,
+                                                          orientation: &orientation,
+                                                          verticalMirror: &mirror,
                                                           copy: true) else {
             XCTFail()
             return
@@ -35,8 +35,8 @@ final class TestH264Utilities: XCTestCase {
         let dataBuffer1 = sample1.dataBuffer!
         XCTAssertEqual(dataBuffer1.dataLength, 9)
         let extractedData1: UnsafeMutableRawBufferPointer = .allocate(byteCount: dataBuffer1.dataLength,
-                                                                     alignment: MemoryLayout<UInt8>.alignment)
-        try! dataBuffer1.copyDataBytes(to: extractedData1)
+                                                                      alignment: MemoryLayout<UInt8>.alignment)
+        try dataBuffer1.copyDataBytes(to: extractedData1)
         values.withUnsafeBytes {
             var extractedLength: UInt32 = 0
             memcpy(&extractedLength, extractedData1.baseAddress, 4)
@@ -52,7 +52,7 @@ final class TestH264Utilities: XCTestCase {
         XCTAssertEqual(dataBuffer2.dataLength, 9)
         let extractedData2: UnsafeMutableRawBufferPointer = .allocate(byteCount: dataBuffer2.dataLength,
                                                                       alignment: MemoryLayout<UInt8>.alignment)
-        try! dataBuffer2.copyDataBytes(to: extractedData2)
+        try dataBuffer2.copyDataBytes(to: extractedData2)
         values.withUnsafeBytes {
             XCTAssertEqual(0, memcmp(extractedData2.baseAddress! + 4,
                                      $0.baseAddress!.advanced(by: 9 + 4),
@@ -94,7 +94,7 @@ final class TestH264Utilities: XCTestCase {
                                       values.count - 4))
             }
         }
-        
+
         // Check attachments set.
         XCTAssert(sample.getGroupId() == groupId)
         XCTAssert(sample.getObjectId() == objectId)

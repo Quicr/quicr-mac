@@ -32,13 +32,13 @@ struct LeaveModal: View {
                                 foreground: .white,
                                 borderColour: .gray),
                              action: cancelAction)
-                .fixedSize()
+                    .fixedSize()
                 ActionButton("Leave Meeting",
                              styleConfig: .init(
                                 background: .white,
                                 foreground: .black),
                              action: leaveAction)
-                .fixedSize()
+                    .fixedSize()
             }
         }
         .padding()

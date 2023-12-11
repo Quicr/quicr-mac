@@ -52,7 +52,7 @@ actor OpusSubscriptionMeasurement: Measurement {
     func callbacks(callbacks: UInt64, timestamp: Date?) {
         record(field: "callbacks", value: callbacks as AnyObject, timestamp: timestamp)
     }
-    
+
     func recordLibJitterMetrics(metrics: Metrics, timestamp: Date?) {
         record(field: "concealed", value: metrics.concealed_frames as AnyObject, timestamp: timestamp)
         record(field: "filled", value: metrics.filled_packets as AnyObject, timestamp: timestamp)
@@ -60,7 +60,7 @@ actor OpusSubscriptionMeasurement: Measurement {
         record(field: "missed", value: metrics.update_missed_frames as AnyObject, timestamp: timestamp)
         record(field: "updated", value: metrics.updated_frames as AnyObject, timestamp: timestamp)
     }
-    
+
     func droppedFrames(dropped: Int, timestamp: Date?) {
         self.dropped += UInt64(dropped)
         record(field: "dropped", value: self.dropped as AnyObject, timestamp: timestamp)
@@ -252,7 +252,11 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.noDecoder.rawValue
     }
 
-    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!,
+                          data: UnsafeRawPointer!,
+                          length: Int,
+                          groupId: UInt32,
+                          objectId: UInt16) -> Int32 {
         // Metrics.
         let date: Date? = self.granularMetrics ? .now : nil
 
@@ -309,7 +313,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             return
         }
 
-        var packet: Packet = .init(sequence_number: UInt(sequence),
+        let packet: Packet = .init(sequence_number: UInt(sequence),
                                    data: data,
                                    length: Int(audioBuffer.mDataByteSize),
                                    elements: Int(buffer.frameLength))

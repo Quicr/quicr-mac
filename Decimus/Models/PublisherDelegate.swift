@@ -34,10 +34,10 @@ class PublisherDelegate: QPublisherDelegateObjC {
         let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
         do {
             let publication = try factory.create(quicrNamepace,
-                                       publishDelegate: publishDelegate,
-                                       sourceID: sourceID,
-                                       config: config,
-                                       metricsSubmitter: metricsSubmitter)
+                                                 publishDelegate: publishDelegate,
+                                                 sourceID: sourceID,
+                                                 config: config,
+                                                 metricsSubmitter: metricsSubmitter)
 
             guard let h264publication = publication as? FrameListener else {
                 return publication

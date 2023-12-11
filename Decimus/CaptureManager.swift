@@ -17,8 +17,8 @@ protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
 fileprivate extension FrameListener {
     func isEqual(_ other: FrameListener) -> Bool {
         self.queue == other.queue &&
-        self.device == other.device &&
-        self.codec == other.codec
+            self.device == other.device &&
+            self.codec == other.codec
     }
 }
 
@@ -166,9 +166,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         let allowableFormats = device.formats.reversed().filter { format in
             var supported = format.isMultiCamSupported &&
-                            format.formatDescription.dimensions.width == config.width &&
-                            format.formatDescription.dimensions.height == config.height &&
-                            format.supportedColorSpaces.contains(.sRGB)
+                format.formatDescription.dimensions.width == config.width &&
+                format.formatDescription.dimensions.height == config.height &&
+                format.supportedColorSpaces.contains(.sRGB)
             if config.codec == .hevc {
                 supported = supported && format.isVideoHDRSupported
             }

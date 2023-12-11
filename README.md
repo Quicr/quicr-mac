@@ -8,18 +8,19 @@ Targets iOS 16.0+ with best effort for >=15.0.
 
 1. Ensure dependencies cloned / up to date:
     - `git submodule update --init --recursive`
-2. Remove build directories
-
-``` rm -rf dependencies/build-catalyst```
-
+2. Remove build directories (optional, if cleaning)
+    - `rm -rf dependencies/build-catalyst`
 3. Build QMedia on first time build or post repo clean:
     - `./dependencies/build-qmedia-framework.sh`
     - Note: This script assumes CMake provided by homebrew.
-4. Open the XCode project and build for any Apple Silicon target
+4. Open the XCode project and build for any supported target
     - Build for Mac Catalyst, iOS device or simulator.
-    - QMedia intel / rosetta builds currently NOT provided.
 
 If you need to build for iOS devices, you will need to specify a valid team and certificate in the Project's `Signing and Capabilities` page. Your own personal certificate should work well enough for this.
+
+### Contributing
+
+A `pre-commit` hook for `swiftlint` is provided. You can install both from Homebrew, and run `pre-commit install` to add the hook to your local repository.
 
 ### Troubleshooting
 
@@ -46,8 +47,8 @@ git clean -f -d -x
 
 If you see the following error in XCode: `There is no XCFramework found at '.../Decimus/dependencies/qmedia.xcframework'` then (re)run step 2 above. You may need to clean your XCode build for it to notice the change if you had already opened the project, you can do this from `Product->Clean Build Folder` or `cmd+shift+k`
 
-This repo includes the QMedia dependency as a submodule, and building a universal `xcframework` for all Apple Sillicon targets is built into the buildsystem. However, there doesn't seem to currently be a good way to inform XCode to link against a framework that is built as part of an external build system, and so XCode will complain if this framework is not present (such as the first ever build). Currently, the workaround is to manually build QMedia by running the `./dependencies/build-qmedia-framework.sh` script.
+This repo includes the QMedia dependency as a submodule, and building a universal `xcframework` for all supported targets is built into the buildsystem. However, there doesn't seem to currently be a good way to inform XCode to link against a framework that is built as part of an external build system, and so XCode will complain if this framework is not present (such as the first ever build). Currently, the workaround is to manually build QMedia by running the `./dependencies/build-qmedia-framework.sh` script.
 
-#### Undefined QMedia Symbols
+#### Linker issues with QMedia
 
-Ensure you're building for an ARM64 target and not an Intel, Rosetta or Any Mac target.
+- Sometimes you can end up with a mismatch of QMedia and client code in the cache. A clean build of both qmedia and the project will usually resolve it.

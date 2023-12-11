@@ -8,7 +8,7 @@ enum URLScheme: String, CaseIterable {
 struct ManifestSettingsView: View {
     @AppStorage("manifestConfig")
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
-    
+
     @State private var configs: [String] = []
 
     var body: some View {
@@ -65,7 +65,7 @@ struct ManifestSettingsView: View {
             self.configs = await getConfigs()
         }
     }
-    
+
     private func getConfigs() async -> [String] {
         do {
             let configs = try await ManifestController.shared.getConfigs()

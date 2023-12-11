@@ -4,10 +4,10 @@ import AVFoundation
 /// Utility functions for working with HEVC bitstreams.
 class HEVCUtilities {
     private static let logger = DecimusLogger(HEVCUtilities.self)
-    
+
     // Bytes that precede every NALU.
     static let naluStartCode: [UInt8] = [0x00, 0x00, 0x00, 0x01]
-    
+
     // HEVC frame type identifiers.
     enum HEVCTypes: UInt8 {
         case pFrame = 1
@@ -17,17 +17,19 @@ class HEVCUtilities {
         case pps = 34
         case sei = 39
     }
-    
+
     enum PacketizationError: Error {
         case missingStartCode
     }
-    
+
     /// Turns an HEVC Annex B bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The HEVC data. This is used in place and will be modified, so much outlive any use of the created samples.
+    /// - Parameter data The HEVC data.
+    /// This is used in place and will be modified, so much outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
-    /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
+    /// - Parameter format The current format of the stream if known.
+    /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    static func depacketize(_ data: Data,
+    static func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
                             groupId: UInt32,
                             objectId: UInt16,
                             format: inout CMFormatDescription?,
@@ -51,17 +53,17 @@ class HEVCUtilities {
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-                
+
                 if naluRangesIndex > 0 {
                     if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound {
                         index += 1
                         continue
                     }
                 }
-                
+
                 let naluType = (data[lastRange.upperBound] >> 1) & 0x3f
                 let type = HEVCTypes(rawValue: naluType)
-                
+
                 // RBSP types can have data that include a "0001". So,
                 // use the playload size to the whole sub buffer.
                 if type == .sei { // RBSP
@@ -90,7 +92,7 @@ class HEVCUtilities {
                               count: range.count,
                               deallocator: .none))
         }
-        
+
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
@@ -108,7 +110,7 @@ class HEVCUtilities {
             let naluType = (nalu[naluStartCode.count] >> 1) & 0x3f
             let type = HEVCTypes(rawValue: naluType)
             let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
-            
+
             if type == .vps {
                 vpsData = rangedData
             }
@@ -116,7 +118,7 @@ class HEVCUtilities {
             if type == .sps {
                 spsData = rangedData
             }
-            
+
             if type == .pps {
                 ppsData = rangedData
             }
@@ -135,7 +137,7 @@ class HEVCUtilities {
                             match = memcmp(seiBytes.baseAddress, timestampBytes.baseAddress, timestampFixedBytes) == 0
                         }
                     }
-                    
+
                     if match {
                         let tempTimeValue: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
                         let tempTimeScale: UnsafeMutableBufferPointer<UInt32> = .allocate(capacity: 1)
@@ -152,19 +154,19 @@ class HEVCUtilities {
                         let timeStamp = CMTimeMake(value: Int64(timeValue),
                                                    timescale: Int32(timeScale))
                         timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                                          presentationTimeStamp: timeStamp,
-                                                          decodeTimeStamp: .invalid)
+                                                      presentationTimeStamp: timeStamp,
+                                                      decodeTimeStamp: .invalid)
                     } else {
                         // Unhandled SEI
                     }
                 }
             }
-            
+
             if let vps = vpsData,
                let sps = spsData,
                let pps = ppsData {
-                format = try! CMVideoFormatDescription(hevcParameterSets: [vps, sps, pps],
-                                                           nalUnitHeaderLength: naluStartCode.count)
+                format = try CMVideoFormatDescription(hevcParameterSets: [vps, sps, pps],
+                                                      nalUnitHeaderLength: naluStartCode.count)
                 vpsData = nil
                 spsData = nil
                 ppsData = nil
@@ -190,14 +192,14 @@ class HEVCUtilities {
         }
         return results.count > 0 ? results : nil
     }
-    
+
     fileprivate enum OrientationSeiOffsets: Int {
         case tag = 6
         case payloadLength = 7
         case orientation = 8
         case mirror = 9
     }
-    
+
     fileprivate static let orientationSEI: [UInt8] = [
         // Start Code.
         0x00, 0x00, 0x00, 0x01,
@@ -220,7 +222,7 @@ class HEVCUtilities {
         // Stop.
         0x80
     ]
-    
+
     static func getHEVCOrientationSEI(orientation: AVCaptureVideoOrientation,
                                       verticalMirror: Bool) -> [UInt8] {
         var bytes = orientationSEI
@@ -228,14 +230,14 @@ class HEVCUtilities {
         bytes[9] = verticalMirror ? 0x01 : 0x00
         return bytes
     }
-    
+
     fileprivate enum TimestampSeiOffsets: Int {
         case timeValue = 25
         case timeScale = 33
         case sequence = 37
         case fps = 45
     }
-    
+
     fileprivate static let timestampFixedBytes = 25
 
     fileprivate static let timestampSEIBytes: [UInt8] = [ // total 47
@@ -263,7 +265,7 @@ class HEVCUtilities {
         // Stop bit?
         0x80
     ]
-    
+
     static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
         var bytes = timestampSEIBytes
         var networkTimeValue = timestamp.value.bigEndian
@@ -271,10 +273,18 @@ class HEVCUtilities {
         var seq = sequenceNumber.bigEndian
         var fps = fps
         bytes.withUnsafeMutableBytes {
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<UInt32>.size) // 4
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue), &fps, MemoryLayout<UInt8>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
+                   &networkTimeValue,
+                   MemoryLayout<UInt64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
+                   &networkTimeScale,
+                   MemoryLayout<UInt32>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
+                   &seq,
+                   MemoryLayout<UInt64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
+                   &fps,
+                   MemoryLayout<UInt8>.size) // 4
         }
         return bytes
     }

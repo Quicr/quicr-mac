@@ -102,7 +102,7 @@ class SubscriptionFactory {
                 codecType = config.codec
             }
         }
-        
+
         switch codecType {
         case .h264:
             let namegate: NameGate

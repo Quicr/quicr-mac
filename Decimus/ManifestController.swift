@@ -58,28 +58,27 @@ class ManifestController {
         task.resume()
         mutex.wait()
     }
-    
+
     func getConfigs() async throws -> [Config] {
         var url = components
         url.path = "/configs"
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
-        
+
         let decoder = JSONDecoder()
         let configs = try decoder.decode([Config].self, from: data)
-        
+
         guard configs.count > 0 else {
             throw "No configs found."
         }
-        
-        
+
         return configs
     }
 
     func getUser(email: String) async throws -> User {
         var url = components
         url.path = "/users"
-        
+
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: "\(String(describing: email))")
@@ -100,7 +99,7 @@ class ManifestController {
     func getConferences(for email: String) async throws -> [Conference] {
         var url = components
         url.path = "/conferences"
-        
+
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: "\(String(describing: email))")

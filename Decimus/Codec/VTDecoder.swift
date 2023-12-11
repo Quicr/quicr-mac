@@ -76,7 +76,7 @@ class VTDecoder {
         default:
             targetFormat = nil
         }
-        
+
         if let targetFormat = targetFormat {
             if CVIsCompressedPixelFormatAvailable(targetFormat) {
                 outputFormat[kCVPixelBufferPixelFormatTypeKey as String] = targetFormat

@@ -1,6 +1,10 @@
 import CoreMedia
 import AVFoundation
 
+// swiftlint:disable type_body_length
+// swiftlint:disable function_body_length
+// swiftlint:disable function_parameter_count
+
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities {
     private static let logger = DecimusLogger(H264Utilities.self)
@@ -22,9 +26,11 @@ class H264Utilities {
     }
 
     /// Turns an H264 Annex B bitstream into CMSampleBuffer per NALU.
-    /// - Parameter data The H264 data. This is used in place and will be modified, so must outlive any use of the created samples.
+    /// - Parameter data The H264 data. This is used in place and will be modified,
+    /// so must outlive any use of the created samples.
     /// - Parameter timeInfo The timing info for this frame.
-    /// - Parameter format The current format of the stream if known. If SPS/PPS are found, it will be replaced by the found format.
+    /// - Parameter format The current format of the stream if known.
+    /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     static func depacketize(_ data: Data,
                             groupId: UInt32,
@@ -36,11 +42,11 @@ class H264Utilities {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
-        
+
         // Identify all NALUs by start code.
         assert(data.starts(with: naluStartCode))
         var ranges: [Range<Data.Index>] = []
-        var naluRanges : [Range<Data.Index>] = []
+        var naluRanges: [Range<Data.Index>] = []
         var startIndex = 0
         var index = 0
         var naluRangesIndex = 0
@@ -50,23 +56,23 @@ class H264Utilities {
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-                
+
                 if naluRangesIndex > 0 {
-                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound  {
+                    if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound {
                         index += 1
                         continue
                     }
                 }
 
                 let type = H264Types(rawValue: data[lastRange.upperBound] & 0x1F)
-                
+
                 // RBSP types can have data that might include a "0001". So,
                 // use the payload size to get the whole sub buffer.
                 if type == .sei { // RBSP
                     let payloadSize = data[lastRange.upperBound + 2]
                     let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
                     naluRanges.append(.init(lastRange.lowerBound...upperBound))
-  
+
                 } else {
                     naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
                 }
@@ -89,8 +95,7 @@ class H264Utilities {
                               count: range.count,
                               deallocator: .none))
         }
-        
-        
+
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
@@ -106,41 +111,51 @@ class H264Utilities {
             assert(nalu.starts(with: self.naluStartCode))
             let type = H264Types(rawValue: nalu[naluStartCode.count] & 0x1F)
             let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
-            
+
             if type == .sps {
                 spsData = rangedData
             }
-            
+
             if type == .pps {
                 ppsData = rangedData
             }
-            
+
             if type == .sei {
                 var seiData = nalu
                 if seiData.count == orientationSei.count { // Orientation
-                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == orientationSei[OrientationSeiOffsets.payloadLength.rawValue] { // yep - orientation
+                    let payloadLength = OrientationSeiOffsets.payloadLength.rawValue
+                    if seiData[payloadLength] == orientationSei[payloadLength] { // yep - orientation
                         orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
                         verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
                     }
                 } else if seiData.count == timestampSEIBytes.count { // timestamp?
-                    if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timstamp!
+                    let id = TimestampSeiOffsets.id.rawValue
+                    if seiData[id] == timestampSEIBytes[id] { // good enough - timestamp!
                         seiData.withUnsafeMutableBytes {
                             guard let ptr = $0.baseAddress else { fatalError() }
                             var timeValue: UInt64 = 0
                             var timeScale: UInt32 = 0
-                            memcpy(&timeValue, ptr.advanced(by: TimestampSeiOffsets.timeValue.rawValue), MemoryLayout<Int64>.size)
-                            memcpy(&timeScale, ptr.advanced(by: TimestampSeiOffsets.timeScale.rawValue), MemoryLayout<Int32>.size)
+                            memcpy(&timeValue,
+                                   ptr.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
+                                   MemoryLayout<Int64>.size)
+                            memcpy(&timeScale,
+                                   ptr.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
+                                   MemoryLayout<Int32>.size)
                             var tempSequence: UInt64 = 0
-                            memcpy(&tempSequence, ptr.advanced(by: TimestampSeiOffsets.sequence.rawValue), MemoryLayout<UInt64>.size)
+                            memcpy(&tempSequence,
+                                   ptr.advanced(by: TimestampSeiOffsets.sequence.rawValue),
+                                   MemoryLayout<UInt64>.size)
                             var tempFps: UInt8 = 0
-                            memcpy(&tempFps, ptr.advanced(by: TimestampSeiOffsets.fps.rawValue), MemoryLayout<UInt8>.size)
+                            memcpy(&tempFps,
+                                   ptr.advanced(by: TimestampSeiOffsets.fps.rawValue),
+                                   MemoryLayout<UInt8>.size)
                             fps = tempFps
                             timeValue = CFSwapInt64BigToHost(timeValue)
                             timeScale = CFSwapInt32BigToHost(timeScale)
                             sequenceNumber = CFSwapInt64BigToHost(tempSequence)
                             let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                                  timescale: Int32(timeScale))
-                            
+                                                       timescale: Int32(timeScale))
+
                             timeInfo = CMSampleTimingInfo(duration: .invalid,
                                                           presentationTimeStamp: timeStamp,
                                                           decodeTimeStamp: .invalid)
@@ -153,7 +168,8 @@ class H264Utilities {
 
             if let sps = spsData,
                let pps = ppsData {
-                format = try! CMVideoFormatDescription(h264ParameterSets: [sps, pps], nalUnitHeaderLength: naluStartCode.count)
+                format = try CMVideoFormatDescription(h264ParameterSets: [sps, pps],
+                                                      nalUnitHeaderLength: naluStartCode.count)
                 spsData = nil
                 ppsData = nil
             }
@@ -173,7 +189,7 @@ class H264Utilities {
         }
         return results.count > 0 ? results : nil
     }
-    
+
     static func depacketizeNalu(_ nalu: inout Data,
                                 groupId: UInt32,
                                 objectId: UInt16,
@@ -196,7 +212,8 @@ class H264Utilities {
 
         let blockBuffer: CMBlockBuffer
         if copy {
-            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count, alignment: MemoryLayout<UInt8>.alignment)
+            let copied: UnsafeMutableRawBufferPointer = .allocate(byteCount: nalu.count,
+                                                                  alignment: MemoryLayout<UInt8>.alignment)
             nalu.copyBytes(to: copied)
             blockBuffer = try .init(buffer: copied, deallocator: { buffer, _ in
                 buffer.deallocate()
@@ -227,14 +244,14 @@ class H264Utilities {
         }
         return sample
     }
-    
+
     fileprivate enum OrientationSeiOffsets: Int {
         case tag = 5
         case payloadLength = 6
         case orientation = 7
         case mirror = 8
     }
-    
+
     fileprivate static let orientationSei: [UInt8] = [
         // Start Code.
         0x00, 0x00, 0x00, 0x01,
@@ -253,13 +270,13 @@ class H264Utilities {
     ]
 
     static func getH264OrientationSEI(orientation: AVCaptureVideoOrientation,
-                                       verticalMirror: Bool) -> [UInt8] {
+                                      verticalMirror: Bool) -> [UInt8] {
         var bytes = orientationSei
         bytes[7] = UInt8(orientation.rawValue)
         bytes[8] = verticalMirror ? 0x01 : 0x00
         return bytes
     }
-    
+
     fileprivate enum TimestampSeiOffsets: Int {
         case type = 5
         case size = 6
@@ -295,7 +312,7 @@ class H264Utilities {
         // Stop bit?
         0x80
     ]
-    
+
     static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
         var bytes = timestampSEIBytes
         var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
@@ -303,10 +320,18 @@ class H264Utilities {
         var seq = CFSwapInt64HostToBig(sequenceNumber)
         var fps = fps
         bytes.withUnsafeMutableBytes {
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue), &networkTimeValue, MemoryLayout<Int64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue), &networkTimeScale, MemoryLayout<Int32>.size) // 4
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue), &seq, MemoryLayout<Int64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue), &fps, MemoryLayout<UInt8>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
+                   &networkTimeValue,
+                   MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
+                   &networkTimeScale,
+                   MemoryLayout<Int32>.size) // 4
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
+                   &seq,
+                   MemoryLayout<Int64>.size) // 8
+            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
+                   &fps,
+                   MemoryLayout<UInt8>.size) // 4
         }
         return bytes
     }

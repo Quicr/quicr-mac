@@ -29,7 +29,7 @@ struct RelaySettingsView: View {
                     TextField("relay_port",
                               value: $relayConfig.value.port,
                               format: .number.grouping(.never))
-                    .keyboardType(.numberPad)
+                        .keyboardType(.numberPad)
                 }
             }
             .formStyle(.columns)
