@@ -69,17 +69,19 @@ struct InCallView: View {
                     }
                     .overlay {
                         // Preview / self-view.
+                        // swiftlint:disable force_try
                         if let capture = viewModel.captureManager, showPreview {
                             ForEach(try! capture.activeDevices(), id: \.self) {
                                 try! PreviewView(captureManager: capture, device: $0)
                                     .frame(maxWidth: geometry.size.width / 7)
                                     .offset(self.offset == .zero ?
-                                            CGSize(width: geometry.size.width / 2 - geometry.size.width / 7,
-                                                   height: geometry.size.height / 2) :
-                                            self.offset)
+                                                CGSize(width: geometry.size.width / 2 - geometry.size.width / 7,
+                                                       height: geometry.size.height / 2) :
+                                                self.offset)
                                     .gesture(self.previewDrag)
                             }
                         }
+                        // swiftlint:enable:force_try
                     }
                 }
 

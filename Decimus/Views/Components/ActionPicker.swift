@@ -7,13 +7,13 @@ struct MenuModal<Content>: View where Content: View {
     var body: some View {
         if presented {
             VStack(alignment: .leading, content: self.content)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(.black)
-            .cornerRadius(20)
-            .overlay(RoundedRectangle(cornerRadius: 20)
-                .stroke(.gray, lineWidth: 1)
-            )
+                .frame(maxWidth: .infinity)
+                .padding()
+                .background(.black)
+                .cornerRadius(20)
+                .overlay(RoundedRectangle(cornerRadius: 20)
+                            .stroke(.gray, lineWidth: 1)
+                )
         }
     }
 }
@@ -112,31 +112,31 @@ struct ActionPicker<Content>: View where Content: View {
             .background(.black)
             .cornerRadius(30, corners: [.topLeft, .bottomLeft])
 
-//            Button(action: pickerAction) {
-//                Image(systemName: "chevron.\(expanded ? "up" : "down")")
-//                    .renderingMode(.original)
-//                    .foregroundColor(.white)
-//                    .frame(alignment: .trailing)
-//                    .padding(.trailing)
-//                    .padding(.vertical, 22)
-//            }
-//            .disabled(isDisabled)
-//            .background(.black)
-//            .cornerRadius(20, corners: [.topRight, .bottomRight])
+            //            Button(action: pickerAction) {
+            //                Image(systemName: "chevron.\(expanded ? "up" : "down")")
+            //                    .renderingMode(.original)
+            //                    .foregroundColor(.white)
+            //                    .frame(alignment: .trailing)
+            //                    .padding(.trailing)
+            //                    .padding(.vertical, 22)
+            //            }
+            //            .disabled(isDisabled)
+            //            .background(.black)
+            //            .cornerRadius(20, corners: [.topRight, .bottomRight])
         }
         .overlay(RoundedRectangle(cornerRadius: 30).stroke(.gray, lineWidth: 1))
-#if targetEnvironment(macCatalyst)
+        #if targetEnvironment(macCatalyst)
         .float(above: MenuModal(presented: $expanded, content: content)
-            .padding(.bottom))
-#else
+        .padding(.bottom))
+        #else
         .sheet(isPresented: $expanded, content: {
-            ScrollView {
-                content()
-            }
-            .padding()
-            .presentationDetents([.medium])
+        ScrollView {
+        content()
+        }
+        .padding()
+        .presentationDetents([.medium])
         })
-#endif
+        #endif
     }
 }
 

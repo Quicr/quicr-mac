@@ -1,17 +1,19 @@
 import AVFoundation
 
 extension CMSampleBuffer {
-     func getAttachmentValue(for key:  CMSampleBuffer.PerSampleAttachmentsDictionary.Key) -> Any? {
+    func getAttachmentValue(for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key) -> Any? {
         for attachment in self.sampleAttachments {
             let val = attachment[key]
-            if (val != nil) {
+            if val != nil {
                 return val
             }
         }
         return nil
     }
-    
-    func setAttachmentValue(atIndex index: Int, for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key, value: Any?) throws {
+
+    func setAttachmentValue(atIndex index: Int,
+                            for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key,
+                            value: Any?) throws {
         guard self.sampleAttachments.count > index else {
             throw "Missing sampleAttachments dictionary"
         }
@@ -65,7 +67,7 @@ extension CMSampleBuffer {
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: sequenceNumber)
     }
-    
+
     func getSequenceNumber() -> UInt64? {
         let keyString = Self.sequenceNumberKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
@@ -82,7 +84,7 @@ extension CMSampleBuffer {
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: fps)
     }
-    
+
     func getFPS() -> UInt8? {
         let keyString = Self.fpsKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
@@ -99,7 +101,7 @@ extension CMSampleBuffer {
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: orientation)
     }
-    
+
     func getOrientation() -> AVCaptureVideoOrientation? {
         let keyString = Self.orientationKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
@@ -114,7 +116,7 @@ extension CMSampleBuffer {
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: verticalMirror)
     }
-    
+
     func getVerticalMirror() -> Bool? {
         let keyString = Self.verticalMirrorKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
@@ -128,7 +130,7 @@ extension CMSampleBuffer {
                                                             createIfNecessary: false)
         if let array = array,
            let first = (array as NSArray).firstObject {
-            let dict = first as! CFMutableDictionary
+            let dict = first as! CFMutableDictionary // swiftlint:disable:this force_cast
             let nsDict = dict as NSMutableDictionary
             nsDict.removeObjects(forKeys: [CMSampleBuffer.fpsKey,
                                            CMSampleBuffer.groupIdKey,

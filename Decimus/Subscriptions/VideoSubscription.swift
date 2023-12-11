@@ -35,7 +35,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
-        
+
         self.sourceId = sourceId
         self.participants = participants
         self.reliable = reliable
@@ -76,7 +76,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         Self.logger.info("Subscribed to video stream")
     }
-    
+
     deinit {
         if self.simulreceive != .none {
             do {
@@ -120,7 +120,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         return SubscriptionError.none.rawValue
     }
-    
+
     private func makeSimulreceiveDecision() async {
         // Get available decoded frames from all handlers.
         var retrievedFrames: [VideoHandler: CMSampleBuffer] = [:]
@@ -154,17 +154,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         retrievedFrames = retrievedFrames.filter {
             $0.value.presentationTimeStamp == oldest
         }
-        
-        // Now we've decided our point in time, pop off the ones for the time we're using so we don't get them next time.
+
+        // Now we've decided our point in time,
+        // pop off the ones for the time we're using so we don't get them next time.
         for pair in retrievedFrames {
             pair.key.removeLastImage(sample: pair.value)
         }
-        
+
         // We'll use the highest quality frame of the selected ones.
         let sorted = retrievedFrames.sorted {
             $0.0.config.width > $1.0.config.width
         }
-        
+
         guard let first = sorted.first else { fatalError() }
 
         let sample = first.value
@@ -192,7 +193,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             } else {
                 Self.logger.warning("Couldn't set display immediately attachment")
             }
-            
+
             // Enqueue the sample on the main thread.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)

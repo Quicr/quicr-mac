@@ -73,41 +73,41 @@ private struct LoginForm: View {
                         ProgressView()
                     }
                 }
-                
+
                 if email != "" {
-                              VStack(alignment: .leading) {
-                                  if meetings.count > 0 {
-                                      Text("Meeting")
-                                          .padding(.horizontal)
-                                          .foregroundColor(.white)
-                                      Picker("", selection: $callConfig.conferenceID) {
-                                          ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
-                                              Text(meeting).tag(id)
-                                          }
-                                      }
-                                      .onChange(of: callConfig.conferenceID) { _ in
-                                          confId = Int(callConfig.conferenceID)
-                                      }
-                                      .labelsHidden()
-                                  } else {
-                                      Text("No meetings")
-                                          .padding(.horizontal)
-                                          .foregroundColor(.white)
-                                          .onAppear {
-                                             callConfig.conferenceID = 0
-                                             // confId = 0
-                                          }
-                                  }
-                              }
-                          }
+                    VStack(alignment: .leading) {
+                        if meetings.count > 0 {
+                            Text("Meeting")
+                                .padding(.horizontal)
+                                .foregroundColor(.white)
+                            Picker("", selection: $callConfig.conferenceID) {
+                                ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                    Text(meeting).tag(id)
+                                }
+                            }
+                            .onChange(of: callConfig.conferenceID) { _ in
+                                confId = Int(callConfig.conferenceID)
+                            }
+                            .labelsHidden()
+                        } else {
+                            Text("No meetings")
+                                .padding(.horizontal)
+                                .foregroundColor(.white)
+                                .onAppear {
+                                    callConfig.conferenceID = 0
+                                    // confId = 0
+                                }
+                        }
+                    }
+                }
                 if callConfig.conferenceID != 0 {
                     ActionButton("Join Meeting",
                                  font: Font.system(size: 19, weight: .semibold),
                                  disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
                                  styleConfig: buttonColour,
                                  action: join)
-                    .frame(maxWidth: .infinity)
-                    .font(Font.system(size: 19, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .font(Font.system(size: 19, weight: .semibold))
                 }
             }
             .listRowBackground(Color.clear)
@@ -140,7 +140,7 @@ private struct LoginForm: View {
                                 conferenceID: UInt32(confId))
         isLoading = true
         meetings = try await
-        ManifestController.shared.getConferences(for: callConfig.email)
+            ManifestController.shared.getConferences(for: callConfig.email)
             .reduce(into: [:]) { $0[$1.id] = $1.title }
         isLoading = false
     }
@@ -166,15 +166,15 @@ struct CallSetupView: View {
                     .resizable()
                     .scaledToFill()
                     .edgesIgnoringSafeArea(.top)
-                    #if targetEnvironment(macCatalyst)
-                    .frame(maxWidth: .infinity,
-                           maxHeight: .infinity,
-                           alignment: .center)
-                    #else
-                    .frame(width: UIScreen.main.bounds.width,
-                           height: UIScreen.main.bounds.height,
-                           alignment: .center)
-                    #endif
+                #if targetEnvironment(macCatalyst)
+                .frame(maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .center)
+                #else
+                .frame(width: UIScreen.main.bounds.width,
+                height: UIScreen.main.bounds.height,
+                alignment: .center)
+                #endif
 
                 VStack {
                     Image("RTMC-Icon")

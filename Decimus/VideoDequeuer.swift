@@ -51,7 +51,8 @@ class IntervalDequeuer: VideoDequeuer {
     private let firstWriteTime: Date
 
     /// Create a new interval dequeuer.
-    /// - Parameter minDepth: The minimum depth of the buffer. The first frame would be expected to be dequeued at firstWrite + minDepth.
+    /// - Parameter minDepth: The minimum depth of the buffer.
+    ///                       The first frame would be expected to be dequeued at firstWrite + minDepth.
     /// - Parameter frameDuration: The duration of each frame. Frame N = firstWrite + minDepth + (duration * count).
     /// - Parameter firstWriteTime: The time at which the first frame arrived.
     init(minDepth: TimeInterval, frameDuration: TimeInterval, firstWriteTime: Date) {

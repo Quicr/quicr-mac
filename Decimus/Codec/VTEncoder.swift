@@ -4,6 +4,8 @@ import UIKit
 import AVFoundation
 import os
 
+// swiftlint:disable type_body_length
+
 class VTEncoder {
     typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
 
@@ -45,7 +47,9 @@ class VTEncoder {
                                                  width: config.width,
                                                  height: config.height,
                                                  codecType: codec,
-                                                 encoderSpecification: config.codec == .h264 ? Self.makeEncoderSpecification() : nil,
+                                                 encoderSpecification: config.codec == .h264 ?
+                                                    Self.makeEncoderSpecification() :
+                                                    nil,
                                                  imageBufferAttributes: nil,
                                                  compressedDataAllocator: allocator,
                                                  outputCallback: nil,
@@ -53,8 +57,8 @@ class VTEncoder {
                                                  compressionSessionOut: &compressionSession)
         guard created == .zero,
               let compressionSession = compressionSession else {
-                  throw "Compression Session was nil"
-              }
+            throw "Compression Session was nil"
+        }
         self.encoder = compressionSession
 
         try OSStatusError.checked("Set realtime") {
@@ -99,26 +103,26 @@ class VTEncoder {
                                  key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
                                  value: config.fps * 5 as CFNumber)
         }
-        
+
         if config.codec == .hevc {
             try OSStatusError.checked("Color Primaries") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_ColorPrimaries,
                                      value: kCMFormatDescriptionColorPrimaries_ITU_R_709_2)
             }
-            
+
             try OSStatusError.checked("Transfer Function") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_TransferFunction,
                                      value: kCMFormatDescriptionTransferFunction_ITU_R_709_2)
             }
-            
+
             try OSStatusError.checked("YCbCrMatrix") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_YCbCrMatrix,
                                      value: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2)
             }
-            
+
             try OSStatusError.checked("Preserve Metadata") {
                 VTSessionSetProperty(encoder,
                                      key: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
@@ -170,7 +174,7 @@ class VTEncoder {
             Self.logger.error("Encoded sample was empty")
             return
         }
-        
+
         let buffer: CMBlockBuffer
         #if !targetEnvironment(macCatalyst)
         let bufferSize = sample.dataBuffer!.dataLength
@@ -179,12 +183,16 @@ class VTEncoder {
             fatalError()
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
-        buffer = try! .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
-        try! sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
+        do {
+            buffer = try .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
+            try sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
+        } catch {
+            Self.logger.error("Failed to copy data buffer: \(error.localizedDescription)")
+        }
         #else
         buffer  = sample.dataBuffer!
         #endif
-        
+
         // Increment frame sequence number
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
@@ -248,12 +256,12 @@ class VTEncoder {
                                           blockBuffer: buffer,
                                           offsetIntoDestination: offset,
                                           dataLength: startCode.count)
-            assert(try! buffer.dataBytes().starts(with: self.startCode))
+            assert(try! buffer.dataBytes().starts(with: self.startCode)) // swiftlint:disable:this force_try
 
             // Carry on.
             offset += startCode.count + Int(naluLength)
         }
-        
+
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
@@ -321,7 +329,7 @@ class VTEncoder {
         // Compute total ANNEX B parameter set size.
         var totalLength = startCode.count * sets
         totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
-        
+
         // Make SPS/PPS buffer.
         var buffer = Data(capacity: totalLength)
         for parameterSetIndex in 0...sets-1 {
@@ -334,8 +342,11 @@ class VTEncoder {
         }
         return buffer
     }
-    
-    private func prependTimestampSEI(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8, bufferAllocator: BufferAllocator) {
+
+    private func prependTimestampSEI(timestamp: CMTime,
+                                     sequenceNumber: UInt64,
+                                     fps: UInt8,
+                                     bufferAllocator: BufferAllocator) {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:
@@ -345,12 +356,12 @@ class VTEncoder {
         default:
             fatalError()
         }
-        
+
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
             return
         }
-        
+
         // Copy to buffer.
         bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
     }

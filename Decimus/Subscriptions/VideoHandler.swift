@@ -1,5 +1,7 @@
 import AVFoundation
 
+// swiftlint:disable type_body_length
+
 class VideoHandler {
     private static let logger = DecimusLogger(VideoHandler.self)
 
@@ -111,7 +113,9 @@ class VideoHandler {
                 if simulreceive != .enable {
                     // Enqueue for rendering.
                     do {
-                        try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                        try self.enqueueSample(sample: sample,
+                                               orientation: self.orientation,
+                                               verticalMirror: self.verticalMirror)
                     } catch {
                         Self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
@@ -119,7 +123,7 @@ class VideoHandler {
             }
         }
     }
-    
+
     deinit {
         if self.simulreceive != .enable {
             try? participants.removeParticipant(identifier: namespace)
@@ -147,7 +151,9 @@ class VideoHandler {
         }
         return jitterBuffer.calculateWaitTime()
     }
-    
+
+    // swiftlint:disable cyclomatic_complexity
+    // swiftlint:disable function_body_length
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
         // Metrics.
         if let measurement = self.measurement {
@@ -172,7 +178,7 @@ class VideoHandler {
                 await measurement.receivedBytes(received: data.count, timestamp: now)
             }
         }
-        
+
         if simulreceive != .enable {
             // Update keep alive timer for showing video.
             DispatchQueue.main.async {
@@ -195,7 +201,7 @@ class VideoHandler {
                 if let fps = first.getFPS() {
                     remoteFPS = UInt16(fps)
                 }
-                
+
                 if let desc = CMSampleBufferGetFormatDescription(first) {
                     self.label = formatLabel(size: desc.dimensions, fps: remoteFPS)
                 }
@@ -213,11 +219,11 @@ class VideoHandler {
             }
 
             // Create the video jitter buffer.
-            self.jitterBuffer = .init(namespace: self.namespace,
-                                      frameDuration: duration,
-                                      metricsSubmitter: self.metricsSubmitter,
-                                      sort: !self.reliable,
-                                      minDepth: self.jitterBufferConfig.minDepth)
+            self.jitterBuffer = try .init(namespace: self.namespace,
+                                          frameDuration: duration,
+                                          metricsSubmitter: self.metricsSubmitter,
+                                          sort: !self.reliable,
+                                          minDepth: self.jitterBufferConfig.minDepth)
 
             assert(self.dequeueTask == nil)
             // Start the frame dequeue task.
@@ -241,11 +247,11 @@ class VideoHandler {
 
                     // Attempt to dequeue a frame.
                     if let sample = jitterBuffer.read() {
-                       do {
-                           try self.decode(sample: sample)
-                       } catch {
-                           Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-                       }
+                        do {
+                            try self.decode(sample: sample)
+                        } catch {
+                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                        }
                     }
                 }
             }
@@ -266,7 +272,10 @@ class VideoHandler {
                 }
             }
         } else {
-            if let samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: self.jitterBufferConfig.mode == .layer),
+            if let samples = try depacketize(data,
+                                             groupId: groupId,
+                                             objectId: objectId,
+                                             copy: self.jitterBufferConfig.mode == .layer),
                let first = samples.first {
                 if let desc = first.formatDescription,
                    let fps = first.getFPS() {
@@ -278,7 +287,7 @@ class VideoHandler {
             }
         }
     }
-    
+
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {
         switch self.config.codec {
         case .h264:
@@ -301,7 +310,7 @@ class VideoHandler {
             throw "Unsupported codec: \(self.config.codec)"
         }
     }
-    
+
     private func decode(sample: CMSampleBuffer) throws {
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
@@ -336,7 +345,7 @@ class VideoHandler {
             try decoder!.write(sample)
         }
     }
-    
+
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: AVCaptureVideoOrientation?,
                                verticalMirror: Bool?) throws {

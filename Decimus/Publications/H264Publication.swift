@@ -89,7 +89,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.granularMetrics = granularMetrics
-        self.codec = hevcOverride ? .init(codec: .hevc, bitrate: config.bitrate, fps: config.fps, width: config.width, height: config.height) : config
+        self.codec = hevcOverride ? .init(codec: .hevc,
+                                          bitrate: config.bitrate,
+                                          fps: config.fps,
+                                          width: config.width,
+                                          height: config.height) : config
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {

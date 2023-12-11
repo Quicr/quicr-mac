@@ -37,8 +37,8 @@ struct CallControls: View {
             ActionPicker(
                 viewModel.audioOn ? "Mute" : viewModel.talkingWhileMuted ? "Talking while muted" : "Unmute",
                 icon: viewModel.audioOn ?
-                      "microphone-on" :
-                      (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
+                    "microphone-on" :
+                    (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
                 role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
                 action: { viewModel.toggleMicrophone() },
@@ -52,15 +52,15 @@ struct CallControls: View {
                         cornerRadius: 12,
                         styleConfig: deviceButtonStyleConfig,
                         action: { viewModel.toggleDevice(device: microphone) }) {
-                            HStack {
-                                Image(systemName: microphone.deviceType == .builtInMicrophone ?
-                                      "mic" : "speaker.wave.2")
+                        HStack {
+                            Image(systemName: microphone.deviceType == .builtInMicrophone ?
+                                    "mic" : "speaker.wave.2")
                                 .renderingMode(.original)
                                 .foregroundColor(.gray)
-                                Text(microphone.localizedName).tag(microphone)
-                            }
+                            Text(microphone.localizedName).tag(microphone)
                         }
-                        .aspectRatio(contentMode: .fill)
+                    }
+                    .aspectRatio(contentMode: .fill)
                 }
             }
             .onChange(of: viewModel.selectedMicrophone) { _ in
@@ -150,7 +150,7 @@ extension CallControls {
             self.capture = captureManager
             self.engine = engine.engine
             audioOn = !self.engine.inputNode.isVoiceProcessingInputMuted
-#if compiler(>=5.9)
+            #if compiler(>=5.9)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
                 let success = self.engine.inputNode.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
                     guard let self = self else { return }
@@ -170,11 +170,11 @@ extension CallControls {
                     return
                 }
             }
-#endif
+            #endif
         }
 
         deinit {
-#if compiler(>=5.9)
+            #if compiler(>=5.9)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
                 let success = engine.inputNode.setMutedSpeechActivityEventListener(nil)
                 guard success else {
@@ -182,14 +182,14 @@ extension CallControls {
                     return
                 }
             }
-#endif
+            #endif
         }
 
         func toggleVideos() {
-           for camera in devices(.video) {
-               toggleDevice(device: camera)
-           }
-       }
+            for camera in devices(.video) {
+                toggleDevice(device: camera)
+            }
+        }
 
         func devices(_ type: AVMediaType? = nil) -> [AVCaptureDevice] {
             do {

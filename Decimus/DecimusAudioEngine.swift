@@ -87,13 +87,13 @@ class DecimusAudioEngine {
         }
 
         // Ducking.
-#if compiler(>=5.9)
+        #if compiler(>=5.9)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
             let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
                                                                                       duckingLevel: .min)
             engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
         }
-#endif
+        #endif
 
         // Capture microphone audio.
         sink = .init { [weak blocks] timestamp, frames, data in
@@ -119,7 +119,8 @@ class DecimusAudioEngine {
                                                                object: AVAudioSession.sharedInstance(),
                                                                queue: nil,
                                                                using: interupt))
-        notificationObservers.append(notifications.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification,
+        let resetName = AVAudioSession.mediaServicesWereResetNotification
+        notificationObservers.append(notifications.addObserver(forName: resetName,
                                                                object: AVAudioSession.sharedInstance(),
                                                                queue: nil,
                                                                using: reset))

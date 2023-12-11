@@ -29,9 +29,9 @@ struct SubscriptionSettingsView: View {
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterDepthTime,
                         format: .number)
-                    .onChange(of: subscriptionConfig.value.jitterDepthTime) {
-                        subscriptionConfig.value.videoJitterBuffer.minDepth = $0
-                    }
+                        .onChange(of: subscriptionConfig.value.jitterDepthTime) {
+                            subscriptionConfig.value.videoJitterBuffer.minDepth = $0
+                        }
                 }
                 LabeledContent("Jitter Max Depth (s)") {
                     TextField(
@@ -68,11 +68,9 @@ struct SubscriptionSettingsView: View {
                                 return
                             }
 
-                            for camera in devices.cameras {
-                                if camera.uniqueID == preferredCamera {
-                                    AVCaptureDevice.userPreferredCamera = camera
-                                    break
-                                }
+                            for camera in devices.cameras where camera.uniqueID == preferredCamera {
+                                AVCaptureDevice.userPreferredCamera = camera
+                                break
                             }
                         }
                     }

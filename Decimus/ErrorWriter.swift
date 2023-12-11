@@ -68,12 +68,12 @@ class DecimusLogger {
         let now = Date.now
         logger.log("\(msg)")
 
-#if DEBUG
+        #if DEBUG
         DispatchQueue.main.async { [weak self] in
             guard let self = self, alert else { return }
             Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
         }
-#endif
+        #endif
     }
 
     func critical(_ msg: String) { log(level: .critical, msg, alert: true) }

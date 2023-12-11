@@ -2,6 +2,8 @@ import Foundation
 import OrderedCollections
 import AVFoundation
 
+// swiftlint:disable force_cast
+
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
 
@@ -76,7 +78,7 @@ class VideoJitterBuffer {
          frameDuration: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
-         minDepth: TimeInterval) {
+         minDepth: TimeInterval) throws {
         self.frameDuration = frameDuration
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
@@ -115,17 +117,17 @@ class VideoJitterBuffer {
                 ($0 as! CMSampleBuffer).dataReadiness == .ready
             }
         }
-        self.buffer = try! .init(capacity: Int(ceil(minDepth / frameDuration) * 10), handlers: handlers)
+        self.buffer = try .init(capacity: Int(ceil(minDepth / frameDuration) * 10), handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
             measurement = nil
         }
         self.minDepth = minDepth
-        self.playToken = try! self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(.init(seconds: minDepth,
-                                                                                                                   preferredTimescale: 1)), { _ in
-            self.play = true
-        })
+        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(.init(seconds: minDepth,
+                                                                                                                  preferredTimescale: 1)), { _ in
+                                                                                                                    self.play = true
+                                                                                                                  })
     }
 
     /// Write a video frame into the jitter buffer.
@@ -174,7 +176,11 @@ class VideoJitterBuffer {
 
         // We won't stop.
         if let playToken = self.playToken {
-            try! self.buffer.removeTrigger(playToken)
+            do {
+                try self.buffer.removeTrigger(playToken)
+            } catch {
+                Self.logger.error("Failed to remove playout trigger: \(error.localizedDescription)")
+            }
             self.playToken = nil
         }
 
@@ -195,7 +201,7 @@ class VideoJitterBuffer {
     /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
     /// - Parameter targetGroup The group to flush frames up until.
     func flushTo(targetGroup groupId: UInt32) {
-       var flushCount: UInt = 0
+        var flushCount: UInt = 0
         while let frame = self.buffer.head,
               let thisGroupId = (frame as! CMSampleBuffer).getGroupId(),
               thisGroupId < groupId {
@@ -205,7 +211,7 @@ class VideoJitterBuffer {
             self.lastSequenceRead = (flushed as! CMSampleBuffer).getSequenceNumber()
             flushCount += 1
         }
-        
+
         if let measurement = self.measurement {
             let now: Date = .now
             let metric = flushCount
@@ -218,11 +224,11 @@ class VideoJitterBuffer {
     func getDepth() -> TimeInterval {
         self.buffer.duration.seconds
     }
-    
+
     func calculateWaitTime() -> TimeInterval {
         calculateWaitTime(from: .now)
     }
-    
+
     func calculateWaitTime(from: Date) -> TimeInterval {
         guard let peek = self.buffer.head,
               let diff = self.timestampTimeDiff else {
