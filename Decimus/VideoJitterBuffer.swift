@@ -100,6 +100,7 @@ class VideoJitterBuffer {
                     return .compareEqualTo
                 }
                 assert(false)
+                return .compareLessThan
             }
             builder.getDecodeTimeStamp {
                 ($0 as! CMSampleBuffer).decodeTimeStamp
