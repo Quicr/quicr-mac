@@ -240,12 +240,12 @@ class VideoHandler {
                     }
 
                     // Attempt to dequeue a frame.
-                    if let frame = jitterBuffer.read() {
-                        do {
-                            try self.decode(frame: frame)
-                        } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-                        }
+                    if let sample = jitterBuffer.read() {
+                       do {
+                           try self.decode(sample: sample)
+                       } catch {
+                           Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                       }
                     }
                 }
             }
@@ -257,8 +257,13 @@ class VideoHandler {
                 samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
             }
             if let samples = samples {
-                let frame = try VideoFrame(samples: samples)
-                _ = jitterBuffer.write(videoFrame: frame)
+                for sample in samples {
+                    do {
+                        try jitterBuffer.write(videoFrame: sample)
+                    } catch {
+                        Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
+                    }
+                }
             }
         } else {
             if let samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: self.jitterBufferConfig.mode == .layer),
@@ -267,9 +272,9 @@ class VideoHandler {
                    let fps = first.getFPS() {
                     self.label = formatLabel(size: desc.dimensions, fps: UInt16(fps))
                 }
-
-                let frame = try VideoFrame(samples: samples)
-                try decode(frame: frame)
+                for sample in samples {
+                    try decode(sample: sample)
+                }
             }
         }
     }
@@ -297,15 +302,19 @@ class VideoHandler {
         }
     }
     
-    private func decode(frame: VideoFrame) throws {
+    private func decode(sample: CMSampleBuffer) throws {
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
-        guard namegate.handle(groupId: frame.groupId,
-                              objectId: frame.objectId,
+        guard let groupId = sample.getGroupId(),
+              let objectId = sample.getObjectId() else {
+            throw "Missing attachments"
+        }
+        guard namegate.handle(groupId: groupId,
+                              objectId: objectId,
                               lastGroup: lastGroup,
                               lastObject: lastObject) else {
             // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = frame.groupId + 1
+            let targetGroup = groupId + 1
             if let jitterBuffer = self.jitterBuffer {
                 jitterBuffer.flushTo(targetGroup: targetGroup)
             } else if self.jitterBufferConfig.mode == .layer {
@@ -314,16 +323,17 @@ class VideoHandler {
             return
         }
 
-        lastGroup = frame.groupId
-        lastObject = frame.objectId
+        lastGroup = groupId
+        lastObject = objectId
+
+        // Remove custom attachments.
+        sample.clearDecimusCustomAttachments()
 
         // Decode.
-        for sample in frame.samples {
-            if self.jitterBufferConfig.mode == .layer {
-                try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-            } else {
-                try decoder!.write(sample)
-            }
+        if self.jitterBufferConfig.mode == .layer {
+            try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+        } else {
+            try decoder!.write(sample)
         }
     }
     
