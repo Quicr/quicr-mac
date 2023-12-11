@@ -55,7 +55,7 @@ class VideoJitterBuffer {
         }
     }
 
-    private static let logger = DecimusLogger(VideoHandler.self)
+    private static let logger = DecimusLogger(VideoJitterBuffer.self)
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
     private let frameDuration: TimeInterval
