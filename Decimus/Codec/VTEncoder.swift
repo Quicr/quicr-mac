@@ -188,6 +188,7 @@ class VTEncoder {
             try sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
         } catch {
             Self.logger.error("Failed to copy data buffer: \(error.localizedDescription)")
+            return
         }
         #else
         buffer  = sample.dataBuffer!
