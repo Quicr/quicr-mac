@@ -70,13 +70,6 @@ actor OpusSubscriptionMeasurement: Measurement {
 class OpusSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
-    private class Weak<T> {
-        var value: T
-        init(value: T) {
-            self.value = value
-        }
-    }
-
     let sourceId: SourceIDType
     private var decoder: LibOpusDecoder
 
@@ -87,8 +80,8 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private var jitterBuffer: QJitterBuffer
     private var seq: UInt32 = 0
     private let measurement: OpusSubscriptionMeasurement?
-    private var underrun: Weak<UInt64> = .init(value: 0)
-    private var callbacks: Weak<UInt64> = .init(value: 0)
+    private var underrun: Wrapped<UInt64> = .init(0)
+    private var callbacks: Wrapped<UInt64> = .init(0)
     private let reliable: Bool
     private let granularMetrics: Bool
 

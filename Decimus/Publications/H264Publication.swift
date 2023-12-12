@@ -73,7 +73,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private var encoder: VTEncoder
     private let reliable: Bool
     private var lastCapture: Date?
-    private var lastPublish: WrappedOptional<Date> = .init(nil)
+    private var lastPublish: Wrapped<Date?> = .init(nil)
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?

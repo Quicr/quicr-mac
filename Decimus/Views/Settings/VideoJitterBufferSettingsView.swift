@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct VideoJitterBufferSettingsView: View {
-    @Binding var config: VideoJitterBuffer.Config
+    @Binding var config: JitterBuffer.Config
 
     var body: some View {
         LabeledContent("Video Jitter Buffer Mode") {
             Picker("Video Jitter Buffer Mode", selection: $config.mode) {
-                ForEach(VideoJitterBuffer.Mode.allCases) {
+                ForEach(JitterBuffer.Mode.allCases) {
                     Text(String(describing: $0))
                 }
             }.pickerStyle(.segmented)

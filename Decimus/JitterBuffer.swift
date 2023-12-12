@@ -4,22 +4,8 @@ import AVFoundation
 
 // swiftlint:disable force_cast
 
-/// A very simplified jitter buffer designed to contain compressed video frames in order.
-class VideoJitterBuffer {
-
-    struct Config: Codable {
-        var mode: Mode = .none
-        var minDepth: TimeInterval = 0.2
-    }
-
-    enum Mode: CaseIterable, Identifiable, Codable {
-        case pid
-        case interval
-        case layer
-        case none
-        var id: Self { self }
-    }
-
+/// A CoreMedia jitter buffer.
+class JitterBuffer {
     private actor _Measurement: Measurement {
         var name: String = "VideoJitterBuffer"
         var fields: [Date?: [String: AnyObject]] = [:]
@@ -57,14 +43,14 @@ class VideoJitterBuffer {
         }
     }
 
-    private static let logger = DecimusLogger(VideoJitterBuffer.self)
+    var lastSequenceRead: UInt64?
+    private static let logger = DecimusLogger(JitterBuffer.self)
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
     private let frameDuration: TimeInterval
     private let measurement: _Measurement?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
-    private var lastSequenceRead: UInt64?
     private var timestampTimeDiff: TimeInterval?
 
     /// Create a new video jitter buffer.
@@ -126,9 +112,10 @@ class VideoJitterBuffer {
         }
         self.minDepth = minDepth
         self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(.init(seconds: minDepth,
-                                                                                                                  preferredTimescale: 1)), { _ in
-                                                                                                                    self.play = true
-                                                                                                                  })
+                                                                                                                  preferredTimescale: 1)), { [weak self] _ in
+            guard let self = self else { return }
+            self.play = true
+        })
     }
 
     /// Write a video frame into the jitter buffer.
@@ -224,6 +211,10 @@ class VideoJitterBuffer {
 
     func getDepth() -> TimeInterval {
         self.buffer.duration.seconds
+    }
+    
+    func peek() -> CMSampleBuffer? {
+        self.buffer.head as! CMSampleBuffer?
     }
 
     func calculateWaitTime() -> TimeInterval {

@@ -37,6 +37,27 @@ struct MediaReliability: Codable {
     }
 }
 
+enum OpusSubscriptionType: CaseIterable, Identifiable, Codable {
+    case singleBuffer
+    case doubleBuffer
+    var id: Self { self }
+}
+
+extension JitterBuffer {
+    struct Config: Codable {
+        var mode: Mode = .none
+        var minDepth: TimeInterval = 0.2
+    }
+    
+    enum Mode: CaseIterable, Identifiable, Codable {
+        case pid
+        case interval
+        case layer
+        case none
+        var id: Self { self }
+    }
+}
+
 struct SubscriptionConfig: Codable {
     var jitterMaxTime: TimeInterval
     var jitterDepthTime: TimeInterval
@@ -45,12 +66,13 @@ struct SubscriptionConfig: Codable {
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
     var quicWifiShadowRttUs: TimeInterval
-    var videoJitterBuffer: VideoJitterBuffer.Config
+    var videoJitterBuffer: JitterBuffer.Config
     var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
+    var opusSubscription: OpusSubscriptionType
 
     init() {
         jitterMaxTime = 0.5
@@ -66,6 +88,7 @@ struct SubscriptionConfig: Codable {
         isSingleOrderedPub = false
         simulreceive = .none
         qualityMissThreshold = 3
+        opusSubscription = .singleBuffer
     }
 }
 
@@ -125,15 +148,28 @@ class SubscriptionFactory {
                                          simulreceive: self.config.simulreceive,
                                          qualityMissThreshold: self.config.qualityMissThreshold)
         case .opus:
-            return try OpusSubscription(sourceId: sourceId,
-                                        profileSet: profileSet,
-                                        engine: self.engine,
-                                        submitter: metricsSubmitter,
-                                        jitterDepth: self.config.jitterDepthTime,
-                                        jitterMax: self.config.jitterMaxTime,
-                                        opusWindowSize: self.config.opusWindowSize,
-                                        reliable: self.config.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics)
+            switch self.config.opusSubscription {
+            case .singleBuffer:
+                return try OpusSubscription(sourceId: sourceId,
+                                            profileSet: profileSet,
+                                            engine: self.engine,
+                                            submitter: metricsSubmitter,
+                                            jitterDepth: self.config.jitterDepthTime,
+                                            jitterMax: self.config.jitterMaxTime,
+                                            opusWindowSize: self.config.opusWindowSize,
+                                            reliable: self.config.mediaReliability.audio.subscription,
+                                            granularMetrics: self.granularMetrics)
+            case .doubleBuffer:
+                return try OrderedOpusSubscription(sourceId: sourceId,
+                                                   profileSet: profileSet,
+                                                   engine: self.engine,
+                                                   submitter: metricsSubmitter,
+                                                   jitterDepth: self.config.jitterDepthTime,
+                                                   jitterMax: self.config.jitterMaxTime,
+                                                   opusWindowSize: self.config.opusWindowSize,
+                                                   reliable: self.config.mediaReliability.audio.subscription,
+                                                   granularMetrics: self.granularMetrics)
+            }
         default:
             throw CodecError.noCodecFound(codecType ?? .unknown)
         }

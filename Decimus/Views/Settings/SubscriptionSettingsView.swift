@@ -115,6 +115,14 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.qualityMissThreshold,
                         format: .number)
                 }
+                LabeledContent("Audio Subscription") {
+                    Picker("Audio Subscription", selection: $subscriptionConfig.value.opusSubscription) {
+                        ForEach(OpusSubscriptionType.allCases) {
+                            Text(String(describing: $0))
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
             }
             .formStyle(.columns)
         }

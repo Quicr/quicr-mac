@@ -28,7 +28,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config,
+         jitterBufferConfig: JitterBuffer.Config,
          hevcOverride: Bool,
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int) throws {

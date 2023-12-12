@@ -56,13 +56,13 @@ class VideoHandler {
     private var lastObject: UInt16?
     private let namegate: NameGate
     private let reliable: Bool
-    private var jitterBuffer: VideoJitterBuffer?
+    private var jitterBuffer: JitterBuffer?
     private var lastReceive: Date?
     private var lastDecode: Date?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
-    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let jitterBufferConfig: JitterBuffer.Config
     private var orientation: AVCaptureVideoOrientation?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
@@ -79,7 +79,7 @@ class VideoHandler {
          namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config,
+         jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
