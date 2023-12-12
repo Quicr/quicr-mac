@@ -221,6 +221,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // Wait until we have expect to have the next frame available.
         guard let videoHandler = videoHandler else { return }
         let waitTime: TimeInterval = videoHandler.calculateWaitTime()
-        try? await Task.sleep(for: .seconds(waitTime), tolerance: .seconds(1 / videoHandler.config.fps), clock: .continuous)
+        try? await Task.sleep(for: .seconds(waitTime), tolerance: .seconds(1 / videoHandler.config.fps / 2), clock: .continuous)
     }
 }
