@@ -131,12 +131,32 @@ struct InCallView: View {
                 } catch {
                     return
                 }
+                
                 if self.lastTap.timeIntervalSince(.now) < -5 {
                     withAnimation {
                         if self.showPreview {
                             self.showPreview = false
                         }
                     }
+                }
+            }
+        }
+        .task {
+            // Check connnection status
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    return
+                }
+                
+                if connecting {
+                    continue
+                }
+
+                guard await viewModel.connected() else {
+                    await viewModel.leave()
+                    return onLeave()
                 }
             }
         }
@@ -217,6 +237,14 @@ extension InCallView {
             } catch {
                 Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
             }
+        }
+
+        func connected() async -> Bool {
+            if !self.controller!.connected() {
+                Self.logger.error("Connection to relay disconnected", alert: true)
+                return false
+            }
+            return true
         }
 
         func join() async -> Bool {

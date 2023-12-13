@@ -24,6 +24,7 @@ public:
                 qtransport::TransportConfig config);
     
     void disconnect();
+    bool connected();
     
     void updateManifest(const std::string manifest);
        
