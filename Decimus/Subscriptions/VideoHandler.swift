@@ -242,10 +242,8 @@ class VideoHandler {
                     }
                     if waitTime > 0 {
                         try? await Task.sleep(for: .seconds(waitTime),
-                                              tolerance: .seconds(1 / self.config.fps / 2),
+                                              tolerance: .seconds(waitTime / 2),
                                               clock: .continuous)
-                    } else {
-                        Self.logger.info("Catch up: \(waitTime)")
                     }
 
                     // Attempt to dequeue a frame.
