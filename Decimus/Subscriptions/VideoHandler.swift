@@ -240,9 +240,10 @@ class VideoHandler {
                     } else {
                         waitTime = jitterBuffer.calculateWaitTime()
                     }
-                    let nanoseconds = waitTime * 1_000_000_000
-                    if nanoseconds > 0 {
-                        try? await Task.sleep(nanoseconds: UInt64(nanoseconds))
+                    if waitTime > 0 {
+                        try? await Task.sleep(for: .seconds(waitTime),
+                                              tolerance: .seconds(waitTime / 2),
+                                              clock: .continuous)
                     }
 
                     // Attempt to dequeue a frame.
