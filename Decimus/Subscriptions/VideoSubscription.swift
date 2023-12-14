@@ -20,6 +20,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var qualityMisses = 0
     private var lastQuality: Int32?
     private let qualityMissThreshold: Int
+    private var lastVideoHandler: VideoHandler?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -124,15 +125,29 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private func makeSimulreceiveDecision() async {
         // Get available decoded frames from all handlers.
         var retrievedFrames: [VideoHandler: CMSampleBuffer] = [:]
+        var highestFps: UInt16?
         for handler in self.videoHandlers.values {
             // Is a frame available?
+            if highestFps == nil || handler.config.fps > highestFps! {
+                highestFps = handler.config.fps
+            }
+
             if let frame = handler.getLastImage() {
                 retrievedFrames[handler] = frame
             }
         }
 
         // No decision to make.
-        guard retrievedFrames.count > 0 else { return }
+        guard retrievedFrames.count > 0 else {
+            let duration: TimeInterval
+            if let lastHandler = self.lastVideoHandler {
+                duration = lastHandler.calculateWaitTime()
+            } else {
+                duration = 1 / TimeInterval(highestFps!)
+            }
+            try? await Task.sleep(for: .seconds(duration))
+            return
+        }
 
         // Oldest should be the oldest value that hasn't already been shown.
         var oldest: CMTime?
@@ -168,6 +183,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         guard let first = sorted.first else { fatalError() }
 
+        self.lastVideoHandler = first.key
         let sample = first.value
         let width = sample.formatDescription!.dimensions.width
         if let lastQuality = self.lastQuality,
