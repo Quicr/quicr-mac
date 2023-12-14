@@ -47,7 +47,6 @@ class VideoHandler {
 
     let config: VideoCodecConfig
     var label: String = ""
-    var labelName: String = ""
     let namespace: QuicrNamespace
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
@@ -71,6 +70,7 @@ class VideoHandler {
     private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
+    private let labelLock = NSLock()
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -97,9 +97,9 @@ class VideoHandler {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
-        self.labelName = self.namespace
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
+        self.label = self.namespace
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -179,12 +179,12 @@ class VideoHandler {
             }
         }
 
+        // If we're not doing full simulreceive, it's our responsibility.
         if simulreceive != .enable {
             // Update keep alive timer for showing video.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.namespace)
                 participant.lastUpdated = .now()
-                participant.view.label = self.label
             }
         }
 
@@ -198,13 +198,7 @@ class VideoHandler {
             var remoteFPS = self.config.fps
             if let samples = samples,
                let first = samples.first {
-                if let fps = first.getFPS() {
-                    remoteFPS = UInt16(fps)
-                }
-
-                if let desc = CMSampleBufferGetFormatDescription(first) {
-                    self.label = formatLabel(size: desc.dimensions, fps: remoteFPS)
-                }
+                remoteFPS = getFps(sample: first)
             }
 
             // We have what we need to configure the PID dequeuer if using.
@@ -276,12 +270,7 @@ class VideoHandler {
             if let samples = try depacketize(data,
                                              groupId: groupId,
                                              objectId: objectId,
-                                             copy: self.jitterBufferConfig.mode == .layer),
-               let first = samples.first {
-                if let desc = first.formatDescription,
-                   let fps = first.getFPS() {
-                    self.label = formatLabel(size: desc.dimensions, fps: UInt16(fps))
-                }
+                                             copy: self.jitterBufferConfig.mode == .layer) {
                 for sample in samples {
                     try decode(sample: sample)
                 }
@@ -290,26 +279,35 @@ class VideoHandler {
     }
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {
+        let samples: [CMSampleBuffer]?
+
         switch self.config.codec {
         case .h264:
-            return try H264Utilities.depacketize(data,
-                                                 groupId: groupId,
-                                                 objectId: objectId,
-                                                 format: &self.currentFormat,
-                                                 orientation: &self.orientation,
-                                                 verticalMirror: &self.verticalMirror,
-                                                 copy: copy)
+            samples = try H264Utilities.depacketize(data,
+                                                    groupId: groupId,
+                                                    objectId: objectId,
+                                                    format: &self.currentFormat,
+                                                    orientation: &self.orientation,
+                                                    verticalMirror: &self.verticalMirror,
+                                                    copy: copy)
         case .hevc:
-            return try HEVCUtilities.depacketize(data,
-                                                 groupId: groupId,
-                                                 objectId: objectId,
-                                                 format: &self.currentFormat,
-                                                 orientation: &self.orientation,
-                                                 verticalMirror: &self.verticalMirror,
-                                                 copy: copy)
+            samples = try HEVCUtilities.depacketize(data,
+                                                    groupId: groupId,
+                                                    objectId: objectId,
+                                                    format: &self.currentFormat,
+                                                    orientation: &self.orientation,
+                                                    verticalMirror: &self.verticalMirror,
+                                                    copy: copy)
         default:
             throw "Unsupported codec: \(self.config.codec)"
         }
+
+        if let first = samples?.first {
+            try self.labelLock.withLock {
+                self.label = try labelFromSample(sample: first, fps: getFps(sample: first))
+            }
+        }
+        return samples
     }
 
     private func decode(sample: CMSampleBuffer) throws {
@@ -391,6 +389,9 @@ class VideoHandler {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                self.labelLock.withLock {
+                    participant.view.label = self.label
+                }
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
@@ -429,8 +430,20 @@ class VideoHandler {
         }
     }
 
-    private func formatLabel(size: CMVideoDimensions, fps: UInt16) -> String {
-        return "\(labelName): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+    private func getFps(sample: CMSampleBuffer) -> UInt16 {
+        var remoteFPS = self.config.fps
+        if let fps = sample.getFPS() {
+            remoteFPS = UInt16(fps)
+        }
+        return remoteFPS
+    }
+
+    private func labelFromSample(sample: CMSampleBuffer, fps: UInt16) throws -> String {
+        guard let format = sample.formatDescription else {
+            throw "Missing sample format"
+        }
+        let size = format.dimensions
+        return "\(self.namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 }
 
