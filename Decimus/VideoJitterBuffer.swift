@@ -38,6 +38,10 @@ class VideoJitterBuffer {
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {
+            guard depth.isFinite,
+                  depth.truncatingRemainder(dividingBy: 1) != 0 else {
+                return
+            }
             record(field: "currentDepth", value: UInt32(depth * 1000) as AnyObject, timestamp: timestamp)
         }
 
