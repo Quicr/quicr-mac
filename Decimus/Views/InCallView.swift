@@ -150,7 +150,7 @@ struct InCallView: View {
                     return
                 }
                 
-                if connecting {
+                if connecting || leaving {
                     continue
                 }
 
