@@ -35,6 +35,7 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
                 protocol:(UInt8)protocol
                 config:(TransportConfig)config;
 -(void) disconnect;
+-(bool) connected;
 -(void) updateManifest: (NSString*)manifest;
 -(void) setSubscriptionSingleOrdered:(bool) new_value;
 -(void) setPublicationSingleOrdered:(bool) new_value;

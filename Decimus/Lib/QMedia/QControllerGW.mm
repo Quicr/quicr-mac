@@ -60,6 +60,11 @@
     }
 }
 
+-(bool)connected
+{
+    return qControllerGW.connected();
+}
+
 -(void)disconnect
 {
     @try
@@ -138,6 +143,17 @@ int QControllerGW::connect(const std::string remote_address,
     quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
     std::string address = remote_address;
     return qController->connect(address, remote_port, proto, config);
+}
+
+bool QControllerGW::connected()
+{
+    if (!qController)
+    {
+        logger->error << "QControllerGW::connected - qController nil" << std::flush;
+        return false;
+    }
+
+    return qController->connected();
 }
 
 void QControllerGW::disconnect()
