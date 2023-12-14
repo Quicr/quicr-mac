@@ -6,8 +6,6 @@ import os
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView: View {
-    private static let logger = DecimusLogger(InCallView.self)
-
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
     @State private var connecting: Bool = false
@@ -133,7 +131,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-
+                
                 if self.lastTap.timeIntervalSince(.now) < -5 {
                     withAnimation {
                         if self.showPreview {
@@ -146,10 +144,17 @@ struct InCallView: View {
         .task {
             // Check connnection status
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                guard !connecting else { return }
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    return
+                }
+                
+                if connecting {
+                    continue
+                }
+
                 guard await viewModel.connected() else {
-                    Self.logger.error("Connection to relay disconnected", alert: true)
                     await viewModel.leave()
                     return onLeave()
                 }
@@ -235,7 +240,11 @@ extension InCallView {
         }
 
         func connected() async -> Bool {
-            self.controller?.connected() ?? false
+            if !self.controller!.connected() {
+                Self.logger.error("Connection to relay disconnected", alert: true)
+                return false
+            }
+            return true
         }
 
         func join() async -> Bool {
