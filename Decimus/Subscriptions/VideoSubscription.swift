@@ -183,6 +183,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         guard let first = sorted.first else { fatalError() }
 
+        self.lastVideoHandler = first.key
         let sample = first.value
         let width = sample.formatDescription!.dimensions.width
         if let lastQuality = self.lastQuality,
