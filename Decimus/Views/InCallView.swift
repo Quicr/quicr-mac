@@ -6,8 +6,6 @@ import os
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView: View {
-    private static let logger = DecimusLogger(InCallView.self)
-
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
     @State private var connecting: Bool = false
@@ -133,6 +131,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
+                
                 if self.lastTap.timeIntervalSince(.now) < -5 {
                     withAnimation {
                         if self.showPreview {
@@ -150,7 +149,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-
+                
                 if connecting {
                     continue
                 }
