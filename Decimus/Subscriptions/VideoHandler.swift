@@ -30,7 +30,6 @@ class VideoHandler {
     private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
-    private let labelLock = NSLock()
 
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
@@ -263,8 +262,12 @@ class VideoHandler {
         }
 
         if let first = samples?.first {
-            try self.labelLock.withLock {
-                self.label = try labelFromSample(sample: first, fps: getFps(sample: first))
+            DispatchQueue.main.async {
+                do {
+                    self.label = try self.labelFromSample(sample: first, fps: self.getFps(sample: first))
+                } catch {
+                    Self.logger.error("Failed to set label: \(error.localizedDescription)")
+                }
             }
         }
         return samples
@@ -349,9 +352,7 @@ class VideoHandler {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                self.labelLock.withLock {
-                    participant.view.label = self.label
-                }
+                participant.view.label = self.label
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
