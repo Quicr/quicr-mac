@@ -15,6 +15,12 @@
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186397A02ADE0B9100FBF877 /* VideoDevices.swift */; };
+		186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */; };
+		186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763562B2B6B1100339421 /* CaptureManager+Measurement.swift */; };
+		186763592B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763582B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift */; };
+		1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867635A2B2B6B8200339421 /* OpusPublication+Measurement.swift */; };
+		1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */; };
+		1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */; };
 		1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867950A2AD58E54008F99C6 /* PreviewView.swift */; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
@@ -159,6 +165,12 @@
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		186397A02ADE0B9100FBF877 /* VideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDevices.swift; sourceTree = "<group>"; };
+		186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoHandler+Measurement.swift"; sourceTree = "<group>"; };
+		186763562B2B6B1100339421 /* CaptureManager+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CaptureManager+Measurement.swift"; sourceTree = "<group>"; };
+		186763582B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoJitterBuffer+Measurement.swift"; sourceTree = "<group>"; };
+		1867635A2B2B6B8200339421 /* OpusPublication+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpusPublication+Measurement.swift"; sourceTree = "<group>"; };
+		1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "H264Publication+Measurement.swift"; sourceTree = "<group>"; };
+		1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpusSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		18821A2A2B10A604009BBA62 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
@@ -305,6 +317,19 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		186763532B2B69EB00339421 /* Measurements */ = {
+			isa = PBXGroup;
+			children = (
+				186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */,
+				186763562B2B6B1100339421 /* CaptureManager+Measurement.swift */,
+				186763582B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift */,
+				1867635A2B2B6B8200339421 /* OpusPublication+Measurement.swift */,
+				1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */,
+				1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */,
+			);
+			path = Measurements;
+			sourceTree = "<group>";
+		};
 		18C89A372A13D14A005B333B /* Metrics */ = {
 			isa = PBXGroup;
 			children = (
@@ -406,6 +431,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				186763532B2B69EB00339421 /* Measurements */,
 				FF3B952D2A60C77B00CE463F /* Lib */,
 				18C89A372A13D14A005B333B /* Metrics */,
 				185D628E29BF3C5A0011E634 /* Info.plist */,
@@ -799,6 +825,7 @@
 				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
+				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
@@ -814,7 +841,10 @@
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* SubscriptionError.swift in Sources */,
+				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
+				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
+				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
 				18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
@@ -823,6 +853,7 @@
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
+				186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */,
 				18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */,
@@ -838,6 +869,7 @@
 				FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
+				186763592B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
@@ -1049,7 +1081,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = 37T6T23A6Q;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1121,7 +1153,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = 37T6T23A6Q;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
