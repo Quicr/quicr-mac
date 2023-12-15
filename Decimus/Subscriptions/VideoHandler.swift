@@ -262,12 +262,13 @@ class VideoHandler {
         }
 
         if let first = samples?.first {
-            DispatchQueue.main.async {
-                do {
-                    self.label = try self.labelFromSample(sample: first, fps: self.getFps(sample: first))
-                } catch {
-                    Self.logger.error("Failed to set label: \(error.localizedDescription)")
+            do {
+                let label = try self.labelFromSample(sample: first, fps: self.getFps(sample: first))
+                DispatchQueue.main.async {
+                    self.label = label
                 }
+            } catch {
+                Self.logger.error("Failed to set label: \(error.localizedDescription)")
             }
         }
         return samples
