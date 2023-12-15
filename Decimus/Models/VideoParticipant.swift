@@ -13,6 +13,7 @@ class VideoParticipant: ObservableObject, Identifiable {
 
     init(id: SourceIDType) {
         self.id = id
+        self.view.label = id
         lastUpdated = .init(uptimeNanoseconds: 0)
     }
 }
