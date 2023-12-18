@@ -29,6 +29,8 @@ class VideoJitterBuffer {
     private var playToken: CMBufferQueueTriggerToken?
     private var lastSequenceRead: UInt64?
     private var timestampTimeDiff: TimeInterval?
+    private var transit: TimeInterval?
+    private var jitter: TimeInterval = 0
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -111,13 +113,29 @@ class VideoJitterBuffer {
             }
         }
 
+        // Calculate jitter.
+        let wallClockPresentation = videoFrame.presentationTimeStamp.seconds + self.timestampTimeDiff!
+        let transit = Date.now.timeIntervalSince1970 - wallClockPresentation
+        if let transitState = self.transit {
+            var delta = transit - transitState
+            self.transit = transit
+            if delta < 0 {
+                delta = -delta
+            }
+            self.jitter += (1/16) * (delta - self.jitter)
+        } else {
+            self.transit = transit
+        }
+
         try self.buffer.enqueue(videoFrame)
 
         // Metrics.
         if let measurement = self.measurement {
             let now: Date = .now
+            let jitter = self.jitter
             Task(priority: .utility) {
                 await measurement.write(timestamp: now)
+                await measurement.jitter(value: jitter, timestamp: now)
             }
         }
     }

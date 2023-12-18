@@ -38,5 +38,10 @@ extension VideoJitterBuffer {
             self.flushed += UInt64(count)
             record(field: "flushed", value: self.flushed as AnyObject, timestamp: timestamp)
         }
+
+        func jitter(value: TimeInterval, timestamp: Date) {
+            guard value.truncatingRemainder(dividingBy: 1) != 0 else { return }
+            record(field: "jitter", value: value as AnyObject, timestamp: timestamp)
+        }
     }
 }
