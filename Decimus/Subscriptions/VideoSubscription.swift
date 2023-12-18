@@ -141,7 +141,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         guard retrievedFrames.count > 0 else {
             let duration: TimeInterval
             if let lastHandler = self.lastVideoHandler {
-                duration = lastHandler.calculateWaitTime()
+                duration = lastHandler.calculateWaitTime() ?? 1 / TimeInterval(highestFps!)
             } else {
                 duration = 1 / TimeInterval(highestFps!)
             }
@@ -194,7 +194,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // We only want to step down in quality if we've missed a few hits.
         if let lastQuality = self.lastQuality,
            width < lastQuality && self.qualityMisses < self.qualityMissThreshold {
-            await calculateWaitTime(videoHandler: first.key)
+            let duration = first.key.calculateWaitTime() ?? sample.duration.seconds
+            if duration > 0 {
+                try? await Task.sleep(for: .seconds(duration),
+                                      tolerance: .seconds(duration / 2),
+                                      clock: .continuous)
+            }
             return
         }
 
@@ -213,7 +218,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             // Enqueue the sample on the main thread.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.view.label = first.key.label
+                participant.view.label = String(describing: first.key)
                 do {
                     try participant.view.enqueue(sample, transform: CATransform3DIdentity)
                 } catch {
@@ -230,16 +235,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Wait until we have expect to have the next frame available.
-        await calculateWaitTime(videoHandler: first.key)
-    }
-
-    private func calculateWaitTime(videoHandler: VideoHandler?) async {
-        // Wait until we have expect to have the next frame available.
-        guard let videoHandler = videoHandler else { return }
-        let waitTime: TimeInterval = videoHandler.calculateWaitTime()
-        if waitTime > 0 {
-            try? await Task.sleep(for: .seconds(waitTime),
-                                  tolerance: .seconds(waitTime / 2),
+        let duration = first.key.calculateWaitTime() ?? sample.duration.seconds
+        if duration > 0 {
+            try? await Task.sleep(for: .seconds(duration),
+                                  tolerance: .seconds(duration / 2),
                                   clock: .continuous)
         }
     }
