@@ -126,30 +126,6 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
-    /// Calculate the estimated time interval until the next frame should be rendered from now.
-    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame, or no start time).
-    func calculateWaitTime() -> TimeInterval? {
-        calculateWaitTime(from: .now)
-    }
-
-    /// Calculate the estimated time interval until the next frame should be rendered.
-    /// - Parameter from The time to calculate the time interval from.
-    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame, or no start time).
-    func calculateWaitTime(from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else {
-            fatalError("Shouldn't call this with no jitter buffer")
-        }
-        guard let peek = jitterBuffer.peek(),
-              let diff = self.timestampTimeDiff else {
-            return nil
-        }
-        let sample = peek as! CMSampleBuffer
-        let timestampValue = sample.presentationTimeStamp.seconds
-        let targetTimeRef = timestampValue + diff
-        let targetDate = Date(timeIntervalSinceReferenceDate: targetTimeRef)
-        return targetDate.timeIntervalSinceNow + self.jitterBufferConfig.minDepth
-    }
-
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
     /// Pass an encoded video frame to this video handler.
@@ -282,6 +258,17 @@ class VideoHandler: CustomStringConvertible {
                 }
             }
         }
+    }
+    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable function_body_length
+
+    /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
+    /// - Parameter from: The time to calculate from.
+    /// - Returns Time to wait in seconds, if any.
+    func calculateWaitTime(from: Date = .now) -> TimeInterval? {
+        guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
+        guard let diff = self.timestampTimeDiff else { return nil }
+        return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {

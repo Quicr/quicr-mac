@@ -84,10 +84,10 @@ class VideoJitterBuffer {
             measurement = nil
         }
         self.minDepth = minDepth
-        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(.init(seconds: minDepth,
-                                                                                                                  preferredTimescale: 1)), { _ in
-                                                                                                                    self.play = true
-                                                                                                                  })
+        let minDepthCM = CMTime(value: CMTimeValue(minDepth), timescale: 1)
+        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
+            self.play = true
+        })
     }
 
     /// Write a video frame into the jitter buffer.
@@ -186,5 +186,25 @@ class VideoJitterBuffer {
     /// - Returns Duration in seconds.
     func getDepth() -> TimeInterval {
         self.buffer.duration.seconds
+    }
+
+    /// Calculate the estimated time interval until the next frame should be rendered from now.
+    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame, or no start time).
+    /// - Parameter offset Offset the media timeline is working on.
+    /// - Parameter since The start point of the media timeline.
+    func calculateWaitTime(offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+        calculateWaitTime(from: .now, offset: offset, since: since)
+    }
+
+    /// Calculate the estimated time interval until the next frame should be rendered.
+    /// - Parameter from The time to calculate the time interval from.
+    /// - Parameter offset Offset from the start point at which media starts.
+    /// - Parameter since The start point of the media timeline.
+    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
+    func calculateWaitTime(from: Date, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+        guard let peek = self.buffer.head else { return nil }
+        let sample = peek as! CMSampleBuffer
+        let targetDate = Date(timeInterval: sample.presentationTimeStamp.seconds.advanced(by: offset), since: since)
+        return targetDate.timeIntervalSince(from) + self.minDepth
     }
 }
