@@ -7,7 +7,7 @@
 #ifndef ExtBufferAllocator_h
 #define ExtBufferAllocator_h
 #import <Foundation/Foundation.h>
-#include <CoreFoundation/CoreFoundation.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 //#include <cstddef>
 //#include <cstdint>

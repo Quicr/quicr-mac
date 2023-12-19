@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 
 #ifdef __cplusplus
-#include "ExtBufferAllocator.h"
+#include "ExtBufferAllocator.hh"
 #endif
 
 @interface BufferAllocator : NSObject {
