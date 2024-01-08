@@ -94,6 +94,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         if let video = self.videoHandlers.removeValue(forKey: handler.key),
                            self.lastVideoHandler == video {
                             self.lastVideoHandler = nil
+                            if self.simulreceive == .enable {
+                                self.participants.removeParticipant(identifier: self.sourceId)
+                            }
                         }
                     }
                 }
@@ -105,7 +108,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     deinit {
-        if self.simulreceive != .none {
+        if self.simulreceive == .enable {
             self.participants.removeParticipant(identifier: self.sourceId)
         }
     }
@@ -293,7 +296,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }
-                participant.lastUpdated = .now()
             }
         } else if self.simulreceive == .visualizeOnly {
             DispatchQueue.main.async {

@@ -157,15 +157,6 @@ class VideoHandler: CustomStringConvertible {
             }
         }
 
-        // If we're not doing full simulreceive, it's our responsibility.
-        if simulreceive != .enable {
-            // Update keep alive timer for showing video.
-            DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.namespace)
-                participant.lastUpdated = .now()
-            }
-        }
-
         // Do we need to create a jitter buffer?
         var samples: [CMSampleBuffer]?
         if self.jitterBuffer == nil,
@@ -391,7 +382,6 @@ class VideoHandler: CustomStringConvertible {
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
-            participant.lastUpdated = .now()
         }
     }
 

@@ -9,12 +9,10 @@ enum ParticipantError: Error {
 class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
     var view: VideoView = .init()
-    @Published var lastUpdated: DispatchTime
 
     init(id: SourceIDType) {
         self.id = id
         self.view.label = id
-        lastUpdated = .init(uptimeNanoseconds: 0)
     }
 }
 
