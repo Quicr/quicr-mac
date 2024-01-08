@@ -28,10 +28,10 @@ final class TestVideoJitterBuffer: XCTestCase {
 
     func testPlayout(sort: Bool) throws {
         let buffer = try VideoJitterBuffer(namespace: .init(),
-                                           frameDuration: 1 / 30,
                                            metricsSubmitter: nil,
                                            sort: sort,
-                                           minDepth: 1/30 * 2.5)
+                                           minDepth: 1/30 * 2.5,
+                                           capacity: 4)
 
         // Write 1, no play.
         let frame1 = try exampleSample(groupId: 0,
@@ -74,10 +74,10 @@ final class TestVideoJitterBuffer: XCTestCase {
     // Out of orders should go in order.
     func testOutOfOrder() throws {
         let buffer = try VideoJitterBuffer(namespace: .init(),
-                                           frameDuration: 1 / 30,
                                            metricsSubmitter: nil,
                                            sort: true,
-                                           minDepth: 0)
+                                           minDepth: 0,
+                                           capacity: 2)
 
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
@@ -110,10 +110,10 @@ final class TestVideoJitterBuffer: XCTestCase {
 
     func testOlderFrame(_ sort: Bool) throws {
         let buffer = try VideoJitterBuffer(namespace: .init(),
-                                           frameDuration: 1 / 30,
                                            metricsSubmitter: nil,
                                            sort: sort,
-                                           minDepth: 0)
+                                           minDepth: 0,
+                                           capacity: 2)
 
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
@@ -136,33 +136,100 @@ final class TestVideoJitterBuffer: XCTestCase {
         }
     }
 
-    func testIntervalCalculations() {
+    func testWaitTimeNoDate() throws {
+        let startTime: Date = .now
+        var waitTime: TimeInterval?
         let minDepth: TimeInterval = 0.2
-        let duration: TimeInterval = 1 / 30
-        let firstWriteTime: Date = .now
-        let interval: IntervalDequeuer = .init(minDepth: minDepth,
-                                               frameDuration: duration,
-                                               firstWriteTime: firstWriteTime)
-        // At first write, and no dequeued frames, we should wait min depth.
-        XCTAssertEqual(interval.calculateWaitTime(from: .now), minDepth, accuracy: 1 / 1000)
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: false,
+                                           minDepth: minDepth,
+                                           capacity: 1)
 
-        // Dequeued N, should be minDepth + frameDuration from "now".
-        interval.dequeuedCount = .random(in: UInt.min...20000)
-        let doubleCount: Double = .init(interval.dequeuedCount)
-        XCTAssertEqual(interval.calculateWaitTime(from: firstWriteTime),
-                       minDepth + (doubleCount * duration),
-                       accuracy: 1 / 1000)
+        // No calculation possible with no frame available.
+        waitTime = buffer.calculateWaitTime(from: startTime, offset: 0)
+        XCTAssertNil(waitTime)
+    }
 
-        // If we query the time at the expected time, should be 0.
-        XCTAssertEqual(interval.calculateWaitTime(from: firstWriteTime + (minDepth + (doubleCount * duration))),
-                       0,
-                       accuracy: 1 / 1000)
+    func testWaitTimeMinDepth() throws {
+        let startTime: Date = .now
+        var waitTime: TimeInterval?
+        let minDepth: TimeInterval = 0.2
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: false,
+                                           minDepth: minDepth,
+                                           capacity: 1)
 
-        // If we query the time past the time, should be negative by that much.
-        let offset: TimeInterval = .random(in: 0.01...1000)
-        let from = firstWriteTime + (minDepth + (doubleCount * duration) + offset)
-        XCTAssertEqual(interval.calculateWaitTime(from: from),
-                       -offset,
-                       accuracy: 1/1000)
+        // At first write, and otherwise on time, we should wait the min depth.
+        let presentation = CMTime(value: CMTimeValue(Date.timeIntervalSinceReferenceDate), timescale: 1)
+        let diff = startTime.timeIntervalSinceReferenceDate - presentation.seconds
+        let sample = try CMSampleBuffer(dataBuffer: nil,
+                                        formatDescription: nil,
+                                        numSamples: 1,
+                                        sampleTimings: [
+                                            .init(duration: .init(value: 1,
+                                                                  timescale: 30),
+                                                  presentationTimeStamp: presentation,
+                                                  decodeTimeStamp: .invalid)
+                                        ],
+                                        sampleSizes: [0])
+        try buffer.write(videoFrame: sample)
+        waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
+        XCTAssertNotNil(waitTime)
+        XCTAssertEqual(minDepth, waitTime!, accuracy: 1 / 1000)
+    }
+
+    func testWaitTimeN() throws {
+        let startTime: Date = .now
+        let minDepth: TimeInterval = 0.2
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: false,
+                                           minDepth: minDepth,
+                                           capacity: 2)
+        let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSinceReferenceDate), timescale: 1)
+        var diff: TimeInterval?
+        let duration = CMTime(value: 1, timescale: 30)
+
+        for count in 0..<2 {
+            if diff == nil {
+                diff = startTime.timeIntervalSinceReferenceDate - presentation.seconds
+            }
+            let adjust = CMTimeMultiply(duration, multiplier: Int32(count))
+            let sample = try CMSampleBuffer(dataBuffer: nil,
+                                            formatDescription: nil,
+                                            numSamples: 1,
+                                            sampleTimings: [
+                                                .init(duration: duration,
+                                                      presentationTimeStamp: CMTimeAdd(presentation, adjust),
+                                                      decodeTimeStamp: .invalid)
+                                            ],
+                                            sampleSizes: [0])
+            try buffer.write(videoFrame: sample)
+        }
+
+        // There are 2 frames in the buffer. If we have waited min depth, first should be 0.
+        let waitTime = buffer.calculateWaitTime(from: startTime.addingTimeInterval(minDepth), offset: diff!)
+        XCTAssertNotNil(waitTime)
+        print(waitTime!)
+        XCTAssertEqual(0, waitTime!, accuracy: 1 / 1000)
+
+        // If we read this first one, next should be a duration away.
+        let read = buffer.read()
+        XCTAssertNotNil(read)
+        let firstReadWait = buffer.calculateWaitTime(from: startTime.addingTimeInterval(minDepth), offset: diff!)
+        XCTAssertNotNil(firstReadWait)
+        XCTAssertEqual(duration.seconds, firstReadWait!, accuracy: 1 / 1000)
+
+        // Any time we take (less than a frame duration here) should proportionally decrease the wait.
+        let later = buffer.calculateWaitTime(from: startTime.addingTimeInterval(minDepth).addingTimeInterval(duration.seconds / 2), offset: diff!)
+        XCTAssertNotNil(later)
+        XCTAssertEqual(duration.seconds / 2, later!, accuracy: 1 / 1000)
+
+        // If we wait too long, say 1.5 durations, we should get negative 1/2 duration.
+        let negativeWait = buffer.calculateWaitTime(from: startTime.addingTimeInterval(minDepth).addingTimeInterval(duration.seconds * 1.5), offset: diff!)
+        XCTAssertNotNil(negativeWait)
+        XCTAssertEqual(-duration.seconds / 2, negativeWait!, accuracy: 1 / 1000)
     }
 }

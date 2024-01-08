@@ -23,26 +23,22 @@ class VideoJitterBuffer {
     private static let logger = DecimusLogger(VideoJitterBuffer.self)
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
-    private let frameDuration: TimeInterval
     private let measurement: _Measurement?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
     private var lastSequenceRead: UInt64?
-    private var timestampTimeDiff: TimeInterval?
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
-    /// - Parameter frameDuration The duration of the video frames contained within the buffer.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
     /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
-    /// - Parameter config Jitter buffer configuration.
-    /// - Parameter frameAvailable Callback with a paced frame to render.
+    /// - Parameter minDepth Fixed initial delay in seconds.
+    /// - Parameter capacity Capacity in buffers / elements.
     init(namespace: QuicrNamespace,
-         frameDuration: TimeInterval,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
-         minDepth: TimeInterval) throws {
-        self.frameDuration = frameDuration
+         minDepth: TimeInterval,
+         capacity: Int) throws {
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
                 if !sort {
@@ -81,28 +77,23 @@ class VideoJitterBuffer {
                 ($0 as! CMSampleBuffer).dataReadiness == .ready
             }
         }
-        self.buffer = try .init(capacity: Int(ceil(minDepth / frameDuration) * 10), handlers: handlers)
+        self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
             measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
             measurement = nil
         }
         self.minDepth = minDepth
-        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(.init(seconds: minDepth,
-                                                                                                                  preferredTimescale: 1)), { _ in
-                                                                                                                    self.play = true
-                                                                                                                  })
+        let minDepthCM = CMTime(value: CMTimeValue(minDepth), timescale: 1)
+        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
+            self.play = true
+        })
     }
 
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
     func write(videoFrame: CMSampleBuffer) throws {
-        // Save starting time.
-        if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - videoFrame.presentationTimeStamp.seconds
-        }
-
         // Check expiry.
         if let thisSeq = videoFrame.getSequenceNumber(),
            let lastSequenceRead = self.lastSequenceRead {
@@ -185,23 +176,35 @@ class VideoJitterBuffer {
         }
     }
 
+    /// Get the CMBuffer at the front of the buffer without removing it.
+    /// - Returns The head of the buffer, if any.
+    func peek() -> CMBuffer? {
+        self.buffer.head
+    }
+
+    /// Get the current depth of the queue (sum of all contained durations).
+    /// - Returns Duration in seconds.
     func getDepth() -> TimeInterval {
         self.buffer.duration.seconds
     }
 
-    func calculateWaitTime() -> TimeInterval {
-        calculateWaitTime(from: .now)
+    /// Calculate the estimated time interval until the next frame should be rendered from now.
+    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame, or no start time).
+    /// - Parameter offset Offset the media timeline is working on.
+    /// - Parameter since The start point of the media timeline.
+    func calculateWaitTime(offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+        calculateWaitTime(from: .now, offset: offset, since: since)
     }
 
-    func calculateWaitTime(from: Date) -> TimeInterval {
-        guard let peek = self.buffer.head,
-              let diff = self.timestampTimeDiff else {
-            return self.frameDuration
-        }
+    /// Calculate the estimated time interval until the next frame should be rendered.
+    /// - Parameter from The time to calculate the time interval from.
+    /// - Parameter offset Offset from the start point at which media starts.
+    /// - Parameter since The start point of the media timeline.
+    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
+    func calculateWaitTime(from: Date, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+        guard let peek = self.buffer.head else { return nil }
         let sample = peek as! CMSampleBuffer
-        let timestampValue = sample.presentationTimeStamp.seconds
-        let targetTimeRef = timestampValue + diff
-        let targetDate = Date(timeIntervalSinceReferenceDate: targetTimeRef)
-        return targetDate.timeIntervalSinceNow + self.minDepth
+        let targetDate = Date(timeInterval: sample.presentationTimeStamp.seconds.advanced(by: offset), since: since)
+        return targetDate.timeIntervalSince(from) + self.minDepth
     }
 }

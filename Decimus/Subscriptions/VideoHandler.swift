@@ -2,12 +2,17 @@ import AVFoundation
 
 // swiftlint:disable type_body_length
 
-class VideoHandler {
+/// Handles decoding, jitter, and rendering of a video stream.
+class VideoHandler: CustomStringConvertible {
     private static let logger = DecimusLogger(VideoHandler.self)
 
+    /// The current configuration in use.
     let config: VideoCodecConfig
-    var label: String = ""
+    /// A description of the video handler.
+    var description: String
+    /// The namespace identifying this stream.
     let namespace: QuicrNamespace
+
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: _Measurement?
@@ -30,7 +35,20 @@ class VideoHandler {
     private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
+    private var timestampTimeDiff: TimeInterval?
 
+    /// Create a new video handler.
+    /// - Parameters:
+    ///     - namespace: The namespace for this video stream.
+    ///     - config: Codec configuration for this video stream.
+    ///     - participants: Video participants dependency for rendering.
+    ///     - metricsSubmitter: If present, a submitter to record metrics through.
+    ///     - namegate: Object to make decisions about valid group/object values.
+    ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
+    ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
+    ///     - jitterBufferConfig: Requested configuration for jitter handling.
+    ///     - simulreceive: The mode to operate in if any sibling streams are present.
+    /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
@@ -58,7 +76,7 @@ class VideoHandler {
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
-        self.label = self.namespace
+        self.description = self.namespace
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -89,6 +107,8 @@ class VideoHandler {
         }
     }
 
+    /// Get the last decoded image, if any.
+    /// - Returns Last decoded sample buffer, or nil if none available.
     func getLastImage() -> CMSampleBuffer? {
         self.lastDecodedImageLock.withLock {
             let image = self.lastDecodedImage
@@ -96,6 +116,8 @@ class VideoHandler {
         }
     }
 
+    /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
+    /// - Parameter sample The sample we are intending to remove.
     func removeLastImage(sample: CMSampleBuffer) {
         self.lastDecodedImageLock.withLock {
             if sample == self.lastDecodedImage {
@@ -104,15 +126,12 @@ class VideoHandler {
         }
     }
 
-    func calculateWaitTime() -> TimeInterval {
-        guard let jitterBuffer = self.jitterBuffer else {
-            fatalError("Shouldn't call this with no jitter buffer")
-        }
-        return jitterBuffer.calculateWaitTime()
-    }
-
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
+    /// Pass an encoded video frame to this video handler.
+    /// - Parameter data Encoded H264 frame data.
+    /// - Parameter groupId The group.
+    /// - Parameter objectId The object in the group.
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
         // Metrics.
         if let measurement = self.measurement {
@@ -173,10 +192,10 @@ class VideoHandler {
 
             // Create the video jitter buffer.
             self.jitterBuffer = try .init(namespace: self.namespace,
-                                          frameDuration: duration,
                                           metricsSubmitter: self.metricsSubmitter,
                                           sort: !self.reliable,
-                                          minDepth: self.jitterBufferConfig.minDepth)
+                                          minDepth: self.jitterBufferConfig.minDepth,
+                                          capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
 
             assert(self.dequeueTask == nil)
             // Start the frame dequeue task.
@@ -191,7 +210,7 @@ class VideoHandler {
                         pid.currentDepth = jitterBuffer.getDepth()
                         waitTime = self.dequeueBehaviour!.calculateWaitTime()
                     } else {
-                        waitTime = jitterBuffer.calculateWaitTime()
+                        waitTime = calculateWaitTime() ?? duration
                     }
                     if waitTime > 0 {
                         try? await Task.sleep(for: .seconds(waitTime),
@@ -219,6 +238,10 @@ class VideoHandler {
             if let samples = samples {
                 for sample in samples {
                     do {
+                        // Save starting time.
+                        if self.timestampTimeDiff == nil {
+                            self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - sample.presentationTimeStamp.seconds
+                        }
                         try jitterBuffer.write(videoFrame: sample)
                     } catch {
                         Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
@@ -235,6 +258,17 @@ class VideoHandler {
                 }
             }
         }
+    }
+    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable function_body_length
+
+    /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
+    /// - Parameter from: The time to calculate from.
+    /// - Returns Time to wait in seconds, if any.
+    func calculateWaitTime(from: Date = .now) -> TimeInterval? {
+        guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
+        guard let diff = self.timestampTimeDiff else { return nil }
+        return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {
@@ -265,7 +299,7 @@ class VideoHandler {
             do {
                 let label = try self.labelFromSample(sample: first, fps: self.getFps(sample: first))
                 DispatchQueue.main.async {
-                    self.label = label
+                    self.description = label
                 }
             } catch {
                 Self.logger.error("Failed to set label: \(error.localizedDescription)")
@@ -353,7 +387,7 @@ class VideoHandler {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                participant.view.label = self.label
+                participant.view.label = self.description
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
