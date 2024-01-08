@@ -162,7 +162,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                     self.renderTask?.cancel()
                     return
                 }
-                try? await Task.sleep(for: .seconds(duration))
+                if duration > 0 {
+                    try? await Task.sleep(for: .seconds(duration))
+                }
             }
         }
     }
