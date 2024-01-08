@@ -7,7 +7,7 @@
 
 #import <Foundation/Foundation.h>
 #import "EncodedFrameBufferAllocator.h"
-#include "ExtBufferAllocator.h"
+#include "ExtBufferAllocator.hh"
 
 #ifdef __cplusplus
 #include <inttypes.h>

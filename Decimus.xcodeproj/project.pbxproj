@@ -227,7 +227,7 @@
 		D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGWObjC.h; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		D786194B2A290F1600EC0556 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = qmedia.xcframework; path = dependencies/qmedia.xcframework; sourceTree = "<group>"; };
-		D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ExtBufferAllocator.h; sourceTree = "<group>"; };
+		D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ExtBufferAllocator.hh; sourceTree = "<group>"; };
 		D7D156372AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EncodedFrameBufferAllocator.h; sourceTree = "<group>"; };
 		D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = EncodedFrameBufferAllocator.mm; sourceTree = "<group>"; };
 		FF01709529C10013000E23A6 /* FormInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormInput.swift; sourceTree = "<group>"; };
@@ -512,7 +512,7 @@
 		D7D156352AD73DE600B4E4F2 /* EncodedBuffer */ = {
 			isa = PBXGroup;
 			children = (
-				D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.h */,
+				D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.hh */,
 				D7D156372AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.h */,
 				D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */,
 			);
