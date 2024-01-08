@@ -378,7 +378,7 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                participant.view.label = self.description
+                participant.label = .init(describing: self)
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }

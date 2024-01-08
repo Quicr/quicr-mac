@@ -35,7 +35,7 @@ struct VideoGrid: View {
                                maxHeight: abs(geo.size.height) / calcRows(numColumns))
                         .cornerRadius(cornerRadius)
                         .overlay(alignment: .bottom) {
-                            Text(participant.view.label)
+                            Text(participant.label)
                                 .padding(5)
                                 .foregroundColor(.black)
                                 .background(.white)

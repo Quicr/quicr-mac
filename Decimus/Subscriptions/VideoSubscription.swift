@@ -290,7 +290,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             // Enqueue the sample on the main thread.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.view.label = String(describing: first.key)
+                participant.label = .init(describing: first.key)
                 do {
                     try participant.view.enqueue(sample, transform: CATransform3DIdentity)
                 } catch {

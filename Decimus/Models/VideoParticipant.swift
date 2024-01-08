@@ -9,10 +9,11 @@ enum ParticipantError: Error {
 class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
     var view: VideoView = .init()
+    @Published var label: String
 
     init(id: SourceIDType) {
         self.id = id
-        self.view.label = id
+        self.label = id
     }
 }
 
