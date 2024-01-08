@@ -103,7 +103,7 @@ class VideoHandler: CustomStringConvertible {
 
     deinit {
         if self.simulreceive != .enable {
-            try? participants.removeParticipant(identifier: namespace)
+            self.participants.removeParticipant(identifier: namespace)
         }
     }
 

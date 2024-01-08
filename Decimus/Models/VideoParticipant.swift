@@ -40,15 +40,17 @@ class VideoParticipants: ObservableObject {
         return new
     }
 
-    func removeParticipant(identifier: SourceIDType) throws {
-        let removed = participants.removeValue(forKey: identifier)
-        guard removed != nil else { throw ParticipantError.notFound }
-        removed!.objectWillChange.send()
-        let cancellable = cancellables[identifier]
-        cancellable!.cancel()
+    func removeParticipant(identifier: SourceIDType) {
         DispatchQueue.main.async {
+            guard let removed = self.participants.removeValue(forKey: identifier) else {
+                return
+            }
+            removed.objectWillChange.send()
+            let cancellable = self.cancellables[identifier]
+            cancellable!.cancel()
+            self.cancellables.removeValue(forKey: identifier)
             self.objectWillChange.send()
+            Self.logger.info("[\(identifier)] Removed participant")
         }
-        Self.logger.info("[\(identifier)] Removed participant")
     }
 }
