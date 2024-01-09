@@ -25,6 +25,7 @@
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
+		18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A130BF2B4D7E8700F17372 /* OpusHandler.swift */; };
 		18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */; };
 		18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */; };
 		18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */; };
@@ -175,6 +176,7 @@
 		18821A2A2B10A604009BBA62 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
+		18A130BF2B4D7E8700F17372 /* OpusHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusHandler.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
 		18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDequeuer.swift; sourceTree = "<group>"; };
 		18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
@@ -536,6 +538,7 @@
 				FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */,
 				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
 				180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */,
+				18A130BF2B4D7E8700F17372 /* OpusHandler.swift */,
 			);
 			path = Subscriptions;
 			sourceTree = "<group>";
@@ -815,6 +818,7 @@
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
+				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */,
