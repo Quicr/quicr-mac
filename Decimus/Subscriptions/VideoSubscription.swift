@@ -89,15 +89,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             while !Task.isCancelled {
                 guard let self = self else { return }
                 self.handlerLock.withLock {
+                    // Remove any expired handlers.
                     for handler in self.lastUpdateTimes where Date.now.timeIntervalSince(handler.value) >= self.cleanupTimer {
                         self.lastUpdateTimes.removeValue(forKey: handler.key)
                         if let video = self.videoHandlers.removeValue(forKey: handler.key),
                            self.lastVideoHandler == video {
                             self.lastVideoHandler = nil
-                            if self.simulreceive == .enable {
-                                self.participants.removeParticipant(identifier: self.sourceId)
-                            }
                         }
+                    }
+
+                    // If there are no handlers left and we're simulreceive, we should remove our video render.
+                    if self.videoHandlers.isEmpty && self.simulreceive == .enable {
+                        self.participants.removeParticipant(identifier: self.sourceId)
                     }
                 }
                 try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
