@@ -23,6 +23,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
+    private var startTime: Date?
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
@@ -131,6 +132,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         // Configure FPS.
         if self.encoder.frameRate == nil {
             self.encoder.frameRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
+        }
+
+        // Stagger the publication's start time by its height in ms.
+        if self.startTime == nil {
+            self.startTime = .now
+        }
+        if let startTime = self.startTime {
+            let interval = Date.now.timeIntervalSince(startTime)
+            guard interval > TimeInterval(self.codec!.height / 1000) else {
+                return
+            }
         }
 
         // Encode.
