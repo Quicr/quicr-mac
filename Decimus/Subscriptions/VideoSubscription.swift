@@ -12,7 +12,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
     private let sourceId: SourceIDType
     private let participants: VideoParticipants
+    private let submitter: MetricsSubmitter?
+    private let namegate: NameGate
     private let reliable: Bool
+    private let granularMetrics: Bool
+    private let jitterBufferConfig: VideoJitterBuffer.Config
     private var videoHandlers: [QuicrNamespace: VideoHandler] = [:]
     private var renderTask: Task<(), Never>?
     private let simulreceive: SimulreceiveMode
@@ -21,6 +25,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastQuality: Int32?
     private let qualityMissThreshold: Int
     private var lastVideoHandler: VideoHandler?
+    private var cleanupTask: Task<(), Never>?
+    private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
+    private var handlerLock = NSLock()
+    private let profiles: [QuicrNamespace: VideoCodecConfig]
+    private let cleanupTimer: TimeInterval = 1.5
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -39,9 +48,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         self.sourceId = sourceId
         self.participants = participants
+        self.submitter = metricsSubmitter
+        self.namegate = namegate
         self.reliable = reliable
+        self.granularMetrics = granularMetrics
+        self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
         self.qualityMissThreshold = qualityMissThreshold
+
+        // Adjust and store expected quality profiles.
+        var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
@@ -54,24 +70,40 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                       width: config.width,
                                                       height: config.height) : config
             let namespace = QuicrNamespace(cString: profile.quicrNamespace)
-            self.videoHandlers[namespace] = try .init(namespace: namespace,
-                                                      config: adjustedConfig,
-                                                      participants: participants,
-                                                      metricsSubmitter: metricsSubmitter,
-                                                      namegate: namegate,
-                                                      reliable: reliable,
-                                                      granularMetrics: granularMetrics,
-                                                      jitterBufferConfig: jitterBufferConfig,
-                                                      simulreceive: self.simulreceive)
+            createdProfiles[namespace] = adjustedConfig
+        }
+
+        // Make all the video handlers upfront.
+        self.profiles = createdProfiles
+        for namespace in createdProfiles.keys {
+            try makeHandler(namespace: namespace)
         }
 
         // Make task to do simulreceive.
         if self.simulreceive != .none {
-            self.renderTask = .init(priority: .high) { [weak self] in
-                while !Task.isCancelled {
-                    guard let self = self else { return }
-                    await self.makeSimulreceiveDecision()
+            startRenderTask()
+        }
+
+        // Make task for cleaning up video handlers.
+        self.cleanupTask = .init(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+                self.handlerLock.withLock {
+                    // Remove any expired handlers.
+                    for handler in self.lastUpdateTimes where Date.now.timeIntervalSince(handler.value) >= self.cleanupTimer {
+                        self.lastUpdateTimes.removeValue(forKey: handler.key)
+                        if let video = self.videoHandlers.removeValue(forKey: handler.key),
+                           self.lastVideoHandler == video {
+                            self.lastVideoHandler = nil
+                        }
+                    }
+
+                    // If there are no handlers left and we're simulreceive, we should remove our video render.
+                    if self.videoHandlers.isEmpty && self.simulreceive == .enable {
+                        self.participants.removeParticipant(identifier: self.sourceId)
+                    }
                 }
+                try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
             }
         }
 
@@ -79,12 +111,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     deinit {
-        if self.simulreceive != .none {
-            do {
-                try self.participants.removeParticipant(identifier: self.sourceId)
-            } catch {
-                Self.logger.error("Failed to remove participant")
-            }
+        if self.simulreceive == .enable {
+            self.participants.removeParticipant(identifier: self.sourceId)
         }
     }
 
@@ -101,28 +129,72 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
-        // Update keep alive timer for showing video.
-        if self.simulreceive == .enable {
-            DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.lastUpdated = .now()
-            }
-        }
-
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
-        do {
-            guard let handler = self.videoHandlers[name] else {
-                throw "Unknown namespace"
-            }
-            try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
-        } catch {
-            Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
-        }
 
+        self.handlerLock.withLock {
+            self.lastUpdateTimes[name] = Date.now
+            do {
+                if self.videoHandlers[name] == nil {
+                    try makeHandler(namespace: name)
+                    if let task = self.renderTask,
+                       task.isCancelled {
+                        startRenderTask()
+                    }
+                }
+                guard let handler = self.videoHandlers[name] else {
+                    throw "Unknown namespace"
+                }
+                try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
+            } catch {
+                Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
+            }
+        }
         return SubscriptionError.none.rawValue
     }
 
-    private func makeSimulreceiveDecision() async {
+    private func startRenderTask() {
+        self.renderTask = .init(priority: .high) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+                var cancel = false
+                let duration = self.handlerLock.withLock {
+                    guard !self.videoHandlers.isEmpty else {
+                        cancel = true
+                        return TimeInterval.nan
+                    }
+                    return try! self.makeSimulreceiveDecision()
+                }
+                guard !cancel else {
+                    self.renderTask?.cancel()
+                    return
+                }
+                if duration > 0 {
+                    try? await Task.sleep(for: .seconds(duration))
+                }
+            }
+        }
+    }
+
+    private func makeHandler(namespace: QuicrNamespace) throws {
+        guard let config = self.profiles[namespace] else {
+            throw "Missing config for: \(namespace)"
+        }
+        self.videoHandlers[namespace] = try .init(namespace: namespace,
+                                                  config: config,
+                                                  participants: self.participants,
+                                                  metricsSubmitter: self.submitter,
+                                                  namegate: self.namegate,
+                                                  reliable: self.reliable,
+                                                  granularMetrics: self.granularMetrics,
+                                                  jitterBufferConfig: self.jitterBufferConfig,
+                                                  simulreceive: self.simulreceive)
+    }
+
+    private func makeSimulreceiveDecision() throws -> TimeInterval {
+        guard !self.videoHandlers.isEmpty else {
+            throw "No handlers"
+        }
+
         // Get available decoded frames from all handlers.
         var retrievedFrames: [VideoHandler: CMSampleBuffer] = [:]
         var highestFps: UInt16?
@@ -137,16 +209,19 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
 
+        guard let highestFps = highestFps else {
+            throw "Failed to determine highest FPS"
+        }
+
         // No decision to make.
         guard retrievedFrames.count > 0 else {
             let duration: TimeInterval
             if let lastHandler = self.lastVideoHandler {
-                duration = lastHandler.calculateWaitTime() ?? 1 / TimeInterval(highestFps!)
+                duration = lastHandler.calculateWaitTime() ?? 1 / TimeInterval(highestFps)
             } else {
-                duration = 1 / TimeInterval(highestFps!)
+                duration = 1 / TimeInterval(highestFps)
             }
-            try? await Task.sleep(for: .seconds(duration))
-            return
+            return duration
         }
 
         // Oldest should be the oldest value that hasn't already been shown.
@@ -194,13 +269,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // We only want to step down in quality if we've missed a few hits.
         if let lastQuality = self.lastQuality,
            width < lastQuality && self.qualityMisses < self.qualityMissThreshold {
-            let duration = first.key.calculateWaitTime() ?? sample.duration.seconds
-            if duration > 0 {
-                try? await Task.sleep(for: .seconds(duration),
-                                      tolerance: .seconds(duration / 2),
-                                      clock: .continuous)
+            if let duration = first.key.calculateWaitTime() {
+                return duration
             }
-            return
+            if sample.duration.isValid {
+                return sample.duration.seconds
+            }
+            return 1 / TimeInterval(highestFps)
         }
 
         // Proceed with rendering this frame.
@@ -218,13 +293,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             // Enqueue the sample on the main thread.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.view.label = String(describing: first.key)
+                participant.label = .init(describing: first.key)
                 do {
                     try participant.view.enqueue(sample, transform: CATransform3DIdentity)
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }
-                participant.lastUpdated = .now()
             }
         } else if self.simulreceive == .visualizeOnly {
             DispatchQueue.main.async {
@@ -235,11 +309,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Wait until we have expect to have the next frame available.
-        let duration = first.key.calculateWaitTime() ?? sample.duration.seconds
-        if duration > 0 {
-            try? await Task.sleep(for: .seconds(duration),
-                                  tolerance: .seconds(duration / 2),
-                                  clock: .continuous)
+        if let duration = first.key.calculateWaitTime() {
+            return duration
         }
+        if sample.duration.isValid {
+            return sample.duration.seconds
+        }
+        return 1 / TimeInterval(highestFps)
     }
 }

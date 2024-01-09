@@ -103,7 +103,7 @@ class VideoHandler: CustomStringConvertible {
 
     deinit {
         if self.simulreceive != .enable {
-            try? participants.removeParticipant(identifier: namespace)
+            self.participants.removeParticipant(identifier: namespace)
         }
     }
 
@@ -154,15 +154,6 @@ class VideoHandler: CustomStringConvertible {
                 }
                 await measurement.receivedFrame(timestamp: now)
                 await measurement.receivedBytes(received: data.count, timestamp: now)
-            }
-        }
-
-        // If we're not doing full simulreceive, it's our responsibility.
-        if simulreceive != .enable {
-            // Update keep alive timer for showing video.
-            DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.namespace)
-                participant.lastUpdated = .now()
             }
         }
 
@@ -387,11 +378,10 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                participant.view.label = self.description
+                participant.label = .init(describing: self)
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
-            participant.lastUpdated = .now()
         }
     }
 
