@@ -6,13 +6,7 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-private class Weak<T> {
-    var value: T
-    init(value: T) {
-        self.value = value
-    }
-}
-
+/// Object that accepts opus encoded audio packets, decodes them, and plays them out.
 class OpusHandler {
     private static let logger = DecimusLogger(OpusHandler.self)
     private let sourceId: SourceIDType
@@ -22,8 +16,8 @@ class OpusHandler {
     private var node: AVAudioSourceNode?
     private var jitterBuffer: QJitterBuffer
     private let measurement: OpusSubscription._Measurement?
-    private var underrun: Weak<UInt64> = .init(value: 0)
-    private var callbacks: Weak<UInt64> = .init(value: 0)
+    private let underrun: RefWrapper<UInt64> = .init(0)
+    private let callbacks: RefWrapper<UInt64> = .init(0)
     private let granularMetrics: Bool
 
     init(sourceId: SourceIDType,
