@@ -6,11 +6,19 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
     let sourceId: SourceIDType
+    private let engine: DecimusAudioEngine
     private let measurement: _Measurement?
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt32 = 0
-    private let handler: OpusHandler
+    private let handlerLock: NSLock = .init()
+    private var handler: OpusHandler?
+    private var cleanupTask: Task<(), Never>?
+    private let cleanupTimer: TimeInterval = 1.5
+    private var lastUpdateTime: Date?
+    private let jitterDepth: TimeInterval
+    private let jitterMax: TimeInterval
+    private let opusWindowSize: OpusWindowSize
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -22,20 +30,42 @@ class OpusSubscription: QSubscriptionDelegateObjC {
          reliable: Bool,
          granularMetrics: Bool) throws {
         self.sourceId = sourceId
+        self.engine = engine
         if let submitter = submitter {
             self.measurement = .init(namespace: self.sourceId, submitter: submitter)
         } else {
             self.measurement = nil
         }
+        self.jitterDepth = jitterDepth
+        self.jitterMax = jitterMax
+        self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
-        self.handler = try .init(sourceId: sourceId,
-                                 engine: engine,
+
+        // Create the actual audio handler upfront.
+        self.handler = try .init(sourceId: self.sourceId,
+                                 engine: self.engine,
                                  measurement: self.measurement,
-                                 jitterDepth: jitterDepth,
-                                 jitterMax: jitterMax,
-                                 opusWindowSize: opusWindowSize,
-                                 granularMetrics: granularMetrics)
+                                 jitterDepth: self.jitterDepth,
+                                 jitterMax: self.jitterMax,
+                                 opusWindowSize: self.opusWindowSize,
+                                 granularMetrics: self.granularMetrics)
+
+        // Make task for cleaning up audio handlers.
+        self.cleanupTask = .init(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+                self.handlerLock.withLock {
+                    // Remove the audio handler if expired.
+                    guard let lastUpdateTime = self.lastUpdateTime else { return }
+                    if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
+                        self.lastUpdateTime = nil
+                        self.handler = nil
+                    }
+                }
+                try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+            }
+        }
 
         Self.logger.info("Subscribed to OPUS stream")
     }
@@ -57,8 +87,11 @@ class OpusSubscription: QSubscriptionDelegateObjC {
                           length: Int,
                           groupId: UInt32,
                           objectId: UInt16) -> Int32 {
+        let now: Date = .now
+        self.lastUpdateTime = now
+
         // Metrics.
-        let date: Date? = self.granularMetrics ? .now : nil
+        let date: Date? = self.granularMetrics ? now : nil
 
         // TODO: Handle sequence rollover.
         if groupId > self.seq {
@@ -76,15 +109,32 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             self.seq = groupId
         }
 
-        do {
-            try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
-                                                       count: length,
-                                                       deallocator: .none),
-                                           sequence: groupId,
-                                           date: date)
-        } catch {
-            Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
+        // Do we need to create the handler?
+        self.handlerLock.withLock {
+            if self.handler == nil {
+                self.handler = try? .init(sourceId: self.sourceId,
+                                          engine: self.engine,
+                                          measurement: self.measurement,
+                                          jitterDepth: self.jitterDepth,
+                                          jitterMax: self.jitterMax,
+                                          opusWindowSize: self.opusWindowSize,
+                                          granularMetrics: self.granularMetrics)
+            }
+            guard let handler = self.handler else {
+                Self.logger.error("Failed to recreate audio handler")
+                return
+            }
+            do {
+                try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
+                                                           count: length,
+                                                           deallocator: .none),
+                                               sequence: groupId,
+                                               date: date)
+            } catch {
+                Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
+            }
         }
+
         return SubscriptionError.none.rawValue
     }
 }
