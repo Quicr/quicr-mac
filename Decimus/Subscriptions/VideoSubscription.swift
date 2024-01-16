@@ -303,7 +303,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         } else if self.simulreceive == .visualizeOnly {
             DispatchQueue.main.async {
                 for participant in self.participants.participants {
-                    participant.value.view.highlight = participant.key == first.key.namespace
+                    if participant.key == first.key.namespace && participant.value.highlight == .none {
+                        participant.value.highlight = .active
+                    } else if participant.value.highlight == .active {
+                        participant.value.highlight = .none
+                    }
                 }
             }
         }

@@ -24,6 +24,21 @@ struct VideoGrid: View {
         return .init(round(Float(participants.count) / Float(columns)))
     }
 
+    private func borderColor(reason: VideoHighlight) -> Color {
+        switch reason {
+        case .active:
+            return .green
+        case .catchup:
+            return .blue
+        case .full:
+            return .purple
+        case .gated:
+            return .red
+        case .none:
+            return .white
+        }
+    }
+
     var body: some View {
         let numColumns = calcColumns()
         GeometryReader { geo in
@@ -42,7 +57,7 @@ struct VideoGrid: View {
                                 .cornerRadius(12)
                                 .padding(.bottom)
                         }
-                        .border(.green, width: participant.view.highlight ? 3 : 0)
+                        .border(borderColor(reason: participant.highlight), width: participant.highlight != .none ? 3 : 0)
                 }
             }
             .cornerRadius(cornerRadius)

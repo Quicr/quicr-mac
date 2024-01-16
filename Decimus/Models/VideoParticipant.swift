@@ -6,9 +6,18 @@ enum ParticipantError: Error {
     case notFound
 }
 
+enum VideoHighlight {
+    case none
+    case active
+    case full
+    case gated
+    case catchup
+}
+
 class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
     var view: VideoView = .init()
+    @Published var highlight: VideoHighlight = .none
     @Published var label: String
 
     init(id: SourceIDType) {
