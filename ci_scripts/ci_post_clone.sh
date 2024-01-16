@@ -11,8 +11,8 @@ brew install go
 # Patch entitilements for tests.
 if [ "$CI_WORKFLOW" == "PR" ]
 then
-    cp $CI_WORKSPACE/ci_scripts/Decimus.entitlements $CI_WORKSPACE/Decimus/Decimus.entitlements
+    cp $CI_PRIMARY_REPOSITORY_PATH/ci_scripts/Decimus.entitlements $CI_PRIMARY_REPOSITORY_PATH/Decimus/Decimus.entitlements
 fi
 
 # Build QMedia.
-sh $CI_WORKSPACE/dependencies/build-qmedia-framework.sh
+sh $CI_PRIMARY_REPOSITORY_PATH/dependencies/build-qmedia-framework.sh
