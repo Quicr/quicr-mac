@@ -118,11 +118,6 @@ class VideoJitterBuffer {
     func read() -> CMSampleBuffer? {
         let now: Date = .now
         let depth: TimeInterval = self.buffer.duration.seconds
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.currentDepth(depth: depth, timestamp: now)
-            }
-        }
 
         // Are we playing out?
         guard self.play else {
@@ -143,10 +138,17 @@ class VideoJitterBuffer {
         guard let oldest = self.buffer.dequeue() else {
             if let measurement = self.measurement {
                 Task(priority: .utility) {
+                    await measurement.currentDepth(depth: depth, timestamp: now)
                     await measurement.underrun(timestamp: now)
                 }
             }
             return nil
+        }
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.currentDepth(depth: depth, timestamp: now)
+                await measurement.read(timestamp: now)
+            }
         }
         let sample = oldest as! CMSampleBuffer
         self.lastSequenceRead = sample.getSequenceNumber()
@@ -188,23 +190,19 @@ class VideoJitterBuffer {
         self.buffer.duration.seconds
     }
 
-    /// Calculate the estimated time interval until the next frame should be rendered from now.
-    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame, or no start time).
-    /// - Parameter offset Offset the media timeline is working on.
-    /// - Parameter since The start point of the media timeline.
-    func calculateWaitTime(offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
-        calculateWaitTime(from: .now, offset: offset, since: since)
-    }
-
     /// Calculate the estimated time interval until the next frame should be rendered.
     /// - Parameter from The time to calculate the time interval from.
     /// - Parameter offset Offset from the start point at which media starts.
     /// - Parameter since The start point of the media timeline.
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: Date, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+    func calculateWaitTime(from: Date = .now, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let sample = peek as! CMSampleBuffer
         let targetDate = Date(timeInterval: sample.presentationTimeStamp.seconds.advanced(by: offset), since: since)
-        return targetDate.timeIntervalSince(from) + self.minDepth
+        let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
+        Task(priority: .utility) {
+            await measurement?.waitTime(value: waitTime, timestamp: from)
+        }
+        return waitTime
     }
 }
