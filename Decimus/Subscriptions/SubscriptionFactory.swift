@@ -51,6 +51,7 @@ struct SubscriptionConfig: Codable {
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
+    var timeQueueTTL: Int
 
     init() {
         jitterMaxTime = 0.5
@@ -66,6 +67,7 @@ struct SubscriptionConfig: Codable {
         isSingleOrderedPub = false
         simulreceive = .none
         qualityMissThreshold = 3
+        timeQueueTTL = 100
     }
 }
 
