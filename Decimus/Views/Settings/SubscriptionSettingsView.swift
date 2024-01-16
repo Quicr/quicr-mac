@@ -38,6 +38,9 @@ struct SubscriptionSettingsView: View {
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterMaxTime,
                         format: .number)
+                    .onChange(of: subscriptionConfig.value.jitterMaxTime) {
+                        subscriptionConfig.value.videoJitterBuffer.maxDepth = $0
+                    }
                 }
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {

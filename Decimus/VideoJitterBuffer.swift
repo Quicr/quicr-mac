@@ -10,6 +10,7 @@ class VideoJitterBuffer {
     struct Config: Codable {
         var mode: Mode = .none
         var minDepth: TimeInterval = 0.2
+        var maxDepth: TimeInterval = 0.5
     }
 
     enum Mode: CaseIterable, Identifiable, Codable {

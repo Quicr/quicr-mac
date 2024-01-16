@@ -186,7 +186,7 @@ class VideoHandler: CustomStringConvertible {
                                           metricsSubmitter: self.metricsSubmitter,
                                           sort: !self.reliable,
                                           minDepth: self.jitterBufferConfig.minDepth,
-                                          capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
+                                          capacity: Int(ceil(self.jitterBufferConfig.maxDepth / duration)))
 
             assert(self.dequeueTask == nil)
             // Start the frame dequeue task.
