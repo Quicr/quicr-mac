@@ -32,15 +32,21 @@ struct SubscriptionSettingsView: View {
                         .onChange(of: subscriptionConfig.value.jitterDepthTime) {
                             subscriptionConfig.value.videoJitterBuffer.minDepth = $0
                         }
+                        .onAppear {
+                            subscriptionConfig.value.videoJitterBuffer.minDepth = subscriptionConfig.value.jitterDepthTime
+                        }
                 }
                 LabeledContent("Jitter Max Depth (s)") {
                     TextField(
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterMaxTime,
                         format: .number)
-                    .onChange(of: subscriptionConfig.value.jitterMaxTime) {
-                        subscriptionConfig.value.videoJitterBuffer.maxDepth = $0
-                    }
+                        .onChange(of: subscriptionConfig.value.jitterMaxTime) {
+                            subscriptionConfig.value.videoJitterBuffer.maxDepth = $0
+                        }
+                        .onAppear {
+                            subscriptionConfig.value.videoJitterBuffer.maxDepth = subscriptionConfig.value.jitterMaxTime
+                        }
                 }
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {
