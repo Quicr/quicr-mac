@@ -47,7 +47,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      time_queue_init_queue_size: 1000,
                                                      time_queue_max_duration: 5000,
                                                      time_queue_bucket_interval: 1,
-                                                     time_queue_size_rx: UInt32(self.config.timeQueueTTL),
+                                                     time_queue_rx_size: UInt32(self.config.timeQueueTTL),
                                                      debug: false,
                                                      quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
                                                      quic_wifi_shadow_rtt_us: shadowRtt,
