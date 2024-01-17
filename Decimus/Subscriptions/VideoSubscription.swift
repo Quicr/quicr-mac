@@ -363,5 +363,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
         assert(false)
+        return 0
     }
 }
