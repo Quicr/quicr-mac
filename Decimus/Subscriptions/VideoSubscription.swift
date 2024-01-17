@@ -30,6 +30,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var handlerLock = NSLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
+    private var timestampTimeDiff: TimeInterval?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -131,6 +132,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
+        if self.timestampTimeDiff == nil {
+            self.timestampTimeDiff = self.getTimestamp(data: zeroCopiedData,
+                                                       namespace: name,
+                                                       groupId: groupId,
+                                                       objectId: objectId)
+        }
+
         self.handlerLock.withLock {
             self.lastUpdateTimes[name] = Date.now
             do {
@@ -143,6 +151,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
+                }
+                if handler.timestampTimeDiff == nil {
+                    handler.timestampTimeDiff = self.timestampTimeDiff
                 }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {
@@ -316,5 +327,41 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             return sample.duration.seconds
         }
         return 1 / TimeInterval(highestFps)
+    }
+
+    // TODO: Clean this up.
+    private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
+        // Save starting time.
+        var format: CMFormatDescription?
+        var orientation: AVCaptureVideoOrientation?
+        var verticalMirror: Bool?
+        let config = self.profiles[namespace]
+        let samples: [CMSampleBuffer]?
+        switch config?.codec {
+        case .h264:
+            samples = try! H264Utilities.depacketize(data,
+                                                     groupId: groupId,
+                                                     objectId: objectId,
+                                                     format: &format,
+                                                     orientation: &orientation,
+                                                     verticalMirror: &verticalMirror,
+                                                     copy: true)
+        case .hevc:
+            samples = try! HEVCUtilities.depacketize(data,
+                                                     groupId: groupId,
+                                                     objectId: objectId,
+                                                     format: &format,
+                                                     orientation: &orientation,
+                                                     verticalMirror: &verticalMirror,
+                                                     copy: true)
+        default:
+            fatalError()
+        }
+        if let samples = samples {
+            for sample in samples {
+                return Date.now.timeIntervalSinceReferenceDate - sample.presentationTimeStamp.seconds
+            }
+        }
+        assert(false)
     }
 }
