@@ -35,7 +35,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
-    private var timestampTimeDiff: TimeInterval?
+    var timestampTimeDiff: TimeInterval?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -229,10 +229,6 @@ class VideoHandler: CustomStringConvertible {
             if let samples = samples {
                 for sample in samples {
                     do {
-                        // Save starting time.
-                        if self.timestampTimeDiff == nil {
-                            self.timestampTimeDiff = Date.now.timeIntervalSinceReferenceDate - sample.presentationTimeStamp.seconds
-                        }
                         try jitterBuffer.write(videoFrame: sample)
                     } catch {
                         Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
