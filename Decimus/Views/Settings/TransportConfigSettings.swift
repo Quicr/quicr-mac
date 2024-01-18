@@ -26,7 +26,7 @@ struct TransportConfigSettings: View {
         LabeledContent("QUIC WiFi RTT") {
             TextField("", value: self.$quicWifiShadowRttUs, format: .number)
         }
-        LabeledContent("Time Queue TTL") {
+        LabeledContent("Time Queue RX Size") {
             TextField("", value: self.$timeQueueTTL, format: .number)
         }
     }
