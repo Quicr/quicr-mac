@@ -11,7 +11,7 @@ final class TestH264Utilities: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             1, 8, 9, 10, 11
         ]
-        var data = Data(values)
+        let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         var orientation: AVCaptureVideoOrientation? = .portrait
         var mirror: Bool? = false
@@ -67,8 +67,8 @@ final class TestH264Utilities: XCTestCase {
         ]
         let format: CMFormatDescription = try .init(mediaType: .video, mediaSubType: .h264)
         var data = Data(values)
-        var orientation: AVCaptureVideoOrientation = .portraitUpsideDown
-        var mirror = true
+        let orientation: AVCaptureVideoOrientation = .portraitUpsideDown
+        let mirror = true
         let groupId: UInt32 = 1
         let objectId: UInt16 = 2
         let sequence: UInt64? = 3
@@ -102,5 +102,45 @@ final class TestH264Utilities: XCTestCase {
         XCTAssert(sample.getOrientation() == orientation)
         XCTAssert(sample.getVerticalMirror() == mirror)
         XCTAssert(sample.getFPS() == fps)
+    }
+
+    func testGetTimestampBytes() {
+        testGetTimestampBytes(startCode: true)
+        testGetTimestampBytes(startCode: false)
+    }
+
+    func testGetTimestampBytes(startCode: Bool) {
+        let time = CMTime(seconds: 1234, preferredTimescale: 5678)
+        let bytes = H264Utilities.getTimestampSEIBytes(timestamp: time,
+                                                       sequenceNumber: 1,
+                                                       fps: 30,
+                                                       startCode: startCode)
+        XCTAssert(bytes.count == H264Utilities.timestampSEIBytes.count)
+        if startCode {
+            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
+        } else {
+            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
+            bytes.withUnsafeBytes {
+                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
+            }
+        }
+    }
+
+    func testGetOrientationBytes() {
+        testGetOrientationBytes(startCode: true)
+        testGetOrientationBytes(startCode: false)
+    }
+
+    func testGetOrientationBytes(startCode: Bool) {
+        let bytes = H264Utilities.getH264OrientationSEI(orientation: .portrait, verticalMirror: false, startCode: startCode)
+        XCTAssert(bytes.count == H264Utilities.orientationSei.count)
+        if startCode {
+            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
+        } else {
+            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
+            bytes.withUnsafeBytes {
+                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
+            }
+        }
     }
 }
