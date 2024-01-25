@@ -111,6 +111,18 @@ struct CallControls: View {
             .disabled(viewModel.devices(.video).allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
 
             Button(action: {
+                viewModel.toggleShare()
+            }, label: {
+                Image(systemName: "rectangle.inset.filled.and.person.filled")
+                    .renderingMode(.template)
+                    .foregroundColor(.white)
+                    .padding()
+            })
+            .foregroundColor(.white)
+            .background(.purple)
+            .clipShape(Circle())
+
+            Button(action: {
                 leaving = true
                 muteModalExpanded = false
                 cameraModalExpanded = false
@@ -244,6 +256,10 @@ extension CallControls {
         func isAlteringMicrophone() -> Bool {
             guard selectedMicrophone != nil else { return false }
             return alteringDevice[selectedMicrophone!] ?? false
+        }
+
+        func toggleShare() {
+            capture?.toggleShare()
         }
     }
 }

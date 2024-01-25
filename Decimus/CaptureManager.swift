@@ -1,6 +1,7 @@
 import AVFoundation
 import UIKit
 import os
+import ScreenCaptureKit
 
 public extension AVCaptureDevice {
     var id: UInt64 {
@@ -32,7 +33,7 @@ enum CaptureManagerError: Error {
 }
 
 /// Manages local media capture.
-class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, SCStreamDelegate, SCStreamOutput {
     private static let logger = DecimusLogger(CaptureManager.self)
 
     /// Describe events that can happen to devices.
@@ -54,6 +55,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var lastCapture: Date?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
+    private var stream: SCStream?
+    private var sharingScreen = false
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -68,6 +71,29 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.measurement = nil
         }
         super.init()
+
+        // ScreenCaptureKit.
+        let excludedApps = [SCRunningApplication]().filter {
+            Bundle.main.bundleIdentifier == $0.bundleIdentifier
+        }
+        Task(priority: .utility) {
+            let availableContent = try await SCShareableContent.excludingDesktopWindows(false,
+                                                                                        onScreenWindowsOnly: true)
+
+            // Create a content filter with excluded apps.
+            let display = availableContent.displays.first!
+            let filter = SCContentFilter(display: display,
+                                         excludingApplications: excludedApps,
+                                         exceptingWindows: [])
+            let config = SCStreamConfiguration()
+            // config.capturesAudio = false
+            config.width = display.width
+            config.height = display.height
+            config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+            config.queueDepth = 5
+            self.stream = SCStream(filter: filter, configuration: config, delegate: self)
+            try self.stream!.addStreamOutput(self, type: .screen, sampleHandlerQueue: self.queue)
+        }
     }
 
     func devices() throws -> [AVCaptureDevice] {
@@ -301,6 +327,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        guard !self.sharingScreen else { return }
+
         // Discard any frames prior to camera warmup.
         if let startTime = self.startTime[output] {
             guard Date.now.timeIntervalSince(startTime) > self.warmupTime else { return }
@@ -333,12 +361,47 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didDrop sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
+        guard !self.sharingScreen else { return }
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {
                 listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
             }
         }
+    }
+
+    func toggleShare() {
+        guard let stream = self.stream else { fatalError() }
+        if !self.sharingScreen {
+            stream.startCapture()
+        } else {
+            stream.stopCapture()
+        }
+        self.sharingScreen.toggle()
+    }
+
+    func stream(_ stream: SCStream,
+                didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+                of outputType: SCStreamOutputType) {
+        // Sanity check.
+        guard outputType == .screen,
+              let attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer,
+                                                                             createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
+              let attachments = attachmentsArray.first,
+              let statusRawValue = attachments[SCStreamFrameInfo.status] as? Int,
+              let status = SCFrameStatus(rawValue: statusRawValue),
+              status == .complete else { return }
+
+        // Callit back.
+        let output = self.outputs.first!.key
+        let connection = self.connections[self.outputs.first!.value]!
+        let cameraFrameListeners = getDelegate(output: self.outputs.first!.key)
+        for listener in cameraFrameListeners {
+            listener.queue.async {
+                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+            }
+        }
+
     }
 }
 
