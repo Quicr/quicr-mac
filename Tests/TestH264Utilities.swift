@@ -60,7 +60,7 @@ final class TestH264Utilities: XCTestCase {
         }
     }
 
-    func testNaluDepacketize() throws {
+    func testBuildSampleBuffer() throws {
         let values: [UInt8] = [
             0x00, 0x00, 0x00, 0x01,
             1, 2, 3, 4, 5
@@ -73,35 +73,35 @@ final class TestH264Utilities: XCTestCase {
         let objectId: UInt16 = 2
         let sequence: UInt64? = 3
         let fps: UInt8? = 4
-        let sample = try H264Utilities.depacketizeNalu(&data,
-                                                       groupId: groupId,
-                                                       objectId: objectId,
-                                                       timeInfo: .init(),
-                                                       format: format,
-                                                       copy: false,
-                                                       orientation: orientation,
-                                                       verticalMirror: mirror,
-                                                       sequenceNumber: sequence,
-                                                       fps: fps)
+        try values.withUnsafeBytes { packetized in
+            let sample = try H264Utilities.buildSampleBuffer(packetized,
+                                                             groupId: groupId,
+                                                             objectId: objectId,
+                                                             timeInfo: .init(),
+                                                             format: format,
+                                                             copy: false,
+                                                             orientation: orientation,
+                                                             verticalMirror: mirror,
+                                                             sequenceNumber: sequence,
+                                                             fps: fps)
 
-        // Check the data is in the sample.
-        XCTAssertNotNil(sample.dataBuffer)
-        try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
-            values.withUnsafeBytes { packetized in
+            // Check the data is in the sample.
+            XCTAssertNotNil(sample.dataBuffer)
+            try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
                 XCTAssertEqual(0,
                                memcmp(depacketized.baseAddress!.advanced(by: 4),
                                       packetized.baseAddress!.advanced(by: 4),
                                       values.count - 4))
             }
-        }
 
-        // Check attachments set.
-        XCTAssert(sample.getGroupId() == groupId)
-        XCTAssert(sample.getObjectId() == objectId)
-        XCTAssert(sample.getSequenceNumber() == sequence)
-        XCTAssert(sample.getOrientation() == orientation)
-        XCTAssert(sample.getVerticalMirror() == mirror)
-        XCTAssert(sample.getFPS() == fps)
+            // Check attachments set.
+            XCTAssert(sample.getGroupId() == groupId)
+            XCTAssert(sample.getObjectId() == objectId)
+            XCTAssert(sample.getSequenceNumber() == sequence)
+            XCTAssert(sample.getOrientation() == orientation)
+            XCTAssert(sample.getVerticalMirror() == mirror)
+            XCTAssert(sample.getFPS() == fps)
+        }
     }
 
     func testGetTimestampBytes() {

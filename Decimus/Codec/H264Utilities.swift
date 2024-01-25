@@ -83,12 +83,12 @@ class H264Utilities {
             }
 
             if type == .sei {
-                parseCustomSEI(.init(start: data.baseAddress!.advanced(by: offset), count: Int(length) + MemoryLayout<UInt32>.size),
-                               orientation: &orientation,
-                               verticalMirror: &verticalMirror,
-                               timeInfo: &timeInfo,
-                               fps: &fps,
-                               sequenceNumber: &sequenceNumber)
+                try parseCustomSEI(.init(start: data.baseAddress!.advanced(by: offset), count: Int(length) + MemoryLayout<UInt32>.size),
+                                   orientation: &orientation,
+                                   verticalMirror: &verticalMirror,
+                                   timeInfo: &timeInfo,
+                                   fps: &fps,
+                                   sequenceNumber: &sequenceNumber)
             }
 
             if let sps = spsData,
@@ -210,48 +210,13 @@ class H264Utilities {
             }
 
             if type == .sei {
-                var seiData = nalu
-                if seiData.count == orientationSei.count { // Orientation
-                    let payloadLength = OrientationSeiOffsets.payloadLength.rawValue
-                    if seiData[payloadLength] == orientationSei[payloadLength] { // yep - orientation
-                        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
-                        verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
-                    }
-                } else if seiData.count == timestampSEIBytes.count { // timestamp?
-                    let id = TimestampSeiOffsets.id.rawValue
-                    if seiData[id] == timestampSEIBytes[id] { // good enough - timestamp!
-                        seiData.withUnsafeMutableBytes {
-                            guard let ptr = $0.baseAddress else { fatalError() }
-                            var timeValue: UInt64 = 0
-                            var timeScale: UInt32 = 0
-                            memcpy(&timeValue,
-                                   ptr.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
-                                   MemoryLayout<Int64>.size)
-                            memcpy(&timeScale,
-                                   ptr.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
-                                   MemoryLayout<Int32>.size)
-                            var tempSequence: UInt64 = 0
-                            memcpy(&tempSequence,
-                                   ptr.advanced(by: TimestampSeiOffsets.sequence.rawValue),
-                                   MemoryLayout<UInt64>.size)
-                            var tempFps: UInt8 = 0
-                            memcpy(&tempFps,
-                                   ptr.advanced(by: TimestampSeiOffsets.fps.rawValue),
-                                   MemoryLayout<UInt8>.size)
-                            fps = tempFps
-                            timeValue = CFSwapInt64BigToHost(timeValue)
-                            timeScale = CFSwapInt32BigToHost(timeScale)
-                            sequenceNumber = CFSwapInt64BigToHost(tempSequence)
-                            let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                                       timescale: Int32(timeScale))
-
-                            timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                                          presentationTimeStamp: timeStamp,
-                                                          decodeTimeStamp: .invalid)
-                        }
-                    } else {
-                        // Unhandled SEI
-                    }
+                try nalu.withUnsafeBytes {
+                    try parseCustomSEI($0,
+                                       orientation: &orientation,
+                                       verticalMirror: &verticalMirror,
+                                       timeInfo: &timeInfo,
+                                       fps: &fps,
+                                       sequenceNumber: &sequenceNumber)
                 }
             }
 
@@ -264,46 +229,23 @@ class H264Utilities {
             }
 
             if type == .pFrame || type == .idr {
-                results.append(try buildSampleBuffer(&nalu,
-                                                     groupId: groupId,
-                                                     objectId: objectId,
-                                                     timeInfo: timeInfo,
-                                                     format: format,
-                                                     copy: copy,
-                                                     orientation: orientation,
-                                                     verticalMirror: verticalMirror,
-                                                     sequenceNumber: sequenceNumber,
-                                                     fps: fps))
+                var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
+                nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
+                try nalu.withUnsafeBytes {
+                    results.append(try buildSampleBuffer($0,
+                                                         groupId: groupId,
+                                                         objectId: objectId,
+                                                         timeInfo: timeInfo,
+                                                         format: format,
+                                                         copy: copy,
+                                                         orientation: orientation,
+                                                         verticalMirror: verticalMirror,
+                                                         sequenceNumber: sequenceNumber,
+                                                         fps: fps))
+                }
             }
         }
         return results.count > 0 ? results : nil
-    }
-
-    static func buildSampleBuffer(_ nalu: inout Data,
-                                  groupId: UInt32,
-                                  objectId: UInt16,
-                                  timeInfo: CMSampleTimingInfo?,
-                                  format: CMFormatDescription?,
-                                  copy: Bool,
-                                  orientation: AVCaptureVideoOrientation?,
-                                  verticalMirror: Bool?,
-                                  sequenceNumber: UInt64?,
-                                  fps: UInt8?) throws -> CMSampleBuffer {
-        // Change start code to length
-        var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
-        nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
-        return try nalu.withUnsafeBytes {
-            try buildSampleBuffer($0,
-                                  groupId: groupId,
-                                  objectId: objectId,
-                                  timeInfo: timeInfo,
-                                  format: format,
-                                  copy: copy,
-                                  orientation: orientation,
-                                  verticalMirror: verticalMirror,
-                                  sequenceNumber: sequenceNumber,
-                                  fps: fps)
-        }
     }
 
     static func buildSampleBuffer(_ nalu: UnsafeRawBufferPointer,
@@ -430,10 +372,10 @@ class H264Utilities {
 
     static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8, startCode: Bool) -> [UInt8] {
         var bytes = timestampSEIBytes
-        var networkTimeValue = CFSwapInt64HostToBig(UInt64(timestamp.value))
-        var networkTimeScale = CFSwapInt32HostToBig(UInt32(timestamp.timescale))
-        var seq = CFSwapInt64HostToBig(sequenceNumber)
-        var fps = fps
+        var networkTimeValue = timestamp.value.byteSwapped
+        var networkTimeScale = timestamp.timescale.byteSwapped
+        var seq = sequenceNumber.byteSwapped
+        bytes[TimestampSeiOffsets.fps.rawValue] = fps
         bytes.withUnsafeMutableBytes {
             if !startCode {
                 var length = UInt32($0.count - Self.naluStartCode.count).bigEndian
@@ -448,53 +390,48 @@ class H264Utilities {
             memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
                    &seq,
                    MemoryLayout<Int64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
-                   &fps,
-                   MemoryLayout<UInt8>.size) // 4
         }
         return bytes
     }
 
-    static func parseCustomSEI(_ seiData: UnsafeRawBufferPointer, orientation: inout AVCaptureVideoOrientation?, verticalMirror: inout Bool?, timeInfo: inout CMSampleTimingInfo?, fps: inout UInt8?, sequenceNumber: inout UInt64?) {
+    static func parseCustomSEI(_ seiData: UnsafeRawBufferPointer, orientation: inout AVCaptureVideoOrientation?, verticalMirror: inout Bool?, timeInfo: inout CMSampleTimingInfo?, fps: inout UInt8?, sequenceNumber: inout UInt64?) throws {
         if seiData.count == orientationSei.count { // Orientation
-            let payloadLength = OrientationSeiOffsets.payloadLength.rawValue
-            if seiData[payloadLength] == orientationSei[payloadLength] { // yep - orientation
-                orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
-                verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
-            }
+            try parseOrientationSEI(seiData, orientation: &orientation, verticalMirror: &verticalMirror)
         } else if seiData.count == timestampSEIBytes.count { // timestamp?
-            let id = TimestampSeiOffsets.id.rawValue
-            if seiData[id] == timestampSEIBytes[id] { // good enough - timestamp!
-                var timeValue: UInt64 = 0
-                var timeScale: UInt32 = 0
-                memcpy(&timeValue,
-                       seiData.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
-                       MemoryLayout<Int64>.size)
-                memcpy(&timeScale,
-                       seiData.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
-                       MemoryLayout<Int32>.size)
-                var tempSequence: UInt64 = 0
-                memcpy(&tempSequence,
-                       seiData.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
-                       MemoryLayout<UInt64>.size)
-                var tempFps: UInt8 = 0
-                memcpy(&tempFps,
-                       seiData.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
-                       MemoryLayout<UInt8>.size)
-                fps = tempFps
-                timeValue = CFSwapInt64BigToHost(timeValue)
-                timeScale = CFSwapInt32BigToHost(timeScale)
-                sequenceNumber = CFSwapInt64BigToHost(tempSequence)
-                let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                           timescale: Int32(timeScale))
-
-                timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                              presentationTimeStamp: timeStamp,
-                                              decodeTimeStamp: .invalid)
-
-            } else {
-                // Unhandled SEI
+            if seiData[TimestampSeiOffsets.id.rawValue] == timestampSEIBytes[TimestampSeiOffsets.id.rawValue] { // good enough - timestamp!
+                try parseTimestampSEI(seiData, timeInfo: &timeInfo, fps: &fps, sequenceNumber: &sequenceNumber)
             }
         }
+    }
+
+    static func parseOrientationSEI(_ seiData: UnsafeRawBufferPointer,
+                                    orientation: inout AVCaptureVideoOrientation?,
+                                    verticalMirror: inout Bool?) throws {
+        let payloadLength = OrientationSeiOffsets.payloadLength.rawValue
+        guard seiData[payloadLength] == Self.orientationSei[payloadLength] else {
+            throw "Length mismatch"
+        }
+        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
+        verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
+    }
+
+    static func parseTimestampSEI(_ seiData: UnsafeRawBufferPointer,
+                                  timeInfo: inout CMSampleTimingInfo?,
+                                  fps: inout UInt8?,
+                                  sequenceNumber: inout UInt64?) throws {
+        guard seiData[TimestampSeiOffsets.id.rawValue] == Self.timestampSEIBytes[TimestampSeiOffsets.id.rawValue] else {
+            throw "ID mismatch"
+        }
+        guard let ptr = seiData.baseAddress else {
+            throw "Bad pointer"
+        }
+        let timeValue = ptr.loadUnaligned(fromByteOffset: TimestampSeiOffsets.timeValue.rawValue, as: Int64.self).byteSwapped
+        let timeScale = ptr.loadUnaligned(fromByteOffset: TimestampSeiOffsets.timeScale.rawValue, as: Int32.self).byteSwapped
+        sequenceNumber = ptr.loadUnaligned(fromByteOffset: TimestampSeiOffsets.sequence.rawValue, as: UInt64.self).byteSwapped
+        fps = seiData[TimestampSeiOffsets.fps.rawValue]
+        let timeStamp = CMTimeMake(value: timeValue, timescale: timeScale)
+        timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                      presentationTimeStamp: timeStamp,
+                                      decodeTimeStamp: .invalid)
     }
 }
