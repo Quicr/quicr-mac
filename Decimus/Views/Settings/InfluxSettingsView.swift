@@ -17,6 +17,10 @@ struct InfluxSettingsView: View {
                         Text("Granular")
                         Toggle(isOn: $influxConfig.value.granular) {}
                     }
+                    HStack {
+                        Text("Realtime")
+                        Toggle(isOn: $influxConfig.value.realtime) {}
+                    }
                 }
 
                 LabeledContent("Interval (s)") {

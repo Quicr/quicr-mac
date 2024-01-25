@@ -3,6 +3,7 @@ import Foundation
 struct InfluxConfig: Codable {
     var submit: Bool  = false
     var granular: Bool = false
+    var realtime: Bool = false
     var url: String = "http://metrics.m10x.ctgpoc.com:8086"
     var username: String = "admin"
     var password: String = "ctoMedia10x"
