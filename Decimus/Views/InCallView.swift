@@ -131,7 +131,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-                
+
                 if self.lastTap.timeIntervalSince(.now) < -5 {
                     withAnimation {
                         if self.showPreview {
@@ -149,7 +149,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-                
+
                 if connecting || leaving {
                     continue
                 }
@@ -174,6 +174,7 @@ extension InCallView {
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
         private var measurement: _Measurement?
+        private var submitter: MetricsSubmitter?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -197,27 +198,23 @@ extension InCallView {
                 "protocol": "\(config.connectionProtocol)"
             ]
 
-            var submitter: MetricsSubmitter?
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
                 self.measurement = .init(submitter: influx)
-                Task {
-                    await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
-                }
+                if influxConfig.value.realtime {
+                    // Application metrics timer.
+                    self.appMetricTimer = .init(priority: .utility) { [weak self] in
+                        while !Task.isCancelled,
+                              let self = self {
+                            let usage = try cpuUsage()
+                            await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
 
-                // Application metrics timer.
-                self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                    while !Task.isCancelled,
-                          let self = self {
-                        let usage = try cpuUsage()
-                        await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-                        try? await Task.sleep(for: .seconds(1), tolerance: .seconds(1))
+                            await self.submitter?.submit()
+                            try? await Task.sleep(for: .seconds(influxConfig.value.intervalSecs), tolerance: .seconds(1))
+                        }
                     }
                 }
-            } else {
-                self.appMetricTimer = nil
-                self.measurement = nil
             }
 
             do {
@@ -260,6 +257,9 @@ extension InCallView {
         }
 
         func leave() async {
+            // Submit all pending metrics.
+            await submitter?.submit()
+
             do {
                 try captureManager?.stopCapturing()
                 try engine?.stop()
