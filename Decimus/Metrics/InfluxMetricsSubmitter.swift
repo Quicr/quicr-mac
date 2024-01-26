@@ -7,7 +7,6 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
 
     private let client: InfluxDBClient
     private var measurements: [Measurement] = []
-    private var submissionTask: Task<(), Never>?
     private var tags: [String: String]
 
     init(config: InfluxConfig, tags: [String: String]) {
@@ -19,21 +18,11 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         self.tags = tags
     }
 
-    func startSubmitting(interval: Int) {
-        submissionTask = .init(priority: .utility) { [weak self] in
-            while !Task.isCancelled {
-                guard let self else { return }
-                await self.writeAll()
-                try? await Task.sleep(until: .now + .seconds(5), tolerance: .seconds(1), clock: .continuous)
-            }
-        }
-    }
-
     func register(measurement: Measurement) {
         measurements.append(measurement)
     }
 
-    private func writeAll() async {
+    func submit() async {
         var points: [InfluxDBClient.Point] = []
         for measurement in measurements {
             for timestampedDict in await measurement.fields {
@@ -83,7 +72,6 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     deinit {
-        submissionTask?.cancel()
         client.close()
     }
 }
