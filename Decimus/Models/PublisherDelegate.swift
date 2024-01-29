@@ -9,6 +9,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
     private unowned let publishDelegate: QPublishObjectDelegateObjC
     private let metricsSubmitter: MetricsSubmitter?
     private let factory: PublicationFactory
+    private let bitrate: BitrateType
 
     init(publishDelegate: QPublishObjectDelegateObjC,
          metricsSubmitter: MetricsSubmitter?,
@@ -17,10 +18,12 @@ class PublisherDelegate: QPublisherDelegateObjC {
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
-         hevcOverride: Bool) {
+         hevcOverride: Bool,
+         bitrateType: BitrateType) {
         self.publishDelegate = publishDelegate
         self.metricsSubmitter = metricsSubmitter
         self.capture = captureManager
+        self.bitrate = bitrateType
         self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
                              engine: engine,
@@ -31,7 +34,8 @@ class PublisherDelegate: QPublisherDelegateObjC {
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,
                      sourceID: SourceIDType!,
                      qualityProfile: String!) -> QPublicationDelegateObjC? {
-        let config = CodecFactory.makeCodecConfig(from: qualityProfile!)
+        let config = CodecFactory.makeCodecConfig(from: qualityProfile!,
+                                                  bitrateType: self.bitrate)
         do {
             let publication = try factory.create(quicrNamepace,
                                                  publishDelegate: publishDelegate,

@@ -52,6 +52,7 @@ struct SubscriptionConfig: Codable {
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
     var timeQueueTTL: Int
+    var bitrateType: BitrateType
 
     init() {
         jitterMaxTime = 0.5
@@ -61,13 +62,14 @@ struct SubscriptionConfig: Codable {
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
         quicWifiShadowRttUs = 0.150
-        videoJitterBuffer = .init()
+        videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
         hevcOverride = false
-        isSingleOrderedSub = true
+        isSingleOrderedSub = false
         isSingleOrderedPub = false
-        simulreceive = .none
+        simulreceive = .enable
         qualityMissThreshold = 3
         timeQueueTTL = 100
+        bitrateType = .average
     }
 }
 
@@ -97,7 +99,8 @@ class SubscriptionFactory {
         var codecType: CodecType?
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
+            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
+                                                      bitrateType: config.bitrateType)
             if let codecType = codecType {
                 assert(codecType == config.codec)
             } else {
