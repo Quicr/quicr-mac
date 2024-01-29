@@ -61,7 +61,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
+            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
+                                                      bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
@@ -69,7 +70,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                       bitrate: config.bitrate,
                                                       fps: config.fps,
                                                       width: config.width,
-                                                      height: config.height) : config
+                                                      height: config.height,
+                                                      bitrateType: config.bitrateType) : config
             let namespace = QuicrNamespace(cString: profile.quicrNamespace)
             createdProfiles[namespace] = adjustedConfig
         }

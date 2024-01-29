@@ -86,9 +86,17 @@ class VTEncoder {
             VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
         }
 
+        let bitrateKey: CFString
+        switch config.bitrateType {
+        case .constant:
+            bitrateKey = kVTCompressionPropertyKey_ConstantBitRate
+        case .average:
+            bitrateKey = kVTCompressionPropertyKey_AverageBitRate
+        }
+
         try OSStatusError.checked("Set average bitrate: \(self.config.bitrate)") {
             VTSessionSetProperty(encoder,
-                                 key: kVTCompressionPropertyKey_AverageBitRate,
+                                 key: bitrateKey,
                                  value: config.bitrate as CFNumber)
         }
 

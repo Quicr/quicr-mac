@@ -56,6 +56,14 @@ struct SubscriptionSettingsView: View {
                     Toggle(isOn: $subscriptionConfig.value.hevcOverride) {}
                 }
 
+                LabeledContent("Encoder bitrate") {
+                    Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {
+                        ForEach(BitrateType.allCases) {
+                            Text(String(describing: $0))
+                        }
+                    }.pickerStyle(.segmented)
+                }
+
                 if #available(iOS 17.0, *) {
                     Picker("Preferred Camera", selection: $preferredCamera) {
                         Text("None").tag("None")
