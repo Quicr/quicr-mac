@@ -64,6 +64,18 @@ struct SubscriptionSettingsView: View {
                     }.pickerStyle(.segmented)
                 }
 
+                LabeledContent("Data rate limit (multiplier)") {
+                    HStack {
+                        Slider(value: $subscriptionConfig.value.limit1s,
+                               in: 1.0...5.0,
+                               step: 0.1) {
+                            Text("Data rate limit (multiplier)")
+                        }
+                        Text(String(format: "%.1fx", subscriptionConfig.value.limit1s))
+                            .foregroundColor(.blue)
+                    }
+                }
+
                 if #available(iOS 17.0, *) {
                     Picker("Preferred Camera", selection: $preferredCamera) {
                         Text("None").tag("None")

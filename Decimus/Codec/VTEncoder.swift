@@ -100,6 +100,13 @@ class VTEncoder {
                                  value: config.bitrate as CFNumber)
         }
 
+        let dataRateLimits: NSArray = [NSNumber(value: Double(self.config.bitrate) * self.config.limit1s / 8), NSNumber(value: 1)]
+        try OSStatusError.checked("Set data limit: \(self.config.limit1s)x") {
+            VTSessionSetProperty(encoder,
+                                 key: kVTCompressionPropertyKey_DataRateLimits,
+                                 value: dataRateLimits as CFArray)
+        }
+
         try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
             VTSessionSetProperty(encoder,
                                  key: kVTCompressionPropertyKey_ExpectedFrameRate,

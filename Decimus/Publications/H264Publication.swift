@@ -41,7 +41,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                           fps: config.fps,
                                           width: config.width,
                                           height: config.height,
-                                          bitrateType: config.bitrateType) : config
+                                          bitrateType: config.bitrateType,
+                                          limit1s: config.limit1s) : config
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
         } else {
