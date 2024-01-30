@@ -37,7 +37,6 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    reliability: config.mediaReliability,
                                                    engine: engine,
                                                    granularMetrics: granularMetrics,
-                                                   hevcOverride: config.hevcOverride,
                                                    bitrateType: config.bitrateType,
                                                    limit1s: config.limit1s)
     }

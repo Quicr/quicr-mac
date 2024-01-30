@@ -40,7 +40,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
-         hevcOverride: Bool,
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
@@ -67,15 +66,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
-            let adjustedConfig = hevcOverride ? .init(codec: .hevc,
-                                                      bitrate: config.bitrate,
-                                                      fps: config.fps,
-                                                      width: config.width,
-                                                      height: config.height,
-                                                      bitrateType: config.bitrateType,
-                                                      limit1s: config.limit1s) : config
             let namespace = QuicrNamespace(cString: profile.quicrNamespace)
-            createdProfiles[namespace] = adjustedConfig
+            createdProfiles[namespace] = config
         }
 
         // Make all the video handlers upfront.

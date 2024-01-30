@@ -46,7 +46,6 @@ struct SubscriptionConfig: Codable {
     var quicCwinMinimumKiB: UInt64
     var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
-    var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
@@ -64,7 +63,6 @@ struct SubscriptionConfig: Codable {
         quicCwinMinimumKiB = 128
         quicWifiShadowRttUs = 0.150
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
-        hevcOverride = false
         isSingleOrderedSub = false
         isSingleOrderedPub = false
         simulreceive = .enable
@@ -112,7 +110,7 @@ class SubscriptionFactory {
         }
 
         switch codecType {
-        case .h264:
+        case .h264, .hevc:
             let namegate: NameGate
             switch self.config.videoBehaviour {
             case .artifact:
@@ -129,7 +127,6 @@ class SubscriptionFactory {
                                          reliable: self.config.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,
-                                         hevcOverride: self.config.hevcOverride,
                                          simulreceive: self.config.simulreceive,
                                          qualityMissThreshold: self.config.qualityMissThreshold)
         case .opus:
