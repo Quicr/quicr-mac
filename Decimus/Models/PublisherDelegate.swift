@@ -19,7 +19,6 @@ class PublisherDelegate: QPublisherDelegateObjC {
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
-         hevcOverride: Bool,
          bitrateType: BitrateType,
          limit1s: Double) {
         self.publishDelegate = publishDelegate
@@ -30,8 +29,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
         self.factory = .init(opusWindowSize: opusWindowSize,
                              reliability: reliability,
                              engine: engine,
-                             granularMetrics: granularMetrics,
-                             hevcOverride: hevcOverride)
+                             granularMetrics: granularMetrics)
     }
 
     func allocatePub(byNamespace quicrNamepace: QuicrNamespace!,

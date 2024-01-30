@@ -51,10 +51,6 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
-                HStack {
-                    Text("HEVC override")
-                    Toggle(isOn: $subscriptionConfig.value.hevcOverride) {}
-                }
 
                 LabeledContent("Encoder bitrate") {
                     Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {

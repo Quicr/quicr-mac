@@ -92,7 +92,7 @@ class CodecFactory {
     static func makeCodecConfig(codec: CodecType, bitrateType: BitrateType, limit1s: Double, tokens: [String: String]) -> CodecConfig {
         do {
             switch codec {
-            case .h264:
+            case .h264, .hevc:
                 return try VideoCodecConfig(codec: codec, bitrateType: bitrateType, limit1s: limit1s, tokens: tokens)
             case .opus:
                 return try AudioCodecConfig(codec: codec, tokens: tokens)
