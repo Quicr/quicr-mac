@@ -53,6 +53,7 @@ struct SubscriptionConfig: Codable {
     var qualityMissThreshold: Int
     var timeQueueTTL: Int
     var bitrateType: BitrateType
+    var limit1s: Double
 
     init() {
         jitterMaxTime = 0.5
@@ -70,6 +71,7 @@ struct SubscriptionConfig: Codable {
         qualityMissThreshold = 3
         timeQueueTTL = 100
         bitrateType = .average
+        limit1s = 2.5
     }
 }
 
@@ -100,7 +102,8 @@ class SubscriptionFactory {
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: config.bitrateType)
+                                                      bitrateType: config.bitrateType,
+                                                      limit1s: config.limit1s)
             if let codecType = codecType {
                 assert(codecType == config.codec)
             } else {
