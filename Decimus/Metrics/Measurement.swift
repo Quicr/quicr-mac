@@ -14,4 +14,8 @@ extension Measurement {
         }
         fields[timestamp]![field] = value
     }
+
+    func clear() {
+        fields.removeAll(keepingCapacity: true)
+    }
 }
