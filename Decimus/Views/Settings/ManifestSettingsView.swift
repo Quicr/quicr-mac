@@ -32,6 +32,7 @@ struct ManifestSettingsView: View {
                 LabeledContent("Address") {
                     TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
                         .keyboardType(.URL)
+                        .disableAutocorrection()
                         .onChange(of: manifestConfig.value.url) { _ in
                             ManifestController.shared.setServer(config: manifestConfig.value)
                             Task {

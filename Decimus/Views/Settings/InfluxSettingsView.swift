@@ -32,10 +32,13 @@ struct InfluxSettingsView: View {
 
                 LabeledContent("URL") {
                     TextField("URL", text: $influxConfig.value.url)
+                        .keyboardType(.URL)
+                        .disableAutocorrection()
                 }
 
                 LabeledContent("Username") {
                     TextField("Username", text: $influxConfig.value.username)
+                        .disableAutocorrection()
                 }
 
                 LabeledContent("Password") {
@@ -44,10 +47,12 @@ struct InfluxSettingsView: View {
 
                 LabeledContent("Bucket") {
                     TextField("Bucket", text: $influxConfig.value.bucket)
+                        .disableAutocorrection()
                 }
 
                 LabeledContent("Org") {
                     TextField("Org", text: $influxConfig.value.org)
+                        .disableAutocorrection()
                 }
 
                 LabeledContent("Token") {

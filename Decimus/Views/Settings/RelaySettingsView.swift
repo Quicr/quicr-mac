@@ -11,6 +11,7 @@ struct RelaySettingsView: View {
                 LabeledContent("Address") {
                     TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
                         .keyboardType(.URL)
+                        .disableAutocorrection()
                 }
 
                 LabeledContent("Protocol") {
