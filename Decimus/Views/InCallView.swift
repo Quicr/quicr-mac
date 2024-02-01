@@ -99,7 +99,7 @@ struct InCallView: View {
 
             if leaving {
                 LeaveModal(leaveAction: {
-                    Task { await viewModel.leave() }
+                    await viewModel.leave()
                     onLeave()
                 }, cancelAction: leaving = false)
                 .frame(maxWidth: 400, alignment: .center)

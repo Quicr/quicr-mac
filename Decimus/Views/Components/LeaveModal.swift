@@ -1,25 +1,27 @@
 import SwiftUI
 
 struct LeaveModal: View {
-    private let leaveAction: () -> Void
+    private let leaveAction: () async -> Void
     private let cancelAction: () -> Void
+    @State private var leaving = false
 
-    init(leaveAction: @escaping () -> Void, cancelAction: @autoclosure @escaping () -> Void) {
+    init(leaveAction: @escaping () async -> Void, cancelAction: @autoclosure @escaping () -> Void) {
         self.leaveAction = leaveAction
         self.cancelAction = cancelAction
     }
 
-    init(leaveAction: @escaping () async -> Void, cancelAction: @escaping () async -> Void) {
-        self.leaveAction = { Task { await leaveAction() }}
-        self.cancelAction = { Task { await cancelAction() }}
-    }
-
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Leave Meeting")
-                .foregroundColor(.white)
-                .font(.title)
-                .padding(.bottom)
+            HStack {
+                Text("Leave Meeting")
+                    .foregroundColor(.white)
+                    .font(.title)
+                    .padding(.bottom)
+                Spacer()
+                if self.leaving {
+                    ProgressView()
+                }
+            }
             Text("Do you want to leave this meeting?")
                 .foregroundColor(.gray)
                 .font(.body)
@@ -33,11 +35,17 @@ struct LeaveModal: View {
                                 borderColour: .gray),
                              action: cancelAction)
                     .fixedSize()
-                ActionButton("Leave Meeting",
+                ActionButton(self.leaving ? "Leaving..." : "Leave Meeting",
                              styleConfig: .init(
                                 background: .white,
                                 foreground: .black),
-                             action: leaveAction)
+                             action: {
+                    Task {
+                        self.leaving = true
+                        await self.leaveAction()
+                        self.leaving = false
+                    }
+                })
                     .fixedSize()
             }
         }
