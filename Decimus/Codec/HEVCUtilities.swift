@@ -140,10 +140,13 @@ class HEVCUtilities {
 
                     if match {
                         let tempTimeValue: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
+                        defer { tempTimeValue.deallocate() }
                         let tempTimeScale: UnsafeMutableBufferPointer<UInt32> = .allocate(capacity: 1)
+                        defer { tempTimeScale.deallocate() }
                         _ = seiData.advanced(by: TimestampSeiOffsets.timeValue.rawValue).copyBytes(to: tempTimeValue)
                         _ = seiData.advanced(by: TimestampSeiOffsets.timeScale.rawValue).copyBytes(to: tempTimeScale)
                         let tempSequence: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
+                        defer { tempSequence.deallocate() }
                         _ = seiData.advanced(by: TimestampSeiOffsets.sequence.rawValue).copyBytes(to: tempSequence)
                         var tempFps: UInt8 = 0
                         seiData.advanced(by: TimestampSeiOffsets.fps.rawValue).copyBytes(to: &tempFps, count: 1)
