@@ -4,6 +4,7 @@ import Foundation
 import os
 
 enum CodecError: Error {
+    case unsupportedCodecSet(Set<CodecType>)
     case noCodecFound(CodecType)
     case failedToCreateCodec(CodecType)
     case invalidEntry(String)

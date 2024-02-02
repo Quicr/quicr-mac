@@ -95,22 +95,25 @@ class SubscriptionFactory {
     func create(_ sourceId: SourceIDType,
                 profileSet: QClientProfileSet,
                 metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
-        // TODO: This is sketchy.
-        var codecType: CodecType?
+        let videoCodecs: Set<CodecType> = [.h264, .hevc]
+        let opusCodecs: Set<CodecType> = [.opus]
+        let supportedCodecGroups: [Set<CodecType>] = [videoCodecs, opusCodecs]
+
+        var foundCodecs: [CodecType] = []
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
                                                       bitrateType: config.bitrateType,
                                                       limit1s: config.limit1s)
-            if let codecType = codecType {
-                assert(codecType == config.codec)
-            } else {
-                codecType = config.codec
-            }
+            foundCodecs.append(config.codec)
         }
 
-        switch codecType {
-        case .h264, .hevc:
+        let found = Set(foundCodecs)
+        guard supportedCodecGroups.contains(found) else {
+            throw "ProfileSet not supported"
+        }
+
+        if found == videoCodecs {
             let namegate: NameGate
             switch self.config.videoBehaviour {
             case .artifact:
@@ -129,7 +132,9 @@ class SubscriptionFactory {
                                          jitterBufferConfig: self.config.videoJitterBuffer,
                                          simulreceive: self.config.simulreceive,
                                          qualityMissThreshold: self.config.qualityMissThreshold)
-        case .opus:
+        }
+
+        if found == opusCodecs {
             return try OpusSubscription(sourceId: sourceId,
                                         profileSet: profileSet,
                                         engine: self.engine,
@@ -139,8 +144,8 @@ class SubscriptionFactory {
                                         opusWindowSize: self.config.opusWindowSize,
                                         reliable: self.config.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics)
-        default:
-            throw CodecError.noCodecFound(codecType ?? .unknown)
         }
+
+        throw CodecError.unsupportedCodecSet(found)
     }
 }
