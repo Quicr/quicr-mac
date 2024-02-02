@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */; };
 		18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */; };
+		183600592B6BCBAC00BC2919 /* SubscriptionPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */; };
 		1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */; };
 		1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86E2ABAE51A00275F71 /* OSStatusError.swift */; };
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
@@ -160,6 +161,7 @@
 /* Begin PBXFileReference section */
 		180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoHandler.swift; sourceTree = "<group>"; };
 		18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransportConfigSettings.swift; sourceTree = "<group>"; };
+		183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionPopover.swift; sourceTree = "<group>"; };
 		1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusAudioEngine.swift; sourceTree = "<group>"; };
 		1848B86E2ABAE51A00275F71 /* OSStatusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSStatusError.swift; sourceTree = "<group>"; };
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
@@ -615,6 +617,7 @@
 				FFB8CBE429C148B70093C623 /* ActionPicker.swift */,
 				FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */,
 				1867950A2AD58E54008F99C6 /* PreviewView.swift */,
+				183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -857,6 +860,7 @@
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
+				183600592B6BCBAC00BC2919 /* SubscriptionPopover.swift in Sources */,
 				186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */,

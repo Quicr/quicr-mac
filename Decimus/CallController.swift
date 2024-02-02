@@ -73,4 +73,12 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
+
+    func fetchSwitchingSets() -> [String] {
+        self.getSwitchingSets() as NSArray as! [String]
+    }
+
+    func fetchSubscriptions(sourceId: String) -> [String] {
+        self.getSubscriptions(sourceId) as NSArray as! [String]
+    }
 }
