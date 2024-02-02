@@ -95,10 +95,11 @@ class SubscriptionFactory {
     func create(_ sourceId: SourceIDType,
                 profileSet: QClientProfileSet,
                 metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
+        // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
-        let supportedCodecGroups: [Set<CodecType>] = [videoCodecs, opusCodecs]
 
+        // Resolve profile sets to config.
         var foundCodecs: [CodecType] = []
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
@@ -107,11 +108,7 @@ class SubscriptionFactory {
                                                       limit1s: config.limit1s)
             foundCodecs.append(config.codec)
         }
-
         let found = Set(foundCodecs)
-        guard supportedCodecGroups.contains(found) else {
-            throw "ProfileSet not supported"
-        }
 
         if found == videoCodecs {
             let namegate: NameGate
