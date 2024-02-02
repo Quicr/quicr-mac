@@ -110,7 +110,7 @@ class SubscriptionFactory {
         }
         let found = Set(foundCodecs)
 
-        if found == videoCodecs {
+        if found.isSubset(of: videoCodecs) {
             let namegate: NameGate
             switch self.config.videoBehaviour {
             case .artifact:
@@ -131,7 +131,7 @@ class SubscriptionFactory {
                                          qualityMissThreshold: self.config.qualityMissThreshold)
         }
 
-        if found == opusCodecs {
+        if found.isSubset(of: opusCodecs) {
             return try OpusSubscription(sourceId: sourceId,
                                         profileSet: profileSet,
                                         engine: self.engine,
