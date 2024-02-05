@@ -2,6 +2,7 @@
 dependencies/build-*/
 dependencies/qmedia.xcframework
 dependencies/clibjitter.xcframework
+Brewfile.lock.json
 
 #Xcode
 #
