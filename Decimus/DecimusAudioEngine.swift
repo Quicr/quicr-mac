@@ -12,14 +12,15 @@ class DecimusAudioEngine {
     private static let logger: DecimusLogger = .init(DecimusAudioEngine.self)
 
     /// The AVAudioEngine instance this AudioEngine wraps.
-    let engine: AVAudioEngine = .init()
-
+    private let engine: AVAudioEngine
     private var blocks: MutableWrapper<[AnyHashable: AVAudioSinkNodeReceiverBlock]> = .init(value: [:])
     private var notificationObservers: [NSObjectProtocol] = []
-    private let sink: AVAudioSinkNode
+    private let sink: AVAudioSinkNode?
     private var stopped: Bool = false
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
     private var lock = NSLock()
+    private let inputNodePresent: Bool
+    private let outputNodePresent: Bool
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
@@ -72,40 +73,68 @@ class DecimusAudioEngine {
 
     init() throws {
         // Configure the session.
+        let engine = AVAudioEngine()
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
                                 options: [.defaultToSpeaker, .allowBluetooth])
 
+        // Check for I/O.
+        let inputFormat = engine.inputNode.inputFormat(forBus: 0)
+        let inputNode = engine.inputNode
+        self.inputNodePresent = inputFormat.sampleRate > 0 && inputFormat.channelCount > 0
+        if !self.inputNodePresent {
+            Self.logger.warning("Couldn't find a microphone to use", alert: true)
+        }
+        let outputFormat = engine.outputNode.outputFormat(forBus: 0)
+        self.outputNodePresent = outputFormat.sampleRate > 0 && outputFormat.channelCount > 0
+        if !self.outputNodePresent {
+            Self.logger.warning("Couldn't find a speaker to use", alert: true)
+        }
+
         // Enable voice processing.
-        if !engine.outputNode.isVoiceProcessingEnabled {
-            try engine.outputNode.setVoiceProcessingEnabled(true)
+        if self.outputNodePresent && self.inputNodePresent {
+            if !engine.outputNode.isVoiceProcessingEnabled {
+                do {
+                    try SwiftInterop.catchException {
+                        do {
+                            try engine.outputNode.setVoiceProcessingEnabled(true)
+                        } catch {
+                            Self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
+                        }
+                    }
+                } catch {
+                    Self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
+                }
+            }
         }
-        guard engine.outputNode.isVoiceProcessingEnabled,
-              engine.inputNode.isVoiceProcessingEnabled else {
-            throw "Voice processing missmatch"
-        }
+        self.engine = engine
 
         // Ducking.
-        #if compiler(>=5.9)
-        if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
-            let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
-                                                                                      duckingLevel: .min)
-            engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
-        }
-        #endif
-
-        // Capture microphone audio.
-        sink = .init { [weak blocks] timestamp, frames, data in
-            guard let blocks = blocks else { return .zero }
-            var success = true
-            for block in blocks.value.values {
-                success = success && block(timestamp, frames, data) == .zero
+        if self.inputNodePresent {
+#if compiler(>=5.9)
+            if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
+                let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
+                                                                                          duckingLevel: .min)
+                engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
             }
-            return success ? .zero : 1
+#endif
+
+            // Capture microphone audio.
+            let sink = AVAudioSinkNode { [weak blocks] timestamp, frames, data in
+                guard let blocks = blocks else { return .zero }
+                var success = true
+                for block in blocks.value.values {
+                    success = success && block(timestamp, frames, data) == .zero
+                }
+                return success ? .zero : 1
+            }
+            engine.attach(sink)
+            self.sink = sink
+        } else {
+            self.sink = nil
         }
-        engine.attach(sink)
 
         // Reconfigure first time.
         try localReconfigure()
@@ -200,46 +229,76 @@ class DecimusAudioEngine {
         Self.logger.info("(\(identifier)) Removed player node")
     }
 
+    func isInputMuted() -> Bool {
+        self.inputNodePresent ? self.engine.inputNode.isVoiceProcessingInputMuted : true
+    }
+
+    func toggleMute() {
+        guard self.inputNodePresent else { return }
+        self.engine.inputNode.isVoiceProcessingInputMuted.toggle()
+    }
+
+    @available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *)
+    func setMutedSpeechActivityEventListener(_ block: ((AVAudioVoiceProcessingSpeechActivityEvent) -> Void)?) throws {
+        guard self.inputNodePresent else { return }
+        guard self.engine.inputNode.setMutedSpeechActivityEventListener(block) else {
+            throw "Couldn't set muted speech listener"
+        }
+    }
+
     private func localReconfigure() throws {
         // Reconfigure the audio session.
         let session: AVAudioSession = .sharedInstance()
         try session.setPreferredSampleRate(Self.format.sampleRate)
 
         // Inputs
-        let preSetInput = session.inputNumberOfChannels
-        try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetInput = session.inputNumberOfChannels
-        assert(preSetInput == postSetInput)
+        if self.inputNodePresent {
+            let preSetInput = session.inputNumberOfChannels
+            try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetInput = session.inputNumberOfChannels
+            assert(preSetInput == postSetInput)
+        }
 
         // Outputs
-        let preSetOutput = session.outputNumberOfChannels
-        try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetOutput = session.outputNumberOfChannels
-        assert(preSetOutput == postSetOutput)
+        if self.outputNodePresent {
+            let preSetOutput = session.outputNumberOfChannels
+            try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetOutput = session.outputNumberOfChannels
+            assert(preSetOutput == postSetOutput)
+        }
 
         // We shouldn't be running at this point.
         assert(!engine.isRunning)
 
         // Sink for microphone output.
-        engine.connect(engine.inputNode, to: sink, format: Self.format)
-        assert(engine.inputNode.numberOfOutputs == 1)
-        let inputOutputFormat = engine.inputNode.outputFormat(forBus: 0)
-        Self.logger.info("Connected microphone: \(inputOutputFormat)")
-        assert(inputOutputFormat == Self.format)
-        assert(sink.numberOfInputs == 1)
-        assert(sink.inputFormat(forBus: 0) == Self.format)
+        if self.inputNodePresent {
+            guard let sink = self.sink else {
+                throw "Sink should be present when input node present"
+            }
+            engine.connect(engine.inputNode, to: sink, format: Self.format)
+            assert(engine.inputNode.numberOfOutputs == 1)
+            let inputOutputFormat = engine.inputNode.outputFormat(forBus: 0)
+            Self.logger.info("Connected microphone: \(inputOutputFormat)")
+            assert(inputOutputFormat == Self.format)
+            assert(sink.numberOfInputs == 1)
+            assert(sink.inputFormat(forBus: 0) == Self.format)
+        }
 
         // Mixer for player nodes.
-        engine.connect(engine.mainMixerNode, to: engine.outputNode, format: Self.format)
-        assert(engine.mainMixerNode.numberOfOutputs == 1)
-        let mixerOutputFormat = engine.mainMixerNode.outputFormat(forBus: 0)
-        Self.logger.info("Connected mixer: \(mixerOutputFormat)")
-        assert(mixerOutputFormat == Self.format)
+        if self.outputNodePresent {
+            engine.connect(engine.mainMixerNode, to: engine.outputNode, format: Self.format)
+            assert(engine.mainMixerNode.numberOfOutputs == 1)
+            let mixerOutputFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+            Self.logger.info("Connected mixer: \(mixerOutputFormat)")
+            assert(mixerOutputFormat == Self.format)
 
-        // Sanity check the output format.
-        assert(engine.outputNode.numberOfInputs == 1)
-        assert(engine.outputNode.isVoiceProcessingEnabled)
-        assert(engine.outputNode.inputFormat(forBus: 0) == Self.format)
+            // Sanity check the output format.
+            assert(engine.outputNode.numberOfInputs == 1)
+            if self.inputNodePresent && self.outputNodePresent {
+                assert(engine.outputNode.isVoiceProcessingEnabled)
+            }
+            assert(engine.outputNode.inputFormat(forBus: 0) == Self.format)
+        }
 
         // We shouldn't need to reconnect source nodes to the mixer,
         // as the format should not have changed.

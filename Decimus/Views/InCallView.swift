@@ -86,15 +86,12 @@ struct InCallView: View {
                 }
 
                 // Call controls panel.
-                if let capture = viewModel.captureManager,
-                   let engine = viewModel.engine {
-                    CallControls(captureManager: capture,
-                                 engine: engine,
-                                 leaving: $leaving)
-                        .disabled(leaving)
-                        .padding(.bottom)
-                        .frame(alignment: .top)
-                }
+                CallControls(captureManager: viewModel.captureManager,
+                             engine: viewModel.engine,
+                             leaving: $leaving)
+                    .disabled(leaving)
+                    .padding(.bottom)
+                    .frame(alignment: .top)
             }
 
             if leaving {
@@ -175,6 +172,8 @@ extension InCallView {
         private var appMetricTimer: Task<(), Error>?
         private var measurement: _Measurement?
         private var submitter: MetricsSubmitter?
+        private var audioCapture = false
+        private var videoCapture = false
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -189,7 +188,6 @@ extension InCallView {
             } catch {
                 Self.logger.critical("Failed to create AudioEngine: \(error.localizedDescription)")
                 self.engine = nil
-                return
             }
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -222,22 +220,25 @@ extension InCallView {
                                                 granularMetrics: influxConfig.value.granular)
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
-                return
             }
 
-            do {
-                self.controller = try .init(metricsSubmitter: submitter,
-                                            captureManager: captureManager!,
-                                            config: subscriptionConfig.value,
-                                            engine: engine!,
-                                            granularMetrics: influxConfig.value.granular)
-            } catch {
-                Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+            if let captureManager = self.captureManager,
+               let engine = self.engine {
+                do {
+                    self.controller = try .init(metricsSubmitter: submitter,
+                                                captureManager: captureManager,
+                                                config: subscriptionConfig.value,
+                                                engine: engine,
+                                                granularMetrics: influxConfig.value.granular)
+                } catch {
+                    Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+                }
             }
         }
 
         func connected() async -> Bool {
-            if !self.controller!.connected() {
+            if let controller = self.controller,
+               !controller.connected() {
                 Self.logger.error("Connection to relay disconnected", alert: true)
                 return false
             }
@@ -247,13 +248,25 @@ extension InCallView {
         func join() async -> Bool {
             do {
                 try await self.controller?.connect(config: config)
-                try engine?.start()
-                try captureManager?.startCapturing()
-                return true
             } catch {
                 Self.logger.error("Failed to connect to call: \(error.localizedDescription)", alert: true)
                 return false
             }
+
+            do {
+                try engine?.start()
+                self.audioCapture = true
+            } catch {
+                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
+            }
+
+            do {
+                try captureManager?.startCapturing()
+                self.videoCapture = true
+            } catch {
+                Self.logger.warning("Camera failure", alert: true)
+            }
+            return true
         }
 
         func leave() async {
@@ -261,8 +274,14 @@ extension InCallView {
             await submitter?.submit()
 
             do {
-                try captureManager?.stopCapturing()
-                try engine?.stop()
+                if self.videoCapture {
+                    try captureManager?.stopCapturing()
+                    self.videoCapture = false
+                }
+                if self.audioCapture {
+                    try engine?.stop()
+                    self.audioCapture = false
+                }
             } catch {
                 Self.logger.error("Error while stopping media: \(error)", alert: true)
             }

@@ -17,7 +17,7 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(captureManager: CaptureManager?, engine: DecimusAudioEngine, leaving: Binding<Bool>) {
+    init(captureManager: CaptureManager?, engine: DecimusAudioEngine?, leaving: Binding<Bool>) {
         _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager, engine: engine))
         _leaving = leaving
     }
@@ -143,46 +143,43 @@ extension CallControls {
         @Published var videoOn: Bool = true
         @Published var talkingWhileMuted: Bool = false
         private unowned let capture: CaptureManager?
-        private unowned let engine: AVAudioEngine
+        private unowned let engine: DecimusAudioEngine?
 
-        init(captureManager: CaptureManager?, engine: DecimusAudioEngine) {
+        init(captureManager: CaptureManager?, engine: DecimusAudioEngine?) {
             self.selectedMicrophone = AVCaptureDevice.default(for: .audio)
             self.capture = captureManager
-            self.engine = engine.engine
-            audioOn = !self.engine.inputNode.isVoiceProcessingInputMuted
-            #if compiler(>=5.9)
+            self.engine = engine
+            self.audioOn = !(self.engine?.isInputMuted() ?? true)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
-                let success = self.engine.inputNode.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
-                    guard let self = self else { return }
-                    switch voiceEvent {
-                    case .started:
-                        self.talkingWhileMuted = true
-                        Self.logger.info("Talking while muted")
-                    case .ended:
-                        self.talkingWhileMuted = false
-                        Self.logger.info("Stopped talking while muted")
-                    default:
-                        break
+                do {
+                    try self.engine?.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
+                        guard let self = self else { return }
+                        switch voiceEvent {
+                        case .started:
+                            self.talkingWhileMuted = true
+                            Self.logger.info("Talking while muted")
+                        case .ended:
+                            self.talkingWhileMuted = false
+                            Self.logger.info("Stopped talking while muted")
+                        default:
+                            break
+                        }
                     }
-                }
-                guard success else {
+                } catch {
                     Self.logger.error("Unable to set muted speech activity listener")
                     return
                 }
             }
-            #endif
         }
 
         deinit {
-            #if compiler(>=5.9)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
-                let success = engine.inputNode.setMutedSpeechActivityEventListener(nil)
-                guard success else {
+                do {
+                    try self.engine?.setMutedSpeechActivityEventListener(nil)
+                } catch {
                     Self.logger.warning("Unable to unset muted speech activity listener")
-                    return
                 }
             }
-            #endif
         }
 
         func toggleVideos() {
@@ -218,8 +215,10 @@ extension CallControls {
         }
 
         func toggleMicrophone() {
-            engine.inputNode.isVoiceProcessingInputMuted.toggle()
-            self.audioOn = !engine.inputNode.isVoiceProcessingInputMuted
+            if let engine = engine {
+                engine.toggleMute()
+                self.audioOn = !engine.isInputMuted()
+            }
         }
 
         func toggleDevice(device: AVCaptureDevice) {
