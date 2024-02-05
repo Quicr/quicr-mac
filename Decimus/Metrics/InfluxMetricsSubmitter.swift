@@ -25,7 +25,9 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     func submit() async {
         var points: [InfluxDBClient.Point] = []
         for measurement in measurements {
-            for timestampedDict in await measurement.fields {
+            let fields = await measurement.fields
+            await measurement.clear()
+            for timestampedDict in fields {
                 let point: InfluxDBClient.Point = .init(await measurement.name)
                 for tag in await measurement.tags {
                     point.addTag(key: tag.key, value: tag.value)
