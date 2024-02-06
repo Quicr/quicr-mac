@@ -99,7 +99,7 @@
     return  [subscriberDelegate allocateSubBySourceId:sourceId profileSet:profileSet];
 }
 
-- (id<QPublicationDelegateObjC>)allocatePubByNamespace:(NSString *)quicrNamepace sourceID:(NSString*)sourceID qualityProfile:(NSString*)qualityProfile {
+- (id<QPublicationDelegateObjC>)allocatePubByNamespace:(NSString *)quicrNamepace sourceID:(NSString*)sourceID qualityProfile:(NSString*)qualityProfile appTag:(NSString*)appTag {
     if (!publisherDelegate) return nil;
     return  [publisherDelegate allocatePubByNamespace:quicrNamepace sourceID:sourceID qualityProfile:qualityProfile];
 }
