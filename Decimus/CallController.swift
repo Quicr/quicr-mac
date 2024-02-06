@@ -15,6 +15,7 @@ class MutableWrapper<T> {
 
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let config: SubscriptionConfig
+    private var wifiManager: WiFiManager?
     private static let logger = DecimusLogger(CallController.self)
 
     init(metricsSubmitter: MetricsSubmitter?,
@@ -39,6 +40,14 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    granularMetrics: granularMetrics,
                                                    bitrateType: config.bitrateType,
                                                    limit1s: config.limit1s)
+
+        if let submitter = metricsSubmitter {
+            do {
+                self.wifiManager = try .init(submitter: submitter)
+            } catch {
+                Self.logger.warning("Failed to init WiFi listener: \(error.localizedDescription)", alert: true)
+            }
+        }
     }
 
     func connect(config: CallConfig) async throws {
