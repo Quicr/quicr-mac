@@ -36,6 +36,10 @@ public:
 
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
 
+    void stopSubscription(const std::string& quicrNamespace);
+    std::vector<std::string> getSwitchingSets();
+    std::vector<quicr::Namespace> getSubscriptions(const std::string& sourceId);
+
 public:
     std::shared_ptr<cantina::Logger> logger;
 

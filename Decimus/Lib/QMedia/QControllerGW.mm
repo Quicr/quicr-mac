@@ -127,6 +127,30 @@
     qControllerGW.setPublicationSingleOrdered(new_value);
 }
 
+- (void)stopSubscription:(NSString *)quicrNamespace { 
+    qControllerGW.stopSubscription(std::string([quicrNamespace UTF8String]));
+}
+
+- (NSMutableArray*)getSwitchingSets {
+    const auto& switchingSets = qControllerGW.getSwitchingSets();
+    NSMutableArray *array = [[NSMutableArray alloc]init];
+    for (const auto& sourceId : switchingSets) {
+        NSString* converted = [NSString stringWithCString:sourceId.c_str() encoding:[NSString defaultCStringEncoding]];
+        [array addObject: converted];
+    }
+    return array;
+}
+
+- (NSMutableArray*)getSubscriptions: (NSString *)sourceId {
+    const auto& subscriptions = qControllerGW.getSubscriptions(std::string(sourceId.UTF8String));
+    NSMutableArray *array = [[NSMutableArray alloc]init];
+    for (const auto& quicrNamespace: subscriptions) {
+        NSString* converted = [NSString stringWithCString:std::string(quicrNamespace).c_str() encoding:[NSString defaultCStringEncoding]];
+        [array addObject: converted];
+    }
+    return array;
+}
+
 @end
 
 // C++
@@ -208,4 +232,27 @@ void QControllerGW::setSubscriptionSingleOrdered(bool new_value) {
 
 void QControllerGW::setPublicationSingleOrdered(bool new_value) {
     qController->setPublicationSingleOrdered(new_value);
+}
+
+void QControllerGW::stopSubscription(const std::string& quicrNamespaceString)
+{
+    if (qController)
+    {
+        qController->stopSubscription(std::string_view(quicrNamespaceString));
+    }
+    else
+    {
+        logger->error << "QControllerGW::stopSubscription - qController nil" << std::flush;
+    }
+}
+
+std::vector<std::string> QControllerGW::getSwitchingSets()
+{
+    assert(qController);
+    return qController->getSwitchingSets();
+}
+
+std::vector<quicr::Namespace> QControllerGW::getSubscriptions(const std::string& sourceId) {
+    assert(qController);
+    return qController->getSubscriptions(sourceId);
 }

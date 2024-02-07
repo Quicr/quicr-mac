@@ -13,6 +13,7 @@ struct InCallView: View {
     @State private var showPreview = true
     @State private var lastTap: Date = .now
     @State private var offset: CGSize = .zero
+    @State private var isShowingSheet = false
     var noParticipants: Bool {
         viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
     }
@@ -66,6 +67,9 @@ struct InCallView: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                         }
+                        Button("Alter Subscriptions") {
+                            self.isShowingSheet = true
+                        }
                     }
                     .overlay {
                         // Preview / self-view.
@@ -82,6 +86,16 @@ struct InCallView: View {
                             }
                         }
                         // swiftlint:enable:force_try
+                    }
+                    .sheet(isPresented: $isShowingSheet) {
+                        if let controller = viewModel.controller {
+                            SubscriptionPopover(controller: controller)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            self.isShowingSheet = false
+                        }
+                            .padding()
                     }
                 }
 
