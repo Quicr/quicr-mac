@@ -95,6 +95,7 @@ struct InCallView: View {
                         Button("Done") {
                             self.isShowingSheet = false
                         }
+                            .padding()
                     }
                 }
 
