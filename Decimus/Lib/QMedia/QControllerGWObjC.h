@@ -39,6 +39,9 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 -(void) updateManifest: (NSString*)manifest;
 -(void) setSubscriptionSingleOrdered:(bool) new_value;
 -(void) setPublicationSingleOrdered:(bool) new_value;
+-(void) stopSubscription: (NSString*) quicrNamespace;
+-(NSMutableArray*) getSwitchingSets;
+-(NSMutableArray*) getSubscriptions: (NSString*) sourceId;
 @end
 
 #endif /* QControllerGWObj_h */

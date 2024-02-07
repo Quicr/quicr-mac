@@ -28,11 +28,8 @@ static QClientProfile fromProfile(qmedia::manifest::Profile profile)
     clientProfile.quicrNamespace = strdup(std::string(profile.quicrNamespace).c_str());
     clientProfile.prioritiesCount = profile.priorities.size();
     clientProfile.priorities = profile.priorities.data();
-    if (profile.expiry.has_value()) {
-        clientProfile.expiry = profile.expiry.value();
-    } else {
-        clientProfile.expiry = -1;
-    }
+    clientProfile.expiryCount = profile.expiry.size();
+    clientProfile.expiry = profile.expiry.data();
     return clientProfile;
 }
 
@@ -139,7 +136,7 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 {
 }
 
-std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
+std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile, const std::string& appTag)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];
