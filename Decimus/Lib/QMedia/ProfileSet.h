@@ -8,7 +8,8 @@ struct QClientProfile {
     const char* quicrNamespace;
     const unsigned char* priorities;
     size_t prioritiesCount;
-    int32_t expiry;
+    const uint16_t* expiry;
+    size_t expiryCount;
 };
 
 struct QClientProfileSet {
