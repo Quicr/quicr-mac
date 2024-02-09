@@ -42,6 +42,7 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 -(void) stopSubscription: (NSString*) quicrNamespace;
 -(NSMutableArray*) getSwitchingSets;
 -(NSMutableArray*) getSubscriptions: (NSString*) sourceId;
+-(NSMutableArray*) getPublications;
 @end
 
 #endif /* QControllerGWObj_h */

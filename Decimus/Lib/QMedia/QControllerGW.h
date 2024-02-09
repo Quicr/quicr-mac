@@ -39,6 +39,7 @@ public:
     void stopSubscription(const std::string& quicrNamespace);
     std::vector<std::string> getSwitchingSets();
     std::vector<quicr::Namespace> getSubscriptions(const std::string& sourceId);
+    std::vector<quicr::Namespace> getPublications();
 
 public:
     std::shared_ptr<cantina::Logger> logger;

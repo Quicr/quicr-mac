@@ -151,6 +151,16 @@
     return array;
 }
 
+- (NSMutableArray*)getPublications {
+    const auto& publications = qControllerGW.getPublications();
+    NSMutableArray *array = [[NSMutableArray alloc]init];
+    for (const auto& quicrNamespace : publications) {
+        NSString* converted = [NSString stringWithCString:std::string(quicrNamespace).c_str() encoding:[NSString defaultCStringEncoding]];
+        [array addObject: converted];
+    }
+    return array;
+}
+
 @end
 
 // C++
@@ -255,4 +265,9 @@ std::vector<std::string> QControllerGW::getSwitchingSets()
 std::vector<quicr::Namespace> QControllerGW::getSubscriptions(const std::string& sourceId) {
     assert(qController);
     return qController->getSubscriptions(sourceId);
+}
+
+std::vector<quicr::Namespace> QControllerGW::getPublications() {
+    assert(qController);
+    return qController->getPublications();
 }
