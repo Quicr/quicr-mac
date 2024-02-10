@@ -55,22 +55,22 @@ class DecimusLogger {
     }
 
     func log(level: LogLevel, _ msg: String, alert: Bool = false) {
-        let now = Date.now
         logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
+        guard alert else { return }
+        let now = Date.now
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            guard alert else { return }
             Self.shared.alerts.append(.init(date: now, category: self.category, level: level, message: msg))
         }
     }
 
     func log(_ msg: String, alert: Bool = false) {
-        let now = Date.now
         logger.log("\(msg)")
-
         #if DEBUG
+        guard alert else { return }
+        let now = Date.now
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, alert else { return }
+            guard let self = self else { return }
             Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
         }
         #endif
