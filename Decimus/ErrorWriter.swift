@@ -37,7 +37,7 @@ class DecimusLogger {
 
         let date: Date
         let category: String
-        let level: LogLevel
+        let level: OSLogType
         let message: String
     }
 
@@ -54,8 +54,8 @@ class DecimusLogger {
         )
     }
 
-    func log(level: LogLevel, _ msg: String, alert: Bool = false) {
-        logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
+    func log(level: OSLogType, _ msg: String, alert: Bool = false) {
+        logger.log(level: level, "\(msg, privacy: .public)")
         guard alert else { return }
         let now = Date.now
         DispatchQueue.main.async { [weak self] in
@@ -64,24 +64,16 @@ class DecimusLogger {
         }
     }
 
-    func log(_ msg: String, alert: Bool = false) {
-        logger.log("\(msg)")
-        #if DEBUG
-        guard alert else { return }
-        let now = Date.now
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            Self.shared.alerts.append(.init(date: now, category: self.category, level: .info, message: msg))
-        }
-        #endif
+    func log(level: LogLevel, _ msg: String, alert: Bool = false) {
+        log(level: .init(level), msg, alert: alert)
     }
 
-    func critical(_ msg: String) { log(level: .critical, msg, alert: true) }
-    func error(_ msg: String, alert: Bool = false) { log(level: .error, msg, alert: alert) }
-    func warning(_ msg: String, alert: Bool = false) { log(level: .warning, msg, alert: alert) }
-    func info(_ msg: String) { log(level: .info, msg) }
-    func notice(_ msg: String, alert: Bool = false) { log(level: .info, msg, alert: alert) }
-    func debug(_ msg: String, alert: Bool = false) { log(level: .debug, msg, alert: alert) }
+    func critical(_ msg: String) { log(level: OSLogType.fault, msg, alert: true) }
+    func error(_ msg: String, alert: Bool = false) { log(level: OSLogType.error, msg, alert: alert) }
+    func warning(_ msg: String, alert: Bool = false) { log(level: OSLogType.error, msg, alert: alert) }
+    func info(_ msg: String) { log(level: OSLogType.info, msg) }
+    func notice(_ msg: String, alert: Bool = false) { log(level: OSLogType.info, msg, alert: alert) }
+    func debug(_ msg: String, alert: Bool = false) { log(level: OSLogType.debug, msg, alert: alert) }
 }
 
 extension OSLogType {

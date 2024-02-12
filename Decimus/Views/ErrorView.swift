@@ -1,11 +1,9 @@
 import SwiftUI
 
-private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
+private func getLogColour(_ level: OSLogType) -> Color {
     switch level {
-    case .error, .critical:
+    case .error, .fault:
         return .red
-    case .warning:
-        return .yellow
     case .debug:
         return .orange
     default:

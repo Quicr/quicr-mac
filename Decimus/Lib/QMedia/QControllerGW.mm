@@ -19,13 +19,34 @@
 @synthesize subscriberDelegate;
 @synthesize publisherDelegate;
 
-
-- (id)initCallback:(CantinaLogCallback)callback
+- (id)initCallback:(QControllerLogCallback)callback
 {
     self = [super init];
-    self->qControllerGW.logger = std::make_shared<cantina::CustomLogger>([=](auto level, const std::string& msg, bool b) {
-        NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
-        callback(static_cast<uint8_t>(level), m, b);
+    os_log_t logger = os_log_create([[[NSBundle mainBundle] bundleIdentifier] UTF8String], "QController");
+    self->qControllerGW.logger = std::make_shared<cantina::CustomLogger>([=](const cantina::LogLevel level, const std::string& msg, const bool b) {
+        const uint8_t levelInt = static_cast<uint8_t>(level);
+        os_log_type_t type;
+        switch (levelInt) {
+            case LOGGER_LEVEL_CRITICAL:
+                type = OS_LOG_TYPE_FAULT;
+            case LOGGER_LEVEL_ERROR:
+                type = OS_LOG_TYPE_ERROR;
+            case LOGGER_LEVEL_WARNING:
+                type = OS_LOG_TYPE_ERROR;
+            case LOGGER_LEVEL_INFO:
+                type = OS_LOG_TYPE_INFO;
+            case LOGGER_LEVEL_DEBUG:
+                type = OS_LOG_TYPE_DEBUG;
+            default:
+                type = OS_LOG_TYPE_DEFAULT;
+        }
+        if (b) {
+            // Pass alerting callback up.
+            callback(type, msg.c_str());
+        } else {
+            // Log directly.
+            os_log_with_type(logger, type, "%s", msg.c_str());
+        }
     });
 
 #ifdef DEBUG

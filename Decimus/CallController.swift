@@ -31,8 +31,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
          engine: DecimusAudioEngine,
          granularMetrics: Bool) throws {
         self.config = config
-        super.init { level, msg, alert in
-            CallController.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+        super.init { level, msg in
+            guard let msg = msg else { return }
+            CallController.logger.log(level: level, .init(cString: msg), alert: true)
         }
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
