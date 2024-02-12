@@ -19,6 +19,7 @@ class DecimusAudioEngine {
     private let sink: AVAudioSinkNode
     private var stopped: Bool = false
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
+    private var lock = NSLock()
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
@@ -142,14 +143,18 @@ class DecimusAudioEngine {
     /// - Parameter block: The block to be called.
     func registerSinkBlock(identifier: AnyHashable, block: @escaping AVAudioSinkNodeReceiverBlock) throws {
         guard !engine.isRunning else { throw "Cannot alter blocks while running" }
-        self.blocks.value[identifier] = block
+        self.lock.withLock {
+            self.blocks.value[identifier] = block
+        }
     }
 
     /// Unregister a microphone sink block.
     /// - Parameter identifier: The identifier used to register this block.
     func unregisterSinkBlock(identifier: AnyHashable) throws {
         guard !engine.isRunning else { throw "Cannot alter blocks while running" }
-        self.blocks.value.removeValue(forKey: identifier)
+        self.lock.withLock {
+            _ = self.blocks.value.removeValue(forKey: identifier)
+        }
     }
 
     /// Run the audio engine.
@@ -177,17 +182,21 @@ class DecimusAudioEngine {
         assert(node.numberOfOutputs == 1)
         assert(node.outputFormat(forBus: 0) == Self.format)
         Self.logger.info("(\(identifier)) Attached node")
-        guard self.elements[identifier] == nil else { throw "Add called for existing entry" }
-        self.elements[identifier] = node
+        try self.lock.withLock {
+            guard self.elements[identifier] == nil else { throw "Add called for existing entry" }
+            self.elements[identifier] = node
+        }
     }
 
     /// Remove a previously added source node.
     /// - Parameter identifier: Identifier of the source node to remove.
     func removePlayer(identifier: SourceIDType) throws {
-        guard let element = elements.removeValue(forKey: identifier) else {
-            throw "Remove called for non existent entry"
+        try self.lock.withLock {
+            guard let element = elements.removeValue(forKey: identifier) else {
+                throw "Remove called for non existent entry"
+            }
+            engine.detach(element)
         }
-        engine.detach(element)
         Self.logger.info("(\(identifier)) Removed player node")
     }
 
@@ -234,10 +243,12 @@ class DecimusAudioEngine {
 
         // We shouldn't need to reconnect source nodes to the mixer,
         // as the format should not have changed.
-        for element in self.elements {
-            assert(element.value.numberOfOutputs == 1)
-            let sourceOutputFormat = element.value.outputFormat(forBus: 0)
-            assert(sourceOutputFormat == Self.format)
+        self.lock.withLock {
+            for element in self.elements {
+                assert(element.value.numberOfOutputs == 1)
+                let sourceOutputFormat = element.value.outputFormat(forBus: 0)
+                assert(sourceOutputFormat == Self.format)
+            }
         }
     }
 

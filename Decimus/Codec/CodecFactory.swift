@@ -4,6 +4,7 @@ import Foundation
 import os
 
 enum CodecError: Error {
+    case unsupportedCodecSet(Set<CodecType>)
     case noCodecFound(CodecType)
     case failedToCreateCodec(CodecType)
     case invalidEntry(String)
@@ -37,6 +38,12 @@ struct UnknownCodecConfig: CodecConfig {
     let bitrate: UInt32 = UInt32.max
 }
 
+enum BitrateType: Codable, CaseIterable, Identifiable {
+    case constant
+    case average
+    var id: Self { self }
+}
+
 /// Video codec specific configuration type.
 struct VideoCodecConfig: CodecConfig, Equatable {
     let codec: CodecType
@@ -44,6 +51,8 @@ struct VideoCodecConfig: CodecConfig, Equatable {
     let fps: UInt16
     let width: Int32
     let height: Int32
+    let bitrateType: BitrateType
+    let limit1s: Double
 }
 
 /// Audio codec specific configuration type.
@@ -58,7 +67,7 @@ class CodecFactory {
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
     /// - Returns The corresponding codec config.
-    static func makeCodecConfig(from qualityProfile: String) -> CodecConfig {
+    static func makeCodecConfig(from qualityProfile: String, bitrateType: BitrateType, limit1s: Double) -> CodecConfig {
         let elements = qualityProfile.components(separatedBy: ",")
 
         guard let codec = CodecType.allCases.first(where: {
@@ -74,18 +83,18 @@ class CodecFactory {
             tokens[subtokens[0]] = subtokens[1]
         }
 
-        return makeCodecConfig(codec: codec, tokens: tokens)
+        return makeCodecConfig(codec: codec, bitrateType: bitrateType, limit1s: limit1s, tokens: tokens)
     }
 
     /// Create a codec config from a dictionary of string tokens.
     /// - Parameter codec The codec type of the config.
     /// - Parameter tokens The dictionary of already parsed tokens.
     /// - Returns The corresponding codec config.
-    static func makeCodecConfig(codec: CodecType, tokens: [String: String]) -> CodecConfig {
+    static func makeCodecConfig(codec: CodecType, bitrateType: BitrateType, limit1s: Double, tokens: [String: String]) -> CodecConfig {
         do {
             switch codec {
-            case .h264:
-                return try VideoCodecConfig(codec: codec, tokens: tokens)
+            case .h264, .hevc:
+                return try VideoCodecConfig(codec: codec, bitrateType: bitrateType, limit1s: limit1s, tokens: tokens)
             case .opus:
                 return try AudioCodecConfig(codec: codec, tokens: tokens)
             default:
@@ -108,8 +117,10 @@ private func checkEntry<T: LosslessStringConvertible>(_ tokens: [String: String]
 
 /// Extension initialiser for video codec configs from token dictionary.
 fileprivate extension VideoCodecConfig {
-    init(codec: CodecType, tokens: [String: String]) throws {
+    init(codec: CodecType, bitrateType: BitrateType, limit1s: Double, tokens: [String: String]) throws {
         self.codec = codec
+        self.bitrateType = bitrateType
+        self.limit1s = limit1s
         self.bitrate = try checkEntry(tokens, entry: "br") * 1000
         self.fps = try checkEntry(tokens, entry: "fps")
         self.width = try checkEntry(tokens, entry: "width")

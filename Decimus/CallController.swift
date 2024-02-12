@@ -13,9 +13,17 @@ class MutableWrapper<T> {
     }
 }
 
+actor ManifestHolder {
+    var currentManifest: Manifest?
+    func setManifest(manifest: Manifest) {
+        self.currentManifest = manifest
+    }
+}
+
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let config: SubscriptionConfig
     private static let logger = DecimusLogger(CallController.self)
+    let manifest = ManifestHolder()
 
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
@@ -37,7 +45,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    reliability: config.mediaReliability,
                                                    engine: engine,
                                                    granularMetrics: granularMetrics,
-                                                   hevcOverride: config.hevcOverride)
+                                                   bitrateType: config.bitrateType,
+                                                   limit1s: config.limit1s)
     }
 
     func connect(config: CallConfig) async throws {
@@ -47,7 +56,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      time_queue_init_queue_size: 1000,
                                                      time_queue_max_duration: 5000,
                                                      time_queue_bucket_interval: 1,
-                                                     time_queue_size_rx: UInt32(self.config.timeQueueTTL),
+                                                     time_queue_rx_size: UInt32(self.config.timeQueueTTL),
                                                      debug: false,
                                                      quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
                                                      quic_wifi_shadow_rtt_us: shadowRtt,
@@ -63,6 +72,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
 
         let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
+        await self.manifest.setManifest(manifest: manifest)
 
         let jsonEncoder = JSONEncoder()
         jsonEncoder.outputFormatting = .prettyPrinted
@@ -71,5 +81,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.setSubscriptionSingleOrdered(self.config.isSingleOrderedSub)
         self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
+    }
+
+    func fetchSwitchingSets() -> [String] {
+        self.getSwitchingSets() as NSArray as! [String]
+    }
+
+    func fetchSubscriptions(sourceId: String) -> [String] {
+        self.getSubscriptions(sourceId) as NSArray as! [String]
     }
 }

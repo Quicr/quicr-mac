@@ -46,12 +46,13 @@ struct SubscriptionConfig: Codable {
     var quicCwinMinimumKiB: UInt64
     var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
-    var hevcOverride: Bool
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
     var timeQueueTTL: Int
+    var bitrateType: BitrateType
+    var limit1s: Double
 
     init() {
         jitterMaxTime = 0.5
@@ -61,13 +62,14 @@ struct SubscriptionConfig: Codable {
         mediaReliability = .init()
         quicCwinMinimumKiB = 128
         quicWifiShadowRttUs = 0.150
-        videoJitterBuffer = .init()
-        hevcOverride = false
-        isSingleOrderedSub = true
+        videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
+        isSingleOrderedSub = false
         isSingleOrderedPub = false
-        simulreceive = .none
+        simulreceive = .enable
         qualityMissThreshold = 3
         timeQueueTTL = 100
+        bitrateType = .average
+        limit1s = 2.5
     }
 }
 
@@ -93,20 +95,22 @@ class SubscriptionFactory {
     func create(_ sourceId: SourceIDType,
                 profileSet: QClientProfileSet,
                 metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
-        // TODO: This is sketchy.
-        var codecType: CodecType?
+        // Supported codec sets.
+        let videoCodecs: Set<CodecType> = [.h264, .hevc]
+        let opusCodecs: Set<CodecType> = [.opus]
+
+        // Resolve profile sets to config.
+        var foundCodecs: [CodecType] = []
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile))
-            if let codecType = codecType {
-                assert(codecType == config.codec)
-            } else {
-                codecType = config.codec
-            }
+            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
+                                                      bitrateType: config.bitrateType,
+                                                      limit1s: config.limit1s)
+            foundCodecs.append(config.codec)
         }
+        let found = Set(foundCodecs)
 
-        switch codecType {
-        case .h264:
+        if found.isSubset(of: videoCodecs) {
             let namegate: NameGate
             switch self.config.videoBehaviour {
             case .artifact:
@@ -123,10 +127,11 @@ class SubscriptionFactory {
                                          reliable: self.config.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,
-                                         hevcOverride: self.config.hevcOverride,
                                          simulreceive: self.config.simulreceive,
                                          qualityMissThreshold: self.config.qualityMissThreshold)
-        case .opus:
+        }
+
+        if found.isSubset(of: opusCodecs) {
             return try OpusSubscription(sourceId: sourceId,
                                         profileSet: profileSet,
                                         engine: self.engine,
@@ -136,8 +141,8 @@ class SubscriptionFactory {
                                         opusWindowSize: self.config.opusWindowSize,
                                         reliable: self.config.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics)
-        default:
-            throw CodecError.noCodecFound(codecType ?? .unknown)
         }
+
+        throw CodecError.unsupportedCodecSet(found)
     }
 }

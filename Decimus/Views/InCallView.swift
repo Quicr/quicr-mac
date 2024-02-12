@@ -13,6 +13,7 @@ struct InCallView: View {
     @State private var showPreview = true
     @State private var lastTap: Date = .now
     @State private var offset: CGSize = .zero
+    @State private var isShowingSheet = false
     var noParticipants: Bool {
         viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
     }
@@ -66,6 +67,9 @@ struct InCallView: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                         }
+                        Button("Alter Subscriptions") {
+                            self.isShowingSheet = true
+                        }
                     }
                     .overlay {
                         // Preview / self-view.
@@ -83,6 +87,16 @@ struct InCallView: View {
                         }
                         // swiftlint:enable:force_try
                     }
+                    .sheet(isPresented: $isShowingSheet) {
+                        if let controller = viewModel.controller {
+                            SubscriptionPopover(controller: controller)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            self.isShowingSheet = false
+                        }
+                            .padding()
+                    }
                 }
 
                 // Call controls panel.
@@ -99,7 +113,7 @@ struct InCallView: View {
 
             if leaving {
                 LeaveModal(leaveAction: {
-                    Task { await viewModel.leave() }
+                    await viewModel.leave()
                     onLeave()
                 }, cancelAction: leaving = false)
                 .frame(maxWidth: 400, alignment: .center)
@@ -131,7 +145,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-                
+
                 if self.lastTap.timeIntervalSince(.now) < -5 {
                     withAnimation {
                         if self.showPreview {
@@ -149,7 +163,7 @@ struct InCallView: View {
                 } catch {
                     return
                 }
-                
+
                 if connecting || leaving {
                     continue
                 }
@@ -174,6 +188,7 @@ extension InCallView {
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
         private var measurement: _Measurement?
+        private var submitter: MetricsSubmitter?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -197,27 +212,23 @@ extension InCallView {
                 "protocol": "\(config.connectionProtocol)"
             ]
 
-            var submitter: MetricsSubmitter?
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
                 self.measurement = .init(submitter: influx)
-                Task {
-                    await influx.startSubmitting(interval: influxConfig.value.intervalSecs)
-                }
+                if influxConfig.value.realtime {
+                    // Application metrics timer.
+                    self.appMetricTimer = .init(priority: .utility) { [weak self] in
+                        while !Task.isCancelled,
+                              let self = self {
+                            let usage = try cpuUsage()
+                            await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
 
-                // Application metrics timer.
-                self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                    while !Task.isCancelled,
-                          let self = self {
-                        let usage = try cpuUsage()
-                        await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-                        try? await Task.sleep(for: .seconds(1), tolerance: .seconds(1))
+                            await self.submitter?.submit()
+                            try? await Task.sleep(for: .seconds(influxConfig.value.intervalSecs), tolerance: .seconds(1))
+                        }
                     }
                 }
-            } else {
-                self.appMetricTimer = nil
-                self.measurement = nil
             }
 
             do {
@@ -260,6 +271,9 @@ extension InCallView {
         }
 
         func leave() async {
+            // Submit all pending metrics.
+            await submitter?.submit()
+
             do {
                 try captureManager?.stopCapturing()
                 try engine?.stop()
