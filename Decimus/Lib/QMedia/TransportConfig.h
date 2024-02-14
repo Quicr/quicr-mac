@@ -20,6 +20,7 @@ struct TransportConfig
   uint64_t pacing_decrease_threshold_Bps; /// QUIC pacing rate decrease threshold for notification in Bps
   uint64_t pacing_increase_threshold_Bps; /// QUIC pacing rate increase threshold for notification in Bps
   uint64_t idle_timeout_ms;               /// QUIC idle timeout for connection(s) in milliseconds
+  bool use_reset_wait_strategy;           /// Use Reset and wait strategy for congestion control
 };
 typedef struct TransportConfig TransportConfig;
 

@@ -53,6 +53,7 @@ struct SubscriptionConfig: Codable {
     var timeQueueTTL: Int
     var bitrateType: BitrateType
     var limit1s: Double
+    var useResetWaitCC: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -70,6 +71,7 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 100
         bitrateType = .average
         limit1s = 2.5
+        useResetWaitCC = true
     }
 }
 

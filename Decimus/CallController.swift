@@ -62,7 +62,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      quic_wifi_shadow_rtt_us: shadowRtt,
                                                      pacing_decrease_threshold_Bps: 16000,
                                                      pacing_increase_threshold_Bps: 16000,
-                                                     idle_timeout_ms: 15000)
+                                                     idle_timeout_ms: 15000,
+                                                     use_reset_wait_strategy: self.config.useResetWaitCC)
         let error = super.connect(config.address,
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
