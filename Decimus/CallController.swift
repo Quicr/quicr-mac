@@ -92,7 +92,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.getSubscriptions(sourceId) as NSArray as! [String]
     }
 
-    func fetchPublications() -> [String] {
-        self.getPublications() as NSArray as! [String]
+    func fetchPublications() -> [PublicationReport] {
+        self.getPublications() as NSArray as! [PublicationReport]
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 struct PublicationPopover: View {
     private class Publications: ObservableObject {
         private let controller: CallController
-        @Published var publications: [QuicrNamespace] = []
+        @Published var publications: [PublicationReport] = []
 
         init(controller: CallController) {
             self.controller = controller
@@ -17,6 +17,7 @@ struct PublicationPopover: View {
     @StateObject private var publications: Publications
     @State private var manifest: Manifest?
     @State private var urlEncoder: UrlEncoderGWObjC?
+    @State private var toggleStates: [QuicrNamespace: Bool] = [:]
     private let controller: CallController
 
     init(controller: CallController) {
@@ -24,22 +25,41 @@ struct PublicationPopover: View {
         self._publications = .init(wrappedValue: .init(controller: controller))
     }
 
+    private func updateToggles() {
+        for publication in publications.publications {
+            self.toggleStates[publication.quicrNamespace] = publication.state == .active
+        }
+    }
+
+    private func makePublishStateBinding(_ namespace: QuicrNamespace) -> Binding<Bool> {
+           return .init(
+               get: { self.toggleStates[namespace, default: false] },
+               set: { self.toggleStates[namespace] = $0 })
+       }
+
     var body: some View {
         Text("Alter Publications")
             .font(.title)
             .onAppear {
                 self.publications.fetch()
+                self.updateToggles()
             }
             .padding()
 
         ScrollView {
-            ForEach(self.publications.publications, id: \.self) { namespace in
-                if let manifest = self.manifest,
-                   let encoder = self.urlEncoder,
-                   let publication = manifest.getPublication(namespace: namespace, encoder: encoder) {
-                    Text(publication.qualityProfile)
-                } else {
-                    Text(namespace)
+            ForEach(self.publications.publications, id: \.self) { publication in
+                Toggle(isOn: makePublishStateBinding(publication.quicrNamespace)) {
+                    if let manifest = self.manifest,
+                       let encoder = self.urlEncoder,
+                       let profile = manifest.getPublication(namespace: publication.quicrNamespace, encoder: encoder) {
+                        Text(profile.qualityProfile)
+                    } else {
+                        Text(publication.quicrNamespace)
+                    }
+                }
+                .padding()
+                .onChange(of: self.toggleStates[publication.quicrNamespace]!) {
+                    self.controller.setPublicationState(publication.quicrNamespace, publicationState: $0 ? .active : .paused)
                 }
             }
         }
