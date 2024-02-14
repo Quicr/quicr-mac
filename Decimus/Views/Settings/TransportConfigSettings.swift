@@ -4,6 +4,7 @@ struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var quicWifiShadowRttUs: TimeInterval
     @Binding var timeQueueTTL: Int
+    @Binding var UseResetWaitCC: Bool
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
 
@@ -23,11 +24,16 @@ struct TransportConfigSettings: View {
                 }
             }
         }
+        HStack {
+            Text("Use Reset and Wait")
+            Toggle(isOn: self.$UseResetWaitCC) {}
+        }
         LabeledContent("QUIC WiFi RTT") {
             TextField("", value: self.$quicWifiShadowRttUs, format: .number)
         }
         LabeledContent("Time Queue RX Size") {
             TextField("", value: self.$timeQueueTTL, format: .number)
         }
+        
     }
 }
