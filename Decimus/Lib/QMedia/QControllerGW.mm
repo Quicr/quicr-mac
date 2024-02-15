@@ -12,6 +12,20 @@
 #include "QDelegatesObjC.h"
 
 // objective c
+
+@implementation PublicationReport
+-(id)initWithReport:(qmedia::QController::PublicationReport) report
+{
+    self = [super init];
+    if (self) {
+        self.state = static_cast<PublicationState>(static_cast<uint8_t>(report.state));
+        NSString* convertedNamespace = [NSString stringWithCString:std::string(report.quicrNamespace).c_str() encoding:[NSString defaultCStringEncoding]];
+        self.quicrNamespace = convertedNamespace;
+    }
+    return self;
+}
+@end
+
 @implementation QControllerGWObjC
 
 #import "QDelegatesObjC.h"
@@ -151,6 +165,22 @@
     return array;
 }
 
+- (NSMutableArray*)getPublications {
+    const auto& publications = qControllerGW.getPublications();
+    NSMutableArray *array = [[NSMutableArray alloc]init];
+    for (const auto& report : publications) {
+        const PublicationReport* converted = [[PublicationReport alloc] initWithReport:report];
+        [array addObject: converted];
+    }
+    return array;
+}
+
+- (void)setPublicationState:(NSString *)quicrNamespace publicationState:(PublicationState)publicationState {
+    const quicr::Namespace convertedNs = std::string_view([quicrNamespace UTF8String]);
+    const qmedia::QController::PublicationState convertedState = static_cast<qmedia::QController::PublicationState>(publicationState);
+    qControllerGW.setPublicationState(convertedNs, convertedState);
+}
+
 @end
 
 // C++
@@ -255,4 +285,14 @@ std::vector<std::string> QControllerGW::getSwitchingSets()
 std::vector<quicr::Namespace> QControllerGW::getSubscriptions(const std::string& sourceId) {
     assert(qController);
     return qController->getSubscriptions(sourceId);
+}
+
+std::vector<qmedia::QController::PublicationReport> QControllerGW::getPublications() {
+    assert(qController);
+    return qController->getPublications();
+}
+
+void QControllerGW::setPublicationState(const quicr::Namespace& quicrNamespace, const qmedia::QController::PublicationState publicationState) {
+    assert(qController);
+    return qController->setPublicationState(quicrNamespace, publicationState);
 }
