@@ -19,6 +19,18 @@
 
 typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 
+typedef unsigned PublicationState NS_TYPED_ENUM;
+PublicationState const PublicationStateActive = 0;
+PublicationState const PublicationStatePaused = 1;
+
+@interface PublicationReport: NSObject
+@property PublicationState state;
+@property NSString* quicrNamespace;
+#ifdef __cplusplus
+-(id)initWithReport:(qmedia::QController::PublicationReport)report;
+#endif
+@end
+
 @interface QControllerGWObjC<PubDelegate: id<QPublisherDelegateObjC>,
                              SubDelegate: id<QSubscriberDelegateObjC>> : NSObject<QPublishObjectDelegateObjC> {
 #ifdef __cplusplus
@@ -42,6 +54,8 @@ typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 -(void) stopSubscription: (NSString*) quicrNamespace;
 -(NSMutableArray*) getSwitchingSets;
 -(NSMutableArray*) getSubscriptions: (NSString*) sourceId;
+-(NSMutableArray*) getPublications;
+-(void) setPublicationState:(NSString*) quicrNamespace publicationState:(PublicationState)publicationState;
 @end
 
 #endif /* QControllerGWObj_h */
