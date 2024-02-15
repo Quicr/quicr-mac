@@ -182,16 +182,18 @@ class HEVCUtilities {
                 continue
             }
 
-            results.append(try H264Utilities.depacketizeNalu(&nalu,
-                                                             groupId: groupId,
-                                                             objectId: objectId,
-                                                             timeInfo: timeInfo,
-                                                             format: format,
-                                                             copy: copy,
-                                                             orientation: orientation,
-                                                             verticalMirror: verticalMirror,
-                                                             sequenceNumber: sequenceNumber,
-                                                             fps: fps))
+            try nalu.withUnsafeBytes {
+                results.append(try H264Utilities.buildSampleBuffer($0,
+                                                                   groupId: groupId,
+                                                                   objectId: objectId,
+                                                                   timeInfo: timeInfo,
+                                                                   format: format,
+                                                                   copy: copy,
+                                                                   orientation: orientation,
+                                                                   verticalMirror: verticalMirror,
+                                                                   sequenceNumber: sequenceNumber,
+                                                                   fps: fps))
+            }
         }
         return results.count > 0 ? results : nil
     }

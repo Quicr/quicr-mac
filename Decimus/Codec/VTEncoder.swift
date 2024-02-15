@@ -18,13 +18,15 @@ class VTEncoder {
     private let verticalMirror: Bool
     private let bufferAllocator: BufferAllocator
     private var sequenceNumber: UInt64 = 0
+    private let emitStartCodes: Bool
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
-    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback) throws {
+    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback, emitStartCodes: Bool = false) throws {
         self.verticalMirror = verticalMirror
         self.callback = callback
         self.config = config
+        self.emitStartCodes = emitStartCodes
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
         let allocator: CFAllocator?
         #if targetEnvironment(macCatalyst)
@@ -229,7 +231,7 @@ class VTEncoder {
         }
         #endif
 
-        // Annex B time.
+        // Prepend format data.
         let idr = sample.isIDR()
         if idr {
             // SPS + PPS.
@@ -239,54 +241,70 @@ class VTEncoder {
             }
 
             // append SPS/PPS to beginning of buffer
-            guard let parameterDestination = bufferAllocator.allocateBufferHeader(parameterSets.count) else {
+            let totalSize = parameterSets.reduce(0) { current, set in
+                current + set.count + self.startCode.count
+            }
+            guard let parameterDestinationAddress = bufferAllocator.allocateBufferHeader(totalSize) else {
                 Self.logger.error("Couldn't allocate parameters buffer")
                 return
             }
-            parameterDestination.withMemoryRebound(to: UInt8.self, capacity: parameterSets.count) {
-                let destBuffer = UnsafeMutableBufferPointer<UInt8>(start: $0, count: parameterSets.count)
-                let copied = parameterSets.copyBytes(to: destBuffer)
-                assert(copied == parameterSets.count)
-                assert(destBuffer.starts(with: self.startCode))
+            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress, count: totalSize)
+
+            var offset = 0
+            for set in parameterSets {
+                // Copy either start code or UInt32 length.
+                if self.emitStartCodes {
+                    self.startCode.withUnsafeBytes {
+                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!, byteCount: $0.count)
+                        offset += $0.count
+                    }
+                } else {
+                    let length = UInt32(set.count).bigEndian
+                    print(length)
+                    parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
+                    offset += MemoryLayout<UInt32>.size
+                }
+
+                // Copy the parameter data.
+                let dest = parameterDestination.baseAddress!.advanced(by: offset)
+                let destBuffer = UnsafeMutableRawBufferPointer(start: dest, count: parameterDestination.count - offset)
+                destBuffer.copyMemory(from: set)
+                offset += set.count
             }
         }
 
         var offset = 0
-        while offset < buffer.dataLength - startCode.count {
-            guard let memory = malloc(startCode.count) else { fatalError("malloc fail") }
-            var data: UnsafeMutablePointer<CChar>?
-            let accessError = CMBlockBufferAccessDataBytes(buffer,
-                                                           atOffset: offset,
-                                                           length: startCode.count,
-                                                           temporaryBlock: memory,
-                                                           returnedPointerOut: &data)
-            guard accessError == .zero else { fatalError("Bad access: \(accessError)") }
+        if self.emitStartCodes {
+            // Replace buffer data with start code.
+            while offset < buffer.dataLength - startCode.count {
+                try! buffer.withUnsafeMutableBytes(atOffset: offset) {
+                    // Get the length.
+                    let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
 
-            var naluLength: UInt32 = 0
-            memcpy(&naluLength, data, startCode.count)
-            free(memory)
-            naluLength = CFSwapInt32BigToHost(naluLength)
+                    // Replace with start code.
+                    $0.copyBytes(from: self.startCode)
 
-            // Replace with start code.
-            CMBlockBufferReplaceDataBytes(with: startCode,
-                                          blockBuffer: buffer,
-                                          offsetIntoDestination: offset,
-                                          dataLength: startCode.count)
-            assert(try! buffer.dataBytes().starts(with: self.startCode)) // swiftlint:disable:this force_try
-
-            // Carry on.
-            offset += startCode.count + Int(naluLength)
+                    // Move to next NALU.
+                    offset += startCode.count + Int(naluLength)
+                }
+            }
         }
 
+        // Callback the full buffer.
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
         bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
         let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
-        assert(fullEncodedBuffer.starts(with: self.startCode))
+        if self.emitStartCodes {
+            assert(fullEncodedBuffer.starts(with: self.startCode))
+        }
         callback(fullEncodedBuffer, idr)
     }
 
-    func handleParameterSets(sample: CMSampleBuffer) throws -> Data {
+    /// Returns the parameter sets contained within the sample's format, if any.
+    /// - Parameter sample The sample to extract parameter sets from.
+    /// - Returns Array of buffer pointers referencing the data. This is only safe to use during the lifetime of sample.
+    private func handleParameterSets(sample: CMSampleBuffer) throws -> [UnsafeRawBufferPointer] {
         // Get number of parameter sets.
         var sets: Int = 0
         try OSStatusError.checked("Get number of SPS/PPS") {
@@ -311,8 +329,7 @@ class VTEncoder {
         }
 
         // Get actual parameter sets.
-        var parameterSetPointers: [UnsafePointer<UInt8>] = .init()
-        var parameterSetLengths: [Int] = .init()
+        var parameterSetPointers: [UnsafeRawBufferPointer] = []
         for parameterSetIndex in 0...sets-1 {
             var parameterSet: UnsafePointer<UInt8>?
             var parameterSize: Int = 0
@@ -338,25 +355,9 @@ class VTEncoder {
                 }
             }
             guard naluSizeOut == startCode.count else { throw "Unexpected start code length?" }
-            parameterSetPointers.append(parameterSet!)
-            parameterSetLengths.append(parameterSize)
+            parameterSetPointers.append(.init(start: parameterSet!, count: parameterSize))
         }
-
-        // Compute total ANNEX B parameter set size.
-        var totalLength = startCode.count * sets
-        totalLength += parameterSetLengths.reduce(0, { running, element in running + element })
-
-        // Make SPS/PPS buffer.
-        var buffer = Data(capacity: totalLength)
-        for parameterSetIndex in 0...sets-1 {
-            // Start code first.
-            buffer.append(contentsOf: startCode)
-            // Copy in parameter data.
-            let pointer = parameterSetPointers[parameterSetIndex]
-            let length = parameterSetLengths[parameterSetIndex]
-            buffer.append(pointer, count: length)
-        }
-        return buffer
+        return parameterSetPointers
     }
 
     private func prependTimestampSEI(timestamp: CMTime,
@@ -366,7 +367,7 @@ class VTEncoder {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:
-            bytes = H264Utilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
+            bytes = H264Utilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps, startCode: self.emitStartCodes)
         case .hevc:
             bytes = HEVCUtilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
         default:
@@ -389,7 +390,8 @@ class VTEncoder {
         switch self.config.codec {
         case .h264:
             bytes = H264Utilities.getH264OrientationSEI(orientation: orientation,
-                                                        verticalMirror: verticalMirror)
+                                                        verticalMirror: verticalMirror,
+                                                        startCode: self.emitStartCodes)
         case .hevc:
             bytes = HEVCUtilities.getHEVCOrientationSEI(orientation: orientation,
                                                         verticalMirror: verticalMirror)
@@ -400,7 +402,6 @@ class VTEncoder {
         guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else { fatalError() }
         let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
         bytes.copyBytes(to: orientationBufferPtr)
-        assert(orientationBufferPtr.starts(with: bytes))
     }
 
     private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {

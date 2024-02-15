@@ -11,7 +11,7 @@ final class TestH264Utilities: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             1, 8, 9, 10, 11
         ]
-        var data = Data(values)
+        let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         var orientation: AVCaptureVideoOrientation? = .portrait
         var mirror: Bool? = false
@@ -60,47 +60,87 @@ final class TestH264Utilities: XCTestCase {
         }
     }
 
-    func testNaluDepacketize() throws {
+    func testBuildSampleBuffer() throws {
         let values: [UInt8] = [
             0x00, 0x00, 0x00, 0x01,
             1, 2, 3, 4, 5
         ]
         let format: CMFormatDescription = try .init(mediaType: .video, mediaSubType: .h264)
         var data = Data(values)
-        var orientation: AVCaptureVideoOrientation = .portraitUpsideDown
-        var mirror = true
+        let orientation: AVCaptureVideoOrientation = .portraitUpsideDown
+        let mirror = true
         let groupId: UInt32 = 1
         let objectId: UInt16 = 2
         let sequence: UInt64? = 3
         let fps: UInt8? = 4
-        let sample = try H264Utilities.depacketizeNalu(&data,
-                                                       groupId: groupId,
-                                                       objectId: objectId,
-                                                       timeInfo: .init(),
-                                                       format: format,
-                                                       copy: false,
-                                                       orientation: orientation,
-                                                       verticalMirror: mirror,
-                                                       sequenceNumber: sequence,
-                                                       fps: fps)
+        try values.withUnsafeBytes { packetized in
+            let sample = try H264Utilities.buildSampleBuffer(packetized,
+                                                             groupId: groupId,
+                                                             objectId: objectId,
+                                                             timeInfo: .init(),
+                                                             format: format,
+                                                             copy: false,
+                                                             orientation: orientation,
+                                                             verticalMirror: mirror,
+                                                             sequenceNumber: sequence,
+                                                             fps: fps)
 
-        // Check the data is in the sample.
-        XCTAssertNotNil(sample.dataBuffer)
-        try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
-            values.withUnsafeBytes { packetized in
+            // Check the data is in the sample.
+            XCTAssertNotNil(sample.dataBuffer)
+            try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
                 XCTAssertEqual(0,
                                memcmp(depacketized.baseAddress!.advanced(by: 4),
                                       packetized.baseAddress!.advanced(by: 4),
                                       values.count - 4))
             }
-        }
 
-        // Check attachments set.
-        XCTAssert(sample.getGroupId() == groupId)
-        XCTAssert(sample.getObjectId() == objectId)
-        XCTAssert(sample.getSequenceNumber() == sequence)
-        XCTAssert(sample.getOrientation() == orientation)
-        XCTAssert(sample.getVerticalMirror() == mirror)
-        XCTAssert(sample.getFPS() == fps)
+            // Check attachments set.
+            XCTAssert(sample.getGroupId() == groupId)
+            XCTAssert(sample.getObjectId() == objectId)
+            XCTAssert(sample.getSequenceNumber() == sequence)
+            XCTAssert(sample.getOrientation() == orientation)
+            XCTAssert(sample.getVerticalMirror() == mirror)
+            XCTAssert(sample.getFPS() == fps)
+        }
+    }
+
+    func testGetTimestampBytes() {
+        testGetTimestampBytes(startCode: true)
+        testGetTimestampBytes(startCode: false)
+    }
+
+    func testGetTimestampBytes(startCode: Bool) {
+        let time = CMTime(seconds: 1234, preferredTimescale: 5678)
+        let bytes = H264Utilities.getTimestampSEIBytes(timestamp: time,
+                                                       sequenceNumber: 1,
+                                                       fps: 30,
+                                                       startCode: startCode)
+        XCTAssert(bytes.count == H264Utilities.timestampSEIBytes.count)
+        if startCode {
+            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
+        } else {
+            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
+            bytes.withUnsafeBytes {
+                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
+            }
+        }
+    }
+
+    func testGetOrientationBytes() {
+        testGetOrientationBytes(startCode: true)
+        testGetOrientationBytes(startCode: false)
+    }
+
+    func testGetOrientationBytes(startCode: Bool) {
+        let bytes = H264Utilities.getH264OrientationSEI(orientation: .portrait, verticalMirror: false, startCode: startCode)
+        XCTAssert(bytes.count == H264Utilities.orientationSei.count)
+        if startCode {
+            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
+        } else {
+            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
+            bytes.withUnsafeBytes {
+                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
+            }
+        }
     }
 }
