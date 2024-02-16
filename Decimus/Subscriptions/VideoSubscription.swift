@@ -116,8 +116,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     func prepare(_ sourceID: SourceIDType!,
                  label: String!,
                  profileSet: QClientProfileSet,
-                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
+                 transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
+        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
         return SubscriptionError.none.rawValue
     }
 
