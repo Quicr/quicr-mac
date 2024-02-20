@@ -44,10 +44,10 @@ class VideoJitterBuffer {
                 if !sort {
                     return .compareLessThan
                 }
-                let first = $0 as! CMSampleBuffer
-                let second = $1 as! CMSampleBuffer
-                guard let seq1 = first.getSequenceNumber(),
-                      let seq2 = second.getSequenceNumber() else {
+                let first = $0 as! DecimusVideoFrame
+                let second = $1 as! DecimusVideoFrame
+                guard let seq1 = first.sequenceNumber,
+                      let seq2 = second.sequenceNumber else {
                     Self.logger.error("Samples were missing sequence number")
                     return .compareLessThan
                 }
@@ -62,19 +62,19 @@ class VideoJitterBuffer {
                 return .compareLessThan
             }
             builder.getDecodeTimeStamp {
-                ($0 as! CMSampleBuffer).decodeTimeStamp
+                ($0 as! DecimusVideoFrame).samples.first?.decodeTimeStamp ?? .invalid
             }
             builder.getDuration {
-                ($0 as! CMSampleBuffer).duration
+                ($0 as! DecimusVideoFrame).samples.first?.duration ?? .invalid
             }
             builder.getPresentationTimeStamp {
-                ($0 as! CMSampleBuffer).presentationTimeStamp
+                ($0 as! DecimusVideoFrame).samples.first?.presentationTimeStamp ?? .invalid
             }
             builder.getSize {
-                ($0 as! CMSampleBuffer).totalSampleSize
+                ($0 as! DecimusVideoFrame).samples.reduce(0) { $0 + $1.totalSampleSize }
             }
             builder.isDataReady {
-                ($0 as! CMSampleBuffer).dataReadiness == .ready
+                ($0 as! DecimusVideoFrame).samples.reduce(true) { $0 && $1.dataReadiness == .ready }
             }
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
@@ -93,9 +93,9 @@ class VideoJitterBuffer {
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
-    func write(videoFrame: CMSampleBuffer) throws {
+    func write(videoFrame: DecimusVideoFrame) throws {
         // Check expiry.
-        if let thisSeq = videoFrame.getSequenceNumber(),
+        if let thisSeq = videoFrame.sequenceNumber,
            let lastSequenceRead = self.lastSequenceRead {
             guard thisSeq > lastSequenceRead else {
                 throw "Refused enqueue as older than last read"
@@ -115,7 +115,7 @@ class VideoJitterBuffer {
 
     /// Attempt to read a frame from the front of the buffer.
     /// - Returns Either the oldest available frame, or nil.
-    func read() -> CMSampleBuffer? {
+    func read() -> DecimusVideoFrame? {
         let now: Date = .now
         let depth: TimeInterval = self.buffer.duration.seconds
 
@@ -150,8 +150,8 @@ class VideoJitterBuffer {
                 await measurement.read(timestamp: now)
             }
         }
-        let sample = oldest as! CMSampleBuffer
-        self.lastSequenceRead = sample.getSequenceNumber()
+        let sample = oldest as! DecimusVideoFrame
+        self.lastSequenceRead = sample.sequenceNumber
         return sample
     }
 
@@ -159,14 +159,15 @@ class VideoJitterBuffer {
     /// - Parameter targetGroup The group to flush frames up until.
     func flushTo(targetGroup groupId: UInt32) {
         var flushCount: UInt = 0
-        while let frame = self.buffer.head,
-              let thisGroupId = (frame as! CMSampleBuffer).getGroupId(),
-              thisGroupId < groupId {
-            guard let flushed = self.buffer.dequeue() else {
-                break
+        while let frame = self.buffer.head {
+            let thisGroupId = (frame as! DecimusVideoFrame).groupId
+            if thisGroupId < groupId {
+                guard let flushed = self.buffer.dequeue() else {
+                    break
+                }
+                self.lastSequenceRead = (flushed as! DecimusVideoFrame).sequenceNumber
+                flushCount += 1
             }
-            self.lastSequenceRead = (flushed as! CMSampleBuffer).getSequenceNumber()
-            flushCount += 1
         }
 
         if let measurement = self.measurement {
@@ -197,8 +198,9 @@ class VideoJitterBuffer {
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(from: Date = .now, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
-        let sample = peek as! CMSampleBuffer
-        let targetDate = Date(timeInterval: sample.presentationTimeStamp.seconds.advanced(by: offset), since: since)
+        let frame = peek as! DecimusVideoFrame
+        guard let timestamp = frame.samples.first?.presentationTimeStamp else { return nil }
+        let targetDate = Date(timeInterval: timestamp.seconds.advanced(by: offset), since: since)
         let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
         Task(priority: .utility) {
             await measurement?.waitTime(value: waitTime, timestamp: from)

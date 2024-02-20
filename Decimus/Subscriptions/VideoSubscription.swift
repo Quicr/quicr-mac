@@ -329,34 +329,41 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
         // Save starting time.
         var format: CMFormatDescription?
-        var orientation: AVCaptureVideoOrientation?
-        var verticalMirror: Bool?
         let config = self.profiles[namespace]
-        let samples: [CMSampleBuffer]?
+        var timestamp: CMTime?
         switch config?.codec {
         case .h264:
-            samples = try! H264Utilities.depacketize(data,
-                                                     groupId: groupId,
-                                                     objectId: objectId,
-                                                     format: &format,
-                                                     orientation: &orientation,
-                                                     verticalMirror: &verticalMirror,
-                                                     copy: true)
+            _ = try! H264Utilities.depacketize(data, format: &format, copy: false) {
+                var fps: UInt8?
+                var sequence: UInt64?
+                do {
+                    try ApplicationH264SEIs.parseTimestampSEI($0, timestamp: &timestamp, fps: &fps, sequenceNumber: &sequence)
+                } catch {
+                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
+                }
+            }
         case .hevc:
-            samples = try! HEVCUtilities.depacketize(data,
-                                                     groupId: groupId,
-                                                     objectId: objectId,
-                                                     format: &format,
-                                                     orientation: &orientation,
-                                                     verticalMirror: &verticalMirror,
-                                                     copy: true)
+            _ = try! HEVCUtilities.depacketize(data, format: &format, copy: false) {
+                var fps: UInt8?
+                var sequence: UInt64?
+                var orientation: AVCaptureVideoOrientation?
+                var verticalMirror: Bool?
+                do {
+                    try ApplicationHEVCSEIs.parseCustomSEI($0,
+                                                           orientation: &orientation,
+                                                           verticalMirror: &verticalMirror,
+                                                           timestamp: &timestamp,
+                                                           fps: &fps,
+                                                           sequenceNumber: &sequence)
+                } catch {
+                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
+                }
+            }
         default:
             fatalError()
         }
-        if let samples = samples {
-            for sample in samples {
-                return Date.now.timeIntervalSinceReferenceDate - sample.presentationTimeStamp.seconds
-            }
+        if let timestamp = timestamp {
+            return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
         }
         assert(false)
         return 0

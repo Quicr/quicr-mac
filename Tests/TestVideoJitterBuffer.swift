@@ -2,6 +2,18 @@ import CoreMedia
 import XCTest
 @testable import Decimus
 
+extension DecimusVideoFrame : Equatable {
+    public static func == (lhs: Decimus.DecimusVideoFrame, rhs: Decimus.DecimusVideoFrame) -> Bool {
+        lhs.samples == rhs.samples &&
+        lhs.groupId == rhs.groupId &&
+        lhs.objectId == rhs.objectId &&
+        lhs.sequenceNumber == rhs.sequenceNumber &&
+        lhs.fps == rhs.fps &&
+        lhs.orientation == rhs.orientation &&
+        lhs.verticalMirror == rhs.verticalMirror
+    }
+}
+
 final class TestVideoJitterBuffer: XCTestCase {
 
     /// Nothing should be returned until the min depth has been exceeded.
@@ -13,17 +25,19 @@ final class TestVideoJitterBuffer: XCTestCase {
     func exampleSample(groupId: UInt32,
                        objectId: UInt16,
                        sequenceNumber: UInt64,
-                       fps: UInt8) throws -> CMSampleBuffer {
+                       fps: UInt8) throws -> DecimusVideoFrame {
         let sample = try CMSampleBuffer(dataBuffer: nil,
                                         formatDescription: nil,
                                         numSamples: 1,
                                         sampleTimings: [],
                                         sampleSizes: [])
-        try sample.setGroupId(groupId)
-        try sample.setObjectId(objectId)
-        try sample.setSequenceNumber(sequenceNumber)
-        try sample.setFPS(fps)
-        return sample
+        return .init(samples: [sample],
+                     groupId: groupId,
+                     objectId: objectId,
+                     sequenceNumber: sequenceNumber,
+                     fps: fps,
+                     orientation: nil,
+                     verticalMirror: nil)
     }
 
     func testPlayout(sort: Bool) throws {
@@ -174,7 +188,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                                   decodeTimeStamp: .invalid)
                                         ],
                                         sampleSizes: [0])
-        try buffer.write(videoFrame: sample)
+        let frame = DecimusVideoFrame(samples: [sample], groupId: 1, objectId: 1, sequenceNumber: 1, fps: 1, orientation: nil, verticalMirror: nil)
+        try buffer.write(videoFrame: frame)
         waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
         XCTAssertNotNil(waitTime)
         XCTAssertEqual(minDepth, waitTime!, accuracy: 1 / 1000)
@@ -206,7 +221,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                                       decodeTimeStamp: .invalid)
                                             ],
                                             sampleSizes: [0])
-            try buffer.write(videoFrame: sample)
+            let frame = DecimusVideoFrame(samples: [sample], groupId: 1, objectId: 1, sequenceNumber: 1, fps: 1, orientation: nil, verticalMirror: nil)
+            try buffer.write(videoFrame: frame)
         }
 
         // There are 2 frames in the buffer. If we have waited min depth, first should be 0.

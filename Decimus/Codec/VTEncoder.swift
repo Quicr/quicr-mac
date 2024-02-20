@@ -367,9 +367,9 @@ class VTEncoder {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:
-            bytes = H264Utilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps, startCode: self.emitStartCodes)
+            bytes = ApplicationH264SEIs.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps, startCode: self.emitStartCodes)
         case .hevc:
-            bytes = HEVCUtilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
+            bytes = ApplicationHEVCSEIs.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
         default:
             fatalError()
         }
@@ -389,11 +389,11 @@ class VTEncoder {
         let bytes: [UInt8]
         switch self.config.codec {
         case .h264:
-            bytes = H264Utilities.getH264OrientationSEI(orientation: orientation,
+            bytes = ApplicationH264SEIs.getH264OrientationSEI(orientation: orientation,
                                                         verticalMirror: verticalMirror,
                                                         startCode: self.emitStartCodes)
         case .hevc:
-            bytes = HEVCUtilities.getHEVCOrientationSEI(orientation: orientation,
+            bytes = ApplicationHEVCSEIs.getHEVCOrientationSEI(orientation: orientation,
                                                         verticalMirror: verticalMirror)
         default:
             throw "Codec \(self.config.codec) doesn't provide orientation data"
