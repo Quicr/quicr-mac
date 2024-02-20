@@ -37,7 +37,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,
                                                      engine: engine,
-                                                     granularMetrics: granularMetrics)
+                                                     granularMetrics: granularMetrics,
+                                                     controller: self)
         self.publisherDelegate = PublisherDelegate(publishDelegate: self,
                                                    metricsSubmitter: metricsSubmitter,
                                                    captureManager: captureManager,

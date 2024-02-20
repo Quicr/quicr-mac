@@ -131,6 +131,13 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.qualityMissThreshold,
                         format: .number)
                 }
+
+                LabeledContent("Pause miss threshold (frames)") {
+                    TextField(
+                        "Pause miss threshold (frames)",
+                        value: $subscriptionConfig.value.pauseMissThreshold,
+                        format: .number)
+                }
             }
             .formStyle(.columns)
         }

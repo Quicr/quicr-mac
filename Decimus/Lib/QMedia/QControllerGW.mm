@@ -181,6 +181,12 @@
     qControllerGW.setPublicationState(convertedNs, convertedState);
 }
 
+- (void)setSubscriptionState:(NSString*)quicrNamespace transportMode:(TransportMode)transportMode {
+    const quicr::Namespace convertedNs = std::string_view([quicrNamespace UTF8String]);
+    const quicr::TransportMode converted = static_cast<quicr::TransportMode>(static_cast<uint8_t>(transportMode));
+    qControllerGW.setSubscriptionState(convertedNs, converted);
+}
+
 @end
 
 // C++
@@ -295,4 +301,10 @@ std::vector<qmedia::QController::PublicationReport> QControllerGW::getPublicatio
 void QControllerGW::setPublicationState(const quicr::Namespace& quicrNamespace, const qmedia::QController::PublicationState publicationState) {
     assert(qController);
     return qController->setPublicationState(quicrNamespace, publicationState);
+}
+
+void QControllerGW::setSubscriptionState(const quicr::Namespace& quicrNamespace, const quicr::TransportMode transportMode)
+{
+    assert(qController);
+    return qController->setSubscriptionState(quicrNamespace, transportMode);
 }

@@ -41,6 +41,7 @@ public:
     std::vector<quicr::Namespace> getSubscriptions(const std::string& sourceId);
     std::vector<qmedia::QController::PublicationReport> getPublications();
     void setPublicationState(const quicr::Namespace& quicrNamespace, const qmedia::QController::PublicationState);
+    void setSubscriptionState(const quicr::Namespace& quicrNamespace, const quicr::TransportMode);
 
 public:
     std::shared_ptr<cantina::Logger> logger;

@@ -56,6 +56,7 @@ static PublicationState const PublicationStatePaused = 1;
 -(NSMutableArray*) getSubscriptions: (NSString*) sourceId;
 -(NSMutableArray*) getPublications;
 -(void) setPublicationState:(NSString*) quicrNamespace publicationState:(PublicationState)publicationState;
+-(void) setSubscriptionState:(NSString*) quicrNamespace transportMode:(TransportMode)transportMode;
 @end
 
 #endif /* QControllerGWObj_h */
