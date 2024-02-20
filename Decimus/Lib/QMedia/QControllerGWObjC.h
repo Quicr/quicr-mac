@@ -20,8 +20,8 @@
 typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 
 typedef unsigned PublicationState NS_TYPED_ENUM;
-PublicationState const PublicationStateActive = 0;
-PublicationState const PublicationStatePaused = 1;
+static PublicationState const PublicationStateActive = 0;
+static PublicationState const PublicationStatePaused = 1;
 
 @interface PublicationReport: NSObject
 @property PublicationState state;
