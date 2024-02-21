@@ -258,23 +258,15 @@ class VideoHandler: CustomStringConvertible {
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
         let buffers: [CMBlockBuffer]?
-        var sequenceNumber: UInt64?
-        var fps: UInt8?
-        var orientation: AVCaptureVideoOrientation?
-        var verticalMirror: Bool?
-        var timestamp: CMTime?
+        var sei: ApplicationSEI?
         switch self.config.codec {
         case .h264:
             buffers = try H264Utilities.depacketize(data,
                                                     format: &self.currentFormat,
                                                     copy: copy) {
                 do {
-                    try ApplicationH264SEIs.parseCustomSEI($0,
-                                                           orientation: &orientation,
-                                                           verticalMirror: &verticalMirror,
-                                                           timestamp: &timestamp,
-                                                           fps: &fps,
-                                                           sequenceNumber: &sequenceNumber)
+                    let parser = ApplicationSeiParser(ApplicationH264SEIs())
+                    sei = try parser.parse(encoded: $0)
                 } catch {
                     Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
@@ -284,12 +276,8 @@ class VideoHandler: CustomStringConvertible {
                                                     format: &self.currentFormat,
                                                     copy: copy) {
                 do {
-                    try ApplicationHEVCSEIs.parseCustomSEI($0,
-                                                           orientation: &orientation,
-                                                           verticalMirror: &verticalMirror,
-                                                           timestamp: &timestamp,
-                                                           fps: &fps,
-                                                           sequenceNumber: &sequenceNumber)
+                    let parser = ApplicationSeiParser(ApplicationHEVCSEIs())
+                    sei = try parser.parse(encoded: $0)
                 } catch {
                     Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
@@ -300,8 +288,8 @@ class VideoHandler: CustomStringConvertible {
         
         guard let buffers = buffers else { return nil }
         let timeInfo: CMSampleTimingInfo
-        if let timestamp = timestamp {
-            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp, decodeTimeStamp: .invalid)
+        if let timestamp = sei?.timestamp {
+            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
         } else {
             Self.logger.error("Missing expected frame timestamp")
             timeInfo = .invalid
@@ -326,7 +314,7 @@ class VideoHandler: CustomStringConvertible {
         if let first = samples.first {
             do {
                 let resolvedFps: UInt16
-                if let fps = fps {
+                if let fps = sei?.timestamp?.fps {
                     resolvedFps = UInt16(fps)
                 } else {
                     resolvedFps = self.config.fps
@@ -342,8 +330,8 @@ class VideoHandler: CustomStringConvertible {
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
-                     sequenceNumber: sequenceNumber,
-                     fps: fps,
+                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     fps: sei?.timestamp?.fps,
                      orientation: orientation,
                      verticalMirror: verticalMirror)
     }

@@ -1,14 +1,18 @@
-import AVFoundation
-
-class ApplicationHEVCSEIs {
-    fileprivate enum OrientationSeiOffsets: Int {
-        case tag = 6
-        case payloadLength = 7
-        case orientation = 8
-        case mirror = 9
+class ApplicationHEVCSEIs: ApplicationSeiData {
+    func getOrientationOffset(_ field: OrientationSeiField) -> Int {
+        switch field {
+        case .tag:
+            return 6
+        case .payloadLength:
+            return 7
+        case .orientation:
+            return 8
+        case .mirror:
+            return 9
+        }
     }
     
-    fileprivate static let orientationSEI: [UInt8] = [
+    let orientationSei: [UInt8] = [
         // Start Code.
         0x00, 0x00, 0x00, 0x01,
         
@@ -31,24 +35,26 @@ class ApplicationHEVCSEIs {
         0x80
     ]
     
-    static func getHEVCOrientationSEI(orientation: AVCaptureVideoOrientation,
-                                      verticalMirror: Bool) -> [UInt8] {
-        var bytes = orientationSEI
-        bytes[8] = UInt8(orientation.rawValue)
-        bytes[9] = verticalMirror ? 0x01 : 0x00
-        return bytes
+    func getTimestampOffset(_ field: TimestampSeiField) -> Int {
+        switch field {
+        case .type:
+            return 4
+        case .size:
+            return 7
+        case .id:
+            return 24
+        case .timeValue:
+            return 25
+        case .timeScale:
+            return 33
+        case .sequence:
+            return 37
+        case .fps:
+            return 45
+        }
     }
     
-    fileprivate enum TimestampSeiOffsets: Int {
-        case timeValue = 25
-        case timeScale = 33
-        case sequence = 37
-        case fps = 45
-    }
-    
-    fileprivate static let timestampFixedBytes = 25
-    
-    fileprivate static let timestampSEIBytes: [UInt8] = [ // total 47
+    let timestampSei: [UInt8] = [ // total 47
         // Start Code.
         0x00, 0x00, 0x00, 0x01, // 0x28 - size
         // SEI NALU type,
@@ -73,51 +79,4 @@ class ApplicationHEVCSEIs {
         // Stop bit?
         0x80
     ]
-    
-    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
-        var bytes = timestampSEIBytes
-        var networkTimeValue = timestamp.value.bigEndian
-        var networkTimeScale = timestamp.timescale.bigEndian
-        var seq = sequenceNumber.bigEndian
-        var fps = fps
-        bytes.withUnsafeMutableBytes {
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
-                   &networkTimeValue,
-                   MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
-                   &networkTimeScale,
-                   MemoryLayout<UInt32>.size) // 4
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
-                   &seq,
-                   MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
-                   &fps,
-                   MemoryLayout<UInt8>.size) // 4
-        }
-        return bytes
-    }
-    
-    static func parseCustomSEI(_ seiData: UnsafeRawBufferPointer, orientation: inout AVCaptureVideoOrientation?, verticalMirror: inout Bool?, timestamp: inout CMTime?, fps: inout UInt8?, sequenceNumber: inout UInt64?) throws {
-        if seiData.count == orientationSEI.count { // Orientation
-            if seiData[OrientationSeiOffsets.payloadLength.rawValue] == 0x02 { // yep - orientation
-                orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
-                verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
-            }
-        } else if seiData.count == timestampSEIBytes.count { // timestamp?
-            var match: Bool = false
-            seiData.withUnsafeBytes { seiBytes in
-                timestampSEIBytes.withUnsafeBytes { timestampBytes in
-                    match = memcmp(seiBytes.baseAddress, timestampBytes.baseAddress, timestampFixedBytes) == 0
-                }
-            }
-            guard match else { return }
-
-            let timeValue = seiData.loadUnaligned(fromByteOffset: TimestampSeiOffsets.timeValue.rawValue, as: UInt64.self)
-            let timeScale = seiData.loadUnaligned(fromByteOffset: TimestampSeiOffsets.timeScale.rawValue, as: UInt32.self)
-            timestamp = CMTimeMake(value: Int64(CFSwapInt64BigToHost(timeValue)), timescale: Int32(CFSwapInt32BigToHost(timeScale)))
-            let tempSequence = seiData.loadUnaligned(fromByteOffset: TimestampSeiOffsets.sequence.rawValue, as: UInt64.self)
-            sequenceNumber = CFSwapInt64BigToHost(tempSequence)
-            fps = seiData.loadUnaligned(fromByteOffset: TimestampSeiOffsets.fps.rawValue, as: UInt8.self)
-        }
-    }
 }

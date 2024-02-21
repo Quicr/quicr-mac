@@ -334,27 +334,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         switch config?.codec {
         case .h264:
             _ = try! H264Utilities.depacketize(data, format: &format, copy: false) {
-                var fps: UInt8?
-                var sequence: UInt64?
+                guard timestamp == nil else { return }
                 do {
-                    try ApplicationH264SEIs.parseTimestampSEI($0, timestamp: &timestamp, fps: &fps, sequenceNumber: &sequence)
+                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationH264SEIs())?.timestamp
                 } catch {
                     Self.logger.error("Failed to parse: \(error.localizedDescription)")
                 }
             }
         case .hevc:
             _ = try! HEVCUtilities.depacketize(data, format: &format, copy: false) {
-                var fps: UInt8?
-                var sequence: UInt64?
-                var orientation: AVCaptureVideoOrientation?
-                var verticalMirror: Bool?
+                guard timestamp == nil else { return }
                 do {
-                    try ApplicationHEVCSEIs.parseCustomSEI($0,
-                                                           orientation: &orientation,
-                                                           verticalMirror: &verticalMirror,
-                                                           timestamp: &timestamp,
-                                                           fps: &fps,
-                                                           sequenceNumber: &sequence)
+                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationHEVCSEIs())?.timestamp
                 } catch {
                     Self.logger.error("Failed to parse: \(error.localizedDescription)")
                 }

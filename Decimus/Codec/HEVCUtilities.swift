@@ -32,7 +32,7 @@ class HEVCUtilities {
     static func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
                             format: inout CMFormatDescription?,
                             copy: Bool,
-                            seiCallback: (UnsafeRawBufferPointer) -> Void) throws -> [CMBlockBuffer]? {
+                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -115,9 +115,7 @@ class HEVCUtilities {
             }
             
             if type == .sei {
-                nalu.withUnsafeBytes {
-                    seiCallback($0)
-                }
+                seiCallback(nalu)
             }
             
             if let vps = vpsData,

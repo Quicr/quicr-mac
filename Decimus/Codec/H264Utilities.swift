@@ -28,7 +28,7 @@ class H264Utilities {
     static func depacketize(_ data: Data,
                             format: inout CMFormatDescription?,
                             copy: Bool,
-                            seiCallback: (UnsafeRawBufferPointer) -> Void) throws -> [CMBlockBuffer]? {
+                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         if data.starts(with: naluStartCode) {
             return try depacketizeAnnexB(data,
                                          format: &format,
@@ -47,7 +47,7 @@ class H264Utilities {
     static func depacketizeLength(_ data: UnsafeRawBufferPointer,
                                   format: inout CMFormatDescription?,
                                   copy: Bool,
-                                  seiCallback: (UnsafeRawBufferPointer) -> Void) throws -> [CMBlockBuffer]? {
+                                  seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         var results: [CMBlockBuffer] = []
         var offset = 0
         var spsData: Data?
@@ -68,7 +68,7 @@ class H264Utilities {
             }
 
             if type == .sei {
-                seiCallback(.init(start: data.baseAddress!.advanced(by: offset), count: Int(length) + MemoryLayout<UInt32>.size))
+                seiCallback(.init(bytes: data.baseAddress!.advanced(by: offset), count: Int(length) + MemoryLayout<UInt32>.size))
             }
 
             if let sps = spsData,
@@ -99,7 +99,7 @@ class H264Utilities {
     static func depacketizeAnnexB(_ data: Data,
                                   format: inout CMFormatDescription?,
                                   copy: Bool,
-                                  seiCallback: (UnsafeRawBufferPointer) -> Void) throws -> [CMBlockBuffer]? {
+                                  seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
 
         // Identify all NALUs by start code.
         assert(data.starts(with: naluStartCode))
@@ -176,9 +176,7 @@ class H264Utilities {
             }
 
             if type == .sei {
-                nalu.withUnsafeBytes {
-                    seiCallback($0)
-                }
+                seiCallback(nalu)
             }
 
             if let sps = spsData,
