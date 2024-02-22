@@ -263,7 +263,6 @@ class VTEncoder {
                     }
                 } else {
                     let length = UInt32(set.count).bigEndian
-                    print(length)
                     parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
                     offset += MemoryLayout<UInt32>.size
                 }

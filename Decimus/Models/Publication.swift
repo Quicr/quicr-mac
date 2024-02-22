@@ -8,11 +8,12 @@ enum PublicationError: Int32 {
 }
 // swiftlint:enable identifier_name
 
+// TODO: This protocol is redundent.
 protocol Publication: QPublicationDelegateObjC {
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32
     func update(_ sourceId: String!, qualityProfile: String!) -> Int32
     func publish(_ flag: Bool)
 }

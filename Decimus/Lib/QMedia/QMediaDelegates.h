@@ -22,7 +22,7 @@ class QMediaSubscriptionDelegate : public qmedia::QSubscriptionDelegate
 public:
     QMediaSubscriptionDelegate(id<QSubscriptionDelegateObjC> delegate, const SourceId& sourceId);
 public:
-    int prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) override;
+    int prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, quicr::TransportMode& transportMode) override;
     int update(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet) override;
     int subscribedObject(const quicr::Namespace& quicrNamespace, quicr::bytes&& data, std::uint32_t groupId, std::uint16_t objectId) override;
 private:
@@ -36,7 +36,7 @@ public:
     QMediaPublicationDelegate(id<QPublicationDelegateObjC> delegate, const quicr::Namespace& quicrNamespace);
 
 public:
-    int prepare(const std::string& sourceId,  const std::string& qualityProfile, bool &reliable);
+    int prepare(const std::string& sourceId,  const std::string& qualityProfile, quicr::TransportMode &transportMode);
     int update(const std::string& sourceId, const std::string& qualityProfile);
     void publish(bool pubFlag);
 
