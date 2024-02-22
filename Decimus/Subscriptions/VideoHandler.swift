@@ -27,8 +27,8 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private var orientation: AVCaptureVideoOrientation?
-    private var verticalMirror: Bool?
+    private(set) var orientation: AVCaptureVideoOrientation?
+    private(set) var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
@@ -258,7 +258,7 @@ class VideoHandler: CustomStringConvertible {
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
         let buffers: [CMBlockBuffer]?
-        var sei: ApplicationSEI?
+        var seis: [ApplicationSEI] = []
         switch self.config.codec {
         case .h264:
             buffers = try H264Utilities.depacketize(data,
@@ -266,7 +266,9 @@ class VideoHandler: CustomStringConvertible {
                                                     copy: copy) {
                 do {
                     let parser = ApplicationSeiParser(ApplicationH264SEIs())
-                    sei = try parser.parse(encoded: $0)
+                    if let sei = try parser.parse(encoded: $0) {
+                        seis.append(sei)
+                    }
                 } catch {
                     Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
@@ -277,7 +279,9 @@ class VideoHandler: CustomStringConvertible {
                                                     copy: copy) {
                 do {
                     let parser = ApplicationSeiParser(ApplicationHEVCSEIs())
-                    sei = try parser.parse(encoded: $0)
+                    if let sei = try parser.parse(encoded: $0) {
+                        seis.append(sei)
+                    }
                 } catch {
                     Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
@@ -285,7 +289,18 @@ class VideoHandler: CustomStringConvertible {
         default:
             throw "Unsupported codec: \(self.config.codec)"
         }
-        
+
+        let sei: ApplicationSEI?
+        if seis.count == 0 {
+            sei = nil
+        } else {
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil)) { result, next in
+                let timestamp = next.timestamp ?? result.timestamp
+                let orientation = next.orientation ?? result.orientation
+                return .init(timestamp: timestamp, orientation: orientation)
+            }
+        }
+
         guard let buffers = buffers else { return nil }
         let timeInfo: CMSampleTimingInfo
         if let timestamp = sei?.timestamp {
@@ -293,13 +308,6 @@ class VideoHandler: CustomStringConvertible {
         } else {
             Self.logger.error("Missing expected frame timestamp")
             timeInfo = .invalid
-        }
-        
-        if let orientation = orientation {
-            self.orientation = orientation
-        }
-        if let verticalMirror = verticalMirror {
-            self.verticalMirror = verticalMirror
         }
 
         var samples: [CMSampleBuffer] = []
@@ -332,8 +340,8 @@ class VideoHandler: CustomStringConvertible {
                      objectId: objectId,
                      sequenceNumber: sei?.timestamp?.sequenceNumber,
                      fps: sei?.timestamp?.fps,
-                     orientation: orientation,
-                     verticalMirror: verticalMirror)
+                     orientation: sei?.orientation?.orientation,
+                     verticalMirror: sei?.orientation?.verticalMirror)
     }
 
     private func decode(sample: DecimusVideoFrame) throws {
@@ -359,11 +367,13 @@ class VideoHandler: CustomStringConvertible {
         lastObject = objectId
 
         // Decode.
-        for sample in sample.samples {
+        for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
+                try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
             } else {
-                try decoder!.write(sample)
+                self.orientation = sample.orientation
+                self.verticalMirror = sample.verticalMirror
+                try decoder!.write(sampleBuffer)
             }
         }
     }

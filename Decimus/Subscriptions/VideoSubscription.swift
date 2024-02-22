@@ -302,7 +302,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
                 participant.label = .init(describing: first.key)
                 do {
-                    try participant.view.enqueue(sample, transform: CATransform3DIdentity)
+                    try participant.view.enqueue(sample, transform: first.key.orientation?.toTransform(first.key.verticalMirror!))
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }

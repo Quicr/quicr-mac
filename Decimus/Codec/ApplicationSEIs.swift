@@ -42,7 +42,8 @@ struct OrientationSei {
     
     init(encoded: Data, data: ApplicationSeiData) throws {
         let payloadLengthIndex = data.getOrientationOffset(.payloadLength)
-        guard encoded[payloadLengthIndex] == data.orientationSei[payloadLengthIndex] else {
+        guard encoded.count == data.orientationSei.count,
+              encoded[payloadLengthIndex] == data.orientationSei[payloadLengthIndex] else {
             throw SeiParseError.mismatch
         }
 
@@ -101,7 +102,8 @@ struct TimestampSei {
     
     init(encoded: Data, data: ApplicationSeiData) throws {
         let idOffset = data.getTimestampOffset(.id)
-        guard encoded[idOffset] == data.timestampSei[idOffset] else {
+        guard encoded.count == data.timestampSei.count,
+              encoded[idOffset] == data.timestampSei[idOffset] else {
             throw SeiParseError.mismatch
         }
 
@@ -167,8 +169,12 @@ class ApplicationSeiParser {
         self.data = data
     }
     
-    func parse(encoded: Data) throws -> ApplicationSEI {
-        .init(timestamp: try .parse(encoded: encoded, data: self.data),
-              orientation: try .parse(encoded: encoded, data: self.data))
+    func parse(encoded: Data) throws -> ApplicationSEI? {
+        let timestamp = try TimestampSei.parse(encoded: encoded, data: self.data)
+        let orientation = try OrientationSei.parse(encoded: encoded, data: self.data)
+        if timestamp == nil && orientation == nil {
+            return nil
+        }
+        return .init(timestamp: timestamp, orientation: orientation)
     }
 }
