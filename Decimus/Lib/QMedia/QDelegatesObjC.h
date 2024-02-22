@@ -10,14 +10,23 @@
 #import <Foundation/Foundation.h>
 #import "ProfileSet.h"
 
+typedef unsigned TransportMode NS_TYPED_ENUM;
+static TransportMode const TransportModeReliablePerTrack = 0;
+static TransportMode const TransportModeReliablePerGroup = 1;
+static TransportMode const TransportModeReliablePerObject = 2;
+static TransportMode const TransportModeUnreliable = 3;
+static TransportMode const TransportModeUsePublisher = 4;
+static TransportMode const TransportModePause = 5;
+static TransportMode const TransportModeResume = 6;
+
 @protocol QSubscriptionDelegateObjC
-- (int) prepare: (NSString*) sourceID label: (NSString*) label profileSet: (struct QClientProfileSet) profileSet reliable: (bool*) reliable;
+- (int) prepare: (NSString*) sourceID label: (NSString*) label profileSet: (struct QClientProfileSet) profileSet transportMode: (TransportMode*) transportMode;
 - (int) update: (NSString*) sourceID label: (NSString*) label profileSet: (struct QClientProfileSet) profileSet;
 - (int) subscribedObject: (NSString*) name data: (const void*) data length: (size_t) length groupId: (UInt32) groupId objectId: (UInt16) objectId;
 @end
 
 @protocol QPublicationDelegateObjC
-- (int) prepare: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile reliable: (bool*) reliable;
+- (int) prepare: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile transportMode: (TransportMode*) transportMode;
 - (int) update: (NSString*) sourceID qualityProfile: (NSString*) qualityProfile;
 - (void) publish: (bool) flag;
 @end

@@ -93,8 +93,8 @@ class OpusPublication: Publication {
         TPCircularBufferCleanup(self.buffer)
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
+        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
         return PublicationError.None.rawValue
     }
 
