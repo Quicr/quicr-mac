@@ -19,6 +19,7 @@ class VTEncoder {
     private let bufferAllocator: BufferAllocator
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
+    private let seiData: ApplicationSeiData
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -39,8 +40,10 @@ class VTEncoder {
         let codec: CMVideoCodecType
         switch config.codec {
         case .h264:
+            self.seiData = ApplicationH264SEIs()
             codec = kCMVideoCodecType_H264
         case .hevc:
+            self.seiData = ApplicationHEVCSEIs()
             codec = kCMVideoCodecType_HEVC
         default:
             fatalError()
@@ -260,7 +263,6 @@ class VTEncoder {
                     }
                 } else {
                     let length = UInt32(set.count).bigEndian
-                    print(length)
                     parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
                     offset += MemoryLayout<UInt32>.size
                 }
@@ -364,16 +366,7 @@ class VTEncoder {
                                      sequenceNumber: UInt64,
                                      fps: UInt8,
                                      bufferAllocator: BufferAllocator) {
-        let bytes: [UInt8]
-        switch self.config.codec {
-        case .h264:
-            bytes = H264Utilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps, startCode: self.emitStartCodes)
-        case .hevc:
-            bytes = HEVCUtilities.getTimestampSEIBytes(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps)
-        default:
-            fatalError()
-        }
-
+        let bytes = TimestampSei(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps).getBytes(self.seiData, startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
             return
@@ -386,19 +379,7 @@ class VTEncoder {
     private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
-        let bytes: [UInt8]
-        switch self.config.codec {
-        case .h264:
-            bytes = H264Utilities.getH264OrientationSEI(orientation: orientation,
-                                                        verticalMirror: verticalMirror,
-                                                        startCode: self.emitStartCodes)
-        case .hevc:
-            bytes = HEVCUtilities.getHEVCOrientationSEI(orientation: orientation,
-                                                        verticalMirror: verticalMirror)
-        default:
-            throw "Codec \(self.config.codec) doesn't provide orientation data"
-        }
-
+        let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)
         guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else { fatalError() }
         let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
         bytes.copyBytes(to: orientationBufferPtr)

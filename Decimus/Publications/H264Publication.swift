@@ -86,7 +86,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         self.encoder = try .init(config: self.codec!,
                                  verticalMirror: device.position == .front,
-                                 callback: onEncodedData)
+                                 callback: onEncodedData,
+                                 emitStartCodes: self.codec!.codec == .hevc)
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
