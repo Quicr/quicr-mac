@@ -13,7 +13,7 @@ final class TestH264Utilities: XCTestCase {
         ]
         let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
-        let callback: (UnsafeRawBufferPointer) -> Void = { _ in }
+        let callback: (Data) -> Void = { _ in }
         guard let samples = try H264Utilities.depacketize(data,
                                                           format: &format,
                                                           copy: true,
@@ -59,8 +59,6 @@ final class TestH264Utilities: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             1, 2, 3, 4, 5
         ]
-        let format: CMFormatDescription = try .init(mediaType: .video, mediaSubType: .h264)
-        var data = Data(values)
         try values.withUnsafeBytes { packetized in
             let block = try H264Utilities.buildBlockBuffer(packetized, copy: false)
 
