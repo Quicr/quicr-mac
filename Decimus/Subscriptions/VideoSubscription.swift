@@ -33,6 +33,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var pauseMissCounts: [VideoHandler: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
+    private let pauseResume: Bool
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -45,7 +46,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,
-         controller: CallController?) throws {
+         controller: CallController?,
+         pauseResume: Bool) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -61,6 +63,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.qualityMissThreshold = qualityMissThreshold
         self.pauseMissThreshold = pauseMissThreshold
         self.callController = controller
+        self.pauseResume = pauseResume
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
@@ -282,22 +285,24 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
-        for pauseCandidate in self.pauseMissCounts where pauseCandidate.key.config.width > incomingWidth {
-            guard let callController = self.callController,
-                  callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
-                continue
-            }
-
-            let newValue = pauseCandidate.value + 1
-            Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
-            if newValue >= self.pauseMissThreshold {
-                // Pause this subscription.
-                Self.logger.warning("Pausing subscription: \(pauseCandidate.key.config.width)")
-                callController.setSubscriptionState(pauseCandidate.key.namespace, transportMode: .pause)
-                self.pauseMissCounts[pauseCandidate.key] = 0
-            } else {
-                // Increment the pause miss count.
-                self.pauseMissCounts[pauseCandidate.key] = newValue
+        if self.pauseResume {
+            for pauseCandidate in self.pauseMissCounts where pauseCandidate.key.config.width > incomingWidth {
+                guard let callController = self.callController,
+                      callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
+                    continue
+                }
+                
+                let newValue = pauseCandidate.value + 1
+                Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+                if newValue >= self.pauseMissThreshold {
+                    // Pause this subscription.
+                    Self.logger.warning("Pausing subscription: \(pauseCandidate.key.config.width)")
+                    callController.setSubscriptionState(pauseCandidate.key.namespace, transportMode: .pause)
+                    self.pauseMissCounts[pauseCandidate.key] = 0
+                } else {
+                    // Increment the pause miss count.
+                    self.pauseMissCounts[pauseCandidate.key] = newValue
+                }
             }
         }
 

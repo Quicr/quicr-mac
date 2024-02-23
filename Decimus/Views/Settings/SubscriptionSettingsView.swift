@@ -132,6 +132,11 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                 }
 
+                HStack {
+                    Text("Do Pause/Resume")
+                    Toggle(isOn: $subscriptionConfig.value.pauseResume) {}
+                }
+
                 LabeledContent("Pause miss threshold (frames)") {
                     TextField(
                         "Pause miss threshold (frames)",

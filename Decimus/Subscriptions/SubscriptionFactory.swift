@@ -55,6 +55,7 @@ struct SubscriptionConfig: Codable {
     var bitrateType: BitrateType
     var limit1s: Double
     var useResetWaitCC: Bool
+    var pauseResume: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -74,6 +75,7 @@ struct SubscriptionConfig: Codable {
         bitrateType = .average
         limit1s = 2.5
         useResetWaitCC = true
+        pauseResume = false
     }
 }
 
@@ -137,7 +139,8 @@ class SubscriptionFactory {
                                          simulreceive: self.config.simulreceive,
                                          qualityMissThreshold: self.config.qualityMissThreshold,
                                          pauseMissThreshold: self.config.pauseMissThreshold,
-                                         controller: self.controller)
+                                         controller: self.controller,
+                                         pauseResume: self.config.pauseResume)
         }
 
         if found.isSubset(of: opusCodecs) {
