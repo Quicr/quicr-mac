@@ -13,15 +13,11 @@ final class TestH264Utilities: XCTestCase {
         ]
         let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
-        var orientation: AVCaptureVideoOrientation? = .portrait
-        var mirror: Bool? = false
+        let callback: (Data) -> Void = { _ in }
         guard let samples = try H264Utilities.depacketize(data,
-                                                          groupId: 0,
-                                                          objectId: 1,
                                                           format: &format,
-                                                          orientation: &orientation,
-                                                          verticalMirror: &mirror,
-                                                          copy: true) else {
+                                                          copy: true,
+                                                          seiCallback: callback) else {
             XCTFail()
             return
         }
@@ -31,8 +27,7 @@ final class TestH264Utilities: XCTestCase {
         let length = UInt32(5).bigEndian
 
         // Sample 1.
-        let sample1 = samples[0]
-        let dataBuffer1 = sample1.dataBuffer!
+        let dataBuffer1 = samples[0]
         XCTAssertEqual(dataBuffer1.dataLength, 9)
         let extractedData1: UnsafeMutableRawBufferPointer = .allocate(byteCount: dataBuffer1.dataLength,
                                                                       alignment: MemoryLayout<UInt8>.alignment)
@@ -47,8 +42,7 @@ final class TestH264Utilities: XCTestCase {
         }
 
         // Sample 2.
-        let sample2 = samples[1]
-        let dataBuffer2 = sample2.dataBuffer!
+        let dataBuffer2 = samples[1]
         XCTAssertEqual(dataBuffer2.dataLength, 9)
         let extractedData2: UnsafeMutableRawBufferPointer = .allocate(byteCount: dataBuffer2.dataLength,
                                                                       alignment: MemoryLayout<UInt8>.alignment)
@@ -65,81 +59,16 @@ final class TestH264Utilities: XCTestCase {
             0x00, 0x00, 0x00, 0x01,
             1, 2, 3, 4, 5
         ]
-        let format: CMFormatDescription = try .init(mediaType: .video, mediaSubType: .h264)
-        var data = Data(values)
-        let orientation: AVCaptureVideoOrientation = .portraitUpsideDown
-        let mirror = true
-        let groupId: UInt32 = 1
-        let objectId: UInt16 = 2
-        let sequence: UInt64? = 3
-        let fps: UInt8? = 4
         try values.withUnsafeBytes { packetized in
-            let sample = try H264Utilities.buildSampleBuffer(packetized,
-                                                             groupId: groupId,
-                                                             objectId: objectId,
-                                                             timeInfo: .init(),
-                                                             format: format,
-                                                             copy: false,
-                                                             orientation: orientation,
-                                                             verticalMirror: mirror,
-                                                             sequenceNumber: sequence,
-                                                             fps: fps)
+            let block = try H264Utilities.buildBlockBuffer(packetized, copy: false)
 
-            // Check the data is in the sample.
-            XCTAssertNotNil(sample.dataBuffer)
-            try sample.dataBuffer!.withUnsafeMutableBytes { depacketized in
+            // Check the data is in the buffer.
+            XCTAssertNotNil(block)
+            try block.withUnsafeMutableBytes { depacketized in
                 XCTAssertEqual(0,
                                memcmp(depacketized.baseAddress!.advanced(by: 4),
                                       packetized.baseAddress!.advanced(by: 4),
                                       values.count - 4))
-            }
-
-            // Check attachments set.
-            XCTAssert(sample.getGroupId() == groupId)
-            XCTAssert(sample.getObjectId() == objectId)
-            XCTAssert(sample.getSequenceNumber() == sequence)
-            XCTAssert(sample.getOrientation() == orientation)
-            XCTAssert(sample.getVerticalMirror() == mirror)
-            XCTAssert(sample.getFPS() == fps)
-        }
-    }
-
-    func testGetTimestampBytes() {
-        testGetTimestampBytes(startCode: true)
-        testGetTimestampBytes(startCode: false)
-    }
-
-    func testGetTimestampBytes(startCode: Bool) {
-        let time = CMTime(seconds: 1234, preferredTimescale: 5678)
-        let bytes = H264Utilities.getTimestampSEIBytes(timestamp: time,
-                                                       sequenceNumber: 1,
-                                                       fps: 30,
-                                                       startCode: startCode)
-        XCTAssert(bytes.count == H264Utilities.timestampSEIBytes.count)
-        if startCode {
-            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
-        } else {
-            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
-            bytes.withUnsafeBytes {
-                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
-            }
-        }
-    }
-
-    func testGetOrientationBytes() {
-        testGetOrientationBytes(startCode: true)
-        testGetOrientationBytes(startCode: false)
-    }
-
-    func testGetOrientationBytes(startCode: Bool) {
-        let bytes = H264Utilities.getH264OrientationSEI(orientation: .portrait, verticalMirror: false, startCode: startCode)
-        XCTAssert(bytes.count == H264Utilities.orientationSei.count)
-        if startCode {
-            XCTAssert(bytes.starts(with: H264Utilities.naluStartCode))
-        } else {
-            var length = UInt32(bytes.count - H264Utilities.naluStartCode.count).bigEndian
-            bytes.withUnsafeBytes {
-                XCTAssert(memcmp($0.baseAddress, &length, 4) == 0)
             }
         }
     }
