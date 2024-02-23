@@ -86,14 +86,15 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
         self.encoder = try .init(config: self.codec!,
                                  verticalMirror: device.position == .front,
-                                 callback: onEncodedData)
+                                 callback: onEncodedData,
+                                 emitStartCodes: self.codec!.codec == .hevc)
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
+        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
         return PublicationError.None.rawValue
     }
 

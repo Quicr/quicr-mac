@@ -116,8 +116,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     func prepare(_ sourceID: SourceIDType!,
                  label: String!,
                  profileSet: QClientProfileSet,
-                 reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
+                 transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
+        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
         return SubscriptionError.none.rawValue
     }
 
@@ -302,7 +302,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
                 participant.label = .init(describing: first.key)
                 do {
-                    try participant.view.enqueue(sample, transform: CATransform3DIdentity)
+                    try participant.view.enqueue(sample, transform: first.key.orientation?.toTransform(first.key.verticalMirror!))
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }
@@ -329,34 +329,32 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
         // Save starting time.
         var format: CMFormatDescription?
-        var orientation: AVCaptureVideoOrientation?
-        var verticalMirror: Bool?
         let config = self.profiles[namespace]
-        let samples: [CMSampleBuffer]?
+        var timestamp: CMTime?
         switch config?.codec {
         case .h264:
-            samples = try! H264Utilities.depacketize(data,
-                                                     groupId: groupId,
-                                                     objectId: objectId,
-                                                     format: &format,
-                                                     orientation: &orientation,
-                                                     verticalMirror: &verticalMirror,
-                                                     copy: true)
+            _ = try! H264Utilities.depacketize(data, format: &format, copy: false) {
+                guard timestamp == nil else { return }
+                do {
+                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationH264SEIs())?.timestamp
+                } catch {
+                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
+                }
+            }
         case .hevc:
-            samples = try! HEVCUtilities.depacketize(data,
-                                                     groupId: groupId,
-                                                     objectId: objectId,
-                                                     format: &format,
-                                                     orientation: &orientation,
-                                                     verticalMirror: &verticalMirror,
-                                                     copy: true)
+            _ = try! HEVCUtilities.depacketize(data, format: &format, copy: false) {
+                guard timestamp == nil else { return }
+                do {
+                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationHEVCSEIs())?.timestamp
+                } catch {
+                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
+                }
+            }
         default:
             fatalError()
         }
-        if let samples = samples {
-            for sample in samples {
-                return Date.now.timeIntervalSinceReferenceDate - sample.presentationTimeStamp.seconds
-            }
+        if let timestamp = timestamp {
+            return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
         }
         assert(false)
         return 0
