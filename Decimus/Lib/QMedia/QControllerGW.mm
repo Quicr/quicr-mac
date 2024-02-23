@@ -187,6 +187,12 @@
     qControllerGW.setSubscriptionState(convertedNs, converted);
 }
 
+- (SubscriptionState)getSubscriptionState:(NSString*)quicrNamespace {
+    const quicr::Namespace convertedNs = std::string_view([quicrNamespace UTF8String]);
+    const quicr::SubscriptionState converted = qControllerGW.getSubscriptionState(convertedNs);
+    return static_cast<SubscriptionState>(static_cast<std::uint8_t>(converted));
+}
+
 @end
 
 // C++
@@ -307,4 +313,10 @@ void QControllerGW::setSubscriptionState(const quicr::Namespace& quicrNamespace,
 {
     assert(qController);
     return qController->setSubscriptionState(quicrNamespace, transportMode);
+}
+
+quicr::SubscriptionState QControllerGW::getSubscriptionState(const quicr::Namespace& quicrNamespace)
+{
+    assert(qController);
+    return qController->getSubscriptionState(quicrNamespace);
 }

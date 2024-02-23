@@ -30,7 +30,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
     private var timestampTimeDiff: TimeInterval?
-    private var pauseCount = 0
+    private var pauseMissCounts: [VideoHandler: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
 
@@ -272,21 +272,38 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         guard let selectedHandlerFrame = sorted.first else { fatalError() }
         let selectedSample = selectedHandlerFrame.value
+        // TODO: Use priority not width.
         let incomingWidth = selectedSample.formatDescription!.dimensions.width
         let lastWidth = self.lastUsedFrame?.value.formatDescription?.dimensions.width
         if let lastWidth = lastWidth,
            incomingWidth < lastWidth {
             self.qualityMisses += 1
-            self.pauseCount += 1
+        }
+        
+        // We want to record misses for qualities we have already stepped down from, and pause them
+        // if they exceed this count.
+        for pauseCandidate in self.pauseMissCounts where pauseCandidate.key.config.width > incomingWidth {
+            guard let callController = self.callController,
+                  callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
+                continue
+            }
+
+            let newValue = pauseCandidate.value + 1
+            Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+            if newValue >= self.pauseMissThreshold {
+                // Pause this subscription.
+                Self.logger.warning("Pausing subscription: \(pauseCandidate.key.config.width)")
+                callController.setSubscriptionState(pauseCandidate.key.namespace, transportMode: .pause)
+                self.pauseMissCounts[pauseCandidate.key] = 0
+            } else {
+                // Increment the pause miss count.
+                self.pauseMissCounts[pauseCandidate.key] = newValue
+            }
         }
 
-        if self.pauseCount > self.pauseMissThreshold,
-           let lastUsedFrame = self.lastUsedFrame {
-            // If we've missed a lot, we should pause the problematic subscription.
-            self.callController?.setSubscriptionState(lastUsedFrame.key.namespace, transportMode: .pause)
-        } else if let lastWidth = lastWidth,
+        if let lastWidth = lastWidth,
                   incomingWidth < lastWidth && self.qualityMisses < self.qualityMissThreshold {
-            // Otherwise, we only want to step down in quality if we've missed a few hits.
+            // We only want to step down in quality if we've missed a few hits.
             if let duration = selectedHandlerFrame.key.calculateWaitTime() {
                 return duration
             }
@@ -298,6 +315,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
+        self.pauseMissCounts[selectedHandlerFrame.key] = 0
         self.lastUsedFrame = selectedHandlerFrame
 
         if self.simulreceive == .enable {
