@@ -12,13 +12,15 @@ class SubscriberDelegate: QSubscriberDelegateObjC {
     init(submitter: MetricsSubmitter?,
          config: SubscriptionConfig,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         controller: CallController) {
         self.participants = .init()
         self.submitter = submitter
         self.factory = .init(participants: self.participants,
                              engine: engine,
                              config: config,
-                             granularMetrics: granularMetrics)
+                             granularMetrics: granularMetrics,
+                             controller: controller)
     }
 
     func allocateSub(bySourceId sourceId: SourceIDType,
