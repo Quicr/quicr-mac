@@ -16,7 +16,6 @@ struct SubscriptionPopover: View {
 
     @StateObject private var switchingSets: SwitchingSets
     @State private var manifest: Manifest?
-    @State private var urlEncoder: UrlEncoderGWObjC?
     private let controller: CallController
 
     init(controller: CallController) {
@@ -43,8 +42,7 @@ struct SubscriptionPopover: View {
                             self.switchingSets.fetch()
                         } label: {
                             if let manifest = self.manifest,
-                               let urlEncoder = self.urlEncoder,
-                               let profile = manifest.getSubscription(sourceId: set, namespace: subscription, encoder: urlEncoder) {
+                               let profile = manifest.getSubscription(sourceId: set, namespace: subscription) {
                                 Text(profile.qualityProfile)
                             } else {
                                 Text(subscription)
@@ -59,7 +57,6 @@ struct SubscriptionPopover: View {
         .task {
             if let manifest = await self.controller.manifest.currentManifest {
                 self.manifest = manifest
-                self.urlEncoder = .init(manifest.urlTemplates)
             }
         }
     }
@@ -73,11 +70,11 @@ extension Manifest {
         return nil
     }
 
-    func getSubscription(sourceId: SourceIDType, namespace: QuicrNamespace, encoder: UrlEncoderGWObjC) -> Profile? {
+    func getSubscription(sourceId: SourceIDType, namespace: QuicrNamespace) -> Profile? {
         guard let switchingSet = getSwitchingSet(sourceId: sourceId) else { return nil }
         for profile in switchingSet.profileSet.profiles {
-            let encoded = encoder.encodeUrl(profile.namespaceURL)
-            if namespace == encoded {
+            let manifestNamespace = profile.namespace
+            if namespace == manifestNamespace {
                 return profile
             }
         }

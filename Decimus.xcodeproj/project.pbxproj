@@ -50,7 +50,6 @@
 		9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */; };
 		9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
-		9B32CC1A2B73A7D600774F91 /* UrlEncoderGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B32CC192B73A7D600774F91 /* UrlEncoderGW.mm */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
@@ -205,9 +204,6 @@
 		9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationHEVCSEIs.swift; sourceTree = "<group>"; };
 		9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
-		9B32CC152B73A50300774F91 /* UrlEncoderGWObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = UrlEncoderGWObjC.h; sourceTree = "<group>"; };
-		9B32CC182B73A76E00774F91 /* UrlEncoderGW.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = UrlEncoderGW.h; sourceTree = "<group>"; };
-		9B32CC192B73A7D600774F91 /* UrlEncoderGW.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = UrlEncoderGW.mm; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
@@ -403,9 +399,6 @@
 				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
 				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
-				9B32CC152B73A50300774F91 /* UrlEncoderGWObjC.h */,
-				9B32CC182B73A76E00774F91 /* UrlEncoderGW.h */,
-				9B32CC192B73A7D600774F91 /* UrlEncoderGW.mm */,
 			);
 			path = QMedia;
 			sourceTree = "<group>";
@@ -904,7 +897,6 @@
 				FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
-				9B32CC1A2B73A7D600774F91 /* UrlEncoderGW.mm in Sources */,
 				186763592B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
@@ -1117,7 +1109,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 5EE6X4NQSU;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
