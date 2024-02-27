@@ -22,15 +22,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
-    private var lastQuality: Int32?
+    private var lastUsedFrame: [VideoHandler: CMSampleBuffer].Element?
     private let qualityMissThreshold: Int
-    private var lastVideoHandler: VideoHandler?
     private var cleanupTask: Task<(), Never>?
     private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
     private var handlerLock = NSLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
     private var timestampTimeDiff: TimeInterval?
+    private var pauseMissCounts: [VideoHandler: Int] = [:]
+    private let pauseMissThreshold: Int
+    private weak var callController: CallController?
+    private let pauseResume: Bool
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -41,7 +44,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         qualityMissThreshold: Int) throws {
+         qualityMissThreshold: Int,
+         pauseMissThreshold: Int,
+         controller: CallController?,
+         pauseResume: Bool) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -55,6 +61,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
         self.qualityMissThreshold = qualityMissThreshold
+        self.pauseMissThreshold = pauseMissThreshold
+        self.callController = controller
+        self.pauseResume = pauseResume
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
@@ -90,8 +99,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                     for handler in self.lastUpdateTimes where Date.now.timeIntervalSince(handler.value) >= self.cleanupTimer {
                         self.lastUpdateTimes.removeValue(forKey: handler.key)
                         if let video = self.videoHandlers.removeValue(forKey: handler.key),
-                           self.lastVideoHandler == video {
-                            self.lastVideoHandler = nil
+                           let lastUsedFrame = self.lastUsedFrame,
+                           lastUsedFrame.key == video {
+                            self.lastUsedFrame = nil
                         }
                     }
 
@@ -223,7 +233,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // No decision to make.
         guard retrievedFrames.count > 0 else {
             let duration: TimeInterval
-            if let lastHandler = self.lastVideoHandler {
+            if let lastHandler = self.lastUsedFrame?.key {
                 duration = lastHandler.calculateWaitTime() ?? 1 / TimeInterval(highestFps)
             } else {
                 duration = 1 / TimeInterval(highestFps)
@@ -263,36 +273,60 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             $0.0.config.width > $1.0.config.width
         }
 
-        guard let first = sorted.first else { fatalError() }
-
-        self.lastVideoHandler = first.key
-        let sample = first.value
-        let width = sample.formatDescription!.dimensions.width
-        if let lastQuality = self.lastQuality,
-           width < lastQuality {
+        guard let selectedHandlerFrame = sorted.first else { fatalError() }
+        let selectedSample = selectedHandlerFrame.value
+        // TODO: Use priority not width.
+        let incomingWidth = selectedSample.formatDescription!.dimensions.width
+        let lastWidth = self.lastUsedFrame?.value.formatDescription?.dimensions.width
+        if let lastWidth = lastWidth,
+           incomingWidth < lastWidth {
             self.qualityMisses += 1
         }
+        
+        // We want to record misses for qualities we have already stepped down from, and pause them
+        // if they exceed this count.
+        if self.pauseResume {
+            for pauseCandidate in self.pauseMissCounts where pauseCandidate.key.config.width > incomingWidth {
+                guard let callController = self.callController,
+                      callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
+                    continue
+                }
+                
+                let newValue = pauseCandidate.value + 1
+                Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+                if newValue >= self.pauseMissThreshold {
+                    // Pause this subscription.
+                    Self.logger.warning("Pausing subscription: \(pauseCandidate.key.config.width)")
+                    callController.setSubscriptionState(pauseCandidate.key.namespace, transportMode: .pause)
+                    self.pauseMissCounts[pauseCandidate.key] = 0
+                } else {
+                    // Increment the pause miss count.
+                    self.pauseMissCounts[pauseCandidate.key] = newValue
+                }
+            }
+        }
 
-        // We only want to step down in quality if we've missed a few hits.
-        if let lastQuality = self.lastQuality,
-           width < lastQuality && self.qualityMisses < self.qualityMissThreshold {
-            if let duration = first.key.calculateWaitTime() {
+        if let lastWidth = lastWidth,
+                  incomingWidth < lastWidth && self.qualityMisses < self.qualityMissThreshold {
+            // We only want to step down in quality if we've missed a few hits.
+            if let duration = selectedHandlerFrame.key.calculateWaitTime() {
                 return duration
             }
-            if sample.duration.isValid {
-                return sample.duration.seconds
+            if selectedSample.duration.isValid {
+                return selectedSample.duration.seconds
             }
             return 1 / TimeInterval(highestFps)
         }
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
-        self.lastQuality = sample.formatDescription!.dimensions.width
+        self.pauseMissCounts[selectedHandlerFrame.key] = 0
+        self.lastUsedFrame = selectedHandlerFrame
 
         if self.simulreceive == .enable {
             // Set to display immediately.
-            if sample.sampleAttachments.count > 0 {
-                sample.sampleAttachments[0][.displayImmediately] = true
+            if selectedSample.sampleAttachments.count > 0 {
+                selectedSample.sampleAttachments[0][.displayImmediately] = true
             } else {
                 Self.logger.warning("Couldn't set display immediately attachment")
             }
@@ -300,9 +334,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             // Enqueue the sample on the main thread.
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.label = .init(describing: first.key)
+                participant.label = .init(describing: selectedHandlerFrame.key)
                 do {
-                    try participant.view.enqueue(sample, transform: first.key.orientation?.toTransform(first.key.verticalMirror!))
+                    try participant.view.enqueue(selectedSample,
+                                                 transform: selectedHandlerFrame.key.orientation?.toTransform(selectedHandlerFrame.key.verticalMirror!))
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }
@@ -310,17 +345,17 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         } else if self.simulreceive == .visualizeOnly {
             DispatchQueue.main.async {
                 for participant in self.participants.participants {
-                    participant.value.view.highlight = participant.key == first.key.namespace
+                    participant.value.view.highlight = participant.key == selectedHandlerFrame.key.namespace
                 }
             }
         }
 
         // Wait until we have expect to have the next frame available.
-        if let duration = first.key.calculateWaitTime() {
+        if let duration = selectedHandlerFrame.key.calculateWaitTime() {
             return duration
         }
-        if sample.duration.isValid {
-            return sample.duration.seconds
+        if selectedSample.duration.isValid {
+            return selectedSample.duration.seconds
         }
         return 1 / TimeInterval(highestFps)
     }

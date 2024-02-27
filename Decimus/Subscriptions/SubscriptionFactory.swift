@@ -50,10 +50,12 @@ struct SubscriptionConfig: Codable {
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
+    var pauseMissThreshold: Int
     var timeQueueTTL: Int
     var bitrateType: BitrateType
     var limit1s: Double
     var useResetWaitCC: Bool
+    var pauseResume: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -68,10 +70,12 @@ struct SubscriptionConfig: Codable {
         isSingleOrderedPub = false
         simulreceive = .enable
         qualityMissThreshold = 3
+        pauseMissThreshold = 30
         timeQueueTTL = 100
         bitrateType = .average
         limit1s = 2.5
         useResetWaitCC = true
+        pauseResume = false
     }
 }
 
@@ -84,14 +88,17 @@ class SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let config: SubscriptionConfig
     private let granularMetrics: Bool
+    private weak var controller: CallController?
     init(participants: VideoParticipants,
          engine: DecimusAudioEngine,
          config: SubscriptionConfig,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         controller: CallController) {
         self.participants = participants
         self.engine = engine
         self.config = config
         self.granularMetrics = granularMetrics
+        self.controller = controller
     }
 
     func create(_ sourceId: SourceIDType,
@@ -130,7 +137,10 @@ class SubscriptionFactory {
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,
                                          simulreceive: self.config.simulreceive,
-                                         qualityMissThreshold: self.config.qualityMissThreshold)
+                                         qualityMissThreshold: self.config.qualityMissThreshold,
+                                         pauseMissThreshold: self.config.pauseMissThreshold,
+                                         controller: self.controller,
+                                         pauseResume: self.config.pauseResume)
         }
 
         if found.isSubset(of: opusCodecs) {
