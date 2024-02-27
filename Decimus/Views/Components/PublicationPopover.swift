@@ -16,7 +16,6 @@ struct PublicationPopover: View {
 
     @StateObject private var publications: Publications
     @State private var manifest: Manifest?
-    @State private var urlEncoder: UrlEncoderGWObjC?
     @State private var toggleStates: [QuicrNamespace: Bool] = [:]
     private let controller: CallController
 
@@ -50,8 +49,7 @@ struct PublicationPopover: View {
             ForEach(self.publications.publications, id: \.self) { publication in
                 Toggle(isOn: makePublishStateBinding(publication.quicrNamespace)) {
                     if let manifest = self.manifest,
-                       let encoder = self.urlEncoder,
-                       let profile = manifest.getPublication(namespace: publication.quicrNamespace, encoder: encoder) {
+                       let profile = manifest.getPublication(namespace: publication.quicrNamespace) {
                         Text(profile.qualityProfile)
                     } else {
                         Text(publication.quicrNamespace)
@@ -66,18 +64,17 @@ struct PublicationPopover: View {
         .task {
             if let manifest = await self.controller.manifest.currentManifest {
                 self.manifest = manifest
-                self.urlEncoder = .init(manifest.urlTemplates)
             }
         }
     }
 }
 
 extension Manifest {
-    func getPublication(namespace: QuicrNamespace, encoder: UrlEncoderGWObjC) -> Profile? {
+    func getPublication(namespace: QuicrNamespace) -> Profile? {
         for publication in self.publications {
             for profile in publication.profileSet.profiles {
-                let encoded = encoder.encodeUrl(profile.namespaceURL)
-                if namespace == encoded {
+                let manifestNamespace = profile.namespace
+                if namespace == manifestNamespace {
                     return profile
                 }
             }
