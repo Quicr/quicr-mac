@@ -34,6 +34,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
     private let pauseResume: Bool
+    private var lastSimulreceiveLabel: String?
+    private var lastHighlight: QuicrNamespace?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -282,7 +284,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
            incomingWidth < lastWidth {
             self.qualityMisses += 1
         }
-        
+
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
         if self.pauseResume {
@@ -291,7 +293,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                       callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
                     continue
                 }
-                
+
                 let newValue = pauseCandidate.value + 1
                 Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
                 if newValue >= self.pauseMissThreshold {
@@ -307,7 +309,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         if let lastWidth = lastWidth,
-                  incomingWidth < lastWidth && self.qualityMisses < self.qualityMissThreshold {
+           incomingWidth < lastWidth && self.qualityMisses < self.qualityMissThreshold {
             // We only want to step down in quality if we've missed a few hits.
             if let duration = selectedHandlerFrame.key.calculateWaitTime() {
                 return duration
@@ -332,9 +334,19 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
 
             // Enqueue the sample on the main thread.
+            let dispatchLabel: String?
+            let description = String(describing: selectedHandlerFrame.key)
+            if description != self.lastSimulreceiveLabel {
+                dispatchLabel = description
+            } else {
+                dispatchLabel = nil
+            }
+
             DispatchQueue.main.async {
                 let participant = self.participants.getOrMake(identifier: self.sourceId)
-                participant.label = .init(describing: selectedHandlerFrame.key)
+                if let dispatchLabel = dispatchLabel {
+                    participant.label = dispatchLabel
+                }
                 do {
                     try participant.view.enqueue(selectedSample,
                                                  transform: selectedHandlerFrame.key.orientation?.toTransform(selectedHandlerFrame.key.verticalMirror!))
@@ -343,9 +355,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
-            DispatchQueue.main.async {
-                for participant in self.participants.participants {
-                    participant.value.view.highlight = participant.key == selectedHandlerFrame.key.namespace
+            let namespace = selectedHandlerFrame.key.namespace
+            if namespace != self.lastHighlight {
+                self.lastHighlight = namespace
+                DispatchQueue.main.async {
+                    for participant in self.participants.participants {
+                        participant.value.view.highlight = participant.key == namespace
+                    }
                 }
             }
         }

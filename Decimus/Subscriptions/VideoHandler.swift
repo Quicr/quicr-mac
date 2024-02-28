@@ -36,6 +36,8 @@ class VideoHandler: CustomStringConvertible {
     private var lastDecodedImage: CMSampleBuffer?
     private let lastDecodedImageLock = NSLock()
     var timestampTimeDiff: TimeInterval?
+    private var lastFps: UInt16?
+    private var lastDimensions: CMVideoDimensions?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -319,22 +321,30 @@ class VideoHandler: CustomStringConvertible {
                                               sampleSizes: [buffer.dataLength]))
         }
 
+        // Do we need to update the label?
         if let first = samples.first {
-            do {
-                let resolvedFps: UInt16
-                if let fps = sei?.timestamp?.fps {
-                    resolvedFps = UInt16(fps)
-                } else {
-                    resolvedFps = self.config.fps
-                }
-                let label = try self.labelFromSample(sample: first, fps: resolvedFps)
+            let resolvedFps: UInt16
+            if let fps = sei?.timestamp?.fps {
+                resolvedFps = UInt16(fps)
+            } else {
+                resolvedFps = self.config.fps
+            }
+
+            if resolvedFps != self.lastFps || first.formatDescription?.dimensions != self.lastDimensions {
+                self.lastFps = resolvedFps
+                self.lastDimensions = first.formatDescription?.dimensions
                 DispatchQueue.main.async {
-                    self.description = label
+                    do {
+                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        let participant = self.participants.getOrMake(identifier: self.namespace)
+                        participant.label = .init(describing: self)
+                    } catch {
+                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
+                    }
                 }
-            } catch {
-                Self.logger.error("Failed to set label: \(error.localizedDescription)")
             }
         }
+
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
@@ -422,7 +432,6 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                participant.label = .init(describing: self)
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
@@ -507,5 +516,11 @@ extension VideoHandler: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.namespace)
+    }
+}
+
+extension CMVideoDimensions: Equatable {
+    public static func == (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
+        lhs.width == rhs.width && lhs.height == rhs.height
     }
 }
