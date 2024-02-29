@@ -336,6 +336,7 @@ class VideoHandler: CustomStringConvertible {
                 DispatchQueue.main.async {
                     do {
                         self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        guard self.simulreceive != .enable else { return }
                         let participant = self.participants.getOrMake(identifier: self.namespace)
                         participant.label = .init(describing: self)
                     } catch {
