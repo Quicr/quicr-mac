@@ -1,9 +1,15 @@
 import AVFoundation
+import os
 
 // swiftlint:disable type_body_length
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
+    struct AvailableImage {
+        let image: CMSampleBuffer
+        let discontinous: Bool
+    }
+    
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -18,7 +24,8 @@ class VideoHandler: CustomStringConvertible {
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
-    private let namegate: NameGate
+    private let namegate = SequentialObjectBlockingNameGate()
+    private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
     private var lastReceive: Date?
@@ -33,8 +40,8 @@ class VideoHandler: CustomStringConvertible {
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: CMSampleBuffer?
-    private let lastDecodedImageLock = NSLock()
+    private var lastDecodedImage: AvailableImage?
+    private let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
@@ -45,7 +52,7 @@ class VideoHandler: CustomStringConvertible {
     ///     - config: Codec configuration for this video stream.
     ///     - participants: Video participants dependency for rendering.
     ///     - metricsSubmitter: If present, a submitter to record metrics through.
-    ///     - namegate: Object to make decisions about valid group/object values.
+    ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
     ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
@@ -55,7 +62,7 @@ class VideoHandler: CustomStringConvertible {
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
-         namegate: NameGate,
+         videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
@@ -72,7 +79,7 @@ class VideoHandler: CustomStringConvertible {
         } else {
             self.measurement = nil
         }
-        self.namegate = namegate
+        self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
@@ -85,9 +92,9 @@ class VideoHandler: CustomStringConvertible {
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
-                    self.lastDecodedImageLock.withLock {
-                        self.lastDecodedImage = sample
-                    }
+                    self.lastDecodedImageLock.lock()
+                    defer { self.lastDecodedImageLock.unlock() }
+                    self.lastDecodedImage = .init(image: sample, discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -111,20 +118,19 @@ class VideoHandler: CustomStringConvertible {
 
     /// Get the last decoded image, if any.
     /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> CMSampleBuffer? {
+    func getLastImage() -> AvailableImage? {
         self.lastDecodedImageLock.withLock {
-            let image = self.lastDecodedImage
-            return image
+            self.lastDecodedImage
         }
     }
 
     /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
     /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(sample: CMSampleBuffer) {
-        self.lastDecodedImageLock.withLock {
-            if sample == self.lastDecodedImage {
-                self.lastDecodedImage = nil
-            }
+    func removeLastImage(frame: AvailableImage) {
+        self.lastDecodedImageLock.lock()
+        defer { self.lastDecodedImageLock.unlock() }
+        if frame.image == self.lastDecodedImage?.image {
+            self.lastDecodedImage = nil
         }
     }
 
@@ -360,10 +366,11 @@ class VideoHandler: CustomStringConvertible {
         // get groupId and objectId from the frame (1st frame)
         let groupId = sample.groupId
         let objectId = sample.objectId
-        guard namegate.handle(groupId: groupId,
-                              objectId: objectId,
-                              lastGroup: lastGroup,
-                              lastObject: lastObject) else {
+        let gateResult = namegate.handle(groupId: groupId,
+                                         objectId: objectId,
+                                         lastGroup: self.lastGroup,
+                                         lastObject: self.lastObject)
+        if !gateResult && self.videoBehaviour == .freeze {
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = groupId + 1
             if let jitterBuffer = self.jitterBuffer {
@@ -372,6 +379,13 @@ class VideoHandler: CustomStringConvertible {
                 flushDisplayLayer()
             }
             return
+        }
+
+        // Mark samples as discontinous if there was a gap.
+        if !gateResult {
+            for sample in sample.samples {
+                sample.discontinous = true
+            }
         }
 
         lastGroup = groupId

@@ -13,7 +13,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let sourceId: SourceIDType
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
-    private let namegate: NameGate
+    private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private let granularMetrics: Bool
     private let jitterBufferConfig: VideoJitterBuffer.Config
@@ -22,7 +22,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
-    private var lastUsedFrame: [VideoHandler: CMSampleBuffer].Element?
+    private var lastUsedFrame: [VideoHandler: VideoHandler.AvailableImage].Element?
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
     private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
@@ -36,12 +36,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let pauseResume: Bool
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
+    private var lastDiscontinous = false
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
-         namegate: NameGate,
+         videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
@@ -57,7 +58,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.sourceId = sourceId
         self.participants = participants
         self.submitter = metricsSubmitter
-        self.namegate = namegate
+        self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
@@ -202,7 +203,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                   config: config,
                                                   participants: self.participants,
                                                   metricsSubmitter: self.submitter,
-                                                  namegate: self.namegate,
+                                                  videoBehaviour: videoBehaviour,
                                                   reliable: self.reliable,
                                                   granularMetrics: self.granularMetrics,
                                                   jitterBufferConfig: self.jitterBufferConfig,
@@ -215,7 +216,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Get available decoded frames from all handlers.
-        var retrievedFrames: [VideoHandler: CMSampleBuffer] = [:]
+        var retrievedFrames: [VideoHandler: VideoHandler.AvailableImage] = [:]
         var highestFps: UInt16?
         for handler in self.videoHandlers.values {
             // Is a frame available?
@@ -247,41 +248,55 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         var oldest: CMTime?
         for (handler, frame) in retrievedFrames {
             if let lastTime = self.lastTime,
-               frame.presentationTimeStamp < lastTime {
+               frame.image.presentationTimeStamp < lastTime {
                 // This would be backwards in time, so we'll never use it.
-                handler.removeLastImage(sample: frame)
+                handler.removeLastImage(frame: frame)
                 continue
             }
 
             // Take the oldest frame.
-            if oldest == nil || frame.presentationTimeStamp < oldest! {
-                oldest = frame.presentationTimeStamp
+            if oldest == nil || frame.image.presentationTimeStamp < oldest! {
+                oldest = frame.image.presentationTimeStamp
             }
         }
 
         // Filter out any frames that don't match the desired point in time.
         retrievedFrames = retrievedFrames.filter {
-            $0.value.presentationTimeStamp == oldest
+            $0.value.image.presentationTimeStamp == oldest
         }
 
         // Now we've decided our point in time,
         // pop off the ones for the time we're using so we don't get them next time.
         for pair in retrievedFrames {
-            pair.key.removeLastImage(sample: pair.value)
+            pair.key.removeLastImage(frame: pair.value)
         }
 
-        // We'll use the highest quality frame of the selected ones.
+        // We want the highest non-discontinous frame.
+        // If all are non-discontinous, we'll take the highest quality.
         let sorted = retrievedFrames.sorted {
             $0.0.config.width > $1.0.config.width
         }
-
-        guard let selectedHandlerFrame = sorted.first else { fatalError() }
-        let selectedSample = selectedHandlerFrame.value
-        // TODO: Use priority not width.
+        
+        let pristine = sorted.filter { key, value in
+            !value.discontinous
+        }
+        
+        guard let selectedHandlerFrame = pristine.first ?? sorted.first else { fatalError() }
+        let selectedSample = selectedHandlerFrame.value.image
+        
+        // If we are going down in quality (resolution or to a discontinous image)
+        // we will only do so after a few hits.
         let incomingWidth = selectedSample.formatDescription!.dimensions.width
-        let lastWidth = self.lastUsedFrame?.value.formatDescription?.dimensions.width
+        let lastWidth = self.lastUsedFrame?.value.image.formatDescription?.dimensions.width
+        var wouldStepDown = false
         if let lastWidth = lastWidth,
            incomingWidth < lastWidth {
+            wouldStepDown = true
+        } else if selectedHandlerFrame.value.discontinous && !self.lastDiscontinous {
+            wouldStepDown = true
+        }
+        
+        if wouldStepDown {
             self.qualityMisses += 1
         }
 
@@ -308,8 +323,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
 
-        if let lastWidth = lastWidth,
-           incomingWidth < lastWidth && self.qualityMisses < self.qualityMissThreshold {
+        if wouldStepDown && self.qualityMisses < self.qualityMissThreshold {
             // We only want to step down in quality if we've missed a few hits.
             if let duration = selectedHandlerFrame.key.calculateWaitTime() {
                 return duration
