@@ -5,11 +5,6 @@ import os
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
-    struct AvailableImage {
-        let image: CMSampleBuffer
-        let discontinous: Bool
-    }
-    
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -94,7 +89,7 @@ class VideoHandler: CustomStringConvertible {
                 if simulreceive != .none {
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample, discontinous: sample.discontinous)
+                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -370,6 +365,11 @@ class VideoHandler: CustomStringConvertible {
                                          objectId: objectId,
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
+        if gateResult {
+            self.lastGroup = groupId
+            self.lastFps = objectId
+        }
+
         if !gateResult && self.videoBehaviour == .freeze {
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = groupId + 1
@@ -387,9 +387,6 @@ class VideoHandler: CustomStringConvertible {
                 sample.discontinous = true
             }
         }
-
-        lastGroup = groupId
-        lastObject = objectId
 
         // Decode.
         for sampleBuffer in sample.samples {
