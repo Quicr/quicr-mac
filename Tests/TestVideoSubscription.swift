@@ -17,12 +17,12 @@ final class TestVideoSubscription: XCTestCase {
         return buffer
     }
     
-    private func getQualities(discontinous: [Bool]) throws -> [VideoSubscription.SimulreceiveItem] {
+    private func getQualities(discontinous: [Bool], timing: [CMTime]? = nil) throws -> [VideoSubscription.SimulreceiveItem] {
         let highestBuffer = try testImage(width: 1920, height: 1280)
         let highestImage = AvailableImage(image: try .init(imageBuffer: highestBuffer,
                                                            formatDescription: .init(imageBuffer: highestBuffer),
                                                            sampleTiming: .init(duration: .invalid,
-                                                                               presentationTimeStamp: .init(value: 1, timescale: 1),
+                                                                               presentationTimeStamp: timing?[0] ?? .init(value: 1, timescale: 1),
                                                                                decodeTimeStamp: .invalid)),
                                           fps: 30,
                                           discontinous: discontinous[0])
@@ -32,7 +32,7 @@ final class TestVideoSubscription: XCTestCase {
         let mediumImage = AvailableImage(image: try .init(imageBuffer: mediumBuffer,
                                                           formatDescription: .init(imageBuffer: mediumBuffer),
                                                           sampleTiming: .init(duration: .invalid,
-                                                                              presentationTimeStamp: .init(value: 1, timescale: 1),
+                                                                              presentationTimeStamp: timing?[1] ?? .init(value: 1, timescale: 1),
                                                                               decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[1])
@@ -42,7 +42,7 @@ final class TestVideoSubscription: XCTestCase {
         let lowerImage = AvailableImage(image: try .init(imageBuffer: lowerBuffer,
                                                          formatDescription: .init(imageBuffer: lowerBuffer),
                                                          sampleTiming: .init(duration: .invalid,
-                                                                             presentationTimeStamp: .init(value: 1, timescale: 1),
+                                                                             presentationTimeStamp: timing?[2] ?? .init(value: 1, timescale: 1),
                                                                              decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[2])
@@ -52,7 +52,14 @@ final class TestVideoSubscription: XCTestCase {
     }
     
     func testOnlyConsiderOldest() throws {
-        // Only the subset of frames matching the oldest timestamp should be selected.
+        // Only the subset of frames matching the oldest timestamp should be considered.
+        let choices = try getQualities(discontinous: .init(repeating: false, count: 3),
+                                       timing: [.init(value: 2, timescale: 1),
+                                                .init(value: 1, timescale: 1),
+                                                .init(value: 1, timescale: 1)])
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: choices)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result, choices[1])
     }
     
     func testNothingGivesNothing() {
