@@ -267,7 +267,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             if let known = self.last?.calculateWaitTime() {
                 duration = known
             } else {
-                let highestFps = self.videoHandlers.values.reduce(0) { $0 > $1.config.fps ? $0 : $1.config.fps }
+                let highestFps = self.videoHandlers.values.reduce(0) { max($0, $1.config.fps) }
                 duration = TimeInterval(1 / highestFps)
             }
             return duration
@@ -327,7 +327,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             if selectedSample.duration.isValid {
                 return selectedSample.duration.seconds
             }
-            let highestFps = self.videoHandlers.values.reduce(0) { $0 > $1.config.fps ? $0 : $1.config.fps }
+            let highestFps = self.videoHandlers.values.reduce(0) { max($0, $1.config.fps) }
             return 1 / TimeInterval(highestFps)
         }
 
