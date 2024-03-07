@@ -1,4 +1,5 @@
 import AVFoundation
+import os
 
 // swiftlint:disable type_body_length
 
@@ -18,7 +19,8 @@ class VideoHandler: CustomStringConvertible {
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
-    private let namegate: NameGate
+    private let namegate = SequentialObjectBlockingNameGate()
+    private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
     private var lastReceive: Date?
@@ -27,15 +29,17 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private var orientation: Double?
-    private var verticalMirror: Bool?
+    private(set) var orientation: Double?
+    private(set) var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: CMSampleBuffer?
-    private let lastDecodedImageLock = NSLock()
+    private var lastDecodedImage: AvailableImage?
+    private let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
+    private var lastFps: UInt16?
+    private var lastDimensions: CMVideoDimensions?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -43,7 +47,7 @@ class VideoHandler: CustomStringConvertible {
     ///     - config: Codec configuration for this video stream.
     ///     - participants: Video participants dependency for rendering.
     ///     - metricsSubmitter: If present, a submitter to record metrics through.
-    ///     - namegate: Object to make decisions about valid group/object values.
+    ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
     ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
@@ -53,7 +57,7 @@ class VideoHandler: CustomStringConvertible {
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
-         namegate: NameGate,
+         videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
@@ -70,7 +74,7 @@ class VideoHandler: CustomStringConvertible {
         } else {
             self.measurement = nil
         }
-        self.namegate = namegate
+        self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
@@ -83,9 +87,9 @@ class VideoHandler: CustomStringConvertible {
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
-                    self.lastDecodedImageLock.withLock {
-                        self.lastDecodedImage = sample
-                    }
+                    self.lastDecodedImageLock.lock()
+                    defer { self.lastDecodedImageLock.unlock() }
+                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -109,20 +113,19 @@ class VideoHandler: CustomStringConvertible {
 
     /// Get the last decoded image, if any.
     /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> CMSampleBuffer? {
+    func getLastImage() -> AvailableImage? {
         self.lastDecodedImageLock.withLock {
-            let image = self.lastDecodedImage
-            return image
+            self.lastDecodedImage
         }
     }
 
     /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
     /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(sample: CMSampleBuffer) {
-        self.lastDecodedImageLock.withLock {
-            if sample == self.lastDecodedImage {
-                self.lastDecodedImage = nil
-            }
+    func removeLastImage(frame: AvailableImage) {
+        self.lastDecodedImageLock.lock()
+        defer { self.lastDecodedImageLock.unlock() }
+        if frame.image == self.lastDecodedImage?.image {
+            self.lastDecodedImage = nil
         }
     }
 
@@ -158,16 +161,18 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Do we need to create a jitter buffer?
-        var samples: [CMSampleBuffer]?
+        var frame: DecimusVideoFrame?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
-            var remoteFPS = self.config.fps
-            if let samples = samples,
-               let first = samples.first {
-                remoteFPS = getFps(sample: first)
+            frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
+            let remoteFPS: UInt16
+            if let frame = frame,
+               let fps = frame.fps {
+                remoteFPS = UInt16(fps)
+            } else {
+                remoteFPS = self.config.fps
             }
 
             // We have what we need to configure the PID dequeuer if using.
@@ -223,26 +228,22 @@ class VideoHandler: CustomStringConvertible {
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
-            if samples == nil {
-                samples = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
+            if frame == nil {
+                frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
             }
-            if let samples = samples {
-                for sample in samples {
-                    do {
-                        try jitterBuffer.write(videoFrame: sample)
-                    } catch {
-                        Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
-                    }
+            if let frame = frame {
+                do {
+                    try jitterBuffer.write(videoFrame: frame)
+                } catch {
+                    Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
                 }
             }
         } else {
-            if let samples = try depacketize(data,
-                                             groupId: groupId,
-                                             objectId: objectId,
-                                             copy: self.jitterBufferConfig.mode == .layer) {
-                for sample in samples {
-                    try decode(sample: sample)
-                }
+            if let frame = try depacketize(data,
+                                           groupId: groupId,
+                                           objectId: objectId,
+                                           copy: self.jitterBufferConfig.mode == .layer) {
+                try decode(sample: frame)
             }
         }
     }
@@ -258,54 +259,118 @@ class VideoHandler: CustomStringConvertible {
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
-    private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> [CMSampleBuffer]? {
-        let samples: [CMSampleBuffer]?
-
+    private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
+        let buffers: [CMBlockBuffer]?
+        var seis: [ApplicationSEI] = []
         switch self.config.codec {
         case .h264:
-            samples = try H264Utilities.depacketize(data,
-                                                    groupId: groupId,
-                                                    objectId: objectId,
+            buffers = try H264Utilities.depacketize(data,
                                                     format: &self.currentFormat,
-                                                    orientation: &self.orientation,
-                                                    verticalMirror: &self.verticalMirror,
-                                                    copy: copy)
+                                                    copy: copy) {
+                do {
+                    let parser = ApplicationSeiParser(ApplicationH264SEIs())
+                    if let sei = try parser.parse(encoded: $0) {
+                        seis.append(sei)
+                    }
+                } catch {
+                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
+                }
+            }
         case .hevc:
-            samples = try HEVCUtilities.depacketize(data,
-                                                    groupId: groupId,
-                                                    objectId: objectId,
+            buffers = try HEVCUtilities.depacketize(data,
                                                     format: &self.currentFormat,
-                                                    orientation: &self.orientation,
-                                                    verticalMirror: &self.verticalMirror,
-                                                    copy: copy)
+                                                    copy: copy) {
+                do {
+                    let parser = ApplicationSeiParser(ApplicationHEVCSEIs())
+                    if let sei = try parser.parse(encoded: $0) {
+                        seis.append(sei)
+                    }
+                } catch {
+                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
+                }
+            }
         default:
             throw "Unsupported codec: \(self.config.codec)"
         }
 
-        if let first = samples?.first {
-            do {
-                let label = try self.labelFromSample(sample: first, fps: self.getFps(sample: first))
-                DispatchQueue.main.async {
-                    self.description = label
-                }
-            } catch {
-                Self.logger.error("Failed to set label: \(error.localizedDescription)")
+        let sei: ApplicationSEI?
+        if seis.count == 0 {
+            sei = nil
+        } else {
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil)) { result, next in
+                let timestamp = next.timestamp ?? result.timestamp
+                let orientation = next.orientation ?? result.orientation
+                return .init(timestamp: timestamp, orientation: orientation)
             }
         }
-        return samples
+
+        guard let buffers = buffers else { return nil }
+        let timeInfo: CMSampleTimingInfo
+        if let timestamp = sei?.timestamp {
+            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
+        } else {
+            Self.logger.error("Missing expected frame timestamp")
+            timeInfo = .invalid
+        }
+
+        var samples: [CMSampleBuffer] = []
+        for buffer in buffers {
+            samples.append(try CMSampleBuffer(dataBuffer: buffer,
+                                              formatDescription: self.currentFormat,
+                                              numSamples: 1,
+                                              sampleTimings: [timeInfo],
+                                              sampleSizes: [buffer.dataLength]))
+        }
+
+        // Do we need to update the label?
+        if let first = samples.first {
+            let resolvedFps: UInt16
+            if let fps = sei?.timestamp?.fps {
+                resolvedFps = UInt16(fps)
+            } else {
+                resolvedFps = self.config.fps
+            }
+
+            if resolvedFps != self.lastFps || first.formatDescription?.dimensions != self.lastDimensions {
+                self.lastFps = resolvedFps
+                self.lastDimensions = first.formatDescription?.dimensions
+                DispatchQueue.main.async {
+                    do {
+                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        guard self.simulreceive != .enable else { return }
+                        let participant = self.participants.getOrMake(identifier: self.namespace)
+                        participant.label = .init(describing: self)
+                    } catch {
+                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+
+        return .init(samples: samples,
+                     groupId: groupId,
+                     objectId: objectId,
+                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     fps: sei?.timestamp?.fps,
+                     orientation: sei?.orientation?.orientation,
+                     verticalMirror: sei?.orientation?.verticalMirror)
     }
 
-    private func decode(sample: CMSampleBuffer) throws {
+    private func decode(sample: DecimusVideoFrame) throws {
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
-        guard let groupId = sample.getGroupId(),
-              let objectId = sample.getObjectId() else {
-            throw "Missing attachments"
+        let groupId = sample.groupId
+        let objectId = sample.objectId
+        let gateResult = namegate.handle(groupId: groupId,
+                                         objectId: objectId,
+                                         lastGroup: self.lastGroup,
+                                         lastObject: self.lastObject)
+        if gateResult {
+            self.lastGroup = groupId
+            self.lastFps = objectId
         }
-        guard namegate.handle(groupId: groupId,
-                              objectId: objectId,
-                              lastGroup: lastGroup,
-                              lastObject: lastObject) else {
+
+        if !gateResult && self.videoBehaviour == .freeze {
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = groupId + 1
             if let jitterBuffer = self.jitterBuffer {
@@ -316,17 +381,22 @@ class VideoHandler: CustomStringConvertible {
             return
         }
 
-        lastGroup = groupId
-        lastObject = objectId
-
-        // Remove custom attachments.
-        sample.clearDecimusCustomAttachments()
+        // Mark samples as discontinous if there was a gap.
+        if !gateResult {
+            for sample in sample.samples {
+                sample.discontinous = true
+            }
+        }
 
         // Decode.
-        if self.jitterBufferConfig.mode == .layer {
-            try self.enqueueSample(sample: sample, orientation: self.orientation, verticalMirror: self.verticalMirror)
-        } else {
-            try decoder!.write(sample)
+        for sampleBuffer in sample.samples {
+            if self.jitterBufferConfig.mode == .layer {
+                try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
+            } else {
+                self.orientation = sample.orientation
+                self.verticalMirror = sample.verticalMirror
+                try decoder!.write(sampleBuffer)
+            }
         }
     }
 
@@ -374,7 +444,6 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
-                participant.label = .init(describing: self)
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }
@@ -410,14 +479,6 @@ class VideoHandler: CustomStringConvertible {
             Self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
-    }
-
-    private func getFps(sample: CMSampleBuffer) -> UInt16 {
-        var remoteFPS = self.config.fps
-        if let fps = sample.getFPS() {
-            remoteFPS = UInt16(fps)
-        }
-        return remoteFPS
     }
 
     private func labelFromSample(sample: CMSampleBuffer, fps: UInt16) throws -> String {
@@ -467,5 +528,11 @@ extension VideoHandler: Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.namespace)
+    }
+}
+
+extension CMVideoDimensions: Equatable {
+    public static func == (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
+        lhs.width == rhs.width && lhs.height == rhs.height
     }
 }

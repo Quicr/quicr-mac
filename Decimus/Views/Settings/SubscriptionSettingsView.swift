@@ -133,6 +133,18 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.qualityMissThreshold,
                         format: .number)
                 }
+
+                HStack {
+                    Text("Do Pause/Resume")
+                    Toggle(isOn: $subscriptionConfig.value.pauseResume) {}
+                }
+
+                LabeledContent("Pause miss threshold (frames)") {
+                    TextField(
+                        "Pause miss threshold (frames)",
+                        value: $subscriptionConfig.value.pauseMissThreshold,
+                        format: .number)
+                }
             }
             .formStyle(.columns)
         }

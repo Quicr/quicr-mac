@@ -30,18 +30,14 @@ class HEVCUtilities {
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
     static func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
-                            groupId: UInt32,
-                            objectId: UInt16,
                             format: inout CMFormatDescription?,
-                            orientation: inout Double?,
-                            verticalMirror: inout Bool?,
-                            copy: Bool) throws -> [CMSampleBuffer]? {
+                            copy: Bool,
+                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
-
+        
         // Identify all NALUs by start code.
-        assert(data.starts(with: naluStartCode))
         var ranges: [Range<Data.Index>] = []
         var naluRanges: [Range<Data.Index>] = []
         var startIndex = 0
@@ -53,17 +49,16 @@ class HEVCUtilities {
             if index > 0 {
                 // Adjust previous NAL to run up to this one.
                 let lastRange = ranges[index - 1]
-
                 if naluRangesIndex > 0 {
                     if range.lowerBound <= naluRanges[naluRangesIndex - 1].upperBound {
                         index += 1
                         continue
                     }
                 }
-
+                
                 let naluType = (data[lastRange.upperBound] >> 1) & 0x3f
                 let type = HEVCTypes(rawValue: naluType)
-
+                
                 // RBSP types can have data that include a "0001". So,
                 // use the playload size to the whole sub buffer.
                 if type == .sei { // RBSP
@@ -77,13 +72,13 @@ class HEVCUtilities {
             }
             index += 1
         }
-
+        
         // Adjust the last range to run to the end of data.
         if let lastRange = ranges.last {
             let range = Range<Data.Index>(lastRange.lowerBound...data.count-1)
             naluRanges.append(range)
         }
-
+        
         // Get NALU data objects (zero copy).
         var nalus: [Data] = []
         let nsData = data as NSData
@@ -92,81 +87,37 @@ class HEVCUtilities {
                               count: range.count,
                               deallocator: .none))
         }
-
+        
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
         var vpsData: Data?
-        var sequenceNumber: UInt64?
-        var fps: UInt8?
-
+        
         // Create sample buffers from NALUs.
-        var timeInfo: CMSampleTimingInfo?
-        var results: [CMSampleBuffer] = []
+        var results: [CMBlockBuffer] = []
         for index in 0..<nalus.count {
             // What type is this NALU?
             var nalu = nalus[index]
-            assert(nalu.starts(with: self.naluStartCode))
             let naluType = (nalu[naluStartCode.count] >> 1) & 0x3f
             let type = HEVCTypes(rawValue: naluType)
             let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
-
+            
             if type == .vps {
                 vpsData = rangedData
             }
-
+            
             if type == .sps {
                 spsData = rangedData
             }
-
+            
             if type == .pps {
                 ppsData = rangedData
             }
-
+            
             if type == .sei {
-                let seiData = nalu
-                if seiData.count == orientationSEI.count { // Orientation
-                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == 0x06 { // yep - orientation
-                        seiData.withUnsafeBytes {
-                            orientation = $0.loadUnaligned(fromByteOffset: OrientationSeiOffsets.orientation.rawValue, as: Double.self)
-                        }
-                        verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
-                    }
-                } else if seiData.count == timestampSEIBytes.count { // timestamp?
-                    var match: Bool = false
-                    seiData.withUnsafeBytes { seiBytes in
-                        timestampSEIBytes.withUnsafeBytes { timestampBytes in
-                            match = memcmp(seiBytes.baseAddress, timestampBytes.baseAddress, timestampFixedBytes) == 0
-                        }
-                    }
-
-                    if match {
-                        let tempTimeValue: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
-                        defer { tempTimeValue.deallocate() }
-                        let tempTimeScale: UnsafeMutableBufferPointer<UInt32> = .allocate(capacity: 1)
-                        defer { tempTimeScale.deallocate() }
-                        _ = seiData.advanced(by: TimestampSeiOffsets.timeValue.rawValue).copyBytes(to: tempTimeValue)
-                        _ = seiData.advanced(by: TimestampSeiOffsets.timeScale.rawValue).copyBytes(to: tempTimeScale)
-                        let tempSequence: UnsafeMutableBufferPointer<UInt64> = .allocate(capacity: 1)
-                        defer { tempSequence.deallocate() }
-                        _ = seiData.advanced(by: TimestampSeiOffsets.sequence.rawValue).copyBytes(to: tempSequence)
-                        var tempFps: UInt8 = 0
-                        seiData.advanced(by: TimestampSeiOffsets.fps.rawValue).copyBytes(to: &tempFps, count: 1)
-                        fps = tempFps
-                        let timeValue = CFSwapInt64BigToHost(tempTimeValue.baseAddress!.pointee)
-                        let timeScale = CFSwapInt32BigToHost(tempTimeScale.baseAddress!.pointee)
-                        sequenceNumber = CFSwapInt64BigToHost(tempSequence.baseAddress!.pointee)
-                        let timeStamp = CMTimeMake(value: Int64(timeValue),
-                                                   timescale: Int32(timeScale))
-                        timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                                      presentationTimeStamp: timeStamp,
-                                                      decodeTimeStamp: .invalid)
-                    } else {
-                        // Unhandled SEI
-                    }
-                }
+                seiCallback(nalu)
             }
-
+            
             if let vps = vpsData,
                let sps = spsData,
                let pps = ppsData {
@@ -176,125 +127,21 @@ class HEVCUtilities {
                 spsData = nil
                 ppsData = nil
             }
-
+            
             guard type != .vps,
                   type != .sps,
                   type != .pps,
                   type != .sei else {
                 continue
             }
-
+            
+            var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
+            nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
             try nalu.withUnsafeBytes {
-                results.append(try H264Utilities.buildSampleBuffer($0,
-                                                                   groupId: groupId,
-                                                                   objectId: objectId,
-                                                                   timeInfo: timeInfo,
-                                                                   format: format,
-                                                                   copy: copy,
-                                                                   orientation: orientation,
-                                                                   verticalMirror: verticalMirror,
-                                                                   sequenceNumber: sequenceNumber,
-                                                                   fps: fps))
+                results.append(try H264Utilities.buildBlockBuffer($0,
+                                                                  copy: copy))
             }
         }
         return results.count > 0 ? results : nil
-    }
-
-    fileprivate enum OrientationSeiOffsets: Int {
-        case tag = 6
-        case payloadLength = 7
-        case orientation = 8
-        case mirror = 12
-    }
-
-    fileprivate static let orientationSEI: [UInt8] = [
-        // Start Code.
-        0x00, 0x00, 0x00, 0x01,
-
-        // SEI NALU type,
-        HEVCTypes.sei.rawValue << 1, 0x00,
-
-        // Display orientation
-        0x2f,
-
-        // Payload length.
-        0x06,
-
-        // Orientation payload.
-        0x00, 0x00, 0x00, 0x00,
-
-        // Device position.
-        0x00,
-
-        // Stop.
-        0x80
-    ]
-
-    static func getHEVCOrientationSEI(orientation: Double,
-                                      verticalMirror: Bool) -> [UInt8] {
-        var bytes = orientationSEI
-        bytes.withUnsafeMutableBytes {
-            $0.storeBytes(of: orientation, toByteOffset: 8, as: Double.self)
-        }
-        bytes[12] = verticalMirror ? 0x01 : 0x00
-        return bytes
-    }
-
-    fileprivate enum TimestampSeiOffsets: Int {
-        case timeValue = 25
-        case timeScale = 33
-        case sequence = 37
-        case fps = 45
-    }
-
-    fileprivate static let timestampFixedBytes = 25
-
-    fileprivate static let timestampSEIBytes: [UInt8] = [ // total 47
-        // Start Code.
-        0x00, 0x00, 0x00, 0x01, // 0x28 - size
-        // SEI NALU type,
-        HEVCTypes.sei.rawValue << 1, 0x00,
-        // Payload type - user_data_unregistered (5)
-        0x05,
-        // Payload size
-        0x26,
-        // UUID (User Data Unregistered)
-        0x2C, 0xA2, 0xDE, 0x09, 0xB5, 0x17, 0x47, 0xDC,
-        0xBB, 0x55, 0xA4, 0xFE, 0x7F, 0xC2, 0xFC, 0x4E,
-        // Application specific ID
-        0x02, // Time ms --- offset 24 bytes from beginning
-        // Time Value Int64
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // Time timescale Int32
-        0x00, 0x00, 0x00, 0x00,
-        // Sequence number
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // FPS
-        0x00,
-        // Stop bit?
-        0x80
-    ]
-
-    static func getTimestampSEIBytes(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) -> [UInt8] {
-        var bytes = timestampSEIBytes
-        var networkTimeValue = timestamp.value.bigEndian
-        var networkTimeScale = timestamp.timescale.bigEndian
-        var seq = sequenceNumber.bigEndian
-        var fps = fps
-        bytes.withUnsafeMutableBytes {
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeValue.rawValue),
-                   &networkTimeValue,
-                   MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.timeScale.rawValue),
-                   &networkTimeScale,
-                   MemoryLayout<UInt32>.size) // 4
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.sequence.rawValue),
-                   &seq,
-                   MemoryLayout<UInt64>.size) // 8
-            memcpy($0.baseAddress!.advanced(by: TimestampSeiOffsets.fps.rawValue),
-                   &fps,
-                   MemoryLayout<UInt8>.size) // 4
-        }
-        return bytes
     }
 }

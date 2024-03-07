@@ -4,11 +4,10 @@ struct Manifest: Codable {
     let clientID: String
     let subscriptions: [ManifestSubscription]
     let publications: [ManifestPublication]
-    let urlTemplates: [String]
 
     enum CodingKeys: String, CodingKey {
         case clientID = "clientId"
-        case subscriptions, publications, urlTemplates
+        case subscriptions, publications
     }
 }
 
@@ -43,11 +42,11 @@ struct Profile: Codable {
     let qualityProfile: String
     let expiry: [Int]?
     let priorities: [Int]?
-    let namespaceURL: String
+    let namespace: String
 
     enum CodingKeys: String, CodingKey {
         case qualityProfile, expiry, priorities
-        case namespaceURL = "quicrNamespaceUrl"
+        case namespace = "quicrNamespace"
     }
 
     init(from decoder: Swift.Decoder) throws {
@@ -55,7 +54,7 @@ struct Profile: Codable {
         qualityProfile = try values.decode(String.self, forKey: .qualityProfile)
         expiry = try values.decodeIfPresent([Int].self, forKey: .expiry)
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
-        namespaceURL = try values.decode(String.self, forKey: .namespaceURL)
+        namespace = try values.decode(String.self, forKey: .namespace)
     }
 }
 
