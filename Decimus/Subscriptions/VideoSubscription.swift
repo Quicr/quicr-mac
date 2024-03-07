@@ -329,7 +329,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
         // Save starting time.
         var format: CMFormatDescription?
-        var orientation: AVCaptureVideoOrientation?
+        var orientation: Double?
         var verticalMirror: Bool?
         let config = self.profiles[namespace]
         let samples: [CMSampleBuffer]?

@@ -9,6 +9,7 @@ struct TransportConfigSettings: View {
     private let maxWindowKiB = 4096
 
     var body: some View {
+#if !os(tvOS)
         VStack {
             HStack {
                 Stepper {
@@ -24,6 +25,7 @@ struct TransportConfigSettings: View {
                 }
             }
         }
+#endif
         HStack {
             Text("Use Reset and Wait")
             Toggle(isOn: self.$UseResetWaitCC) {}

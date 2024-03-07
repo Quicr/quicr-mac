@@ -5,18 +5,18 @@ struct SettingsView: View {
     var body: some View {
         Form {
             RelaySettingsView()
-                .textFieldStyle(.roundedBorder)
+                // .textFieldStyle(.roundedBorder)
 
             ManifestSettingsView()
-                .textFieldStyle(.roundedBorder)
+                // .textFieldStyle(.roundedBorder)
 
             InfluxSettingsView()
-                .textFieldStyle(.roundedBorder)
+                // .textFieldStyle(.roundedBorder)
 
             SubscriptionSettingsView()
-                .textFieldStyle(.roundedBorder)
+                // .textFieldStyle(.roundedBorder)
         }
-        .frame(maxWidth: 500)
+        // .frame(maxWidth: 500)
     }
 }
 

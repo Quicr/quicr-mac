@@ -227,9 +227,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
+#if !os(tvOS)
         if listener.device.deviceType == .builtInMicrophone {
             throw CaptureManagerError.noAudio
         }
+#endif
 
         try addCamera(listener: listener)
     }
@@ -342,6 +344,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 }
 
+#if !os(tvOS)
 extension UIDeviceOrientation {
     var videoOrientation: AVCaptureVideoOrientation {
         switch self {
@@ -358,3 +361,4 @@ extension UIDeviceOrientation {
         }
     }
 }
+#endif

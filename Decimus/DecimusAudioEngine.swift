@@ -74,9 +74,15 @@ class DecimusAudioEngine {
         // Configure the session.
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
+        let options: AVAudioSession.CategoryOptions
+        #if os(tvOS)
+        options = []
+        #else
+        options = [.defaultToSpeaker, .allowBluetooth]
+        #endif
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
-                                options: [.defaultToSpeaker, .allowBluetooth])
+                                options: options)
 
         // Enable voice processing.
         if !engine.outputNode.isVoiceProcessingEnabled {
@@ -88,7 +94,7 @@ class DecimusAudioEngine {
         }
 
         // Ducking.
-        #if compiler(>=5.9)
+        #if !os(tvOS)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
             let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
                                                                                       duckingLevel: .min)

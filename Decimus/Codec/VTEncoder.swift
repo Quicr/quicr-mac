@@ -221,11 +221,11 @@ class VTEncoder {
                             bufferAllocator: bufferAllocator)
 
         // Append Orientation SEI to buffer
-        #if !targetEnvironment(macCatalyst)
+        #if !targetEnvironment(macCatalyst) && !os(tvOS)
         do {
-            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                      verticalMirror: verticalMirror,
-                                      bufferAllocator: bufferAllocator)
+//            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+//                                      verticalMirror: verticalMirror,
+//                                      bufferAllocator: bufferAllocator)
         } catch {
             Self.logger.error("Failed to prepend orientation SEI: \(error.localizedDescription)")
         }
@@ -383,7 +383,7 @@ class VTEncoder {
         bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
     }
 
-    private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
+    private func prependOrientationSEI(orientation: Double,
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
         let bytes: [UInt8]

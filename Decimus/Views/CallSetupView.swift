@@ -57,7 +57,7 @@ private struct LoginForm: View {
                                 }
                             }
                         })
-                        .onChange(of: meetings) { _ in
+                        .onChange(of: meetings) {
                             if meetings.count > 0 {
                                 if !meetings.keys.contains(UInt32(confId)) {
                                     confId = Int(meetings.keys.sorted()[0])
@@ -77,18 +77,27 @@ private struct LoginForm: View {
                 if email != "" {
                     VStack(alignment: .leading) {
                         if meetings.count > 0 {
-                            Text("Meeting")
-                                .padding(.horizontal)
-                                .foregroundColor(.white)
-                            Picker("", selection: $callConfig.conferenceID) {
-                                ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
-                                    Text(meeting).tag(id)
+                            HStack {
+                                Spacer()
+                                Text("Meeting")
+                                    .padding(.horizontal)
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            HStack {
+                                Spacer()
+                                Picker("", selection: $callConfig.conferenceID) {
+                                    ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                        Text(meeting).tag(id)
+                                    }
                                 }
+                                .pickerStyle(.menu)
+                                .onChange(of: callConfig.conferenceID) {
+                                    confId = Int(callConfig.conferenceID)
+                                }
+                                .labelsHidden()
+                                Spacer()
                             }
-                            .onChange(of: callConfig.conferenceID) { _ in
-                                confId = Int(callConfig.conferenceID)
-                            }
-                            .labelsHidden()
                         } else {
                             Text("No meetings")
                                 .padding(.horizontal)
@@ -101,21 +110,34 @@ private struct LoginForm: View {
                     }
                 }
                 if callConfig.conferenceID != 0 {
-                    ActionButton("Join Meeting",
-                                 font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
-                                 styleConfig: buttonColour,
-                                 action: join)
-                        .frame(maxWidth: .infinity)
-                        .font(Font.system(size: 19, weight: .semibold))
+                    HStack {
+                        Spacer()
+                        Button("Join Meeting", action: self.join)
+                            .disabled(!isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                        Spacer()
+                    }
                 }
+//                    ActionButton("Join Meeting",
+//                                 font: Font.system(size: 19, weight: .semibold),
+//                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
+//                                 styleConfig: buttonColour,
+//                                 action: join)
+//                        .frame(maxWidth: .infinity)
+//                        .font(Font.system(size: 19, weight: .semibold))
+//                }
             }
             .listRowBackground(Color.clear)
+            #if !os(tvOS)
             .listRowSeparator(.hidden)
+            #endif
         }
         .background(.clear)
+        #if !os(tvOS)
         .scrollContentBackground(.hidden)
-        .frame(maxHeight: 450)
+        #endif
+        // .frame(maxHeight: 450)
         .scrollDisabled(true)
         .onAppear {
             Task {
@@ -187,7 +209,7 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
-                        .frame(maxWidth: 350)
+                        // .frame(maxWidth: 350)
 
                     NavigationLink(destination: SettingsView()) {
                         Label("", systemImage: "gearshape").font(.title)

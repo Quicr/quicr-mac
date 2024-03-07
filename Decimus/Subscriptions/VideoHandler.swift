@@ -27,7 +27,7 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private var orientation: AVCaptureVideoOrientation?
+    private var orientation: Double?
     private var verticalMirror: Bool?
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
@@ -331,7 +331,7 @@ class VideoHandler: CustomStringConvertible {
     }
 
     private func enqueueSample(sample: CMSampleBuffer,
-                               orientation: AVCaptureVideoOrientation?,
+                               orientation: Double?,
                                verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
@@ -429,26 +429,26 @@ class VideoHandler: CustomStringConvertible {
     }
 }
 
-extension AVCaptureVideoOrientation {
+extension Double {
     func toTransform(_ verticalMirror: Bool) -> CATransform3D {
         var transform = CATransform3DIdentity
         switch self {
-        case .portrait:
+        case 0:
             transform = CATransform3DRotate(transform, .pi / 2, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        case .landscapeLeft:
+        case 90:
             transform = CATransform3DRotate(transform, .pi, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        case .landscapeRight:
+        case 270:
             transform = CATransform3DRotate(transform, -.pi, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, -1.0, 1.0, 1.0)
             }
-        case .portraitUpsideDown:
+        case 180:
             transform = CATransform3DRotate(transform, -.pi / 2, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)

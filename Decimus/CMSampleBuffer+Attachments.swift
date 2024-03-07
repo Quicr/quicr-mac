@@ -96,16 +96,16 @@ extension CMSampleBuffer {
 
     static let orientationKey = "Orientation"
 
-    func setOrientation(_ orientation: AVCaptureVideoOrientation) throws {
+    func setOrientation(_ orientation: Double) throws {
         let keyString = Self.orientationKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
         try self.setAttachmentValue(atIndex: 0, for: key, value: orientation)
     }
 
-    func getOrientation() -> AVCaptureVideoOrientation? {
+    func getOrientation() -> Double? {
         let keyString = Self.orientationKey as CFString
         let key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: keyString)
-        let value = self.getAttachmentValue(for: key) as? AVCaptureVideoOrientation
+        let value = self.getAttachmentValue(for: key) as? Double
         return value
     }
 

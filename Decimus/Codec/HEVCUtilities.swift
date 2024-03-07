@@ -33,7 +33,7 @@ class HEVCUtilities {
                             groupId: UInt32,
                             objectId: UInt16,
                             format: inout CMFormatDescription?,
-                            orientation: inout AVCaptureVideoOrientation?,
+                            orientation: inout Double?,
                             verticalMirror: inout Bool?,
                             copy: Bool) throws -> [CMSampleBuffer]? {
         guard data.starts(with: naluStartCode) else {
@@ -126,8 +126,10 @@ class HEVCUtilities {
             if type == .sei {
                 let seiData = nalu
                 if seiData.count == orientationSEI.count { // Orientation
-                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == 0x02 { // yep - orientation
-                        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
+                    if seiData[OrientationSeiOffsets.payloadLength.rawValue] == 0x06 { // yep - orientation
+                        seiData.withUnsafeBytes {
+                            orientation = $0.loadUnaligned(fromByteOffset: OrientationSeiOffsets.orientation.rawValue, as: Double.self)
+                        }
                         verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
                     }
                 } else if seiData.count == timestampSEIBytes.count { // timestamp?
@@ -202,7 +204,7 @@ class HEVCUtilities {
         case tag = 6
         case payloadLength = 7
         case orientation = 8
-        case mirror = 9
+        case mirror = 12
     }
 
     fileprivate static let orientationSEI: [UInt8] = [
@@ -216,10 +218,10 @@ class HEVCUtilities {
         0x2f,
 
         // Payload length.
-        0x02,
+        0x06,
 
         // Orientation payload.
-        0x00,
+        0x00, 0x00, 0x00, 0x00,
 
         // Device position.
         0x00,
@@ -228,11 +230,13 @@ class HEVCUtilities {
         0x80
     ]
 
-    static func getHEVCOrientationSEI(orientation: AVCaptureVideoOrientation,
+    static func getHEVCOrientationSEI(orientation: Double,
                                       verticalMirror: Bool) -> [UInt8] {
         var bytes = orientationSEI
-        bytes[8] = UInt8(orientation.rawValue)
-        bytes[9] = verticalMirror ? 0x01 : 0x00
+        bytes.withUnsafeMutableBytes {
+            $0.storeBytes(of: orientation, toByteOffset: 8, as: Double.self)
+        }
+        bytes[12] = verticalMirror ? 0x01 : 0x00
         return bytes
     }
 

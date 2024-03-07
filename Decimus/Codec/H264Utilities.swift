@@ -29,7 +29,7 @@ class H264Utilities {
                             groupId: UInt32,
                             objectId: UInt16,
                             format: inout CMFormatDescription?,
-                            orientation: inout AVCaptureVideoOrientation?,
+                            orientation: inout Double?,
                             verticalMirror: inout Bool?,
                             copy: Bool) throws -> [CMSampleBuffer]? {
         if data.starts(with: naluStartCode) {
@@ -57,7 +57,7 @@ class H264Utilities {
                                   groupId: UInt32,
                                   objectId: UInt16,
                                   format: inout CMFormatDescription?,
-                                  orientation: inout AVCaptureVideoOrientation?,
+                                  orientation: inout Double?,
                                   verticalMirror: inout Bool?,
                                   copy: Bool) throws -> [CMSampleBuffer]? {
         var results: [CMSampleBuffer] = []
@@ -128,7 +128,7 @@ class H264Utilities {
                                   groupId: UInt32,
                                   objectId: UInt16,
                                   format: inout CMFormatDescription?,
-                                  orientation: inout AVCaptureVideoOrientation?,
+                                  orientation: inout Double?,
                                   verticalMirror: inout Bool?,
                                   copy: Bool) throws -> [CMSampleBuffer]? {
 
@@ -254,7 +254,7 @@ class H264Utilities {
                                   timeInfo: CMSampleTimingInfo?,
                                   format: CMFormatDescription?,
                                   copy: Bool,
-                                  orientation: AVCaptureVideoOrientation?,
+                                  orientation: Double?,
                                   verticalMirror: Bool?,
                                   sequenceNumber: UInt64?,
                                   fps: UInt8?) throws -> CMSampleBuffer {
@@ -299,7 +299,7 @@ class H264Utilities {
         case tag = 5
         case payloadLength = 6
         case orientation = 7
-        case mirror = 8
+        case mirror = 11
     }
 
     static let orientationSei: [UInt8] = [
@@ -310,16 +310,16 @@ class H264Utilities {
         // Display orientation
         0x2f,
         // Payload length
-        0x02,
+        0x05,
         // Orientation payload.
-        0x00,
+        0x00, 0x00, 0x00, 0x00,
         // Device position.
         0x00,
         // Stop bit
         0x80
     ]
 
-    static func getH264OrientationSEI(orientation: AVCaptureVideoOrientation,
+    static func getH264OrientationSEI(orientation: Double,
                                       verticalMirror: Bool,
                                       startCode: Bool) -> [UInt8] {
         var bytes = orientationSei
@@ -329,8 +329,10 @@ class H264Utilities {
                 memcpy($0.baseAddress, &length, MemoryLayout<UInt32>.size)
             }
         }
-        bytes[7] = UInt8(orientation.rawValue)
-        bytes[8] = verticalMirror ? 0x01 : 0x00
+        bytes.withUnsafeMutableBytes {
+            $0.storeBytes(of: orientation, toByteOffset: OrientationSeiOffsets.orientation.rawValue, as: Double.self)
+        }
+        bytes[OrientationSeiOffsets.mirror.rawValue] = verticalMirror ? 0x01 : 0x00
         return bytes
     }
 
@@ -394,7 +396,7 @@ class H264Utilities {
         return bytes
     }
 
-    static func parseCustomSEI(_ seiData: UnsafeRawBufferPointer, orientation: inout AVCaptureVideoOrientation?, verticalMirror: inout Bool?, timeInfo: inout CMSampleTimingInfo?, fps: inout UInt8?, sequenceNumber: inout UInt64?) throws {
+    static func parseCustomSEI(_ seiData: UnsafeRawBufferPointer, orientation: inout Double?, verticalMirror: inout Bool?, timeInfo: inout CMSampleTimingInfo?, fps: inout UInt8?, sequenceNumber: inout UInt64?) throws {
         if seiData.count == orientationSei.count { // Orientation
             try parseOrientationSEI(seiData, orientation: &orientation, verticalMirror: &verticalMirror)
         } else if seiData.count == timestampSEIBytes.count { // timestamp?
@@ -405,13 +407,13 @@ class H264Utilities {
     }
 
     static func parseOrientationSEI(_ seiData: UnsafeRawBufferPointer,
-                                    orientation: inout AVCaptureVideoOrientation?,
+                                    orientation: inout Double?,
                                     verticalMirror: inout Bool?) throws {
         let payloadLength = OrientationSeiOffsets.payloadLength.rawValue
         guard seiData[payloadLength] == Self.orientationSei[payloadLength] else {
             throw "Length mismatch"
         }
-        orientation = .init(rawValue: .init(Int(seiData[OrientationSeiOffsets.orientation.rawValue])))
+        orientation = seiData.loadUnaligned(fromByteOffset: OrientationSeiOffsets.orientation.rawValue, as: Double.self)
         verticalMirror = seiData[OrientationSeiOffsets.mirror.rawValue] == 1
     }
 
