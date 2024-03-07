@@ -10,10 +10,12 @@ class VideoParticipant: ObservableObject, Identifiable {
     var id: SourceIDType
     var view: VideoView = .init()
     @Published var label: String
+    @Published var highlight: Bool
 
     init(id: SourceIDType) {
         self.id = id
         self.label = id
+        self.highlight = false
     }
 }
 

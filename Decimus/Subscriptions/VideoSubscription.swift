@@ -372,7 +372,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 self.lastHighlight = namespace
                 DispatchQueue.main.async {
                     for participant in self.participants.participants {
-                        participant.value.view.highlight = participant.key == namespace
+                        participant.value.highlight = participant.key == namespace
                     }
                 }
             }
