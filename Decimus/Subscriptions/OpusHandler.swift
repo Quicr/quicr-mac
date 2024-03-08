@@ -1,6 +1,7 @@
 import Foundation
 import AVFAudio
 import CoreAudio
+import Atomics
 
 enum OpusSubscriptionError: Error {
     case failedDecoderCreation
@@ -22,8 +23,8 @@ class OpusHandler {
     private var node: AVAudioSourceNode?
     private var jitterBuffer: QJitterBuffer
     private let measurement: OpusSubscription._Measurement?
-    private var underrun: Weak<UInt64> = .init(value: 0)
-    private var callbacks: Weak<UInt64> = .init(value: 0)
+    private var underrun = ManagedAtomic<UInt64>(0)
+    private var callbacks = ManagedAtomic<UInt64>(0)
     private let granularMetrics: Bool
 
     init(sourceId: SourceIDType,
@@ -79,16 +80,18 @@ class OpusHandler {
         try queueDecodedAudio(buffer: decoded, timestamp: date, sequence: sequence)
 
         // Metrics.
-        Task(priority: .utility) {
-            await self.measurement?.framesUnderrun(underrun: self.underrun.value, timestamp: date)
-            await self.measurement?.callbacks(callbacks: self.callbacks.value, timestamp: date)
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await self.measurement?.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed), timestamp: date)
+                await self.measurement?.callbacks(callbacks: self.callbacks.load(ordering: .relaxed), timestamp: date)
+            }
         }
     }
 
     private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
         // Fill the buffers as best we can.
         if let callbacks = callbacks {
-            callbacks.value += UInt64(numFrames)
+            callbacks.wrappingIncrement(by: UInt64(numFrames), ordering: .relaxed)
         }
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
@@ -115,7 +118,7 @@ class OpusHandler {
             let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
             silence.pointee = .init(framesUnderan == numFrames)
             if let underrun = underrun {
-                underrun.value += framesUnderan
+                underrun.wrappingIncrement(by: framesUnderan, ordering: .relaxed)
             }
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
             for buffer in buffers {

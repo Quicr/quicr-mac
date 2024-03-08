@@ -376,7 +376,7 @@ class VTEncoder {
         bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
     }
 
-    private func prependOrientationSEI(orientation: Double,
+    private func prependOrientationSEI(orientation: DecimusVideoRotation,
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
         let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)

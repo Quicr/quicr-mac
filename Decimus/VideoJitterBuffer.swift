@@ -1,6 +1,7 @@
 import Foundation
 import OrderedCollections
 import AVFoundation
+import Atomics
 
 // swiftlint:disable force_cast
 
@@ -26,7 +27,8 @@ class VideoJitterBuffer {
     private let measurement: _Measurement?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
-    private var lastSequenceRead: UInt64?
+    private var lastSequenceRead = ManagedAtomic<UInt64>(0)
+    private var lastSequenceSet = ManagedAtomic<Bool>(false)
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -96,8 +98,8 @@ class VideoJitterBuffer {
     func write(videoFrame: DecimusVideoFrame) throws {
         // Check expiry.
         if let thisSeq = videoFrame.sequenceNumber,
-           let lastSequenceRead = self.lastSequenceRead {
-            guard thisSeq > lastSequenceRead else {
+           self.lastSequenceSet.load(ordering: .acquiring) {
+            guard thisSeq > self.lastSequenceRead.load(ordering: .acquiring) else {
                 throw "Refused enqueue as older than last read"
             }
         }
@@ -151,7 +153,10 @@ class VideoJitterBuffer {
             }
         }
         let sample = oldest as! DecimusVideoFrame
-        self.lastSequenceRead = sample.sequenceNumber
+        if let sequenceNumber = sample.sequenceNumber {
+            self.lastSequenceRead.store(sequenceNumber, ordering: .releasing)
+            self.lastSequenceSet.store(true, ordering: .releasing)
+        }
         return sample
     }
 
@@ -165,7 +170,10 @@ class VideoJitterBuffer {
                 guard let flushed = self.buffer.dequeue() else {
                     break
                 }
-                self.lastSequenceRead = (flushed as! DecimusVideoFrame).sequenceNumber
+                if let sequenceNumber = (flushed as! DecimusVideoFrame).sequenceNumber {
+                    self.lastSequenceRead.store(sequenceNumber, ordering: .releasing)
+                    self.lastSequenceSet.store(true, ordering: .releasing)
+                }
                 flushCount += 1
             }
         }

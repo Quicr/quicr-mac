@@ -1,7 +1,14 @@
 import AVFoundation
-import os
+import Atomics
 
 // swiftlint:disable type_body_length
+
+enum DecimusVideoRotation: UInt8 {
+    case portrait = 1
+    case portraitUpsideDown = 2
+    case landscapeRight = 3
+    case landscapeLeft = 4
+}
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
@@ -19,8 +26,7 @@ class VideoHandler: CustomStringConvertible {
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
-    private let namegate = SequentialObjectBlockingNameGate()
-    private let videoBehaviour: VideoBehaviour
+    private let namegate: NameGate
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
     private var lastReceive: Date?
@@ -29,14 +35,21 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private(set) var orientation: Double?
-    private(set) var verticalMirror: Bool?
+    var orientation: DecimusVideoRotation? {
+        let result = atomicOrientation.load(ordering: .acquiring)
+        return result == 0 ? nil : .init(rawValue: result)
+    }
+    var verticalMirror: Bool {
+        atomicMirror.load(ordering: .acquiring)
+    }
+    private var atomicOrientation = ManagedAtomic<UInt8>(0)
+    private var atomicMirror = ManagedAtomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: AvailableImage?
-    private let lastDecodedImageLock = OSAllocatedUnfairLock()
+    private var lastDecodedImage: CMSampleBuffer?
+    private let lastDecodedImageLock = NSLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
@@ -47,7 +60,7 @@ class VideoHandler: CustomStringConvertible {
     ///     - config: Codec configuration for this video stream.
     ///     - participants: Video participants dependency for rendering.
     ///     - metricsSubmitter: If present, a submitter to record metrics through.
-    ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
+    ///     - namegate: Object to make decisions about valid group/object values.
     ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
@@ -57,7 +70,7 @@ class VideoHandler: CustomStringConvertible {
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
-         videoBehaviour: VideoBehaviour,
+         namegate: NameGate,
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
@@ -74,7 +87,7 @@ class VideoHandler: CustomStringConvertible {
         } else {
             self.measurement = nil
         }
-        self.videoBehaviour = videoBehaviour
+        self.namegate = namegate
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
@@ -87,9 +100,9 @@ class VideoHandler: CustomStringConvertible {
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
-                    self.lastDecodedImageLock.lock()
-                    defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
+                    self.lastDecodedImageLock.withLock {
+                        self.lastDecodedImage = sample
+                    }
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -113,19 +126,20 @@ class VideoHandler: CustomStringConvertible {
 
     /// Get the last decoded image, if any.
     /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> AvailableImage? {
+    func getLastImage() -> CMSampleBuffer? {
         self.lastDecodedImageLock.withLock {
-            self.lastDecodedImage
+            let image = self.lastDecodedImage
+            return image
         }
     }
 
     /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
     /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(frame: AvailableImage) {
-        self.lastDecodedImageLock.lock()
-        defer { self.lastDecodedImageLock.unlock() }
-        if frame.image == self.lastDecodedImage?.image {
-            self.lastDecodedImage = nil
+    func removeLastImage(sample: CMSampleBuffer) {
+        self.lastDecodedImageLock.withLock {
+            if sample == self.lastDecodedImage {
+                self.lastDecodedImage = nil
+            }
         }
     }
 
@@ -361,16 +375,10 @@ class VideoHandler: CustomStringConvertible {
         // get groupId and objectId from the frame (1st frame)
         let groupId = sample.groupId
         let objectId = sample.objectId
-        let gateResult = namegate.handle(groupId: groupId,
-                                         objectId: objectId,
-                                         lastGroup: self.lastGroup,
-                                         lastObject: self.lastObject)
-        if gateResult {
-            self.lastGroup = groupId
-            self.lastFps = objectId
-        }
-
-        if !gateResult && self.videoBehaviour == .freeze {
+        guard namegate.handle(groupId: groupId,
+                              objectId: objectId,
+                              lastGroup: lastGroup,
+                              lastObject: lastObject) else {
             // If we've thrown away a frame, we should flush to the next group.
             let targetGroup = groupId + 1
             if let jitterBuffer = self.jitterBuffer {
@@ -381,27 +389,27 @@ class VideoHandler: CustomStringConvertible {
             return
         }
 
-        // Mark samples as discontinous if there was a gap.
-        if !gateResult {
-            for sample in sample.samples {
-                sample.discontinous = true
-            }
-        }
+        lastGroup = groupId
+        lastObject = objectId
 
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
                 try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
             } else {
-                self.orientation = sample.orientation
-                self.verticalMirror = sample.verticalMirror
+                if let orientation = sample.orientation {
+                    self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
+                }
+                if let verticalMirror = sample.verticalMirror {
+                    self.atomicMirror.store(verticalMirror, ordering: .releasing)
+                }
                 try decoder!.write(sampleBuffer)
             }
         }
     }
 
     private func enqueueSample(sample: CMSampleBuffer,
-                               orientation: Double?,
+                               orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
@@ -490,26 +498,26 @@ class VideoHandler: CustomStringConvertible {
     }
 }
 
-extension Double {
+extension DecimusVideoRotation {
     func toTransform(_ verticalMirror: Bool) -> CATransform3D {
         var transform = CATransform3DIdentity
         switch self {
-        case 0:
+        case .portrait:
             transform = CATransform3DRotate(transform, .pi / 2, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        case 90:
+        case .landscapeLeft:
             transform = CATransform3DRotate(transform, .pi, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        case 270:
+        case .landscapeRight:
             transform = CATransform3DRotate(transform, -.pi, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, -1.0, 1.0, 1.0)
             }
-        case 180:
+        case .portraitUpsideDown:
             transform = CATransform3DRotate(transform, -.pi / 2, 0, 0, 1)
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)

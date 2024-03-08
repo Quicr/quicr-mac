@@ -8,7 +8,7 @@ class ApplicationH264SEIs: ApplicationSeiData {
         case .orientation:
             return 7
         case .mirror:
-            return 15
+            return 8
         }
     }
 
@@ -22,7 +22,7 @@ class ApplicationH264SEIs: ApplicationSeiData {
         // Payload length
         0x02,
         // Orientation payload.
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00,
         // Device position.
         0x00,
         // Stop bit

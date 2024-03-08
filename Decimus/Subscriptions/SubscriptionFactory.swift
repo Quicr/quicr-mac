@@ -120,11 +120,19 @@ class SubscriptionFactory {
         let found = Set(foundCodecs)
 
         if found.isSubset(of: videoCodecs) {
+            let namegate: NameGate
+            switch self.config.videoBehaviour {
+            case .artifact:
+                namegate = AllowAllNameGate()
+            case .freeze:
+                namegate = SequentialObjectBlockingNameGate()
+            }
+
             return try VideoSubscription(sourceId: sourceId,
                                          profileSet: profileSet,
                                          participants: self.participants,
                                          metricsSubmitter: metricsSubmitter,
-                                         videoBehaviour: self.config.videoBehaviour,
+                                         namegate: namegate,
                                          reliable: self.config.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,

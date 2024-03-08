@@ -32,10 +32,10 @@ enum SeiParseError: Error {
 }
 
 struct OrientationSei {
-    let orientation: Double
+    let orientation: DecimusVideoRotation
     let verticalMirror: Bool
     
-    init(orientation: Double, verticalMirror: Bool) {
+    init(orientation: DecimusVideoRotation, verticalMirror: Bool) {
         self.orientation = orientation
         self.verticalMirror = verticalMirror
     }
@@ -47,17 +47,18 @@ struct OrientationSei {
             throw SeiParseError.mismatch
         }
 
-        var extractedOrientation: Double?
+        var extractedOrientation: UInt8?
         var extractedVerticalMirror: UInt8?
         encoded.withUnsafeBytes {
-            extractedOrientation = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.orientation), as: Double.self)
+            extractedOrientation = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.orientation), as: UInt8.self)
             extractedVerticalMirror = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.mirror), as: UInt8.self)
         }
 
-        guard let extractedOrientation = extractedOrientation else {
+        guard let extractedOrientation = extractedOrientation,
+              let orientation = DecimusVideoRotation(rawValue: extractedOrientation) else {
             throw SeiParseError.parseFailure("Orientation")
         }
-        self.orientation = extractedOrientation
+        self.orientation = orientation
 
         guard let extractedVerticalMirror = extractedVerticalMirror else {
             throw SeiParseError.parseFailure("Vertical Mirror")
@@ -72,9 +73,7 @@ struct OrientationSei {
                 $0.storeBytes(of: UInt32(data.orientationSei.count - H264Utilities.naluStartCode.count).byteSwapped, as: UInt32.self)
             }
         }
-        bytes.withUnsafeMutableBytes {
-            $0.storeBytes(of: self.orientation, toByteOffset: data.getOrientationOffset(.orientation), as: Double.self)
-        }
+        bytes[data.getOrientationOffset(.orientation)] = self.orientation.rawValue
         bytes[data.getOrientationOffset(.mirror)] = self.verticalMirror ? 0x01 : 0x00
         return bytes
     }
