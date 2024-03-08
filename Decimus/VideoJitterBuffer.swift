@@ -27,6 +27,7 @@ class VideoJitterBuffer {
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
     private var lastSequenceRead: UInt64?
+    private var lastGroupRead: UInt32?
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -88,20 +89,25 @@ class VideoJitterBuffer {
         self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
             self.play = true
         })
+
+        // Install enqueue test.
+        self.buffer.setValidationHandler { [weak self] _, buffer in
+            guard let self = self else { return }
+            // There is no point enqueing frames that are older than what we've read.
+            let frame = buffer as! DecimusVideoFrame
+            if let thisSeq = frame.sequenceNumber,
+               let lastSequenceRead = self.lastSequenceRead,
+               let lastGroupRead = self.lastGroupRead {
+                guard thisSeq > lastSequenceRead && frame.groupId >= lastGroupRead else {
+                    throw "Refused enqueue as older than last read. Got seq: \(thisSeq) read seq: \(lastSequenceRead), got group: \(frame.groupId) had group: \(lastGroupRead)"
+                }
+            }
+        }
     }
 
     /// Write a video frame into the jitter buffer.
-    /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
     func write(videoFrame: DecimusVideoFrame) throws {
-        // Check expiry.
-        if let thisSeq = videoFrame.sequenceNumber,
-           let lastSequenceRead = self.lastSequenceRead {
-            guard thisSeq > lastSequenceRead else {
-                throw "Refused enqueue as older than last read"
-            }
-        }
-
         try self.buffer.enqueue(videoFrame)
 
         // Metrics.
@@ -152,37 +158,30 @@ class VideoJitterBuffer {
         }
         let sample = oldest as! DecimusVideoFrame
         self.lastSequenceRead = sample.sequenceNumber
+        self.lastGroupRead = sample.groupId
         return sample
     }
 
     /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
     /// - Parameter targetGroup The group to flush frames up until.
     func flushTo(targetGroup groupId: UInt32) {
+        self.lastGroupRead = groupId
+        guard self.buffer.bufferCount > 0 else { return }
         var flushCount: UInt = 0
-        while let frame = self.buffer.head {
-            let thisGroupId = (frame as! DecimusVideoFrame).groupId
-            if thisGroupId < groupId {
-                guard let flushed = self.buffer.dequeue() else {
-                    break
-                }
-                self.lastSequenceRead = (flushed as! DecimusVideoFrame).sequenceNumber
-                flushCount += 1
-            }
+        while let frame = self.buffer.head as! DecimusVideoFrame?,
+              frame.groupId < groupId {
+            guard let _ = self.read() else { break }
+            flushCount += 1
         }
 
-        if let measurement = self.measurement {
+        if flushCount > 0,
+           let measurement = self.measurement {
             let now: Date = .now
             let metric = flushCount
             Task(priority: .utility) {
                 await measurement.flushed(count: metric, timestamp: now)
             }
         }
-    }
-
-    /// Get the CMBuffer at the front of the buffer without removing it.
-    /// - Returns The head of the buffer, if any.
-    func peek() -> CMBuffer? {
-        self.buffer.head
     }
 
     /// Get the current depth of the queue (sum of all contained durations).

@@ -248,4 +248,52 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertNotNil(negativeWait)
         XCTAssertEqual(-duration.seconds / 2, negativeWait!, accuracy: 1 / 1000)
     }
+    
+    func testFlush() throws {
+        let startTime: Date = .now
+        let minDepth: TimeInterval = 0.2
+        let testCount = 10
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: false,
+                                           minDepth: minDepth,
+                                           capacity: testCount)
+        let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSinceReferenceDate), timescale: 1)
+        var diff: TimeInterval?
+        let duration = CMTime(value: 1, timescale: 30)
+
+        for count in 0..<testCount {
+            if diff == nil {
+                diff = startTime.timeIntervalSinceReferenceDate - presentation.seconds
+            }
+            let adjust = CMTimeMultiply(duration, multiplier: Int32(count))
+            let sample = try CMSampleBuffer(dataBuffer: nil,
+                                            formatDescription: nil,
+                                            numSamples: 1,
+                                            sampleTimings: [
+                                                .init(duration: duration,
+                                                      presentationTimeStamp: CMTimeAdd(presentation, adjust),
+                                                      decodeTimeStamp: .invalid)
+                                            ],
+                                            sampleSizes: [0])
+            let frame = DecimusVideoFrame(samples: [sample],
+                                          groupId: count < testCount / 2 ? 0 : 1,
+                                          objectId: UInt16(count >= testCount / 2 ? count - testCount / 2 : count),
+                                          sequenceNumber: UInt64(count),
+                                          fps: 30,
+                                          orientation: nil,
+                                          verticalMirror: nil)
+            try buffer.write(videoFrame: frame)
+        }
+        
+        XCTAssertEqual(buffer.getDepth(), duration.seconds * Double(testCount))
+        
+        guard let head = buffer.read() else { XCTFail(); return }
+        XCTAssertEqual(head.groupId, 0)
+        XCTAssertEqual(head.objectId, 0)
+        buffer.flushTo(targetGroup: 1)
+        guard let head = buffer.read() else { XCTFail(); return }
+        XCTAssertEqual(head.groupId, 1)
+        XCTAssertEqual(head.objectId, 0)
+    }
 }
