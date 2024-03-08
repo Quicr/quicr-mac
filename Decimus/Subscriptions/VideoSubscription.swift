@@ -349,7 +349,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
                 do {
                     try participant.view.enqueue(selectedSample,
-                                                 transform: selectedHandlerFrame.key.orientation?.toTransform(selectedHandlerFrame.key.verticalMirror!))
+                                                 transform: selectedHandlerFrame.key.orientation?.toTransform(selectedHandlerFrame.key.verticalMirror))
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }

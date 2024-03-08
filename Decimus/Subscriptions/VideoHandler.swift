@@ -1,4 +1,5 @@
 import AVFoundation
+import Atomics
 
 // swiftlint:disable type_body_length
 
@@ -27,8 +28,15 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private(set) var orientation: AVCaptureVideoOrientation?
-    private(set) var verticalMirror: Bool?
+    var orientation: AVCaptureVideoOrientation? {
+        let result = atomicOrientation.load(ordering: .acquiring)
+        return result == 0 ? nil : .init(rawValue: result)
+    }
+    var verticalMirror: Bool {
+        atomicMirror.load(ordering: .acquiring)
+    }
+    private var atomicOrientation = ManagedAtomic(0)
+    private var atomicMirror = ManagedAtomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
@@ -382,8 +390,12 @@ class VideoHandler: CustomStringConvertible {
             if self.jitterBufferConfig.mode == .layer {
                 try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
             } else {
-                self.orientation = sample.orientation
-                self.verticalMirror = sample.verticalMirror
+                if let orientation = sample.orientation {
+                    self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
+                }
+                if let verticalMirror = sample.verticalMirror {
+                    self.atomicMirror.store(verticalMirror, ordering: .releasing)
+                }
                 try decoder!.write(sampleBuffer)
             }
         }
