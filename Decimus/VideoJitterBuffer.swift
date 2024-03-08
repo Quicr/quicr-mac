@@ -1,6 +1,7 @@
 import Foundation
 import OrderedCollections
 import AVFoundation
+import Atomics
 
 // swiftlint:disable force_cast
 
@@ -26,8 +27,10 @@ class VideoJitterBuffer {
     private let measurement: _Measurement?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
-    private var lastSequenceRead: UInt64?
-    private var lastGroupRead: UInt32?
+    private var lastSequenceRead = ManagedAtomic<UInt64>(0)
+    private var lastSequenceSet = ManagedAtomic<Bool>(false)
+    private var lastGroupRead = ManagedAtomic<UInt32>(0)
+    private var lastGroupSet = ManagedAtomic<Bool>(false)
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -96,10 +99,12 @@ class VideoJitterBuffer {
             // There is no point enqueing frames that are older than what we've read.
             let frame = buffer as! DecimusVideoFrame
             if let thisSeq = frame.sequenceNumber,
-               let lastSequenceRead = self.lastSequenceRead,
-               let lastGroupRead = self.lastGroupRead {
-                guard thisSeq > lastSequenceRead && frame.groupId >= lastGroupRead else {
-                    throw "Refused enqueue as older than last read. Got seq: \(thisSeq) read seq: \(lastSequenceRead), got group: \(frame.groupId) had group: \(lastGroupRead)"
+               self.lastSequenceSet.load(ordering: .acquiring),
+               self.lastGroupSet.load(ordering: .acquiring) {
+                let lastSequence = self.lastSequenceRead.load(ordering: .acquiring)
+                let lastGroup = self.lastGroupRead.load(ordering: .acquiring)
+                guard thisSeq > lastSequence && frame.groupId >= lastGroup else {
+                    throw "Refused enqueue as older than last read. Got seq: \(thisSeq) read seq: \(lastSequence), got group: \(frame.groupId) had group: \(lastGroup)"
                 }
             }
         }
@@ -157,15 +162,20 @@ class VideoJitterBuffer {
             }
         }
         let sample = oldest as! DecimusVideoFrame
-        self.lastSequenceRead = sample.sequenceNumber
-        self.lastGroupRead = sample.groupId
+        if let sequenceNumber = sample.sequenceNumber {
+            self.lastSequenceRead.store(sequenceNumber, ordering: .releasing)
+            self.lastSequenceSet.store(true, ordering: .releasing)
+        }
+        self.lastGroupRead.store(sample.groupId, ordering: .releasing)
+        self.lastGroupSet.store(true, ordering: .releasing)
         return sample
     }
 
     /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
     /// - Parameter targetGroup The group to flush frames up until.
     func flushTo(targetGroup groupId: UInt32) {
-        self.lastGroupRead = groupId
+        self.lastGroupRead.store(groupId, ordering: .releasing)
+        self.lastGroupSet.store(true, ordering: .releasing)
         guard self.buffer.bufferCount > 0 else { return }
         var flushCount: UInt = 0
         while let frame = self.buffer.head as! DecimusVideoFrame?,

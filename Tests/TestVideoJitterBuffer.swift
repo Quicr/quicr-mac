@@ -146,7 +146,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        sequenceNumber: 0,
                                        fps: 30)
         XCTAssertThrowsError(try buffer.write(videoFrame: frame1)) {
-            XCTAssertEqual("Refused enqueue as older than last read", $0 as? String)
+            XCTAssertEqual("Refused enqueue as older than last read. Got seq: \(frame1.sequenceNumber!) read seq: \(frame2.sequenceNumber!), got group: \(frame1.groupId) had group: \(frame2.groupId)", $0 as? String)
         }
     }
 
