@@ -45,13 +45,19 @@ class DecimusLogger {
         @Published var alerts: [DecimusLogEntry] = []
     }
     static let shared = ObservableLogs()
+    
+    convenience init<T>(_ loggee: T) {
+        self.init(type(of: loggee), category: "\(loggee)")
+    }
 
-    init<T>(_ loggee: T.Type) {
-        self.category = String(describing: loggee)
-        self.logger = Logger(
-            subsystem: Bundle.main.bundleIdentifier!,
-            category: category
-        )
+    convenience init<T>(_ loggee: T.Type) {
+        self.init(loggee, category: "\(loggee)")
+    }
+    
+    init<T>(_ loggee: T.Type, category: String) {
+        self.category = category
+        self.logger = .init(subsystem: "\(Bundle.main.bundleIdentifier!).\(loggee)",
+                            category: category)
     }
 
     func log(level: LogLevel, _ msg: String, alert: Bool = false) {

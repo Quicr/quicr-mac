@@ -5,7 +5,7 @@ import Atomics
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
-    private static let logger = DecimusLogger(VideoHandler.self)
+    private let logger: DecimusLogger
 
     /// The current configuration in use.
     let config: VideoCodecConfig
@@ -87,6 +87,7 @@ class VideoHandler: CustomStringConvertible {
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.description = self.namespace
+        self.logger = DecimusLogger(VideoHandler.self, category: self.description)
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -104,7 +105,7 @@ class VideoHandler: CustomStringConvertible {
                                                orientation: self.orientation,
                                                verticalMirror: self.verticalMirror)
                     } catch {
-                        Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                        self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
                 }
             }
@@ -226,7 +227,7 @@ class VideoHandler: CustomStringConvertible {
                         do {
                             try self.decode(sample: sample)
                         } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -242,7 +243,7 @@ class VideoHandler: CustomStringConvertible {
                 do {
                     try jitterBuffer.write(videoFrame: frame)
                 } catch {
-                    Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
+                    self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
                 }
             }
         } else {
@@ -280,7 +281,7 @@ class VideoHandler: CustomStringConvertible {
                         seis.append(sei)
                     }
                 } catch {
-                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
+                    self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
             }
         case .hevc:
@@ -293,7 +294,7 @@ class VideoHandler: CustomStringConvertible {
                         seis.append(sei)
                     }
                 } catch {
-                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
+                    self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
                 }
             }
         default:
@@ -316,7 +317,7 @@ class VideoHandler: CustomStringConvertible {
         if let timestamp = sei?.timestamp {
             timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
         } else {
-            Self.logger.error("Missing expected frame timestamp")
+            self.logger.error("Missing expected frame timestamp")
             timeInfo = .invalid
         }
 
@@ -348,7 +349,7 @@ class VideoHandler: CustomStringConvertible {
                         let participant = self.participants.getOrMake(identifier: self.namespace)
                         participant.label = .init(describing: self)
                     } catch {
-                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
+                        self.logger.error("Failed to set label: \(error.localizedDescription)")
                     }
                 }
             }
@@ -431,7 +432,7 @@ class VideoHandler: CustomStringConvertible {
             if sample.sampleAttachments.count > 0 {
                 sample.sampleAttachments[0][.displayImmediately] = true
             } else {
-                Self.logger.warning("Couldn't set display immediately attachment")
+                self.logger.warning("Couldn't set display immediately attachment")
             }
         }
 
@@ -446,7 +447,7 @@ class VideoHandler: CustomStringConvertible {
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
             } catch {
-                Self.logger.error("Could not enqueue sample: \(error)")
+                self.logger.error("Could not enqueue sample: \(error)")
             }
         }
     }
@@ -475,9 +476,9 @@ class VideoHandler: CustomStringConvertible {
             do {
                 try participant.view.flush()
             } catch {
-                Self.logger.error("Could not flush layer: \(error)")
+                self.logger.error("Could not flush layer: \(error)")
             }
-            Self.logger.debug("Flushing display layer")
+            self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
     }
