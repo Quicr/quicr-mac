@@ -1,5 +1,6 @@
 import AVFoundation
 import Atomics
+import os
 
 // swiftlint:disable type_body_length
 
@@ -42,7 +43,7 @@ class VideoHandler: CustomStringConvertible {
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     private var lastDecodedImage: CMSampleBuffer?
-    private let lastDecodedImageLock = NSLock()
+    private let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
