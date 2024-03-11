@@ -161,6 +161,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     private func addCamera(listener: FrameListener) throws {
+        #if os(tvOS)
+        return
+        #endif
+
         // Device is already setup, add this delegate.
         let device = listener.device
 
@@ -346,7 +350,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
 #if !os(tvOS)
 extension UIDeviceOrientation {
-    var videoOrientation: AVCaptureVideoOrientation {
+    var videoOrientation: DecimusVideoRotation {
         switch self {
         case .portrait:
             return .portrait

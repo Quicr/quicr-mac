@@ -226,7 +226,6 @@ extension InCallView {
             } catch {
                 Self.logger.critical("Failed to create AudioEngine: \(error.localizedDescription)")
                 self.engine = nil
-                return
             }
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -274,6 +273,7 @@ extension InCallView {
         }
 
         func connected() async -> Bool {
+            // TODO: In what situation can this be null.
             if !self.controller!.connected() {
                 Self.logger.error("Connection to relay disconnected", alert: true)
                 return false

@@ -72,6 +72,7 @@ class VTEncoder {
                                  value: kCFBooleanTrue)
         }
 
+        #if !os(tvOS)
         try OSStatusError.checked("Set Profile Level") {
             return switch config.codec {
             case .h264:
@@ -86,6 +87,7 @@ class VTEncoder {
                 1
             }
         }
+        #endif
 
         try OSStatusError.checked("Set allow frame reordering") {
             VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
@@ -226,9 +228,9 @@ class VTEncoder {
         // Append Orientation SEI to buffer
         #if !targetEnvironment(macCatalyst) && !os(tvOS)
         do {
-//            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-//                                      verticalMirror: verticalMirror,
-//                                      bufferAllocator: bufferAllocator)
+            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
+                                      verticalMirror: verticalMirror,
+                                      bufferAllocator: bufferAllocator)
         } catch {
             Self.logger.error("Failed to prepend orientation SEI: \(error.localizedDescription)")
         }
