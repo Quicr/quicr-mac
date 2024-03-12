@@ -375,7 +375,7 @@ class VideoHandler: CustomStringConvertible {
                                          lastObject: self.lastObject)
         if gateResult {
             self.lastGroup = groupId
-            self.lastFps = objectId
+            self.lastObject = objectId
         }
 
         if !gateResult && self.videoBehaviour == .freeze {
