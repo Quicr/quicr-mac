@@ -1,4 +1,5 @@
 import AVFoundation
+import os
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
     case none
@@ -26,7 +27,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
     private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
-    private var handlerLock = NSLock()
+    private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
     private var timestampTimeDiff: TimeInterval?
@@ -175,17 +176,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.renderTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
-                var cancel = false
                 let duration = self.handlerLock.withLock {
                     guard !self.videoHandlers.isEmpty else {
-                        cancel = true
+                        self.renderTask?.cancel()
                         return TimeInterval.nan
                     }
                     return try! self.makeSimulreceiveDecision()
-                }
-                guard !cancel else {
-                    self.renderTask?.cancel()
-                    return
                 }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
