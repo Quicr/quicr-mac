@@ -11,7 +11,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt32 = 0
-    private let handlerLock: NSLock = .init()
+    private let handlerLock = OSAllocatedUnfairLock()
     private var handler: OpusHandler?
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval = 1.5
@@ -110,29 +110,29 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
 
         // Do we need to create the handler?
-        self.handlerLock.withLock {
-            if self.handler == nil {
-                self.handler = try? .init(sourceId: self.sourceId,
-                                          engine: self.engine,
-                                          measurement: self.measurement,
-                                          jitterDepth: self.jitterDepth,
-                                          jitterMax: self.jitterMax,
-                                          opusWindowSize: self.opusWindowSize,
-                                          granularMetrics: self.granularMetrics)
-            }
-            guard let handler = self.handler else {
-                Self.logger.error("Failed to recreate audio handler")
-                return
-            }
-            do {
-                try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
-                                                           count: length,
-                                                           deallocator: .none),
-                                               sequence: groupId,
-                                               date: date)
-            } catch {
-                Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
-            }
+        self.handlerLock.lock()
+        defer { self.handlerLock.unlock() }
+        if self.handler == nil {
+            self.handler = try? .init(sourceId: self.sourceId,
+                                      engine: self.engine,
+                                      measurement: self.measurement,
+                                      jitterDepth: self.jitterDepth,
+                                      jitterMax: self.jitterMax,
+                                      opusWindowSize: self.opusWindowSize,
+                                      granularMetrics: self.granularMetrics)
+        }
+        guard let handler = self.handler else {
+            Self.logger.error("Failed to recreate audio handler")
+            return SubscriptionError.none.rawValue
+        }
+        do {
+            try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
+                                                       count: length,
+                                                       deallocator: .none),
+                                           sequence: groupId,
+                                           date: date)
+        } catch {
+            Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
 
         return SubscriptionError.none.rawValue

@@ -44,7 +44,6 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
-    var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
@@ -63,8 +62,7 @@ struct SubscriptionConfig: Codable {
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         mediaReliability = .init()
-        quicCwinMinimumKiB = 128
-        quicWifiShadowRttUs = 0.150
+        quicCwinMinimumKiB = 8
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
         isSingleOrderedSub = false
         isSingleOrderedPub = false

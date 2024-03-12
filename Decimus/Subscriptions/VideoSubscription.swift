@@ -1,4 +1,5 @@
 import AVFoundation
+import os
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
     case none
@@ -28,16 +29,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
-    private var last: VideoHandler?
+    private var last: QuicrNamespace?
     private var lastImage: AvailableImage?
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
     private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
-    private var handlerLock = NSLock()
+    private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
     private var timestampTimeDiff: TimeInterval?
-    private var pauseMissCounts: [VideoHandler: Int] = [:]
+    private var pauseMissCounts: [QuicrNamespace: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
     private let pauseResume: Bool
@@ -110,8 +111,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         self.lastUpdateTimes.removeValue(forKey: handler.key)
                         if let video = self.videoHandlers.removeValue(forKey: handler.key),
                            let last = self.last,
-                           last.namespace == video.namespace {
+                           video.namespace == last {
                             self.last = nil
+                            self.lastImage = nil
                         }
                     }
 
@@ -183,17 +185,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.renderTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
-                var cancel = false
                 let duration = self.handlerLock.withLock {
                     guard !self.videoHandlers.isEmpty else {
-                        cancel = true
+                        self.renderTask?.cancel()
                         return TimeInterval.nan
                     }
                     return try! self.makeSimulreceiveDecision()
-                }
-                guard !cancel else {
-                    self.renderTask?.cancel()
-                    return
                 }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
@@ -264,8 +261,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         guard let decision = decision else {
             // Wait for next.
             let duration: TimeInterval
-            if let known = self.last?.calculateWaitTime() {
-                duration = known
+            if let lastNamespace = self.last,
+               let handler = self.videoHandlers[lastNamespace] {
+                duration = handler.calculateWaitTime() ?? (1 / Double(handler.config.fps))
             } else {
                 let highestFps = self.videoHandlers.values.reduce(0) { max($0, $1.config.fps) }
                 duration = TimeInterval(1 / highestFps)
@@ -296,22 +294,24 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
         if self.pauseResume {
-            for pauseCandidate in self.pauseMissCounts where pauseCandidate.key.config.width > incomingWidth {
-                guard let callController = self.callController,
-                      callController.getSubscriptionState(pauseCandidate.key.namespace) == .ready else {
+            for pauseCandidateCount in self.pauseMissCounts {
+                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
+                      pauseCandidate.config.width > incomingWidth,
+                      let callController = self.callController,
+                      callController.getSubscriptionState(pauseCandidate.namespace) == .ready else {
                     continue
                 }
 
-                let newValue = pauseCandidate.value + 1
-                Self.logger.warning("Incremented pause count for: \(pauseCandidate.key.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+                let newValue = pauseCandidateCount.value + 1
+                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
                 if newValue >= self.pauseMissThreshold {
                     // Pause this subscription.
-                    Self.logger.warning("Pausing subscription: \(pauseCandidate.key.config.width)")
-                    callController.setSubscriptionState(pauseCandidate.key.namespace, transportMode: .pause)
-                    self.pauseMissCounts[pauseCandidate.key] = 0
+                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
+                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
+                    self.pauseMissCounts[pauseCandidate.namespace] = 0
                 } else {
                     // Increment the pause miss count.
-                    self.pauseMissCounts[pauseCandidate.key] = newValue
+                    self.pauseMissCounts[pauseCandidate.namespace] = newValue
                 }
             }
         }
@@ -333,8 +333,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
-        self.pauseMissCounts[handler] = 0
-        self.last = handler
+        self.pauseMissCounts[handler.namespace] = 0
+        self.last = handler.namespace
 
         if self.simulreceive == .enable {
             // Set to display immediately.
@@ -360,7 +360,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
                 do {
                     try participant.view.enqueue(selectedSample,
-                                                 transform: handler.orientation?.toTransform(handler.verticalMirror!))
+                                                 transform: handler.orientation?.toTransform(handler.verticalMirror))
                 } catch {
                     Self.logger.error("Could not enqueue sample: \(error)")
                 }
