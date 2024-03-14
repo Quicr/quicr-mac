@@ -3,7 +3,7 @@ import AVFAudio
 extension OpusSubscription {
     actor _Measurement: Measurement {
         var name: String = "OpusSubscription"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var frames: UInt64 = 0

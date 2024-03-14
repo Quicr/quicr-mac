@@ -1,7 +1,7 @@
 extension OpusPublication {
     actor _Measurement: Measurement {
         var name: String = "OpusPublication"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var frames: UInt64 = 0

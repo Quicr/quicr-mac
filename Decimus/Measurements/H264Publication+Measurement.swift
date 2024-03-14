@@ -1,7 +1,7 @@
 extension H264Publication {
     actor _Measurement: Measurement {
         var name: String = "VideoPublication"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var bytes: UInt64 = 0

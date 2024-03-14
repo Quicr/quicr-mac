@@ -1,7 +1,7 @@
 extension VideoJitterBuffer {
     actor _Measurement: Measurement {
         var name: String = "VideoJitterBuffer"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var underruns: UInt64 = 0

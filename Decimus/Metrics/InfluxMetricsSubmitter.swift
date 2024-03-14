@@ -38,8 +38,13 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
                 if let realTime = timestampedDict.key {
                     point.time(time: .date(realTime))
                 }
-                for fields in timestampedDict.value {
-                    point.addField(key: fields.key, value: Self.getFieldValue(value: fields.value))
+                for appPoint in timestampedDict.value {
+                    if let tags = appPoint.tags {
+                        for tag in tags {
+                            point.addTag(key: tag.key, value: tag.value)
+                        }
+                    }
+                    point.addField(key: appPoint.fieldName, value: Self.getFieldValue(value: appPoint.value))
                     points.append(point)
                 }
             }

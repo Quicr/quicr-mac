@@ -24,7 +24,7 @@ protocol AVCaptureDevicePublication: Publication {
 
 actor PublicationMeasurement: Measurement {
     var name: String = "Publication"
-    var fields: [Date?: [String: AnyObject]] = [:]
+    var fields: Fields = [:]
     var tags: [String: String] = [:]
 
     private var bytes: UInt64 = 0

@@ -1,7 +1,7 @@
 extension CaptureManager {
     actor _Measurement: Measurement {
         var name: String = "CaptureManager"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var capturedFrames: UInt64 = 0

@@ -311,7 +311,7 @@ extension InCallView {
 extension InCallView.ViewModel {
     private actor _Measurement: Measurement {
         var name: String = "ApplicationMetrics"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         init(submitter: MetricsSubmitter) {
