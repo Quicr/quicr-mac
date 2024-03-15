@@ -29,11 +29,8 @@ actor PublicationMeasurement: Measurement {
 
     private var bytes: UInt64 = 0
 
-    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+    init(namespace: QuicrNamespace) {
         tags["namespace"] = namespace
-        Task {
-            await submitter.register(measurement: self)
-        }
     }
 
     func sentBytes(sent: UInt64, timestamp: Date?) {

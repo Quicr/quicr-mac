@@ -76,7 +76,7 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            self.measurement = .init(namespace: namespace)
         } else {
             self.measurement = nil
         }
@@ -114,6 +114,13 @@ class VideoHandler: CustomStringConvertible {
     deinit {
         if self.simulreceive != .enable {
             self.participants.removeParticipant(identifier: namespace)
+        }
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
         }
     }
 

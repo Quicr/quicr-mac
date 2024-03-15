@@ -232,7 +232,10 @@ extension InCallView {
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
-                self.measurement = .init(submitter: influx)
+                self.measurement = .init()
+                Task(priority: .utility) {
+                    await submitter?.register(measurement: self.measurement!)
+                }
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
@@ -264,6 +267,16 @@ extension InCallView {
                                             granularMetrics: influxConfig.value.granular)
             } catch {
                 Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+            }
+        }
+        
+        deinit {
+            if let measurement = self.measurement,
+               let submitter = self.submitter {
+                let id = measurement.id
+                Task(priority: .utility) {
+                    await submitter.unregister(id: id)
+                }
             }
         }
 
@@ -313,12 +326,6 @@ extension InCallView.ViewModel {
         var name: String = "ApplicationMetrics"
         var fields: Fields = [:]
         var tags: [String: String] = [:]
-
-        init(submitter: MetricsSubmitter) {
-            Task {
-                await submitter.register(measurement: self)
-            }
-        }
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)

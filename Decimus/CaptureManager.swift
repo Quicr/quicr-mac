@@ -51,6 +51,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let notifier: NotificationCenter = .default
     private var observer: NSObjectProtocol?
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private var lastCapture: Date?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
@@ -62,12 +63,27 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         self.granularMetrics = granularMetrics
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(submitter: metricsSubmitter)
+            let measurement = CaptureManager._Measurement()
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
         } else {
             self.measurement = nil
         }
         super.init()
+    }
+    
+    deinit {
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func devices() throws -> [AVCaptureDevice] {

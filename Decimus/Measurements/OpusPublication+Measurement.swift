@@ -7,11 +7,8 @@ extension OpusPublication {
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task {
-                await submitter.register(measurement: self)
-            }
         }
 
         func publishedBytes(sentBytes: Int, timestamp: Date?) {

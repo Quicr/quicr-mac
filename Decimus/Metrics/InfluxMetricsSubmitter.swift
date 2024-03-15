@@ -3,10 +3,19 @@ import Foundation
 import os
 
 actor InfluxMetricsSubmitter: MetricsSubmitter {
+    private class WeakMeasurement {
+        weak var measurement: (any Measurement)?
+        let id: NSUUID
+        init (_ measurement: any Measurement) {
+            self.measurement = measurement
+            self.id = measurement.id
+        }
+    }
+    
     private static let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
-    private var measurements: [Measurement] = []
+    private var measurements: [NSUUID: WeakMeasurement] = [:]
     private var tags: [String: String]
 
     init(config: InfluxConfig, tags: [String: String]) {
@@ -19,12 +28,25 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     func register(measurement: Measurement) {
-        measurements.append(measurement)
+        print("REGISTER")
+        self.measurements[measurement.id] = .init(measurement)
+    }
+    
+    func unregister(id: NSUUID) {
+        self.measurements.removeValue(forKey: id)
     }
 
     func submit() async {
+        print("SUBMIT")
         var points: [InfluxDBClient.Point] = []
-        for measurement in measurements {
+        var toRemove: [NSUUID] = []
+        for pair in self.measurements {
+            let weakMeasurement = pair.value
+            guard let measurement = weakMeasurement.measurement else {
+                Self.logger.warning("Removing dead measurement")
+                toRemove.append(weakMeasurement.id)
+                continue
+            }
             let fields = await measurement.fields
             await measurement.clear()
             for timestampedDict in fields {
@@ -48,6 +70,11 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
                     points.append(point)
                 }
             }
+        }
+        
+        // Clean up dead weak references.
+        for id in toRemove {
+            self.measurements.removeValue(forKey: id)
         }
 
         guard !points.isEmpty else { return }

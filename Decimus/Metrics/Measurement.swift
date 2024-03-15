@@ -8,7 +8,8 @@ struct Point {
 
 typealias Fields = [Date?: [Point]]
 
-protocol Measurement: Actor {
+protocol Measurement: AnyObject, Actor {
+    nonisolated var id: NSUUID  { get }
     var name: String { get }
     var fields: Fields { get set }
     var tags: [String: String] { get }
@@ -16,6 +17,8 @@ protocol Measurement: Actor {
 }
 
 extension Measurement {
+    nonisolated var id: NSUUID { .init() }
+
     func record(field: String, value: AnyObject, timestamp: Date?, tags: [String:String]? = nil) {
         if fields[timestamp] == nil {
             fields[timestamp] = []

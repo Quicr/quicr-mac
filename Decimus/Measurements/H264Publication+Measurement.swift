@@ -12,11 +12,8 @@ extension H264Publication {
         private var captureDelay: Double = 0
         private var publishDelay: Double = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task {
-                await submitter.register(measurement: self)
-            }
         }
 
         func sentBytes(sent: UInt64, timestamp: Date?) {

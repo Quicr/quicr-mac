@@ -8,12 +8,6 @@ extension CaptureManager {
         private var dropped: UInt64 = 0
         private var captureDelay: Double = 0
 
-        init(submitter: MetricsSubmitter) {
-            Task {
-                await submitter.register(measurement: self)
-            }
-        }
-
         func droppedFrame(timestamp: Date?) {
             self.dropped += 1
             record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)

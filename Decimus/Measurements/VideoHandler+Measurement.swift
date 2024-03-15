@@ -8,11 +8,8 @@ extension VideoHandler {
         private var bytes: UInt64 = 0
         private var decoded: UInt64 = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task(priority: .utility) {
-                await submitter.register(measurement: self)
-            }
         }
 
         func receivedFrame(timestamp: Date?, idr: Bool) {

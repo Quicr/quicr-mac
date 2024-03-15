@@ -10,11 +10,8 @@ extension VideoJitterBuffer {
         private var flushed: UInt64 = 0
         private var pausedWaitTime = false
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task(priority: .utility) {
-                await submitter.register(measurement: self)
-            }
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {
