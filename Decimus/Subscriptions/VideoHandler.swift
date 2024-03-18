@@ -218,12 +218,17 @@ class VideoHandler: CustomStringConvertible {
                         waitTime = calculateWaitTime() ?? duration
                     }
                     if waitTime > 0 {
-                        try! await Task.sleep(for: .seconds(waitTime),
-                                              tolerance: .seconds(waitTime / 2),
-                                              clock: .continuous)
-                        guard let task = self.dequeueTask,
-                              !task.isCancelled else {
-                            return
+                        do {
+                            try await Task.sleep(for: .seconds(waitTime),
+                                                  tolerance: .seconds(waitTime / 2),
+                                                  clock: .continuous)
+                            guard let task = self.dequeueTask,
+                                  !task.isCancelled else {
+                                return
+                            }
+                        } catch {
+                            Self.logger.error("Exception during sleep: \(error.localizedDescription)")
+                            continue
                         }
                     }
 
