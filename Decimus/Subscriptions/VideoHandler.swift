@@ -218,7 +218,6 @@ class VideoHandler: CustomStringConvertible {
                         waitTime = calculateWaitTime() ?? duration
                     }
                     if waitTime > 0 {
-                        let now = Date.now
                         try! await Task.sleep(for: .seconds(waitTime),
                                               tolerance: .seconds(waitTime / 2),
                                               clock: .continuous)
