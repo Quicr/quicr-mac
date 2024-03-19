@@ -122,6 +122,7 @@ class VideoHandler: CustomStringConvertible {
                 await metricsSubmitter.unregister(id: id)
             }
         }
+        self.dequeueTask?.cancel()
     }
 
     /// Get the last decoded image, if any.
@@ -198,9 +199,18 @@ class VideoHandler: CustomStringConvertible {
                         waitTime = calculateWaitTime() ?? duration
                     }
                     if waitTime > 0 {
-                        try? await Task.sleep(for: .seconds(waitTime),
-                                              tolerance: .seconds(waitTime / 2),
-                                              clock: .continuous)
+                        do {
+                            try await Task.sleep(for: .seconds(waitTime),
+                                                  tolerance: .seconds(waitTime / 2),
+                                                  clock: .continuous)
+                            guard let task = self.dequeueTask,
+                                  !task.isCancelled else {
+                                return
+                            }
+                        } catch {
+                            Self.logger.error("Exception during sleep: \(error.localizedDescription)")
+                            continue
+                        }
                     }
 
                     // Attempt to dequeue a frame.
