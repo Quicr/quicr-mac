@@ -1,5 +1,3 @@
-import Foundation
-
 struct Point {
     let fieldName: String
     let value: AnyObject
@@ -9,7 +7,7 @@ struct Point {
 typealias Fields = [Date?: [Point]]
 
 protocol Measurement: AnyObject, Actor {
-    nonisolated var id: NSUUID  { get }
+    nonisolated var id: UUID  { get }
     var name: String { get }
     var fields: Fields { get set }
     var tags: [String: String] { get }
@@ -17,7 +15,7 @@ protocol Measurement: AnyObject, Actor {
 }
 
 extension Measurement {
-    nonisolated var id: NSUUID { .init() }
+    nonisolated var id: UUID { .init() }
 
     func record(field: String, value: AnyObject, timestamp: Date?, tags: [String:String]? = nil) {
         if fields[timestamp] == nil {

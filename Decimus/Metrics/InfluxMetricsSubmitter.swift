@@ -5,7 +5,7 @@ import os
 actor InfluxMetricsSubmitter: MetricsSubmitter {
     private class WeakMeasurement {
         weak var measurement: (any Measurement)?
-        let id: NSUUID
+        let id: UUID
         init (_ measurement: any Measurement) {
             self.measurement = measurement
             self.id = measurement.id
@@ -15,7 +15,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     private static let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
-    private var measurements: [NSUUID: WeakMeasurement] = [:]
+    private var measurements: [UUID: WeakMeasurement] = [:]
     private var tags: [String: String]
 
     init(config: InfluxConfig, tags: [String: String]) {
@@ -32,14 +32,14 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         self.measurements[measurement.id] = .init(measurement)
     }
     
-    func unregister(id: NSUUID) {
+    func unregister(id: UUID) {
         self.measurements.removeValue(forKey: id)
     }
 
     func submit() async {
         print("SUBMIT")
         var points: [InfluxDBClient.Point] = []
-        var toRemove: [NSUUID] = []
+        var toRemove: [UUID] = []
         for pair in self.measurements {
             let weakMeasurement = pair.value
             guard let measurement = weakMeasurement.measurement else {

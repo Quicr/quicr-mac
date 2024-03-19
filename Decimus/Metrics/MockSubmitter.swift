@@ -1,5 +1,5 @@
 actor MockSubmitter: MetricsSubmitter {
     func register(measurement: Measurement) { }
-    func unregister(id: NSUUID) {}
+    func unregister(id: UUID) {}
     func submit() { }
 }
