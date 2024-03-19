@@ -28,7 +28,6 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     func register(measurement: Measurement) {
-        print("REGISTER")
         self.measurements[measurement.id] = .init(measurement)
     }
     
@@ -37,7 +36,6 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     func submit() async {
-        print("SUBMIT")
         var points: [InfluxDBClient.Point] = []
         var toRemove: [UUID] = []
         for pair in self.measurements {
