@@ -52,7 +52,6 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private var observer: NSObjectProtocol?
     private let measurement: _Measurement?
     private let metricsSubmitter: MetricsSubmitter?
-    private var lastCapture: Date?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
 
@@ -75,7 +74,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         super.init()
     }
-    
+
     deinit {
         if let measurement = self.measurement,
            let metricsSubmitter = self.metricsSubmitter {
@@ -318,23 +317,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         // Discard any frames prior to camera warmup.
+        let now = Date.now
         if let startTime = self.startTime[output] {
-            guard Date.now.timeIntervalSince(startTime) > self.warmupTime else { return }
+            guard now.timeIntervalSince(startTime) > self.warmupTime else { return }
             self.startTime.removeValue(forKey: output)
         }
 
         if let measurement = self.measurement {
-            let now: Date = .now
-            let delay: Double?
-            if let last = self.lastCapture {
-                delay = now.timeIntervalSince(last) * 1000
-            } else {
-                delay = nil
-            }
-            self.lastCapture = now
             Task(priority: .utility) {
-                await measurement.capturedFrame(delayMs: self.granularMetrics ? delay : nil,
-                                                timestamp: self.granularMetrics ? now : nil)
+                await measurement.capturedFrame(timestamp: self.granularMetrics ? now : nil)
             }
         }
 
