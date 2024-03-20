@@ -11,7 +11,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
             self.id = measurement.id
         }
     }
-    
+
     private static let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
@@ -28,11 +28,21 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     func register(measurement: Measurement) {
-        self.measurements[measurement.id] = .init(measurement)
+        let updated = self.measurements.updateValue(.init(measurement), forKey: measurement.id)
+        assert(updated == nil)
+        guard updated == nil else {
+            Self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
+            return
+        }
     }
-    
+
     func unregister(id: UUID) {
-        self.measurements.removeValue(forKey: id)
+        let removed = self.measurements.removeValue(forKey: id)
+        assert(removed != nil)
+        guard removed != nil else {
+            Self.logger.error("Shouldn't call unregister for non-existing ID: \(id)")
+            return
+        }
     }
 
     func submit() async {
@@ -41,6 +51,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         for pair in self.measurements {
             let weakMeasurement = pair.value
             guard let measurement = weakMeasurement.measurement else {
+                assert(false)
                 Self.logger.warning("Removing dead measurement")
                 toRemove.append(weakMeasurement.id)
                 continue
@@ -69,7 +80,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
                 }
             }
         }
-        
+
         // Clean up dead weak references.
         for id in toRemove {
             self.measurements.removeValue(forKey: id)

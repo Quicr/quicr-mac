@@ -23,6 +23,7 @@ protocol AVCaptureDevicePublication: Publication {
 }
 
 actor PublicationMeasurement: Measurement {
+    let id = UUID()
     var name: String = "Publication"
     var fields: Fields = [:]
     var tags: [String: String] = [:]

@@ -1,5 +1,6 @@
 extension OpusPublication {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "OpusPublication"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

@@ -68,7 +68,7 @@ struct InCallView: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                         }
-                        
+
                         HStack {
                             Button("Alter Subscriptions") {
                                 self.isShowingSubscriptions = true
@@ -102,7 +102,7 @@ struct InCallView: View {
                         Button("Done") {
                             self.isShowingSubscriptions = false
                         }
-                            .padding()
+                        .padding()
                     }
                     .sheet(isPresented: $isShowingPublications) {
                         if let controller = viewModel.controller {
@@ -112,7 +112,7 @@ struct InCallView: View {
                         Button("Done") {
                             self.isShowingPublications = false
                         }
-                            .padding()
+                        .padding()
                     }
                 }
 
@@ -269,7 +269,7 @@ extension InCallView {
                 Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
             }
         }
-        
+
         deinit {
             if let measurement = self.measurement,
                let submitter = self.submitter {
@@ -323,6 +323,7 @@ extension InCallView {
 // Metrics.
 extension InCallView.ViewModel {
     private actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "ApplicationMetrics"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

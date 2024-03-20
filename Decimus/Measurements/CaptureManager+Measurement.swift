@@ -1,5 +1,6 @@
 extension CaptureManager {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "CaptureManager"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

@@ -1,5 +1,6 @@
 extension VideoJitterBuffer {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "VideoJitterBuffer"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

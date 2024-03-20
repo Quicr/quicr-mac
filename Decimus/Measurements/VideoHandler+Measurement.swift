@@ -1,5 +1,6 @@
 extension VideoHandler {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "VideoHandler"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

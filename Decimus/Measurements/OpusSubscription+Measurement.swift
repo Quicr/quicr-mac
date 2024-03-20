@@ -2,6 +2,7 @@ import AVFAudio
 
 extension OpusSubscription {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "OpusSubscription"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

@@ -1,5 +1,6 @@
 extension H264Publication {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "VideoPublication"
         var fields: Fields = [:]
         var tags: [String: String] = [:]

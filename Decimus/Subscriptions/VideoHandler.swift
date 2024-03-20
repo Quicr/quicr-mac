@@ -76,7 +76,11 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace)
+            let measurement = VideoHandler._Measurement(namespace: namespace)
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -201,8 +205,8 @@ class VideoHandler: CustomStringConvertible {
                     if waitTime > 0 {
                         do {
                             try await Task.sleep(for: .seconds(waitTime),
-                                                  tolerance: .seconds(waitTime / 2),
-                                                  clock: .continuous)
+                                                 tolerance: .seconds(waitTime / 2),
+                                                 clock: .continuous)
                             guard let task = self.dequeueTask,
                                   !task.isCancelled else {
                                 return
@@ -245,7 +249,7 @@ class VideoHandler: CustomStringConvertible {
                 try decode(sample: frame)
             }
         }
-        
+
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
