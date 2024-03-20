@@ -8,6 +8,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     let sourceId: SourceIDType
     private let engine: DecimusAudioEngine
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt32 = 0
@@ -31,8 +32,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
          granularMetrics: Bool) throws {
         self.sourceId = sourceId
         self.engine = engine
+        self.metricsSubmitter = submitter
         if let submitter = submitter {
-            self.measurement = .init(namespace: self.sourceId, submitter: submitter)
+            let measurement = OpusSubscription._Measurement(namespace: self.sourceId)
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await submitter.register(measurement: measurement)
+            }
         } else {
             self.measurement = nil
         }
@@ -68,6 +74,16 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
 
         Self.logger.info("Subscribed to OPUS stream")
+    }
+
+    deinit {
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!,

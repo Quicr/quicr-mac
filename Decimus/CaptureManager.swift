@@ -51,7 +51,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let notifier: NotificationCenter = .default
     private var observer: NSObjectProtocol?
     private let measurement: _Measurement?
-    private var lastCapture: Date?
+    private let metricsSubmitter: MetricsSubmitter?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
 
@@ -62,12 +62,27 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         self.granularMetrics = granularMetrics
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(submitter: metricsSubmitter)
+            let measurement = CaptureManager._Measurement()
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
         } else {
             self.measurement = nil
         }
         super.init()
+    }
+
+    deinit {
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func devices() throws -> [AVCaptureDevice] {
@@ -302,23 +317,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         // Discard any frames prior to camera warmup.
+        let now = Date.now
         if let startTime = self.startTime[output] {
-            guard Date.now.timeIntervalSince(startTime) > self.warmupTime else { return }
+            guard now.timeIntervalSince(startTime) > self.warmupTime else { return }
             self.startTime.removeValue(forKey: output)
         }
 
         if let measurement = self.measurement {
-            let now: Date = .now
-            let delay: Double?
-            if let last = self.lastCapture {
-                delay = now.timeIntervalSince(last) * 1000
-            } else {
-                delay = nil
-            }
-            self.lastCapture = now
             Task(priority: .utility) {
-                await measurement.capturedFrame(delayMs: self.granularMetrics ? delay : nil,
-                                                timestamp: self.granularMetrics ? now : nil)
+                await measurement.capturedFrame(timestamp: self.granularMetrics ? now : nil)
             }
         }
 

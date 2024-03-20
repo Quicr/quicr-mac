@@ -1,17 +1,15 @@
 extension OpusPublication {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "OpusPublication"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task {
-                await submitter.register(measurement: self)
-            }
         }
 
         func publishedBytes(sentBytes: Int, timestamp: Date?) {

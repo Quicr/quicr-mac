@@ -25,6 +25,7 @@ class VideoJitterBuffer {
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
@@ -80,8 +81,13 @@ class VideoJitterBuffer {
             }
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            let measurement = VideoJitterBuffer._Measurement(namespace: namespace)
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
         } else {
             measurement = nil
         }
@@ -91,7 +97,17 @@ class VideoJitterBuffer {
             self.play = true
         })
     }
-
+    
+    deinit {
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
+    }
+    
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.

@@ -14,6 +14,7 @@ class OpusPublication: Publication {
     private let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
@@ -42,8 +43,13 @@ class OpusPublication: Publication {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.engine = engine
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            let measurement = OpusPublication._Measurement(namespace: namespace)
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
         } else {
             self.measurement = nil
         }
@@ -91,6 +97,13 @@ class OpusPublication: Publication {
         }
         self.encodeTask?.cancel()
         TPCircularBufferCleanup(self.buffer)
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {

@@ -24,8 +24,6 @@ class VideoHandler: CustomStringConvertible {
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
-    private var lastReceive: Date?
-    private var lastDecode: Date?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
@@ -78,7 +76,11 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            let measurement = VideoHandler._Measurement(namespace: namespace)
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -117,6 +119,13 @@ class VideoHandler: CustomStringConvertible {
         if self.simulreceive != .enable {
             self.participants.removeParticipant(identifier: namespace)
         }
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
         self.dequeueTask?.cancel()
     }
 
@@ -145,30 +154,6 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
-        // Metrics.
-        if let measurement = self.measurement {
-            let now: Date? = self.granularMetrics ? .now : nil
-            let delta: Double?
-            if granularMetrics {
-                if let last = lastReceive {
-                    delta = now!.timeIntervalSince(last) * 1000
-                } else {
-                    delta = nil
-                }
-                lastReceive = now
-            } else {
-                delta = nil
-            }
-
-            Task(priority: .utility) {
-                if let delta = delta {
-                    await measurement.receiveDelta(delta: delta, timestamp: now)
-                }
-                await measurement.receivedFrame(timestamp: now)
-                await measurement.receivedBytes(received: data.count, timestamp: now)
-            }
-        }
-
         // Do we need to create a jitter buffer?
         var frame: DecimusVideoFrame?
         if self.jitterBuffer == nil,
@@ -220,8 +205,8 @@ class VideoHandler: CustomStringConvertible {
                     if waitTime > 0 {
                         do {
                             try await Task.sleep(for: .seconds(waitTime),
-                                                  tolerance: .seconds(waitTime / 2),
-                                                  clock: .continuous)
+                                                 tolerance: .seconds(waitTime / 2),
+                                                 clock: .continuous)
                             guard let task = self.dequeueTask,
                                   !task.isCancelled else {
                                 return
@@ -262,6 +247,15 @@ class VideoHandler: CustomStringConvertible {
                                            objectId: objectId,
                                            copy: self.jitterBufferConfig.mode == .layer) {
                 try decode(sample: frame)
+            }
+        }
+
+        // Metrics.
+        if let measurement = self.measurement {
+            let now: Date? = self.granularMetrics ? .now : nil
+            Task(priority: .utility) {
+                await measurement.receivedFrame(timestamp: now, idr: objectId == 0)
+                await measurement.receivedBytes(received: data.count, timestamp: now)
             }
         }
     }
@@ -428,21 +422,7 @@ class VideoHandler: CustomStringConvertible {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? .now : nil
-            let delta: Double?
-            if self.granularMetrics {
-                if let last = lastDecode {
-                    delta = now!.timeIntervalSince(last) * 1000
-                } else {
-                    delta = nil
-                }
-                lastDecode = now
-            } else {
-                delta = nil
-            }
             Task(priority: .utility) {
-                if let delta = delta {
-                    await measurement.decodeDelta(delta: delta, timestamp: now)
-                }
                 await measurement.decodedFrame(timestamp: now)
             }
         }
