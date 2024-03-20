@@ -19,8 +19,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     private var encoder: VTEncoder
     private let reliable: Bool
-    private var lastCapture: Date?
-    private var lastPublish: WrappedOptional<Date> = .init(nil)
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
@@ -64,30 +62,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.device = preferred
         }
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, flag in
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
             // Metrics.
             guard let measurement = measurement else { return }
             let timestamp: Date? = granularMetrics ? Date.now : nil
-            let delay: Double?
-            if granularMetrics {
-                if let last = lastPublish.value {
-                    delay = timestamp!.timeIntervalSince(last) * 1000
-                } else {
-                    delay = nil
-                }
-                lastPublish.value = timestamp
-            } else {
-                delay = nil
-            }
+            let bytes = data.count
             Task(priority: .utility) {
-                if let delay = delay {
-                    await measurement.publishDelay(delayMs: delay, timestamp: timestamp)
-                }
-                await measurement.sentBytes(sent: UInt64(data.count), timestamp: timestamp)
-                await measurement.publishedFrame(timestamp: timestamp)
+                await measurement.sentFrame(bytes: UInt64(bytes),
+                                            timestamp: timestamp)
             }
         }
         self.encoder = try .init(config: self.codec!,
@@ -98,7 +83,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
-    
+
     deinit {
         if let measurement = self.measurement,
            let submitter = self.metricsSubmitter {
@@ -171,21 +156,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? Date.now : nil
-        let delay: Double?
-        if self.granularMetrics {
-            if let last = self.lastCapture {
-                delay = date!.timeIntervalSince(last) * 1000
-            } else {
-                delay = nil
-            }
-            lastCapture = date
-        } else {
-            delay = nil
-        }
         Task(priority: .utility) {
-            if let delay = delay {
-                await measurement.captureDelay(delayMs: delay, timestamp: date)
-            }
             await measurement.capturedFrame(timestamp: date)
             await measurement.sentPixels(sent: pixels, timestamp: date)
         }
