@@ -1,4 +1,5 @@
 import AVFAudio
+import os
 
 /// Wrapper for app specific AVAudioEngine functionality.
 class DecimusAudioEngine {
@@ -18,9 +19,9 @@ class DecimusAudioEngine {
     private let sink: AVAudioSinkNode?
     private var stopped: Bool = false
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
-    private var lock = NSLock()
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
+    private var lock = OSAllocatedUnfairLock()
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }

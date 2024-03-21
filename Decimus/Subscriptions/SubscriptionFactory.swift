@@ -44,15 +44,17 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
-    var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
     var simulreceive: SimulreceiveMode
     var qualityMissThreshold: Int
+    var pauseMissThreshold: Int
     var timeQueueTTL: Int
     var bitrateType: BitrateType
     var limit1s: Double
+    var useResetWaitCC: Bool
+    var pauseResume: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -60,16 +62,18 @@ struct SubscriptionConfig: Codable {
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         mediaReliability = .init()
-        quicCwinMinimumKiB = 128
-        quicWifiShadowRttUs = 0.150
+        quicCwinMinimumKiB = 8
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
         isSingleOrderedSub = false
         isSingleOrderedPub = false
         simulreceive = .enable
         qualityMissThreshold = 3
+        pauseMissThreshold = 30
         timeQueueTTL = 100
         bitrateType = .average
         limit1s = 2.5
+        useResetWaitCC = true
+        pauseResume = false
     }
 }
 
@@ -82,14 +86,17 @@ class SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let config: SubscriptionConfig
     private let granularMetrics: Bool
+    private weak var controller: CallController?
     init(participants: VideoParticipants,
          engine: DecimusAudioEngine,
          config: SubscriptionConfig,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         controller: CallController) {
         self.participants = participants
         self.engine = engine
         self.config = config
         self.granularMetrics = granularMetrics
+        self.controller = controller
     }
 
     func create(_ sourceId: SourceIDType,
@@ -111,24 +118,19 @@ class SubscriptionFactory {
         let found = Set(foundCodecs)
 
         if found.isSubset(of: videoCodecs) {
-            let namegate: NameGate
-            switch self.config.videoBehaviour {
-            case .artifact:
-                namegate = AllowAllNameGate()
-            case .freeze:
-                namegate = SequentialObjectBlockingNameGate()
-            }
-
             return try VideoSubscription(sourceId: sourceId,
                                          profileSet: profileSet,
                                          participants: self.participants,
                                          metricsSubmitter: metricsSubmitter,
-                                         namegate: namegate,
+                                         videoBehaviour: self.config.videoBehaviour,
                                          reliable: self.config.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,
                                          simulreceive: self.config.simulreceive,
-                                         qualityMissThreshold: self.config.qualityMissThreshold)
+                                         qualityMissThreshold: self.config.qualityMissThreshold,
+                                         pauseMissThreshold: self.config.pauseMissThreshold,
+                                         controller: self.controller,
+                                         pauseResume: self.config.pauseResume)
         }
 
         if found.isSubset(of: opusCodecs) {

@@ -28,11 +28,8 @@ static QClientProfile fromProfile(qmedia::manifest::Profile profile)
     clientProfile.quicrNamespace = strdup(std::string(profile.quicrNamespace).c_str());
     clientProfile.prioritiesCount = profile.priorities.size();
     clientProfile.priorities = profile.priorities.data();
-    if (profile.expiry.has_value()) {
-        clientProfile.expiry = profile.expiry.value();
-    } else {
-        clientProfile.expiry = -1;
-    }
+    clientProfile.expiryCount = profile.expiry.size();
+    clientProfile.expiry = profile.expiry.data();
     return clientProfile;
 }
 
@@ -70,9 +67,11 @@ QMediaSubscriptionDelegate::QMediaSubscriptionDelegate(id<QSubscriptionDelegateO
 {
 }
 
-int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, bool& reliable) {
+int QMediaSubscriptionDelegate::prepare(const std::string& sourceId,  const std::string& label, const qmedia::manifest::ProfileSet& profileSet, quicr::TransportMode& transportMode) {
     QClientProfileSet clientProfileSet = fromProfileSet(profileSet);
-    const int prepareResult = [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet reliable:&reliable];
+    TransportMode mode = TransportModeUnreliable;
+    const int prepareResult = [delegate prepare: @(sourceId.c_str()) label:@(label.c_str()) profileSet:clientProfileSet transportMode:&mode];
+    transportMode = static_cast<quicr::TransportMode>(static_cast<uint8_t>(mode));
     deleteProfileSet(clientProfileSet);
     return prepareResult;
 }
@@ -99,8 +98,11 @@ QMediaPublicationDelegate::QMediaPublicationDelegate(id<QPublicationDelegateObjC
 {
 }
 
-int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::string& qualityProfile, bool& reliable)  {
-    return [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str()) reliable:&reliable];
+int QMediaPublicationDelegate::prepare(const std::string& sourceId,  const std::string& qualityProfile, quicr::TransportMode& transportMode)  {
+    TransportMode mode = TransportModeUnreliable;
+    const int result = [delegate prepare:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str()) transportMode:&mode];
+    transportMode = static_cast<quicr::TransportMode>(static_cast<uint8_t>(mode));
+    return result;
 }
 int QMediaPublicationDelegate::update(const std::string& sourceId, const std::string& qualityProfile) {
     return [delegate update:@(sourceId.c_str()) qualityProfile:@(qualityProfile.c_str())];
@@ -139,7 +141,7 @@ QMediaPublisherDelegate::QMediaPublisherDelegate(id<QPublisherDelegateObjC> dele
 {
 }
 
-std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile)
+std::shared_ptr<qmedia::QPublicationDelegate> QMediaPublisherDelegate::allocatePubByNamespace(const quicr::Namespace& quicrNamespace, const std::string& sourceID, const std::string& qualityProfile, const std::string& appTag)
 {
     NSString *quicrNamespaceNSString = [NSString stringWithCString:std::string(quicrNamespace).c_str()
                                        encoding:[NSString defaultCStringEncoding]];

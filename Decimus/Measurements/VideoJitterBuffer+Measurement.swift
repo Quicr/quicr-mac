@@ -1,7 +1,8 @@
 extension VideoJitterBuffer {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "VideoJitterBuffer"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var underruns: UInt64 = 0
@@ -10,11 +11,8 @@ extension VideoJitterBuffer {
         private var flushed: UInt64 = 0
         private var pausedWaitTime = false
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task(priority: .utility) {
-                await submitter.register(measurement: self)
-            }
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {

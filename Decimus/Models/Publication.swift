@@ -8,11 +8,12 @@ enum PublicationError: Int32 {
 }
 // swiftlint:enable identifier_name
 
+// TODO: This protocol is redundent.
 protocol Publication: QPublicationDelegateObjC {
     var namespace: QuicrNamespace {get}
     var publishObjectDelegate: QPublishObjectDelegateObjC? {get}
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32
     func update(_ sourceId: String!, qualityProfile: String!) -> Int32
     func publish(_ flag: Bool)
 }
@@ -22,17 +23,15 @@ protocol AVCaptureDevicePublication: Publication {
 }
 
 actor PublicationMeasurement: Measurement {
+    let id = UUID()
     var name: String = "Publication"
-    var fields: [Date?: [String: AnyObject]] = [:]
+    var fields: Fields = [:]
     var tags: [String: String] = [:]
 
     private var bytes: UInt64 = 0
 
-    init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+    init(namespace: QuicrNamespace) {
         tags["namespace"] = namespace
-        Task {
-            await submitter.register(measurement: self)
-        }
     }
 
     func sentBytes(sent: UInt64, timestamp: Date?) {

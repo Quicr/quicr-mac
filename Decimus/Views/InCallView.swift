@@ -13,6 +13,8 @@ struct InCallView: View {
     @State private var showPreview = true
     @State private var lastTap: Date = .now
     @State private var offset: CGSize = .zero
+    @State private var isShowingSubscriptions = false
+    @State private var isShowingPublications = false
     var noParticipants: Bool {
         viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
     }
@@ -66,6 +68,15 @@ struct InCallView: View {
                                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                         }
+
+                        HStack {
+                            Button("Alter Subscriptions") {
+                                self.isShowingSubscriptions = true
+                            }
+                            Button("Alter Publications") {
+                                self.isShowingPublications = true
+                            }
+                        }
                     }
                     .overlay {
                         // Preview / self-view.
@@ -82,6 +93,26 @@ struct InCallView: View {
                             }
                         }
                         // swiftlint:enable:force_try
+                    }
+                    .sheet(isPresented: $isShowingSubscriptions) {
+                        if let controller = viewModel.controller {
+                            SubscriptionPopover(controller: controller)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            self.isShowingSubscriptions = false
+                        }
+                        .padding()
+                    }
+                    .sheet(isPresented: $isShowingPublications) {
+                        if let controller = viewModel.controller {
+                            PublicationPopover(controller: controller)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            self.isShowingPublications = false
+                        }
+                        .padding()
                     }
                 }
 
@@ -199,7 +230,10 @@ extension InCallView {
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
-                self.measurement = .init(submitter: influx)
+                self.measurement = .init()
+                Task(priority: .utility) {
+                    await submitter?.register(measurement: self.measurement!)
+                }
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
@@ -232,6 +266,16 @@ extension InCallView {
                                                 granularMetrics: influxConfig.value.granular)
                 } catch {
                     Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+                }
+            }
+        }
+
+        deinit {
+            if let measurement = self.measurement,
+               let submitter = self.submitter {
+                let id = measurement.id
+                Task(priority: .utility) {
+                    await submitter.unregister(id: id)
                 }
             }
         }
@@ -298,15 +342,10 @@ extension InCallView {
 // Metrics.
 extension InCallView.ViewModel {
     private actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "ApplicationMetrics"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
-
-        init(submitter: MetricsSubmitter) {
-            Task {
-                await submitter.register(measurement: self)
-            }
-        }
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)

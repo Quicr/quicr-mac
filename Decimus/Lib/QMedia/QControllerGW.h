@@ -13,6 +13,8 @@
 #include "QDelegatesObjC.h"
 #import "QControllerGWObjC.h"
 
+
+
 class QControllerGW {
 public:
     QControllerGW() = default;
@@ -35,6 +37,14 @@ public:
     void setPublicationSingleOrdered(bool new_value);
 
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
+
+    void stopSubscription(const std::string& quicrNamespace);
+    std::vector<std::string> getSwitchingSets();
+    std::vector<quicr::Namespace> getSubscriptions(const std::string& sourceId);
+    std::vector<qmedia::QController::PublicationReport> getPublications();
+    void setPublicationState(const quicr::Namespace& quicrNamespace, const qmedia::QController::PublicationState);
+    void setSubscriptionState(const quicr::Namespace& quicrNamespace, const quicr::TransportMode);
+    quicr::SubscriptionState getSubscriptionState(const quicr::Namespace& quicrNamespace);
 
 public:
     std::shared_ptr<cantina::Logger> logger;

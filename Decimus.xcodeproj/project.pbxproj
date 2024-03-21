@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */; };
 		18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */; };
+		183600592B6BCBAC00BC2919 /* SubscriptionPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */; };
 		1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */; };
 		1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1848B86E2ABAE51A00275F71 /* OSStatusError.swift */; };
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
@@ -28,8 +29,6 @@
 		18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A130BF2B4D7E8700F17372 /* OpusHandler.swift */; };
 		18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */; };
 		18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */; };
-		18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */; };
-		18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */; };
 		18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456D2B0CD632006E8E24 /* VTDecoder.swift */; };
 		18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456E2B0CD632006E8E24 /* VTEncoder.swift */; };
 		18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */; };
@@ -46,14 +45,21 @@
 		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
+		9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */; };
+		9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */; };
+		9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */; };
+		9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
+		9B4788D42B972F990056CE7E /* TestVideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4788D32B972F990056CE7E /* TestVideoSubscription.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
+		9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52EE322B763157006E9C58 /* PublicationPopover.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
+		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
@@ -64,11 +70,13 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
+		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 		9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */; };
+		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
 		D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */; };
 		D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619442A28FC9D00EC0556 /* QControllerGW.mm */; };
 		D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
@@ -161,6 +169,7 @@
 /* Begin PBXFileReference section */
 		180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoHandler.swift; sourceTree = "<group>"; };
 		18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TransportConfigSettings.swift; sourceTree = "<group>"; };
+		183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionPopover.swift; sourceTree = "<group>"; };
 		1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusAudioEngine.swift; sourceTree = "<group>"; };
 		1848B86E2ABAE51A00275F71 /* OSStatusError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSStatusError.swift; sourceTree = "<group>"; };
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
@@ -180,8 +189,6 @@
 		18A130BF2B4D7E8700F17372 /* OpusHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusHandler.swift; sourceTree = "<group>"; };
 		18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TestVideoJitterBuffer.swift; sourceTree = "<group>"; };
 		18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDequeuer.swift; sourceTree = "<group>"; };
-		18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
-		18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestCMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
 		18BF456D2B0CD632006E8E24 /* VTDecoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTDecoder.swift; sourceTree = "<group>"; };
 		18BF456E2B0CD632006E8E24 /* VTEncoder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VTEncoder.swift; sourceTree = "<group>"; };
 		18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HEVCUtilities.swift; sourceTree = "<group>"; };
@@ -195,11 +202,17 @@
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
+		9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationH264SEIs.swift; sourceTree = "<group>"; };
+		9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusVideoFrame.swift; sourceTree = "<group>"; };
+		9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationHEVCSEIs.swift; sourceTree = "<group>"; };
+		9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "CMSampleBuffer+Attachments.swift"; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
+		9B4788D32B972F990056CE7E /* TestVideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoSubscription.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
+		9B52EE322B763157006E9C58 /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
@@ -217,12 +230,14 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
+		9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
 		9BDE868C2B70ED0E009467A7 /* SwiftInterop.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftInterop.h; sourceTree = "<group>"; };
+		9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 		D78619402A28FC9C00EC0556 /* QDelegatesObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QDelegatesObjC.h; sourceTree = "<group>"; };
 		D78619412A28FC9C00EC0556 /* QMediaDelegates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QMediaDelegates.h; sourceTree = "<group>"; };
@@ -308,6 +323,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */,
@@ -371,6 +387,9 @@
 				9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */,
 				9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */,
 				FF6D6D782A0422CE00B535DA /* CodecFactory.swift */,
+				9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */,
+				9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */,
+				9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */,
 			);
 			path = Codec;
 			sourceTree = "<group>";
@@ -406,7 +425,8 @@
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
 				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
-				18BF456B2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift */,
+				9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */,
+				9B4788D32B972F990056CE7E /* TestVideoSubscription.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -463,7 +483,8 @@
 				1848B86E2ABAE51A00275F71 /* OSStatusError.swift */,
 				18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */,
 				186397A02ADE0B9100FBF877 /* VideoDevices.swift */,
-				18BF45692B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift */,
+				9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */,
+				9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */,
 			);
 			path = Decimus;
 			sourceTree = "<group>";
@@ -628,6 +649,8 @@
 				FFB8CBE429C148B70093C623 /* ActionPicker.swift */,
 				FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */,
 				1867950A2AD58E54008F99C6 /* PreviewView.swift */,
+				183600582B6BCBAC00BC2919 /* SubscriptionPopover.swift */,
+				9B52EE322B763157006E9C58 /* PublicationPopover.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -675,6 +698,7 @@
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
+				9B8B6F672B9B01F700FBB0D1 /* Atomics */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
@@ -716,6 +740,7 @@
 				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
+				9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -807,9 +832,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */,
+				9B4788D42B972F990056CE7E /* TestVideoSubscription.swift in Sources */,
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
-				18BF456C2B0B939E006E8E24 /* TestCMSampleBuffer+Attachments.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -837,6 +863,7 @@
 				9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */,
 				9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */,
 				18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */,
+				9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */,
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
@@ -851,30 +878,35 @@
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
+				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
+				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* SubscriptionError.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
+				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
-				18BF456A2B0B90B3006E8E24 /* CMSampleBuffer+Attachments.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
+				9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
 				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
+				183600592B6BCBAC00BC2919 /* SubscriptionPopover.swift in Sources */,
 				186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */,
 				18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */,
+				9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */,
 				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
@@ -1295,6 +1327,14 @@
 				kind = branch;
 			};
 		};
+		9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-atomics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -1333,6 +1373,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
+		};
+		9B8B6F672B9B01F700FBB0D1 /* Atomics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
+			productName = Atomics;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -1,7 +1,8 @@
 extension H264Publication {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "VideoPublication"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var bytes: UInt64 = 0
@@ -9,19 +10,16 @@ extension H264Publication {
         private var publishedFrames: UInt64 = 0
         private var capturedFrames: UInt64 = 0
         private var dropped: UInt64 = 0
-        private var captureDelay: Double = 0
-        private var publishDelay: Double = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task {
-                await submitter.register(measurement: self)
-            }
         }
 
-        func sentBytes(sent: UInt64, timestamp: Date?) {
-            self.bytes += sent
+        func sentFrame(bytes: UInt64, timestamp: Date?) {
+            self.publishedFrames += 1
+            self.bytes += bytes
             record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: timestamp)
         }
 
         func sentPixels(sent: UInt64, timestamp: Date?) {
@@ -34,22 +32,9 @@ extension H264Publication {
             record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
         }
 
-        func publishedFrame(timestamp: Date?) {
-            self.publishedFrames += 1
-            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: timestamp)
-        }
-
         func capturedFrame(timestamp: Date?) {
             self.capturedFrames += 1
             record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
-        }
-
-        func captureDelay(delayMs: Double, timestamp: Date?) {
-            record(field: "captureDelay", value: delayMs as AnyObject, timestamp: timestamp)
-        }
-
-        func publishDelay(delayMs: Double, timestamp: Date?) {
-            record(field: "publishDelay", value: delayMs as AnyObject, timestamp: timestamp)
         }
     }
 }

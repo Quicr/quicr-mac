@@ -17,6 +17,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private static let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
 
     let namespace: QuicrNamespace
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
@@ -25,8 +26,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     private var encoder: VTEncoder
     private let reliable: Bool
-    private var lastCapture: Date?
-    private var lastPublish: WrappedOptional<Date> = .init(nil)
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
@@ -43,8 +42,13 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.publishObjectDelegate = publishDelegate
         self.granularMetrics = granularMetrics
         self.codec = config
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            let measurement = H264Publication._Measurement(namespace: namespace)
+            self.measurement = measurement
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
         } else {
             self.measurement = nil
         }
@@ -65,42 +69,40 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.device = preferred
         }
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, lastPublish] data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, flag in
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
             // Metrics.
             guard let measurement = measurement else { return }
             let timestamp: Date? = granularMetrics ? Date.now : nil
-            let delay: Double?
-            if granularMetrics {
-                if let last = lastPublish.value {
-                    delay = timestamp!.timeIntervalSince(last) * 1000
-                } else {
-                    delay = nil
-                }
-                lastPublish.value = timestamp
-            } else {
-                delay = nil
-            }
+            let bytes = data.count
             Task(priority: .utility) {
-                if let delay = delay {
-                    await measurement.publishDelay(delayMs: delay, timestamp: timestamp)
-                }
-                await measurement.sentBytes(sent: UInt64(data.count), timestamp: timestamp)
-                await measurement.publishedFrame(timestamp: timestamp)
+                await measurement.sentFrame(bytes: UInt64(bytes),
+                                            timestamp: timestamp)
             }
         }
         self.encoder = try .init(config: self.codec!,
                                  verticalMirror: device.position == .front,
-                                 callback: onEncodedData)
+                                 callback: onEncodedData,
+                                 emitStartCodes: self.codec!.codec == .hevc)
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, reliable: UnsafeMutablePointer<Bool>!) -> Int32 {
-        reliable.pointee = self.reliable
+    deinit {
+        if let measurement = self.measurement,
+           let submitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await submitter.unregister(id: id)
+            }
+        }
+    }
+
+    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
+        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
         return PublicationError.None.rawValue
     }
 
@@ -161,21 +163,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? Date.now : nil
-        let delay: Double?
-        if self.granularMetrics {
-            if let last = self.lastCapture {
-                delay = date!.timeIntervalSince(last) * 1000
-            } else {
-                delay = nil
-            }
-            lastCapture = date
-        } else {
-            delay = nil
-        }
         Task(priority: .utility) {
-            if let delay = delay {
-                await measurement.captureDelay(delayMs: delay, timestamp: date)
-            }
             await measurement.capturedFrame(timestamp: date)
             await measurement.sentPixels(sent: pixels, timestamp: date)
         }
