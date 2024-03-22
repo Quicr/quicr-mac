@@ -377,24 +377,17 @@ class VideoHandler: CustomStringConvertible {
                                          objectId: objectId,
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
-        if gateResult {
-            self.lastGroup = groupId
-            self.lastObject = objectId
-        }
-
-        if !gateResult && self.videoBehaviour == .freeze {
-            // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = groupId + 1
-            if let jitterBuffer = self.jitterBuffer {
-                jitterBuffer.flushTo(targetGroup: targetGroup)
-            } else if self.jitterBufferConfig.mode == .layer {
-                flushDisplayLayer()
-            }
+        guard gateResult || self.videoBehaviour != .freeze else {
+            // If there's a discontinuity and we want to freeze, we're done.
             return
         }
 
-        // Mark samples as discontinous if there was a gap.
-        if !gateResult {
+        if gateResult {
+            // Update to track continuity.
+            self.lastGroup = groupId
+            self.lastObject = objectId
+        } else {
+            // Mark discontinous.
             for sample in sample.samples {
                 sample.discontinous = true
             }

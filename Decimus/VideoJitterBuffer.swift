@@ -179,33 +179,6 @@ class VideoJitterBuffer {
         return sample
     }
 
-    /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
-    /// - Parameter targetGroup The group to flush frames up until.
-    func flushTo(targetGroup groupId: UInt32) {
-        var flushCount: UInt = 0
-        while let frame = self.buffer.head {
-            let thisGroupId = (frame as! DecimusVideoFrame).groupId
-            if thisGroupId < groupId {
-                guard let flushed = self.buffer.dequeue() else {
-                    break
-                }
-                if let sequenceNumber = (flushed as! DecimusVideoFrame).sequenceNumber {
-                    self.lastSequenceRead.store(sequenceNumber, ordering: .releasing)
-                    self.lastSequenceSet.store(true, ordering: .releasing)
-                }
-                flushCount += 1
-            }
-        }
-
-        if let measurement = self.measurement {
-            let now: Date = .now
-            let metric = flushCount
-            Task(priority: .utility) {
-                await measurement.flushed(count: metric, timestamp: now)
-            }
-        }
-    }
-
     /// Get the CMBuffer at the front of the buffer without removing it.
     /// - Returns The head of the buffer, if any.
     func peek() -> CMBuffer? {
