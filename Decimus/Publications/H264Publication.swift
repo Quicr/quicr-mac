@@ -37,11 +37,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.codec = config
         self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = H264Publication._Measurement(namespace: namespace)
-            self.measurement = measurement
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
+            self.measurement = .init(namespace: namespace)
         } else {
             self.measurement = nil
         }
@@ -82,6 +78,13 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
+
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
     }
 
     deinit {

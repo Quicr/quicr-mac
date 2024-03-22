@@ -233,9 +233,6 @@ extension InCallView {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
                 self.measurement = .init()
-                Task(priority: .utility) {
-                    await submitter?.register(measurement: self.measurement!)
-                }
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
@@ -267,6 +264,13 @@ extension InCallView {
                                             granularMetrics: influxConfig.value.granular)
             } catch {
                 Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+            }
+
+            if let submitter = self.submitter,
+               let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await submitter.register(measurement: measurement)
+                }
             }
         }
 
