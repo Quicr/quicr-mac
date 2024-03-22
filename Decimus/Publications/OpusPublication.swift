@@ -45,11 +45,7 @@ class OpusPublication: Publication {
         self.engine = engine
         self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = OpusPublication._Measurement(namespace: namespace)
-            self.measurement = measurement
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
+            self.measurement = .init(namespace: namespace)
         } else {
             self.measurement = nil
         }
@@ -86,6 +82,15 @@ class OpusPublication: Publication {
 
         // Register our block.
         try engine.registerSinkBlock(identifier: namespace, block: block)
+
+        // Metrics registration (after any possible throws)
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
+
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 

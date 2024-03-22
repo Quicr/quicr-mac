@@ -82,20 +82,23 @@ class VideoJitterBuffer {
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         self.metricsSubmitter = metricsSubmitter
-        if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoJitterBuffer._Measurement(namespace: namespace)
-            self.measurement = measurement
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
+        if metricsSubmitter != nil {
+            self.measurement = .init(namespace: namespace)
         } else {
-            measurement = nil
+            self.measurement = nil
         }
         self.minDepth = minDepth
         let minDepthCM = CMTime(value: CMTimeValue(minDepth), timescale: 1)
         self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
             self.play = true
         })
+        
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
     }
     
     deinit {
