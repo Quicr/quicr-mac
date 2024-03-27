@@ -45,6 +45,7 @@
 		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
+		9B1143BB2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */; };
 		9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */; };
 		9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */; };
 		9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */; };
@@ -201,6 +202,7 @@
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
+		9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationH264SEIs.swift; sourceTree = "<group>"; };
 		9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusVideoFrame.swift; sourceTree = "<group>"; };
 		9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationHEVCSEIs.swift; sourceTree = "<group>"; };
@@ -344,6 +346,7 @@
 				1867635A2B2B6B8200339421 /* OpusPublication+Measurement.swift */,
 				1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */,
 				1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */,
+				9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */,
 			);
 			path = Measurements;
 			sourceTree = "<group>";
@@ -873,6 +876,7 @@
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
+				9B1143BB2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift in Sources */,
 				FF6C80AB2A17E8980094751E /* SubscriptionError.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,

@@ -41,8 +41,8 @@ class VideoHandler: CustomStringConvertible {
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: AvailableImage?
-    private let lastDecodedImageLock = OSAllocatedUnfairLock()
+    var lastDecodedImage: AvailableImage?
+    let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
@@ -127,24 +127,6 @@ class VideoHandler: CustomStringConvertible {
             }
         }
         self.dequeueTask?.cancel()
-    }
-
-    /// Get the last decoded image, if any.
-    /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> AvailableImage? {
-        self.lastDecodedImageLock.withLock {
-            self.lastDecodedImage
-        }
-    }
-
-    /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
-    /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(frame: AvailableImage) {
-        self.lastDecodedImageLock.lock()
-        defer { self.lastDecodedImageLock.unlock() }
-        if frame.image == self.lastDecodedImage?.image {
-            self.lastDecodedImage = nil
-        }
     }
 
     // swiftlint:disable cyclomatic_complexity
