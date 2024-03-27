@@ -67,11 +67,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.sourceId = sourceId
         self.participants = participants
         self.submitter = metricsSubmitter
-        if let submitter = self.submitter {
-            self.measurement = .init(source: self.sourceId)
-        } else {
-            self.measurement = nil
-        }
+        self.measurement = self.submitter != nil ? .init(source: self.sourceId) : nil
         self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
@@ -240,7 +236,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         case highestRes(item: SimulreceiveItem, pristine: Bool)
     }
 
-    internal static func makeSimulreceiveDecision(choices: any Collection<SimulreceiveItem>) -> SimulreceiveReason? {
+    internal static func makeSimulreceiveDecision(choices: inout any Collection<SimulreceiveItem>) -> SimulreceiveReason? {
         // Early return.
         guard choices.count > 1 else {
             if let first = choices.first {
@@ -253,7 +249,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let oldest: CMTime = choices.reduce(CMTime.positiveInfinity) { min($0, $1.image.image.presentationTimeStamp) }
 
         // Filter out any frames that don't match the desired point in time.
-        let choices = choices.filter { $0.image.image.presentationTimeStamp == oldest }
+        choices = choices.filter { $0.image.image.presentationTimeStamp == oldest }
 
         // We want the highest non-discontinous frame.
         // If all are non-discontinous, we'll take the highest quality.
@@ -268,34 +264,33 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
     }
 
+    // Caller must lock handlerLock.
     private func makeSimulreceiveDecision() throws -> TimeInterval {
         guard !self.videoHandlers.isEmpty else {
             throw "No handlers"
         }
 
         // Gather up what frames we have to choose from.
-        var choices: [SimulreceiveItem] = []
+        var initialChoices: [SimulreceiveItem] = []
         for handler in self.videoHandlers {
-            if let available = handler.value.getLastImage() {
-                let timestamp = available.image.presentationTimeStamp
+            handler.value.lastDecodedImageLock.lock()
+            defer { handler.value.lastDecodedImageLock.unlock() }
+            if let available = handler.value.lastDecodedImage {
                 if let lastTime = self.lastImage?.image.presentationTimeStamp,
-                   timestamp < lastTime {
+                   available.image.presentationTimeStamp < lastTime {
                     // This would be backwards in time, so we'll never use it.
-                    handler.value.removeLastImage(frame: available)
+                    handler.value.lastDecodedImage = nil
                     continue
                 }
-                choices.append(.init(namespace: handler.key, image: available))
+                initialChoices.append(.init(namespace: handler.key, image: available))
             }
         }
 
         // Make a decision about which frame to use.
-        let now: Date?
-        if self.measurement != nil {
-            now = Date.now
-        } else {
-            now = nil
-        }
-        let decision = Self.makeSimulreceiveDecision(choices: choices)
+        var choices = initialChoices as any Collection<SimulreceiveItem>
+        let decisionTime = self.measurement == nil ? nil : Date.now
+        let decision = Self.makeSimulreceiveDecision(choices: &choices)
+
         guard let decision = decision else {
             // Wait for next.
             let duration: TimeInterval
@@ -309,9 +304,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             return duration
         }
         
-        // Remove all choices.
+        // Consume all images from our shortlist.
         for choice in choices {
-            self.videoHandlers[choice.namespace]!.removeLastImage(frame: choice.image)
+            let handler = self.videoHandlers[choice.namespace]!
+            handler.lastDecodedImageLock.withLock {
+                let theirTime = handler.lastDecodedImage?.image.presentationTimeStamp
+                let ourTime = choice.image.image.presentationTimeStamp
+                if theirTime == ourTime {
+                    handler.lastDecodedImage = nil
+                }
+            }
         }
         
         let selected: SimulreceiveItem
@@ -368,7 +370,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
-        if let measurement = self.measurement {
+        if let measurement = self.measurement,
+           self.granularMetrics {
             var report: [VideoSubscription._Measurement.SimulreceiveChoiceReport] = []
             for choice in choices {
                 switch decision {
@@ -389,7 +392,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
             let completedReport = report
             Task(priority: .utility) {
-                await measurement.reportSimulreceiveChoice(choices: completedReport, timestamp: now!)
+                await measurement.reportSimulreceiveChoice(choices: completedReport, timestamp: decisionTime!)
             }
         }
         
@@ -442,7 +445,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         } else if self.simulreceive == .visualizeOnly {
             let namespace = handler.namespace
             if namespace != self.lastHighlight {
-                print("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
+                Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = namespace
                 DispatchQueue.main.async {
                     for participant in self.participants.participants {
