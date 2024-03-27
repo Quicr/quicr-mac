@@ -45,6 +45,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
+    private let measurement: _Measurement?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -66,6 +67,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.sourceId = sourceId
         self.participants = participants
         self.submitter = metricsSubmitter
+        if let submitter = self.submitter {
+            self.measurement = .init(source: self.sourceId)
+        } else {
+            self.measurement = nil
+        }
         self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
@@ -123,6 +129,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                     }
                 }
                 try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+            }
+        }
+
+        if let metricsSubmitter = self.submitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
             }
         }
 
@@ -214,14 +227,27 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                   simulreceive: self.simulreceive)
     }
     
-    struct SimulreceiveItem {
+    struct SimulreceiveItem: Equatable {
+        static func == (lhs: VideoSubscription.SimulreceiveItem, rhs: VideoSubscription.SimulreceiveItem) -> Bool {
+            lhs.namespace == rhs.namespace
+        }
         let namespace: QuicrNamespace
         let image: AvailableImage
     }
+    
+    enum SimulreceiveReason {
+        case onlyChoice(item: SimulreceiveItem)
+        case highestRes(item: SimulreceiveItem, pristine: Bool)
+    }
 
-    internal static func makeSimulreceiveDecision(choices: any Collection<SimulreceiveItem>) -> SimulreceiveItem? {
+    internal static func makeSimulreceiveDecision(choices: any Collection<SimulreceiveItem>) -> SimulreceiveReason? {
         // Early return.
-        guard choices.count > 1 else { return choices.first }
+        guard choices.count > 1 else {
+            if let first = choices.first {
+                return .onlyChoice(item: first)
+            }
+            return nil
+        }
         
         // Oldest should be the oldest value that hasn't already been shown.
         let oldest: CMTime = choices.reduce(CMTime.positiveInfinity) { min($0, $1.image.image.presentationTimeStamp) }
@@ -233,7 +259,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // If all are non-discontinous, we'll take the highest quality.
         let sorted = choices.sorted { $0.image.image.formatDescription!.dimensions.width > $1.image.image.formatDescription!.dimensions.width }
         let pristine = sorted.filter { !$0.image.discontinous }
-        return pristine.first ?? sorted.first
+        if let pristine = pristine.first {
+            return .highestRes(item: pristine, pristine: true)
+        } else if let sorted = sorted.first {
+            return .highestRes(item: sorted, pristine: false)
+        } else {
+            return nil
+        }
     }
 
     private func makeSimulreceiveDecision() throws -> TimeInterval {
@@ -257,6 +289,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Make a decision about which frame to use.
+        let now: Date?
+        if self.measurement != nil {
+            now = Date.now
+        } else {
+            now = nil
+        }
         let decision = Self.makeSimulreceiveDecision(choices: choices)
         guard let decision = decision else {
             // Wait for next.
@@ -275,15 +313,24 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         for choice in choices {
             self.videoHandlers[choice.namespace]!.removeLastImage(frame: choice.image)
         }
-
-        let selectedSample = decision.image.image
+        
+        let selected: SimulreceiveItem
+        switch decision {
+        case .highestRes(let out, _):
+            selected = out
+            break
+        case .onlyChoice(let out):
+            selected = out
+            break
+        }
+        let selectedSample = selected.image.image
 
         // If we are going down in quality (resolution or to a discontinous image)
         // we will only do so after a few hits.
         let incomingWidth = selectedSample.formatDescription!.dimensions.width
         var wouldStepDown = false
         if let last = self.lastImage,
-           incomingWidth < last.image.formatDescription!.dimensions.width || decision.image.discontinous && !last.discontinous {
+           incomingWidth < last.image.formatDescription!.dimensions.width || selected.image.discontinous && !last.discontinous {
             wouldStepDown = true
         }
 
@@ -316,10 +363,37 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
 
-        guard let handler = self.videoHandlers[decision.namespace] else {
-            throw "Missing expected handler for namespace: \(decision.namespace)"
+        guard let handler = self.videoHandlers[selected.namespace] else {
+            throw "Missing expected handler for namespace: \(selected.namespace)"
         }
-        if wouldStepDown && self.qualityMisses < self.qualityMissThreshold {
+
+        let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
+        if let measurement = self.measurement {
+            var report: [VideoSubscription._Measurement.SimulreceiveChoiceReport] = []
+            for choice in choices {
+                switch decision {
+                case .highestRes(let item, let pristine):
+                    if choice.namespace == item.namespace {
+                        assert(choice.namespace == selected.namespace)
+                        report.append(.init(item: choice, selected: true, reason: "Highest \(pristine ? "Pristine" : "Discontinous")", displayed: !qualitySkip))
+                        continue
+                    }
+                case .onlyChoice(let item):
+                    if choice.namespace == item.namespace {
+                        assert(choice.namespace == selected.namespace)
+                        report.append(.init(item: choice, selected: true, reason: "Only choice", displayed: !qualitySkip))
+                    }
+                    continue
+                }
+                report.append(.init(item: choice, selected: false, reason: "", displayed: false))
+            }
+            let completedReport = report
+            Task(priority: .utility) {
+                await measurement.reportSimulreceiveChoice(choices: completedReport, timestamp: now!)
+            }
+        }
+        
+        if qualitySkip {
             // We only want to step down in quality if we've missed a few hits.
             if let duration = handler.calculateWaitTime() {
                 return duration
