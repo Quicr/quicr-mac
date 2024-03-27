@@ -412,6 +412,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.qualityMisses = 0
         self.pauseMissCounts[handler.namespace] = 0
         self.last = handler.namespace
+        self.lastImage = selected.image
 
         if self.simulreceive == .enable {
             // Set to display immediately.
