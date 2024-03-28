@@ -20,7 +20,8 @@ public:
     QControllerGW() = default;
     ~QControllerGW() = default;
 
-    int connect(const std::string remote_address,
+    int connect(const std::string endpoint_id,
+                const std::string remote_address,
                 std::uint16_t remote_port,
                 std::uint16_t protocol,
                 qtransport::TransportConfig config);

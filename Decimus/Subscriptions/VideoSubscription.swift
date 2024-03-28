@@ -277,7 +277,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             defer { handler.value.lastDecodedImageLock.unlock() }
             if let available = handler.value.lastDecodedImage {
                 if let lastTime = self.lastImage?.image.presentationTimeStamp,
-                   available.image.presentationTimeStamp < lastTime {
+                   available.image.presentationTimeStamp <= lastTime {
                     // This would be backwards in time, so we'll never use it.
                     handler.value.lastDecodedImage = nil
                     continue
