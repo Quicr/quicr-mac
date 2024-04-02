@@ -1,5 +1,6 @@
 import SwiftUI
 import os
+import AVKit
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
@@ -26,6 +27,7 @@ private struct LoginForm: View {
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
+    @State private var showContinuityDevicePicker: Bool = false
 
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
@@ -152,6 +154,16 @@ private struct LoginForm: View {
                 isAllowedJoin = true
             }
         }
+        #if os(tvOS)
+        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { device in
+            print("Selected a device")
+        }
+        .task {
+            showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+                                       for: .video,
+                                       position: .unspecified) == nil
+        }
+        #endif
     }
 
     private func fetchManifest() async throws {
