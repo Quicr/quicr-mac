@@ -131,7 +131,6 @@ private struct LoginForm: View {
         #if !os(tvOS)
         .scrollContentBackground(.hidden)
         #endif
-        // .frame(maxHeight: 450)
         .scrollDisabled(true)
         .onAppear {
             Task {
