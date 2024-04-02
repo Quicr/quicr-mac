@@ -121,14 +121,6 @@ private struct LoginForm: View {
                         Spacer()
                     }
                 }
-//                    ActionButton("Join Meeting",
-//                                 font: Font.system(size: 19, weight: .semibold),
-//                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
-//                                 styleConfig: buttonColour,
-//                                 action: join)
-//                        .frame(maxWidth: .infinity)
-//                        .font(Font.system(size: 19, weight: .semibold))
-//                }
             }
             .listRowBackground(Color.clear)
             #if !os(tvOS)
@@ -221,7 +213,9 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
-                        // .frame(maxWidth: 350)
+                    #if !targetEnvironment(macCatalyst)
+                        .frame(maxWidth: 350)
+                    #endif
 
                     NavigationLink(destination: SettingsView()) {
                         Label("", systemImage: "gearshape").font(.title)
