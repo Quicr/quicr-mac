@@ -213,16 +213,20 @@ class DecimusAudioEngine {
         try session.setPreferredSampleRate(Self.format.sampleRate)
 
         // Inputs
-        let preSetInput = session.inputNumberOfChannels
-        try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetInput = session.inputNumberOfChannels
-        assert(preSetInput == postSetInput)
+        if Self.format.channelCount <= session.maximumInputNumberOfChannels {
+            let preSetInput = session.inputNumberOfChannels
+            try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetInput = session.inputNumberOfChannels
+            assert(preSetInput == postSetInput)
+        }
 
         // Outputs
-        let preSetOutput = session.outputNumberOfChannels
-        try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetOutput = session.outputNumberOfChannels
-        assert(preSetOutput == postSetOutput)
+        if Self.format.channelCount <= session.maximumOutputNumberOfChannels {
+            let preSetOutput = session.outputNumberOfChannels
+            try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetOutput = session.outputNumberOfChannels
+            assert(preSetOutput == postSetOutput)
+        }
 
         // We shouldn't be running at this point.
         assert(!engine.isRunning)
