@@ -44,7 +44,6 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     var mediaReliability: MediaReliability
     var quicCwinMinimumKiB: UInt64
-    var quicWifiShadowRttUs: TimeInterval
     var videoJitterBuffer: VideoJitterBuffer.Config
     var isSingleOrderedSub: Bool
     var isSingleOrderedPub: Bool
@@ -63,8 +62,7 @@ struct SubscriptionConfig: Codable {
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         mediaReliability = .init()
-        quicCwinMinimumKiB = 128
-        quicWifiShadowRttUs = 0.150
+        quicCwinMinimumKiB = 8
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)
         isSingleOrderedSub = false
         isSingleOrderedPub = false
@@ -120,19 +118,11 @@ class SubscriptionFactory {
         let found = Set(foundCodecs)
 
         if found.isSubset(of: videoCodecs) {
-            let namegate: NameGate
-            switch self.config.videoBehaviour {
-            case .artifact:
-                namegate = AllowAllNameGate()
-            case .freeze:
-                namegate = SequentialObjectBlockingNameGate()
-            }
-
             return try VideoSubscription(sourceId: sourceId,
                                          profileSet: profileSet,
                                          participants: self.participants,
                                          metricsSubmitter: metricsSubmitter,
-                                         namegate: namegate,
+                                         videoBehaviour: self.config.videoBehaviour,
                                          reliable: self.config.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: self.config.videoJitterBuffer,

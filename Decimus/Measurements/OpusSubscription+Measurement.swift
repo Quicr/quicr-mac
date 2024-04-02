@@ -2,8 +2,9 @@ import AVFAudio
 
 extension OpusSubscription {
     actor _Measurement: Measurement {
+        let id = UUID()
         var name: String = "OpusSubscription"
-        var fields: [Date?: [String: AnyObject]] = [:]
+        var fields: Fields = [:]
         var tags: [String: String] = [:]
 
         private var frames: UInt64 = 0
@@ -12,11 +13,8 @@ extension OpusSubscription {
         private var callbacks: UInt64 = 0
         private var dropped: UInt64 = 0
 
-        init(namespace: QuicrNamespace, submitter: MetricsSubmitter) {
+        init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
-            Task {
-                await submitter.register(measurement: self)
-            }
         }
 
         func receivedFrames(received: AVAudioFrameCount, timestamp: Date?) {

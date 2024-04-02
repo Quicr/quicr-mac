@@ -8,10 +8,11 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     let sourceId: SourceIDType
     private let engine: DecimusAudioEngine
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt32 = 0
-    private let handlerLock: NSLock = .init()
+    private let handlerLock = OSAllocatedUnfairLock()
     private var handler: OpusHandler?
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval = 1.5
@@ -31,8 +32,9 @@ class OpusSubscription: QSubscriptionDelegateObjC {
          granularMetrics: Bool) throws {
         self.sourceId = sourceId
         self.engine = engine
+        self.metricsSubmitter = submitter
         if let submitter = submitter {
-            self.measurement = .init(namespace: self.sourceId, submitter: submitter)
+            self.measurement = .init(namespace: self.sourceId)
         } else {
             self.measurement = nil
         }
@@ -67,7 +69,24 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             }
         }
 
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
+
         Self.logger.info("Subscribed to OPUS stream")
+    }
+
+    deinit {
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!,
@@ -110,29 +129,29 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
 
         // Do we need to create the handler?
-        self.handlerLock.withLock {
-            if self.handler == nil {
-                self.handler = try? .init(sourceId: self.sourceId,
-                                          engine: self.engine,
-                                          measurement: self.measurement,
-                                          jitterDepth: self.jitterDepth,
-                                          jitterMax: self.jitterMax,
-                                          opusWindowSize: self.opusWindowSize,
-                                          granularMetrics: self.granularMetrics)
-            }
-            guard let handler = self.handler else {
-                Self.logger.error("Failed to recreate audio handler")
-                return
-            }
-            do {
-                try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
-                                                           count: length,
-                                                           deallocator: .none),
-                                               sequence: groupId,
-                                               date: date)
-            } catch {
-                Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
-            }
+        self.handlerLock.lock()
+        defer { self.handlerLock.unlock() }
+        if self.handler == nil {
+            self.handler = try? .init(sourceId: self.sourceId,
+                                      engine: self.engine,
+                                      measurement: self.measurement,
+                                      jitterDepth: self.jitterDepth,
+                                      jitterMax: self.jitterMax,
+                                      opusWindowSize: self.opusWindowSize,
+                                      granularMetrics: self.granularMetrics)
+        }
+        guard let handler = self.handler else {
+            Self.logger.error("Failed to recreate audio handler")
+            return SubscriptionError.none.rawValue
+        }
+        do {
+            try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
+                                                       count: length,
+                                                       deallocator: .none),
+                                           sequence: groupId,
+                                           date: date)
+        } catch {
+            Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
 
         return SubscriptionError.none.rawValue

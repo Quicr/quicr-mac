@@ -1,5 +1,6 @@
 import AVFoundation
 import Atomics
+import os
 
 // swiftlint:disable type_body_length
 
@@ -26,11 +27,10 @@ class VideoHandler: CustomStringConvertible {
     private let measurement: _Measurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
-    private let namegate: NameGate
+    private let namegate = SequentialObjectBlockingNameGate()
+    private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private var jitterBuffer: VideoJitterBuffer?
-    private var lastReceive: Date?
-    private var lastDecode: Date?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
@@ -48,8 +48,8 @@ class VideoHandler: CustomStringConvertible {
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: CMSampleBuffer?
-    private let lastDecodedImageLock = NSLock()
+    var lastDecodedImage: AvailableImage?
+    let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
@@ -60,7 +60,7 @@ class VideoHandler: CustomStringConvertible {
     ///     - config: Codec configuration for this video stream.
     ///     - participants: Video participants dependency for rendering.
     ///     - metricsSubmitter: If present, a submitter to record metrics through.
-    ///     - namegate: Object to make decisions about valid group/object values.
+    ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
     ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
@@ -70,7 +70,7 @@ class VideoHandler: CustomStringConvertible {
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
-         namegate: NameGate,
+         videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
@@ -83,11 +83,15 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            let measurement = VideoHandler._Measurement(namespace: namespace)
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
-        self.namegate = namegate
+        self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
@@ -100,9 +104,9 @@ class VideoHandler: CustomStringConvertible {
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
-                    self.lastDecodedImageLock.withLock {
-                        self.lastDecodedImage = sample
-                    }
+                    self.lastDecodedImageLock.lock()
+                    defer { self.lastDecodedImageLock.unlock() }
+                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -122,25 +126,14 @@ class VideoHandler: CustomStringConvertible {
         if self.simulreceive != .enable {
             self.participants.removeParticipant(identifier: namespace)
         }
-    }
-
-    /// Get the last decoded image, if any.
-    /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> CMSampleBuffer? {
-        self.lastDecodedImageLock.withLock {
-            let image = self.lastDecodedImage
-            return image
-        }
-    }
-
-    /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
-    /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(sample: CMSampleBuffer) {
-        self.lastDecodedImageLock.withLock {
-            if sample == self.lastDecodedImage {
-                self.lastDecodedImage = nil
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
             }
         }
+        self.dequeueTask?.cancel()
     }
 
     // swiftlint:disable cyclomatic_complexity
@@ -150,30 +143,6 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
-        // Metrics.
-        if let measurement = self.measurement {
-            let now: Date? = self.granularMetrics ? .now : nil
-            let delta: Double?
-            if granularMetrics {
-                if let last = lastReceive {
-                    delta = now!.timeIntervalSince(last) * 1000
-                } else {
-                    delta = nil
-                }
-                lastReceive = now
-            } else {
-                delta = nil
-            }
-
-            Task(priority: .utility) {
-                if let delta = delta {
-                    await measurement.receiveDelta(delta: delta, timestamp: now)
-                }
-                await measurement.receivedFrame(timestamp: now)
-                await measurement.receivedBytes(received: data.count, timestamp: now)
-            }
-        }
-
         // Do we need to create a jitter buffer?
         var frame: DecimusVideoFrame?
         if self.jitterBuffer == nil,
@@ -223,9 +192,18 @@ class VideoHandler: CustomStringConvertible {
                         waitTime = calculateWaitTime() ?? duration
                     }
                     if waitTime > 0 {
-                        try? await Task.sleep(for: .seconds(waitTime),
-                                              tolerance: .seconds(waitTime / 2),
-                                              clock: .continuous)
+                        do {
+                            try await Task.sleep(for: .seconds(waitTime),
+                                                 tolerance: .seconds(waitTime / 2),
+                                                 clock: .continuous)
+                            guard let task = self.dequeueTask,
+                                  !task.isCancelled else {
+                                return
+                            }
+                        } catch {
+                            Self.logger.error("Exception during sleep: \(error.localizedDescription)")
+                            continue
+                        }
                     }
 
                     // Attempt to dequeue a frame.
@@ -258,6 +236,15 @@ class VideoHandler: CustomStringConvertible {
                                            objectId: objectId,
                                            copy: self.jitterBufferConfig.mode == .layer) {
                 try decode(sample: frame)
+            }
+        }
+
+        // Metrics.
+        if let measurement = self.measurement {
+            let now: Date? = self.granularMetrics ? .now : nil
+            Task(priority: .utility) {
+                await measurement.receivedFrame(timestamp: now, idr: objectId == 0)
+                await measurement.receivedBytes(received: data.count, timestamp: now)
             }
         }
     }
@@ -375,22 +362,25 @@ class VideoHandler: CustomStringConvertible {
         // get groupId and objectId from the frame (1st frame)
         let groupId = sample.groupId
         let objectId = sample.objectId
-        guard namegate.handle(groupId: groupId,
-                              objectId: objectId,
-                              lastGroup: lastGroup,
-                              lastObject: lastObject) else {
-            // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = groupId + 1
-            if let jitterBuffer = self.jitterBuffer {
-                jitterBuffer.flushTo(targetGroup: targetGroup)
-            } else if self.jitterBufferConfig.mode == .layer {
-                flushDisplayLayer()
-            }
+        let gateResult = namegate.handle(groupId: groupId,
+                                         objectId: objectId,
+                                         lastGroup: self.lastGroup,
+                                         lastObject: self.lastObject)
+        guard gateResult || self.videoBehaviour != .freeze else {
+            // If there's a discontinuity and we want to freeze, we're done.
             return
         }
 
-        lastGroup = groupId
-        lastObject = objectId
+        if gateResult {
+            // Update to track continuity.
+            self.lastGroup = groupId
+            self.lastObject = objectId
+        } else {
+            // Mark discontinous.
+            for sample in sample.samples {
+                sample.discontinous = true
+            }
+        }
 
         // Decode.
         for sampleBuffer in sample.samples {
@@ -414,21 +404,7 @@ class VideoHandler: CustomStringConvertible {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? .now : nil
-            let delta: Double?
-            if self.granularMetrics {
-                if let last = lastDecode {
-                    delta = now!.timeIntervalSince(last) * 1000
-                } else {
-                    delta = nil
-                }
-                lastDecode = now
-            } else {
-                delta = nil
-            }
             Task(priority: .utility) {
-                if let delta = delta {
-                    await measurement.decodeDelta(delta: delta, timestamp: now)
-                }
                 await measurement.decodedFrame(timestamp: now)
             }
         }

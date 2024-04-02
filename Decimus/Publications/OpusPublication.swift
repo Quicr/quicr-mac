@@ -14,6 +14,7 @@ class OpusPublication: Publication {
     private let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private let measurement: _Measurement?
+    private let metricsSubmitter: MetricsSubmitter?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
@@ -42,8 +43,9 @@ class OpusPublication: Publication {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.engine = engine
+        self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(namespace: namespace, submitter: metricsSubmitter)
+            self.measurement = .init(namespace: namespace)
         } else {
             self.measurement = nil
         }
@@ -80,6 +82,15 @@ class OpusPublication: Publication {
 
         // Register our block.
         try engine.registerSinkBlock(identifier: namespace, block: block)
+
+        // Metrics registration (after any possible throws)
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
+
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 
@@ -91,6 +102,13 @@ class OpusPublication: Publication {
         }
         self.encodeTask?.cancel()
         TPCircularBufferCleanup(self.buffer)
+        if let measurement = self.measurement,
+           let metricsSubmitter = self.metricsSubmitter {
+            let id = measurement.id
+            Task(priority: .utility) {
+                await metricsSubmitter.unregister(id: id)
+            }
+        }
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {

@@ -1,4 +1,5 @@
 import AVFAudio
+import os
 
 /// Wrapper for app specific AVAudioEngine functionality.
 class DecimusAudioEngine {
@@ -19,7 +20,7 @@ class DecimusAudioEngine {
     private let sink: AVAudioSinkNode
     private var stopped: Bool = false
     private var elements: [SourceIDType: AVAudioSourceNode] = [:]
-    private var lock = NSLock()
+    private var lock = OSAllocatedUnfairLock()
 
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
@@ -78,7 +79,7 @@ class DecimusAudioEngine {
         #if os(tvOS)
         options = []
         #else
-        options = [.defaultToSpeaker, .allowBluetooth]
+        options = [.defaultToSpeaker, .allowBluetooth, .mixWithOthers]
         #endif
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
@@ -96,7 +97,7 @@ class DecimusAudioEngine {
         // Ducking.
         #if !os(tvOS)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
-            let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
+            let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: false,
                                                                                       duckingLevel: .min)
             engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
         }
