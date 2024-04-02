@@ -176,10 +176,6 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     private func addCamera(listener: FrameListener) throws {
-        #if os(tvOS)
-        return
-        #endif
-
         // Device is already setup, add this delegate.
         let device = listener.device
 
