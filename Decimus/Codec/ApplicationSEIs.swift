@@ -32,10 +32,10 @@ enum SeiParseError: Error {
 }
 
 struct OrientationSei {
-    let orientation: AVCaptureVideoOrientation
+    let orientation: DecimusVideoRotation
     let verticalMirror: Bool
     
-    init(orientation: AVCaptureVideoOrientation, verticalMirror: Bool) {
+    init(orientation: DecimusVideoRotation, verticalMirror: Bool) {
         self.orientation = orientation
         self.verticalMirror = verticalMirror
     }
@@ -55,7 +55,7 @@ struct OrientationSei {
         }
 
         guard let extractedOrientation = extractedOrientation,
-              let orientation = AVCaptureVideoOrientation(rawValue: Int(extractedOrientation)) else {
+              let orientation = DecimusVideoRotation(rawValue: extractedOrientation) else {
             throw SeiParseError.parseFailure("Orientation")
         }
         self.orientation = orientation
@@ -73,7 +73,7 @@ struct OrientationSei {
                 $0.storeBytes(of: UInt32(data.orientationSei.count - H264Utilities.naluStartCode.count).byteSwapped, as: UInt32.self)
             }
         }
-        bytes[data.getOrientationOffset(.orientation)] = UInt8(self.orientation.rawValue)
+        bytes[data.getOrientationOffset(.orientation)] = self.orientation.rawValue
         bytes[data.getOrientationOffset(.mirror)] = self.verticalMirror ? 0x01 : 0x00
         return bytes
     }

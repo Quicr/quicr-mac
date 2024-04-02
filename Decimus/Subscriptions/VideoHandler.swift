@@ -4,6 +4,13 @@ import os
 
 // swiftlint:disable type_body_length
 
+enum DecimusVideoRotation: UInt8 {
+    case portrait = 1
+    case portraitUpsideDown = 2
+    case landscapeRight = 3
+    case landscapeLeft = 4
+}
+
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
     private static let logger = DecimusLogger(VideoHandler.self)
@@ -28,14 +35,14 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    var orientation: AVCaptureVideoOrientation? {
+    var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
         return result == 0 ? nil : .init(rawValue: result)
     }
     var verticalMirror: Bool {
         atomicMirror.load(ordering: .acquiring)
     }
-    private var atomicOrientation = ManagedAtomic(0)
+    private var atomicOrientation = ManagedAtomic<UInt8>(0)
     private var atomicMirror = ManagedAtomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
@@ -392,7 +399,7 @@ class VideoHandler: CustomStringConvertible {
     }
 
     private func enqueueSample(sample: CMSampleBuffer,
-                               orientation: AVCaptureVideoOrientation?,
+                               orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
@@ -467,7 +474,7 @@ class VideoHandler: CustomStringConvertible {
     }
 }
 
-extension AVCaptureVideoOrientation {
+extension DecimusVideoRotation {
     func toTransform(_ verticalMirror: Bool) -> CATransform3D {
         var transform = CATransform3DIdentity
         switch self {

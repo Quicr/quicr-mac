@@ -62,6 +62,7 @@ struct SubscriptionSettingsView: View {
 
                 LabeledContent("Data rate limit (multiplier)") {
                     HStack {
+                        #if !os(tvOS)
                         Slider(value: $subscriptionConfig.value.limit1s,
                                in: 1.0...5.0,
                                step: 0.1) {
@@ -69,6 +70,7 @@ struct SubscriptionSettingsView: View {
                         }
                         Text(String(format: "%.1fx", subscriptionConfig.value.limit1s))
                             .foregroundColor(.blue)
+                        #endif
                     }
                 }
 
