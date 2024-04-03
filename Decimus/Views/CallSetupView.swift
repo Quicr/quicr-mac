@@ -130,6 +130,7 @@ private struct LoginForm: View {
         .background(.clear)
         #if !os(tvOS)
         .scrollContentBackground(.hidden)
+        .frame(maxHeight: 480)
         #endif
         .scrollDisabled(true)
         .onAppear {
@@ -212,7 +213,7 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
-                    #if !targetEnvironment(macCatalyst)
+                    #if targetEnvironment(macCatalyst)
                         .frame(maxWidth: 350)
                     #endif
 
