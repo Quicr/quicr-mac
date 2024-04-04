@@ -98,11 +98,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             try makeHandler(namespace: namespace)
         }
 
-        // Make task to do simulreceive.
-        if self.simulreceive != .none {
-            startRenderTask()
-        }
-
         // Make task for cleaning up video handlers.
         self.cleanupTask = .init(priority: .utility) { [weak self] in
             while !Task.isCancelled {
@@ -166,15 +161,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                        objectId: objectId)
         }
 
+        // If we're responsible for rendering, start the task.
+        if self.simulreceive == .enable && (self.renderTask == nil || self.renderTask!.isCancelled) {
+            startRenderTask()
+        }
+
         self.handlerLock.withLock {
             self.lastUpdateTimes[name] = Date.now
             do {
                 if self.videoHandlers[name] == nil {
                     try makeHandler(namespace: name)
-                    if let task = self.renderTask,
-                       task.isCancelled {
-                        startRenderTask()
-                    }
                 }
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
