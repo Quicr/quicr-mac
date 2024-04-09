@@ -12,7 +12,9 @@ struct InCallView: View {
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
-    @State private var offset: CGSize = .zero
+    @State private var offset: CGPoint = .init(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width / 7,
+                                                 y: UIScreen.main.bounds.height - UIScreen.main.bounds.height / 7)
+    @GestureState private var gesture: CGPoint? = nil
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
@@ -39,9 +41,15 @@ struct InCallView: View {
     private var previewDrag: some Gesture {
         DragGesture()
             .onChanged {
-                self.offset = $0.translation
+                var new = self.gesture ?? self.offset
+                new.x += $0.translation.width
+                new.y += $0.translation.height
+                self.offset = new
                 self.lastTap = .now
                 self.showPreview = true
+            }
+            .updating($gesture) { _, gesture, _ in
+                gesture = gesture ?? self.offset
             }
     }
     #endif
@@ -82,24 +90,6 @@ struct InCallView: View {
                             }
                         }
                     }
-                    #if !os(tvOS)
-                    .overlay {
-                        // Preview / self-view.
-                        // swiftlint:disable force_try
-                        if let capture = viewModel.captureManager, showPreview {
-                            ForEach(try! capture.activeDevices(), id: \.self) {
-                                try! PreviewView(captureManager: capture, device: $0)
-                                    .frame(maxWidth: geometry.size.width / 7)
-                                    .offset(self.offset == .zero ?
-                                                CGSize(width: geometry.size.width / 2 - geometry.size.width / 7,
-                                                       height: geometry.size.height / 2) :
-                                                self.offset)
-                                    .gesture(self.previewDrag)
-                            }
-                        }
-                        // swiftlint:enable:force_try
-                    }
-                    #endif
                     .sheet(isPresented: $isShowingSubscriptions) {
                         if let controller = viewModel.controller {
                             SubscriptionPopover(controller: controller)
@@ -130,6 +120,19 @@ struct InCallView: View {
                     .padding(.bottom)
                     .frame(alignment: .top)
             }
+            
+            // Preview / self-view.
+            // swiftlint:disable force_try
+            if let capture = viewModel.captureManager,
+               let camera = try! capture.activeDevices().first,
+               showPreview {
+                try! PreviewView(captureManager: capture, device: camera)
+                    .frame(maxWidth: UIScreen.main.bounds.width / 7,
+                           maxHeight: UIScreen.main.bounds.height / 7)
+                    .gesture(self.previewDrag)
+                    .position(self.offset)
+            }
+            // swiftlint:enable:force_try
 
             if leaving {
                 LeaveModal(leaveAction: {
