@@ -46,7 +46,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.reliable = reliable
 
         // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
-        if #available(iOS 17.0, *) {
+        if #available(iOS 17.0, tvOS 17.0, *) {
             guard let preferred = AVCaptureDevice.systemPreferredCamera else {
                 throw H264PublicationError.noCamera(sourceID)
             }

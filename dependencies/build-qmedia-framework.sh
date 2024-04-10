@@ -9,6 +9,8 @@ if [ "$CI" = TRUE ] ; then
         CMD_LINE="--platform IOS"
     elif [ "$CI_PRODUCT_PLATFORM" == "macOS" ] ; then
         CMD_LINE="--platform CATALYST_ARM --platform CATALYST_X86"
+    elif [ "$CI_PRODUCT_PLATFORM" == "tvOS" ] ; then
+        CMD_LINE="--platform TVOS"
     fi
     $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER"
 else

@@ -21,11 +21,13 @@ struct InCallView: View {
 
     /// Callback when call is left.
     private let onLeave: () -> Void
+    #if !os(tvOS)
     private let orientationChanged = NotificationCenter
         .default
         .publisher(for: UIDevice.orientationDidChangeNotification)
         .makeConnectable()
         .autoconnect()
+    #endif
 
     init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
@@ -33,6 +35,7 @@ struct InCallView: View {
         _viewModel = .init(wrappedValue: .init(config: config))
     }
 
+    #if !os(tvOS)
     private var previewDrag: some Gesture {
         DragGesture()
             .onChanged {
@@ -41,6 +44,7 @@ struct InCallView: View {
                 self.showPreview = true
             }
     }
+    #endif
 
     var body: some View {
         ZStack {
@@ -78,6 +82,7 @@ struct InCallView: View {
                             }
                         }
                     }
+                    #if !os(tvOS)
                     .overlay {
                         // Preview / self-view.
                         // swiftlint:disable force_try
@@ -94,6 +99,7 @@ struct InCallView: View {
                         }
                         // swiftlint:enable:force_try
                     }
+                    #endif
                     .sheet(isPresented: $isShowingSubscriptions) {
                         if let controller = viewModel.controller {
                             SubscriptionPopover(controller: controller)
@@ -220,7 +226,6 @@ extension InCallView {
             } catch {
                 Self.logger.critical("Failed to create AudioEngine: \(error.localizedDescription)")
                 self.engine = nil
-                return
             }
             let tags: [String: String] = [
                 "relay": "\(config.address):\(config.port)",
@@ -285,6 +290,7 @@ extension InCallView {
         }
 
         func connected() async -> Bool {
+            // TODO: In what situation can this be null.
             if !self.controller!.connected() {
                 Self.logger.error("Connection to relay disconnected", alert: true)
                 return false

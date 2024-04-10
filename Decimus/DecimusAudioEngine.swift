@@ -75,9 +75,15 @@ class DecimusAudioEngine {
         // Configure the session.
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
+        let options: AVAudioSession.CategoryOptions
+        #if os(tvOS)
+        options = []
+        #else
+        options = [.defaultToSpeaker, .allowBluetooth, .mixWithOthers]
+        #endif
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
-                                options: [.defaultToSpeaker, .allowBluetooth, .mixWithOthers])
+                                options: options)
 
         // Enable voice processing.
         if !engine.outputNode.isVoiceProcessingEnabled {
@@ -89,7 +95,7 @@ class DecimusAudioEngine {
         }
 
         // Ducking.
-        #if compiler(>=5.9)
+        #if !os(tvOS)
         if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
             let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: false,
                                                                                       duckingLevel: .min)
@@ -207,16 +213,20 @@ class DecimusAudioEngine {
         try session.setPreferredSampleRate(Self.format.sampleRate)
 
         // Inputs
-        let preSetInput = session.inputNumberOfChannels
-        try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetInput = session.inputNumberOfChannels
-        assert(preSetInput == postSetInput)
+        if Self.format.channelCount <= session.maximumInputNumberOfChannels {
+            let preSetInput = session.inputNumberOfChannels
+            try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetInput = session.inputNumberOfChannels
+            assert(preSetInput == postSetInput)
+        }
 
         // Outputs
-        let preSetOutput = session.outputNumberOfChannels
-        try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
-        let postSetOutput = session.outputNumberOfChannels
-        assert(preSetOutput == postSetOutput)
+        if Self.format.channelCount <= session.maximumOutputNumberOfChannels {
+            let preSetOutput = session.outputNumberOfChannels
+            try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
+            let postSetOutput = session.outputNumberOfChannels
+            assert(preSetOutput == postSetOutput)
+        }
 
         // We shouldn't be running at this point.
         assert(!engine.isRunning)
