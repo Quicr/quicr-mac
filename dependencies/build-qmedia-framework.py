@@ -45,6 +45,8 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DPLATFORM={platform.cmake_platform}",
         "-DDEPLOYMENT_TARGET=16.0",
         "-DENABLE_VISIBILITY=ON",
+        "-DHAVE_H_ERRNO_ASSIGNABLE=0",
+        "-DENABLE_STRICT_TRY_COMPILE=ON",
         f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
         f"-DCMAKE_MODULE_PATH={current_directory}",
         f"-DBUILD_NUMBER={build_number}",

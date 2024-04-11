@@ -56,7 +56,7 @@
     qControllerGW.logger->debug << "QControllerGW - dealloc" << std::flush;
 }
 
--(int) connect: (NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol config:(TransportConfig)config
+-(int) connect: (NSString *) endpointID relay:(NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol config:(TransportConfig)config
 {
     try {
         qtransport::TransportConfig tconfig;
@@ -64,7 +64,7 @@
                       std::is_trivially_copyable<TransportConfig>() &&
                       sizeof(tconfig) == sizeof(config));
         memcpy(&tconfig, &config, sizeof(tconfig));
-        return qControllerGW.connect(std::string([remoteAddress UTF8String]), remotePort, protocol, tconfig);
+        return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, tconfig);
     } catch(const std::exception& e) {
         qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
         return -1;
@@ -197,7 +197,8 @@
 
 // C++
 
-int QControllerGW::connect(const std::string remote_address,
+int QControllerGW::connect(const std::string endpoint_id,
+                           const std::string remote_address,
                            std::uint16_t remote_port,
                            std::uint16_t protocol,
                            qtransport::TransportConfig config)
@@ -208,7 +209,7 @@ int QControllerGW::connect(const std::string remote_address,
 
     quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
     std::string address = remote_address;
-    return qController->connect(address, remote_port, proto, config);
+    return qController->connect(endpoint_id, address, remote_port, proto, config);
 }
 
 bool QControllerGW::connected()
