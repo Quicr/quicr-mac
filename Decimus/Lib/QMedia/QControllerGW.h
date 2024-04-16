@@ -24,7 +24,8 @@ public:
                 const std::string remote_address,
                 std::uint16_t remote_port,
                 std::uint16_t protocol,
-                qtransport::TransportConfig config);
+                qtransport::TransportConfig config,
+                bool useParentLogger);
     
     void disconnect();
     bool connected();

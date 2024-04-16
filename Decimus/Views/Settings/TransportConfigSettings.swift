@@ -4,6 +4,7 @@ struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var timeQueueTTL: Int
     @Binding var UseResetWaitCC: Bool
+    @Binding var quicrLogs: Bool
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
 
@@ -32,6 +33,9 @@ struct TransportConfigSettings: View {
         LabeledContent("Time Queue RX Size") {
             TextField("", value: self.$timeQueueTTL, format: .number)
         }
-        
+        HStack {
+            Text("Capture QUICR logs")
+            Toggle(isOn: self.$quicrLogs) {}
+        }
     }
 }
