@@ -52,6 +52,7 @@ static SubscriptionState const SubscriptionStatePaused = 3;
                 relay:(NSString*)remoteAddress
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol
+                chunk_size:(UInt32)chunkSize
                 config:(TransportConfig)config
                 useParentLogger:(bool)useParentLogger;
 -(void) disconnect;

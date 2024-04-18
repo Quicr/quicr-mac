@@ -51,6 +51,7 @@ struct SubscriptionConfig: Codable {
     var qualityMissThreshold: Int
     var pauseMissThreshold: Int
     var timeQueueTTL: Int
+    var chunkSize: UInt32
     var bitrateType: BitrateType
     var limit1s: Double
     var useResetWaitCC: Bool
@@ -70,7 +71,8 @@ struct SubscriptionConfig: Codable {
         simulreceive = .enable
         qualityMissThreshold = 3
         pauseMissThreshold = 30
-        timeQueueTTL = 100
+        timeQueueTTL = 500
+        chunkSize = 3000
         bitrateType = .average
         limit1s = 2.5
         useResetWaitCC = true
