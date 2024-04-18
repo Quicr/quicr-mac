@@ -55,6 +55,7 @@ struct SubscriptionConfig: Codable {
     var limit1s: Double
     var useResetWaitCC: Bool
     var pauseResume: Bool
+    var quicrLogs: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -74,6 +75,7 @@ struct SubscriptionConfig: Codable {
         limit1s = 2.5
         useResetWaitCC = true
         pauseResume = false
+        quicrLogs = false
     }
 }
 

@@ -52,7 +52,8 @@ static SubscriptionState const SubscriptionStatePaused = 3;
                 relay:(NSString*)remoteAddress
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol
-                config:(TransportConfig)config;
+                config:(TransportConfig)config
+                useParentLogger:(bool)useParentLogger;
 -(void) disconnect;
 -(bool) connected;
 -(void) updateManifest: (NSString*)manifest;

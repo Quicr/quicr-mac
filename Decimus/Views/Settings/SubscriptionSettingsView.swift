@@ -165,7 +165,8 @@ struct SubscriptionSettingsView: View {
         Section("Transport") {
             TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB,
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
-                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC)
+                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
+                                    quicrLogs: $subscriptionConfig.value.quicrLogs)
         }
     }
 }
