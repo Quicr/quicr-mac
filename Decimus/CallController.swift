@@ -69,7 +69,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
                                   chunk_size: self.config.chunkSize,
-                                  config: transportConfig)
+                                  config: transportConfig,
+                                  useParentLogger: self.config.quicrLogs)
         guard error == .zero else {
             throw CallError.failedToConnect(error)
         }

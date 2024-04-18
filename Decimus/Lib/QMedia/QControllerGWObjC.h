@@ -53,7 +53,8 @@ static SubscriptionState const SubscriptionStatePaused = 3;
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol
                 chunk_size:(UInt32)chunkSize
-                config:(TransportConfig)config;
+                config:(TransportConfig)config
+                useParentLogger:(bool)useParentLogger;
 -(void) disconnect;
 -(bool) connected;
 -(void) updateManifest: (NSString*)manifest;

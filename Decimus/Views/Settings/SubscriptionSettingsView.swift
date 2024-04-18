@@ -2,8 +2,9 @@ import SwiftUI
 import AVFoundation
 
 struct SubscriptionSettingsView: View {
+    static let defaultsKey = "subscriptionConfig"
 
-    @AppStorage("subscriptionConfig")
+    @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @StateObject private var devices = VideoDevices()
@@ -167,7 +168,8 @@ struct SubscriptionSettingsView: View {
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
                                     chunkSize:
                                         $subscriptionConfig.value.chunkSize,
-                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC)
+                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
+                                    quicrLogs: $subscriptionConfig.value.quicrLogs)
         }
     }
 }
