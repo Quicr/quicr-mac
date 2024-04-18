@@ -169,6 +169,8 @@ struct SubscriptionSettingsView: View {
                                     chunkSize:
                                         $subscriptionConfig.value.chunkSize,
                                     UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
+                                    UseBBR:
+                                        $subscriptionConfig.value.useBBR,
                                     quicrLogs: $subscriptionConfig.value.quicrLogs)
         }
     }
