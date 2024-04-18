@@ -3,6 +3,7 @@ import SwiftUI
 struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var timeQueueTTL: Int
+    @Binding var chunkSize: UInt32
     @Binding var UseResetWaitCC: Bool
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
@@ -32,6 +33,9 @@ struct TransportConfigSettings: View {
         LabeledContent("Time Queue RX Size") {
             TextField("", value: self.$timeQueueTTL, format: .number)
         }
-        
+        LabeledContent("Chunk Size") {
+            TextField("", value: self.$chunkSize, format: .number)
+        }
+
     }
 }

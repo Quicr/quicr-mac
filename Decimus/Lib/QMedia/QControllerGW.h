@@ -24,6 +24,7 @@ public:
                 const std::string remote_address,
                 std::uint16_t remote_port,
                 std::uint16_t protocol,
+                size_t chunk_size,
                 qtransport::TransportConfig config);
     
     void disconnect();
