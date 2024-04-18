@@ -55,6 +55,7 @@ struct SubscriptionConfig: Codable {
     var bitrateType: BitrateType
     var limit1s: Double
     var useResetWaitCC: Bool
+    var useBBR: Bool
     var pauseResume: Bool
     var quicrLogs: Bool
 
@@ -76,6 +77,7 @@ struct SubscriptionConfig: Codable {
         bitrateType = .average
         limit1s = 2.5
         useResetWaitCC = true
+        useBBR = true
         pauseResume = false
         quicrLogs = false
     }
