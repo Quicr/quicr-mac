@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct RelaySettingsView: View {
+    static let defaultsKey = "relayConfig"
 
-    @AppStorage("relayConfig")
+    @AppStorage(Self.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
     var body: some View {

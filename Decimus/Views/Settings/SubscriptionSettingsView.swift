@@ -2,8 +2,9 @@ import SwiftUI
 import AVFoundation
 
 struct SubscriptionSettingsView: View {
+    static let defaultsKey = "subscriptionConfig"
 
-    @AppStorage("subscriptionConfig")
+    @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @StateObject private var devices = VideoDevices()
