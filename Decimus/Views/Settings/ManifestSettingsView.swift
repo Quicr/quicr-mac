@@ -6,7 +6,9 @@ enum URLScheme: String, CaseIterable {
 }
 
 struct ManifestSettingsView: View {
-    @AppStorage("manifestConfig")
+    static let defaultsKey = "manifestConfig"
+
+    @AppStorage(Self.defaultsKey)
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     @State private var configs: [String] = []

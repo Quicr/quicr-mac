@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct InfluxSettingsView: View {
+    static let defaultsKey = "influxConfig"
 
-    @AppStorage("influxConfig")
+    @AppStorage(Self.defaultsKey)
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     var body: some View {
