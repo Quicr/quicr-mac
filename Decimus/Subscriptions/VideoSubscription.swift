@@ -162,7 +162,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // If we're responsible for rendering, start the task.
-        if self.simulreceive == .enable && (self.renderTask == nil || self.renderTask!.isCancelled) {
+        if self.simulreceive != .none && (self.renderTask == nil || self.renderTask!.isCancelled) {
             startRenderTask()
         }
 
@@ -218,7 +218,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                   jitterBufferConfig: self.jitterBufferConfig,
                                                   simulreceive: self.simulreceive)
     }
-    
+
     struct SimulreceiveItem: Equatable {
         static func == (lhs: VideoSubscription.SimulreceiveItem, rhs: VideoSubscription.SimulreceiveItem) -> Bool {
             lhs.namespace == rhs.namespace
@@ -226,7 +226,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let namespace: QuicrNamespace
         let image: AvailableImage
     }
-    
+
     enum SimulreceiveReason {
         case onlyChoice(item: SimulreceiveItem)
         case highestRes(item: SimulreceiveItem, pristine: Bool)
@@ -240,7 +240,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
             return nil
         }
-        
+
         // Oldest should be the oldest value that hasn't already been shown.
         let oldest: CMTime = choices.reduce(CMTime.positiveInfinity) { min($0, $1.image.image.presentationTimeStamp) }
 
@@ -299,7 +299,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
             return duration
         }
-        
+
         // Consume all images from our shortlist.
         for choice in choices {
             let handler = self.videoHandlers[choice.namespace]!
@@ -311,7 +311,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
             }
         }
-        
+
         let selected: SimulreceiveItem
         switch decision {
         case .highestRes(let out, _):
@@ -391,7 +391,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 await measurement.reportSimulreceiveChoice(choices: completedReport, timestamp: decisionTime!)
             }
         }
-        
+
         if qualitySkip {
             // We only want to step down in quality if we've missed a few hits.
             if let duration = handler.calculateWaitTime() {
