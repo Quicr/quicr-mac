@@ -46,6 +46,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: _Measurement?
+    private var variances: [TimeInterval: [Date]] = [:]
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -152,13 +153,42 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+        let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
+        let timestamp = self.getTimestamp(data: zeroCopiedData,
+                                          namespace: name,
+                                          groupId: groupId,
+                                          objectId: objectId)
+        let timestampSeconds = timestamp.seconds
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.reportTimestamp(namespace: name,
+                                                  timestamp: timestampSeconds,
+                                                  at: now)
+            }
+        }
+        
         if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = self.getTimestamp(data: zeroCopiedData,
-                                                       namespace: name,
-                                                       groupId: groupId,
-                                                       objectId: objectId)
+            self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestampSeconds
+        }
+        
+        if var variances = self.variances[timestampSeconds]  {
+            variances.append(now)
+            if variances.count == 2 {
+                // We're done, report and remove.
+                var oldest = Date.distantFuture
+                var newest = Date.distantPast
+                for date in variances {
+                    oldest = min(oldest, date)
+                    newest = max(newest, date)
+                }
+                let variance = newest.timeIntervalSince(oldest)
+                print("\(variance * 1000)ms")
+                self.variances.removeValue(forKey: timestampSeconds)
+            }
+        } else {
+            self.variances[timestampSeconds] = [now]
         }
 
         // If we're responsible for rendering, start the task.
@@ -167,7 +197,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         self.handlerLock.withLock {
-            self.lastUpdateTimes[name] = Date.now
+            self.lastUpdateTimes[name] = now
             do {
                 if self.videoHandlers[name] == nil {
                     try makeHandler(namespace: name)
@@ -464,7 +494,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     // TODO: Clean this up.
-    private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
+    private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> CMTime {
         // Save starting time.
         var format: CMFormatDescription?
         let config = self.profiles[namespace]
@@ -491,10 +521,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         default:
             fatalError()
         }
-        if let timestamp = timestamp {
-            return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
+        
+        guard let timestamp = timestamp else {
+            assert(false)
+            return .invalid
         }
-        assert(false)
-        return 0
+        return timestamp
     }
 }

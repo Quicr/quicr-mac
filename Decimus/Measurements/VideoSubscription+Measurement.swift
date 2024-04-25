@@ -33,5 +33,10 @@ extension VideoSubscription {
                 offset += (1 / 1_000_000)
             }
         }
+
+        func reportTimestamp(namespace: QuicrNamespace, timestamp: TimeInterval, at: Date) {
+            let tags: [String: String] = ["namespace": namespace]
+            record(field: "timestamp", value: timestamp as AnyObject, timestamp: at, tags: tags)
+        }
     }
 }
