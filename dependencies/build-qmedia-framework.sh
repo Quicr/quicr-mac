@@ -13,6 +13,8 @@ if [ "$CI" = TRUE ] ; then
         CMD_LINE="--platform TVOS"
     fi
     $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER"
+elif [ -n "$EFFECTIVE_PLATFORM_NAME" ]; then
+    $DIR/build-qmedia-framework.py --effective-platform-name="$EFFECTIVE_PLATFORM_NAME" --archs="$ARCHS"
 else
     $DIR/build-qmedia-framework.py
 fi

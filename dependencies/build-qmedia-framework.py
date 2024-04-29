@@ -166,6 +166,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
         else:
             # Build appropriate platforms for this xcode build.
             if "maccatalyst" in args.effective_platform_name:
+                print(args.archs)
                 for arch in args.archs.split(" "):
                     if arch == "arm64":
                         platforms.append(PlatformType.CATALYST_ARM)
