@@ -21,7 +21,7 @@ enum TimestampSeiField {
 protocol ApplicationSeiData {
     var orientationSei: [UInt8] { get }
     func getOrientationOffset(_ field: OrientationSeiField) -> Int
-    
+
     var timestampSei: [UInt8] { get }
     func getTimestampOffset(_ field: TimestampSeiField) -> Int
 }
@@ -34,12 +34,12 @@ enum SeiParseError: Error {
 struct OrientationSei {
     let orientation: DecimusVideoRotation
     let verticalMirror: Bool
-    
+
     init(orientation: DecimusVideoRotation, verticalMirror: Bool) {
         self.orientation = orientation
         self.verticalMirror = verticalMirror
     }
-    
+
     init(encoded: Data, data: ApplicationSeiData) throws {
         let payloadLengthIndex = data.getOrientationOffset(.payloadLength)
         guard encoded.count == data.orientationSei.count,
@@ -65,7 +65,7 @@ struct OrientationSei {
         }
         self.verticalMirror = extractedVerticalMirror == 0x01
     }
-    
+
     func getBytes(_ data: ApplicationSeiData, startCode: Bool) -> Data {
         var bytes = Data(data.orientationSei)
         if !startCode {
@@ -77,11 +77,11 @@ struct OrientationSei {
         bytes[data.getOrientationOffset(.mirror)] = self.verticalMirror ? 0x01 : 0x00
         return bytes
     }
-    
+
     static func parse(encoded: Data, data: ApplicationSeiData) throws -> OrientationSei? {
         do {
             return try .init(encoded: encoded, data: data)
-        } catch (SeiParseError.mismatch) {
+        } catch SeiParseError.mismatch {
             return nil
         } catch {
             throw error
@@ -93,13 +93,13 @@ struct TimestampSei {
     let timestamp: CMTime
     let sequenceNumber: UInt64
     let fps: UInt8
-    
+
     init(timestamp: CMTime, sequenceNumber: UInt64, fps: UInt8) {
         self.timestamp = timestamp
         self.sequenceNumber = sequenceNumber
         self.fps = fps
     }
-    
+
     init(encoded: Data, data: ApplicationSeiData) throws {
         let idOffset = data.getTimestampOffset(.id)
         guard encoded.count == data.timestampSei.count,
@@ -120,14 +120,14 @@ struct TimestampSei {
             throw SeiParseError.parseFailure("Timestamp")
         }
         self.timestamp = CMTimeMake(value: timeValue, timescale: timeScale)
-        
+
         guard let sequenceNumber = sequenceNumber else {
             throw SeiParseError.parseFailure("Sequence")
         }
         self.sequenceNumber = sequenceNumber
         self.fps = encoded[data.getTimestampOffset(.fps)]
     }
-    
+
     func getBytes(_ data: ApplicationSeiData, startCode: Bool) -> Data {
         var bytes = Data(data.timestampSei)
         let networkTimeValue = self.timestamp.value.bigEndian
@@ -145,11 +145,11 @@ struct TimestampSei {
         }
         return bytes
     }
-    
+
     static func parse(encoded: Data, data: ApplicationSeiData) throws -> TimestampSei? {
         do {
             return try .init(encoded: encoded, data: data)
-        } catch (SeiParseError.mismatch) {
+        } catch SeiParseError.mismatch {
             return nil
         } catch {
             throw error
@@ -164,11 +164,11 @@ struct ApplicationSEI {
 
 class ApplicationSeiParser {
     private let data: ApplicationSeiData
-    
+
     init(_ data: ApplicationSeiData) {
         self.data = data
     }
-    
+
     func parse(encoded: Data) throws -> ApplicationSEI? {
         let timestamp = try TimestampSei.parse(encoded: encoded, data: self.data)
         let orientation = try OrientationSei.parse(encoded: encoded, data: self.data)

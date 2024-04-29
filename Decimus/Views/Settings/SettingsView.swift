@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsView: View {
 
     @State private var cancelConfirmation = false
-    
+
     var body: some View {
         // Reset all.
         HStack {

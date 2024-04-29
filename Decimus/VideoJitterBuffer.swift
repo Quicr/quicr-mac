@@ -92,7 +92,7 @@ class VideoJitterBuffer {
         self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
             self.play = true
         })
-        
+
         if let metricsSubmitter = self.metricsSubmitter,
            let measurement = self.measurement {
             Task(priority: .utility) {
@@ -100,7 +100,7 @@ class VideoJitterBuffer {
             }
         }
     }
-    
+
     deinit {
         if let measurement = self.measurement,
            let metricsSubmitter = self.metricsSubmitter {
@@ -110,7 +110,7 @@ class VideoJitterBuffer {
             }
         }
     }
-    
+
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.

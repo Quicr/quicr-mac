@@ -36,7 +36,7 @@ class HEVCUtilities {
         guard data.starts(with: naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
-        
+
         // Identify all NALUs by start code.
         var ranges: [Range<Data.Index>] = []
         var naluRanges: [Range<Data.Index>] = []
@@ -55,10 +55,10 @@ class HEVCUtilities {
                         continue
                     }
                 }
-                
+
                 let naluType = (data[lastRange.upperBound] >> 1) & 0x3f
                 let type = HEVCTypes(rawValue: naluType)
-                
+
                 // RBSP types can have data that include a "0001". So,
                 // use the playload size to the whole sub buffer.
                 if type == .sei { // RBSP
@@ -72,13 +72,13 @@ class HEVCUtilities {
             }
             index += 1
         }
-        
+
         // Adjust the last range to run to the end of data.
         if let lastRange = ranges.last {
             let range = Range<Data.Index>(lastRange.lowerBound...data.count-1)
             naluRanges.append(range)
         }
-        
+
         // Get NALU data objects (zero copy).
         var nalus: [Data] = []
         let nsData = data as NSData
@@ -87,12 +87,12 @@ class HEVCUtilities {
                               count: range.count,
                               deallocator: .none))
         }
-        
+
         // Finally! We have all of the nalu ranges for this frame...
         var spsData: Data?
         var ppsData: Data?
         var vpsData: Data?
-        
+
         // Create sample buffers from NALUs.
         var results: [CMBlockBuffer] = []
         for index in 0..<nalus.count {
@@ -101,23 +101,23 @@ class HEVCUtilities {
             let naluType = (nalu[naluStartCode.count] >> 1) & 0x3f
             let type = HEVCTypes(rawValue: naluType)
             let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
-            
+
             if type == .vps {
                 vpsData = rangedData
             }
-            
+
             if type == .sps {
                 spsData = rangedData
             }
-            
+
             if type == .pps {
                 ppsData = rangedData
             }
-            
+
             if type == .sei {
                 seiCallback(nalu)
             }
-            
+
             if let vps = vpsData,
                let sps = spsData,
                let pps = ppsData {
@@ -127,14 +127,14 @@ class HEVCUtilities {
                 spsData = nil
                 ppsData = nil
             }
-            
+
             guard type != .vps,
                   type != .sps,
                   type != .pps,
                   type != .sei else {
                 continue
             }
-            
+
             var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
             nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
             try nalu.withUnsafeBytes {

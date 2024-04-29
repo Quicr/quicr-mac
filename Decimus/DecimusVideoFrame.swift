@@ -8,7 +8,7 @@ class DecimusVideoFrame {
     let fps: UInt8?
     let orientation: DecimusVideoRotation?
     let verticalMirror: Bool?
-    
+
     init(samples: [CMSampleBuffer],
          groupId: UInt32,
          objectId: UInt16,
