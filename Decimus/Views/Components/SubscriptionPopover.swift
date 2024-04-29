@@ -5,12 +5,12 @@ struct SubscriptionPopover: View {
         let sourceId: SourceIDType
         let subscriptions: [Subscription]
     }
-    
+
     fileprivate struct Subscription {
         let namespace: QuicrNamespace
         let state: SubscriptionState
     }
-    
+
     private class SwitchingSets: ObservableObject {
         private let controller: CallController
         @Published var sets: [SwitchingSet] = []
@@ -44,7 +44,7 @@ struct SubscriptionPopover: View {
         self.controller = controller
         self._switchingSets = .init(wrappedValue: .init(controller: controller))
     }
-    
+
     private func updateToggles() {
         for set in self.switchingSets.sets {
             for subscription in set.subscriptions {
@@ -52,7 +52,7 @@ struct SubscriptionPopover: View {
             }
         }
     }
-    
+
     private func makeSubscribeStateBinding(_ namespace: QuicrNamespace) -> Binding<Bool> {
            return .init(
                get: { self.toggleStates[namespace, default: false] },

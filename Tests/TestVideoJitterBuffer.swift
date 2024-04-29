@@ -2,7 +2,7 @@ import CoreMedia
 import XCTest
 @testable import Decimus
 
-extension DecimusVideoFrame : Equatable {
+extension DecimusVideoFrame: Equatable {
     public static func == (lhs: Decimus.DecimusVideoFrame, rhs: Decimus.DecimusVideoFrame) -> Bool {
         lhs.samples == rhs.samples &&
         lhs.groupId == rhs.groupId &&
