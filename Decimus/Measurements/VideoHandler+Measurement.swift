@@ -1,5 +1,5 @@
 extension VideoHandler {
-    actor _Measurement: Measurement {
+    actor VideoHandlerMeasurement: Measurement {
         let id = UUID()
         var name: String = "VideoHandler"
         var fields: Fields = [:]
@@ -15,7 +15,10 @@ extension VideoHandler {
 
         func receivedFrame(timestamp: Date?, idr: Bool) {
             self.frames += 1
-            record(field: "receivedFrames", value: self.frames as AnyObject, timestamp: timestamp, tags: ["idr": "\(idr)"])
+            record(field: "receivedFrames",
+                   value: self.frames as AnyObject,
+                   timestamp: timestamp,
+                   tags: ["idr": "\(idr)"])
         }
 
         func decodedFrame(timestamp: Date?) {

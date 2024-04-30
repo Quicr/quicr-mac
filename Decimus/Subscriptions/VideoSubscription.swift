@@ -14,6 +14,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
+// swiftlint:disable type_body_length
 class VideoSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
@@ -45,7 +46,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
-    private let measurement: _Measurement?
+    private let measurement: VideoSubscriptionMeasurement?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -119,7 +120,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         self.participants.removeParticipant(identifier: self.sourceId)
                     }
                 }
-                try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+                try? await Task.sleep(for: .seconds(self.cleanupTimer),
+                                      tolerance: .seconds(self.cleanupTimer),
+                                      clock: .continuous)
             }
         }
 
@@ -151,14 +154,22 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.noDecoder.rawValue
     }
 
-    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!,
+                          data: UnsafeRawPointer!,
+                          length: Int,
+                          groupId: UInt32,
+                          objectId: UInt16) -> Int32 {
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
         if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = self.getTimestamp(data: zeroCopiedData,
-                                                       namespace: name,
-                                                       groupId: groupId,
-                                                       objectId: objectId)
+            do {
+                self.timestampTimeDiff = try self.getTimestamp(data: zeroCopiedData,
+                                                               namespace: name,
+                                                               groupId: groupId,
+                                                               objectId: objectId)
+            } catch {
+                Self.logger.warning("F")
+            }
         }
 
         // If we're responsible for rendering, start the task.
@@ -195,7 +206,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         self.renderTask?.cancel()
                         return TimeInterval.nan
                     }
-                    return try! self.makeSimulreceiveDecision()
+                    do {
+                        return try self.makeSimulreceiveDecision()
+                    } catch {
+                        Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+                        self.renderTask?.cancel()
+                        return TimeInterval.nan
+                    }
                 }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
@@ -261,6 +278,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     // Caller must lock handlerLock.
+    // swiftlint:disable cyclomatic_complexity
+    // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision() throws -> TimeInterval {
         guard !self.videoHandlers.isEmpty else {
             throw "No handlers"
@@ -316,10 +335,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         switch decision {
         case .highestRes(let out, _):
             selected = out
-            break
         case .onlyChoice(let out):
             selected = out
-            break
         }
         let selectedSample = selected.image.image
 
@@ -368,7 +385,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
         if let measurement = self.measurement,
            self.granularMetrics {
-            var report: [VideoSubscription._Measurement.SimulreceiveChoiceReport] = []
+            var report: [VideoSubscription.SimulreceiveChoiceReport] = []
             for choice in choices {
                 switch decision {
                 case .highestRes(let item, let pristine):
@@ -462,16 +479,21 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let highestFps = self.videoHandlers.values.reduce(0) { $0 > $1.config.fps ? $0 : $1.config.fps }
         return 1 / TimeInterval(highestFps)
     }
+    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable function_body_length
 
     // TODO: Clean this up.
-    private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> TimeInterval {
+    private func getTimestamp(data: Data,
+                              namespace: QuicrNamespace,
+                              groupId: UInt32,
+                              objectId: UInt16) throws -> TimeInterval? {
         // Save starting time.
         var format: CMFormatDescription?
         let config = self.profiles[namespace]
         var timestamp: CMTime?
         switch config?.codec {
         case .h264:
-            _ = try! H264Utilities.depacketize(data, format: &format, copy: false) {
+            _ = try H264Utilities.depacketize(data, format: &format, copy: false) {
                 guard timestamp == nil else { return }
                 do {
                     timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationH264SEIs())?.timestamp
@@ -480,7 +502,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
             }
         case .hevc:
-            _ = try! HEVCUtilities.depacketize(data, format: &format, copy: false) {
+            _ = try HEVCUtilities.depacketize(data, format: &format, copy: false) {
                 guard timestamp == nil else { return }
                 do {
                     timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationHEVCSEIs())?.timestamp
@@ -491,10 +513,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         default:
             fatalError()
         }
-        if let timestamp = timestamp {
-            return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
-        }
-        assert(false)
-        return 0
+        guard let timestamp = timestamp else { return nil }
+        return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
     }
 }
+// swiftlint:enable type_body_length

@@ -88,15 +88,28 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
     }
 
-    func fetchSwitchingSets() -> [String] {
-        self.getSwitchingSets() as NSArray as! [String]
+    enum CallControllerError: Error {
+        case malformed
     }
 
-    func fetchSubscriptions(sourceId: String) -> [String] {
-        self.getSubscriptions(sourceId) as NSArray as! [String]
+    func fetchSwitchingSets() throws -> [String] {
+        guard let sets = self.getSwitchingSets() as NSArray as? [String] else {
+            throw CallControllerError.malformed
+        }
+        return sets
     }
 
-    func fetchPublications() -> [PublicationReport] {
-        self.getPublications() as NSArray as! [PublicationReport]
+    func fetchSubscriptions(sourceId: String) throws -> [String] {
+        guard let subs = self.getSubscriptions(sourceId) as NSArray as? [String] else {
+            throw CallControllerError.malformed
+        }
+        return subs
+    }
+
+    func fetchPublications() throws -> [PublicationReport] {
+        guard let pubs = self.getPublications() as NSArray as? [PublicationReport] else {
+            throw CallControllerError.malformed
+        }
+        return pubs
     }
 }

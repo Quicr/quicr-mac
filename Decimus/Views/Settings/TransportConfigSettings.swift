@@ -4,8 +4,8 @@ struct TransportConfigSettings: View {
     @Binding var quicCwinMinimumKiB: UInt64
     @Binding var timeQueueTTL: Int
     @Binding var chunkSize: UInt32
-    @Binding var UseResetWaitCC: Bool
-    @Binding var UseBBR: Bool
+    @Binding var useResetWaitCC: Bool
+    @Binding var useBBR: Bool
     @Binding var quicrLogs: Bool
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
@@ -30,11 +30,11 @@ struct TransportConfigSettings: View {
 #endif
         HStack {
             Text("Use Reset and Wait")
-            Toggle(isOn: self.$UseResetWaitCC) {}
+            Toggle(isOn: self.$useResetWaitCC) {}
         }
         HStack {
             Text("Use BBR")
-            Toggle(isOn: self.$UseBBR) {}
+            Toggle(isOn: self.$useBBR) {}
         }
         LabeledContent("Time Queue RX Size") {
             TextField("", value: self.$timeQueueTTL, format: .number)

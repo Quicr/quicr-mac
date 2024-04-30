@@ -24,7 +24,7 @@ class VideoHandler: CustomStringConvertible {
 
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
-    private let measurement: _Measurement?
+    private let measurement: VideoHandlerMeasurement?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
     private let namegate = SequentialObjectBlockingNameGate()
@@ -83,7 +83,7 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoHandler._Measurement(namespace: namespace)
+            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: namespace)
             Task(priority: .utility) {
                 await metricsSubmitter.register(measurement: measurement)
             }

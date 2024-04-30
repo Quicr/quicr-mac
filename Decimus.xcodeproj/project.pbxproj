@@ -679,6 +679,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				9BF28F262BE02C1400658353 /* PBXTargetDependency */,
 			);
 			name = Decimus;
 			packageProductDependencies = (
@@ -925,6 +926,10 @@
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* Decimus */;
 			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
+		};
+		9BF28F262BE02C1400658353 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 9BF28F252BE02C1400658353 /* SwiftLintPlugin */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1377,6 +1382,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
+		};
+		9BF28F252BE02C1400658353 /* SwiftLintPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B165A1F298807A40017079F /* XCRemoteSwiftPackageReference "SwiftLint" */;
+			productName = "plugin:SwiftLintPlugin";
 		};
 		FFA0E84F2A6F25A20027603B /* WrappingHStack */ = {
 			isa = XCSwiftPackageProductDependency;
