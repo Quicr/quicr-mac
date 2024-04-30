@@ -16,7 +16,7 @@ final class TestVideoSubscription: XCTestCase {
               let buffer = buffer else { throw "Failed: \(result)" }
         return buffer
     }
-    
+
     private func getQualities(discontinous: [Bool], timing: [CMTime]? = nil) throws -> [VideoSubscription.SimulreceiveItem] {
         let highestBuffer = try testImage(width: 1920, height: 1280)
         let highestImage = AvailableImage(image: try .init(imageBuffer: highestBuffer,
@@ -27,7 +27,7 @@ final class TestVideoSubscription: XCTestCase {
                                           fps: 30,
                                           discontinous: discontinous[0])
         let highest = VideoSubscription.SimulreceiveItem(namespace: "1", image: highestImage)
-        
+
         let mediumBuffer = try testImage(width: 1280, height: 960)
         let mediumImage = AvailableImage(image: try .init(imageBuffer: mediumBuffer,
                                                           formatDescription: .init(imageBuffer: mediumBuffer),
@@ -37,7 +37,7 @@ final class TestVideoSubscription: XCTestCase {
                                         fps: 30,
                                         discontinous: discontinous[1])
         let medium = VideoSubscription.SimulreceiveItem(namespace: "2", image: mediumImage)
-        
+
         let lowerBuffer = try testImage(width: 1280, height: 960)
         let lowerImage = AvailableImage(image: try .init(imageBuffer: lowerBuffer,
                                                          formatDescription: .init(imageBuffer: lowerBuffer),
@@ -50,63 +50,94 @@ final class TestVideoSubscription: XCTestCase {
 
         return [highest, medium, lower]
     }
-    
+
     func testOnlyConsiderOldest() throws {
         // Only the subset of frames matching the oldest timestamp should be considered.
         let choices = try getQualities(discontinous: .init(repeating: false, count: 3),
                                        timing: [.init(value: 2, timescale: 1),
                                                 .init(value: 1, timescale: 1),
                                                 .init(value: 1, timescale: 1)])
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: choices)
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
-        XCTAssertEqual(result, choices[1])
+        switch result {
+        case .highestRes(let item, _):
+            XCTAssertEqual(item, choices[1])
+        default:
+            XCTFail()
+        }
+
     }
-    
+
     func testNothingGivesNothing() {
-        XCTAssertNil(VideoSubscription.makeSimulreceiveDecision(choices: []))
+        let choices: [VideoSubscription.SimulreceiveItem] = []
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        XCTAssertNil(VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices))
     }
-    
+
     func testOneReturnsItself() throws {
-        let choices = try getQualities(discontinous: .init(repeating: false, count: 3))
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: [choices[0]])
+        let all = try getQualities(discontinous: .init(repeating: false, count: 3))
+        let choices = [all[0]]
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
-        XCTAssertEqual(result, choices[0])
+        switch result {
+        case .onlyChoice(let item):
+            XCTAssertEqual(item, choices[0])
+        default:
+            XCTFail()
+        }
     }
-    
+
     func testHighestResolutionWhenAllPristine() throws {
         // When we have all available pristine images, highest quality should be picked.
         let choices = try getQualities(discontinous: .init(repeating: false, count: 3))
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: choices)
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
-        XCTAssertNotEqual(result, choices[1])
-        XCTAssertNotEqual(result, choices[2])
-        XCTAssertEqual(result, choices[0])
+        switch result {
+        case .highestRes(let item, let pristine):
+            XCTAssertNotEqual(item, choices[1])
+            XCTAssertNotEqual(item, choices[2])
+            XCTAssertEqual(item, choices[0])
+            XCTAssert(pristine)
+        default:
+            XCTFail()
+        }
     }
-    
+
     func testLowerPristineWhenHigherIsNot() throws {
         // When we have all available images, highest pristine should be picked.
         let choices = try getQualities(discontinous: [true, false, false])
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: choices)
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
-        XCTAssertNotEqual(result, choices[0])
-        XCTAssertNotEqual(result, choices[2])
-        XCTAssertEqual(result, choices[1])
+        switch result {
+        case .highestRes(let item, let pristine):
+            XCTAssertNotEqual(item, choices[0])
+            XCTAssertNotEqual(item, choices[2])
+            XCTAssertEqual(item, choices[1])
+            XCTAssert(pristine)
+        default:
+            XCTFail()
+        }
     }
-    
+
     func testAllDiscontinous() throws {
         // When we have all discontinous images, highest resolution should be picked.
         let choices = try getQualities(discontinous: .init(repeating: true, count: 3))
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: choices)
+        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
+        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
-        XCTAssertNotEqual(result, choices[1])
-        XCTAssertNotEqual(result, choices[2])
-        XCTAssertEqual(result, choices[0])
-    }
-}
-
-extension VideoSubscription.SimulreceiveItem: Equatable {
-    public static func == (lhs: VideoSubscription.SimulreceiveItem, rhs: VideoSubscription.SimulreceiveItem) -> Bool {
-        lhs.image == rhs.image && lhs.namespace == rhs.namespace
+        switch result {
+        case .highestRes(let item, let pristine):
+            XCTAssertFalse(pristine)
+            XCTAssertNotEqual(item, choices[1])
+            XCTAssertNotEqual(item, choices[2])
+            XCTAssertEqual(item, choices[0])
+        default:
+            XCTFail()
+        }
     }
 }
 

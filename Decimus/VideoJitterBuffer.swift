@@ -82,22 +82,25 @@ class VideoJitterBuffer {
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         self.metricsSubmitter = metricsSubmitter
-        if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoJitterBuffer._Measurement(namespace: namespace)
-            self.measurement = measurement
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
+        if metricsSubmitter != nil {
+            self.measurement = .init(namespace: namespace)
         } else {
-            measurement = nil
+            self.measurement = nil
         }
         self.minDepth = minDepth
         let minDepthCM = CMTime(value: CMTimeValue(minDepth), timescale: 1)
         self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
             self.play = true
         })
+
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
+            }
+        }
     }
-    
+
     deinit {
         if let measurement = self.measurement,
            let metricsSubmitter = self.metricsSubmitter {
@@ -107,7 +110,7 @@ class VideoJitterBuffer {
             }
         }
     }
-    
+
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
@@ -174,33 +177,6 @@ class VideoJitterBuffer {
             self.lastSequenceSet.store(true, ordering: .releasing)
         }
         return sample
-    }
-
-    /// Flush the jitter buffer until the target group is at the front, or there are no more frames left.
-    /// - Parameter targetGroup The group to flush frames up until.
-    func flushTo(targetGroup groupId: UInt32) {
-        var flushCount: UInt = 0
-        while let frame = self.buffer.head {
-            let thisGroupId = (frame as! DecimusVideoFrame).groupId
-            if thisGroupId < groupId {
-                guard let flushed = self.buffer.dequeue() else {
-                    break
-                }
-                if let sequenceNumber = (flushed as! DecimusVideoFrame).sequenceNumber {
-                    self.lastSequenceRead.store(sequenceNumber, ordering: .releasing)
-                    self.lastSequenceSet.store(true, ordering: .releasing)
-                }
-                flushCount += 1
-            }
-        }
-
-        if let measurement = self.measurement {
-            let now: Date = .now
-            let metric = flushCount
-            Task(priority: .utility) {
-                await measurement.flushed(count: metric, timestamp: now)
-            }
-        }
     }
 
     /// Get the CMBuffer at the front of the buffer without removing it.

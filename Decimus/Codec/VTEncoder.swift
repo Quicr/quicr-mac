@@ -72,6 +72,7 @@ class VTEncoder {
                                  value: kCFBooleanTrue)
         }
 
+        #if !os(tvOS)
         try OSStatusError.checked("Set Profile Level") {
             return switch config.codec {
             case .h264:
@@ -86,6 +87,7 @@ class VTEncoder {
                 1
             }
         }
+        #endif
 
         try OSStatusError.checked("Set allow frame reordering") {
             VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
@@ -224,7 +226,7 @@ class VTEncoder {
                             bufferAllocator: bufferAllocator)
 
         // Append Orientation SEI to buffer
-        #if !targetEnvironment(macCatalyst)
+        #if !targetEnvironment(macCatalyst) && !os(tvOS)
         do {
             try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
                                       verticalMirror: verticalMirror,
@@ -376,7 +378,7 @@ class VTEncoder {
         bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
     }
 
-    private func prependOrientationSEI(orientation: AVCaptureVideoOrientation,
+    private func prependOrientationSEI(orientation: DecimusVideoRotation,
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
         let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)

@@ -4,6 +4,13 @@ import os
 
 // swiftlint:disable type_body_length
 
+enum DecimusVideoRotation: UInt8 {
+    case portrait = 1
+    case portraitUpsideDown = 2
+    case landscapeRight = 3
+    case landscapeLeft = 4
+}
+
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
     private static let logger = DecimusLogger(VideoHandler.self)
@@ -28,21 +35,21 @@ class VideoHandler: CustomStringConvertible {
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    var orientation: AVCaptureVideoOrientation? {
+    var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
         return result == 0 ? nil : .init(rawValue: result)
     }
     var verticalMirror: Bool {
         atomicMirror.load(ordering: .acquiring)
     }
-    private var atomicOrientation = ManagedAtomic(0)
+    private var atomicOrientation = ManagedAtomic<UInt8>(0)
     private var atomicMirror = ManagedAtomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    private var lastDecodedImage: AvailableImage?
-    private let lastDecodedImageLock = OSAllocatedUnfairLock()
+    var lastDecodedImage: AvailableImage?
+    let lastDecodedImageLock = OSAllocatedUnfairLock()
     var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
@@ -127,24 +134,6 @@ class VideoHandler: CustomStringConvertible {
             }
         }
         self.dequeueTask?.cancel()
-    }
-
-    /// Get the last decoded image, if any.
-    /// - Returns Last decoded sample buffer, or nil if none available.
-    func getLastImage() -> AvailableImage? {
-        self.lastDecodedImageLock.withLock {
-            self.lastDecodedImage
-        }
-    }
-
-    /// Remove the last image if it matches the provided image. If there is a mismatch, it has already happened.
-    /// - Parameter sample The sample we are intending to remove.
-    func removeLastImage(frame: AvailableImage) {
-        self.lastDecodedImageLock.lock()
-        defer { self.lastDecodedImageLock.unlock() }
-        if frame.image == self.lastDecodedImage?.image {
-            self.lastDecodedImage = nil
-        }
     }
 
     // swiftlint:disable cyclomatic_complexity
@@ -377,24 +366,17 @@ class VideoHandler: CustomStringConvertible {
                                          objectId: objectId,
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
-        if gateResult {
-            self.lastGroup = groupId
-            self.lastObject = objectId
-        }
-
-        if !gateResult && self.videoBehaviour == .freeze {
-            // If we've thrown away a frame, we should flush to the next group.
-            let targetGroup = groupId + 1
-            if let jitterBuffer = self.jitterBuffer {
-                jitterBuffer.flushTo(targetGroup: targetGroup)
-            } else if self.jitterBufferConfig.mode == .layer {
-                flushDisplayLayer()
-            }
+        guard gateResult || self.videoBehaviour != .freeze else {
+            // If there's a discontinuity and we want to freeze, we're done.
             return
         }
 
-        // Mark samples as discontinous if there was a gap.
-        if !gateResult {
+        if gateResult {
+            // Update to track continuity.
+            self.lastGroup = groupId
+            self.lastObject = objectId
+        } else {
+            // Mark discontinous.
             for sample in sample.samples {
                 sample.discontinous = true
             }
@@ -417,7 +399,7 @@ class VideoHandler: CustomStringConvertible {
     }
 
     private func enqueueSample(sample: CMSampleBuffer,
-                               orientation: AVCaptureVideoOrientation?,
+                               orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
@@ -492,7 +474,7 @@ class VideoHandler: CustomStringConvertible {
     }
 }
 
-extension AVCaptureVideoOrientation {
+extension DecimusVideoRotation {
     func toTransform(_ verticalMirror: Bool) -> CATransform3D {
         var transform = CATransform3DIdentity
         switch self {

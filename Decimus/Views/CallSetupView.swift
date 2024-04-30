@@ -1,5 +1,6 @@
 import SwiftUI
 import os
+import AVKit
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
@@ -26,6 +27,7 @@ private struct LoginForm: View {
     @State private var isLoading: Bool = false
     @State private var isAllowedJoin: Bool = false
     @State private var meetings: [UInt32: String] = [:]
+    @State private var showContinuityDevicePicker: Bool = false
 
     @State private var callConfig = CallConfig(address: "",
                                                port: 0,
@@ -57,7 +59,7 @@ private struct LoginForm: View {
                                 }
                             }
                         })
-                        .onChange(of: meetings) { _ in
+                        .onChange(of: meetings) {
                             if meetings.count > 0 {
                                 if !meetings.keys.contains(UInt32(confId)) {
                                     confId = Int(meetings.keys.sorted()[0])
@@ -77,18 +79,27 @@ private struct LoginForm: View {
                 if email != "" {
                     VStack(alignment: .leading) {
                         if meetings.count > 0 {
-                            Text("Meeting")
-                                .padding(.horizontal)
-                                .foregroundColor(.white)
-                            Picker("", selection: $callConfig.conferenceID) {
-                                ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
-                                    Text(meeting).tag(id)
+                            HStack {
+                                Spacer()
+                                Text("Meeting")
+                                    .padding(.horizontal)
+                                    .foregroundColor(.white)
+                                Spacer()
+                            }
+                            HStack {
+                                Spacer()
+                                Picker("", selection: $callConfig.conferenceID) {
+                                    ForEach(meetings.sorted(by: <), id: \.key) { id, meeting in
+                                        Text(meeting).tag(id)
+                                    }
                                 }
+                                .pickerStyle(.menu)
+                                .onChange(of: callConfig.conferenceID) {
+                                    confId = Int(callConfig.conferenceID)
+                                }
+                                .labelsHidden()
+                                Spacer()
                             }
-                            .onChange(of: callConfig.conferenceID) { _ in
-                                confId = Int(callConfig.conferenceID)
-                            }
-                            .labelsHidden()
                         } else {
                             Text("No meetings")
                                 .padding(.horizontal)
@@ -101,21 +112,26 @@ private struct LoginForm: View {
                     }
                 }
                 if callConfig.conferenceID != 0 {
-                    ActionButton("Join Meeting",
-                                 font: Font.system(size: 19, weight: .semibold),
-                                 disabled: !isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0,
-                                 styleConfig: buttonColour,
-                                 action: join)
-                        .frame(maxWidth: .infinity)
-                        .font(Font.system(size: 19, weight: .semibold))
+                    HStack {
+                        Spacer()
+                        Button("Join Meeting", action: self.join)
+                            .disabled(!isAllowedJoin || callConfig.email == "" || callConfig.conferenceID == 0)
+                            .buttonStyle(.borderedProminent)
+                            .tint(.blue)
+                        Spacer()
+                    }
                 }
             }
             .listRowBackground(Color.clear)
+            #if !os(tvOS)
             .listRowSeparator(.hidden)
+            #endif
         }
         .background(.clear)
+        #if !os(tvOS)
         .scrollContentBackground(.hidden)
-        .frame(maxHeight: 450)
+        .frame(maxHeight: 480)
+        #endif
         .scrollDisabled(true)
         .onAppear {
             Task {
@@ -130,6 +146,16 @@ private struct LoginForm: View {
                 isAllowedJoin = true
             }
         }
+        #if os(tvOS)
+        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { _ in
+            print("Selected a device")
+        }
+        .task {
+            showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+                                       for: .video,
+                                       position: .unspecified) == nil
+        }
+        #endif
     }
 
     private func fetchManifest() async throws {
@@ -187,7 +213,9 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
+                    #if targetEnvironment(macCatalyst)
                         .frame(maxWidth: 350)
+                    #endif
 
                     NavigationLink(destination: SettingsView()) {
                         Label("", systemImage: "gearshape").font(.title)

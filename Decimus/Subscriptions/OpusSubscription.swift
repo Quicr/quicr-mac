@@ -34,11 +34,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         self.engine = engine
         self.metricsSubmitter = submitter
         if let submitter = submitter {
-            let measurement = OpusSubscription._Measurement(namespace: self.sourceId)
-            self.measurement = measurement
-            Task(priority: .utility) {
-                await submitter.register(measurement: measurement)
-            }
+            self.measurement = .init(namespace: self.sourceId)
         } else {
             self.measurement = nil
         }
@@ -70,6 +66,13 @@ class OpusSubscription: QSubscriptionDelegateObjC {
                     }
                 }
                 try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+            }
+        }
+
+        if let metricsSubmitter = self.metricsSubmitter,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await metricsSubmitter.register(measurement: measurement)
             }
         }
 

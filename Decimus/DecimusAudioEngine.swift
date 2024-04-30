@@ -77,9 +77,15 @@ class DecimusAudioEngine {
         let engine = AVAudioEngine()
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
+        let options: AVAudioSession.CategoryOptions
+        #if os(tvOS)
+        options = []
+        #else
+        options = [.defaultToSpeaker, .allowBluetooth, .mixWithOthers]
+        #endif
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,
-                                options: [.defaultToSpeaker, .allowBluetooth])
+                                options: options)
 
         // Check for I/O.
         let inputFormat = engine.inputNode.inputFormat(forBus: 0)
@@ -114,13 +120,13 @@ class DecimusAudioEngine {
 
         // Ducking.
         if self.inputNodePresent {
-#if compiler(>=5.9)
+            #if !os(tvOS)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, visionOS 1.0, *) {
-                let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: true,
+                let ducking: AVAudioVoiceProcessingOtherAudioDuckingConfiguration = .init(enableAdvancedDucking: false,
                                                                                           duckingLevel: .min)
                 engine.inputNode.voiceProcessingOtherAudioDuckingConfiguration = ducking
             }
-#endif
+            #endif
 
             // Capture microphone audio.
             let sink = AVAudioSinkNode { [weak blocks] timestamp, frames, data in
@@ -253,7 +259,8 @@ class DecimusAudioEngine {
         try session.setPreferredSampleRate(Self.format.sampleRate)
 
         // Inputs
-        if self.inputNodePresent {
+            if self.inputNodePresent,
+               Self.format.channelCount <= session.maximumInputNumberOfChannels {
             let preSetInput = session.inputNumberOfChannels
             try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
             let postSetInput = session.inputNumberOfChannels
@@ -261,7 +268,8 @@ class DecimusAudioEngine {
         }
 
         // Outputs
-        if self.outputNodePresent {
+        if self.outputNodePresent,
+           Self.format.channelCount <= session.maximumOutputNumberOfChannels {
             let preSetOutput = session.outputNumberOfChannels
             try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
             let postSetOutput = session.outputNumberOfChannels

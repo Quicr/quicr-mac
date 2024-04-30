@@ -48,10 +48,13 @@ static SubscriptionState const SubscriptionStatePaused = 3;
 @property (nonatomic, strong) SubDelegate subscriberDelegate;
 
 -(instancetype) initCallback:(CantinaLogCallback)callback;
--(int) connect: (NSString*)remoteAddress
+-(int) connect: (NSString*) endpointID
+                relay:(NSString*)remoteAddress
                 port:(UInt16)remotePort
                 protocol:(UInt8)protocol
-                config:(TransportConfig)config;
+                chunk_size:(UInt32)chunkSize
+                config:(TransportConfig)config
+                useParentLogger:(bool)useParentLogger;
 -(void) disconnect;
 -(bool) connected;
 -(void) updateManifest: (NSString*)manifest;

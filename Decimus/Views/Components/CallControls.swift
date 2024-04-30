@@ -53,7 +53,7 @@ struct CallControls: View {
                         styleConfig: deviceButtonStyleConfig,
                         action: { viewModel.toggleDevice(device: microphone) }) {
                         HStack {
-                            Image(systemName: microphone.deviceType == .builtInMicrophone ?
+                            Image(systemName: microphone.deviceType == .microphone ?
                                     "mic" : "speaker.wave.2")
                                 .renderingMode(.original)
                                 .foregroundColor(.gray)

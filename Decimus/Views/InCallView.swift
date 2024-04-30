@@ -21,11 +21,13 @@ struct InCallView: View {
 
     /// Callback when call is left.
     private let onLeave: () -> Void
+    #if !os(tvOS)
     private let orientationChanged = NotificationCenter
         .default
         .publisher(for: UIDevice.orientationDidChangeNotification)
         .makeConnectable()
         .autoconnect()
+    #endif
 
     init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
@@ -33,6 +35,7 @@ struct InCallView: View {
         _viewModel = .init(wrappedValue: .init(config: config))
     }
 
+    #if !os(tvOS)
     private var previewDrag: some Gesture {
         DragGesture()
             .onChanged {
@@ -41,6 +44,7 @@ struct InCallView: View {
                 self.showPreview = true
             }
     }
+    #endif
 
     var body: some View {
         ZStack {
@@ -78,6 +82,7 @@ struct InCallView: View {
                             }
                         }
                     }
+                    #if !os(tvOS)
                     .overlay {
                         // Preview / self-view.
                         // swiftlint:disable force_try
@@ -94,6 +99,7 @@ struct InCallView: View {
                         }
                         // swiftlint:enable:force_try
                     }
+                    #endif
                     .sheet(isPresented: $isShowingSubscriptions) {
                         if let controller = viewModel.controller {
                             SubscriptionPopover(controller: controller)
@@ -231,9 +237,6 @@ extension InCallView {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
                 self.measurement = .init()
-                Task(priority: .utility) {
-                    await submitter?.register(measurement: self.measurement!)
-                }
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
@@ -268,6 +271,13 @@ extension InCallView {
                     Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
                 }
             }
+
+            if let submitter = self.submitter,
+               let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await submitter.register(measurement: measurement)
+                }
+            }
         }
 
         deinit {
@@ -281,8 +291,10 @@ extension InCallView {
         }
 
         func connected() async -> Bool {
-            if let controller = self.controller,
-               !controller.connected() {
+            guard let controller = self.controller else {
+                return false
+            }
+            if !controller.connected() {
                 Self.logger.error("Connection to relay disconnected", alert: true)
                 return false
             }

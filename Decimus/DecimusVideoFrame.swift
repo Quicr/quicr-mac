@@ -6,15 +6,15 @@ class DecimusVideoFrame {
     let objectId: UInt16
     let sequenceNumber: UInt64?
     let fps: UInt8?
-    let orientation: AVCaptureVideoOrientation?
+    let orientation: DecimusVideoRotation?
     let verticalMirror: Bool?
-    
+
     init(samples: [CMSampleBuffer],
          groupId: UInt32,
          objectId: UInt16,
          sequenceNumber: UInt64?,
          fps: UInt8?,
-         orientation: AVCaptureVideoOrientation?,
+         orientation: DecimusVideoRotation?,
          verticalMirror: Bool?) {
         self.samples = samples
         self.groupId = groupId

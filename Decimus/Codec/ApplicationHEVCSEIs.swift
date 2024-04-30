@@ -11,30 +11,30 @@ class ApplicationHEVCSEIs: ApplicationSeiData {
             return 9
         }
     }
-    
+
     let orientationSei: [UInt8] = [
         // Start Code.
         0x00, 0x00, 0x00, 0x01,
-        
+
         // SEI NALU type,
         HEVCUtilities.HEVCTypes.sei.rawValue << 1, 0x00,
-        
+
         // Display orientation
         0x2f,
-        
+
         // Payload length.
         0x02,
-        
+
         // Orientation payload.
         0x00,
-        
+
         // Device position.
         0x00,
-        
+
         // Stop.
         0x80
     ]
-    
+
     func getTimestampOffset(_ field: TimestampSeiField) -> Int {
         switch field {
         case .type:
@@ -53,7 +53,7 @@ class ApplicationHEVCSEIs: ApplicationSeiData {
             return 45
         }
     }
-    
+
     let timestampSei: [UInt8] = [ // total 47
         // Start Code.
         0x00, 0x00, 0x00, 0x01, // 0x28 - size

@@ -2,8 +2,9 @@ import SwiftUI
 import AVFoundation
 
 struct SubscriptionSettingsView: View {
+    static let defaultsKey = "subscriptionConfig"
 
-    @AppStorage("subscriptionConfig")
+    @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @StateObject private var devices = VideoDevices()
@@ -62,6 +63,7 @@ struct SubscriptionSettingsView: View {
 
                 LabeledContent("Data rate limit (multiplier)") {
                     HStack {
+                        #if !os(tvOS)
                         Slider(value: $subscriptionConfig.value.limit1s,
                                in: 1.0...5.0,
                                step: 0.1) {
@@ -69,6 +71,7 @@ struct SubscriptionSettingsView: View {
                         }
                         Text(String(format: "%.1fx", subscriptionConfig.value.limit1s))
                             .foregroundColor(.blue)
+                        #endif
                     }
                 }
 
@@ -163,7 +166,12 @@ struct SubscriptionSettingsView: View {
         Section("Transport") {
             TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB,
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
-                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC)
+                                    chunkSize:
+                                        $subscriptionConfig.value.chunkSize,
+                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
+                                    UseBBR:
+                                        $subscriptionConfig.value.useBBR,
+                                    quicrLogs: $subscriptionConfig.value.quicrLogs)
         }
     }
 }

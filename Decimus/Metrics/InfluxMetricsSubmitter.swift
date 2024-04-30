@@ -23,7 +23,8 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         client = .init(url: config.url,
                        token: config.token,
                        options: .init(bucket: config.bucket,
-                                      org: config.org))
+                                      org: config.org,
+                                      enableGzip: true))
         self.tags = tags
     }
 

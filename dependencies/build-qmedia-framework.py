@@ -22,6 +22,8 @@ class PlatformType(Enum):
     CATALYST_X86 = 2
     IOS = 3
     IOS_SIMULATOR = 4
+    TVOS = 5
+    TVOS_SIMULATOR = 6
 
 
 def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
@@ -43,6 +45,8 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DPLATFORM={platform.cmake_platform}",
         "-DDEPLOYMENT_TARGET=16.0",
         "-DENABLE_VISIBILITY=ON",
+        "-DHAVE_H_ERRNO_ASSIGNABLE=0",
+        "-DENABLE_STRICT_TRY_COMPILE=ON",
         f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
         f"-DCMAKE_MODULE_PATH={current_directory}",
         f"-DBUILD_NUMBER={build_number}",
@@ -135,7 +139,9 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
         PlatformType.CATALYST_X86: Platform(PlatformType.CATALYST_X86, "MAC_CATALYST", f"build-catalyst-x86-{source_folder}"),
         PlatformType.IOS: Platform(PlatformType.IOS, "OS64", f"build-ios-{source_folder}"),
         PlatformType.IOS_SIMULATOR: Platform(
-            PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}")
+            PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}"),
+        PlatformType.TVOS: Platform(PlatformType.TVOS, "TVOS", f"build-tvos-{source_folder}"),
+        PlatformType.TVOS_SIMULATOR: Platform(PlatformType.TVOS_SIMULATOR, "SIMULATORARM64_TVOS", f"build-tvossim-{source_folder}"),
     }
 
     # Get dependencies directory (assuming this is where this script lives).
@@ -169,6 +175,8 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
                 platforms.append(PlatformType.IOS)
             elif "iphonesimulator" in args.effective_platform_name:
                 platforms.append(PlatformType.IOS_SIMULATOR)
+            elif "tvos" in args.effective_platform_name:
+                platforms.append(PlatformType.TVOS)
 
         if args.build_number:
             build_number = args.build_number

@@ -28,7 +28,7 @@ class ApplicationH264SEIs: ApplicationSeiData {
         // Stop bit
         0x80
     ]
-    
+
     func getTimestampOffset(_ field: TimestampSeiField) -> Int {
         switch field {
         case .type:

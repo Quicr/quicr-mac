@@ -63,11 +63,15 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      pacing_decrease_threshold_Bps: 16000,
                                                      pacing_increase_threshold_Bps: 16000,
                                                      idle_timeout_ms: 15000,
-                                                     use_reset_wait_strategy: self.config.useResetWaitCC)
-        let error = super.connect(config.address,
+                                                     use_reset_wait_strategy: self.config.useResetWaitCC,
+                                                     use_bbr: self.config.useBBR)
+        let error = super.connect(config.email,
+                                  relay: config.address,
                                   port: config.port,
                                   protocol: config.connectionProtocol.rawValue,
-                                  config: transportConfig)
+                                  chunk_size: self.config.chunkSize,
+                                  config: transportConfig,
+                                  useParentLogger: self.config.quicrLogs)
         guard error == .zero else {
             throw CallError.failedToConnect(error)
         }
