@@ -87,10 +87,20 @@ class DecimusAudioEngine {
                                 mode: .videoChat,
                                 options: options)
 
-        // Check for I/O.
-        let inputFormat = engine.inputNode.inputFormat(forBus: 0)
-        let inputNode = engine.inputNode
-        self.inputNodePresent = inputFormat.sampleRate > 0 && inputFormat.channelCount > 0
+        // Check for the presence of an input node without querying it.
+        if let availableInputs = session.availableInputs,
+           availableInputs.count > 0 {
+            // Should be safe to query input node now.
+            let inputFormat = engine.inputNode.inputFormat(forBus: 0)
+            let valid = inputFormat.sampleRate > 0 && inputFormat.channelCount > 0
+            guard valid else {
+                throw "Input exists w/ bad format. Aggregate device broken. Report this."
+            }
+            self.inputNodePresent = true
+        } else {
+            self.inputNodePresent = false
+        }
+
         if !self.inputNodePresent {
             Self.logger.warning("Couldn't find a microphone to use", alert: true)
         }
@@ -259,8 +269,8 @@ class DecimusAudioEngine {
         try session.setPreferredSampleRate(Self.format.sampleRate)
 
         // Inputs
-            if self.inputNodePresent,
-               Self.format.channelCount <= session.maximumInputNumberOfChannels {
+        if self.inputNodePresent,
+           Self.format.channelCount <= session.maximumInputNumberOfChannels {
             let preSetInput = session.inputNumberOfChannels
             try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
             let postSetInput = session.inputNumberOfChannels
