@@ -7,7 +7,7 @@ import os
 // swiftlint:disable type_body_length
 
 class VTEncoder {
-    typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
+    typealias EncodedCallback = (CMTime, UnsafeRawBufferPointer, Bool) -> Void
 
     private static let logger = DecimusLogger(VTEncoder.self)
 
@@ -302,7 +302,7 @@ class VTEncoder {
         if self.emitStartCodes {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
-        callback(fullEncodedBuffer, idr)
+        callback(sample.presentationTimeStamp, fullEncodedBuffer, idr)
     }
 
     /// Returns the parameter sets contained within the sample's format, if any.

@@ -161,21 +161,15 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                           groupId: groupId,
                                           objectId: objectId)
         let timestampSeconds = timestamp.seconds
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.reportTimestamp(namespace: name,
-                                                  timestamp: timestampSeconds,
-                                                  at: now)
-            }
-        }
-        
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestampSeconds
         }
-        
-        if var variances = self.variances[timestampSeconds]  {
+
+        // TODO: Flush incomplete previous when we get new timestamp.
+        let variance: TimeInterval?
+        if var variances = self.variances[timestampSeconds] {
             variances.append(now)
-            if variances.count == 2 {
+            if variances.count == self.profiles.count {
                 // We're done, report and remove.
                 var oldest = Date.distantFuture
                 var newest = Date.distantPast
@@ -183,12 +177,27 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                     oldest = min(oldest, date)
                     newest = max(newest, date)
                 }
-                let variance = newest.timeIntervalSince(oldest)
-                print("\(variance * 1000)ms")
+                variance = newest.timeIntervalSince(oldest)
                 self.variances.removeValue(forKey: timestampSeconds)
+            } else {
+                variance = nil
             }
+            self.variances[timestampSeconds] = variances
         } else {
             self.variances[timestampSeconds] = [now]
+            variance = nil
+        }
+
+        if self.granularMetrics,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.reportTimestamp(namespace: name,
+                                                  timestamp: timestampSeconds,
+                                                  at: now)
+                if let variance = variance {
+                    await measurement.reportVariance(variance: variance, at: now)
+                }
+            }
         }
 
         // If we're responsible for rendering, start the task.
@@ -521,7 +530,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         default:
             fatalError()
         }
-        
+
         guard let timestamp = timestamp else {
             assert(false)
             return .invalid

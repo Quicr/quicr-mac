@@ -38,5 +38,9 @@ extension VideoSubscription {
             let tags: [String: String] = ["namespace": namespace]
             record(field: "timestamp", value: timestamp as AnyObject, timestamp: at, tags: tags)
         }
+
+        func reportVariance(variance: TimeInterval, at: Date) {
+            record(field: "variance", value: variance as AnyObject, timestamp: at)
+        }
     }
 }
