@@ -88,6 +88,7 @@ class DecimusAudioEngine {
                                 options: options)
 
         // Check for the presence of an input node without querying it.
+        try session.setActive(true)
         if let availableInputs = session.availableInputs,
            availableInputs.count > 0 {
             // Should be safe to query input node now.
