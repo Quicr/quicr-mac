@@ -24,7 +24,7 @@ class VideoJitterBuffer {
     private static let logger = DecimusLogger(VideoJitterBuffer.self)
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
-    private let measurement: _Measurement?
+    private let measurement: VideoJitterBufferMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
     private var play: Bool = false
     private var playToken: CMBufferQueueTriggerToken?

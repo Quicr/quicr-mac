@@ -50,7 +50,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
     private var observer: NSObjectProtocol?
-    private let measurement: _Measurement?
+    private let measurement: CaptureManagerMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
@@ -64,7 +64,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         self.granularMetrics = granularMetrics
         self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = CaptureManager._Measurement()
+            let measurement = CaptureManager.CaptureManagerMeasurement()
             self.measurement = measurement
             Task(priority: .utility) {
                 await metricsSubmitter.register(measurement: measurement)

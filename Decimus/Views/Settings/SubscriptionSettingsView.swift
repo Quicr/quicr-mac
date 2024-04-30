@@ -168,8 +168,8 @@ struct SubscriptionSettingsView: View {
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
                                     chunkSize:
                                         $subscriptionConfig.value.chunkSize,
-                                    UseResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
-                                    UseBBR:
+                                    useResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
+                                    useBBR:
                                         $subscriptionConfig.value.useBBR,
                                     quicrLogs: $subscriptionConfig.value.quicrLogs)
         }

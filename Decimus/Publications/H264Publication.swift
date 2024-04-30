@@ -9,7 +9,7 @@ enum H264PublicationError: Error {
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private static let logger = DecimusLogger(H264Publication.self)
 
-    private let measurement: _Measurement?
+    private let measurement: VideoPublicationMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
 
     let namespace: QuicrNamespace

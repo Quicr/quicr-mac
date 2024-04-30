@@ -22,14 +22,14 @@ class OpusHandler {
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
     private var jitterBuffer: QJitterBuffer
-    private let measurement: OpusSubscription._Measurement?
+    private let measurement: OpusSubscription.OpusSubscriptionMeasurement?
     private var underrun = ManagedAtomic<UInt64>(0)
     private var callbacks = ManagedAtomic<UInt64>(0)
     private let granularMetrics: Bool
 
     init(sourceId: SourceIDType,
          engine: DecimusAudioEngine,
-         measurement: OpusSubscription._Measurement?,
+         measurement: OpusSubscription.OpusSubscriptionMeasurement?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,

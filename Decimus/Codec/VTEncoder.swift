@@ -23,7 +23,11 @@ class VTEncoder {
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
-    init(config: VideoCodecConfig, verticalMirror: Bool, callback: @escaping EncodedCallback, emitStartCodes: Bool = false) throws {
+    // swiftlint:disable function_body_length
+    init(config: VideoCodecConfig,
+         verticalMirror: Bool,
+         callback: @escaping EncodedCallback,
+         emitStartCodes: Bool = false) throws {
         self.verticalMirror = verticalMirror
         self.callback = callback
         self.config = config
@@ -81,7 +85,7 @@ class VTEncoder {
                                      value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
             case .hevc:
                 VTSessionSetProperty(encoder,
-                                     key: kVTCompressionPropertyKey_ProfileLevel,
+                                     key: kVTCompressionPropertyKey_ProfileLevel    ,
                                      value: kVTProfileLevel_HEVC_Main_AutoLevel)
             default:
                 1
@@ -156,6 +160,7 @@ class VTEncoder {
             VTCompressionSessionPrepareToEncodeFrames(encoder)
         }
     }
+    // swiftlint:enable function_body_length
 
     deinit {
         // Sync flush all pending frames.
@@ -281,15 +286,20 @@ class VTEncoder {
         if self.emitStartCodes {
             // Replace buffer data with start code.
             while offset < buffer.dataLength - startCode.count {
-                try! buffer.withUnsafeMutableBytes(atOffset: offset) {
-                    // Get the length.
-                    let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
-
-                    // Replace with start code.
-                    $0.copyBytes(from: self.startCode)
-
-                    // Move to next NALU.
-                    offset += startCode.count + Int(naluLength)
+                do {
+                    try buffer.withUnsafeMutableBytes(atOffset: offset) {
+                        // Get the length.
+                        let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
+                        
+                        // Replace with start code.
+                        $0.copyBytes(from: self.startCode)
+                        
+                        // Move to next NALU.
+                        offset += startCode.count + Int(naluLength)
+                    }
+                } catch {
+                    Self.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
+                    return
                 }
             }
         }

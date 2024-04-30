@@ -1,7 +1,14 @@
 import CoreMedia
 
 extension VideoSubscription {
-    actor _Measurement: Measurement {
+    struct SimulreceiveChoiceReport {
+        let item: SimulreceiveItem
+        let selected: Bool
+        let reason: String
+        let displayed: Bool
+    }
+
+    actor VideoSubscriptionMeasurement: Measurement {
         let id = UUID()
         var name: String = "VideoSubscription"
         var fields: Fields = [:]
@@ -9,13 +16,6 @@ extension VideoSubscription {
 
         init(source: SourceIDType) {
             tags["sourceId"] = source
-        }
-
-        struct SimulreceiveChoiceReport {
-            let item: SimulreceiveItem
-            let selected: Bool
-            let reason: String
-            let displayed: Bool
         }
 
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) {
