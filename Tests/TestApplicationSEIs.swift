@@ -10,7 +10,7 @@ final class TestApplicationSEIs: XCTestCase {
         testGetTimestampBytes(startCode: true, seiData: ApplicationHEVCSEIs())
         testGetTimestampBytes(startCode: false, seiData: ApplicationHEVCSEIs())
     }
-    
+
     func testGetTimestampBytes(startCode: Bool, seiData: ApplicationSeiData) {
         let time = CMTime(seconds: 1234, preferredTimescale: 5678)
         let timestampSei = TimestampSei(timestamp: time, sequenceNumber: 1, fps: 30)
@@ -25,14 +25,14 @@ final class TestApplicationSEIs: XCTestCase {
             }
         }
     }
-    
+
     func testGetOrientationBytes() {
         testGetOrientationBytes(startCode: true, seiData: ApplicationH264SEIs())
         testGetOrientationBytes(startCode: false, seiData: ApplicationH264SEIs())
         testGetOrientationBytes(startCode: true, seiData: ApplicationHEVCSEIs())
         testGetOrientationBytes(startCode: false, seiData: ApplicationHEVCSEIs())
     }
-    
+
     func testGetOrientationBytes(startCode: Bool, seiData: ApplicationSeiData) {
         let orientationSei = OrientationSei(orientation: .portrait, verticalMirror: false)
         let bytes = orientationSei.getBytes(seiData, startCode: startCode)

@@ -147,7 +147,7 @@ private struct LoginForm: View {
             }
         }
         #if os(tvOS)
-        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { device in
+        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { _ in
             print("Selected a device")
         }
         .task {

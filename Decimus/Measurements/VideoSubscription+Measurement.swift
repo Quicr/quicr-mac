@@ -10,14 +10,14 @@ extension VideoSubscription {
         init(source: SourceIDType) {
             tags["sourceId"] = source
         }
-        
+
         struct SimulreceiveChoiceReport {
             let item: SimulreceiveItem
             let selected: Bool
             let reason: String
             let displayed: Bool
         }
-        
+
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) {
             var offset: TimeInterval = 0
             for choice in choices {
