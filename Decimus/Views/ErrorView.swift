@@ -5,9 +5,9 @@ private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
     case .error, .critical:
         return .red
     case .warning:
-        return .yellow
-    case .debug:
         return .orange
+    case .debug:
+        return .pink
     default:
         return .blue
     }

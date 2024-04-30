@@ -2,8 +2,15 @@ import Foundation
 import AVFoundation
 import os
 
-enum H264PublicationError: Error {
+enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)
+
+    public var errorDescription: String? {
+        switch self {
+        case .noCamera(_):
+            return "No camera available"
+        }
+    }
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
