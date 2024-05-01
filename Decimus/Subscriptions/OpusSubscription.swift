@@ -7,7 +7,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
     let sourceId: SourceIDType
     private let engine: DecimusAudioEngine
-    private let measurement: _Measurement?
+    private let measurement: OpusSubscriptionMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
     private let reliable: Bool
     private let granularMetrics: Bool

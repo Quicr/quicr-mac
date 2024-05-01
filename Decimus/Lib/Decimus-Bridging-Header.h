@@ -5,6 +5,7 @@
 #import "Qmedia/QControllerGWObjC.h"
 #import "Jitter/QJitterBuffer.h"
 #import "EncodedBuffer/EncodedFrameBufferAllocator.h"
+#import "Utilities/SwiftInterop.h"
 
 #endif
 

@@ -13,7 +13,7 @@ class OpusPublication: Publication {
 
     private let encoder: LibOpusEncoder
     private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
-    private let measurement: _Measurement?
+    private let measurement: OpusPublicationMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool

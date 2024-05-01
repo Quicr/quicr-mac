@@ -19,12 +19,12 @@ struct SubscriptionPopover: View {
             self.controller = controller
         }
 
-        func fetch() {
+        func fetch() throws {
             var results: [SwitchingSet] = []
-            let sets = self.controller.fetchSwitchingSets()
+            let sets = try self.controller.fetchSwitchingSets()
             for set in sets {
                 var subscriptions: [Subscription] = []
-                let subscriptionNamespaces = self.controller.fetchSubscriptions(sourceId: set)
+                let subscriptionNamespaces = try self.controller.fetchSubscriptions(sourceId: set)
                 for namespace in subscriptionNamespaces {
                     let state = self.controller.getSubscriptionState(namespace)
                     subscriptions.append(.init(namespace: namespace, state: state))
@@ -39,6 +39,7 @@ struct SubscriptionPopover: View {
     @State private var manifest: Manifest?
     @State private var toggleStates: [QuicrNamespace: Bool] = [:]
     private let controller: CallController
+    private let logger = DecimusLogger(SubscriptionPopover.self)
 
     init(controller: CallController) {
         self.controller = controller
@@ -54,16 +55,20 @@ struct SubscriptionPopover: View {
     }
 
     private func makeSubscribeStateBinding(_ namespace: QuicrNamespace) -> Binding<Bool> {
-           return .init(
-               get: { self.toggleStates[namespace, default: false] },
-               set: { self.toggleStates[namespace] = $0 })
-       }
+        return .init(
+            get: { self.toggleStates[namespace, default: false] },
+            set: { self.toggleStates[namespace] = $0 })
+    }
 
     var body: some View {
         Text("Alter Subscriptions")
             .font(.title)
             .onAppear {
-                self.switchingSets.fetch()
+                do {
+                    try self.switchingSets.fetch()
+                } catch {
+                    self.logger.error("Failed to fetch switching sets: \(error.localizedDescription)", alert: true)
+                }
                 self.updateToggles()
             }
             .padding()

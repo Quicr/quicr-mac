@@ -2,14 +2,21 @@ import Foundation
 import AVFoundation
 import os
 
-enum H264PublicationError: Error {
+enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)
+
+    public var errorDescription: String? {
+        switch self {
+        case .noCamera:
+            return "No camera available"
+        }
+    }
 }
 
 class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     private static let logger = DecimusLogger(H264Publication.self)
 
-    private let measurement: _Measurement?
+    private let measurement: VideoPublicationMeasurement?
     private let metricsSubmitter: MetricsSubmitter?
 
     let namespace: QuicrNamespace

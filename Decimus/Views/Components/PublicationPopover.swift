@@ -9,8 +9,8 @@ struct PublicationPopover: View {
             self.controller = controller
         }
 
-        func fetch() {
-            self.publications = self.controller.fetchPublications()
+        func fetch() throws {
+            self.publications = try self.controller.fetchPublications()
         }
     }
 
@@ -18,6 +18,7 @@ struct PublicationPopover: View {
     @State private var manifest: Manifest?
     @State private var toggleStates: [QuicrNamespace: Bool] = [:]
     private let controller: CallController
+    private let logger = DecimusLogger(PublicationPopover.self)
 
     init(controller: CallController) {
         self.controller = controller
@@ -31,16 +32,20 @@ struct PublicationPopover: View {
     }
 
     private func makePublishStateBinding(_ namespace: QuicrNamespace) -> Binding<Bool> {
-           return .init(
-               get: { self.toggleStates[namespace, default: false] },
-               set: { self.toggleStates[namespace] = $0 })
-       }
+        return .init(
+            get: { self.toggleStates[namespace, default: false] },
+            set: { self.toggleStates[namespace] = $0 })
+    }
 
     var body: some View {
         Text("Alter Publications")
             .font(.title)
             .onAppear {
-                self.publications.fetch()
+                do {
+                    try self.publications.fetch()
+                } catch {
+                    self.logger.error("Failed to fetch publications: \(error.localizedDescription)", alert: true)
+                }
                 self.updateToggles()
             }
             .padding()

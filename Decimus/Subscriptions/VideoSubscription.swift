@@ -14,6 +14,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
+// swiftlint:disable type_body_length
 class VideoSubscription: QSubscriptionDelegateObjC {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
@@ -45,7 +46,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
-    private let measurement: _Measurement?
+    private let measurement: VideoSubscriptionMeasurement?
     private var variances: [TimeInterval: [Date]] = [:]
 
     init(sourceId: SourceIDType,
@@ -120,7 +121,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         self.participants.removeParticipant(identifier: self.sourceId)
                     }
                 }
-                try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+                try? await Task.sleep(for: .seconds(self.cleanupTimer),
+                                      tolerance: .seconds(self.cleanupTimer),
+                                      clock: .continuous)
             }
         }
 
@@ -152,52 +155,39 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.noDecoder.rawValue
     }
 
-    func subscribedObject(_ name: String!, data: UnsafeRawPointer!, length: Int, groupId: UInt32, objectId: UInt16) -> Int32 {
+    func subscribedObject(_ name: String!,
+                          data: UnsafeRawPointer!,
+                          length: Int,
+                          groupId: UInt32,
+                          objectId: UInt16) -> Int32 {
         let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        let timestamp = self.getTimestamp(data: zeroCopiedData,
-                                          namespace: name,
-                                          groupId: groupId,
-                                          objectId: objectId)
-        let timestampSeconds = timestamp.seconds
-        if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestampSeconds
-        }
-
-        // TODO: Flush incomplete previous when we get new timestamp.
-        let variance: TimeInterval?
-        if var variances = self.variances[timestampSeconds] {
-            variances.append(now)
-            if variances.count == self.profiles.count {
-                // We're done, report and remove.
-                var oldest = Date.distantFuture
-                var newest = Date.distantPast
-                for date in variances {
-                    oldest = min(oldest, date)
-                    newest = max(newest, date)
-                }
-                variance = newest.timeIntervalSince(oldest)
-                self.variances.removeValue(forKey: timestampSeconds)
-            } else {
-                variance = nil
+        do {
+            let timestamp = try self.getTimestamp(data: zeroCopiedData,
+                                                  namespace: name,
+                                                  groupId: groupId,
+                                                  objectId: objectId)
+            let timestampSeconds = timestamp.seconds
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestampSeconds
             }
-            self.variances[timestampSeconds] = variances
-        } else {
-            self.variances[timestampSeconds] = [now]
-            variance = nil
-        }
 
-        if self.granularMetrics,
-           let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.reportTimestamp(namespace: name,
-                                                  timestamp: timestampSeconds,
-                                                  at: now)
-                if let variance = variance {
-                    await measurement.reportVariance(variance: variance, at: now)
+            let variance = calculateSetVariance(timestamp: timestampSeconds, now: now)
+
+            if self.granularMetrics,
+               let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await measurement.reportTimestamp(namespace: name,
+                                                      timestamp: timestampSeconds,
+                                                      at: now)
+                    if let variance = variance {
+                        await measurement.reportVariance(variance: variance, at: now)
+                    }
                 }
             }
+        } catch {
+            Self.logger.warning("Missing timestamp: \(error.localizedDescription)")
         }
 
         // If we're responsible for rendering, start the task.
@@ -225,6 +215,30 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         return SubscriptionError.none.rawValue
     }
 
+    private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
+        // TODO: Flush incomplete previous when we get new timestamp.
+        guard var variances = self.variances[timestamp] else {
+            self.variances[timestamp] = [now]
+            return nil
+        }
+
+        variances.append(now)
+        guard variances.count == self.profiles.count else {
+            self.variances[timestamp] = variances
+            return nil
+        }
+
+        // We're done, report and remove.
+        self.variances.removeValue(forKey: timestamp)
+        var oldest = Date.distantFuture
+        var newest = Date.distantPast
+        for date in variances {
+            oldest = min(oldest, date)
+            newest = max(newest, date)
+        }
+        return newest.timeIntervalSince(oldest)
+    }
+
     private func startRenderTask() {
         self.renderTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
@@ -234,7 +248,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         self.renderTask?.cancel()
                         return TimeInterval.nan
                     }
-                    return try! self.makeSimulreceiveDecision()
+                    do {
+                        return try self.makeSimulreceiveDecision()
+                    } catch {
+                        Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+                        self.renderTask?.cancel()
+                        return TimeInterval.nan
+                    }
                 }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
@@ -300,6 +320,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     // Caller must lock handlerLock.
+    // swiftlint:disable cyclomatic_complexity
+    // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision() throws -> TimeInterval {
         guard !self.videoHandlers.isEmpty else {
             throw "No handlers"
@@ -355,10 +377,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         switch decision {
         case .highestRes(let out, _):
             selected = out
-            break
         case .onlyChoice(let out):
             selected = out
-            break
         }
         let selectedSample = selected.image.image
 
@@ -407,7 +427,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
         if let measurement = self.measurement,
            self.granularMetrics {
-            var report: [VideoSubscription._Measurement.SimulreceiveChoiceReport] = []
+            var report: [VideoSubscription.SimulreceiveChoiceReport] = []
             for choice in choices {
                 switch decision {
                 case .highestRes(let item, let pristine):
@@ -501,16 +521,21 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let highestFps = self.videoHandlers.values.reduce(0) { $0 > $1.config.fps ? $0 : $1.config.fps }
         return 1 / TimeInterval(highestFps)
     }
+    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable function_body_length
 
     // TODO: Clean this up.
-    private func getTimestamp(data: Data, namespace: QuicrNamespace, groupId: UInt32, objectId: UInt16) -> CMTime {
+    private func getTimestamp(data: Data,
+                              namespace: QuicrNamespace,
+                              groupId: UInt32,
+                              objectId: UInt16) throws -> CMTime {
         // Save starting time.
         var format: CMFormatDescription?
         let config = self.profiles[namespace]
         var timestamp: CMTime?
         switch config?.codec {
         case .h264:
-            _ = try! H264Utilities.depacketize(data, format: &format, copy: false) {
+            _ = try H264Utilities.depacketize(data, format: &format, copy: false) {
                 guard timestamp == nil else { return }
                 do {
                     timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationH264SEIs())?.timestamp
@@ -519,7 +544,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
             }
         case .hevc:
-            _ = try! HEVCUtilities.depacketize(data, format: &format, copy: false) {
+            _ = try HEVCUtilities.depacketize(data, format: &format, copy: false) {
                 guard timestamp == nil else { return }
                 do {
                     timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationHEVCSEIs())?.timestamp
@@ -538,3 +563,4 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         return timestamp
     }
 }
+// swiftlint:enable type_body_length
