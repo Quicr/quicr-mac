@@ -18,12 +18,23 @@ enum TimestampSeiField {
     case fps
 }
 
+enum AgeSeiField {
+    case type
+    case size
+    case id
+    case timeValue
+    case timeScale
+}
+
 protocol ApplicationSeiData {
     var orientationSei: [UInt8] { get }
     func getOrientationOffset(_ field: OrientationSeiField) -> Int
 
     var timestampSei: [UInt8] { get }
     func getTimestampOffset(_ field: TimestampSeiField) -> Int
+
+    var ageSei: [UInt8] { get }
+    func getAgeOffset(_ field: AgeSeiField) -> Int
 }
 
 enum SeiParseError: Error {
@@ -157,9 +168,62 @@ struct TimestampSei {
     }
 }
 
+struct AgeSei {
+    let timestamp: CMTime
+
+    init(timestamp: CMTime) {
+        self.timestamp = timestamp
+    }
+
+    init(encoded: Data, data: ApplicationSeiData) throws {
+        let idOffset = data.getAgeOffset(.id)
+        guard encoded.count == data.ageSei.count,
+              encoded[idOffset] == data.ageSei[idOffset] else {
+            throw SeiParseError.mismatch
+        }
+
+        var timeValue: Int64?
+        var timeScale: Int32?
+        encoded.withUnsafeBytes {
+            timeValue = $0.loadUnaligned(fromByteOffset: data.getAgeOffset(.timeValue), as: Int64.self).byteSwapped
+            timeScale = $0.loadUnaligned(fromByteOffset: data.getAgeOffset(.timeScale), as: Int32.self).byteSwapped
+        }
+        guard let timeValue = timeValue,
+              let timeScale = timeScale else {
+            throw SeiParseError.parseFailure("Timestamp")
+        }
+        self.timestamp = CMTimeMake(value: timeValue, timescale: timeScale)
+    }
+
+    func getBytes(_ data: ApplicationSeiData, startCode: Bool) -> Data {
+        var bytes = Data(data.ageSei)
+        let networkTimeValue = self.timestamp.value.bigEndian
+        let networkTimeScale = self.timestamp.timescale.bigEndian
+        bytes.withUnsafeMutableBytes {
+            if !startCode {
+                $0.storeBytes(of: UInt32(data.ageSei.count - H264Utilities.naluStartCode.count).byteSwapped, as: UInt32.self)
+            }
+            $0.storeBytes(of: networkTimeValue, toByteOffset: data.getTimestampOffset(.timeValue), as: Int64.self)
+            $0.storeBytes(of: networkTimeScale, toByteOffset: data.getTimestampOffset(.timeScale), as: Int32.self)
+        }
+        return bytes
+    }
+
+    static func parse(encoded: Data, data: ApplicationSeiData) throws -> AgeSei? {
+        do {
+            return try .init(encoded: encoded, data: data)
+        } catch SeiParseError.mismatch {
+            return nil
+        } catch {
+            throw error
+        }
+    }
+}
+
 struct ApplicationSEI {
     let timestamp: TimestampSei?
     let orientation: OrientationSei?
+    let age: AgeSei?
 }
 
 class ApplicationSeiParser {
@@ -172,9 +236,10 @@ class ApplicationSeiParser {
     func parse(encoded: Data) throws -> ApplicationSEI? {
         let timestamp = try TimestampSei.parse(encoded: encoded, data: self.data)
         let orientation = try OrientationSei.parse(encoded: encoded, data: self.data)
-        if timestamp == nil && orientation == nil {
+        let age = try AgeSei.parse(encoded: encoded, data: self.data)
+        if timestamp == nil && orientation == nil && age == nil {
             return nil
         }
-        return .init(timestamp: timestamp, orientation: orientation)
+        return .init(timestamp: timestamp, orientation: orientation, age: age)
     }
 }

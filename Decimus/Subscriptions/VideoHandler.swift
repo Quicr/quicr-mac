@@ -219,23 +219,30 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Either write the frame to the jitter buffer or otherwise decode it.
+        let captureDate: Date?
         if let jitterBuffer = self.jitterBuffer {
             if frame == nil {
                 frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
             }
             if let frame = frame {
+                captureDate = frame.captureDate
                 do {
                     try jitterBuffer.write(videoFrame: frame)
                 } catch {
                     Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
                 }
+            } else {
+                captureDate = nil
             }
         } else {
             if let frame = try depacketize(data,
                                            groupId: groupId,
                                            objectId: objectId,
                                            copy: self.jitterBufferConfig.mode == .layer) {
+                captureDate = frame.captureDate
                 try decode(sample: frame)
+            } else {
+                captureDate = nil
             }
         }
 
@@ -243,6 +250,11 @@ class VideoHandler: CustomStringConvertible {
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
             Task(priority: .utility) {
+                if let captureDate = captureDate,
+                   let now = now {
+                    let age = now.timeIntervalSince(captureDate)
+                    await measurement.age(age: age, timestamp: now)
+                }
                 await measurement.receivedFrame(timestamp: now, idr: objectId == 0)
                 await measurement.receivedBytes(received: data.count, timestamp: now)
             }
@@ -298,10 +310,11 @@ class VideoHandler: CustomStringConvertible {
         if seis.count == 0 {
             sei = nil
         } else {
-            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil)) { result, next in
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
                 let timestamp = next.timestamp ?? result.timestamp
                 let orientation = next.orientation ?? result.orientation
-                return .init(timestamp: timestamp, orientation: orientation)
+                let age = next.age ?? result.age
+                return .init(timestamp: timestamp, orientation: orientation, age: age)
             }
         }
 
@@ -348,13 +361,21 @@ class VideoHandler: CustomStringConvertible {
             }
         }
 
+        let captureDate: Date?
+        if let age = sei?.age {
+            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
+        } else {
+            captureDate = nil
+        }
+
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
                      sequenceNumber: sei?.timestamp?.sequenceNumber,
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror)
+                     verticalMirror: sei?.orientation?.verticalMirror,
+                     captureDate: captureDate)
     }
 
     private func decode(sample: DecimusVideoFrame) throws {

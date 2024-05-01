@@ -15,13 +15,15 @@ extension H264Publication {
             tags["namespace"] = namespace
         }
 
-        func sentFrame(bytes: UInt64, timestamp: TimeInterval, at: Date?) {
+        func sentFrame(bytes: UInt64, timestamp: TimeInterval, age: TimeInterval?, metricsTimestamp: Date?) {
             self.publishedFrames += 1
             self.bytes += bytes
-            record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: at)
-            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: at)
-            if let at = at {
-                record(field: "timestamp", value: timestamp as AnyObject, timestamp: at)
+            record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: metricsTimestamp)
+            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: metricsTimestamp)
+            if let metricsTimestamp = metricsTimestamp {
+                record(field: "timestamp", value: timestamp as AnyObject, timestamp: metricsTimestamp)
+                assert(age != nil)
+                record(field: "publishedAge", value: age as AnyObject, timestamp: metricsTimestamp)
             }
         }
 
@@ -38,6 +40,11 @@ extension H264Publication {
         func capturedFrame(timestamp: Date?) {
             self.capturedFrames += 1
             record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
+        }
+
+        func age(age: TimeInterval, presentationTimestamp: TimeInterval, metricsTimestamp: Date) {
+            let tags = ["timestamp": "\(presentationTimestamp)"]
+            record(field: "age", value: age as AnyObject, timestamp: metricsTimestamp, tags: tags)
         }
     }
 }

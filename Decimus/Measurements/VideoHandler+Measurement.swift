@@ -21,6 +21,10 @@ extension VideoHandler {
                    tags: ["idr": "\(idr)"])
         }
 
+        func age(age: TimeInterval, timestamp: Date) {
+            record(field: "age", value: age as AnyObject, timestamp: timestamp)
+        }
+
         func decodedFrame(timestamp: Date?) {
             self.decoded += 1
             record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)

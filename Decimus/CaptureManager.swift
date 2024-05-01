@@ -333,6 +333,13 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
 
+        let time = CMTime(seconds: now.timeIntervalSinceReferenceDate, preferredTimescale: 30000)
+        do {
+            try sampleBuffer.setOutputPresentationTimeStamp(time)
+        } catch {
+            Self.logger.warning("Failed to set output presentation timestamp: \(error.localizedDescription)")
+        }
+
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {

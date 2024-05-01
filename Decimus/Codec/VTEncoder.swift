@@ -7,7 +7,7 @@ import os
 // swiftlint:disable type_body_length
 
 class VTEncoder {
-    typealias EncodedCallback = (CMTime, UnsafeRawBufferPointer, Bool) -> Void
+    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool) -> Void
 
     private static let logger = DecimusLogger(VTEncoder.self)
 
@@ -20,6 +20,8 @@ class VTEncoder {
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
+    private var ageLookup: [CMTime: CMTime] = [:]
+    private let lock = OSAllocatedUnfairLock()
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -176,6 +178,10 @@ class VTEncoder {
     func write(sample: CMSampleBuffer) throws {
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
+        let output = CMSampleBufferGetOutputPresentationTimeStamp(sample)
+        self.lock.withLock {
+            self.ageLookup[timestamp] = output
+        }
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(self.encoder,
                                             imageBuffer: imageBuffer,
@@ -187,6 +193,7 @@ class VTEncoder {
         }
     }
 
+    // swiftlint:disable function_body_length
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
@@ -225,10 +232,22 @@ class VTEncoder {
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
         let fps = UInt8(self.frameRate ?? Float64(self.config.fps))
-        prependTimestampSEI(timestamp: sample.presentationTimeStamp,
+        let timestamp = sample.presentationTimeStamp
+        prependTimestampSEI(timestamp: timestamp,
                             sequenceNumber: self.sequenceNumber,
                             fps: fps,
                             bufferAllocator: bufferAllocator)
+
+        // Append age related timestamp.
+        let captureTime = self.lock.withLock {
+            if let time = self.ageLookup[timestamp] {
+                return time
+            } else {
+                return .invalid
+            }
+        }
+        prependAgeSEI(timestamp: captureTime,
+                      bufferAllocator: bufferAllocator)
 
         // Append Orientation SEI to buffer
         #if !targetEnvironment(macCatalyst) && !os(tvOS)
@@ -312,8 +331,9 @@ class VTEncoder {
         if self.emitStartCodes {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
-        callback(sample.presentationTimeStamp, fullEncodedBuffer, idr)
+        callback(timestamp, captureTime, fullEncodedBuffer, idr)
     }
+    // swiftlint:enable function_body_length
 
     /// Returns the parameter sets contained within the sample's format, if any.
     /// - Parameter sample The sample to extract parameter sets from.
@@ -381,6 +401,18 @@ class VTEncoder {
         let bytes = TimestampSei(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps).getBytes(self.seiData, startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
+            return
+        }
+
+        // Copy to buffer.
+        bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
+    }
+
+    private func prependAgeSEI(timestamp: CMTime,
+                               bufferAllocator: BufferAllocator) {
+        let bytes = AgeSei(timestamp: timestamp).getBytes(self.seiData, startCode: self.emitStartCodes)
+        guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
+            Self.logger.error("Couldn't allocate age buffer")
             return
         }
 
