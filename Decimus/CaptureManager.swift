@@ -242,11 +242,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
-#if !os(tvOS)
+        #if !os(tvOS)
         if listener.device.deviceType == .builtInMicrophone {
             throw CaptureManagerError.noAudio
         }
-#endif
+        #endif
 
         try addCamera(listener: listener)
     }
@@ -325,9 +325,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.startTime.removeValue(forKey: output)
         }
 
+        let timestamp = sampleBuffer.presentationTimeStamp.seconds
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.capturedFrame(timestamp: self.granularMetrics ? now : nil)
+                await measurement.capturedFrame(frameTimestamp: timestamp,
+                                                metricsTimestamp: self.granularMetrics ? now : nil)
             }
         }
 

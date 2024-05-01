@@ -30,5 +30,9 @@ extension VideoHandler {
             self.bytes += UInt64(received)
             record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
         }
+
+        func enqueuedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date) {
+            record(field: "enqueueTimestamp", value: frameTimestamp as AnyObject, timestamp: metricsTimestamp)
+        }
     }
 }
