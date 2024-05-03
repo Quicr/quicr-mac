@@ -7,6 +7,10 @@ import os
 // swiftlint:disable type_body_length
 
 class VTEncoder {
+    enum VTEncoderError: Error {
+        case unsupportedCodec(CodecType)
+    }
+
     typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool) -> Void
 
     private static let logger = DecimusLogger(VTEncoder.self)
@@ -14,22 +18,34 @@ class VTEncoder {
     var frameRate: Float64?
     private let callback: EncodedCallback
     private let config: VideoCodecConfig
-    private let encoder: VTCompressionSession
+    private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
     private let bufferAllocator: BufferAllocator
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
-    private var ageLookup: [CMTime: CMTime] = [:]
+    private let signposter = OSSignposter()
+    private let signpostId: OSSignpostID
+    private var state: [TimeInterval: OSSignpostIntervalState] = [:]
     private let lock = OSAllocatedUnfairLock()
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+
+    private let vtCallback: VTCompressionOutputCallback = { refCon, frameRefCon, status, flags, sample in
+        guard let refCon = refCon,
+              let frameRefCon = frameRefCon else {
+            return
+        }
+        let instance = Unmanaged<VTEncoder>.fromOpaque(refCon).takeUnretainedValue()
+        instance.encoded(frameRefCon: frameRefCon, status: status, flags: flags, sample: sample)
+    }
 
     // swiftlint:disable function_body_length
     init(config: VideoCodecConfig,
          verticalMirror: Bool,
          callback: @escaping EncodedCallback,
          emitStartCodes: Bool = false) throws {
+        self.signpostId = self.signposter.makeSignpostID()
         self.verticalMirror = verticalMirror
         self.callback = callback
         self.config = config
@@ -52,19 +68,18 @@ class VTEncoder {
             self.seiData = ApplicationHEVCSEIs()
             codec = kCMVideoCodecType_HEVC
         default:
-            fatalError()
+            throw VTEncoderError.unsupportedCodec(config.codec)
         }
+
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
                                                  height: config.height,
                                                  codecType: codec,
-                                                 encoderSpecification: config.codec == .h264 ?
-                                                    Self.makeEncoderSpecification() :
-                                                    nil,
+                                                 encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
                                                  imageBufferAttributes: nil,
                                                  compressedDataAllocator: allocator,
-                                                 outputCallback: nil,
-                                                 refcon: nil,
+                                                 outputCallback: self.vtCallback,
+                                                 refcon: Unmanaged.passUnretained(self).toOpaque(),
                                                  compressionSessionOut: &compressionSession)
         guard created == .zero,
               let compressionSession = compressionSession else {
@@ -73,20 +88,21 @@ class VTEncoder {
         self.encoder = compressionSession
 
         try OSStatusError.checked("Set realtime") {
-            VTSessionSetProperty(encoder,
+            VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_RealTime,
                                  value: kCFBooleanTrue)
         }
 
+        // swiftlint:disable switch_case_alignment
         #if !os(tvOS)
         try OSStatusError.checked("Set Profile Level") {
             return switch config.codec {
             case .h264:
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_ProfileLevel,
                                      value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
             case .hevc:
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_ProfileLevel,
                                      value: kVTProfileLevel_HEVC_Main_AutoLevel)
             default:
@@ -94,9 +110,12 @@ class VTEncoder {
             }
         }
         #endif
+        // swiftlint:enable switch_case_alignment
 
         try OSStatusError.checked("Set allow frame reordering") {
-            VTSessionSetProperty(encoder, key: kVTCompressionPropertyKey_AllowFrameReordering, value: kCFBooleanFalse)
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_AllowFrameReordering,
+                                 value: kCFBooleanFalse)
         }
 
         let bitrateKey: CFString
@@ -108,63 +127,65 @@ class VTEncoder {
         }
 
         try OSStatusError.checked("Set average bitrate: \(self.config.bitrate)") {
-            VTSessionSetProperty(encoder,
+            VTSessionSetProperty(compressionSession,
                                  key: bitrateKey,
                                  value: config.bitrate as CFNumber)
         }
 
         let dataRateLimits: NSArray = [NSNumber(value: Double(self.config.bitrate) * self.config.limit1s / 8), NSNumber(value: 1)]
         try OSStatusError.checked("Set data limit: \(self.config.limit1s)x") {
-            VTSessionSetProperty(encoder,
+            VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_DataRateLimits,
                                  value: dataRateLimits as CFArray)
         }
 
         try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
-            VTSessionSetProperty(encoder,
+            VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_ExpectedFrameRate,
                                  value: config.fps as CFNumber)
         }
 
         try OSStatusError.checked("Set max key frame interval: \(self.config.fps * 5)") {
-            VTSessionSetProperty(encoder,
+            VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
                                  value: config.fps * 5 as CFNumber)
         }
 
         if config.codec == .hevc {
             try OSStatusError.checked("Color Primaries") {
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_ColorPrimaries,
                                      value: kCMFormatDescriptionColorPrimaries_ITU_R_709_2)
             }
 
             try OSStatusError.checked("Transfer Function") {
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_TransferFunction,
                                      value: kCMFormatDescriptionTransferFunction_ITU_R_709_2)
             }
 
             try OSStatusError.checked("YCbCrMatrix") {
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_YCbCrMatrix,
                                      value: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2)
             }
 
             try OSStatusError.checked("Preserve Metadata") {
-                VTSessionSetProperty(encoder,
+                VTSessionSetProperty(compressionSession,
                                      key: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
                                      value: kCFBooleanTrue)
             }
         }
 
         try OSStatusError.checked("Prepare to encode frames") {
-            VTCompressionSessionPrepareToEncodeFrames(encoder)
+            VTCompressionSessionPrepareToEncodeFrames(compressionSession)
         }
     }
     // swiftlint:enable function_body_length
 
     deinit {
+        guard let encoder = self.encoder else { return }
+
         // Sync flush all pending frames.
         let flushError = VTCompressionSessionCompleteFrames(encoder,
                                                             untilPresentationTimeStamp: .init())
@@ -176,25 +197,30 @@ class VTEncoder {
     }
 
     func write(sample: CMSampleBuffer) throws {
+        guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
         let output = CMSampleBufferGetOutputPresentationTimeStamp(sample)
-        self.lock.withLock {
-            self.ageLookup[timestamp] = output
-        }
+        let time = Unmanaged.passRetained(NSValue(time: output)).toOpaque()
+        let state = self.signposter.beginInterval("Write", id: self.signpostId)
         try OSStatusError.checked("Encode") {
-            VTCompressionSessionEncodeFrame(self.encoder,
+            VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
                                             presentationTimeStamp: timestamp,
                                             duration: .invalid,
                                             frameProperties: nil,
-                                            infoFlagsOut: nil,
-                                            outputHandler: self.encoded)
+                                            sourceFrameRefcon: time,
+                                            infoFlagsOut: nil)
+        }
+        self.signposter.endInterval("Write", state)
+        let encodeState = self.signposter.beginInterval("Encode", id: self.signpostId)
+        self.lock.withLock {
+            self.state[timestamp.seconds] = encodeState
         }
     }
 
     // swiftlint:disable function_body_length
-    func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
+    func encoded(frameRefCon: UnsafeMutableRawPointer?, status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
             Self.logger.error("Encode failure: \(status)")
@@ -207,6 +233,13 @@ class VTEncoder {
         guard let sample = sample else {
             Self.logger.error("Encoded sample was empty")
             return
+        }
+        self.lock.withLock {
+            guard let state = self.state[sample.presentationTimeStamp.seconds] else {
+                Self.logger.error("Missing signpost state")
+                return
+            }
+            self.signposter.endInterval("Encode", state)
         }
 
         let buffer: CMBlockBuffer
@@ -239,13 +272,10 @@ class VTEncoder {
                             bufferAllocator: bufferAllocator)
 
         // Append age related timestamp.
-        let captureTime = self.lock.withLock {
-            if let time = self.ageLookup[timestamp] {
-                return time
-            } else {
-                return .invalid
-            }
+        guard let frameRefCon = frameRefCon else {
+            fatalError("Missing frame ref con?")
         }
+        let captureTime = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeRetainedValue().timeValue
         prependAgeSEI(timestamp: captureTime,
                       bufferAllocator: bufferAllocator)
 
@@ -450,13 +480,15 @@ class VTEncoder {
 
     /// Try to build an encoder specification dictionary.
     /// Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
-    private static func makeEncoderSpecification() -> CFDictionary {
+    private static func makeEncoderSpecification(codec: CMVideoCodecType) throws -> [CFString: Any] {
         var availableEncodersPtr: CFArray?
-        VTCopyVideoEncoderList(nil, &availableEncodersPtr)
+        try OSStatusError.checked("Fetch Encoders") {
+            VTCopyVideoEncoderList(nil, &availableEncodersPtr)
+        }
 
-        let defaultSpec = [
-            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue
-        ] as CFDictionary
+        let defaultSpec: [CFString: Any] = [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
+        ]
 
         guard let availableEncoders = availableEncodersPtr as? [[CFString: Any]] else {
             return defaultSpec
@@ -465,7 +497,7 @@ class VTEncoder {
         guard let hwEncoder = availableEncoders.first(where: {
             guard let name = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
             let isHardwareAccelerated = $0[kVTVideoEncoderList_IsHardwareAccelerated] != nil
-            return name == kCMVideoCodecType_H264 && isHardwareAccelerated
+            return name == codec && isHardwareAccelerated
         }) else {
             return defaultSpec
         }
@@ -476,7 +508,7 @@ class VTEncoder {
 
         return [
             kVTVideoEncoderSpecification_EncoderID: hwEncoderID
-        ] as CFDictionary
+        ]
     }
 }
 
