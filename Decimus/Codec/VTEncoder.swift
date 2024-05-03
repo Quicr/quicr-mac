@@ -486,9 +486,14 @@ class VTEncoder {
             VTCopyVideoEncoderList(nil, &availableEncodersPtr)
         }
 
-        let defaultSpec: [CFString: Any] = [
+        var defaultSpec: [CFString: Any] = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
         ]
+
+        if #available(iOS 17.4, tvOS 17.4, visionOS 1.1, *) {
+            defaultSpec[kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder] = kCFBooleanTrue as Any
+            return defaultSpec
+        }
 
         guard let availableEncoders = availableEncodersPtr as? [[CFString: Any]] else {
             return defaultSpec
