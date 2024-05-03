@@ -24,7 +24,7 @@ class VTEncoder {
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
-    private let signposter = OSSignposter()
+    private let signposter = OSSignposter(subsystem: "Encoder", category: .pointsOfInterest)
     private let signpostId: OSSignpostID
     private var state: [TimeInterval: OSSignpostIntervalState] = [:]
     private let lock = OSAllocatedUnfairLock()
@@ -202,7 +202,7 @@ class VTEncoder {
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
         let output = CMSampleBufferGetOutputPresentationTimeStamp(sample)
         let time = Unmanaged.passRetained(NSValue(time: output)).toOpaque()
-        let state = self.signposter.beginInterval("Write", id: self.signpostId)
+        let state = self.signposter.beginInterval("Write", id: self.signpostId, "\(self.config.height)")
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
@@ -213,7 +213,7 @@ class VTEncoder {
                                             infoFlagsOut: nil)
         }
         self.signposter.endInterval("Write", state)
-        let encodeState = self.signposter.beginInterval("Encode", id: self.signpostId)
+        let encodeState = self.signposter.beginInterval("Encode", id: self.signpostId, "\(self.config.height)")
         self.lock.withLock {
             self.state[timestamp.seconds] = encodeState
         }
