@@ -54,6 +54,8 @@ class VideoHandler: CustomStringConvertible {
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
+    private var duration: TimeInterval? = 0
+
     /// Create a new video handler.
     /// - Parameters:
     ///     - namespace: The namespace for this video stream.
@@ -136,8 +138,6 @@ class VideoHandler: CustomStringConvertible {
         self.dequeueTask?.cancel()
     }
 
-    // swiftlint:disable cyclomatic_complexity
-    // swiftlint:disable function_body_length
     /// Pass an encoded video frame to this video handler.
     /// - Parameter data Encoded H264 frame data.
     /// - Parameter groupId The group.
@@ -149,72 +149,12 @@ class VideoHandler: CustomStringConvertible {
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
-            let remoteFPS: UInt16
-            if let frame = frame,
-               let fps = frame.fps {
-                remoteFPS = UInt16(fps)
-            } else {
-                remoteFPS = self.config.fps
-            }
-
-            // We have what we need to configure the PID dequeuer if using.
-            let duration = 1 / Double(remoteFPS)
-            assert(self.dequeueBehaviour == nil)
-            if jitterBufferConfig.mode == .pid {
-                self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
-                                                    frameDuration: duration,
-                                                    kp: 0.01,
-                                                    ki: 0.001,
-                                                    kd: 0.001)
-            }
-
-            // Create the video jitter buffer.
-            self.jitterBuffer = try .init(namespace: self.namespace,
-                                          metricsSubmitter: self.metricsSubmitter,
-                                          sort: !self.reliable,
-                                          minDepth: self.jitterBufferConfig.minDepth,
-                                          capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
-
-            assert(self.dequeueTask == nil)
-            // Start the frame dequeue task.
-            self.dequeueTask = .init(priority: .high) { [weak self] in
-                while !Task.isCancelled {
-                    guard let self = self else { return }
-
-                    // Wait until we expect to have a frame available.
-                    let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
-                    let waitTime: TimeInterval
-                    if let pid = self.dequeueBehaviour as? PIDDequeuer {
-                        pid.currentDepth = jitterBuffer.getDepth()
-                        waitTime = self.dequeueBehaviour!.calculateWaitTime()
-                    } else {
-                        waitTime = calculateWaitTime() ?? duration
-                    }
-                    if waitTime > 0 {
-                        do {
-                            try await Task.sleep(for: .seconds(waitTime),
-                                                 tolerance: .seconds(waitTime / 2),
-                                                 clock: .continuous)
-                            guard let task = self.dequeueTask,
-                                  !task.isCancelled else {
-                                return
-                            }
-                        } catch {
-                            Self.logger.error("Exception during sleep: \(error.localizedDescription)")
-                            continue
-                        }
-                    }
-
-                    // Attempt to dequeue a frame.
-                    if let sample = jitterBuffer.read() {
-                        do {
-                            try self.decode(sample: sample)
-                        } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
-                        }
-                    }
-                }
+            do {
+                frame = try createJitterBuffer(data: data, groupId: groupId, objectId: objectId)
+                assert(self.dequeueTask == nil)
+                createDequeueTask()
+            } catch {
+                Self.logger.error("Failed to create jitter buffer: \(error.localizedDescription)")
             }
         }
 
@@ -248,8 +188,6 @@ class VideoHandler: CustomStringConvertible {
             }
         }
     }
-    // swiftlint:enable cyclomatic_complexity
-    // swiftlint:enable function_body_length
 
     /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
     /// - Parameter from: The time to calculate from.
@@ -258,6 +196,84 @@ class VideoHandler: CustomStringConvertible {
         guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
         guard let diff = self.timestampTimeDiff else { return nil }
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
+    }
+
+    private func createJitterBuffer(data: Data, groupId: UInt32, objectId: UInt16) throws -> DecimusVideoFrame {
+        guard let frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true) else {
+            throw "Failed to depacketize frame"
+        }
+        let remoteFPS: UInt16
+        if let fps = frame.fps {
+            remoteFPS = UInt16(fps)
+        } else {
+            remoteFPS = self.config.fps
+        }
+
+        // We have what we need to configure the PID dequeuer if using.
+        let duration = 1 / Double(remoteFPS)
+        assert(self.dequeueBehaviour == nil)
+        if jitterBufferConfig.mode == .pid {
+            self.dequeueBehaviour = PIDDequeuer(targetDepth: jitterBufferConfig.minDepth,
+                                                frameDuration: duration,
+                                                kp: 0.01,
+                                                ki: 0.001,
+                                                kd: 0.001)
+        }
+
+        // Create the video jitter buffer.
+        self.jitterBuffer = try .init(namespace: self.namespace,
+                                      metricsSubmitter: self.metricsSubmitter,
+                                      sort: !self.reliable,
+                                      minDepth: self.jitterBufferConfig.minDepth,
+                                      capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
+        self.duration = duration
+        return frame
+    }
+
+    private func createDequeueTask() {
+        // Start the frame dequeue task.
+        self.dequeueTask = .init(priority: .high) { [weak self] in
+            while !Task.isCancelled {
+                guard let self = self else { return }
+
+                // Wait until we expect to have a frame available.
+                let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                let waitTime: TimeInterval
+                if let pid = self.dequeueBehaviour as? PIDDequeuer {
+                    pid.currentDepth = jitterBuffer.getDepth()
+                    waitTime = self.dequeueBehaviour!.calculateWaitTime()
+                } else {
+                    guard let duration = self.duration else {
+                        Self.logger.error("Missing duration")
+                        return
+                    }
+                    waitTime = calculateWaitTime() ?? duration
+                }
+                if waitTime > 0 {
+                    do {
+                        try await Task.sleep(for: .seconds(waitTime),
+                                             tolerance: .seconds(waitTime / 2),
+                                             clock: .continuous)
+                        guard let task = self.dequeueTask,
+                              !task.isCancelled else {
+                            return
+                        }
+                    } catch {
+                        Self.logger.error("Exception during sleep: \(error.localizedDescription)")
+                        continue
+                    }
+                }
+
+                // Attempt to dequeue a frame.
+                if let sample = jitterBuffer.read() {
+                    do {
+                        try self.decode(sample: sample)
+                    } catch {
+                        Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {

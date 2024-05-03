@@ -202,8 +202,10 @@ class VideoJitterBuffer {
         guard let timestamp = frame.samples.first?.presentationTimeStamp else { return nil }
         let targetDate = Date(timeInterval: timestamp.seconds.advanced(by: offset), since: since)
         let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
-        Task(priority: .utility) {
-            await measurement?.waitTime(value: waitTime, timestamp: from)
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.waitTime(value: waitTime, timestamp: from)
+            }
         }
         return waitTime
     }
