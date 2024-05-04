@@ -52,8 +52,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
-        let qlogPath = "./abc"
-        let qlogPathC = qlogPath.withCString { return $0 }
+        let qlogPath: NSString = "./abc"
         let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                      tls_key_filename: nil,
                                                      time_queue_init_queue_size: 1000,
@@ -69,7 +68,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      use_reset_wait_strategy: self.config.useResetWaitCC,
                                                      use_bbr: self.config.useBBR,
                                                      quic_qlog_path: UnsafePointer<CChar>(
-                                                        qlogPath.cString(using: .utf8)))
+                                                        qlogPath.utf8String))
         let error = super.connect(config.email,
                                   relay: config.address,
                                   port: config.port,
