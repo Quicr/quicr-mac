@@ -52,7 +52,21 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
-        let qlogPath: NSString = "./abc"
+        var qlogPathPtr: UnsafePointer<CChar>?
+        var url: URL
+
+        if self.config.enableQlog {
+            do {
+                url = try FileManager.default.url(for: FileManager.SearchPathDirectory.downloadsDirectory,
+                                                      in: FileManager.SearchPathDomainMask.userDomainMask,
+                                                      appropriateFor: nil, create: true)
+                            
+                qlogPathPtr = url.path.withCString { return $0 }
+            } catch {
+                print(error)
+            }
+        }
+
         let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                      tls_key_filename: nil,
                                                      time_queue_init_queue_size: 1000,
@@ -67,8 +81,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                      idle_timeout_ms: 15000,
                                                      use_reset_wait_strategy: self.config.useResetWaitCC,
                                                      use_bbr: self.config.useBBR,
-                                                     quic_qlog_path: UnsafePointer<CChar>(
-                                                        qlogPath.utf8String))
+                                                     quic_qlog_path: qlogPathPtr)
         let error = super.connect(config.email,
                                   relay: config.address,
                                   port: config.port,

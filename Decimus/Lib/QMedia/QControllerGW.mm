@@ -66,9 +66,6 @@
         
         memcpy(&tconfig, &config, sizeof(tconfig));
         
-        auto qlogPath = config.quic_qlog_path;
-        tconfig.quic_qlog_path = qlogPath;
-        
         return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger);
     } catch(const std::exception& e) {
         qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
