@@ -25,6 +25,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private static let logger = DecimusLogger(CallController.self)
     let manifest = ManifestHolder()
 
+    
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          config: SubscriptionConfig,
@@ -51,20 +52,36 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
+        var qlogPathPtr: UnsafePointer<CChar>?
+        var url: URL
+
+        if self.config.enableQlog {
+            do {
+                url = try FileManager.default.url(for: FileManager.SearchPathDirectory.downloadsDirectory,
+                                                      in: FileManager.SearchPathDomainMask.userDomainMask,
+                                                      appropriateFor: nil, create: true)
+                            
+                qlogPathPtr = url.path.withCString { return $0 }
+            } catch {
+                print(error)
+            }
+        }
+
         let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                      tls_key_filename: nil,
                                                      time_queue_init_queue_size: 1000,
                                                      time_queue_max_duration: 5000,
                                                      time_queue_bucket_interval: 1,
                                                      time_queue_rx_size: UInt32(self.config.timeQueueTTL),
-                                                     debug: false,
+                                                     debug: true,
                                                      quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
                                                      quic_wifi_shadow_rtt_us: 0,
                                                      pacing_decrease_threshold_Bps: 16000,
                                                      pacing_increase_threshold_Bps: 16000,
                                                      idle_timeout_ms: 15000,
                                                      use_reset_wait_strategy: self.config.useResetWaitCC,
-                                                     use_bbr: self.config.useBBR)
+                                                     use_bbr: self.config.useBBR,
+                                                     quic_qlog_path: qlogPathPtr)
         let error = super.connect(config.email,
                                   relay: config.address,
                                   port: config.port,
