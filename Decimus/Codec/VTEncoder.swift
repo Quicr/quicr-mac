@@ -50,7 +50,7 @@ class VTEncoder {
             self.seiData = ApplicationHEVCSEIs()
             codec = kCMVideoCodecType_HEVC
         default:
-            fatalError()
+            throw "Unsupported code: \(config.codec)"
         }
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
@@ -187,6 +187,7 @@ class VTEncoder {
         }
     }
 
+    // swiftlint:disable function_body_length
     func encoded(status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
@@ -207,7 +208,8 @@ class VTEncoder {
         let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
         guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
-            fatalError()
+            Self.logger.error("Failed to allocate ios buffer")
+            return
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
         do {
@@ -314,6 +316,7 @@ class VTEncoder {
         }
         callback(sample.presentationTimeStamp, fullEncodedBuffer, idr)
     }
+    // swiftlint:enable function_body_length
 
     /// Returns the parameter sets contained within the sample's format, if any.
     /// - Parameter sample The sample to extract parameter sets from.
@@ -392,7 +395,9 @@ class VTEncoder {
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
         let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)
-        guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else { fatalError() }
+        guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
+            throw "Failed to allocate orientation header"
+        }
         let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
         bytes.copyBytes(to: orientationBufferPtr)
     }
