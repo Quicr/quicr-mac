@@ -168,9 +168,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // Smooth media start time.
         let mediaStartTimeDiff: TimeInterval?
         if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
-                                                 namespace: name,
-                                                 groupId: groupId,
-                                                 objectId: objectId) {
+                                                  namespace: name,
+                                                  groupId: groupId,
+                                                  objectId: objectId) {
             let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
             self.cumulativeDiff += currentDiff
             self.count += 1
@@ -194,7 +194,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                handler.timestampTimeDiff = mediaStartTimeDiff
+                if let diff = mediaStartTimeDiff {
+                    handler.setTimeDiff(diff: diff)
+                }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {
                 Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
