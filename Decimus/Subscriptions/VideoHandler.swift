@@ -50,7 +50,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    var timestampTimeDiff: TimeInterval?
+    private var timestampTimeDiffMs = ManagedAtomic(UInt64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -108,7 +108,9 @@ class VideoHandler: CustomStringConvertible {
                 if simulreceive != .none {
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
+                    self.lastDecodedImage = .init(image: sample,
+                                                  fps: UInt(self.config.fps),
+                                                  discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -193,8 +195,12 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
     func calculateWaitTime(from: Date = .now) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
-        guard let diff = self.timestampTimeDiff else { return nil }
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+        }
+        let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
+        guard diffMs > 0 else { return nil }
+        let diff = TimeInterval(diffMs) / 1000
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
@@ -276,7 +282,15 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
-    private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
+    func setTimeDiff(diff: TimeInterval) {
+        assert(diff > (1 / 1000))
+        self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
+    }
+
+    private func depacketize(_ data: Data,
+                             groupId: UInt32,
+                             objectId: UInt16,
+                             copy: Bool) throws -> DecimusVideoFrame? {
         let buffers: [CMBlockBuffer]?
         var seis: [ApplicationSEI] = []
         switch self.config.codec {
@@ -401,7 +415,9 @@ class VideoHandler: CustomStringConvertible {
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
+                try self.enqueueSample(sample: sampleBuffer,
+                                       orientation: sample.orientation,
+                                       verticalMirror: sample.verticalMirror)
             } else {
                 if let orientation = sample.orientation {
                     self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
@@ -514,8 +530,6 @@ extension DecimusVideoRotation {
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        default:
-            break
         }
         return transform
     }

@@ -63,7 +63,9 @@
         static_assert(std::is_trivially_copyable<qtransport::TransportConfig>() &&
                       std::is_trivially_copyable<TransportConfig>() &&
                       sizeof(tconfig) == sizeof(config));
+        
         memcpy(&tconfig, &config, sizeof(tconfig));
+        
         return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger);
     } catch(const std::exception& e) {
         qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;

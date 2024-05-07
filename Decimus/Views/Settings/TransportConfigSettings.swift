@@ -7,6 +7,7 @@ struct TransportConfigSettings: View {
     @Binding var useResetWaitCC: Bool
     @Binding var useBBR: Bool
     @Binding var quicrLogs: Bool
+    @Binding var enableQlog: Bool
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
 
@@ -45,6 +46,10 @@ struct TransportConfigSettings: View {
         HStack {
             Text("Capture QUICR logs")
             Toggle(isOn: self.$quicrLogs) {}
+        }
+        HStack {
+            Text("Enable QLOG")
+            Toggle(isOn: self.$enableQlog) {}
         }
     }
 }

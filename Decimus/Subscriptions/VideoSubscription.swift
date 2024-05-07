@@ -38,7 +38,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
-    private var timestampTimeDiff: TimeInterval?
     private var pauseMissCounts: [QuicrNamespace: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
@@ -47,6 +46,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
+
+    // Start time.
+    private var cumulativeDiff: TimeInterval = 0
+    private var count = 0
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -159,17 +162,22 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                           length: Int,
                           groupId: UInt32,
                           objectId: UInt16) -> Int32 {
+        let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        if self.timestampTimeDiff == nil {
-            do {
-                self.timestampTimeDiff = try self.getTimestamp(data: zeroCopiedData,
-                                                               namespace: name,
-                                                               groupId: groupId,
-                                                               objectId: objectId)
-            } catch {
-                Self.logger.warning("F")
-            }
+        // Smooth media start time.
+        let mediaStartTimeDiff: TimeInterval?
+        if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
+                                                  namespace: name,
+                                                  groupId: groupId,
+                                                  objectId: objectId) {
+            let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
+            self.cumulativeDiff += currentDiff
+            self.count += 1
+            mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
+        } else {
+            Self.logger.error("Failed to get timestamp")
+            mediaStartTimeDiff = nil
         }
 
         // If we're responsible for rendering, start the task.
@@ -186,8 +194,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                if handler.timestampTimeDiff == nil {
-                    handler.timestampTimeDiff = self.timestampTimeDiff
+                if let diff = mediaStartTimeDiff {
+                    handler.setTimeDiff(diff: diff)
                 }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {
@@ -514,7 +522,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             fatalError()
         }
         guard let timestamp = timestamp else { return nil }
-        return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
+        return timestamp.seconds
     }
 }
 // swiftlint:enable type_body_length

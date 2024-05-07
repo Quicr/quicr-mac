@@ -171,7 +171,8 @@ struct SubscriptionSettingsView: View {
                                     useResetWaitCC: $subscriptionConfig.value.useResetWaitCC,
                                     useBBR:
                                         $subscriptionConfig.value.useBBR,
-                                    quicrLogs: $subscriptionConfig.value.quicrLogs)
+                                    quicrLogs: $subscriptionConfig.value.quicrLogs,
+                                    enableQlog: $subscriptionConfig.value.enableQlog)
         }
     }
 }
