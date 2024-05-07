@@ -46,12 +46,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
-    
-    // Star time.
-    private var timestampTimeDiff: TimeInterval?
+
+    // Start time.
     private var cumulativeDiff: TimeInterval = 0
-    private var diffCount = 0
-    private var minDiff: TimeInterval?
+    private var count = 0
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -166,25 +164,20 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                           objectId: UInt16) -> Int32 {
         let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
-        do {
-            if let timestamp = try self.getTimestamp(data: zeroCopiedData,
-                                                     namespace: name,
-                                                     groupId: groupId,
-                                                     objectId: objectId) {
-                let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
-                if let timestampTimeDiff = self.timestampTimeDiff,
-                   let minDiff = self.minDiff {
-                    if currentDiff < minDiff {
-                        self.timestampTimeDiff = currentDiff
-                        self.minDiff = currentDiff
-                    }
-                } else {
-                    self.timestampTimeDiff = currentDiff
-                    self.minDiff = currentDiff
-                }
-            }
-        } catch {
-            Self.logger.error("Failed to get timestamp: \(error.localizedDescription)")
+
+        // Smooth media start time.
+        let mediaStartTimeDiff: TimeInterval?
+        if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
+                                                 namespace: name,
+                                                 groupId: groupId,
+                                                 objectId: objectId) {
+            let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
+            self.cumulativeDiff += currentDiff
+            self.count += 1
+            mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
+        } else {
+            Self.logger.error("Failed to get timestamp")
+            mediaStartTimeDiff = nil
         }
 
         // If we're responsible for rendering, start the task.
@@ -201,7 +194,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                handler.timestampTimeDiff = self.timestampTimeDiff
+                handler.timestampTimeDiff = mediaStartTimeDiff
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {
                 Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
