@@ -58,12 +58,12 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         if self.config.enableQlog {
             do {
                 url = try FileManager.default.url(for: FileManager.SearchPathDirectory.downloadsDirectory,
-                                                      in: FileManager.SearchPathDomainMask.userDomainMask,
-                                                      appropriateFor: nil, create: true)
-                            
+                                                  in: FileManager.SearchPathDomainMask.userDomainMask,
+                                                  appropriateFor: nil, create: true)
+
                 qlogPathPtr = url.path.withCString { return $0 }
             } catch {
-                print(error)
+                throw error
             }
         }
 
