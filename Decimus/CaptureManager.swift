@@ -8,10 +8,11 @@ public extension AVCaptureDevice {
     }
 }
 
-protocol FrameListener: AVCaptureVideoDataOutputSampleBufferDelegate {
+protocol FrameListener {
     var queue: DispatchQueue { get }
     var device: AVCaptureDevice { get }
     var codec: VideoCodecConfig? { get }
+    func onFrame(_ frame: CMSampleBuffer, captureTime: Date)
 }
 
 fileprivate extension FrameListener {
@@ -325,25 +326,20 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.startTime.removeValue(forKey: output)
         }
 
-        let timestamp = sampleBuffer.presentationTimeStamp.seconds
+        // Metrics.
         if let measurement = self.measurement {
+            let timestamp = sampleBuffer.presentationTimeStamp
             Task(priority: .utility) {
                 await measurement.capturedFrame(frameTimestamp: timestamp,
                                                 metricsTimestamp: self.granularMetrics ? now : nil)
             }
         }
 
-        let time = CMTime(seconds: now.timeIntervalSinceReferenceDate, preferredTimescale: 30000)
-        do {
-            try sampleBuffer.setOutputPresentationTimeStamp(time)
-        } catch {
-            Self.logger.warning("Failed to set output presentation timestamp: \(error.localizedDescription)")
-        }
-
+        // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {
-                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+                listener.onFrame(sampleBuffer, captureTime: now)
             }
         }
     }
@@ -351,11 +347,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput,
                        didDrop sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
-        let cameraFrameListeners = getDelegate(output: output)
-        for listener in cameraFrameListeners {
-            listener.queue.async {
-                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
-            }
+        var mode: CMAttachmentMode = 0
+        let reason = CMGetAttachment(sampleBuffer,
+                                     key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
+                                     attachmentModeOut: &mode)
+        Self.logger.warning("\(String(describing: reason))")
+        guard let measurement = self.measurement else { return }
+        let now: Date? = self.granularMetrics ? Date.now : nil
+        Task(priority: .utility) {
+            await measurement.droppedFrame(timestamp: now)
         }
     }
 }

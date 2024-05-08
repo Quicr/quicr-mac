@@ -124,30 +124,22 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     func publish(_ flag: Bool) {}
 
-    /// This callback fires if a frame was dropped.
-    @objc(captureOutput:didDropSampleBuffer:fromConnection:)
-    func captureOutput(_ output: AVCaptureOutput,
-                       didDrop sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
-        var mode: CMAttachmentMode = 0
-        let reason = CMGetAttachment(sampleBuffer,
-                                     key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
-                                     attachmentModeOut: &mode)
-        Self.logger.warning("\(String(describing: reason))")
-        guard let measurement = self.measurement else { return }
-        let now: Date? = self.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.droppedFrame(timestamp: now)
-        }
-    }
-
     /// This callback fires when a video frame arrives.
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+    func onFrame(_ sampleBuffer: CMSampleBuffer,
+                 captureTime: Date) {
         // Configure FPS.
         if self.encoder.frameRate == nil {
             self.encoder.frameRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
+        }
+
+        // Stagger the publication's start time by its height in ms.
+        if let startTime = self.startTime {
+            let interval = captureTime.timeIntervalSince(startTime)
+            guard interval > TimeInterval(self.codec!.height / 1000) else {
+                return
+            }
+        } else {
+            self.startTime = captureTime
         }
 
         // Encode.
@@ -157,32 +149,23 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
 
-        // Stagger the publication's start time by its height in ms.
-        let now = Date.now
-        if let startTime = self.startTime {
-            let interval = Date.now.timeIntervalSince(startTime)
-            guard interval > TimeInterval(self.codec!.height / 1000) else {
-                return
-            }
-        } else {
-            self.startTime = now
-        }
-
         // Metrics.
         guard let measurement = self.measurement else { return }
         guard let buffer = sampleBuffer.imageBuffer else { return }
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let date: Date? = self.granularMetrics ? now : nil
-        let outputTime = sampleBuffer.outputPresentationTimeStamp.seconds
         let presentationTimestamp = sampleBuffer.presentationTimeStamp.seconds
+        let date: Date? = self.granularMetrics ? captureTime : nil
+        let now = Date.now
         Task(priority: .utility) {
-            await measurement.capturedFrame(timestamp: date)
             await measurement.sentPixels(sent: pixels, timestamp: date)
             if let date = date {
-                let age = now.timeIntervalSince(.init(timeIntervalSinceReferenceDate: outputTime))
-                await measurement.age(age: age, presentationTimestamp: presentationTimestamp, metricsTimestamp: now)
+                // TODO: This age is probably useless.
+                let age = now.timeIntervalSince(captureTime)
+                await measurement.age(age: age,
+                                      presentationTimestamp: presentationTimestamp,
+                                      metricsTimestamp: date)
             }
         }
     }

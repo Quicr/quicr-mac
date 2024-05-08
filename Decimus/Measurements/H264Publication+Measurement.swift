@@ -8,8 +8,6 @@ extension H264Publication {
         private var bytes: UInt64 = 0
         private var pixels: UInt64 = 0
         private var publishedFrames: UInt64 = 0
-        private var capturedFrames: UInt64 = 0
-        private var dropped: UInt64 = 0
 
         init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
@@ -30,16 +28,6 @@ extension H264Publication {
         func sentPixels(sent: UInt64, timestamp: Date?) {
             self.pixels += sent
             record(field: "sentPixels", value: self.pixels as AnyObject, timestamp: timestamp)
-        }
-
-        func droppedFrame(timestamp: Date?) {
-            self.dropped += 1
-            record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
-        }
-
-        func capturedFrame(timestamp: Date?) {
-            self.capturedFrames += 1
-            record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
         }
 
         func age(age: TimeInterval, presentationTimestamp: TimeInterval, metricsTimestamp: Date) {
