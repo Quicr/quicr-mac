@@ -24,10 +24,6 @@ class VTEncoder {
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
-    private let signposter = OSSignposter(subsystem: "Encoder", category: .pointsOfInterest)
-    private let signpostId: OSSignpostID
-    private var state: [TimeInterval: OSSignpostIntervalState] = [:]
-    private let lock = OSAllocatedUnfairLock()
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -45,7 +41,6 @@ class VTEncoder {
          verticalMirror: Bool,
          callback: @escaping EncodedCallback,
          emitStartCodes: Bool = false) throws {
-        self.signpostId = self.signposter.makeSignpostID()
         self.verticalMirror = verticalMirror
         self.callback = callback
         self.config = config
@@ -199,23 +194,15 @@ class VTEncoder {
     func write(sample: CMSampleBuffer) throws {
         guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
-        let timestamp = CMSampleBufferGetPresentationTimeStamp(sample)
-        let output = CMSampleBufferGetOutputPresentationTimeStamp(sample)
-        let time = Unmanaged.passRetained(NSValue(time: output)).toOpaque()
-        let state = self.signposter.beginInterval("Write", id: self.signpostId, "\(self.config.height)")
+        let time = Unmanaged.passRetained(NSValue(time: sample.outputPresentationTimeStamp)).toOpaque()
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
-                                            presentationTimeStamp: timestamp,
+                                            presentationTimeStamp: sample.presentationTimeStamp,
                                             duration: .invalid,
                                             frameProperties: nil,
                                             sourceFrameRefcon: time,
                                             infoFlagsOut: nil)
-        }
-        self.signposter.endInterval("Write", state)
-        let encodeState = self.signposter.beginInterval("Encode", id: self.signpostId, "\(self.config.height)")
-        self.lock.withLock {
-            self.state[timestamp.seconds] = encodeState
         }
     }
 
@@ -234,20 +221,14 @@ class VTEncoder {
             Self.logger.error("Encoded sample was empty")
             return
         }
-        self.lock.withLock {
-            guard let state = self.state[sample.presentationTimeStamp.seconds] else {
-                Self.logger.error("Missing signpost state")
-                return
-            }
-            self.signposter.endInterval("Encode", state)
-        }
 
         let buffer: CMBlockBuffer
         #if !targetEnvironment(macCatalyst)
         let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
         guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
-            fatalError()
+            Self.logger.error("Failed to allocate ios buffer")
+            return
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
         do {
@@ -454,7 +435,9 @@ class VTEncoder {
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
         let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)
-        guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else { fatalError() }
+        guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
+            throw "Failed to allocate orientation header"
+        }
         let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
         bytes.copyBytes(to: orientationBufferPtr)
     }
