@@ -435,6 +435,14 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                if self.granularMetrics,
+                   let measurement = self.measurement {
+                    let now = Date.now
+                    let timestamp = sample.presentationTimeStamp.seconds
+                    Task(priority: .background) {
+                        await measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: now)
+                    }
+                }
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }

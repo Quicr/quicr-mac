@@ -15,11 +15,14 @@ extension H264Publication {
             tags["namespace"] = namespace
         }
 
-        func sentFrame(bytes: UInt64, timestamp: Date?) {
+        func sentFrame(bytes: UInt64, timestamp: TimeInterval, at: Date?) {
             self.publishedFrames += 1
             self.bytes += bytes
-            record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: timestamp)
-            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: timestamp)
+            record(field: "sentBytes", value: self.bytes as AnyObject, timestamp: at)
+            record(field: "publishedFrames", value: self.publishedFrames as AnyObject, timestamp: at)
+            if let at = at {
+                record(field: "timestamp", value: timestamp as AnyObject, timestamp: at)
+            }
         }
 
         func sentPixels(sent: UInt64, timestamp: Date?) {

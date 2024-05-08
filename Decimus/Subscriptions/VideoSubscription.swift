@@ -46,6 +46,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
+    private var variances: [TimeInterval: [Date]] = [:]
+    private let varianceMaxCount = 10
 
     // Start time.
     private var cumulativeDiff: TimeInterval = 0
@@ -175,6 +177,20 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             self.cumulativeDiff += currentDiff
             self.count += 1
             mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
+
+            // Calculate switching set arrival variance.
+            let variance = calculateSetVariance(timestamp: timestamp, now: now)
+            if self.granularMetrics,
+               let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await measurement.reportTimestamp(namespace: name,
+                                                      timestamp: timestamp,
+                                                      at: now)
+                    if let variance = variance {
+                        await measurement.reportVariance(variance: variance, at: now)
+                    }
+                }
+            }
         } else {
             Self.logger.error("Failed to get timestamp")
             mediaStartTimeDiff = nil
@@ -186,7 +202,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         self.handlerLock.withLock {
-            self.lastUpdateTimes[name] = Date.now
+            self.lastUpdateTimes[name] = now
             do {
                 if self.videoHandlers[name] == nil {
                     try makeHandler(namespace: name)
@@ -203,6 +219,36 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
         return SubscriptionError.none.rawValue
+    }
+
+    private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
+        // Cleanup.
+        if self.variances.count > self.varianceMaxCount {
+            for index in 0...5 {
+                self.variances.remove(at: self.variances.index(self.variances.startIndex, offsetBy: index))
+            }
+        }
+
+        guard var variances = self.variances[timestamp] else {
+            self.variances[timestamp] = [now]
+            return nil
+        }
+
+        variances.append(now)
+        guard variances.count == self.profiles.count else {
+            self.variances[timestamp] = variances
+            return nil
+        }
+
+        // We're done, report and remove.
+        self.variances.removeValue(forKey: timestamp)
+        var oldest = Date.distantFuture
+        var newest = Date.distantPast
+        for date in variances {
+            oldest = min(oldest, date)
+            newest = max(newest, date)
+        }
+        return newest.timeIntervalSince(oldest)
     }
 
     private func startRenderTask() {
@@ -521,8 +567,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         default:
             fatalError()
         }
-        guard let timestamp = timestamp else { return nil }
-        return timestamp.seconds
+        return timestamp?.seconds
     }
 }
 // swiftlint:enable type_body_length

@@ -13,9 +13,12 @@ extension CaptureManager {
             record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
         }
 
-        func capturedFrame(timestamp: Date?) {
+        func capturedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date?) {
             self.capturedFrames += 1
-            record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: timestamp)
+            record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: metricsTimestamp)
+            if let metricsTimestamp = metricsTimestamp {
+                record(field: "timestamp", value: frameTimestamp as AnyObject, timestamp: metricsTimestamp)
+            }
         }
     }
 }
