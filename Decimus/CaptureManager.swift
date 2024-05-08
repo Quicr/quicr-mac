@@ -54,14 +54,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let metricsSubmitter: MetricsSubmitter?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
-    private let signpost = OSSignposter(subsystem: "Capture", category: .pointsOfInterest)
-    private let signpostId: OSSignpostID
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
         }
-        self.signpostId = self.signpost.makeSignpostID()
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
         self.granularMetrics = granularMetrics
@@ -322,8 +319,6 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         // Discard any frames prior to camera warmup.
-        let state = self.signpost.beginInterval("Capture", id: self.signpostId)
-        defer { self.signpost.endInterval("Capture", state) }
         let now = Date.now
         if let startTime = self.startTime[output] {
             guard now.timeIntervalSince(startTime) > self.warmupTime else { return }
@@ -347,7 +342,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
-            listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+            listener.queue.async {
+                listener.captureOutput?(output, didOutput: sampleBuffer, from: connection)
+            }
         }
     }
 
