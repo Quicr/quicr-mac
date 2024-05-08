@@ -47,6 +47,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
     private var variances: [TimeInterval: [Date]] = [:]
+    private let varianceMaxCount = 10
 
     // Start time.
     private var cumulativeDiff: TimeInterval = 0
@@ -177,6 +178,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             self.count += 1
             mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
 
+            // Calculate switching set arrival variance.
             let variance = calculateSetVariance(timestamp: timestamp, now: now)
             if self.granularMetrics,
                let measurement = self.measurement {
@@ -220,7 +222,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     }
 
     private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        // TODO: Flush incomplete previous when we get new timestamp.
+        // Cleanup.
+        if self.variances.count > self.varianceMaxCount {
+            for index in 0...5 {
+                self.variances.remove(at: self.variances.index(self.variances.startIndex, offsetBy: index))
+            }
+        }
+
         guard var variances = self.variances[timestamp] else {
             self.variances[timestamp] = [now]
             return nil
