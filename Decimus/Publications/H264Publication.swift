@@ -7,7 +7,7 @@ enum H264PublicationError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .noCamera(_):
+        case .noCamera:
             return "No camera available"
         }
     }
@@ -65,17 +65,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.device = preferred
         }
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] timestamp, data, flag in
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
             // Metrics.
             guard let measurement = measurement else { return }
-            let timestamp: Date? = granularMetrics ? Date.now : nil
+            let now: Date? = granularMetrics ? Date.now : nil
             let bytes = data.count
             Task(priority: .utility) {
                 await measurement.sentFrame(bytes: UInt64(bytes),
-                                            timestamp: timestamp)
+                                            timestamp: timestamp.seconds,
+                                            at: now)
             }
         }
         self.encoder = try .init(config: self.codec!,

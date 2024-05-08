@@ -50,7 +50,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    var timestampTimeDiff: TimeInterval?
+    private var timestampTimeDiffMs = ManagedAtomic(UInt64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -194,7 +194,9 @@ class VideoHandler: CustomStringConvertible {
     /// - Returns Time to wait in seconds, if any.
     func calculateWaitTime(from: Date = .now) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
-        guard let diff = self.timestampTimeDiff else { return nil }
+        let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
+        guard diffMs > 0 else { return nil }
+        let diff = TimeInterval(diffMs) / 1000
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
@@ -274,6 +276,11 @@ class VideoHandler: CustomStringConvertible {
                 }
             }
         }
+    }
+
+    func setTimeDiff(diff: TimeInterval) {
+        assert(diff > (1 / 1000))
+        self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
     }
 
     private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
@@ -444,6 +451,14 @@ class VideoHandler: CustomStringConvertible {
                     self.startTimeSet = true
                 }
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                if self.granularMetrics,
+                   let measurement = self.measurement {
+                    let now = Date.now
+                    let timestamp = sample.presentationTimeStamp.seconds
+                    Task(priority: .background) {
+                        await measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: now)
+                    }
+                }
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")
             }

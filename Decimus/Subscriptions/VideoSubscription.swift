@@ -38,7 +38,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
-    private var timestampTimeDiff: TimeInterval?
     private var pauseMissCounts: [QuicrNamespace: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
@@ -47,6 +46,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
+    private var variances: [TimeInterval: [Date]] = [:]
+    private let varianceMaxCount = 10
+
+    // Start time.
+    private var cumulativeDiff: TimeInterval = 0
+    private var count = 0
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -159,17 +164,36 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                           length: Int,
                           groupId: UInt32,
                           objectId: UInt16) -> Int32 {
+        let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        if self.timestampTimeDiff == nil {
-            do {
-                self.timestampTimeDiff = try self.getTimestamp(data: zeroCopiedData,
-                                                               namespace: name,
-                                                               groupId: groupId,
-                                                               objectId: objectId)
-            } catch {
-                Self.logger.warning("F")
+        // Smooth media start time.
+        let mediaStartTimeDiff: TimeInterval?
+        if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
+                                                  namespace: name,
+                                                  groupId: groupId,
+                                                  objectId: objectId) {
+            let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
+            self.cumulativeDiff += currentDiff
+            self.count += 1
+            mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
+
+            // Calculate switching set arrival variance.
+            let variance = calculateSetVariance(timestamp: timestamp, now: now)
+            if self.granularMetrics,
+               let measurement = self.measurement {
+                Task(priority: .utility) {
+                    await measurement.reportTimestamp(namespace: name,
+                                                      timestamp: timestamp,
+                                                      at: now)
+                    if let variance = variance {
+                        await measurement.reportVariance(variance: variance, at: now)
+                    }
+                }
             }
+        } else {
+            Self.logger.error("Failed to get timestamp")
+            mediaStartTimeDiff = nil
         }
 
         // If we're responsible for rendering, start the task.
@@ -178,7 +202,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         self.handlerLock.withLock {
-            self.lastUpdateTimes[name] = Date.now
+            self.lastUpdateTimes[name] = now
             do {
                 if self.videoHandlers[name] == nil {
                     try makeHandler(namespace: name)
@@ -186,8 +210,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                if handler.timestampTimeDiff == nil {
-                    handler.timestampTimeDiff = self.timestampTimeDiff
+                if let diff = mediaStartTimeDiff {
+                    handler.setTimeDiff(diff: diff)
                 }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {
@@ -195,6 +219,36 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
         return SubscriptionError.none.rawValue
+    }
+
+    private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
+        // Cleanup.
+        if self.variances.count > self.varianceMaxCount {
+            for index in 0...5 {
+                self.variances.remove(at: self.variances.index(self.variances.startIndex, offsetBy: index))
+            }
+        }
+
+        guard var variances = self.variances[timestamp] else {
+            self.variances[timestamp] = [now]
+            return nil
+        }
+
+        variances.append(now)
+        guard variances.count == self.profiles.count else {
+            self.variances[timestamp] = variances
+            return nil
+        }
+
+        // We're done, report and remove.
+        self.variances.removeValue(forKey: timestamp)
+        var oldest = Date.distantFuture
+        var newest = Date.distantPast
+        for date in variances {
+            oldest = min(oldest, date)
+            newest = max(newest, date)
+        }
+        return newest.timeIntervalSince(oldest)
     }
 
     private func startRenderTask() {
@@ -513,8 +567,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         default:
             fatalError()
         }
-        guard let timestamp = timestamp else { return nil }
-        return Date.now.timeIntervalSinceReferenceDate - timestamp.seconds
+        return timestamp?.seconds
     }
 }
 // swiftlint:enable type_body_length

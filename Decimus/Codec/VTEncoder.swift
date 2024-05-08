@@ -7,7 +7,7 @@ import os
 // swiftlint:disable type_body_length
 
 class VTEncoder {
-    typealias EncodedCallback = (UnsafeRawBufferPointer, Bool) -> Void
+    typealias EncodedCallback = (CMTime, UnsafeRawBufferPointer, Bool) -> Void
 
     private static let logger = DecimusLogger(VTEncoder.self)
 
@@ -85,7 +85,7 @@ class VTEncoder {
                                      value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
             case .hevc:
                 VTSessionSetProperty(encoder,
-                                     key: kVTCompressionPropertyKey_ProfileLevel    ,
+                                     key: kVTCompressionPropertyKey_ProfileLevel,
                                      value: kVTProfileLevel_HEVC_Main_AutoLevel)
             default:
                 1
@@ -292,10 +292,10 @@ class VTEncoder {
                     try buffer.withUnsafeMutableBytes(atOffset: offset) {
                         // Get the length.
                         let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
-                        
+
                         // Replace with start code.
                         $0.copyBytes(from: self.startCode)
-                        
+
                         // Move to next NALU.
                         offset += startCode.count + Int(naluLength)
                     }
@@ -314,7 +314,7 @@ class VTEncoder {
         if self.emitStartCodes {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
-        callback(fullEncodedBuffer, idr)
+        callback(sample.presentationTimeStamp, fullEncodedBuffer, idr)
     }
     // swiftlint:enable function_body_length
 
