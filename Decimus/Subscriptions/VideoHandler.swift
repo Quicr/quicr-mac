@@ -108,7 +108,9 @@ class VideoHandler: CustomStringConvertible {
                 if simulreceive != .none {
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample, fps: UInt(self.config.fps), discontinous: sample.discontinous)
+                    self.lastDecodedImage = .init(image: sample,
+                                                  fps: UInt(self.config.fps),
+                                                  discontinous: sample.discontinous)
                 }
                 if simulreceive != .enable {
                     // Enqueue for rendering.
@@ -143,40 +145,37 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
     func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
-        // Do we need to create a jitter buffer?
         var frame: DecimusVideoFrame?
+
+        // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            do {
-                frame = try createJitterBuffer(data: data, groupId: groupId, objectId: objectId)
+            if let copied = try depacketize(data, groupId: groupId, objectId: objectId, copy: true) {
+                try createJitterBuffer(frame: copied)
                 assert(self.dequeueTask == nil)
                 createDequeueTask()
-            } catch {
-                Self.logger.error("Failed to create jitter buffer: \(error.localizedDescription)")
+            } else {
+                throw "Couldn't depacketize this frame"
             }
+        }
+
+        // Depacketize if we didn't already.
+        if frame == nil {
+            let copy = self.jitterBuffer != nil || self.jitterBufferConfig.mode == .layer
+            frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: copy)
+        }
+
+        guard let frame = frame else {
+            throw "Unable to depacketize frame"
         }
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
-            if frame == nil {
-                frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true)
-            }
-            if let frame = frame {
-                do {
-                    try jitterBuffer.write(videoFrame: frame)
-                } catch {
-                    Self.logger.warning("Failed to enqueue video frame: \(error.localizedDescription)")
-                }
-            }
+            try jitterBuffer.write(videoFrame: frame)
         } else {
-            if let frame = try depacketize(data,
-                                           groupId: groupId,
-                                           objectId: objectId,
-                                           copy: self.jitterBufferConfig.mode == .layer) {
-                try decode(sample: frame)
-            }
+            try decode(sample: frame)
         }
 
         // Metrics.
@@ -193,17 +192,16 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
     func calculateWaitTime(from: Date = .now) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else { fatalError("Shouldn't use calculateWaitTime with no jitterbuffer") }
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+        }
         let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
         guard diffMs > 0 else { return nil }
         let diff = TimeInterval(diffMs) / 1000
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
-    private func createJitterBuffer(data: Data, groupId: UInt32, objectId: UInt16) throws -> DecimusVideoFrame {
-        guard let frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: true) else {
-            throw "Failed to depacketize frame"
-        }
+    private func createJitterBuffer(frame: DecimusVideoFrame) throws {
         let remoteFPS: UInt16
         if let fps = frame.fps {
             remoteFPS = UInt16(fps)
@@ -229,7 +227,6 @@ class VideoHandler: CustomStringConvertible {
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
         self.duration = duration
-        return frame
     }
 
     private func createDequeueTask() {
@@ -283,7 +280,10 @@ class VideoHandler: CustomStringConvertible {
         self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
     }
 
-    private func depacketize(_ data: Data, groupId: UInt32, objectId: UInt16, copy: Bool) throws -> DecimusVideoFrame? {
+    private func depacketize(_ data: Data,
+                             groupId: UInt32,
+                             objectId: UInt16,
+                             copy: Bool) throws -> DecimusVideoFrame? {
         let buffers: [CMBlockBuffer]?
         var seis: [ApplicationSEI] = []
         switch self.config.codec {
@@ -408,7 +408,9 @@ class VideoHandler: CustomStringConvertible {
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                try self.enqueueSample(sample: sampleBuffer, orientation: sample.orientation, verticalMirror: sample.verticalMirror)
+                try self.enqueueSample(sample: sampleBuffer,
+                                       orientation: sample.orientation,
+                                       verticalMirror: sample.verticalMirror)
             } else {
                 if let orientation = sample.orientation {
                     self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
@@ -529,8 +531,6 @@ extension DecimusVideoRotation {
             if verticalMirror {
                 transform = CATransform3DScale(transform, 1.0, -1.0, 1.0)
             }
-        default:
-            break
         }
         return transform
     }
