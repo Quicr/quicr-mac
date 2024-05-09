@@ -34,5 +34,9 @@ extension H264Publication {
             let tags = ["timestamp": "\(presentationTimestamp)"]
             record(field: "age", value: age as AnyObject, timestamp: metricsTimestamp, tags: tags)
         }
+
+        func encoded(age: TimeInterval, timestamp: Date) {
+            record(field: "encodedAge", value: age as AnyObject, timestamp: timestamp)
+        }
     }
 }

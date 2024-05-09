@@ -191,14 +191,17 @@ class VTEncoder {
         VTCompressionSessionInvalidate(encoder)
     }
 
-    func write(sample: CMSampleBuffer) throws {
+    func write(sample: CMSampleBuffer, captureTime: Date) throws {
         guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
-        let time = Unmanaged.passRetained(NSValue(time: sample.outputPresentationTimeStamp)).toOpaque()
+        let presentation = sample.presentationTimeStamp
+        let captureTimeCM = CMTime(seconds: captureTime.timeIntervalSinceReferenceDate,
+                                   preferredTimescale: presentation.timescale)
+        let time = Unmanaged.passRetained(NSValue(time: captureTimeCM)).toOpaque()
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
-                                            presentationTimeStamp: sample.presentationTimeStamp,
+                                            presentationTimeStamp: presentation,
                                             duration: .invalid,
                                             frameProperties: nil,
                                             sourceFrameRefcon: time,

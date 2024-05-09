@@ -12,7 +12,7 @@ protocol FrameListener {
     var queue: DispatchQueue { get }
     var device: AVCaptureDevice { get }
     var codec: VideoCodecConfig? { get }
-    func onFrame(_ frame: CMSampleBuffer, captureTime: Date)
+    func onFrame(_ sampleBuffer: CMSampleBuffer, captureTime: Date)
 }
 
 fileprivate extension FrameListener {
@@ -328,7 +328,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Metrics.
         if let measurement = self.measurement {
-            let timestamp = sampleBuffer.presentationTimeStamp
+            let timestamp = sampleBuffer.presentationTimeStamp.seconds
             Task(priority: .utility) {
                 await measurement.capturedFrame(frameTimestamp: timestamp,
                                                 metricsTimestamp: self.granularMetrics ? now : nil)

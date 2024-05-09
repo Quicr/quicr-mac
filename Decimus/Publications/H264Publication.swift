@@ -66,6 +66,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
 
         let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
+            // Encode age.
+            if granularMetrics,
+               let measurement = measurement {
+                let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
+                let now = Date.now
+                let age = now.timeIntervalSince(captureDate)
+                Task(priority: .utility) {
+                    await measurement.encoded(age: age, timestamp: now)
+                }
+            }
+
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
@@ -144,7 +155,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer)
+            try encoder.write(sample: sampleBuffer, captureTime: captureTime)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
