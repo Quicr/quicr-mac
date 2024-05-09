@@ -5,12 +5,12 @@ import XCTest
 extension DecimusVideoFrame: Equatable {
     public static func == (lhs: Decimus.DecimusVideoFrame, rhs: Decimus.DecimusVideoFrame) -> Bool {
         lhs.samples == rhs.samples &&
-        lhs.groupId == rhs.groupId &&
-        lhs.objectId == rhs.objectId &&
-        lhs.sequenceNumber == rhs.sequenceNumber &&
-        lhs.fps == rhs.fps &&
-        lhs.orientation == rhs.orientation &&
-        lhs.verticalMirror == rhs.verticalMirror
+            lhs.groupId == rhs.groupId &&
+            lhs.objectId == rhs.objectId &&
+            lhs.sequenceNumber == rhs.sequenceNumber &&
+            lhs.fps == rhs.fps &&
+            lhs.orientation == rhs.orientation &&
+            lhs.verticalMirror == rhs.verticalMirror
     }
 }
 
@@ -37,7 +37,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                      sequenceNumber: sequenceNumber,
                      fps: fps,
                      orientation: nil,
-                     verticalMirror: nil)
+                     verticalMirror: nil,
+                     captureDate: .now)
     }
 
     func testPlayout(sort: Bool) throws {
@@ -188,7 +189,14 @@ final class TestVideoJitterBuffer: XCTestCase {
                                                   decodeTimeStamp: .invalid)
                                         ],
                                         sampleSizes: [0])
-        let frame = DecimusVideoFrame(samples: [sample], groupId: 1, objectId: 1, sequenceNumber: 1, fps: 1, orientation: nil, verticalMirror: nil)
+        let frame = DecimusVideoFrame(samples: [sample],
+                                      groupId: 1,
+                                      objectId: 1,
+                                      sequenceNumber: 1,
+                                      fps: 1,
+                                      orientation: nil,
+                                      verticalMirror: nil,
+                                      captureDate: .now)
         try buffer.write(videoFrame: frame)
         waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
         XCTAssertNotNil(waitTime)
@@ -221,7 +229,14 @@ final class TestVideoJitterBuffer: XCTestCase {
                                                       decodeTimeStamp: .invalid)
                                             ],
                                             sampleSizes: [0])
-            let frame = DecimusVideoFrame(samples: [sample], groupId: 1, objectId: 1, sequenceNumber: 1, fps: 1, orientation: nil, verticalMirror: nil)
+            let frame = DecimusVideoFrame(samples: [sample],
+                                          groupId: 1,
+                                          objectId: 1,
+                                          sequenceNumber: 1,
+                                          fps: 1,
+                                          orientation: nil,
+                                          verticalMirror: nil,
+                                          captureDate: .now)
             try buffer.write(videoFrame: frame)
         }
 
