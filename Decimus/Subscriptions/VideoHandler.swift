@@ -172,7 +172,6 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Either write the frame to the jitter buffer or otherwise decode it.
-        let captureDate: Date?
         if let jitterBuffer = self.jitterBuffer {
             try jitterBuffer.write(videoFrame: frame)
         } else {
