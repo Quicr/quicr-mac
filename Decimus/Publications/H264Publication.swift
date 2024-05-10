@@ -65,7 +65,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             self.device = preferred
         }
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] timestamp, data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
+            // Encode age.
+            if granularMetrics,
+               let measurement = measurement {
+                let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
+                let now = Date.now
+                let age = now.timeIntervalSince(captureDate)
+                Task(priority: .utility) {
+                    await measurement.encoded(age: age, timestamp: now)
+                }
+            }
+
             // Publish.
             publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
 
@@ -74,9 +85,17 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
             let now: Date? = granularMetrics ? Date.now : nil
             let bytes = data.count
             Task(priority: .utility) {
+                let age: TimeInterval?
+                if let now = now {
+                    let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
+                    age = now.timeIntervalSince(captureDate)
+                } else {
+                    age = nil
+                }
                 await measurement.sentFrame(bytes: UInt64(bytes),
-                                            timestamp: timestamp.seconds,
-                                            at: now)
+                                            timestamp: presentationTimestamp.seconds,
+                                            age: age,
+                                            metricsTimestamp: now)
             }
         }
         self.encoder = try .init(config: self.codec!,
@@ -116,46 +135,27 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
     func publish(_ flag: Bool) {}
 
-    /// This callback fires if a frame was dropped.
-    @objc(captureOutput:didDropSampleBuffer:fromConnection:)
-    func captureOutput(_ output: AVCaptureOutput,
-                       didDrop sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
-        var mode: CMAttachmentMode = 0
-        let reason = CMGetAttachment(sampleBuffer,
-                                     key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
-                                     attachmentModeOut: &mode)
-        Self.logger.warning("\(String(describing: reason))")
-        guard let measurement = self.measurement else { return }
-        let now: Date? = self.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.droppedFrame(timestamp: now)
-        }
-    }
-
     /// This callback fires when a video frame arrives.
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+    func onFrame(_ sampleBuffer: CMSampleBuffer,
+                 captureTime: Date) {
         // Configure FPS.
         if self.encoder.frameRate == nil {
             self.encoder.frameRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
         }
 
         // Stagger the publication's start time by its height in ms.
-        if self.startTime == nil {
-            self.startTime = .now
-        }
         if let startTime = self.startTime {
-            let interval = Date.now.timeIntervalSince(startTime)
+            let interval = captureTime.timeIntervalSince(startTime)
             guard interval > TimeInterval(self.codec!.height / 1000) else {
                 return
             }
+        } else {
+            self.startTime = captureTime
         }
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer)
+            try encoder.write(sample: sampleBuffer, captureTime: captureTime)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
@@ -166,10 +166,18 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let date: Date? = self.granularMetrics ? Date.now : nil
+        let presentationTimestamp = sampleBuffer.presentationTimeStamp.seconds
+        let date: Date? = self.granularMetrics ? captureTime : nil
+        let now = Date.now
         Task(priority: .utility) {
-            await measurement.capturedFrame(timestamp: date)
             await measurement.sentPixels(sent: pixels, timestamp: date)
+            if let date = date {
+                // TODO: This age is probably useless.
+                let age = now.timeIntervalSince(captureTime)
+                await measurement.age(age: age,
+                                      presentationTimestamp: presentationTimestamp,
+                                      metricsTimestamp: date)
+            }
         }
     }
 }

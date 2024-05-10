@@ -8,6 +8,7 @@ class DecimusVideoFrame {
     let fps: UInt8?
     let orientation: DecimusVideoRotation?
     let verticalMirror: Bool?
+    let captureDate: Date?
 
     init(samples: [CMSampleBuffer],
          groupId: UInt32,
@@ -15,7 +16,8 @@ class DecimusVideoFrame {
          sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
-         verticalMirror: Bool?) {
+         verticalMirror: Bool?,
+         captureDate: Date?) {
         self.samples = samples
         self.groupId = groupId
         self.objectId = objectId
@@ -23,5 +25,6 @@ class DecimusVideoFrame {
         self.fps = fps
         self.orientation = orientation
         self.verticalMirror = verticalMirror
+        self.captureDate = captureDate
     }
 }
