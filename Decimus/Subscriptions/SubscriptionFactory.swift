@@ -59,6 +59,7 @@ struct SubscriptionConfig: Codable {
     var enableQlog: Bool
     var pauseResume: Bool
     var quicrLogs: Bool
+    var smoothStartTime: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -82,6 +83,7 @@ struct SubscriptionConfig: Codable {
         enableQlog = false
         pauseResume = false
         quicrLogs = false
+        smoothStartTime = true
     }
 }
 
@@ -138,7 +140,8 @@ class SubscriptionFactory {
                                          qualityMissThreshold: self.config.qualityMissThreshold,
                                          pauseMissThreshold: self.config.pauseMissThreshold,
                                          controller: self.controller,
-                                         pauseResume: self.config.pauseResume)
+                                         pauseResume: self.config.pauseResume,
+                                         smoothStartTime: self.config.smoothStartTime)
         }
 
         if found.isSubset(of: opusCodecs) {

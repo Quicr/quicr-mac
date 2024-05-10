@@ -52,7 +52,10 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
-
+                HStack {
+                    Text("Smooth Start Time")
+                    Toggle(isOn: $subscriptionConfig.value.smoothStartTime) {}
+                }
                 LabeledContent("Encoder bitrate") {
                     Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {
                         ForEach(BitrateType.allCases) {
