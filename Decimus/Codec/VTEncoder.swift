@@ -45,10 +45,10 @@ class VTEncoder {
         self.callback = callback
         self.config = config
         self.emitStartCodes = emitStartCodes
-        self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
+        self.bufferAllocator = try .init(preAllocateSize: 1024 * 1024, preAllocateHdrSize: 512)
         let allocator: CFAllocator?
         #if targetEnvironment(macCatalyst)
-        allocator = self.bufferAllocator.allocator().takeUnretainedValue()
+        allocator = self.bufferAllocator.getAllocator()
         #else
         allocator = nil
         #endif

@@ -63,6 +63,7 @@
 		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
+		9B9B0AC32BF2437600CC4F97 /* BufferAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9B0AC22BF2437600CC4F97 /* BufferAllocator.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -222,6 +223,7 @@
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
+		9B9B0AC22BF2437600CC4F97 /* BufferAllocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BufferAllocator.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
@@ -434,6 +436,14 @@
 			path = Tests;
 			sourceTree = "<group>";
 		};
+		9B9B0AC12BF2436300CC4F97 /* BufferAllocator */ = {
+			isa = PBXGroup;
+			children = (
+				9B9B0AC22BF2437600CC4F97 /* BufferAllocator.swift */,
+			);
+			path = BufferAllocator;
+			sourceTree = "<group>";
+		};
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
@@ -459,6 +469,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B9B0AC12BF2436300CC4F97 /* BufferAllocator */,
 				186763532B2B69EB00339421 /* Measurements */,
 				FF3B952D2A60C77B00CE463F /* Lib */,
 				18C89A372A13D14A005B333B /* Metrics */,
@@ -911,6 +922,7 @@
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */,
 				18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */,
+				9B9B0AC32BF2437600CC4F97 /* BufferAllocator.swift in Sources */,
 				9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */,
 				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
