@@ -263,4 +263,90 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertNotNil(negativeWait)
         XCTAssertEqual(-duration.seconds / 2, negativeWait!, accuracy: 1 / 1000)
     }
+
+    func testFastArrivalPast() throws {
+        try testFastArrival(greaterThanNow: false)
+    }
+
+    func testFastArrivalFuture() throws {
+        try testFastArrival(greaterThanNow: true)
+    }
+
+    // Test that fast arrivals of frames don't effect playout time.
+    func testFastArrival(greaterThanNow: Bool) throws {
+        // Create jitter buffer.
+        let capacity = 1000
+        let targetDepth: TimeInterval = 0.2
+        let buffer = try VideoJitterBuffer(namespace: "1234", metricsSubmitter: nil, sort: false, minDepth: targetDepth, capacity: capacity)
+
+        // Frame characteristics.
+        let fps = 30
+        let duration: TimeInterval = 1 / TimeInterval(fps)
+
+        // A lot of frames will arrive now().
+        let firstArrival = Date.now
+        let nowInterval = firstArrival.timeIntervalSinceReferenceDate
+
+        // We will start their presentation at some random value (before or after now).
+        let range: Range<TimeInterval>
+        if greaterThanNow {
+            range = nowInterval..<(nowInterval * 100)
+        } else {
+            range = 0..<nowInterval
+        }
+        var presentationTime: TimeInterval = .random(in: range)
+
+        // Record the media start time from the first frame.
+        let diff = firstArrival.timeIntervalSinceReferenceDate - presentationTime
+
+        // Burst arrive N frames all of duration and presentationTime += duration.
+        for index in 0..<capacity {
+            let sample = try CMSampleBuffer(dataBuffer: nil,
+                                            formatDescription: nil,
+                                            numSamples: 0,
+                                            sampleTimings: [.init(duration: .invalid,
+                                                                  presentationTimeStamp: .init(seconds: presentationTime,
+                                                                                               preferredTimescale: 30000),
+                                                                  decodeTimeStamp: .invalid)],
+                                            sampleSizes: [])
+            presentationTime += duration
+            let frame = DecimusVideoFrame(samples: [sample],
+                                          groupId: UInt32(index),
+                                          objectId: 0,
+                                          sequenceNumber: UInt64(index),
+                                          fps: UInt8(fps),
+                                          orientation: .portrait,
+                                          verticalMirror: false,
+                                          captureDate: nil)
+            try buffer.write(videoFrame: frame)
+        }
+
+        // Start reading frames and moving through media timeline,
+        // starting from the same instant as arrival.
+        var from = firstArrival
+        for index in 0..<capacity {
+            guard let waitTime = buffer.calculateWaitTime(from: from, offset: diff) else {
+                XCTFail()
+                return
+            }
+            if index == 0 {
+                // First frame would play out now() but held for minDepth.
+                XCTAssertEqual(waitTime, targetDepth, accuracy: 1 / 1000)
+            } else {
+                // All other frames should request to be played out a duration away from each other.
+                XCTAssertEqual(waitTime, duration, accuracy: 1 / 1000)
+            }
+            // This is our mock sleep, moving our timeline forward.
+            from.addTimeInterval(waitTime)
+
+            // Dequeue this frame.
+            guard let frame = buffer.read() else {
+                XCTFail()
+                return
+            }
+
+            // Sanity.
+            XCTAssertEqual(frame.sequenceNumber!, UInt64(index))
+        }
+    }
 }
