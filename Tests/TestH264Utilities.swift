@@ -14,10 +14,10 @@ final class TestH264Utilities: XCTestCase {
         let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         let callback: (Data) -> Void = { _ in }
-        guard let samples = try H264Utilities.depacketize(data,
-                                                          format: &format,
-                                                          copy: true,
-                                                          seiCallback: callback) else {
+        guard let samples = try H264Utilities().depacketize(data,
+                                                            format: &format,
+                                                            copy: true,
+                                                            seiCallback: callback) else {
             XCTFail()
             return
         }

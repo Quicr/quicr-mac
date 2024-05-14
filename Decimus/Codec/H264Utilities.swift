@@ -1,12 +1,10 @@
 import CoreMedia
 import AVFoundation
 
-// swiftlint:disable type_body_length
 // swiftlint:disable function_body_length
-// swiftlint:disable function_parameter_count
 
 /// Utility functions for working with H264 bitstreams.
-class H264Utilities {
+class H264Utilities: VideoUtilities {
     private static let logger = DecimusLogger(H264Utilities.self)
 
     // Bytes that precede every NALU.
@@ -25,11 +23,11 @@ class H264Utilities {
         case missingStartCode
     }
 
-    static func depacketize(_ data: Data,
-                            format: inout CMFormatDescription?,
-                            copy: Bool,
-                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
-        if data.starts(with: naluStartCode) {
+    func depacketize(_ data: Data,
+                     format: inout CMFormatDescription?,
+                     copy: Bool,
+                     seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+        if data.starts(with: Self.naluStartCode) {
             return try depacketizeAnnexB(data,
                                          format: &format,
                                          copy: copy,
@@ -44,10 +42,10 @@ class H264Utilities {
         }
     }
 
-    static func depacketizeLength(_ data: UnsafeRawBufferPointer,
-                                  format: inout CMFormatDescription?,
-                                  copy: Bool,
-                                  seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+    private func depacketizeLength(_ data: UnsafeRawBufferPointer,
+                                   format: inout CMFormatDescription?,
+                                   copy: Bool,
+                                   seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         var results: [CMBlockBuffer] = []
         var offset = 0
         var spsData: Data?
@@ -60,29 +58,34 @@ class H264Utilities {
             let rawType = data.load(fromByteOffset: offset + MemoryLayout<UInt32>.size, as: UInt8.self)
             let type = H264Types(rawValue: rawType & 0x1F)
             if type == .sps {
-                spsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)), count: Int(length), deallocator: .none)
+                spsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)),
+                                count: Int(length),
+                                deallocator: .none)
             }
 
             if type == .pps {
-                ppsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)), count: Int(length), deallocator: .none)
+                ppsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)),
+                                count: Int(length),
+                                deallocator: .none)
             }
 
             if type == .sei {
-                seiCallback(.init(bytes: data.baseAddress!.advanced(by: offset), count: Int(length) + MemoryLayout<UInt32>.size))
+                seiCallback(.init(bytes: data.baseAddress!.advanced(by: offset),
+                                  count: Int(length) + MemoryLayout<UInt32>.size))
             }
 
             if let sps = spsData,
                let pps = ppsData {
                 format = try CMVideoFormatDescription(h264ParameterSets: [sps, pps],
-                                                      nalUnitHeaderLength: naluStartCode.count)
+                                                      nalUnitHeaderLength: Self.naluStartCode.count)
                 spsData = nil
                 ppsData = nil
             }
 
             if type == .pFrame || type == .idr {
-                results.append(try buildBlockBuffer(UnsafeRawBufferPointer(start: data.baseAddress!.advanced(by: offset),
-                                                                           count: Int(length) + MemoryLayout<UInt32>.size),
-                                                     copy: copy))
+                results.append(try Self.buildBlockBuffer(UnsafeRawBufferPointer(start: data.baseAddress!.advanced(by: offset),
+                                                                                count: Int(length) + MemoryLayout<UInt32>.size),
+                                                         copy: copy))
             }
             offset += MemoryLayout<UInt32>.size + Int(length)
         }
@@ -96,19 +99,18 @@ class H264Utilities {
     /// - Parameter format The current format of the stream if known.
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    static func depacketizeAnnexB(_ data: Data,
-                                  format: inout CMFormatDescription?,
-                                  copy: Bool,
-                                  seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
-
+    private func depacketizeAnnexB(_ data: Data,
+                                   format: inout CMFormatDescription?,
+                                   copy: Bool,
+                                   seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         // Identify all NALUs by start code.
-        assert(data.starts(with: naluStartCode))
+        assert(data.starts(with: Self.naluStartCode))
         var ranges: [Range<Data.Index>] = []
         var naluRanges: [Range<Data.Index>] = []
         var startIndex = 0
         var index = 0
         var naluRangesIndex = 0
-        while let range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
+        while let range = data.range(of: .init(Self.naluStartCode), in: startIndex..<data.count) {
             ranges.append(range)
             startIndex = range.upperBound
             if index > 0 {
@@ -128,7 +130,7 @@ class H264Utilities {
                 // use the payload size to get the whole sub buffer.
                 if type == .sei { // RBSP
                     let payloadSize = data[lastRange.upperBound + 2]
-                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 3
+                    let upperBound = Int(payloadSize) + lastRange.lowerBound + Self.naluStartCode.count + 3
                     naluRanges.append(.init(lastRange.lowerBound...upperBound))
 
                 } else {
@@ -163,9 +165,9 @@ class H264Utilities {
         for index in 0..<nalus.count {
             // What type is this NALU?
             var nalu = nalus[index]
-            assert(nalu.starts(with: self.naluStartCode))
-            let type = H264Types(rawValue: nalu[naluStartCode.count] & 0x1F)
-            let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
+            assert(nalu.starts(with: Self.naluStartCode))
+            let type = H264Types(rawValue: nalu[Self.naluStartCode.count] & 0x1F)
+            let rangedData = nalu.subdata(in: Self.naluStartCode.count..<nalu.count)
 
             if type == .sps {
                 spsData = rangedData
@@ -182,17 +184,19 @@ class H264Utilities {
             if let sps = spsData,
                let pps = ppsData {
                 format = try CMVideoFormatDescription(h264ParameterSets: [sps, pps],
-                                                      nalUnitHeaderLength: naluStartCode.count)
+                                                      nalUnitHeaderLength: Self.naluStartCode.count)
                 spsData = nil
                 ppsData = nil
             }
 
             if type == .pFrame || type == .idr {
-                var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
-                nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
+                var naluDataLength = UInt32(nalu.count - Self.naluStartCode.count).byteSwapped
+                nalu.replaceSubrange(0..<Self.naluStartCode.count,
+                                     with: &naluDataLength,
+                                     count: Self.naluStartCode.count)
                 try nalu.withUnsafeBytes {
-                    results.append(try buildBlockBuffer($0,
-                                                        copy: copy))
+                    results.append(try Self.buildBlockBuffer($0,
+                                                             copy: copy))
                 }
             }
         }
