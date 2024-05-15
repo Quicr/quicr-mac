@@ -38,6 +38,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [QuicrNamespace: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
+    private var timestampTimeDiff: TimeInterval?
     private var pauseMissCounts: [QuicrNamespace: Int] = [:]
     private let pauseMissThreshold: Int
     private weak var callController: CallController?
@@ -48,10 +49,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let measurement: VideoSubscriptionMeasurement?
     private var variances: [TimeInterval: [Date]] = [:]
     private let varianceMaxCount = 10
-
-    // Start time.
-    private var cumulativeDiff: TimeInterval = 0
-    private var count = 0
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -167,16 +164,14 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        // Smooth media start time.
         let mediaStartTimeDiff: TimeInterval?
         if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
                                                   namespace: name,
                                                   groupId: groupId,
                                                   objectId: objectId) {
-            let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
-            self.cumulativeDiff += currentDiff
-            self.count += 1
-            mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
+            }
 
             // Calculate switching set arrival variance.
             let variance = calculateSetVariance(timestamp: timestamp, now: now)
@@ -210,8 +205,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                if let diff = mediaStartTimeDiff {
-                    handler.setTimeDiff(diff: diff)
+                if handler.timestampTimeDiff == nil {
+                    handler.timestampTimeDiff = self.timestampTimeDiff
                 }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
             } catch {

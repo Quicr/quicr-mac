@@ -50,7 +50,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffMs = ManagedAtomic(UInt64.zero)
+    var timestampTimeDiff: TimeInterval?
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -200,9 +200,7 @@ class VideoHandler: CustomStringConvertible {
         guard let jitterBuffer = self.jitterBuffer else {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
-        let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
-        guard diffMs > 0 else { return nil }
-        let diff = TimeInterval(diffMs) / 1000
+        guard let diff = self.timestampTimeDiff else { return nil }
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
@@ -278,11 +276,6 @@ class VideoHandler: CustomStringConvertible {
                 }
             }
         }
-    }
-
-    func setTimeDiff(diff: TimeInterval) {
-        assert(diff > (1 / 1000))
-        self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
     }
 
     private func depacketize(_ data: Data,
