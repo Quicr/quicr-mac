@@ -48,11 +48,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let measurement: VideoSubscriptionMeasurement?
     private var variances: [TimeInterval: [Date]] = [:]
     private let varianceMaxCount = 10
-
-    // Start time.
-    private let smoothStartTime: Bool
-    private var cumulativeDiff: TimeInterval = 0
-    private var count = 0
+    private var timestampTimeDiff: TimeInterval?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -66,8 +62,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,
          controller: CallController?,
-         pauseResume: Bool,
-         smoothStartTime: Bool) throws {
+         pauseResume: Bool) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -85,7 +80,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.pauseMissThreshold = pauseMissThreshold
         self.callController = controller
         self.pauseResume = pauseResume
-        self.smoothStartTime = smoothStartTime
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
@@ -170,23 +164,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        // Smooth media start time.
-        let mediaStartTimeDiff: TimeInterval?
         if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
                                                   namespace: name,
                                                   groupId: groupId,
                                                   objectId: objectId) {
-            if self.smoothStartTime {
-                // Smooth from every frame average.
-                let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
-                self.cumulativeDiff += currentDiff
-                self.count += 1
-                mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
-            } else if self.count == 0 {
-                self.count = 1
-                mediaStartTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
-            } else {
-                mediaStartTimeDiff = nil
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
             }
 
             // Calculate switching set arrival variance.
@@ -204,7 +187,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         } else {
             Self.logger.error("Failed to get timestamp")
-            mediaStartTimeDiff = nil
         }
 
         // If we're responsible for rendering, start the task.
@@ -221,7 +203,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 guard let handler = self.videoHandlers[name] else {
                     throw "Unknown namespace"
                 }
-                if let diff = mediaStartTimeDiff {
+                if let diff = self.timestampTimeDiff {
                     handler.setTimeDiff(diff: diff)
                 }
                 try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
