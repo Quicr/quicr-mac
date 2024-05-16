@@ -230,7 +230,7 @@ class VideoHandler: CustomStringConvertible {
                                       metricsSubmitter: self.metricsSubmitter,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
+                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
         self.duration = duration
     }
 
