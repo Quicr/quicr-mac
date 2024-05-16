@@ -144,14 +144,12 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         }
 
         // Stagger the publication's start time by its height in ms.
-        if let startTime = self.startTime {
-            let interval = captureTime.timeIntervalSince(startTime)
-            guard interval > TimeInterval(self.codec!.height / 1000) else {
-                return
-            }
-        } else {
+        guard let startTime = self.startTime else {
             self.startTime = captureTime
+            return
         }
+        let interval = captureTime.timeIntervalSince(startTime)
+        guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
         // Encode.
         do {
