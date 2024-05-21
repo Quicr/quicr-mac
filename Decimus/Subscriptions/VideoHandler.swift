@@ -50,7 +50,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffMs = ManagedAtomic(UInt64.zero)
+    private var timestampTimeDiffUs = ManagedAtomic(UInt64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -214,9 +214,9 @@ class VideoHandler: CustomStringConvertible {
         guard let jitterBuffer = self.jitterBuffer else {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
-        let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
-        guard diffMs > 0 else { return nil }
-        let diff = TimeInterval(diffMs) / 1000
+        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
+        guard diffUs > 0 else { return nil }
+        let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
@@ -244,7 +244,7 @@ class VideoHandler: CustomStringConvertible {
                                       metricsSubmitter: self.metricsSubmitter,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
+                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
         self.duration = duration
     }
 
@@ -295,8 +295,11 @@ class VideoHandler: CustomStringConvertible {
     }
 
     func setTimeDiff(diff: TimeInterval) {
-        assert(diff > (1 / 1000))
-        self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
+        assert(diff > (1 / 1_000_000))
+        let diffUs = UInt64(diff * 1_000_000)
+        _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
+                                                     desired: diffUs,
+                                                     ordering: .acquiringAndReleasing)
     }
 
     private func decode(sample: DecimusVideoFrame) throws {
