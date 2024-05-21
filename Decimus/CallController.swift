@@ -51,10 +51,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     }
 
     func connect(config: CallConfig) async throws {
-        let url = try FileManager.default.url(for: FileManager.SearchPathDirectory.downloadsDirectory,
-                                              in: FileManager.SearchPathDomainMask.userDomainMask,
-                                              appropriateFor: nil, create: true)
-        try url.path.withCString { downloadDir in
+        let url: URL
+        #if targetEnvironment(macCatalyst)
+        url = .downloadsDirectory
+        #else
+        url = .documentsDirectory
+        #endif
+        try url.path.withCString { dir in
             let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                          tls_key_filename: nil,
                                                          time_queue_init_queue_size: 1000,
@@ -69,7 +72,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                          idle_timeout_ms: 15000,
                                                          use_reset_wait_strategy: self.config.useResetWaitCC,
                                                          use_bbr: self.config.useBBR,
-                                                         quic_qlog_path: self.config.enableQlog ? downloadDir : nil)
+                                                         quic_qlog_path: self.config.enableQlog ? dir : nil)
             let error = super.connect(config.email,
                                       relay: config.address,
                                       port: config.port,
