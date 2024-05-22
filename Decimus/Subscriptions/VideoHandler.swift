@@ -55,6 +55,7 @@ class VideoHandler: CustomStringConvertible {
     private var lastDimensions: CMVideoDimensions?
 
     private var duration: TimeInterval? = 0
+    private let variances: VarianceCalculator
 
     /// Create a new video handler.
     /// - Parameters:
@@ -76,7 +77,8 @@ class VideoHandler: CustomStringConvertible {
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
-         simulreceive: SimulreceiveMode) throws {
+         simulreceive: SimulreceiveMode,
+         variances: VarianceCalculator) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -100,6 +102,7 @@ class VideoHandler: CustomStringConvertible {
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.description = self.namespace
+        self.variances = variances
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -108,6 +111,8 @@ class VideoHandler: CustomStringConvertible {
                 if simulreceive != .none {
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
+                    _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
+                                                            now: Date.now)
                     self.lastDecodedImage = .init(image: sample,
                                                   fps: UInt(self.config.fps),
                                                   discontinous: sample.discontinous)

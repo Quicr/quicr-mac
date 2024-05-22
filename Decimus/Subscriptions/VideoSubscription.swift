@@ -46,8 +46,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
-    private var variances: [TimeInterval: [Date]] = [:]
-    private let varianceMaxCount = 10
+    private let variances: VarianceCalculator
+    private let decodedVariances: VarianceCalculator
     private var formats: [QuicrNamespace: CMFormatDescription?] = [:]
     private var timestampTimeDiff: TimeInterval?
 
@@ -81,6 +81,14 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.pauseMissThreshold = pauseMissThreshold
         self.callController = controller
         self.pauseResume = pauseResume
+        self.variances = try .init(expectedOccurrences: profileSet.profilesCount,
+                                   submitter: self.granularMetrics ? metricsSubmitter : nil,
+                                   source: sourceId,
+                                   stage: "SubscribedObject")
+        self.decodedVariances = try .init(expectedOccurrences: profileSet.profilesCount,
+                                          submitter: self.granularMetrics ? metricsSubmitter : nil,
+                                          source: sourceId,
+                                          stage: "Decoded")
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
@@ -188,16 +196,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
 
             // Calculate switching set arrival variance.
-            let variance = calculateSetVariance(timestamp: timestamp, now: now)
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: now)
             if self.granularMetrics,
                let measurement = self.measurement {
                 Task(priority: .utility) {
                     await measurement.reportTimestamp(namespace: name,
                                                       timestamp: timestamp,
                                                       at: now)
-                    if let variance = variance {
-                        await measurement.reportVariance(variance: variance, at: now)
-                    }
                 }
             }
         } else {
@@ -227,36 +232,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
         return SubscriptionError.none.rawValue
-    }
-
-    private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        // Cleanup.
-        if self.variances.count > self.varianceMaxCount {
-            for index in 0...5 {
-                self.variances.remove(at: self.variances.index(self.variances.startIndex, offsetBy: index))
-            }
-        }
-
-        guard var variances = self.variances[timestamp] else {
-            self.variances[timestamp] = [now]
-            return nil
-        }
-
-        variances.append(now)
-        guard variances.count == self.profiles.count else {
-            self.variances[timestamp] = variances
-            return nil
-        }
-
-        // We're done, report and remove.
-        self.variances.removeValue(forKey: timestamp)
-        var oldest = Date.distantFuture
-        var newest = Date.distantPast
-        for date in variances {
-            oldest = min(oldest, date)
-            newest = max(newest, date)
-        }
-        return newest.timeIntervalSince(oldest)
     }
 
     private func startRenderTask() {
@@ -295,7 +270,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                                   reliable: self.reliable,
                                                   granularMetrics: self.granularMetrics,
                                                   jitterBufferConfig: self.jitterBufferConfig,
-                                                  simulreceive: self.simulreceive)
+                                                  simulreceive: self.simulreceive,
+                                                  variances: self.decodedVariances)
     }
 
     struct SimulreceiveItem: Equatable {
