@@ -12,7 +12,7 @@ extension VarianceCalculator {
 
         func reportVariance(variance: TimeInterval, timestamp: Date, count: Int) {
             let tags: [String: String] = ["count": "\(count)"]
-            record(field: "variance", value: variance as AnyObject, timestamp: timestamp, tags: tags)
+            record(field: "variance", value: variance, timestamp: timestamp, tags: tags)
         }
     }
 }

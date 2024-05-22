@@ -109,10 +109,10 @@ class VideoHandler: CustomStringConvertible {
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
-                    self.lastDecodedImageLock.lock()
-                    defer { self.lastDecodedImageLock.unlock() }
                     _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                             now: Date.now)
+                    self.lastDecodedImageLock.lock()
+                    defer { self.lastDecodedImageLock.unlock() }
                     self.lastDecodedImage = .init(image: sample,
                                                   fps: UInt(self.config.fps),
                                                   discontinous: sample.discontinous)

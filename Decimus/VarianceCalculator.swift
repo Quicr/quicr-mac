@@ -1,8 +1,9 @@
-import Foundation
+import os
 
 /// Calculate the variance between a set of timestamped events and their time of occurance.
 class VarianceCalculator {
     private var variances: [TimeInterval: [Date]] = [:]
+    private var lock = OSAllocatedUnfairLock()
     private let varianceMaxCount: Int
     private let expectedOccurrences: Int
     private let measurement: VarianceCalculatorMeasurement?
@@ -34,29 +35,33 @@ class VarianceCalculator {
 
     /// Record a variance.
     func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        // Cleanup.
-        if self.variances.count > self.varianceMaxCount {
-            for index in 0...self.varianceMaxCount / 2 {
-                let variance = self.variances.remove(at: self.variances.index(self.variances.startIndex,
-                                                                              offsetBy: index))
-                _ = calculateSetVariance(times: variance.value, now: now)
+        let variances = self.lock.withLock {
+            // Cleanup.
+            if self.variances.count > self.varianceMaxCount {
+                for index in 0...self.varianceMaxCount / 2 {
+                    let variance = self.variances.remove(at: self.variances.index(self.variances.startIndex,
+                                                                                  offsetBy: index))
+                    _ = calculateSetVariance(times: variance.value, now: now)
+                }
             }
-        }
 
-        guard var variances = self.variances[timestamp] else {
-            self.variances[timestamp] = [now]
-            return nil
-        }
+            guard var variances = self.variances[timestamp] else {
+                self.variances[timestamp] = [now]
+                return [Date]?.none
+            }
 
-        variances.append(now)
-        guard variances.count == self.expectedOccurrences else {
-            // If we're not done, just store for next time.
-            self.variances[timestamp] = variances
-            return nil
-        }
+            variances.append(now)
+            guard variances.count == self.expectedOccurrences else {
+                // If we're not done, just store for next time.
+                self.variances[timestamp] = variances
+                return [Date]?.none
+            }
 
-        // We're done, remove and report.
-        self.variances.removeValue(forKey: timestamp)
+            // We're done, remove and report.
+            self.variances.removeValue(forKey: timestamp)
+            return variances
+        }
+        guard let variances = variances else { return nil }
         return calculateSetVariance(times: variances, now: now)
     }
 
