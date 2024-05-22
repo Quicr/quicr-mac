@@ -22,6 +22,16 @@ extension Measurement {
         fields[timestamp]!.append(.init(fieldName: field, value: value, tags: tags))
     }
 
+    func record(field: String, value: Double, timestamp: Date?, tags: [String: String]? = nil) {
+        let floatValue: TimeInterval
+        if value == 0 || Int(exactly: value) != nil {
+            floatValue = value + .ulpOfOne
+        } else {
+            floatValue = value
+        }
+        record(field: field, value: floatValue as AnyObject, timestamp: timestamp, tags: tags)
+    }
+
     func clear() {
         fields.removeAll(keepingCapacity: true)
     }
