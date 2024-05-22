@@ -4,19 +4,23 @@ import UIKit
 import AVFoundation
 import os
 
-// swiftlint:disable type_body_length
+protocol VideoEncoder {
+    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool) -> Void
+    var frameRate: Float64? { get set }
+    func write(sample: CMSampleBuffer, captureTime: Date) throws
+    func setCallback(_ callback: @escaping EncodedCallback)
+}
 
-class VTEncoder {
+// swiftlint:disable type_body_length
+class VTEncoder: VideoEncoder {
     enum VTEncoderError: Error {
         case unsupportedCodec(CodecType)
     }
 
-    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool) -> Void
-
     private static let logger = DecimusLogger(VTEncoder.self)
 
     var frameRate: Float64?
-    private let callback: EncodedCallback
+    private var callback: EncodedCallback?
     private let config: VideoCodecConfig
     private var encoder: VTCompressionSession?
     private let verticalMirror: Bool
@@ -39,10 +43,8 @@ class VTEncoder {
     // swiftlint:disable function_body_length
     init(config: VideoCodecConfig,
          verticalMirror: Bool,
-         callback: @escaping EncodedCallback,
          emitStartCodes: Bool = false) throws {
         self.verticalMirror = verticalMirror
-        self.callback = callback
         self.config = config
         self.emitStartCodes = emitStartCodes
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
@@ -209,6 +211,10 @@ class VTEncoder {
         }
     }
 
+    func setCallback(_ callback: @escaping EncodedCallback) {
+        self.callback = callback
+    }
+
     // swiftlint:disable function_body_length
     func encoded(frameRefCon: UnsafeMutableRawPointer?, status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
         // Check the callback data.
@@ -345,7 +351,11 @@ class VTEncoder {
         if self.emitStartCodes {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
-        callback(timestamp, captureTime, fullEncodedBuffer, idr)
+        if let callback = self.callback {
+            callback(timestamp, captureTime, fullEncodedBuffer, idr)
+        } else {
+            Self.logger.warning("Received encoded frame but consumer callback unset")
+        }
     }
     // swiftlint:enable function_body_length
 
