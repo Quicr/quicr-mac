@@ -477,38 +477,55 @@ class VTEncoder: VideoEncoder {
     /// Try to build an encoder specification dictionary.
     /// Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
     private static func makeEncoderSpecification(codec: CMVideoCodecType) throws -> [CFString: Any] {
+        // We want low latency mode.
+        let defaultSpec = [
+            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
+        ] as [CFString: Any]
+
+        // Try and get available encoders.
         var availableEncodersPtr: CFArray?
         try OSStatusError.checked("Fetch Encoders") {
             VTCopyVideoEncoderList(nil, &availableEncodersPtr)
         }
-
-        var defaultSpec: [CFString: Any] = [
-            kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
-        ]
-
-        if #available(iOS 17.4, tvOS 17.4, visionOS 1.1, *) {
-            defaultSpec[kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder] = kCFBooleanTrue as Any
-            return defaultSpec
-        }
-
         guard let availableEncoders = availableEncodersPtr as? [[CFString: Any]] else {
+            Self.logger.warning("Unable to get available encoders, fallback to default spec")
             return defaultSpec
         }
 
-        guard let hwEncoder = availableEncoders.first(where: {
-            guard let name = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
+        // Get all matching encoders for this codec.
+        let codecEncoders = availableEncoders.filter {
+            guard let encoderCodec = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
+            return encoderCodec == codec
+        }
+
+        // Try and find an available hardware encoder.
+        let accelerated = codecEncoders.filter {
+            Self.logger.debug("Available encoder: \($0)")
+            guard let encoderCodec = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
             let isHardwareAccelerated = $0[kVTVideoEncoderList_IsHardwareAccelerated] != nil
-            return name == codec && isHardwareAccelerated
-        }) else {
+            return encoderCodec == codec && isHardwareAccelerated
+        }
+
+        // No available hardwared encoders, return default.
+        guard let selected = accelerated.first else { return defaultSpec }
+
+        // If we got multiple, log.
+        if accelerated.count > 1 {
+            Self.logger.info("Got multiple matching accelerated encoders")
+            for encoderSpec in accelerated {
+                Self.logger.debug("\(encoderSpec)")
+            }
+        }
+
+        // Ensure we can fetch the ID of the target encoder.
+        guard let selectedId = selected[kVTVideoEncoderList_EncoderID] else {
+            Self.logger.warning("Failed to fetch ID for selected HW encoder: \(selected)")
             return defaultSpec
         }
 
-        guard let hwEncoderID = hwEncoder[kVTVideoEncoderList_EncoderID] else {
-            return defaultSpec
-        }
-
+        Self.logger.info("Requesting specific encoder: \(selected)")
         return [
-            kVTVideoEncoderSpecification_EncoderID: hwEncoderID
+            kVTVideoEncoderSpecification_EncoderID: selectedId
         ]
     }
 }
