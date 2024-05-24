@@ -12,9 +12,6 @@ struct InCallView: View {
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
-    @State private var offset: CGPoint = .init(x: UIScreen.main.bounds.width - UIScreen.main.bounds.width / 7,
-                                                 y: UIScreen.main.bounds.height - UIScreen.main.bounds.height / 7)
-    @GestureState private var gesture: CGPoint? = nil
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
@@ -37,27 +34,10 @@ struct InCallView: View {
         _viewModel = .init(wrappedValue: .init(config: config))
     }
 
-    #if !os(tvOS)
-    private var previewDrag: some Gesture {
-        DragGesture()
-            .onChanged {
-                var new = self.gesture ?? self.offset
-                new.x += $0.translation.width
-                new.y += $0.translation.height
-                self.offset = new
-                self.lastTap = .now
-                self.showPreview = true
-            }
-            .updating($gesture) { _, gesture, _ in
-                gesture = gesture ?? self.offset
-            }
-    }
-    #endif
-
     var body: some View {
         ZStack {
-            VStack {
-                GeometryReader { geometry in
+            GeometryReader { geometry in
+                VStack {
                     Group {
                         if connecting || noParticipantsDetected {
                             // Waiting for other participants / connecting.
@@ -110,29 +90,34 @@ struct InCallView: View {
                         }
                         .padding()
                     }
-                }
 
-                // Call controls panel.
-                CallControls(captureManager: viewModel.captureManager,
-                             engine: viewModel.engine,
-                             leaving: $leaving)
-                    .disabled(leaving)
-                    .padding(.bottom)
-                    .frame(alignment: .top)
+                    // Call controls panel.
+                    CallControls(captureManager: viewModel.captureManager,
+                                 engine: viewModel.engine,
+                                 leaving: $leaving)
+                        .disabled(leaving)
+                        .padding(.bottom)
+                        .frame(alignment: .top)
+                } // VStack end.
+
+                // Preview / self-view.
+                // swiftlint:disable force_try
+                if let capture = viewModel.captureManager,
+                   let camera = try! capture.activeDevices().first,
+                   showPreview {
+                    let gWidth = geometry.size.width
+                    let gHeight = geometry.size.height
+                    let cWidth = gWidth / 7
+                    let cHeight = gHeight / 7
+                    let pWidth = cWidth / 10
+                    let pHeight = cHeight / 10
+                    try! PreviewView(captureManager: capture, device: camera)
+                        .frame(maxWidth: cWidth)
+                        .offset(CGSize(width: gWidth - cWidth - pWidth,
+                                       height: gHeight / 2 - (cHeight * 0.75) - pHeight))
+                }
+                // swiftlint:enable:force_try
             }
-            
-            // Preview / self-view.
-            // swiftlint:disable force_try
-            if let capture = viewModel.captureManager,
-               let camera = try! capture.activeDevices().first,
-               showPreview {
-                try! PreviewView(captureManager: capture, device: camera)
-                    .frame(maxWidth: UIScreen.main.bounds.width / 7,
-                           maxHeight: UIScreen.main.bounds.height / 7)
-                    .gesture(self.previewDrag)
-                    .position(self.offset)
-            }
-            // swiftlint:enable:force_try
 
             if leaving {
                 LeaveModal(leaveAction: {
@@ -143,7 +128,7 @@ struct InCallView: View {
             }
         }
         .background(.black)
-        .onChange(of: noParticipants) { newValue in
+        .onChange(of: noParticipants) { _, newValue in
             noParticipantsDetected = newValue
         }
         .task {
