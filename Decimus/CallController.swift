@@ -46,8 +46,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                    reliability: config.mediaReliability,
                                                    engine: engine,
                                                    granularMetrics: granularMetrics,
-                                                   bitrateType: config.bitrateType,
-                                                   limit1s: config.limit1s)
+                                                   bitrateType: config.bitrateType)
     }
 
     func connect(config: CallConfig) async throws {
