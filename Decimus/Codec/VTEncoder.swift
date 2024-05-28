@@ -129,8 +129,15 @@ class VTEncoder: VideoEncoder {
                                  value: config.bitrate as CFNumber)
         }
 
-        let dataRateLimits: NSArray = [NSNumber(value: Double(self.config.bitrate) * self.config.limit1s / 8), NSNumber(value: 1)]
-        try OSStatusError.checked("Set data limit: \(self.config.limit1s)x") {
+        // Limit to 8 frames of bitrate over 8 frame times.
+        let bitrateInBytes = Double(self.config.bitrate) / 8.0
+        let eightFrameTimes: TimeInterval = (1.0 / Double(self.config.fps)) * 8.0
+        let dataRateLimits: NSArray = [
+
+            NSNumber(value: eightFrameTimes * bitrateInBytes),
+            NSNumber(value: eightFrameTimes)
+        ]
+        try OSStatusError.checked("Set data limit") {
             VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_DataRateLimits,
                                  value: dataRateLimits as CFArray)

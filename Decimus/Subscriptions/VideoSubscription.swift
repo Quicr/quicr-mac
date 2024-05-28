@@ -95,8 +95,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: .average,
-                                                      limit1s: 0)
+                                                      bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
