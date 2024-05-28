@@ -1,5 +1,6 @@
 import AVFoundation
 import os
+import DequeModule
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
     case none
@@ -50,6 +51,11 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let decodedVariances: VarianceCalculator
     private var formats: [QuicrNamespace: CMFormatDescription?] = [:]
     private var timestampTimeDiff: TimeInterval?
+
+    // Moving average for variance.
+    private var movingAverageVariance: Deque<TimeInterval> = .init(minimumCapacity: 60)
+    private var movingAverageSum: TimeInterval = 0
+    private var currentVariance: TimeInterval = 0
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -195,8 +201,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
             }
 
-            // Calculate switching set arrival variance.
-            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: now)
+            // Get moving average stream variance.
+            for variance in self.decodedVariances.calculateSetVariance(timestamp: timestamp, now: now) {
+                self.nextMovingAverage(variance: variance)
+            }
             if self.granularMetrics,
                let measurement = self.measurement {
                 Task(priority: .utility) {
@@ -251,6 +259,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         return TimeInterval.nan
                     }
                 }
+                let adjustedForVariance = duration + self.currentVariance
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
                 }
@@ -610,6 +619,17 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror,
                      captureDate: captureDate)
+    }
+
+    private func nextMovingAverage(variance: TimeInterval) {
+        if let fps = self.lastImage?.fps,
+           self.movingAverageVariance.count >= fps,
+           let popped = self.movingAverageVariance.popFirst() {
+            self.movingAverageSum -= popped
+        }
+        self.movingAverageVariance.append(variance)
+        self.movingAverageSum += variance
+        self.currentVariance = self.movingAverageSum / TimeInterval(self.movingAverageVariance.count)
     }
 }
 // swiftlint:enable type_body_length

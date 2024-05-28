@@ -34,35 +34,40 @@ class VarianceCalculator {
     }
 
     /// Record a variance.
-    func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        let variances = self.lock.withLock {
+    func calculateSetVariance(timestamp: TimeInterval, now: Date) -> [TimeInterval] {
+        let variances: [[Date]] = self.lock.withLock {
+            var results: [[Date]] = []
             // Cleanup.
             if self.variances.count > self.varianceMaxCount {
                 for index in 0...self.varianceMaxCount / 2 {
                     let variance = self.variances.remove(at: self.variances.index(self.variances.startIndex,
                                                                                   offsetBy: index))
-                    _ = calculateSetVariance(times: variance.value, now: now)
+                    results.append(variance.value)
                 }
             }
 
             guard var variances = self.variances[timestamp] else {
                 self.variances[timestamp] = [now]
-                return [Date]?.none
+                return results
             }
 
             variances.append(now)
             guard variances.count == self.expectedOccurrences else {
                 // If we're not done, just store for next time.
                 self.variances[timestamp] = variances
-                return [Date]?.none
+                return results
             }
 
             // We're done, remove and report.
             self.variances.removeValue(forKey: timestamp)
-            return variances
+            results.append(variances)
+            return results
         }
-        guard let variances = variances else { return nil }
-        return calculateSetVariance(times: variances, now: now)
+        var results: [TimeInterval] = []
+        for set in variances {
+            results.append(calculateSetVariance(times: set, now: now))
+        }
+        return results
     }
 
     private func calculateSetVariance(times: [Date], now: Date) -> TimeInterval {
