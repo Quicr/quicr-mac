@@ -24,7 +24,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
-    private var encoder: VTEncoder
+    private var encoder: VideoEncoder
     private let reliable: Bool
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
@@ -37,7 +37,9 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool,
-                  granularMetrics: Bool) throws {
+                  granularMetrics: Bool,
+                  encoder: VideoEncoder,
+                  device: AVCaptureDevice) throws {
         self.namespace = namespace
         self.publishObjectDelegate = publishDelegate
         self.granularMetrics = granularMetrics
@@ -51,19 +53,8 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.reliable = reliable
-
-        // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
-        if #available(iOS 17.0, tvOS 17.0, *) {
-            guard let preferred = AVCaptureDevice.systemPreferredCamera else {
-                throw H264PublicationError.noCamera(sourceID)
-            }
-            self.device = preferred
-        } else {
-            guard let preferred = AVCaptureDevice.default(for: .video) else {
-                throw H264PublicationError.noCamera(sourceID)
-            }
-            self.device = preferred
-        }
+        self.encoder = encoder
+        self.device = device
 
         let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
             // Encode age.
@@ -98,10 +89,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                                             metricsTimestamp: now)
             }
         }
-        self.encoder = try .init(config: self.codec!,
-                                 verticalMirror: device.position == .front,
-                                 callback: onEncodedData,
-                                 emitStartCodes: self.codec!.codec == .hevc)
+        self.encoder.setCallback(onEncodedData)
         super.init()
 
         Self.logger.info("Registered H264 publication for source \(sourceID)")
@@ -139,19 +127,22 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     func onFrame(_ sampleBuffer: CMSampleBuffer,
                  captureTime: Date) {
         // Configure FPS.
+        let maxRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
         if self.encoder.frameRate == nil {
-            self.encoder.frameRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
+            self.encoder.frameRate = maxRate
+        } else {
+            if self.encoder.frameRate != maxRate {
+                Self.logger.warning("Frame rate mismatch? Had: \(String(describing: self.encoder.frameRate)), got: \(String(describing: maxRate))")
+            }
         }
 
         // Stagger the publication's start time by its height in ms.
-        if let startTime = self.startTime {
-            let interval = captureTime.timeIntervalSince(startTime)
-            guard interval > TimeInterval(self.codec!.height / 1000) else {
-                return
-            }
-        } else {
+        guard let startTime = self.startTime else {
             self.startTime = captureTime
+            return
         }
+        let interval = captureTime.timeIntervalSince(startTime)
+        guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
         // Encode.
         do {

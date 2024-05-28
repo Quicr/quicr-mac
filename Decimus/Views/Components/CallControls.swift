@@ -38,7 +38,7 @@ struct CallControls: View {
                 viewModel.audioOn ? "Mute" : viewModel.talkingWhileMuted ? "Talking while muted" : "Unmute",
                 icon: viewModel.audioOn ?
                     "microphone-on" :
-                    (viewModel.talkingWhileMuted ? "waveform.slash" : "microphone-muted"),
+                    (viewModel.talkingWhileMuted ? "waveform-slash" : "microphone-muted"),
                 role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
                 action: { viewModel.toggleMicrophone() },

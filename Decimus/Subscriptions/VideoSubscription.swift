@@ -46,13 +46,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
     private let measurement: VideoSubscriptionMeasurement?
-    private var variances: [TimeInterval: [Date]] = [:]
-    private let varianceMaxCount = 10
-
-    // Start time.
-    private let smoothStartTime: Bool
-    private var cumulativeDiff: TimeInterval = 0
-    private var count = 0
+    private let variances: VarianceCalculator
+    private let decodedVariances: VarianceCalculator
+    private var formats: [QuicrNamespace: CMFormatDescription?] = [:]
+    private var timestampTimeDiff: TimeInterval?
 
     init(sourceId: SourceIDType,
          profileSet: QClientProfileSet,
@@ -66,8 +63,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,
          controller: CallController?,
-         pauseResume: Bool,
-         smoothStartTime: Bool) throws {
+         pauseResume: Bool) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -85,15 +81,21 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.pauseMissThreshold = pauseMissThreshold
         self.callController = controller
         self.pauseResume = pauseResume
-        self.smoothStartTime = smoothStartTime
+        self.variances = try .init(expectedOccurrences: profileSet.profilesCount,
+                                   submitter: self.granularMetrics ? metricsSubmitter : nil,
+                                   source: sourceId,
+                                   stage: "SubscribedObject")
+        self.decodedVariances = try .init(expectedOccurrences: profileSet.profilesCount,
+                                          submitter: self.granularMetrics ? metricsSubmitter : nil,
+                                          source: sourceId,
+                                          stage: "Decoded")
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: .average,
-                                                      limit1s: 0)
+                                                      bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
@@ -104,6 +106,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // Make all the video handlers upfront.
         self.profiles = createdProfiles
         for namespace in createdProfiles.keys {
+            self.formats[namespace] = nil
             try makeHandler(namespace: namespace)
         }
 
@@ -167,44 +170,42 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                           length: Int,
                           groupId: UInt32,
                           objectId: UInt16) -> Int32 {
+        // Start processing.
         let now = Date.now
         let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
 
-        // Smooth media start time.
-        let mediaStartTimeDiff: TimeInterval?
-        if let timestamp = try? self.getTimestamp(data: zeroCopiedData,
-                                                  namespace: name,
-                                                  groupId: groupId,
-                                                  objectId: objectId) {
-            if self.smoothStartTime {
-                // Smooth from every frame average.
-                let currentDiff = now.timeIntervalSinceReferenceDate - timestamp
-                self.cumulativeDiff += currentDiff
-                self.count += 1
-                mediaStartTimeDiff = self.cumulativeDiff / TimeInterval(self.count)
-            } else if self.count == 0 {
-                self.count = 1
-                mediaStartTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
-            } else {
-                mediaStartTimeDiff = nil
+        // Depacketize.
+        let frame: DecimusVideoFrame
+        do {
+            guard let depacketized = try self.depacketize(namespace: name,
+                                                          data: zeroCopiedData,
+                                                          groupId: groupId,
+                                                          objectId: objectId) else {
+                throw "Nothing"
+            }
+            frame = depacketized
+        } catch {
+            Self.logger.error("Failed to depacketize video frame: \(error.localizedDescription)")
+            return 0
+        }
+
+        if let timestamp = frame.samples.first?.presentationTimeStamp.seconds {
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
             }
 
             // Calculate switching set arrival variance.
-            let variance = calculateSetVariance(timestamp: timestamp, now: now)
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: now)
             if self.granularMetrics,
                let measurement = self.measurement {
                 Task(priority: .utility) {
                     await measurement.reportTimestamp(namespace: name,
                                                       timestamp: timestamp,
                                                       at: now)
-                    if let variance = variance {
-                        await measurement.reportVariance(variance: variance, at: now)
-                    }
                 }
             }
         } else {
             Self.logger.error("Failed to get timestamp")
-            mediaStartTimeDiff = nil
         }
 
         // If we're responsible for rendering, start the task.
@@ -228,46 +229,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             Self.logger.error("Failed to fetch/create handler: \(error.localizedDescription)")
             return SubscriptionError.none.rawValue
         }
-        if let diff = mediaStartTimeDiff {
+        if let diff = self.timestampTimeDiff {
             handler.setTimeDiff(diff: diff)
         }
         do {
-            try handler.submitEncodedData(zeroCopiedData, groupId: groupId, objectId: objectId)
+            try handler.submitEncodedData(frame)
         } catch {
             Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
             return SubscriptionError.none.rawValue
         }
         return SubscriptionError.none.rawValue
-    }
-
-    private func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        // Cleanup.
-        if self.variances.count > self.varianceMaxCount {
-            for index in 0...5 {
-                self.variances.remove(at: self.variances.index(self.variances.startIndex, offsetBy: index))
-            }
-        }
-
-        guard var variances = self.variances[timestamp] else {
-            self.variances[timestamp] = [now]
-            return nil
-        }
-
-        variances.append(now)
-        guard variances.count == self.profiles.count else {
-            self.variances[timestamp] = variances
-            return nil
-        }
-
-        // We're done, report and remove.
-        self.variances.removeValue(forKey: timestamp)
-        var oldest = Date.distantFuture
-        var newest = Date.distantPast
-        for date in variances {
-            oldest = min(oldest, date)
-            newest = max(newest, date)
-        }
-        return newest.timeIntervalSince(oldest)
     }
 
     private func startRenderTask() {
@@ -306,7 +277,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                          reliable: self.reliable,
                          granularMetrics: self.granularMetrics,
                          jitterBufferConfig: self.jitterBufferConfig,
-                         simulreceive: self.simulreceive)
+                         simulreceive: self.simulreceive,
+                         variances = self.decodedVariances)
     }
 
     struct SimulreceiveItem: Equatable {
@@ -555,38 +527,96 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
 
-    // TODO: Clean this up.
-    private func getTimestamp(data: Data,
-                              namespace: QuicrNamespace,
-                              groupId: UInt32,
-                              objectId: UInt16) throws -> TimeInterval? {
-        // Save starting time.
-        var format: CMFormatDescription?
+    struct VideoHelpers {
+        let utilities: VideoUtilities
+        let seiData: ApplicationSeiData
+    }
+
+    private func depacketize(namespace: QuicrNamespace,
+                             data: Data,
+                             groupId: UInt32,
+                             objectId: UInt16) throws -> DecimusVideoFrame? {
         let config = self.profiles[namespace]
-        var timestamp: CMTime?
-        switch config?.codec {
-        case .h264:
-            _ = try H264Utilities.depacketize(data, format: &format, copy: false) {
-                guard timestamp == nil else { return }
-                do {
-                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationH264SEIs())?.timestamp
-                } catch {
-                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
-                }
+        let helpers: VideoHelpers = try {
+            switch config?.codec {
+            case .h264:
+                return .init(utilities: H264Utilities(), seiData: ApplicationH264SEIs())
+            case .hevc:
+                return .init(utilities: HEVCUtilities(), seiData: ApplicationHEVCSEIs())
+            default:
+                throw "Unsupported codec"
             }
-        case .hevc:
-            _ = try HEVCUtilities.depacketize(data, format: &format, copy: false) {
-                guard timestamp == nil else { return }
-                do {
-                    timestamp = try TimestampSei.parse(encoded: $0, data: ApplicationHEVCSEIs())?.timestamp
-                } catch {
-                    Self.logger.error("Failed to parse: \(error.localizedDescription)")
+        }()
+
+        // Depacketize.
+        var extractedFormat: CMFormatDescription?
+        var seis: [ApplicationSEI] = []
+        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
+            do {
+                let parser = ApplicationSeiParser(helpers.seiData)
+                if let sei = try parser.parse(encoded: $0) {
+                    seis.append(sei)
                 }
+            } catch {
+                Self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
             }
-        default:
-            fatalError()
         }
-        return timestamp?.seconds
+        let format: CMFormatDescription?
+        if let extractedFormat = extractedFormat {
+            format = extractedFormat
+            self.formats[namespace] = format
+        } else {
+            guard let existing = self.formats[namespace] else {
+                throw "Expected format"
+            }
+            format = existing
+        }
+
+        let sei: ApplicationSEI?
+        if seis.count == 0 {
+            sei = nil
+        } else {
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
+                let timestamp = next.timestamp ?? result.timestamp
+                let orientation = next.orientation ?? result.orientation
+                let age = next.age ?? result.age
+                return .init(timestamp: timestamp, orientation: orientation, age: age)
+            }
+        }
+
+        guard let buffers = buffers else { return nil }
+        let timeInfo: CMSampleTimingInfo
+        if let timestamp = sei?.timestamp {
+            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
+        } else {
+            Self.logger.error("Missing expected frame timestamp")
+            timeInfo = .invalid
+        }
+
+        var samples: [CMSampleBuffer] = []
+        for buffer in buffers {
+            samples.append(try CMSampleBuffer(dataBuffer: buffer,
+                                              formatDescription: format,
+                                              numSamples: 1,
+                                              sampleTimings: [timeInfo],
+                                              sampleSizes: [buffer.dataLength]))
+        }
+
+        let captureDate: Date?
+        if let age = sei?.age {
+            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
+        } else {
+            captureDate = nil
+        }
+
+        return .init(samples: samples,
+                     groupId: groupId,
+                     objectId: objectId,
+                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     fps: sei?.timestamp?.fps,
+                     orientation: sei?.orientation?.orientation,
+                     verticalMirror: sei?.orientation?.verticalMirror,
+                     captureDate: captureDate)
     }
 }
 // swiftlint:enable type_body_length

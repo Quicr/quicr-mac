@@ -2,7 +2,7 @@ import CoreMedia
 import AVFoundation
 
 /// Utility functions for working with HEVC bitstreams.
-class HEVCUtilities {
+class HEVCUtilities: VideoUtilities {
     private static let logger = DecimusLogger(HEVCUtilities.self)
 
     // Bytes that precede every NALU.
@@ -29,11 +29,11 @@ class HEVCUtilities {
     /// - Parameter format The current format of the stream if known.
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    static func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
-                            format: inout CMFormatDescription?,
-                            copy: Bool,
-                            seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
-        guard data.starts(with: naluStartCode) else {
+    func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
+                     format: inout CMFormatDescription?,
+                     copy: Bool,
+                     seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+        guard data.starts(with: Self.naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
 
@@ -43,7 +43,7 @@ class HEVCUtilities {
         var startIndex = 0
         var index = 0
         var naluRangesIndex = 0
-        while let range = data.range(of: .init(self.naluStartCode), in: startIndex..<data.count) {
+        while let range = data.range(of: .init(Self.naluStartCode), in: startIndex..<data.count) {
             ranges.append(range)
             startIndex = range.upperBound
             if index > 0 {
@@ -63,7 +63,7 @@ class HEVCUtilities {
                 // use the playload size to the whole sub buffer.
                 if type == .sei { // RBSP
                     let payloadSize = data[lastRange.upperBound + 3]
-                    let upperBound = Int(payloadSize) + lastRange.lowerBound + naluStartCode.count + 4
+                    let upperBound = Int(payloadSize) + lastRange.lowerBound + Self.naluStartCode.count + 4
                     naluRanges.append(.init(lastRange.lowerBound...upperBound))
                 } else {
                     naluRanges.append(.init(lastRange.lowerBound...range.lowerBound - 1))
@@ -98,9 +98,9 @@ class HEVCUtilities {
         for index in 0..<nalus.count {
             // What type is this NALU?
             var nalu = nalus[index]
-            let naluType = (nalu[naluStartCode.count] >> 1) & 0x3f
+            let naluType = (nalu[Self.naluStartCode.count] >> 1) & 0x3f
             let type = HEVCTypes(rawValue: naluType)
-            let rangedData = nalu.subdata(in: naluStartCode.count..<nalu.count)
+            let rangedData = nalu.subdata(in: Self.naluStartCode.count..<nalu.count)
 
             if type == .vps {
                 vpsData = rangedData
@@ -122,7 +122,7 @@ class HEVCUtilities {
                let sps = spsData,
                let pps = ppsData {
                 format = try CMVideoFormatDescription(hevcParameterSets: [vps, sps, pps],
-                                                      nalUnitHeaderLength: naluStartCode.count)
+                                                      nalUnitHeaderLength: Self.naluStartCode.count)
                 vpsData = nil
                 spsData = nil
                 ppsData = nil
@@ -135,8 +135,8 @@ class HEVCUtilities {
                 continue
             }
 
-            var naluDataLength = UInt32(nalu.count - naluStartCode.count).byteSwapped
-            nalu.replaceSubrange(0..<naluStartCode.count, with: &naluDataLength, count: naluStartCode.count)
+            var naluDataLength = UInt32(nalu.count - Self.naluStartCode.count).byteSwapped
+            nalu.replaceSubrange(0..<Self.naluStartCode.count, with: &naluDataLength, count: Self.naluStartCode.count)
             try nalu.withUnsafeBytes {
                 results.append(try H264Utilities.buildBlockBuffer($0,
                                                                   copy: copy))

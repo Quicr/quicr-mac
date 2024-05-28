@@ -50,11 +50,12 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffMs = ManagedAtomic(UInt64.zero)
+    private var timestampTimeDiffUs = ManagedAtomic(UInt64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
     private var duration: TimeInterval? = 0
+    private let variances: VarianceCalculator
 
     /// Create a new video handler.
     /// - Parameters:
@@ -76,7 +77,8 @@ class VideoHandler: CustomStringConvertible {
          reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
-         simulreceive: SimulreceiveMode) throws {
+         simulreceive: SimulreceiveMode,
+         variances: VarianceCalculator) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -100,12 +102,15 @@ class VideoHandler: CustomStringConvertible {
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.description = self.namespace
+        self.variances = variances
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
                 if simulreceive != .none {
+                    _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
+                                                            now: Date.now)
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
                     self.lastDecodedImage = .init(image: sample,
@@ -144,38 +149,51 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter data Encoded H264 frame data.
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
-    func submitEncodedData(_ data: Data, groupId: UInt32, objectId: UInt16) throws {
-        var frame: DecimusVideoFrame?
-
+    func submitEncodedData(_ frame: DecimusVideoFrame) throws {
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            if let copied = try depacketize(data, groupId: groupId, objectId: objectId, copy: true) {
-                try createJitterBuffer(frame: copied)
-                assert(self.dequeueTask == nil)
-                createDequeueTask()
-            } else {
-                throw "Couldn't depacketize this frame"
-            }
+            try createJitterBuffer(frame: frame)
+            assert(self.dequeueTask == nil)
+            createDequeueTask()
         }
 
-        // Depacketize if we didn't already.
-        if frame == nil {
-            let copy = self.jitterBuffer != nil || self.jitterBufferConfig.mode == .layer
-            frame = try depacketize(data, groupId: groupId, objectId: objectId, copy: copy)
-        }
-
-        guard let frame = frame else {
-            throw "Unable to depacketize frame"
-        }
+        // Do we need to copy the frame data?
+        let copy = self.jitterBuffer != nil || self.jitterBufferConfig.mode == .layer
+        let frame: DecimusVideoFrame = copy ? try .init(copy: frame) : frame
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
             try jitterBuffer.write(videoFrame: frame)
         } else {
             try decode(sample: frame)
+        }
+
+        // Do we need to update the label?
+        if let first = frame.samples.first {
+            let resolvedFps: UInt16
+            if let fps = frame.fps {
+                resolvedFps = UInt16(fps)
+            } else {
+                resolvedFps = self.config.fps
+            }
+
+            if resolvedFps != self.lastFps || first.formatDescription?.dimensions != self.lastDimensions {
+                self.lastFps = resolvedFps
+                self.lastDimensions = first.formatDescription?.dimensions
+                DispatchQueue.main.async {
+                    do {
+                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        guard self.simulreceive != .enable else { return }
+                        let participant = self.participants.getOrMake(identifier: self.namespace)
+                        participant.label = .init(describing: self)
+                    } catch {
+                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
+                    }
+                }
+            }
         }
 
         // Metrics.
@@ -187,8 +205,9 @@ class VideoHandler: CustomStringConvertible {
                     let age = now.timeIntervalSince(captureDate)
                     await measurement.age(age: age, timestamp: now)
                 }
-                await measurement.receivedFrame(timestamp: now, idr: objectId == 0)
-                await measurement.receivedBytes(received: data.count, timestamp: now)
+                await measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
+                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
+                await measurement.receivedBytes(received: bytes, timestamp: now)
             }
         }
     }
@@ -200,9 +219,9 @@ class VideoHandler: CustomStringConvertible {
         guard let jitterBuffer = self.jitterBuffer else {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
-        let diffMs = self.timestampTimeDiffMs.load(ordering: .acquiring)
-        guard diffMs > 0 else { return nil }
-        let diff = TimeInterval(diffMs) / 1000
+        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
+        guard diffUs > 0 else { return nil }
+        let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
@@ -230,7 +249,7 @@ class VideoHandler: CustomStringConvertible {
                                       metricsSubmitter: self.metricsSubmitter,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(ceil(self.jitterBufferConfig.minDepth / duration) * 10))
+                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
         self.duration = duration
     }
 
@@ -281,117 +300,11 @@ class VideoHandler: CustomStringConvertible {
     }
 
     func setTimeDiff(diff: TimeInterval) {
-        assert(diff > (1 / 1000))
-        self.timestampTimeDiffMs.store(UInt64(diff * TimeInterval(1000)), ordering: .releasing)
-    }
-
-    private func depacketize(_ data: Data,
-                             groupId: UInt32,
-                             objectId: UInt16,
-                             copy: Bool) throws -> DecimusVideoFrame? {
-        let buffers: [CMBlockBuffer]?
-        var seis: [ApplicationSEI] = []
-        switch self.config.codec {
-        case .h264:
-            buffers = try H264Utilities.depacketize(data,
-                                                    format: &self.currentFormat,
-                                                    copy: copy) {
-                do {
-                    let parser = ApplicationSeiParser(ApplicationH264SEIs())
-                    if let sei = try parser.parse(encoded: $0) {
-                        seis.append(sei)
-                    }
-                } catch {
-                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
-                }
-            }
-        case .hevc:
-            buffers = try HEVCUtilities.depacketize(data,
-                                                    format: &self.currentFormat,
-                                                    copy: copy) {
-                do {
-                    let parser = ApplicationSeiParser(ApplicationHEVCSEIs())
-                    if let sei = try parser.parse(encoded: $0) {
-                        seis.append(sei)
-                    }
-                } catch {
-                    Self.logger.error("Failed to parse custom SEI: \(error.localizedDescription)")
-                }
-            }
-        default:
-            throw "Unsupported codec: \(self.config.codec)"
-        }
-
-        let sei: ApplicationSEI?
-        if seis.count == 0 {
-            sei = nil
-        } else {
-            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
-                let timestamp = next.timestamp ?? result.timestamp
-                let orientation = next.orientation ?? result.orientation
-                let age = next.age ?? result.age
-                return .init(timestamp: timestamp, orientation: orientation, age: age)
-            }
-        }
-
-        guard let buffers = buffers else { return nil }
-        let timeInfo: CMSampleTimingInfo
-        if let timestamp = sei?.timestamp {
-            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
-        } else {
-            Self.logger.error("Missing expected frame timestamp")
-            timeInfo = .invalid
-        }
-
-        var samples: [CMSampleBuffer] = []
-        for buffer in buffers {
-            samples.append(try CMSampleBuffer(dataBuffer: buffer,
-                                              formatDescription: self.currentFormat,
-                                              numSamples: 1,
-                                              sampleTimings: [timeInfo],
-                                              sampleSizes: [buffer.dataLength]))
-        }
-
-        // Do we need to update the label?
-        if let first = samples.first {
-            let resolvedFps: UInt16
-            if let fps = sei?.timestamp?.fps {
-                resolvedFps = UInt16(fps)
-            } else {
-                resolvedFps = self.config.fps
-            }
-
-            if resolvedFps != self.lastFps || first.formatDescription?.dimensions != self.lastDimensions {
-                self.lastFps = resolvedFps
-                self.lastDimensions = first.formatDescription?.dimensions
-                DispatchQueue.main.async {
-                    do {
-                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
-                        guard self.simulreceive != .enable else { return }
-                        let participant = self.participants.getOrMake(identifier: self.namespace)
-                        participant.label = .init(describing: self)
-                    } catch {
-                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
-                    }
-                }
-            }
-        }
-
-        let captureDate: Date?
-        if let age = sei?.age {
-            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
-        } else {
-            captureDate = nil
-        }
-
-        return .init(samples: samples,
-                     groupId: groupId,
-                     objectId: objectId,
-                     sequenceNumber: sei?.timestamp?.sequenceNumber,
-                     fps: sei?.timestamp?.fps,
-                     orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror,
-                     captureDate: captureDate)
+        assert(diff > (1 / 1_000_000))
+        let diffUs = UInt64(diff * 1_000_000)
+        _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
+                                                     desired: diffUs,
+                                                     ordering: .acquiringAndReleasing)
     }
 
     private func decode(sample: DecimusVideoFrame) throws {

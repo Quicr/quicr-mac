@@ -1,5 +1,5 @@
 import Foundation
-import AVFAudio
+import AVFoundation
 
 class PublicationFactory {
     private typealias FactoryCallbackType = (QuicrNamespace,
@@ -34,13 +34,31 @@ class PublicationFactory {
             guard let config = config as? VideoCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
+            // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
+            let device: AVCaptureDevice
+            if #available(iOS 17.0, tvOS 17.0, *) {
+                guard let preferred = AVCaptureDevice.systemPreferredCamera else {
+                    throw H264PublicationError.noCamera(sourceID)
+                }
+                device = preferred
+            } else {
+                guard let preferred = AVCaptureDevice.default(for: .video) else {
+                    throw H264PublicationError.noCamera(sourceID)
+                }
+                device = preferred
+            }
+            let encoder = try VTEncoder(config: config,
+                                        verticalMirror: device.position == .front,
+                                        emitStartCodes: config.codec == .hevc)
             return try H264Publication(namespace: namespace,
                                        publishDelegate: publishDelegate,
                                        sourceID: sourceID,
                                        config: config,
                                        metricsSubmitter: metricsSubmitter,
                                        reliable: reliability.video.publication,
-                                       granularMetrics: self.granularMetrics)
+                                       granularMetrics: self.granularMetrics,
+                                       encoder: encoder,
+                                       device: device)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))

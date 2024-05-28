@@ -12,7 +12,6 @@ struct InCallView: View {
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
-    @State private var offset: CGSize = .zero
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
@@ -35,21 +34,10 @@ struct InCallView: View {
         _viewModel = .init(wrappedValue: .init(config: config))
     }
 
-    #if !os(tvOS)
-    private var previewDrag: some Gesture {
-        DragGesture()
-            .onChanged {
-                self.offset = $0.translation
-                self.lastTap = .now
-                self.showPreview = true
-            }
-    }
-    #endif
-
     var body: some View {
         ZStack {
-            VStack {
-                GeometryReader { geometry in
+            GeometryReader { geometry in
+                VStack {
                     Group {
                         if connecting || noParticipantsDetected {
                             // Waiting for other participants / connecting.
@@ -82,24 +70,6 @@ struct InCallView: View {
                             }
                         }
                     }
-                    #if !os(tvOS)
-                    .overlay {
-                        // Preview / self-view.
-                        // swiftlint:disable force_try
-                        if let capture = viewModel.captureManager, showPreview {
-                            ForEach(try! capture.activeDevices(), id: \.self) {
-                                try! PreviewView(captureManager: capture, device: $0)
-                                    .frame(maxWidth: geometry.size.width / 7)
-                                    .offset(self.offset == .zero ?
-                                                CGSize(width: geometry.size.width / 2 - geometry.size.width / 7,
-                                                       height: geometry.size.height / 2) :
-                                                self.offset)
-                                    .gesture(self.previewDrag)
-                            }
-                        }
-                        // swiftlint:enable:force_try
-                    }
-                    #endif
                     .sheet(isPresented: $isShowingSubscriptions) {
                         if let controller = viewModel.controller {
                             SubscriptionPopover(controller: controller)
@@ -120,15 +90,33 @@ struct InCallView: View {
                         }
                         .padding()
                     }
-                }
 
-                // Call controls panel.
-                CallControls(captureManager: viewModel.captureManager,
-                             engine: viewModel.engine,
-                             leaving: $leaving)
-                    .disabled(leaving)
-                    .padding(.bottom)
-                    .frame(alignment: .top)
+                    // Call controls panel.
+                    CallControls(captureManager: viewModel.captureManager,
+                                 engine: viewModel.engine,
+                                 leaving: $leaving)
+                        .disabled(leaving)
+                        .padding(.bottom)
+                        .frame(alignment: .top)
+                } // VStack end.
+
+                // Preview / self-view.
+                // swiftlint:disable force_try
+                if let capture = viewModel.captureManager,
+                   let camera = try! capture.activeDevices().first,
+                   showPreview {
+                    let gWidth = geometry.size.width
+                    let gHeight = geometry.size.height
+                    let cWidth = gWidth / 7
+                    let cHeight = gHeight / 7
+                    let pWidth = cWidth / 10
+                    let pHeight = cHeight / 10
+                    try! PreviewView(captureManager: capture, device: camera)
+                        .frame(maxWidth: cWidth)
+                        .offset(CGSize(width: gWidth - cWidth - pWidth,
+                                       height: gHeight / 2 - (cHeight * 0.75) - pHeight))
+                }
+                // swiftlint:enable:force_try
             }
 
             if leaving {
@@ -140,7 +128,7 @@ struct InCallView: View {
             }
         }
         .background(.black)
-        .onChange(of: noParticipants) { newValue in
+        .onChange(of: noParticipants) { _, newValue in
             noParticipantsDetected = newValue
         }
         .task {
