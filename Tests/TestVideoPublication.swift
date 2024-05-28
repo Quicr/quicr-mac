@@ -64,8 +64,7 @@ final class TestVideoPublication: XCTestCase {
                                       fps: 30,
                                       width: 1920,
                                       height: 960,
-                                      bitrateType: .average,
-                                      limit1s: 1_000_000)
+                                      bitrateType: .average)
         let publication = try H264Publication(namespace: "1",
                                               publishDelegate: mockDelegate,
                                               sourceID: "1",
