@@ -278,7 +278,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                          granularMetrics: self.granularMetrics,
                          jitterBufferConfig: self.jitterBufferConfig,
                          simulreceive: self.simulreceive,
-                         variances = self.decodedVariances)
+                         variances: self.decodedVariances)
     }
 
     struct SimulreceiveItem: Equatable {
