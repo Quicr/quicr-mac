@@ -338,14 +338,13 @@ class VTEncoder {
         }
 
         // Callback the full buffer.
-        var fullEncodedRawPtr: UnsafeMutableRawPointer?
-        var fullEncodedBufferLength: Int = 0
-        bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
-        let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
-        if self.emitStartCodes {
-            assert(fullEncodedBuffer.starts(with: self.startCode))
+        do {
+            let fullEncodedBuffer = try self.bufferAllocator.retrieveFullBufferPointer()
+            assert(!self.emitStartCodes || fullEncodedBuffer.starts(with: self.startCode))
+            callback(timestamp, captureTime, fullEncodedBuffer, idr)
+        } catch {
+            Self.logger.error("Failed to retrieve encoded buffer")
         }
-        callback(timestamp, captureTime, fullEncodedBuffer, idr)
     }
     // swiftlint:enable function_body_length
 
