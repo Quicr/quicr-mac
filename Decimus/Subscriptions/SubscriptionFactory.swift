@@ -53,13 +53,11 @@ struct SubscriptionConfig: Codable {
     var timeQueueTTL: Int
     var chunkSize: UInt32
     var bitrateType: BitrateType
-    var limit1s: Double
     var useResetWaitCC: Bool
     var useBBR: Bool
     var enableQlog: Bool
     var pauseResume: Bool
     var quicrLogs: Bool
-    var smoothStartTime: Bool
 
     init() {
         jitterMaxTime = 0.5
@@ -77,13 +75,11 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 500
         chunkSize = 3000
         bitrateType = .average
-        limit1s = 2.5
         useResetWaitCC = true
         useBBR = true
         enableQlog = false
         pauseResume = false
         quicrLogs = false
-        smoothStartTime = true
     }
 }
 
@@ -121,8 +117,7 @@ class SubscriptionFactory {
         for profileIndex in 0..<profileSet.profilesCount {
             let profile = profileSet.profiles.advanced(by: profileIndex).pointee
             let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: config.bitrateType,
-                                                      limit1s: config.limit1s)
+                                                      bitrateType: config.bitrateType)
             foundCodecs.append(config.codec)
         }
         let found = Set(foundCodecs)
@@ -140,8 +135,7 @@ class SubscriptionFactory {
                                          qualityMissThreshold: self.config.qualityMissThreshold,
                                          pauseMissThreshold: self.config.pauseMissThreshold,
                                          controller: self.controller,
-                                         pauseResume: self.config.pauseResume,
-                                         smoothStartTime: self.config.smoothStartTime)
+                                         pauseResume: self.config.pauseResume)
         }
 
         if found.isSubset(of: opusCodecs) {

@@ -34,10 +34,16 @@ struct SubscriptionSettingsView: View {
                             subscriptionConfig.value.videoJitterBuffer.minDepth = $0
                         }
                 }
-                LabeledContent("Jitter Max Depth (s)") {
+                LabeledContent("Audio Jitter Max Depth (s)") {
                     TextField(
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterMaxTime,
+                        format: .number)
+                }
+                LabeledContent("Video Jitter Capacity (s)") {
+                    TextField(
+                        "Capacity (s)",
+                        value: $subscriptionConfig.value.videoJitterBuffer.capacity,
                         format: .number)
                 }
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
@@ -52,30 +58,13 @@ struct SubscriptionSettingsView: View {
                         }
                     }.pickerStyle(.segmented)
                 }
-                HStack {
-                    Text("Smooth Start Time")
-                    Toggle(isOn: $subscriptionConfig.value.smoothStartTime) {}
-                }
+
                 LabeledContent("Encoder bitrate") {
                     Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {
                         ForEach(BitrateType.allCases) {
                             Text(String(describing: $0))
                         }
                     }.pickerStyle(.segmented)
-                }
-
-                LabeledContent("Data rate limit (multiplier)") {
-                    HStack {
-                        #if !os(tvOS)
-                        Slider(value: $subscriptionConfig.value.limit1s,
-                               in: 1.0...5.0,
-                               step: 0.1) {
-                            Text("Data rate limit (multiplier)")
-                        }
-                        Text(String(format: "%.1fx", subscriptionConfig.value.limit1s))
-                            .foregroundColor(.blue)
-                        #endif
-                    }
                 }
 
                 if #available(iOS 17.0, *) {
