@@ -28,6 +28,9 @@ class VTEncoder: VideoEncoder {
     private var sequenceNumber: UInt64 = 0
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
+    #if os(iOS) && !targetEnvironment(macCatalyst)
+    private let allocator: CFAllocator
+    #endif
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -48,6 +51,10 @@ class VTEncoder: VideoEncoder {
         self.config = config
         self.emitStartCodes = emitStartCodes
         self.bufferAllocator = try .init(preAllocateSize: 1024 * 1024, preAllocateHdrSize: 512)
+        let allocator = try self.bufferAllocator.getAllocator()
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        self.allocator = allocator
+        #endif
 
         var compressionSession: VTCompressionSession?
         let codec: CMVideoCodecType
@@ -62,13 +69,14 @@ class VTEncoder: VideoEncoder {
             throw VTEncoderError.unsupportedCodec(config.codec)
         }
 
+        let spec = try Self.makeEncoderSpecification(codec: codec)
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
                                                  height: config.height,
                                                  codecType: codec,
-                                                 encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
+                                                 encoderSpecification: spec as CFDictionary,
                                                  imageBufferAttributes: nil,
-                                                 compressedDataAllocator: try self.bufferAllocator.getAllocator(),
+                                                 compressedDataAllocator: allocator,
                                                  outputCallback: self.vtCallback,
                                                  refcon: Unmanaged.passUnretained(self).toOpaque(),
                                                  compressionSessionOut: &compressionSession)
@@ -233,10 +241,17 @@ class VTEncoder: VideoEncoder {
         }
 
         let buffer: CMBlockBuffer
-        #if !targetEnvironment(macCatalyst)
-        let bufferSize = sample.dataBuffer!.dataLength
-        bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
-        guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
+        guard let dataBuffer = sample.dataBuffer else {
+            Self.logger.warning("Encoded buffer missing data buffer")
+            return
+        }
+
+        #if os(iOS) && !targetEnvironment(macCatalyst)
+        // For an unknown reason, iOS does not use the provided custom allocator.
+        // So we allocate manually and copy the encoded data over.
+        let bufferSize = dataBuffer.dataLength
+        self.bufferAllocator.deallocateAll()
+        guard let bufferPtr = CFAllocatorAllocate(self.allocator, bufferSize, 0) else {
             Self.logger.error("Failed to allocate ios buffer")
             return
         }
@@ -249,7 +264,7 @@ class VTEncoder: VideoEncoder {
             return
         }
         #else
-        buffer  = sample.dataBuffer!
+        buffer = dataBuffer
         #endif
 
         // Increment frame sequence number

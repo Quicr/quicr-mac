@@ -1,5 +1,6 @@
 import Foundation
 import os
+import OrderedCollections
 
 /// Possible errors from BufferAllocator.
 enum BufferAllocatorError: Error {
@@ -13,6 +14,7 @@ enum BufferAllocatorError: Error {
 }
 
 /// Custom allocator for a buffer with data prefixed by headers.
+/// Deallocates MUST occur in reverse order of allocations.
 class BufferAllocator {
     private let preAllocateHdrSize: Int
     private let preAllocatedBuffer: UnsafeRawBufferPointer
@@ -21,6 +23,75 @@ class BufferAllocator {
     private var firstHeaderPtr: UnsafeRawPointer
     private var frameBufferView: UnsafeRawBufferPointer
     private let lock = OSAllocatedUnfairLock()
+    private var blocks: OrderedDictionary<UnsafeRawPointer, Int> = [:]
+
+    // CFAllocate callback implementation.
+    private let allocate: CFAllocatorAllocateCallBack = { allocSize, _, info in
+        // Unwrap.
+        guard let info = info else {
+            assert(false)
+            return nil
+        }
+
+        // Resolve info to ourself.
+        let allocator = Unmanaged<BufferAllocator>.fromOpaque(info).takeUnretainedValue()
+        allocator.lock.lock()
+        defer { allocator.lock.unlock() }
+
+        // Ensure we have enough space for this request.
+        let availableSpace = allocator.preAllocatedBuffer.count
+            - allocator.preAllocateHdrSize
+            - allocator.frameBufferView.count
+        guard allocSize <= availableSpace else { return nil }
+
+        // Unwrap optional address.
+        guard let base = allocator.frameBufferView.baseAddress else {
+            assert(false)
+            return nil
+        }
+
+        // Resize frame buffer to include this allocation.
+        let existingDataBytes = allocator.frameBufferView.count
+        let newWrittenBytes = existingDataBytes + allocSize
+        allocator.frameBufferView = UnsafeRawBufferPointer(start: base,
+                                                           count: newWrittenBytes)
+
+        // Store and return this point to be written to by the caller.
+        let newPtr = base + existingDataBytes
+        allocator.blocks[newPtr] = allocSize
+        return .init(mutating: newPtr)
+    }
+
+    // CFDeallocate callback implementation.
+    private let deallocate: CFAllocatorDeallocateCallBack = { ptr, info in
+        // Unwrap optionals.
+        guard let info = info,
+              let ptr = ptr else {
+            assert(false)
+            return
+        }
+
+        // Resolve info to ourself.
+        let allocator = Unmanaged<BufferAllocator>.fromOpaque(info).takeUnretainedValue()
+        allocator.lock.lock()
+        defer { allocator.lock.unlock() }
+
+        // "Deallocate" this block.
+        assert(allocator.blocks.count > 0)
+        let block = allocator.blocks.removeLast()
+        assert(block.key == ptr)
+        guard let base = allocator.frameBufferView.baseAddress else {
+            assert(false)
+            return
+        }
+        allocator.frameBufferView = .init(start: base, count: allocator.frameBufferView.count - block.value)
+        if allocator.blocks.isEmpty {
+            // When empty, clear headers.
+            allocator.firstHeaderPtr = base
+            assert(allocator.firstHeaderPtr == base)
+            assert(base == allocator.preAllocatedBuffer.baseAddress! + allocator.preAllocateHdrSize)
+        }
+    }
 
     /// Create a new buffer allocator.
     /// - Parameter preAllocateSize The total size to allocate, in bytes.
@@ -44,8 +115,9 @@ class BufferAllocator {
 
         // Set the header pointer to work backwards from, and the frame buffer
         // to work forwards from.
-        self.firstHeaderPtr = baseAddress.advanced(by: preAllocateHdrSize)
-        self.frameBufferView = .init(start: self.firstHeaderPtr,
+        let dataStartPtr = baseAddress.advanced(by: preAllocateHdrSize)
+        self.firstHeaderPtr = dataStartPtr
+        self.frameBufferView = .init(start: dataStartPtr,
                                      count: 0)
         self.preAllocateHdrSize = preAllocateHdrSize
     }
@@ -83,16 +155,28 @@ class BufferAllocator {
     /// - Parameter size Size to allocate in bytes.
     /// - Returns Buffer to fill, or nil if it couldn't be provided.
     func allocateBufferHeader(_ size: Int) -> UnsafeMutableRawBufferPointer? {
+        guard size > 0 else { return nil }
         self.lock.lock()
         defer { self.lock.unlock() }
-        guard getAvailableHeaderSize() >= size else {
+
+        // Unwrap.
+        guard let preAllocatedBuffer = self.preAllocatedBuffer.baseAddress else {
+            assert(false)
             return nil
         }
+
+        // Ensure we have enough header space.
+        let availableSpace = self.firstHeaderPtr - preAllocatedBuffer
+        guard availableSpace >= size else {
+            return nil
+        }
+
+        // Move the header pointer backwards.
         self.firstHeaderPtr = self.firstHeaderPtr.advanced(by: -size)
         return .init(start: .init(mutating: self.firstHeaderPtr), count: size)
     }
 
-    /// Get a reference to the currently written headers and data.
+    /// Retreive the written data - all written headers followed by written data.
     /// - Returns The buffer.
     func retrieveFullBufferPointer() throws -> UnsafeRawBufferPointer {
         self.lock.lock()
@@ -104,47 +188,13 @@ class BufferAllocator {
                      count: (frameBufferPtr - self.firstHeaderPtr) + self.frameBufferView.count)
     }
 
-    private let allocate: CFAllocatorAllocateCallBack = { allocSize, _, info in
-        assert(info != nil)
-        guard let info = info else { return nil }
-        let allocator = Unmanaged<BufferAllocator>.fromOpaque(info).takeUnretainedValue()
-        // Ensure we have enough space for this.
-        let availableSpace = allocator.preAllocatedBuffer.count - allocator.preAllocateHdrSize - allocator.frameBufferView.count
-        guard allocSize <= availableSpace else {
-            return nil
-        }
-        allocator.lock.lock()
-        defer { allocator.lock.unlock() }
-        let base = allocator.frameBufferView.baseAddress
-        let newWrittenBytes = allocator.frameBufferView.count + allocSize
-        allocator.frameBufferView = UnsafeRawBufferPointer(start: base,
-                                                           count: newWrittenBytes)
-        return .init(mutating: base)
+    #if os(iOS) && !targetEnvironment(macCatalyst)
+    func deallocateAll() {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        self.blocks.removeAll()
+        self.frameBufferView = .init(start: self.preAllocatedBuffer.baseAddress! + self.preAllocateHdrSize, count: 0)
+        self.firstHeaderPtr = self.frameBufferView.baseAddress!
     }
-
-    private let deallocate: CFAllocatorDeallocateCallBack = { _, info in
-        assert(info != nil)
-        guard let info = info else { return }
-        let allocator = Unmanaged<BufferAllocator>.fromOpaque(info).takeUnretainedValue()
-        allocator.lock.withLock {
-            if let frameBufferPtr = allocator.frameBufferView.baseAddress {
-                allocator.firstHeaderPtr = frameBufferPtr
-            }
-            allocator.frameBufferView = .init(start: allocator.firstHeaderPtr, count: 0)
-        }
-    }
-
-    private func getAvailableHeaderSize() -> Int {
-        guard let preAllocatedBuffer = self.preAllocatedBuffer.baseAddress else {
-            // This should never happen.
-            assert(false)
-            return 0
-        }
-        guard self.firstHeaderPtr > preAllocatedBuffer else {
-            // This should never happen.
-            assert(false)
-            return 0
-        }
-        return self.firstHeaderPtr - preAllocatedBuffer
-    }
+    #endif
 }
