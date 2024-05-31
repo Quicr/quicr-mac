@@ -48,12 +48,6 @@ class VTEncoder: VideoEncoder {
         self.config = config
         self.emitStartCodes = emitStartCodes
         self.bufferAllocator = try .init(preAllocateSize: 1024 * 1024, preAllocateHdrSize: 512)
-        let allocator: CFAllocator?
-        #if targetEnvironment(macCatalyst)
-        allocator = self.bufferAllocator.getAllocator()
-        #else
-        allocator = nil
-        #endif
 
         var compressionSession: VTCompressionSession?
         let codec: CMVideoCodecType
@@ -74,7 +68,7 @@ class VTEncoder: VideoEncoder {
                                                  codecType: codec,
                                                  encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
                                                  imageBufferAttributes: nil,
-                                                 compressedDataAllocator: allocator,
+                                                 compressedDataAllocator: try self.bufferAllocator.getAllocator(),
                                                  outputCallback: self.vtCallback,
                                                  refcon: Unmanaged.passUnretained(self).toOpaque(),
                                                  compressionSessionOut: &compressionSession)
@@ -300,11 +294,10 @@ class VTEncoder: VideoEncoder {
             let totalSize = parameterSets.reduce(0) { current, set in
                 current + set.count + self.startCode.count
             }
-            guard let parameterDestinationAddress = bufferAllocator.allocateBufferHeader(totalSize) else {
+            guard let parameterDestination = bufferAllocator.allocateBufferHeader(totalSize) else {
                 Self.logger.error("Couldn't allocate parameters buffer")
                 return
             }
-            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress, count: totalSize)
 
             var offset = 0
             for set in parameterSets {
@@ -357,6 +350,7 @@ class VTEncoder: VideoEncoder {
             assert(!self.emitStartCodes || fullEncodedBuffer.starts(with: self.startCode))
         } catch {
             Self.logger.error("Failed to retrieve encoded buffer")
+            return
         }
 
         if let callback = self.callback {
@@ -430,14 +424,15 @@ class VTEncoder: VideoEncoder {
                                      sequenceNumber: UInt64,
                                      fps: UInt8,
                                      bufferAllocator: BufferAllocator) {
-        let bytes = TimestampSei(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps).getBytes(self.seiData, startCode: self.emitStartCodes)
+        let bytes = TimestampSei(timestamp: timestamp, sequenceNumber: sequenceNumber,
+                                 fps: fps).getBytes(self.seiData, startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
             return
         }
 
         // Copy to buffer.
-        bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
+        bytes.copyBytes(to: timestampPtr)
     }
 
     private func prependAgeSEI(timestamp: CMTime,
@@ -449,7 +444,7 @@ class VTEncoder: VideoEncoder {
         }
 
         // Copy to buffer.
-        bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
+        bytes.copyBytes(to: timestampPtr)
     }
 
     private func prependOrientationSEI(orientation: DecimusVideoRotation,
@@ -459,8 +454,7 @@ class VTEncoder: VideoEncoder {
         guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             throw "Failed to allocate orientation header"
         }
-        let orientationBufferPtr = UnsafeMutableRawBufferPointer(start: orientationPtr, count: bytes.count)
-        bytes.copyBytes(to: orientationBufferPtr)
+        bytes.copyBytes(to: orientationPtr)
     }
 
     private func makeBuffer(totalLength: Int) throws -> CMBlockBuffer {

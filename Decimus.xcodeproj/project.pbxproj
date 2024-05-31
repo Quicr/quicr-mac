@@ -57,6 +57,7 @@
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
 		9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52EE322B763157006E9C58 /* PublicationPopover.swift */; };
+		9B7EE3FE2C090699008A5421 /* TestBufferAllocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7EE3FD2C090699008A5421 /* TestBufferAllocator.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
@@ -222,6 +223,7 @@
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
 		9B52EE322B763157006E9C58 /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
+		9B7EE3FD2C090699008A5421 /* TestBufferAllocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestBufferAllocator.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
@@ -449,6 +451,7 @@
 				9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */,
 				9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */,
 				9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */,
+				9B7EE3FD2C090699008A5421 /* TestBufferAllocator.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -872,6 +875,7 @@
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
+				9B7EE3FE2C090699008A5421 /* TestBufferAllocator.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
