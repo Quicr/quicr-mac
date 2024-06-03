@@ -71,7 +71,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                          idle_timeout_ms: 15000,
                                                          use_reset_wait_strategy: self.config.useResetWaitCC,
                                                          use_bbr: self.config.useBBR,
-                                                         quic_qlog_path: self.config.enableQlog ? dir : nil)
+                                                         quic_qlog_path: self.config.enableQlog ? dir : nil,
+                                                         quic_priority_limit: self.config.quicPriorityLimit)
             let error = super.connect(config.email,
                                       relay: config.address,
                                       port: config.port,
