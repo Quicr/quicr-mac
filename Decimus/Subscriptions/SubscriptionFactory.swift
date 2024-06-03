@@ -58,6 +58,7 @@ struct SubscriptionConfig: Codable {
     var enableQlog: Bool
     var pauseResume: Bool
     var quicrLogs: Bool
+    var quicPriorityLimit: UInt8
 
     init() {
         jitterMaxTime = 0.5
@@ -80,6 +81,7 @@ struct SubscriptionConfig: Codable {
         enableQlog = false
         pauseResume = false
         quicrLogs = false
+        quicPriorityLimit = 0
     }
 }
 

@@ -164,7 +164,9 @@ struct SubscriptionSettingsView: View {
                                     useBBR:
                                         $subscriptionConfig.value.useBBR,
                                     quicrLogs: $subscriptionConfig.value.quicrLogs,
-                                    enableQlog: $subscriptionConfig.value.enableQlog)
+                                    enableQlog: $subscriptionConfig.value.enableQlog,
+                                    quicPriorityLimit:
+                                        $subscriptionConfig.value.quicPriorityLimit)
         }
     }
 }

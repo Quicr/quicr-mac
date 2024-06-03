@@ -23,8 +23,7 @@ struct TransportConfig
     bool use_reset_wait_strategy;           /// Use Reset and wait strategy for congestion control
     bool use_bbr;                           /// Use BBR if true, NewReno if false
     const char *quic_qlog_path;             /// QUIC LOG file location path, null terminated cstring
-    
-    
+    const uint8_t quic_priority_limit;      /// Lowest priority that will not be bypassed from pacing/CC in picoquic
 };
 typedef struct TransportConfig TransportConfig;
 
