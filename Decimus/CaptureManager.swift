@@ -55,6 +55,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let metricsSubmitter: MetricsSubmitter?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
+    private var selectedFormat: [AVCaptureDevice: AVCaptureDevice.Format] = [:]
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -147,10 +148,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
 
+    // Rules for setting a format.
+    // - The highest resolution requested will be preferred.
+    // - The frame rate chosen will be the lower of the highest selected resolution's highest frame rate,
+    // and the requested frame rate.
     private func setBestDeviceFormat(device: AVCaptureDevice, config: VideoCodecConfig) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
 
+        // Get available formats for the given resolution requirements.
         let allowableFormats = device.formats.reversed().filter { format in
             var supported = format.isMultiCamSupported &&
                 format.formatDescription.dimensions.width == config.width &&
@@ -162,14 +168,70 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             return supported
         }
 
-        guard let bestFormat = allowableFormats.first(where: { format in
-            return format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(config.fps) }
-        }) else {
+        // Did we get a match? If not, best effort.
+        guard allowableFormats.count > 0 else {
+            Self.logger.debug("""
+            [\(device.localizedName)] Couldn't find an exact format match for: \(config.getResolutionString()).
+            Staying with \(device.activeFormat)
+            """)
             return
         }
 
+        // Is there a format that matches the required frame rate?
+        let bestFormat: AVCaptureDevice.Format
+        if let frameRateMatched = allowableFormats.first(where: {
+            $0.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(config.fps) }
+        }) {
+            // This matches our frame rate target.
+            bestFormat = frameRateMatched
+        } else {
+            // Otherwise, pick the best <= fame rate.
+            Self.logger.warning("[\(device.localizedName)] Camera does not support requested frame rate: \(config.fps)")
+            guard let backupFormat = allowableFormats.first(where: {
+                $0.videoSupportedFrameRateRanges.contains { $0.maxFrameRate <= Float64(config.fps) }
+            }) else {
+                Self.logger.error(
+                    "[\(device.localizedName)] Couldn't select a backup format. Staying with \(device.activeFormat)")
+                return
+            }
+            bestFormat = backupFormat
+        }
+
+        // Now that we have a format, should we switch to it?
+        let shouldSwitch: Bool
+        if let existingFormat = self.selectedFormat[device] {
+            // Only switch to upgrades.
+            let resolutionUpgrade = {
+                bestFormat.formatDescription.dimensions.width >= existingFormat.formatDescription.dimensions.width &&
+                    bestFormat.formatDescription.dimensions.height >= existingFormat.formatDescription.dimensions.height
+            }()
+            let frameRateUpgrade = {
+                let newFrameRate = bestFormat.videoSupportedFrameRateRanges.reduce(into: 0) {
+                    $0 = $1.maxFrameRate > $0 ? $1.maxFrameRate : $0
+                }
+                let existingFrameRate = existingFormat.videoSupportedFrameRateRanges.reduce(into: 0) {
+                    $0 = $1.maxFrameRate > $0 ? $1.maxFrameRate : $0
+                }
+                return resolutionUpgrade && newFrameRate > existingFrameRate
+            }()
+            shouldSwitch = resolutionUpgrade || frameRateUpgrade
+        } else {
+            // Should always switch if we haven't before.
+            shouldSwitch = true
+        }
+
+        guard shouldSwitch else {
+            Self.logger.debug(
+                "[\(device.localizedName)] Not switching format from \(device.activeFormat) to \(bestFormat)")
+            return
+        }
+
+        // Actually switch the camera format.
         self.session.beginConfiguration()
         device.activeFormat = bestFormat
+        self.selectedFormat[device] = bestFormat
+        Self.logger.info(
+            "[\(device.localizedName)] Setting format: \(device.activeFormat) from \(config.getResolutionString())")
         if device.activeFormat.supportedColorSpaces.contains(.sRGB) {
             device.activeColorSpace = .sRGB
         }
@@ -177,29 +239,18 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     private func addCamera(listener: FrameListener) throws {
-        // Device is already setup, add this delegate.
         let device = listener.device
 
+        // Always probe to see if there's a better format.
+        if let config = listener.codec {
+            try setBestDeviceFormat(device: device, config: config)
+        }
+
+        // If device is already setup, just add this delegate.
         if var cameraFrameListeners = self.multiVideoDelegate[device] {
-            let ranges = device.activeFormat.videoSupportedFrameRateRanges
-            guard let maxFramerateRange = ranges.max(by: { $0.maxFrameRate > $1.maxFrameRate }) else {
-                throw "No framerate set"
-            }
-
-            if let config = listener.codec {
-                if maxFramerateRange.maxFrameRate < Float64(config.fps) {
-                    try setBestDeviceFormat(device: device, config: config)
-                }
-            }
-
             cameraFrameListeners.append(listener)
             self.multiVideoDelegate[device] = cameraFrameListeners
             return
-        }
-
-        // Setup device.
-        if let config = listener.codec {
-            try setBestDeviceFormat(device: device, config: config)
         }
 
         // Prepare IO.
@@ -244,7 +295,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
         #if !os(tvOS)
-        if listener.device.deviceType == .builtInMicrophone {
+        if listener.device.deviceType == .microphone {
             throw CaptureManagerError.noAudio
         }
         #endif
@@ -267,6 +318,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard deviceListeners.count == 0 else {
             // There are other listeners still, so update and stop.
+            // TODO: Theoretically we could reevaluate the format here.
             self.multiVideoDelegate[device] = deviceListeners
             return
         }
@@ -285,6 +337,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             outputs.removeValue(forKey: output.key)
         }
         session.commitConfiguration()
+        self.selectedFormat.removeValue(forKey: device)
         Self.logger.info("Removing input for \(device.localizedName)")
     }
 
@@ -378,3 +431,9 @@ extension UIDeviceOrientation {
     }
 }
 #endif
+
+extension VideoCodecConfig {
+    func getResolutionString() -> String {
+        "\(self.width)x\(self.height)@\(self.fps)"
+    }
+}
