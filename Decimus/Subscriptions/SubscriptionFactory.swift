@@ -76,7 +76,7 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 500
         chunkSize = 3000
         bitrateType = .average
-        useResetWaitCC = true
+        useResetWaitCC = false
         useBBR = true
         enableQlog = false
         pauseResume = false
