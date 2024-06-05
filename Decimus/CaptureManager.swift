@@ -203,14 +203,16 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         // Prepare IO.
+        // TODO: Theoretically all of these may need to be reconfigured on a device format change.
         let input: AVCaptureDeviceInput = try .init(device: device)
         let output: AVCaptureVideoDataOutput = .init()
-        let lossless420 = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+        let lossless420 = kCVPixelFormatType_Lossy_420YpCbCr8BiPlanarFullRange
         output.videoSettings = [:]
         if output.availableVideoPixelFormatTypes.contains(where: {
             $0 == lossless420
         }) {
             output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
+            Self.logger.debug("[\(device.localizedName)] Using lossy compressed format")
         }
         output.videoSettings[AVVideoColorPropertiesKey] = [
             AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
