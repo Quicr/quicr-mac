@@ -177,10 +177,14 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             return
         }
 
+        // TODO: What we want to do here is pick the best matching format with a >= FPS.
+        // TODO: Once we've picked that, we can set the durations to match our actual FPS need.
+        // TODO: For example, if we want 30fps but we can get a 60fps format, pick the higher, and downscale the duration.
+
         // Is there a format that matches the required frame rate?
         let bestFormat: AVCaptureDevice.Format
         if let frameRateMatched = allowableFormats.first(where: {
-            $0.videoSupportedFrameRateRanges.contains { $0.maxFrameRate == Float64(config.fps) }
+            $0.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= Float64(config.fps) }
         }) {
             // This matches our frame rate target.
             bestFormat = frameRateMatched
@@ -235,6 +239,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         if device.activeFormat.supportedColorSpaces.contains(.sRGB) {
             device.activeColorSpace = .sRGB
         }
+        device.activeVideoMinFrameDuration = .init(value: 1, timescale: CMTimeScale(config.fps))
+        device.activeVideoMaxFrameDuration = .init(value: 1, timescale: CMTimeScale(config.fps))
         self.session.commitConfiguration()
     }
 
@@ -256,12 +262,14 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Prepare IO.
         let input: AVCaptureDeviceInput = try .init(device: device)
         let output: AVCaptureVideoDataOutput = .init()
-        let lossless420 = kCVPixelFormatType_Lossless_420YpCbCr8BiPlanarVideoRange
+        let lossy420 = kCVPixelFormatType_Lossy_420YpCbCr8BiPlanarVideoRange
         output.videoSettings = [:]
+        let pre = output.availableVideoPixelFormatTypes
         if output.availableVideoPixelFormatTypes.contains(where: {
-            $0 == lossless420
+            $0 == lossy420
         }) {
-            output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
+            output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossy420
+            Self.logger.debug("[\(device.localizedName)] Using compressed pixel format")
         }
         output.videoSettings[AVVideoColorPropertiesKey] = [
             AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
