@@ -63,19 +63,19 @@
         static_assert(std::is_trivially_copyable<qtransport::TransportConfig>() &&
                       std::is_trivially_copyable<TransportConfig>() &&
                       sizeof(tconfig) == sizeof(config));
-        
+
         memcpy(&tconfig, &config, sizeof(tconfig));
-        
-        
+
+
         std::string qlog_path;
-        
+
         if (config.quic_qlog_path != nullptr) {
             qlog_path = config.quic_qlog_path;
             tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
         } else {
             tconfig.quic_qlog_path = nullptr;
         }
-            
+
         return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger, encrypt);
     } catch(const std::exception& e) {
         qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
@@ -145,6 +145,11 @@
     qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)dataPtr, (int)dataLen, groupFlag);
 }
 
+- (void) publishMeasurement: (NSString*) measurement
+{
+    qControllerGW.publishMeasurement(std::string([measurement UTF8String]));
+}
+
 - (void) setSubscriptionSingleOrdered:(bool)new_value {
     qControllerGW.setSubscriptionSingleOrdered(new_value);
 }
@@ -153,7 +158,7 @@
     qControllerGW.setPublicationSingleOrdered(new_value);
 }
 
-- (void)stopSubscription:(NSString *)quicrNamespace { 
+- (void)stopSubscription:(NSString *)quicrNamespace {
     qControllerGW.stopSubscription(std::string([quicrNamespace UTF8String]));
 }
 
@@ -281,6 +286,18 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
     else
     {
         logger->error << "QControllerGW::publishNamedObject - qController nil" << std::flush;
+    }
+}
+
+void QControllerGW::publishMeasurement(const std::string& measurement)
+{
+    if (qController)
+    {
+        qController->publishMeasurement(json::parse(measurement));
+    }
+    else
+    {
+        logger->error << "QControllerGW::publishMeasurement - qController nil" << std::flush;
     }
 }
 

@@ -31,9 +31,9 @@ public:
 
     void disconnect();
     bool connected();
-    
+
     void updateManifest(const std::string manifest);
-       
+
     void setSubscriberDelegate(id<QSubscriberDelegateObjC>);
     void setPublisherDelegate(id<QPublisherDelegateObjC>);
 
@@ -41,6 +41,7 @@ public:
     void setPublicationSingleOrdered(bool new_value);
 
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
+    void publishMeasurement(const std::string& measurement);
 
     void stopSubscription(const std::string& quicrNamespace);
     std::vector<std::string> getSwitchingSets();

@@ -44,6 +44,7 @@ static TransportMode const TransportModeResume = 6;
 @protocol QPublishObjectDelegateObjC
 - (void) publishObject: (NSString*) quicrNamespace data: (NSData *) data group: (bool) groupFlag;
 - (void) publishObject: (NSString*) quicrNamespace data: (const void *) dataPtr length: (size_t) dataLen group: (bool) groupFlag;
+- (void) publishMeasurement: (NSString*) measurement;
 @end
 
 #endif /* QDelegatesObjC_h */
