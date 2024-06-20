@@ -61,7 +61,7 @@ struct SubscriptionConfig: Codable {
     var quicPriorityLimit: UInt8
 
     init() {
-        jitterMaxTime = 0.5
+        jitterMaxTime = 0.2
         jitterDepthTime = 0.2
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
