@@ -213,22 +213,30 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             startRenderTask()
         }
 
-        self.handlerLock.withLock {
-            self.lastUpdateTimes[name] = now
-            do {
-                if self.videoHandlers[name] == nil {
-                    try makeHandler(namespace: name)
+        let handler: VideoHandler
+        do {
+            handler = try self.handlerLock.withLock {
+                self.lastUpdateTimes[name] = now
+                let lookup = self.videoHandlers[name]
+                guard let lookup = lookup else {
+                    let handler = try makeHandler(namespace: name)
+                    self.videoHandlers[name] = handler
+                    return handler
                 }
-                guard let handler = self.videoHandlers[name] else {
-                    throw "Unknown namespace"
-                }
-                if let diff = self.timestampTimeDiff {
-                    handler.setTimeDiff(diff: diff)
-                }
-                try handler.submitEncodedData(frame)
-            } catch {
-                Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
+                return lookup
             }
+        } catch {
+            Self.logger.error("Failed to fetch/create handler: \(error.localizedDescription)")
+            return SubscriptionError.none.rawValue
+        }
+        if let diff = self.timestampTimeDiff {
+            handler.setTimeDiff(diff: diff)
+        }
+        do {
+            try handler.submitEncodedData(frame)
+        } catch {
+            Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
+            return SubscriptionError.none.rawValue
         }
         return SubscriptionError.none.rawValue
     }
@@ -257,20 +265,20 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
     }
 
-    private func makeHandler(namespace: QuicrNamespace) throws {
+    private func makeHandler(namespace: QuicrNamespace) throws -> VideoHandler {
         guard let config = self.profiles[namespace] else {
             throw "Missing config for: \(namespace)"
         }
-        self.videoHandlers[namespace] = try .init(namespace: namespace,
-                                                  config: config,
-                                                  participants: self.participants,
-                                                  metricsSubmitter: self.submitter,
-                                                  videoBehaviour: videoBehaviour,
-                                                  reliable: self.reliable,
-                                                  granularMetrics: self.granularMetrics,
-                                                  jitterBufferConfig: self.jitterBufferConfig,
-                                                  simulreceive: self.simulreceive,
-                                                  variances: self.decodedVariances)
+        return try .init(namespace: namespace,
+                         config: config,
+                         participants: self.participants,
+                         metricsSubmitter: self.submitter,
+                         videoBehaviour: self.videoBehaviour,
+                         reliable: self.reliable,
+                         granularMetrics: self.granularMetrics,
+                         jitterBufferConfig: self.jitterBufferConfig,
+                         simulreceive: self.simulreceive,
+                         variances: self.decodedVariances)
     }
 
     struct SimulreceiveItem: Equatable {
