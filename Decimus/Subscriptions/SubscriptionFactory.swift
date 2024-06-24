@@ -58,9 +58,10 @@ struct SubscriptionConfig: Codable {
     var enableQlog: Bool
     var pauseResume: Bool
     var quicrLogs: Bool
+    var quicPriorityLimit: UInt8
 
     init() {
-        jitterMaxTime = 0.5
+        jitterMaxTime = 0.2
         jitterDepthTime = 0.2
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
@@ -75,11 +76,12 @@ struct SubscriptionConfig: Codable {
         timeQueueTTL = 500
         chunkSize = 3000
         bitrateType = .average
-        useResetWaitCC = true
+        useResetWaitCC = false
         useBBR = true
         enableQlog = false
         pauseResume = false
         quicrLogs = false
+        quicPriorityLimit = 0
     }
 }
 

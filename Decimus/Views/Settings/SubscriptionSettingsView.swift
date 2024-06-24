@@ -32,13 +32,8 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .onChange(of: subscriptionConfig.value.jitterDepthTime) {
                             subscriptionConfig.value.videoJitterBuffer.minDepth = $0
+                            subscriptionConfig.value.jitterMaxTime = $0
                         }
-                }
-                LabeledContent("Audio Jitter Max Depth (s)") {
-                    TextField(
-                        "Depth (s)",
-                        value: $subscriptionConfig.value.jitterMaxTime,
-                        format: .number)
                 }
                 LabeledContent("Video Jitter Capacity (s)") {
                     TextField(
@@ -164,7 +159,9 @@ struct SubscriptionSettingsView: View {
                                     useBBR:
                                         $subscriptionConfig.value.useBBR,
                                     quicrLogs: $subscriptionConfig.value.quicrLogs,
-                                    enableQlog: $subscriptionConfig.value.enableQlog)
+                                    enableQlog: $subscriptionConfig.value.enableQlog,
+                                    quicPriorityLimit:
+                                        $subscriptionConfig.value.quicPriorityLimit)
         }
     }
 }

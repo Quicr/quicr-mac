@@ -8,6 +8,7 @@ struct TransportConfigSettings: View {
     @Binding var useBBR: Bool
     @Binding var quicrLogs: Bool
     @Binding var enableQlog: Bool
+    @Binding var quicPriorityLimit: UInt8
     private let minWindowKiB = 2
     private let maxWindowKiB = 4096
 
@@ -42,6 +43,9 @@ struct TransportConfigSettings: View {
         }
         LabeledContent("Chunk Size") {
             TextField("", value: self.$chunkSize, format: .number)
+        }
+        LabeledContent("Limit Bypass Priority >= value") {
+            TextField("", value: self.$quicPriorityLimit, format: .number)
         }
         HStack {
             Text("Capture QUICR logs")

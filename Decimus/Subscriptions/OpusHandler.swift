@@ -82,8 +82,11 @@ class OpusHandler {
         // Metrics.
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await self.measurement?.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed), timestamp: date)
-                await self.measurement?.callbacks(callbacks: self.callbacks.load(ordering: .relaxed), timestamp: date)
+                await measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed), timestamp: date)
+                await measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed), timestamp: date)
+                if let date = date {
+                    await measurement.depth(depthMs: self.jitterBuffer.getCurrentDepth(), timestamp: date)
+                }
             }
         }
     }
