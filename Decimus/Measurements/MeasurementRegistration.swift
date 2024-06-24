@@ -1,7 +1,7 @@
 class MeasurementRegistration<Metric> where Metric: Measurement {
     let measurement: Metric
+    let registration: Task<Void, Never>
     private let submitter: MetricsSubmitter
-    private let registration: Task<Void, Never>
 
     init(measurement: Metric, submitter: MetricsSubmitter) {
         self.measurement = measurement
