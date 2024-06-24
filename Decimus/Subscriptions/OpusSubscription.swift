@@ -7,8 +7,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
 
     let sourceId: SourceIDType
     private let engine: DecimusAudioEngine
-    private let measurement: OpusSubscriptionMeasurement?
-    private let metricsSubmitter: MetricsSubmitter?
+    private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt32 = 0
@@ -32,9 +31,9 @@ class OpusSubscription: QSubscriptionDelegateObjC {
          granularMetrics: Bool) throws {
         self.sourceId = sourceId
         self.engine = engine
-        self.metricsSubmitter = submitter
         if let submitter = submitter {
-            self.measurement = .init(namespace: self.sourceId)
+            let measurement = OpusSubscriptionMeasurement(namespace: sourceId)
+            self.measurement = .init(measurement: measurement, submitter: submitter)
         } else {
             self.measurement = nil
         }
@@ -69,24 +68,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             }
         }
 
-        if let metricsSubmitter = self.metricsSubmitter,
-           let measurement = self.measurement {
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
-        }
-
         Self.logger.info("Subscribed to OPUS stream")
-    }
-
-    deinit {
-        if let measurement = self.measurement,
-           let metricsSubmitter = self.metricsSubmitter {
-            let id = measurement.id
-            Task(priority: .utility) {
-                await metricsSubmitter.unregister(id: id)
-            }
-        }
     }
 
     func prepare(_ sourceID: SourceIDType!,
@@ -118,10 +100,10 @@ class OpusSubscription: QSubscriptionDelegateObjC {
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
-                    await measurement.receivedBytes(received: UInt(length), timestamp: date)
+                    await measurement.measurement.receivedBytes(received: UInt(length), timestamp: date)
                     if missing > 0 {
                         Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
-                        await measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+                        await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                     }
                 }
             }
