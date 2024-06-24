@@ -62,6 +62,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         session = .init()
         session.automaticallyConfiguresApplicationAudioSession = false
+        if self.session.isMultitaskingCameraAccessSupported {
+            self.session.isMultitaskingCameraAccessEnabled = true
+        }
         self.granularMetrics = granularMetrics
         self.metricsSubmitter = metricsSubmitter
         if let metricsSubmitter = metricsSubmitter {

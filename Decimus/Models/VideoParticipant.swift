@@ -23,7 +23,12 @@ class VideoParticipants: ObservableObject {
     private static let logger = DecimusLogger(VideoParticipants.self)
 
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
-    private var cancellables: [SourceIDType: AnyCancellable] = [:]
+    private var cancellables: [SourceIDType: AnyCancellable]
+    private var pipController = AVPictureInPictureVideoCallViewController()
+
+    init() {
+        self.pipController.preferredContentSize = .init(width: 1920, height: 1080)
+    }
 
     func getOrMake(identifier: SourceIDType) -> VideoParticipant {
         if let participant = participants[identifier] {
@@ -38,6 +43,7 @@ class VideoParticipants: ObservableObject {
         })
         cancellables[identifier] = cancellable
         participants[identifier] = new
+        self.pipController.view.addSubview(new.view)
         return new
     }
 

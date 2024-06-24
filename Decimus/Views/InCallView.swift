@@ -27,6 +27,7 @@ struct InCallView: View {
         .makeConnectable()
         .autoconnect()
     #endif
+    // private let pip = AVPictureInPictureController.ContentSource(activeCi)
 
     init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
