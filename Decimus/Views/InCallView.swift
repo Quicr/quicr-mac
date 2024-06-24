@@ -195,7 +195,7 @@ extension InCallView {
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
-        private var measurement: _Measurement?
+        private var measurement: MeasurementRegistration<_Measurement>?
         private var submitter: MetricsSubmitter?
         private var audioCapture = false
         private var videoCapture = false
@@ -224,14 +224,15 @@ extension InCallView {
             if influxConfig.value.submit {
                 let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
                 submitter = influx
-                self.measurement = .init()
+                let measurement = _Measurement()
+                self.measurement = .init(measurement: measurement, submitter: influx)
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
                         while !Task.isCancelled,
                               let self = self {
                             let usage = try cpuUsage()
-                            await self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
 
                             await self.submitter?.submit()
                             try? await Task.sleep(for: .seconds(influxConfig.value.intervalSecs), tolerance: .seconds(1))
@@ -257,23 +258,6 @@ extension InCallView {
                                                 granularMetrics: influxConfig.value.granular)
                 } catch {
                     Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
-                }
-            }
-
-            if let submitter = self.submitter,
-               let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await submitter.register(measurement: measurement)
-                }
-            }
-        }
-
-        deinit {
-            if let measurement = self.measurement,
-               let submitter = self.submitter {
-                let id = measurement.id
-                Task(priority: .utility) {
-                    await submitter.unregister(id: id)
                 }
             }
         }

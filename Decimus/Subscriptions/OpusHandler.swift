@@ -22,14 +22,14 @@ class OpusHandler {
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
     private var jitterBuffer: QJitterBuffer
-    private let measurement: OpusSubscription.OpusSubscriptionMeasurement?
+    private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
     private var underrun = ManagedAtomic<UInt64>(0)
     private var callbacks = ManagedAtomic<UInt64>(0)
     private let granularMetrics: Bool
 
     init(sourceId: SourceIDType,
          engine: DecimusAudioEngine,
-         measurement: OpusSubscription.OpusSubscriptionMeasurement?,
+         measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
@@ -82,10 +82,13 @@ class OpusHandler {
         // Metrics.
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed), timestamp: date)
-                await measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed), timestamp: date)
+                await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                                             timestamp: date)
+                await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                                        timestamp: date)
                 if let date = date {
-                    await measurement.depth(depthMs: self.jitterBuffer.getCurrentDepth(), timestamp: date)
+                    await measurement.measurement.depth(depthMs: self.jitterBuffer.getCurrentDepth(),
+                                                        timestamp: date)
                 }
             }
         }
@@ -176,7 +179,8 @@ class OpusHandler {
             let constConcealed = concealed
             let timestamp: Date? = handler.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                await measurement.concealmentFrames(concealed: constConcealed, timestamp: timestamp)
+                await measurement.measurement.concealmentFrames(concealed: constConcealed,
+                                                                timestamp: timestamp)
             }
         }
     }
@@ -210,10 +214,12 @@ class OpusHandler {
         let missing = copied < buffer.frameLength ? Int(buffer.frameLength) - copied : 0
         if let measurement = measurement {
             Task(priority: .utility) {
-                await measurement.receivedFrames(received: buffer.frameLength, timestamp: timestamp)
-                await measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
-                                                         timestamp: timestamp)
-                await measurement.droppedFrames(dropped: missing, timestamp: timestamp)
+                await measurement.measurement.receivedFrames(received: buffer.frameLength,
+                                                             timestamp: timestamp)
+                await measurement.measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
+                                                                     timestamp: timestamp)
+                await measurement.measurement.droppedFrames(dropped: missing,
+                                                            timestamp: timestamp)
             }
         }
     }

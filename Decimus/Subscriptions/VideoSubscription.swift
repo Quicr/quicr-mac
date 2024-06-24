@@ -45,7 +45,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
     private var lastDiscontinous = false
-    private let measurement: VideoSubscriptionMeasurement?
+    private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     private let decodedVariances: VarianceCalculator
     private var formats: [QuicrNamespace: CMFormatDescription?] = [:]
@@ -71,7 +71,12 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.sourceId = sourceId
         self.participants = participants
         self.submitter = metricsSubmitter
-        self.measurement = self.submitter != nil ? .init(source: self.sourceId) : nil
+        if let submitter = metricsSubmitter {
+            let measurement = VideoSubscriptionMeasurement(source: self.sourceId)
+            self.measurement = .init(measurement: measurement, submitter: submitter)
+        } else {
+            self.measurement = nil
+        }
         self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
@@ -137,13 +142,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
         }
 
-        if let metricsSubmitter = self.submitter,
-           let measurement = self.measurement {
-            Task(priority: .utility) {
-                await metricsSubmitter.register(measurement: measurement)
-            }
-        }
-
         Self.logger.info("Subscribed to video stream")
     }
 
@@ -199,9 +197,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             if self.granularMetrics,
                let measurement = self.measurement {
                 Task(priority: .utility) {
-                    await measurement.reportTimestamp(namespace: name,
-                                                      timestamp: timestamp,
-                                                      at: now)
+                    await measurement.measurement.reportTimestamp(namespace: name,
+                                                                  timestamp: timestamp,
+                                                                  at: now)
                 }
             }
         } else {
@@ -450,7 +448,8 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             }
             let completedReport = report
             Task(priority: .utility) {
-                await measurement.reportSimulreceiveChoice(choices: completedReport, timestamp: decisionTime!)
+                await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
+                                                                       timestamp: decisionTime!)
             }
         }
 
