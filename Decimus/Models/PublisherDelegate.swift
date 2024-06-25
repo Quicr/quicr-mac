@@ -50,7 +50,7 @@ class PublisherDelegate: QPublisherDelegateObjC {
             }
             return publication
         } catch {
-            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)", alert: true)
+            Self.logger.error("Failed to allocate publication: \(error.localizedDescription)")
             return nil
         }
     }

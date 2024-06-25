@@ -108,10 +108,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     @Sendable
     private nonisolated func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
-            Self.logger.error("AVCaptureSession failed for unknown reason", alert: true)
+            Self.logger.error("AVCaptureSession failed for unknown reason")
             return
         }
-        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)", alert: true)
+        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
     }
 
     func stopCapturing() throws {

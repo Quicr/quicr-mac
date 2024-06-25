@@ -61,7 +61,7 @@ class OpusHandler {
         do {
             try engine.removePlayer(identifier: sourceId)
         } catch {
-            Self.logger.critical("Couldn't remove player: \(error.localizedDescription)")
+            Self.logger.error("Couldn't remove player: \(error.localizedDescription)")
         }
 
         // Reset the node.
