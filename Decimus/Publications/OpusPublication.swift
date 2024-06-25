@@ -88,7 +88,7 @@ class OpusPublication: Publication {
         do {
             try engine.unregisterSinkBlock(identifier: self.namespace)
         } catch {
-            Self.logger.critical("Failed to unregister sink block: \(error.localizedDescription)")
+            Self.logger.error("Failed to unregister sink block: \(error.localizedDescription)")
         }
         self.encodeTask?.cancel()
         TPCircularBufferCleanup(self.buffer)

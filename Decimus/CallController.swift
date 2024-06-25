@@ -32,7 +32,9 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
          granularMetrics: Bool) throws {
         self.config = config
         super.init { level, msg, alert in
-            CallController.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+            let level: DecimusLogger.LogLevel = .init(rawValue: level) ?? .error
+            guard let msg = msg else { return }
+            CallController.logger.log(level: level, msg, alert: alert)
         }
         self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
                                                      config: config,

@@ -211,7 +211,7 @@ extension InCallView {
             do {
                 self.engine = try .init()
             } catch {
-                Self.logger.critical("Failed to create AudioEngine: \(error.localizedDescription)")
+                Self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
                 self.engine = nil
             }
             let tags: [String: String] = [
@@ -245,7 +245,7 @@ extension InCallView {
                 self.captureManager = try .init(metricsSubmitter: submitter,
                                                 granularMetrics: influxConfig.value.granular)
             } catch {
-                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)", alert: true)
+                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
             }
 
             if let captureManager = self.captureManager,
@@ -257,7 +257,7 @@ extension InCallView {
                                                 engine: engine,
                                                 granularMetrics: influxConfig.value.granular)
                 } catch {
-                    Self.logger.error("CallController failed: \(error.localizedDescription)", alert: true)
+                    Self.logger.error("CallController failed: \(error.localizedDescription)")
                 }
             }
         }
@@ -267,7 +267,7 @@ extension InCallView {
                 return false
             }
             if !controller.connected() {
-                Self.logger.error("Connection to relay disconnected", alert: true)
+                Self.logger.error("Connection to relay disconnected")
                 return false
             }
             return true
@@ -276,8 +276,11 @@ extension InCallView {
         func join() async -> Bool {
             do {
                 try await self.controller?.connect(config: config)
+            } catch CallError.failedToConnect(let errorCode) {
+                Self.logger.error("Failed to connect to relay: (\(errorCode))")
+                return false
             } catch {
-                Self.logger.error("Failed to connect to call: \(error.localizedDescription)", alert: true)
+                Self.logger.error("CallController failed due to unknown error: \(error.localizedDescription)")
                 return false
             }
 
@@ -311,13 +314,13 @@ extension InCallView {
                     self.audioCapture = false
                 }
             } catch {
-                Self.logger.error("Error while stopping media: \(error)", alert: true)
+                Self.logger.error("Error while stopping media: \(error)")
             }
 
             do {
                 try controller?.disconnect()
             } catch {
-                Self.logger.error("Error while leaving call: \(error)", alert: true)
+                Self.logger.error("Error while leaving call: \(error)")
             }
         }
     }
