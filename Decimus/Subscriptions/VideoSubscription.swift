@@ -112,7 +112,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.profiles = createdProfiles
         for namespace in createdProfiles.keys {
             self.formats[namespace] = nil
-            try makeHandler(namespace: namespace)
+            self.videoHandlers[namespace] = try makeHandler(namespace: namespace)
         }
 
         // Make task for cleaning up video handlers.
