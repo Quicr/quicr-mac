@@ -40,7 +40,6 @@ class VTEncoder: VideoEncoder {
         instance.encoded(frameRefCon: frameRefCon, status: status, flags: flags, sample: sample)
     }
 
-    // swiftlint:disable function_body_length
     init(config: VideoCodecConfig,
          verticalMirror: Bool,
          emitStartCodes: Bool = false) throws {
@@ -48,144 +47,16 @@ class VTEncoder: VideoEncoder {
         self.config = config
         self.emitStartCodes = emitStartCodes
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
-        let allocator: CFAllocator?
-        #if targetEnvironment(macCatalyst)
-        allocator = self.bufferAllocator.allocator().takeUnretainedValue()
-        #else
-        allocator = nil
-        #endif
-
-        var compressionSession: VTCompressionSession?
-        let codec: CMVideoCodecType
         switch config.codec {
         case .h264:
             self.seiData = ApplicationH264SEIs()
-            codec = kCMVideoCodecType_H264
         case .hevc:
             self.seiData = ApplicationHEVCSEIs()
-            codec = kCMVideoCodecType_HEVC
         default:
             throw VTEncoderError.unsupportedCodec(config.codec)
         }
-
-        let created = VTCompressionSessionCreate(allocator: nil,
-                                                 width: config.width,
-                                                 height: config.height,
-                                                 codecType: codec,
-                                                 encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
-                                                 imageBufferAttributes: nil,
-                                                 compressedDataAllocator: allocator,
-                                                 outputCallback: self.vtCallback,
-                                                 refcon: Unmanaged.passUnretained(self).toOpaque(),
-                                                 compressionSessionOut: &compressionSession)
-        guard created == .zero,
-              let compressionSession = compressionSession else {
-            throw "Compression Session was nil"
-        }
-        self.encoder = compressionSession
-
-        try OSStatusError.checked("Set realtime") {
-            VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_RealTime,
-                                 value: kCFBooleanTrue)
-        }
-
-        // swiftlint:disable switch_case_alignment
-        #if !os(tvOS)
-        try OSStatusError.checked("Set Profile Level") {
-            return switch config.codec {
-            case .h264:
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_ProfileLevel,
-                                     value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
-            case .hevc:
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_ProfileLevel,
-                                     value: kVTProfileLevel_HEVC_Main_AutoLevel)
-            default:
-                1
-            }
-        }
-        #endif
-        // swiftlint:enable switch_case_alignment
-
-        try OSStatusError.checked("Set allow frame reordering") {
-            VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_AllowFrameReordering,
-                                 value: kCFBooleanFalse)
-        }
-
-        let bitrateKey: CFString
-        switch config.bitrateType {
-        case .constant:
-            bitrateKey = kVTCompressionPropertyKey_ConstantBitRate
-        case .average:
-            bitrateKey = kVTCompressionPropertyKey_AverageBitRate
-        }
-
-        try OSStatusError.checked("Set average bitrate: \(self.config.bitrate)") {
-            VTSessionSetProperty(compressionSession,
-                                 key: bitrateKey,
-                                 value: config.bitrate as CFNumber)
-        }
-
-        // Limit to 8 frames of bitrate over 8 frame times.
-        let bitrateInBytes = Double(self.config.bitrate) / 8.0
-        let eightFrameTimes: TimeInterval = (1.0 / Double(self.config.fps)) * 8.0
-        let dataRateLimits: NSArray = [
-
-            NSNumber(value: eightFrameTimes * bitrateInBytes),
-            NSNumber(value: eightFrameTimes)
-        ]
-        try OSStatusError.checked("Set data limit") {
-            VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_DataRateLimits,
-                                 value: dataRateLimits as CFArray)
-        }
-
-        try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
-            VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_ExpectedFrameRate,
-                                 value: config.fps as CFNumber)
-        }
-
-        try OSStatusError.checked("Set max key frame interval: \(self.config.fps * 5)") {
-            VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
-                                 value: config.fps * 5 as CFNumber)
-        }
-
-        if config.codec == .hevc {
-            try OSStatusError.checked("Color Primaries") {
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_ColorPrimaries,
-                                     value: kCMFormatDescriptionColorPrimaries_ITU_R_709_2)
-            }
-
-            try OSStatusError.checked("Transfer Function") {
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_TransferFunction,
-                                     value: kCMFormatDescriptionTransferFunction_ITU_R_709_2)
-            }
-
-            try OSStatusError.checked("YCbCrMatrix") {
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_YCbCrMatrix,
-                                     value: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2)
-            }
-
-            try OSStatusError.checked("Preserve Metadata") {
-                VTSessionSetProperty(compressionSession,
-                                     key: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
-                                     value: kCFBooleanTrue)
-            }
-        }
-
-        try OSStatusError.checked("Prepare to encode frames") {
-            VTCompressionSessionPrepareToEncodeFrames(compressionSession)
-        }
+        try self.createEncoder()
     }
-    // swiftlint:enable function_body_length
 
     deinit {
         guard let encoder = self.encoder else { return }
@@ -207,14 +78,23 @@ class VTEncoder: VideoEncoder {
         let captureTimeCM = CMTime(seconds: captureTime.timeIntervalSinceReferenceDate,
                                    preferredTimescale: presentation.timescale)
         let time = Unmanaged.passRetained(NSValue(time: captureTimeCM)).toOpaque()
-        try OSStatusError.checked("Encode") {
-            VTCompressionSessionEncodeFrame(encoder,
-                                            imageBuffer: imageBuffer,
-                                            presentationTimeStamp: presentation,
-                                            duration: .invalid,
-                                            frameProperties: nil,
-                                            sourceFrameRefcon: time,
-                                            infoFlagsOut: nil)
+        let status = VTCompressionSessionEncodeFrame(encoder,
+                                                     imageBuffer: imageBuffer,
+                                                     presentationTimeStamp: presentation,
+                                                     duration: .invalid,
+                                                     frameProperties: nil,
+                                                     sourceFrameRefcon: time,
+                                                     infoFlagsOut: nil)
+        switch status {
+        case kCVReturnSuccess:
+            break
+        case kVTInvalidSessionErr:
+            Self.logger.info("Recreating encoder session")
+            try self.cleanupEncoder()
+            try self.createEncoder()
+            try self.write(sample: sample, captureTime: captureTime)
+        default:
+            throw OSStatusError(error: status, message: "Encode")
         }
     }
 
@@ -535,6 +415,151 @@ class VTEncoder: VideoEncoder {
             kVTVideoEncoderSpecification_EncoderID: selectedId
         ]
     }
+
+    private func cleanupEncoder() throws {
+        guard let encoder = self.encoder else { fatalError() }
+        let flush = VTCompressionSessionCompleteFrames(encoder, untilPresentationTimeStamp: .invalid)
+        if flush != .zero {
+            Self.logger.warning("Failed to complete frames: \(flush)")
+        }
+        VTCompressionSessionInvalidate(encoder)
+    }
+
+    // swiftlint:disable function_body_length
+    private func createEncoder() throws {
+        let allocator: CFAllocator?
+        #if targetEnvironment(macCatalyst)
+        allocator = self.bufferAllocator.allocator().takeUnretainedValue()
+        #else
+        allocator = nil
+        #endif
+
+        let codec: CMVideoCodecType
+        switch config.codec {
+        case .h264:
+            codec = kCMVideoCodecType_H264
+        case .hevc:
+            codec = kCMVideoCodecType_HEVC
+        default:
+            throw VTEncoderError.unsupportedCodec(config.codec)
+        }
+
+        let created = VTCompressionSessionCreate(allocator: nil,
+                                                 width: self.config.width,
+                                                 height: self.config.height,
+                                                 codecType: codec,
+                                                 encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
+                                                 imageBufferAttributes: nil,
+                                                 compressedDataAllocator: allocator,
+                                                 outputCallback: self.vtCallback,
+                                                 refcon: Unmanaged.passUnretained(self).toOpaque(),
+                                                 compressionSessionOut: &self.encoder)
+        guard created == .zero,
+              let compressionSession = self.encoder else {
+            throw "Compression Session was nil"
+        }
+
+        try OSStatusError.checked("Set realtime") {
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_RealTime,
+                                 value: kCFBooleanTrue)
+        }
+        // swiftlint:disable switch_case_alignment
+        #if !os(tvOS)
+        try OSStatusError.checked("Set Profile Level") {
+            return switch config.codec {
+            case .h264:
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_ProfileLevel,
+                                     value: kVTProfileLevel_H264_ConstrainedHigh_AutoLevel)
+            case .hevc:
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_ProfileLevel,
+                                     value: kVTProfileLevel_HEVC_Main_AutoLevel)
+            default:
+                1
+            }
+        }
+        #endif
+        // swiftlint:enable switch_case_alignment
+
+        try OSStatusError.checked("Set allow frame reordering") {
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_AllowFrameReordering,
+                                 value: kCFBooleanFalse)
+        }
+
+        let bitrateKey: CFString
+        switch config.bitrateType {
+        case .constant:
+            bitrateKey = kVTCompressionPropertyKey_ConstantBitRate
+        case .average:
+            bitrateKey = kVTCompressionPropertyKey_AverageBitRate
+        }
+
+        try OSStatusError.checked("Set average bitrate: \(self.config.bitrate)") {
+            VTSessionSetProperty(compressionSession,
+                                 key: bitrateKey,
+                                 value: config.bitrate as CFNumber)
+        }
+
+        // Limit to 8 frames of bitrate over 8 frame times.
+        let bitrateInBytes = Double(self.config.bitrate) / 8.0
+        let eightFrameTimes: TimeInterval = (1.0 / Double(self.config.fps)) * 8.0
+        let dataRateLimits: NSArray = [
+
+            NSNumber(value: eightFrameTimes * bitrateInBytes),
+            NSNumber(value: eightFrameTimes)
+        ]
+        try OSStatusError.checked("Set data limit") {
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_DataRateLimits,
+                                 value: dataRateLimits as CFArray)
+        }
+
+        try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_ExpectedFrameRate,
+                                 value: config.fps as CFNumber)
+        }
+
+        try OSStatusError.checked("Set max key frame interval: \(self.config.fps * 5)") {
+            VTSessionSetProperty(compressionSession,
+                                 key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
+                                 value: config.fps * 5 as CFNumber)
+        }
+
+        if config.codec == .hevc {
+            try OSStatusError.checked("Color Primaries") {
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_ColorPrimaries,
+                                     value: kCMFormatDescriptionColorPrimaries_ITU_R_709_2)
+            }
+
+            try OSStatusError.checked("Transfer Function") {
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_TransferFunction,
+                                     value: kCMFormatDescriptionTransferFunction_ITU_R_709_2)
+            }
+
+            try OSStatusError.checked("YCbCrMatrix") {
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_YCbCrMatrix,
+                                     value: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2)
+            }
+
+            try OSStatusError.checked("Preserve Metadata") {
+                VTSessionSetProperty(compressionSession,
+                                     key: kVTCompressionPropertyKey_PreserveDynamicHDRMetadata,
+                                     value: kCFBooleanTrue)
+            }
+        }
+
+        try OSStatusError.checked("Prepare to encode frames") {
+            VTCompressionSessionPrepareToEncodeFrames(compressionSession)
+        }
+    }
+    // swiftlint:enable function_body_length
 }
 
 extension String: LocalizedError {

@@ -25,7 +25,12 @@ class VTDecoder {
     deinit {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
-        if flush != .zero {
+        switch flush {
+        case .zero:
+            break
+        case kVTInvalidSessionErr:
+            break
+        default:
             Self.logger.warning("VTDecoder failed to flush frames: \(flush)", alert: true)
         }
         VTDecompressionSessionInvalidate(session)
@@ -58,6 +63,10 @@ class VTDecoder {
             Self.logger.info("Recreating due to format change")
             session = try makeDecoder(format: format)
             try write(sample)
+        case kVTInvalidSessionErr:
+            // We need to recreate the decoder because the session is invalid.
+            Self.logger.info("Recreating due to invalid session")
+            self.session = try self.makeDecoder(format: format)
         case .zero:
             break
         default:
@@ -108,7 +117,17 @@ class VTDecoder {
                        presentation: CMTime,
                        duration: CMTime) {
         // Check status code.
-        guard status == .zero else { Self.logger.error("Bad decode: \(status)"); return }
+        switch status {
+        case .zero:
+            // All okay.
+            break
+        case kVTInvalidSessionErr:
+            // Will be handled on write.
+            return
+        default:
+            Self.logger.error("Bad decode: \(status)")
+            return
+        }
 
         // Fire callback with the decoded image.
         guard let image = image else { Self.logger.error("Missing image"); return }
