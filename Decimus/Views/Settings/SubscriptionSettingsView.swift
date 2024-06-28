@@ -150,6 +150,12 @@ struct SubscriptionSettingsView: View {
                 Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.subscription) {}
             }
         }
+        Section("Security") {
+            HStack {
+                Text("SFrame")
+                Toggle(isOn: $subscriptionConfig.value.doSFrame) {}
+            }
+        }
         Section("Transport") {
             TransportConfigSettings(quicCwinMinimumKiB: $subscriptionConfig.value.quicCwinMinimumKiB,
                                     timeQueueTTL: $subscriptionConfig.value.timeQueueTTL,
