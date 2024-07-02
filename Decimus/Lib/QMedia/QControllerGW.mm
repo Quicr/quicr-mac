@@ -71,7 +71,7 @@
         
         if (config.quic_qlog_path != nullptr) {
             qlog_path = config.quic_qlog_path;
-            tconfig.quic_qlog_path = qlog_path.c_str();
+            tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
         } else {
             tconfig.quic_qlog_path = nullptr;
         }
