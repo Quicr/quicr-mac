@@ -116,10 +116,9 @@ struct SubscriptionSettingsView: View {
                 }
 
                 LabeledContent("Quality miss threshold (frames)") {
-                    TextField(
-                        "Quality miss threshold (frames)",
-                        value: $subscriptionConfig.value.qualityMissThreshold,
-                        format: .number)
+                    NumberView(value: self.$subscriptionConfig.value.qualityMissThreshold,
+                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                               name: "Threshold")
                 }
 
                 HStack {
@@ -128,10 +127,9 @@ struct SubscriptionSettingsView: View {
                 }
 
                 LabeledContent("Pause miss threshold (frames)") {
-                    TextField(
-                        "Pause miss threshold (frames)",
-                        value: $subscriptionConfig.value.pauseMissThreshold,
-                        format: .number)
+                    NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
+                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                               name: "Threshold")
                 }
             }
             .formStyle(.columns)
