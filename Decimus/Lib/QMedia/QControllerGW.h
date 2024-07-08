@@ -41,7 +41,7 @@ public:
     void setPublicationSingleOrdered(bool new_value);
 
     void publishNamedObject(std::string quicrNamespace, std::uint8_t *data, int len, bool groupFlag);
-    void publishMeasurement(const std::string& measurement);
+    void publishMeasurement(const std::string& measurement_json);
 
     void stopSubscription(const std::string& quicrNamespace);
     std::vector<std::string> getSwitchingSets();

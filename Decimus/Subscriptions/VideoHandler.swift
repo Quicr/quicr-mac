@@ -24,7 +24,7 @@ class VideoHandler: CustomStringConvertible {
 
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
-    private let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
+    let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
     private var lastGroup: UInt32?
     private var lastObject: UInt16?
     private let namegate = SequentialObjectBlockingNameGate()
@@ -46,7 +46,6 @@ class VideoHandler: CustomStringConvertible {
     private var atomicMirror = ManagedAtomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
-    private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
@@ -62,7 +61,6 @@ class VideoHandler: CustomStringConvertible {
     ///     - namespace: The namespace for this video stream.
     ///     - config: Codec configuration for this video stream.
     ///     - participants: Video participants dependency for rendering.
-    ///     - metricsSubmitter: If present, a submitter to record metrics through.
     ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
     ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
@@ -72,7 +70,6 @@ class VideoHandler: CustomStringConvertible {
     init(namespace: QuicrNamespace,
          config: VideoCodecConfig,
          participants: VideoParticipants,
-         metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
@@ -86,18 +83,12 @@ class VideoHandler: CustomStringConvertible {
         self.namespace = namespace
         self.config = config
         self.participants = participants
-        if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: namespace)
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
-        } else {
-            self.measurement = nil
-        }
+        self.measurement = VideoHandler.VideoHandlerMeasurement(namespace: namespace)
         self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
-        self.metricsSubmitter = metricsSubmitter
         self.description = self.namespace
         self.variances = variances
 
@@ -236,7 +227,7 @@ class VideoHandler: CustomStringConvertible {
 
         // Create the video jitter buffer.
         self.jitterBuffer = try .init(namespace: self.namespace,
-                                      metricsSubmitter: self.metricsSubmitter,
+                                      metricsSubmitter: nil,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))

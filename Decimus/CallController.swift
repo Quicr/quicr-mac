@@ -124,4 +124,14 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
         }
         return pubs
     }
+
+    func publishMeasurement(measurement: QuicrMeasurement) {
+        do {
+            let jsonData = try JSONEncoder().encode(measurement)
+            let jsonString = String(data: jsonData, encoding: .utf8)!
+            super.publishMeasurement(jsonString)
+        } catch {
+            print(error)
+        }
+    }
 }

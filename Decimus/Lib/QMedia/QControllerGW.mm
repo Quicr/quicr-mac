@@ -145,9 +145,9 @@
     qControllerGW.publishNamedObject(std::string([quicrNamespace UTF8String]), (std::uint8_t *)dataPtr, (int)dataLen, groupFlag);
 }
 
-- (void) publishMeasurement: (NSString*) measurement
+- (void) publishMeasurement: (NSString*) measurementJson
 {
-    qControllerGW.publishMeasurement(std::string([measurement UTF8String]));
+    qControllerGW.publishMeasurement(std::string([measurementJson UTF8String]));
 }
 
 - (void) setSubscriptionSingleOrdered:(bool)new_value {
@@ -289,11 +289,11 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
     }
 }
 
-void QControllerGW::publishMeasurement(const std::string& measurement)
+void QControllerGW::publishMeasurement(const std::string& measurement_json)
 {
     if (qController)
     {
-        qController->publishMeasurement(json::parse(measurement));
+        qController->publishMeasurement(json::parse(measurement_json));
     }
     else
     {
