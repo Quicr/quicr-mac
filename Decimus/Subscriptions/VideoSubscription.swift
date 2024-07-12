@@ -20,6 +20,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
     private let sourceId: SourceIDType
     private let participants: VideoParticipants
+    private let submitter: MetricsSubmitter?
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private let granularMetrics: Bool
@@ -69,7 +70,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         self.sourceId = sourceId
         self.participants = participants
-        self.measurement = VideoSubscriptionMeasurement(source: self.sourceId)
+        self.submitter = metricsSubmitter
+        if let submitter = metricsSubmitter {
+            let measurement = VideoSubscriptionMeasurement(source: self.sourceId)
+            self.measurement = .init(measurement: measurement, submitter: submitter)
+        } else {
+            self.measurement = nil
+        }
         self.videoBehaviour = videoBehaviour
         self.reliable = reliable
         self.granularMetrics = granularMetrics
@@ -229,12 +236,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
             return SubscriptionError.none.rawValue
         }
-
-        callController?.publishMeasurement(measurement: measurement!.measurement)
-        for (_, handler) in videoHandlers {
-            callController?.publishMeasurement(measurement: handler.measurement!.measurement)
-        }
-
         return SubscriptionError.none.rawValue
     }
 
@@ -269,6 +270,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         return try .init(namespace: namespace,
                          config: config,
                          participants: self.participants,
+                         metricsSubmitter: self.submitter,
                          videoBehaviour: self.videoBehaviour,
                          reliable: self.reliable,
                          granularMetrics: self.granularMetrics,

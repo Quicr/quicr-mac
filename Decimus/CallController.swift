@@ -62,7 +62,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                          tls_key_filename: nil,
                                                          time_queue_init_queue_size: 1000,
-                                                         time_queue_max_duration: 5000,
+                                                         time_queue_max_duration: 65535,
                                                          time_queue_bucket_interval: 1,
                                                          time_queue_rx_size: UInt32(self.config.timeQueueTTL),
                                                          debug: true,
@@ -127,11 +127,13 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
 
     func publishMeasurement(measurement: QuicrMeasurement) {
         do {
-            let jsonData = try JSONEncoder().encode(measurement)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .withoutEscapingSlashes
+            let jsonData = try encoder.encode(measurement)
             let jsonString = String(data: jsonData, encoding: .utf8)!
             super.publishMeasurement(jsonString)
         } catch {
-            print(error)
+            Self.logger.error("Error while trying publish measurement: \(error)")
         }
     }
 }

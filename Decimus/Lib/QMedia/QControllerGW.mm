@@ -290,15 +290,22 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
 }
 
 void QControllerGW::publishMeasurement(const std::string& measurement_json)
+try
 {
     if (qController)
     {
-        qController->publishMeasurement(json::parse(measurement_json));
+        json j = json::parse(measurement_json);
+        quicr::Measurement m = j;
+        qController->publishMeasurement(m);
     }
     else
     {
         logger->error << "QControllerGW::publishMeasurement - qController nil" << std::flush;
     }
+}
+catch (const std::exception& e)
+{
+    logger->error << "Caught exception while trying to publish measurement: " << e.what() << std::flush;
 }
 
 void QControllerGW::setSubscriptionSingleOrdered(bool new_value) {

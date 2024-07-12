@@ -102,6 +102,7 @@
 		FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B12A53575D00C6D66D /* PublicationFactory.swift */; };
 		FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */; };
 		FF2498B72A55E95E00C6D66D /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */; };
+		FF2B7DC92C4057FB0011E526 /* QuicrMeasurementSubmitter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF2B7DC82C4057FB0011E526 /* QuicrMeasurementSubmitter.swift */; };
 		FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */; };
 		FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
@@ -282,6 +283,7 @@
 		FF2498B12A53575D00C6D66D /* PublicationFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationFactory.swift; sourceTree = "<group>"; };
 		FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionFactory.swift; sourceTree = "<group>"; };
 		FF2498B62A55E95E00C6D66D /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
+		FF2B7DC82C4057FB0011E526 /* QuicrMeasurementSubmitter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuicrMeasurementSubmitter.swift; sourceTree = "<group>"; };
 		FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestTypes.swift; sourceTree = "<group>"; };
 		FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QJitterBuffer.h; sourceTree = "<group>"; };
 		FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QJitterBuffer.mm; sourceTree = "<group>"; };
@@ -384,6 +386,7 @@
 				18C89A3B2A13D30B005B333B /* MetricsSubmitter.swift */,
 				18C89A3D2A13D315005B333B /* Measurement.swift */,
 				18C89A3F2A13D334005B333B /* InfluxMetricsSubmitter.swift */,
+				FF2B7DC82C4057FB0011E526 /* QuicrMeasurementSubmitter.swift */,
 				18C89A432A13ED24005B333B /* MockSubmitter.swift */,
 			);
 			path = Metrics;
@@ -922,6 +925,7 @@
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
+				FF2B7DC92C4057FB0011E526 /* QuicrMeasurementSubmitter.swift in Sources */,
 				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
@@ -1187,7 +1191,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S67838M5M8;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1196,9 +1200,9 @@
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/json/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
@@ -1272,7 +1276,6 @@
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
@@ -1282,6 +1285,7 @@
 					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
 					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/logger/include/**",
+					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/json",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;

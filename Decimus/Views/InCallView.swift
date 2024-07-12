@@ -222,7 +222,7 @@ extension InCallView {
             ]
 
             if influxConfig.value.submit {
-                let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
+                let influx = QuicrMeasurementsSubmitter(tags: tags)
                 submitter = influx
                 let measurement = _Measurement()
                 self.measurement = .init(measurement: measurement, submitter: influx)
@@ -256,6 +256,13 @@ extension InCallView {
                                                 config: subscriptionConfig.value,
                                                 engine: engine,
                                                 granularMetrics: influxConfig.value.granular)
+                    if influxConfig.value.submit {
+                        if let submitter = submitter as? QuicrMeasurementsSubmitter {
+                            Task(priority: .utility) {
+                                await submitter.setPublisher(publisher: controller)
+                            }
+                        }
+                    }
                 } catch {
                     Self.logger.error("CallController failed: \(error.localizedDescription)")
                 }

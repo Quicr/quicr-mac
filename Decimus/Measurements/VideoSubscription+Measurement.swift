@@ -8,38 +8,39 @@ extension VideoSubscription {
         let displayed: Bool
     }
 
-    actor VideoSubscriptionMeasurement: QuicrMeasurementHandler {
+    actor VideoSubscriptionMeasurement: Measurement {
         let id = UUID()
-        let measurement: QuicrMeasurement
+        var name: String = "VideoSubscription"
+        var fields: Fields = [:]
+        var tags: [String: String] = [:]
 
         init(source: SourceIDType) {
-            measurement = .init("VideoSubscription")
-            measurement.tag(attr: .init(name:"sourceId", type: "string", value: source))
+            tags["sourceId"] = source
         }
 
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) {
             var offset: TimeInterval = 0
             for choice in choices {
                 let height = choice.item.image.image.formatDescription!.dimensions.height
-
-                measurement.tag(attr: .init(name: "namespace", type: "string", value: choice.item.namespace))
-                measurement.tag(attr: .init(name: "selected", type: "string", value: String(choice.selected)))
-                measurement.tag(attr: .init(name: "timestamp", type: "uint64", value: String(choice.item.image.image.presentationTimeStamp.seconds)))
-                measurement.tag(attr: .init(name: "reason", type: "string", value: choice.reason))
-                measurement.tag(attr: .init(name: "displayed", type: "string", value: String(choice.displayed)))
-
-                measurement.record(field: "selection", value: height as AnyObject, timestamp: timestamp + offset)
+                let tags: [String: String] = [
+                    "namespace": choice.item.namespace,
+                    "selected": String(choice.selected),
+                    "timestamp": String(choice.item.image.image.presentationTimeStamp.seconds),
+                    "reason": choice.reason,
+                    "displayed": String(choice.displayed)
+                ]
+                record(field: "selection", value: height as AnyObject, timestamp: timestamp + offset, tags: tags)
                 offset += (1 / 1_000_000)
             }
         }
 
         func reportTimestamp(namespace: QuicrNamespace, timestamp: TimeInterval, at: Date) {
-            measurement.tag(attr: .init(name: "namespace", type: "string", value: namespace))
-            measurement.record(field: "timestamp", value: timestamp as AnyObject, timestamp: at)
+            let tags: [String: String] = ["namespace": namespace]
+            record(field: "timestamp", value: timestamp as AnyObject, timestamp: at, tags: tags)
         }
 
         func reportVariance(variance: TimeInterval, at: Date) {
-            measurement.record(field: "variance", value: variance as AnyObject, timestamp: at)
+            record(field: "variance", value: variance as AnyObject, timestamp: at)
         }
     }
 }
