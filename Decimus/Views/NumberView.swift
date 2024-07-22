@@ -75,17 +75,13 @@ struct NumberView<T: FixedWidthInteger>: View {
         // Equals needs digit by digit comparison.
         if value.count == max.count {
             let digitPairs = zip(value, max)
-            var nextWillOverflow = true
             for (valueDigit, maxDigit) in digitPairs {
-                if nextWillOverflow {
-                    if valueDigit > maxDigit {
-                        return .tooLarge
-                    }
-                    if valueDigit == maxDigit {
-                        continue
-                    }
+                guard valueDigit <= maxDigit else {
+                    return .tooLarge
                 }
-                nextWillOverflow = false
+                guard valueDigit == maxDigit else {
+                    break
+                }
             }
         }
 
