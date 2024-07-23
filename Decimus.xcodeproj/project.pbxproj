@@ -45,6 +45,7 @@
 		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
+		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */; };
 		9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */; };
 		9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */; };
@@ -212,6 +213,7 @@
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
 		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
+		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationH264SEIs.swift; sourceTree = "<group>"; };
 		9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusVideoFrame.swift; sourceTree = "<group>"; };
@@ -455,6 +457,7 @@
 				9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */,
 				9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */,
 				9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */,
+				9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -872,6 +875,7 @@
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
+				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

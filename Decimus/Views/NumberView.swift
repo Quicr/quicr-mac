@@ -49,14 +49,14 @@ struct NumberView<T: FixedWidthInteger>: View {
         }
     }
 
-    enum ValidationResult {
+    enum ValidationResult: Equatable {
         case empty
         case nan
         case tooLarge
         case valid(T)
     }
 
-    private func validate(_ value: String) throws -> ValidationResult {
+    func validate(_ value: String) throws -> ValidationResult {
         // Need something.
         guard !value.isEmpty else {
             return .empty
@@ -74,8 +74,14 @@ struct NumberView<T: FixedWidthInteger>: View {
 
         // Equals needs digit by digit comparison.
         if value.count == max.count {
-            for (value, max) in zip(value, max) {
-                guard value <= max else { return .tooLarge }
+            let digitPairs = zip(value, max)
+            for (valueDigit, maxDigit) in digitPairs {
+                guard valueDigit <= maxDigit else {
+                    return .tooLarge
+                }
+                guard valueDigit == maxDigit else {
+                    break
+                }
             }
         }
 
