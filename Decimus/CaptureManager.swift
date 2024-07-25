@@ -189,39 +189,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         // Register for pressure state notifications.
-        let token = device.observe(\.systemPressureState, options: [.initial, .new]) { [weak measurement] _, _ in
-            let pressure = device.systemPressureState
-            let level: Int
-            switch pressure.level {
-            case .nominal:
-                Self.logger.debug("[\(device.localizedName)] Capture pressure nominal")
-                level = 0
-            case .fair:
-                Self.logger.info("[\(device.localizedName)] Capture pressure fair: \(pressure.factors)")
-                level = 1
-            case .serious:
-                Self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(pressure.factors)",
-                                    alert: true)
-                level = 2
-            case .critical:
-                Self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(pressure.factors)",
-                                    alert: true)
-                level = 3
-            case .shutdown:
-                Self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(pressure.factors)")
-                level = 4
-            default:
-                Self.logger.info("[\(device.localizedName)] Unknown pressure state")
-                level = -1
-            }
-
-            // Record pressure state as a metric.
-            if let measurement = measurement?.measurement {
-                let now = Date.now
-                Task(priority: .utility) {
-                    await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
-                }
-            }
+        let token = device.observe(\.systemPressureState, options: [.initial, .new]) { [weak self] _, _ in
+            guard let self = self else { return }
+            self.recordPressureState(device)
         }
         self.pressureObservations[device] = token
 
@@ -382,6 +352,54 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let now: Date? = self.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             await measurement.measurement.droppedFrame(timestamp: now)
+        }
+    }
+
+    private func recordPressureState(_ device: AVCaptureDevice) {
+        let pressure = device.systemPressureState
+        let level: Int
+        let factor: String
+        switch pressure.factors {
+        case .cameraTemperature:
+            factor = "Camera Temperature"
+        case .depthModuleTemperature:
+            factor = "Depth Temperature"
+        case .peakPower:
+            factor = "Power"
+        case .systemTemperature:
+            factor = "System Temperature"
+        default:
+            factor = "Unknown"
+        }
+        switch pressure.level {
+        case .nominal:
+            Self.logger.debug("[\(device.localizedName)] Capture pressure nominal")
+            level = 0
+        case .fair:
+            Self.logger.info("[\(device.localizedName)] Capture pressure fair: \(factor)")
+            level = 1
+        case .serious:
+            Self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(factor)",
+                                alert: true)
+            level = 2
+        case .critical:
+            Self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(factor)",
+                                alert: true)
+            level = 3
+        case .shutdown:
+            Self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(factor)")
+            level = 4
+        default:
+            Self.logger.info("[\(device.localizedName)] Unknown pressure state")
+            level = -1
+        }
+
+        // Record pressure state as a metric.
+        if let measurement = measurement?.measurement {
+            let now = Date.now
+            Task(priority: .utility) {
+                await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
+            }
         }
     }
 }
