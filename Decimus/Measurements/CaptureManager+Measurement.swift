@@ -20,5 +20,9 @@ extension CaptureManager {
                 record(field: "timestamp", value: frameTimestamp as AnyObject, timestamp: metricsTimestamp)
             }
         }
+
+        func pressureStateChanged(level: Int, metricsTimestamp: Date) {
+            record(field: "pressureState", value: level as AnyObject, timestamp: metricsTimestamp)
+        }
     }
 }

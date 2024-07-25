@@ -54,6 +54,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let measurement: MeasurementRegistration<CaptureManagerMeasurement>?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
+    private var pressureObservations: [AVCaptureDevice: NSObjectProtocol] = [:]
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -187,6 +188,43 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             try setBestDeviceFormat(device: device, config: config)
         }
 
+        // Register for pressure state notifications.
+        let token = device.observe(\.systemPressureState, options: [.initial, .new]) { [weak measurement] _, _ in
+            let pressure = device.systemPressureState
+            let level: Int
+            switch pressure.level {
+            case .nominal:
+                Self.logger.debug("[\(device.localizedName)] Capture pressure nominal")
+                level = 0
+            case .fair:
+                Self.logger.info("[\(device.localizedName)] Capture pressure fair: \(pressure.factors)")
+                level = 1
+            case .serious:
+                Self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(pressure.factors)",
+                                    alert: true)
+                level = 2
+            case .critical:
+                Self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(pressure.factors)",
+                                    alert: true)
+                level = 3
+            case .shutdown:
+                Self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(pressure.factors)")
+                level = 4
+            default:
+                Self.logger.info("[\(device.localizedName)] Unknown pressure state")
+                level = -1
+            }
+
+            // Record pressure state as a metric.
+            if let measurement = measurement?.measurement {
+                let now = Date.now
+                Task(priority: .utility) {
+                    await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
+                }
+            }
+        }
+        self.pressureObservations[device] = token
+
         // Prepare IO.
         // TODO: Theoretically all of these may need to be reconfigured on a device format change.
         let input: AVCaptureDeviceInput = try .init(device: device)
@@ -260,6 +298,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // There are no more delegates left, we should remove the device.
         self.multiVideoDelegate.removeValue(forKey: device)
+        self.pressureObservations.removeValue(forKey: device)
         let input = inputs.removeValue(forKey: device)
         assert(input != nil)
         session.beginConfiguration()
