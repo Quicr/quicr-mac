@@ -12,9 +12,11 @@ class DecimusAudioEngine {
 
     private static let logger: DecimusLogger = .init(DecimusAudioEngine.self)
 
+    /// Microphone data in enqueued into this buffer.
+    let microphoneBuffer: CircularBuffer?
+
     /// The AVAudioEngine instance this AudioEngine wraps.
     private let engine: AVAudioEngine
-    private var blocks: MutableWrapper<[AnyHashable: AVAudioSinkNodeReceiverBlock]> = .init(value: [:])
     private var notificationObservers: [NSObjectProtocol] = []
     private let sink: AVAudioSinkNode?
     private var stopped: Bool = false
@@ -146,18 +148,28 @@ class DecimusAudioEngine {
             #endif
 
             // Capture microphone audio.
-            let sink = AVAudioSinkNode { [weak blocks] timestamp, frames, data in
-                guard let blocks = blocks else { return .zero }
-                var success = true
-                for block in blocks.value.values {
-                    success = success && block(timestamp, frames, data) == .zero
+            let inputFormat = Self.format.streamDescription.pointee
+            let microphoneBuffer = try CircularBuffer(length: 1, format: inputFormat)
+            self.microphoneBuffer = try .init(length: 1, format: inputFormat)
+            let sink = AVAudioSinkNode { [weak microphoneBuffer] timestamp, frames, data in
+                guard let microphoneBuffer = microphoneBuffer else { return 1 }
+                let example = UnsafeMutablePointer(mutating: data)
+                let timestamp = UnsafeMutablePointer(mutating: timestamp)
+                do {
+                    try microphoneBuffer.enqueue(buffer: &example.pointee,
+                                                 timestamp: &timestamp.pointee,
+                                                 frames: frames)
+                    return .zero
+                } catch {
+                    Self.logger.warning("Couldn't enqueue microphone data: \(error.localizedDescription)")
+                    return 1
                 }
-                return success ? .zero : 1
             }
             engine.attach(sink)
             self.sink = sink
         } else {
             self.sink = nil
+            self.microphoneBuffer = nil
         }
 
         // Reconfigure first time.
@@ -187,26 +199,6 @@ class DecimusAudioEngine {
     deinit {
         for observer in notificationObservers {
             NotificationCenter.default.removeObserver(observer)
-        }
-    }
-
-    /// Register a block that will be called with microphone data.
-    /// You must register all blocks before calling start.
-    /// - Parameter identifier: The identifier for this block.
-    /// - Parameter block: The block to be called.
-    func registerSinkBlock(identifier: AnyHashable, block: @escaping AVAudioSinkNodeReceiverBlock) throws {
-        guard !engine.isRunning else { throw "Cannot alter blocks while running" }
-        self.lock.withLock {
-            self.blocks.value[identifier] = block
-        }
-    }
-
-    /// Unregister a microphone sink block.
-    /// - Parameter identifier: The identifier used to register this block.
-    func unregisterSinkBlock(identifier: AnyHashable) throws {
-        guard !engine.isRunning else { throw "Cannot alter blocks while running" }
-        self.lock.withLock {
-            _ = self.blocks.value.removeValue(forKey: identifier)
         }
     }
 

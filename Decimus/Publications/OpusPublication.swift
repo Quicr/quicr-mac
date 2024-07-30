@@ -1,7 +1,6 @@
 import Foundation
 import AVFAudio
 import AVFoundation
-import CTPCircularBuffer
 import CoreAudio
 import os
 
@@ -12,23 +11,14 @@ class OpusPublication: Publication {
     internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
     private let encoder: LibOpusEncoder
-    private let buffer: UnsafeMutablePointer<TPCircularBuffer> = .allocate(capacity: 1)
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
     private let opusWindowSize: OpusWindowSize
     private let reliable: Bool
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
     private var encodeTask: Task<(), Never>?
-
-    lazy var block: AVAudioSinkNodeReceiverBlock = { [buffer] timestamp, numFrames, data in
-        assert(data.pointee.mNumberBuffers <= 2)
-        let copied = TPCircularBufferCopyAudioBufferList(buffer,
-                                                         data,
-                                                         timestamp,
-                                                         numFrames,
-                                                         DecimusAudioEngine.format.streamDescription)
-        return copied ? .zero : 1
-    }
+    private let pcm: AVAudioPCMBuffer
+    private let windowFrames: AVAudioFrameCount
 
     init(namespace: QuicrNamespace,
          publishDelegate: QPublishObjectDelegateObjC,
@@ -54,10 +44,11 @@ class OpusPublication: Publication {
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
-        let hundredMils = Double(format.streamDescription.pointee.mBytesPerPacket) * format.sampleRate * opusWindowSize.rawValue
-        guard _TPCircularBufferInit(buffer, UInt32(hundredMils), MemoryLayout<TPCircularBuffer>.size) else {
-            fatalError()
+        self.windowFrames = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
+        guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: self.windowFrames) else {
+            throw "Failed to allocate PCM buffer"
         }
+        self.pcm = pcm
 
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
@@ -79,19 +70,11 @@ class OpusPublication: Publication {
             }
         }
 
-        // Register our block.
-        try engine.registerSinkBlock(identifier: namespace, block: block)
         Self.logger.info("Registered OPUS publication for source \(sourceID)")
     }
 
     deinit {
-        do {
-            try engine.unregisterSinkBlock(identifier: self.namespace)
-        } catch {
-            Self.logger.error("Failed to unregister sink block: \(error.localizedDescription)")
-        }
         self.encodeTask?.cancel()
-        TPCircularBufferCleanup(self.buffer)
     }
 
     func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
@@ -114,29 +97,23 @@ class OpusPublication: Publication {
     }
 
     private func encode() throws -> Data? {
-        let format = DecimusAudioEngine.format
-        let windowFrames: AVAudioFrameCount = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
-        var timestamp: AudioTimeStamp = .init()
-        let availableFrames = TPCircularBufferPeek(buffer,
-                                                   &timestamp,
-                                                   format.streamDescription)
-        guard availableFrames >= windowFrames else { return nil }
+        guard let buffer = self.engine.microphoneBuffer else { throw "No Audio Input" }
 
-        let pcm: AVAudioPCMBuffer = .init(pcmFormat: format, frameCapacity: windowFrames)!
-        pcm.frameLength = windowFrames
-        var inOutFrames: AVAudioFrameCount = windowFrames
-        TPCircularBufferDequeueBufferListFrames(buffer,
-                                                &inOutFrames,
-                                                pcm.audioBufferList,
-                                                &timestamp,
-                                                format.streamDescription)
-        pcm.frameLength = inOutFrames
-        guard inOutFrames == windowFrames else {
-            Self.logger.info("Dequeue only got: \(inOutFrames)/\(windowFrames)")
+        // Are there enough frames available to fill an opus window?
+        let available = buffer.peek()
+        guard available.frames >= self.windowFrames else { return nil }
+
+        // Dequeue a window size worth of data.
+        self.pcm.frameLength = self.windowFrames
+        let dequeued = buffer.dequeue(frames: self.windowFrames, buffer: &self.pcm.mutableAudioBufferList.pointee)
+        self.pcm.frameLength = dequeued.frames
+        guard dequeued.frames == self.windowFrames else {
+            Self.logger.warning("Dequeue only got: \(dequeued.frames)/\(self.windowFrames)")
             return nil
         }
 
-        return try encoder.write(data: pcm)
+        // Encode this data.
+        return try self.encoder.write(data: self.pcm)
     }
 
     func publish(_ flag: Bool) {}
