@@ -149,7 +149,6 @@ class DecimusAudioEngine {
 
             // Capture microphone audio.
             let inputFormat = Self.format.streamDescription.pointee
-            let microphoneBuffer = try CircularBuffer(length: 1, format: inputFormat)
             self.microphoneBuffer = try .init(length: 1, format: inputFormat)
             let sink = AVAudioSinkNode { [weak microphoneBuffer] timestamp, frames, data in
                 guard let microphoneBuffer = microphoneBuffer else { return 1 }
