@@ -36,6 +36,10 @@ private class MockDelegate: QPublishObjectDelegateObjC {
     func publishObject(_ quicrNamespace: String!, data dataPtr: UnsafeRawPointer!, length dataLen: Int, group groupFlag: Bool) {
         self.callback(quicrNamespace, Data(bytesNoCopy: .init(mutating: dataPtr), count: dataLen, deallocator: .none), groupFlag)
     }
+
+    func publishMeasurement(_ measurementJson: String!) {
+        // no-op
+    }
 }
 
 final class TestVideoPublication: XCTestCase {

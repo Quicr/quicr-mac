@@ -62,7 +62,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
                                                          tls_key_filename: nil,
                                                          time_queue_init_queue_size: 1000,
-                                                         time_queue_max_duration: 65535,
+                                                         time_queue_max_duration: 50000,
                                                          time_queue_bucket_interval: 1,
                                                          time_queue_rx_size: UInt32(self.config.timeQueueTTL),
                                                          debug: true,

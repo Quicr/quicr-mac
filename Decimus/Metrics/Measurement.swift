@@ -12,7 +12,7 @@ protocol Measurement: AnyObject, Actor {
     var fields: Fields { get set }
     var tags: [String: String] { get }
     func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]?)
-    func toQuicrMeasurements() throws -> [QuicrMeasurement]
+    func toQuicrMeasurements() -> [QuicrMeasurement]
 }
 
 extension Measurement {

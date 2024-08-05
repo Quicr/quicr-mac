@@ -294,9 +294,7 @@ try
 {
     if (qController)
     {
-        json j = json::parse(measurement_json);
-        quicr::Measurement m = j;
-        qController->publishMeasurement(m);
+        qController->publishMeasurement(json::parse(measurement_json));
     }
     else
     {

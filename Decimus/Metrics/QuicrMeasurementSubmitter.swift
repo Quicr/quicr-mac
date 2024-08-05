@@ -45,6 +45,10 @@ actor QuicrMeasurementsSubmitter: MetricsSubmitter {
     }
 
     func submit() async {
+        guard let publisher = self.publisher else {
+            return
+        }
+
         var toRemove: [UUID] = []
         for pair in self.measurements {
             let weakMeasurement = pair.value
@@ -54,19 +58,13 @@ actor QuicrMeasurementsSubmitter: MetricsSubmitter {
                 continue
             }
 
-            do {
-                if let publisher = self.publisher {
-                    let measurements = try await measurement.toQuicrMeasurements()
-                    for qmeasure in measurements {
-                        for (key, value) in tags {
-                            qmeasure.tag(key, value: value)
-                        }
-
-                        publisher.publishMeasurement(measurement: qmeasure)
-                    }
+            let measurements = await measurement.toQuicrMeasurements()
+            for qmeasure in measurements {
+                for (key, value) in tags {
+                    qmeasure.tag(key, value: value)
                 }
-            } catch {
-                Self.logger.error("Failed to publish measurement")
+
+                publisher.publishMeasurement(measurement: qmeasure)
             }
         }
 
