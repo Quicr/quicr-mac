@@ -128,7 +128,7 @@ class QuicrMeasurement: Encodable {
     let name: String
     var timestamp: Date = Date.now
     var attributes: [String: Attribute] = [:]
-    var metrics: [String: Metric] = [:]
+    var metrics: [Metric] = []
 
     enum CodingKeys: String, CodingKey {
         case timestamp     = "ts"
@@ -153,7 +153,6 @@ class QuicrMeasurement: Encodable {
             try container.encodeIfPresent(attrs, forKey: .attributes)
         }
 
-        let metrics = self.metrics.reduce(into: [Metric]()) { $0.append($1.value) }
         try container.encodeIfPresent(metrics, forKey: .metrics)
     }
 
@@ -168,6 +167,8 @@ class QuicrMeasurement: Encodable {
     func record(field: String, value: AnyObject) {
         var type: String
         switch value {
+        case is Int64:
+            type = "int64"
         case is UInt64:
             type = "uint64"
         case is Float:
@@ -178,6 +179,6 @@ class QuicrMeasurement: Encodable {
             type = "uint64"
         }
 
-        metrics[field] = .init(name: field, type: type, value: value)
+        metrics.append(.init(name: field, type: type, value: value))
     }
 }

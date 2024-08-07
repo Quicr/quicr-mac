@@ -16,6 +16,7 @@
 
 #import "QDelegatesObjC.h"
 #import "TransportConfig.h"
+#import "MetricsConfig.h"
 
 typedef void(*CantinaLogCallback)(uint8_t, NSString*, bool);
 
@@ -55,7 +56,8 @@ static SubscriptionState const SubscriptionStatePaused = 3;
                 chunk_size:(UInt32)chunkSize
                 config:(TransportConfig)config
                 useParentLogger:(bool)useParentLogger
-                encrypt:(bool)encrypt;
+                encrypt:(bool)encrypt
+                metricsConfig:(QuicrMetricsConfig*)metricsConfig;
 -(void) disconnect;
 -(bool) connected;
 -(void) updateManifest: (NSString*)manifest;

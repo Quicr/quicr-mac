@@ -200,8 +200,14 @@ extension InCallView {
         private var audioCapture = false
         private var videoCapture = false
 
+        @AppStorage("metricsSubmitterType")
+        private var metricsSubmitterType: MetricsSubmitterType = .influx
+
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
+
+        @AppStorage("metricsConfig")
+        private var metricsConfig: AppStorageWrapper<MetricsConfig> = .init(value: .init())
 
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
@@ -221,29 +227,51 @@ extension InCallView {
                 "protocol": "\(config.connectionProtocol)"
             ]
 
-            if influxConfig.value.submit {
-                let influx = QuicrMeasurementsSubmitter(tags: tags)
-                submitter = influx
-                let measurement = _Measurement()
-                self.measurement = .init(measurement: measurement, submitter: influx)
-                if influxConfig.value.realtime {
-                    // Application metrics timer.
-                    self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                        while !Task.isCancelled,
-                              let self = self {
-                            let usage = try cpuUsage()
-                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+            var submitMetrics = false
+            var granularMetrics = false
+            var metricsSubmitInterval = 0
 
-                            await self.submitter?.submit()
-                            try? await Task.sleep(for: .seconds(influxConfig.value.intervalSecs), tolerance: .seconds(1))
-                        }
+            switch metricsSubmitterType {
+            case .pubSub:
+                if metricsConfig.value.submit {
+                    let pubsub = QuicrMeasurementsSubmitter(tags: tags)
+                    submitter = pubsub
+                    let measurement = _Measurement()
+                    self.measurement = .init(measurement: measurement, submitter: pubsub)
+
+                    submitMetrics = true
+                    granularMetrics = metricsConfig.value.granular
+                    metricsSubmitInterval = metricsConfig.value.intervalSecs
+                }
+            case .influx:
+                if influxConfig.value.submit {
+                    let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
+                    submitter = influx
+                    let measurement = _Measurement()
+                    self.measurement = .init(measurement: measurement, submitter: influx)
+
+                    submitMetrics = influxConfig.value.realtime
+                    granularMetrics = influxConfig.value.granular
+                    metricsSubmitInterval = influxConfig.value.intervalSecs
+                }
+            }
+
+            if submitMetrics {
+                self.appMetricTimer = .init(priority: .utility) { [weak self] in
+                    while !Task.isCancelled,
+                          let self = self {
+                        let usage = try cpuUsage()
+                        await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+
+                        await self.submitter?.submit()
+                        try? await Task.sleep(for: .seconds(metricsSubmitInterval), tolerance: .seconds(1))
                     }
                 }
             }
 
             do {
                 self.captureManager = try .init(metricsSubmitter: submitter,
-                                                granularMetrics: influxConfig.value.granular)
+                                                granularMetrics: granularMetrics)
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
             }
@@ -255,8 +283,10 @@ extension InCallView {
                                                 captureManager: captureManager,
                                                 config: subscriptionConfig.value,
                                                 engine: engine,
-                                                granularMetrics: influxConfig.value.granular)
-                    if influxConfig.value.submit {
+                                                granularMetrics: granularMetrics,
+                                                metricsConfig: metricsConfig.value.submit ? metricsConfig.value : nil)
+
+                    if metricsSubmitterType == .pubSub && metricsConfig.value.submit {
                         if let submitter = submitter as? QuicrMeasurementsSubmitter {
                             Task(priority: .utility) {
                                 await submitter.setPublisher(publisher: controller)

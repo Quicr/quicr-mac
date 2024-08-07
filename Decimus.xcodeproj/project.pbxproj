@@ -95,6 +95,8 @@
 		D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
+		FF03188E2C610B7B00A2C8D1 /* MetricsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF03188D2C610B7B00A2C8D1 /* MetricsSettingsView.swift */; };
+		FF0318902C610BCD00A2C8D1 /* MetricsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF03188F2C610BCD00A2C8D1 /* MetricsConfig.swift */; };
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
 		FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2B29DD110600887833 /* LeaveModal.swift */; };
 		FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2C29DD110600887833 /* VideoGrid.swift */; };
@@ -276,6 +278,9 @@
 		D7D156372AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EncodedFrameBufferAllocator.h; sourceTree = "<group>"; };
 		D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = EncodedFrameBufferAllocator.mm; sourceTree = "<group>"; };
 		FF01709529C10013000E23A6 /* FormInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormInput.swift; sourceTree = "<group>"; };
+		FF03188D2C610B7B00A2C8D1 /* MetricsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsSettingsView.swift; sourceTree = "<group>"; };
+		FF03188F2C610BCD00A2C8D1 /* MetricsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsConfig.swift; sourceTree = "<group>"; };
+		FF0318912C615B8C00A2C8D1 /* MetricsConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MetricsConfig.h; sourceTree = "<group>"; };
 		FF1C5C2A29DD110600887833 /* CallControls.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CallControls.swift; sourceTree = "<group>"; };
 		FF1C5C2B29DD110600887833 /* LeaveModal.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LeaveModal.swift; sourceTree = "<group>"; };
 		FF1C5C2C29DD110600887833 /* VideoGrid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoGrid.swift; sourceTree = "<group>"; };
@@ -403,6 +408,7 @@
 				FFFF72DC2A280B6300D4D5EE /* ManifestSettingsView.swift */,
 				18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */,
 				9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */,
+				FF03188D2C610B7B00A2C8D1 /* MetricsSettingsView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -437,6 +443,7 @@
 				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
 				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
+				FF0318912C615B8C00A2C8D1 /* MetricsConfig.h */,
 			);
 			path = QMedia;
 			sourceTree = "<group>";
@@ -562,6 +569,7 @@
 				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
 				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
 				FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */,
+				FF03188F2C610BCD00A2C8D1 /* MetricsConfig.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -942,6 +950,7 @@
 				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
+				FF0318902C610BCD00A2C8D1 /* MetricsConfig.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */,
@@ -972,6 +981,7 @@
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
 				186763592B2B6B3B00339421 /* VideoJitterBuffer+Measurement.swift in Sources */,
+				FF03188E2C610B7B00A2C8D1 /* MetricsSettingsView.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,

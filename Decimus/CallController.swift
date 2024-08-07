@@ -23,14 +23,18 @@ actor ManifestHolder {
 class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
     private let config: SubscriptionConfig
     private static let logger = DecimusLogger(CallController.self)
+    private let metricsConfig: MetricsConfig?
     let manifest = ManifestHolder()
 
     init(metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          config: SubscriptionConfig,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) throws {
+         granularMetrics: Bool,
+         metricsConfig: MetricsConfig? = nil) throws {
         self.config = config
+        self.metricsConfig = metricsConfig
+
         super.init { level, msg, alert in
             let level: DecimusLogger.LogLevel = .init(rawValue: level) ?? .error
             guard let msg = msg else { return }
@@ -75,6 +79,19 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                          use_bbr: self.config.useBBR,
                                                          quic_qlog_path: self.config.enableQlog ? dir : nil,
                                                          quic_priority_limit: self.config.quicPriorityLimit)
+
+            var mConfig = QuicrMetricsConfig()
+            if let metricsConfig = self.metricsConfig {
+                mConfig = QuicrMetricsConfig(metrics_namespace: metricsConfig.namespace,
+                                             priority: metricsConfig.priority,
+                                            ttl: metricsConfig.ttl)
+            }
+
+            var metricsConfigPtr: UnsafeMutablePointer<QuicrMetricsConfig>?
+            if self.metricsConfig != nil {
+                metricsConfigPtr = UnsafeMutablePointer<QuicrMetricsConfig>(&mConfig)
+            }
+
             let error = super.connect(config.email,
                                       relay: config.address,
                                       port: config.port,
@@ -82,7 +99,8 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                       chunk_size: self.config.chunkSize,
                                       config: transportConfig,
                                       useParentLogger: self.config.quicrLogs,
-                                      encrypt: self.config.doSFrame)
+                                      encrypt: self.config.doSFrame,
+                                      metricsConfig: metricsConfigPtr)
             guard error == .zero else {
                 throw CallError.failedToConnect(error)
             }
@@ -131,6 +149,7 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
             encoder.outputFormatting = .withoutEscapingSlashes
             let jsonData = try encoder.encode(measurement)
             let jsonString = String(data: jsonData, encoding: .utf8)!
+
             super.publishMeasurement(jsonString)
         } catch {
             Self.logger.error("Error while trying publish measurement: \(error)")

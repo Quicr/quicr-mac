@@ -7,7 +7,7 @@ struct InfluxSettingsView: View {
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     var body: some View {
-        Section("Influx Connection") {
+        Section {
             Form {
                 HStack {
                     HStack {

@@ -56,27 +56,50 @@
     qControllerGW.logger->debug << "QControllerGW - dealloc" << std::flush;
 }
 
--(int) connect: (NSString *) endpointID relay:(NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol chunk_size:(UInt32)chunkSize config:(TransportConfig)config useParentLogger:(bool)useParentLogger encrypt:(bool)encrypt
+-(int) connect: (NSString *) endpointID relay:(NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol chunk_size:(UInt32)chunkSize config:(TransportConfig)config useParentLogger:(bool)useParentLogger encrypt:(bool)encrypt metricsConfig:(QuicrMetricsConfig*)metricsConfig
 {
     try {
         qtransport::TransportConfig tconfig;
-        static_assert(std::is_trivially_copyable<qtransport::TransportConfig>() &&
-                      std::is_trivially_copyable<TransportConfig>() &&
-                      sizeof(tconfig) == sizeof(config));
 
-        memcpy(&tconfig, &config, sizeof(tconfig));
+        tconfig.time_queue_init_queue_size    = config.time_queue_init_queue_size;
+        tconfig.time_queue_max_duration       = config.time_queue_max_duration;
+        tconfig.time_queue_bucket_interval    = config.time_queue_bucket_interval;
+        tconfig.time_queue_rx_size            = config.time_queue_rx_size;
+        tconfig.debug                         = config.debug;
+        tconfig.quic_cwin_minimum             = config.quic_cwin_minimum;
+        tconfig.quic_wifi_shadow_rtt_us       = config.quic_wifi_shadow_rtt_us;
+        tconfig.pacing_decrease_threshold_Bps = config.pacing_decrease_threshold_Bps;
+        tconfig.pacing_increase_threshold_Bps = config.pacing_increase_threshold_Bps;
+        tconfig.idle_timeout_ms               = config.idle_timeout_ms;
+        tconfig.use_reset_wait_strategy       = config.use_reset_wait_strategy;
+        tconfig.use_bbr                       = config.use_bbr;
+        tconfig.quic_priority_limit           = config.quic_priority_limit;
 
-
-        std::string qlog_path;
-
-        if (config.quic_qlog_path != nullptr) {
-            qlog_path = config.quic_qlog_path;
-            tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
-        } else {
-            tconfig.quic_qlog_path = nullptr;
+        if (config.tls_cert_filename != nullptr) {
+            std::string tls_cert_filename = config.tls_cert_filename;
+            tconfig.tls_cert_filename = const_cast<char *>(tls_cert_filename.c_str());
         }
 
-        return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger, encrypt);
+        if (config.tls_key_filename != nullptr) {
+            std::string tls_key_filename = config.tls_key_filename;
+            tconfig.tls_key_filename = const_cast<char *>(tls_key_filename.c_str());
+        }
+
+        if (config.quic_qlog_path != nullptr) {
+            std::string qlog_path = config.quic_qlog_path;
+            tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
+        }
+
+        std::optional<quicr::MeasurementsConfig> metrics_config;
+        if (metricsConfig != nullptr) {
+            metrics_config = quicr::MeasurementsConfig{
+                .metrics_namespace = quicr::Namespace(metricsConfig->metrics_namespace),
+                .priority = metricsConfig->priority,
+                .ttl = metricsConfig->ttl,
+            };
+        }
+
+        return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger, encrypt, metrics_config);
     } catch(const std::exception& e) {
         qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
         return -1;
@@ -221,7 +244,8 @@ int QControllerGW::connect(const std::string endpoint_id,
                            size_t chunk_size,
                            qtransport::TransportConfig config,
                            bool useParentLogger,
-                           bool encrypt)
+                           bool encrypt,
+                           std::optional<quicr::MeasurementsConfig> metrics_config)
 {
     qController = std::make_unique<qmedia::QController>(subscriberDelegate, publisherDelegate, useParentLogger ? logger : nullptr, false, encrypt ? std::optional<sframe::CipherSuite>(qmedia::Default_Cipher_Suite) : std::nullopt);
     if (qController == nullptr)
@@ -229,7 +253,7 @@ int QControllerGW::connect(const std::string endpoint_id,
 
     quicr::RelayInfo::Protocol proto = quicr::RelayInfo::Protocol(protocol);
     std::string address = remote_address;
-    return qController->connect(endpoint_id, address, remote_port, proto, chunk_size, config);
+    return qController->connect(endpoint_id, address, remote_port, proto, chunk_size, config, metrics_config);
 }
 
 bool QControllerGW::connected()

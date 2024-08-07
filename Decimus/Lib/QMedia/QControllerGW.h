@@ -13,6 +13,7 @@
 #include "QDelegatesObjC.h"
 #import "QControllerGWObjC.h"
 
+#include <optional>
 
 
 class QControllerGW {
@@ -27,7 +28,8 @@ public:
                 size_t chunk_size,
                 qtransport::TransportConfig config,
                 bool useParentLogger,
-                bool encrypt);
+                bool encrypt,
+                std::optional<quicr::MeasurementsConfig> metrics_config = std::nullopt);
 
     void disconnect();
     bool connected();
