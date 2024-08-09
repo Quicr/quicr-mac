@@ -5,7 +5,7 @@ import AVFoundation
 import os
 
 protocol VideoEncoder {
-    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool) -> Void
+    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool, _ sequence: UInt64) -> Void
     var frameRate: Float64? { get set }
     func write(sample: CMSampleBuffer, captureTime: Date) throws
     func setCallback(_ callback: @escaping EncodedCallback)
@@ -359,7 +359,7 @@ class VTEncoder: VideoEncoder {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
         if let callback = self.callback {
-            callback(timestamp, captureTime, fullEncodedBuffer, idr)
+            callback(timestamp, captureTime, fullEncodedBuffer, idr, self.sequenceNumber)
         } else {
             Self.logger.warning("Received encoded frame but consumer callback unset")
         }

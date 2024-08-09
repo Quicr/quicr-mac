@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import os
+import MoqLoc
 
 enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)
@@ -10,6 +11,13 @@ enum H264PublicationError: LocalizedError {
         case .noCamera:
             return "No camera available"
         }
+    }
+}
+
+class RefPointer {
+    var ptr: UnsafeMutableRawBufferPointer?
+    deinit {
+        self.ptr?.deallocate()
     }
 }
 
@@ -29,6 +37,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
     private var startTime: Date?
+    private let containerBacking = RefPointer()
 
     required init(namespace: QuicrNamespace,
                   publishDelegate: QPublishObjectDelegateObjC,
@@ -55,11 +64,11 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.encoder = encoder
         self.device = device
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
+        var onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, weak containerBacking] presentationTimestamp, captureTime, data, flag, sequence in
             // Encode age.
+            let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
             if granularMetrics,
                let measurement = measurement {
-                let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
                 let now = Date.now
                 let age = now.timeIntervalSince(captureDate)
                 Task(priority: .utility) {
@@ -67,13 +76,44 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
                 }
             }
 
+            // Low overhead container.
+            let header = LowOverheadContainer.Header(timestamp: captureDate,
+                                                     sequenceNumber: sequence)
+            let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
+                            count: data.count,
+                            deallocator: .none)
+            let container = LowOverheadContainer(header: header, payload: [data])
+            let requiredBytes = container.getRequiredBytes()
+            guard let containerBacking = containerBacking else { return }
+            if let workingMemory = containerBacking.ptr,
+               workingMemory.count < requiredBytes {
+                workingMemory.deallocate()
+                containerBacking.ptr = nil
+            }
+            if containerBacking.ptr == nil {
+                containerBacking.ptr = .allocate(byteCount: requiredBytes,
+                                                 alignment: MemoryLayout<UInt8>.alignment)
+            }
+            guard let workingMemory = containerBacking.ptr else {
+                Self.logger.error("Failed to allocate LOC memory")
+                return
+            }
+            do {
+                _ = try container.serialize(into: workingMemory)
+            } catch {
+                Self.logger.error("Failed to serialize LOC: \(error.localizedDescription)")
+            }
+
             // Publish.
-            publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
+            publishDelegate?.publishObject(namespace,
+                                           data: workingMemory.baseAddress!,
+                                           length: requiredBytes,
+                                           group: flag)
 
             // Metrics.
             guard let measurement = measurement else { return }
             let now: Date? = granularMetrics ? Date.now : nil
-            let bytes = data.count
+            let bytes = workingMemory.count
             Task(priority: .utility) {
                 let age: TimeInterval?
                 if let now = now {

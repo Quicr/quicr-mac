@@ -1,5 +1,6 @@
 import AVFoundation
 import os
+import MoqLoc
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
     case none
@@ -536,6 +537,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                              groupId: UInt32,
                              objectId: UInt16) throws -> DecimusVideoFrame? {
         let config = self.profiles[namespace]
+
+        // First, unwrap LOC.
+        let loc: LowOverheadContainer = try data.withUnsafeBytes {
+            try .init(encoded: $0, noCopy: true)
+        }
+        // TODO: Support for multiple payloads.
+        // TODO: Actually change the timestamp and sequence number.
+        assert(loc.payload.count == 1)
+        let data = loc.payload.first!
+
         let helpers: VideoHelpers = try {
             switch config?.codec {
             case .h264:
