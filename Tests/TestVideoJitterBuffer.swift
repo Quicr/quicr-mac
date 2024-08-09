@@ -29,7 +29,9 @@ final class TestVideoJitterBuffer: XCTestCase {
         let sample = try CMSampleBuffer(dataBuffer: nil,
                                         formatDescription: nil,
                                         numSamples: 1,
-                                        sampleTimings: [],
+                                        sampleTimings: [.init(duration: .init(value: 1, timescale: CMTimeScale(fps)),
+                                                              presentationTimeStamp: .init(seconds: Date.now.timeIntervalSince1970, preferredTimescale: 1),
+                                                              decodeTimeStamp: .invalid)],
                                         sampleSizes: [])
         return .init(samples: [sample],
                      groupId: groupId,
@@ -304,7 +306,7 @@ final class TestVideoJitterBuffer: XCTestCase {
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 0,
-                                            sampleTimings: [.init(duration: .invalid,
+                                            sampleTimings: [.init(duration: .init(value: 1, timescale: .init(fps)),
                                                                   presentationTimeStamp: .init(seconds: presentationTime,
                                                                                                preferredTimescale: 30000),
                                                                   decodeTimeStamp: .invalid)],
@@ -348,5 +350,27 @@ final class TestVideoJitterBuffer: XCTestCase {
             // Sanity.
             XCTAssertEqual(frame.sequenceNumber!, UInt64(index))
         }
+    }
+
+    func testDepth() throws {
+        let fps: UInt8 = 30
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: true,
+                                           minDepth: 0,
+                                           capacity: 2)
+
+        // 0 when empty.
+        XCTAssertEqual(buffer.getDepth(), 0)
+
+        // Enqueue one.
+        let frame1 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: fps)
+        try buffer.write(videoFrame: frame1)
+        XCTAssertEqual(buffer.getDepth(), 1 / TimeInterval(fps))
+
+        // Enqueue two.
+        let frame2 = try exampleSample(groupId: 0, objectId: 2, sequenceNumber: 2, fps: fps)
+        try buffer.write(videoFrame: frame2)
+        XCTAssertEqual(buffer.getDepth(), (1 / (TimeInterval(fps)) * 2))
     }
 }

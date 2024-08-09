@@ -210,9 +210,19 @@ class VideoHandler: CustomStringConvertible {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
+    }
+
+    func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval {
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+        }
+        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
+        let diff = TimeInterval(diffUs) / 1_000_000.0
+        return jitterBuffer.calculateWaitTime(frame: frame, from: from, offset: diff)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame) throws {
@@ -241,6 +251,7 @@ class VideoHandler: CustomStringConvertible {
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
         self.duration = duration
+
     }
 
     private func createDequeueTask() {
@@ -261,6 +272,7 @@ class VideoHandler: CustomStringConvertible {
                         return
                     }
                     waitTime = calculateWaitTime() ?? duration
+                    print("[\(self.namespace)] Wait time is: \(waitTime)")
                 }
                 if waitTime > 0 {
                     do {
@@ -279,6 +291,15 @@ class VideoHandler: CustomStringConvertible {
 
                 // Attempt to dequeue a frame.
                 if let sample = jitterBuffer.read() {
+                    if self.granularMetrics,
+                       let measurement = self.measurement?.measurement {
+                        let now = Date.now
+                        let time = self.calculateWaitTime(frame: sample)
+                        Task(priority: .utility) {
+                            await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                        }
+                    }
+
                     do {
                         try self.decode(sample: sample)
                     } catch {

@@ -38,5 +38,9 @@ extension VideoHandler {
         func enqueuedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date) {
             record(field: "enqueueTimestamp", value: frameTimestamp as AnyObject, timestamp: metricsTimestamp)
         }
+
+        func frameDelay(delay: TimeInterval, metricsTimestamp: Date) {
+            record(field: "delay", value: delay, timestamp: metricsTimestamp)
+        }
     }
 }
