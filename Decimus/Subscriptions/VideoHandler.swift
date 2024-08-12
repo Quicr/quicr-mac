@@ -212,9 +212,19 @@ class VideoHandler: CustomStringConvertible {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
+    }
+
+    func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval {
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+        }
+        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
+        let diff = TimeInterval(diffUs) / 1_000_000.0
+        return jitterBuffer.calculateWaitTime(frame: frame, from: from, offset: diff)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame) throws {
@@ -282,6 +292,14 @@ class VideoHandler: CustomStringConvertible {
 
                 // Attempt to dequeue a frame.
                 if let sample = jitterBuffer.read(from: now) {
+                    if self.granularMetrics,
+                       let measurement = self.measurement?.measurement {
+                        let time = self.calculateWaitTime(frame: sample)
+                        Task(priority: .utility) {
+                            await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                        }
+                    }
+
                     do {
                         try self.decode(sample: sample, from: now)
                     } catch {
