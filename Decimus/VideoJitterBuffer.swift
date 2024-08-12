@@ -23,24 +23,26 @@ class VideoJitterBuffer {
     }
 
     private static let logger = DecimusLogger(VideoJitterBuffer.self)
-    private let minDepth: TimeInterval
+    private var minDepth: TimeInterval
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<VideoJitterBufferMeasurement>?
     private var play: Bool = false
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
+    private let capacity: TimeInterval
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
     /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
     /// - Parameter minDepth Fixed initial delay in seconds.
-    /// - Parameter capacity Capacity in buffers / elements.
+    /// - Parameter capacity Capacity in time.
     init(namespace: QuicrNamespace,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
          minDepth: TimeInterval,
-         capacity: Int) throws {
+         capacity: TimeInterval,
+         duration: TimeInterval) throws {
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
                 if !sort {
@@ -79,7 +81,8 @@ class VideoJitterBuffer {
                 ($0 as! DecimusVideoFrame).samples.reduce(true) { $0 && $1.dataReadiness == .ready }
             }
         }
-        self.buffer = try .init(capacity: capacity, handlers: handlers)
+        let elementCapacity = CMItemCount(round(capacity / duration))
+        self.buffer = try .init(capacity: elementCapacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
             let measurement = VideoJitterBufferMeasurement(namespace: namespace)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
@@ -88,6 +91,7 @@ class VideoJitterBuffer {
         }
 
         self.minDepth = minDepth
+        self.capacity = capacity
     }
 
     /// Write a video frame into the jitter buffer.
@@ -113,6 +117,13 @@ class VideoJitterBuffer {
         }
     }
 
+    func setTargetDepth(_ depth: TimeInterval) {
+        // Depth must not exceed capacity.
+        let depth = min(depth, self.capacity)
+        Self.logger.info("Adjusted target depth: \(depth)")
+        self.minDepth = depth
+    }
+
     /// Attempt to read a frame from the front of the buffer.
     /// - Returns Either the oldest available frame, or nil.
     func read() -> DecimusVideoFrame? {
@@ -127,6 +138,7 @@ class VideoJitterBuffer {
                     await measurement.measurement.underrun(timestamp: now!)
                 }
             }
+            Self.logger.error("UNDERRUN!!!!")
             return nil
         }
         if let measurement = self.measurement {

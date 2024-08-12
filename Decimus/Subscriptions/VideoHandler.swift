@@ -57,6 +57,10 @@ class VideoHandler: CustomStringConvertible {
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
 
+    // Suspension watching.
+    private let suspension = SlidingTimeWindow(length: 60)
+    private var currentMax: TimeInterval?
+
     /// Create a new video handler.
     /// - Parameters:
     ///     - namespace: The namespace for this video stream.
@@ -140,6 +144,11 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
     func submitEncodedData(_ frame: DecimusVideoFrame) throws {
+        // Let's get max elapsed over the last minute.
+        // That's the amount we want to keep in our buffer?
+        // Except maybe some min?
+        let now = Date.now
+
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -148,6 +157,17 @@ class VideoHandler: CustomStringConvertible {
             try createJitterBuffer(frame: frame)
             assert(self.dequeueTask == nil)
             createDequeueTask()
+        }
+
+        // Adjust the target depth.
+        self.suspension.add(timestamp: now)
+        if let thisMax = self.suspension.max() {
+            if let currentMax = self.currentMax,
+               thisMax != currentMax,
+               let buffer = self.jitterBuffer {
+                buffer.setTargetDepth(thisMax)
+            }
+            self.currentMax = thisMax
         }
 
         // Do we need to copy the frame data?
@@ -249,7 +269,8 @@ class VideoHandler: CustomStringConvertible {
                                       metricsSubmitter: self.metricsSubmitter,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
+                                      capacity: self.jitterBufferConfig.capacity,
+                                      duration: duration)
         self.duration = duration
 
     }
