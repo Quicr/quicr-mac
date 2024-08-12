@@ -80,29 +80,32 @@ class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
                                                          quic_qlog_path: self.config.enableQlog ? dir : nil,
                                                          quic_priority_limit: self.config.quicPriorityLimit)
 
-            var mConfig = QuicrMetricsConfig()
+            func connect(_ mConfig: UnsafeMutablePointer<QuicrMetricsConfig>?) throws {
+                let error = super.connect(config.email,
+                                          relay: config.address,
+                                          port: config.port,
+                                          protocol: config.connectionProtocol.rawValue,
+                                          chunk_size: self.config.chunkSize,
+                                          config: transportConfig,
+                                          useParentLogger: self.config.quicrLogs,
+                                          encrypt: self.config.doSFrame,
+                                          metricsConfig: mConfig)
+
+                guard error == .zero else {
+                    throw CallError.failedToConnect(error)
+                }
+            }
+
             if let metricsConfig = self.metricsConfig {
-                mConfig = QuicrMetricsConfig(metrics_namespace: metricsConfig.namespace,
-                                             priority: metricsConfig.priority,
-                                            ttl: metricsConfig.ttl)
-            }
+                var mConfig = metricsConfig.namespace.withCString {
+                    QuicrMetricsConfig(metrics_namespace: $0,
+                                       priority: metricsConfig.priority,
+                                       ttl: metricsConfig.ttl)
+                }
 
-            var metricsConfigPtr: UnsafeMutablePointer<QuicrMetricsConfig>?
-            if self.metricsConfig != nil {
-                metricsConfigPtr = UnsafeMutablePointer<QuicrMetricsConfig>(&mConfig)
-            }
-
-            let error = super.connect(config.email,
-                                      relay: config.address,
-                                      port: config.port,
-                                      protocol: config.connectionProtocol.rawValue,
-                                      chunk_size: self.config.chunkSize,
-                                      config: transportConfig,
-                                      useParentLogger: self.config.quicrLogs,
-                                      encrypt: self.config.doSFrame,
-                                      metricsConfig: metricsConfigPtr)
-            guard error == .zero else {
-                throw CallError.failedToConnect(error)
+                try withUnsafeMutablePointer(to: &mConfig, connect)
+            } else {
+                try connect(nil)
             }
         }
 

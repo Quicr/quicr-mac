@@ -75,19 +75,19 @@
         tconfig.use_bbr                       = config.use_bbr;
         tconfig.quic_priority_limit           = config.quic_priority_limit;
 
+        config.tls_cert_filename = "";
         if (config.tls_cert_filename != nullptr) {
-            std::string tls_cert_filename = config.tls_cert_filename;
-            tconfig.tls_cert_filename = const_cast<char *>(tls_cert_filename.c_str());
+            tconfig.tls_cert_filename = config.tls_cert_filename;
         }
-
+        
+        tconfig.tls_key_filename = "";
         if (config.tls_key_filename != nullptr) {
-            std::string tls_key_filename = config.tls_key_filename;
-            tconfig.tls_key_filename = const_cast<char *>(tls_key_filename.c_str());
+            tconfig.tls_key_filename = config.tls_key_filename;
         }
 
+        tconfig.quic_qlog_path = "";
         if (config.quic_qlog_path != nullptr) {
-            std::string qlog_path = config.quic_qlog_path;
-            tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
+            tconfig.quic_qlog_path = const_cast<char *>(config.quic_qlog_path);
         }
 
         std::optional<quicr::MeasurementsConfig> metrics_config;
