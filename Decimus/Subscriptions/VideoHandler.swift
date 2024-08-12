@@ -251,7 +251,6 @@ class VideoHandler: CustomStringConvertible {
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
         self.duration = duration
-
     }
 
     private func createDequeueTask() {
@@ -272,7 +271,6 @@ class VideoHandler: CustomStringConvertible {
                         return
                     }
                     waitTime = calculateWaitTime() ?? duration
-                    print("[\(self.namespace)] Wait time is: \(waitTime)")
                 }
                 if waitTime > 0 {
                     do {
