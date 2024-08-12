@@ -239,7 +239,7 @@ extension InCallView {
                     let measurement = _Measurement()
                     self.measurement = .init(measurement: measurement, submitter: pubsub)
 
-                    submitMetrics = true
+                    submitMetrics = metricsConfig.value.realtime
                     granularMetrics = metricsConfig.value.granular
                     metricsSubmitInterval = metricsConfig.value.intervalSecs
                 }

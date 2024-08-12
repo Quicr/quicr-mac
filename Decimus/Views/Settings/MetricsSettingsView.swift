@@ -19,6 +19,11 @@ struct MetricsSettingsView: View {
                     Toggle(isOn: $metricsConfig.value.granular) {}
                 }
 
+                HStack {
+                    Text("Realtime")
+                    Toggle(isOn: $metricsConfig.value.realtime) {}
+                }
+
                 LabeledContent("Interval (s)") {
                     NumberView(value: $metricsConfig.value.intervalSecs,
                                formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
