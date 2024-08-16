@@ -165,7 +165,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer, absoluteTimestamp: timestamp)
+            try encoder.write(sample: sampleBuffer, timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
@@ -176,7 +176,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let presentationTimestamp = sampleBuffer.presentationTimeStamp.seconds
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
         Task(priority: .utility) {
