@@ -5,9 +5,9 @@ import AVFoundation
 import os
 
 protocol VideoEncoder {
-    typealias EncodedCallback = (CMTime, CMTime, UnsafeRawBufferPointer, Bool, _ sequence: UInt64) -> Void
+    typealias EncodedCallback = (CMTime, UnsafeRawBufferPointer, Bool, _ sequence: UInt64) -> Void
     var frameRate: Float64? { get set }
-    func write(sample: CMSampleBuffer, captureTime: Date) throws
+    func write(sample: CMSampleBuffer) throws
     func setCallback(_ callback: @escaping EncodedCallback)
 }
 
@@ -32,8 +32,7 @@ class VTEncoder: VideoEncoder {
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
     private let vtCallback: VTCompressionOutputCallback = { refCon, frameRefCon, status, flags, sample in
-        guard let refCon = refCon,
-              let frameRefCon = frameRefCon else {
+        guard let refCon = refCon else {
             return
         }
         let instance = Unmanaged<VTEncoder>.fromOpaque(refCon).takeUnretainedValue()
@@ -200,20 +199,17 @@ class VTEncoder: VideoEncoder {
         VTCompressionSessionInvalidate(encoder)
     }
 
-    func write(sample: CMSampleBuffer, captureTime: Date) throws {
+    func write(sample: CMSampleBuffer) throws {
         guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let presentation = sample.presentationTimeStamp
-        let captureTimeCM = CMTime(seconds: captureTime.timeIntervalSinceReferenceDate,
-                                   preferredTimescale: presentation.timescale)
-        let time = Unmanaged.passRetained(NSValue(time: captureTimeCM)).toOpaque()
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
                                             presentationTimeStamp: presentation,
                                             duration: .invalid,
                                             frameProperties: nil,
-                                            sourceFrameRefcon: time,
+                                            sourceFrameRefcon: nil,
                                             infoFlagsOut: nil)
         }
     }
@@ -223,7 +219,10 @@ class VTEncoder: VideoEncoder {
     }
 
     // swiftlint:disable function_body_length
-    func encoded(frameRefCon: UnsafeMutableRawPointer?, status: OSStatus, flags: VTEncodeInfoFlags, sample: CMSampleBuffer?) {
+    func encoded(frameRefCon: UnsafeMutableRawPointer?,
+                 status: OSStatus,
+                 flags: VTEncodeInfoFlags,
+                 sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
             Self.logger.error("Encode failure: \(status)")
@@ -262,19 +261,8 @@ class VTEncoder: VideoEncoder {
         // Append Timestamp SEI to buffer
         self.sequenceNumber += 1
         let fps = UInt8(self.frameRate ?? Float64(self.config.fps))
-        let timestamp = sample.presentationTimeStamp
-        prependTimestampSEI(timestamp: timestamp,
-                            sequenceNumber: self.sequenceNumber,
-                            fps: fps,
-                            bufferAllocator: bufferAllocator)
-
-        // Append age related timestamp.
-        guard let frameRefCon = frameRefCon else {
-            fatalError("Missing frame ref con?")
-        }
-        let captureTime = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeRetainedValue().timeValue
-        prependAgeSEI(timestamp: captureTime,
-                      bufferAllocator: bufferAllocator)
+        prependTimestampSEI(fps: fps,
+                            bufferAllocator: self.bufferAllocator)
 
         // Append Orientation SEI to buffer
         #if !targetEnvironment(macCatalyst) && !os(tvOS)
@@ -359,7 +347,7 @@ class VTEncoder: VideoEncoder {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
         if let callback = self.callback {
-            callback(timestamp, captureTime, fullEncodedBuffer, idr, self.sequenceNumber)
+            callback(sample.presentationTimeStamp, fullEncodedBuffer, idr, self.sequenceNumber)
         } else {
             Self.logger.warning("Received encoded frame but consumer callback unset")
         }
@@ -425,25 +413,12 @@ class VTEncoder: VideoEncoder {
         return parameterSetPointers
     }
 
-    private func prependTimestampSEI(timestamp: CMTime,
-                                     sequenceNumber: UInt64,
-                                     fps: UInt8,
+    private func prependTimestampSEI(fps: UInt8,
                                      bufferAllocator: BufferAllocator) {
-        let bytes = TimestampSei(timestamp: timestamp, sequenceNumber: sequenceNumber, fps: fps).getBytes(self.seiData, startCode: self.emitStartCodes)
+        let bytes = TimestampSei(fps: fps).getBytes(self.seiData,
+                                                    startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             Self.logger.error("Couldn't allocate timestamp buffer")
-            return
-        }
-
-        // Copy to buffer.
-        bytes.copyBytes(to: .init(start: timestampPtr, count: bytes.count))
-    }
-
-    private func prependAgeSEI(timestamp: CMTime,
-                               bufferAllocator: BufferAllocator) {
-        let bytes = AgeSei(timestamp: timestamp).getBytes(self.seiData, startCode: self.emitStartCodes)
-        guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
-            Self.logger.error("Couldn't allocate age buffer")
             return
         }
 

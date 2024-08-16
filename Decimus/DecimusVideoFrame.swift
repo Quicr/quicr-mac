@@ -8,7 +8,6 @@ class DecimusVideoFrame {
     let fps: UInt8?
     let orientation: DecimusVideoRotation?
     let verticalMirror: Bool?
-    let captureDate: Date?
 
     init(samples: [CMSampleBuffer],
          groupId: UInt32,
@@ -16,8 +15,7 @@ class DecimusVideoFrame {
          sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
-         verticalMirror: Bool?,
-         captureDate: Date?) {
+         verticalMirror: Bool?) {
         self.samples = samples
         self.groupId = groupId
         self.objectId = objectId
@@ -25,7 +23,6 @@ class DecimusVideoFrame {
         self.fps = fps
         self.orientation = orientation
         self.verticalMirror = verticalMirror
-        self.captureDate = captureDate
     }
 
     /// Create a video frame from a deep copy of the provided frame and its data.
@@ -56,6 +53,5 @@ class DecimusVideoFrame {
         self.fps = copy.fps
         self.orientation = copy.orientation
         self.verticalMirror = copy.verticalMirror
-        self.captureDate = copy.captureDate
     }
 }

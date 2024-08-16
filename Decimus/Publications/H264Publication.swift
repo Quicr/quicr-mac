@@ -64,20 +64,25 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.encoder = encoder
         self.device = device
 
-        var onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, weak containerBacking] presentationTimestamp, captureTime, data, flag, sequence in
+        var onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace, weak containerBacking] presentationTimestamp, data, flag, sequence in
+            // Calculate absolute timestamp.
+            // TODO: We **MUST** declare this usage in PrivacyInfo.
+            let now = Date.now
+            let uptime = ProcessInfo.processInfo.systemUptime
+            let bootTime = now.addingTimeInterval(-uptime)
+            let absolutePresentation = bootTime.addingTimeInterval(presentationTimestamp.seconds)
+
             // Encode age.
-            let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
             if granularMetrics,
                let measurement = measurement {
-                let now = Date.now
-                let age = now.timeIntervalSince(captureDate)
+                let age = now.timeIntervalSince(absolutePresentation)
                 Task(priority: .utility) {
                     await measurement.measurement.encoded(age: age, timestamp: now)
                 }
             }
 
             // Low overhead container.
-            let header = LowOverheadContainer.Header(timestamp: captureDate,
+            let header = LowOverheadContainer.Header(timestamp: absolutePresentation,
                                                      sequenceNumber: sequence)
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
@@ -112,20 +117,19 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
             // Metrics.
             guard let measurement = measurement else { return }
-            let now: Date? = granularMetrics ? Date.now : nil
+            let sent: Date? = granularMetrics ? Date.now : nil
             let bytes = workingMemory.count
             Task(priority: .utility) {
                 let age: TimeInterval?
-                if let now = now {
-                    let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                    age = now.timeIntervalSince(captureDate)
+                if let sent = sent {
+                    age = sent.timeIntervalSince(absolutePresentation)
                 } else {
                     age = nil
                 }
                 await measurement.measurement.sentFrame(bytes: UInt64(bytes),
                                                         timestamp: presentationTimestamp.seconds,
                                                         age: age,
-                                                        metricsTimestamp: now)
+                                                        metricsTimestamp: sent)
             }
         }
         self.encoder.setCallback(onEncodedData)
@@ -168,7 +172,7 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer, captureTime: captureTime)
+            try encoder.write(sample: sampleBuffer)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }

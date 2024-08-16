@@ -12,7 +12,7 @@ private class MockEncoder: VideoEncoder {
         self.callback = writeCallback
     }
 
-    func write(sample: CMSampleBuffer, captureTime: Date) throws {
+    func write(sample: CMSampleBuffer) throws {
         self.callback()
     }
 

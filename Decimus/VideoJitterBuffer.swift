@@ -180,7 +180,7 @@ class VideoJitterBuffer {
     /// - Parameter offset Offset from the start point at which media starts.
     /// - Parameter since The start point of the media timeline.
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: Date = .now, offset: TimeInterval, since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+    func calculateWaitTime(from: Date = .now, offset: TimeInterval, since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let frame = peek as! DecimusVideoFrame
         guard let timestamp = frame.samples.first?.presentationTimeStamp else { return nil }

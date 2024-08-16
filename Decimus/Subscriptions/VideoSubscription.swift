@@ -190,7 +190,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         if let timestamp = frame.samples.first?.presentationTimeStamp.seconds {
             if self.timestampTimeDiff == nil {
-                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
+                self.timestampTimeDiff = now.timeIntervalSince1970 - timestamp
             }
 
             // Calculate switching set arrival variance.
@@ -539,38 +539,16 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         guard let config = self.profiles[namespace] else {
             throw "Missing profile for namespace"
         }
-        // Unwrap LOC.
-        do {
-            let loc: LowOverheadContainer = try data.withUnsafeBytes {
-                try .init(encoded: $0, noCopy: true)
-            }
-            guard loc.payload.count == 1 else {
-                Self.logger.warning("Unexpected payload count in LOC (\(loc.payload.count))")
-                return nil
-            }
-            return try self.depacketize(namespace: namespace,
-                                        data: loc.payload.first!,
-                                        groupId: groupId,
-                                        objectId: objectId,
-                                        codec: config.codec)
-            //      } catch LowOverheadContainerError.failedToParse {
-        } catch {
-            return try depacketize(namespace: namespace,
-                                   data: data,
-                                   groupId: groupId,
-                                   objectId: objectId,
-                                   codec: config.codec)
-        }
-    }
 
-    private func depacketize(namespace: QuicrNamespace,
-                             data: Data,
-                             groupId: UInt32,
-                             objectId: UInt16,
-                             codec: CodecType,
-                             timestamp: Date) throws -> DecimusVideoFrame? {
+        let loc = try data.withUnsafeBytes {
+            try LowOverheadContainer(encoded: $0, noCopy: true)
+        }
+        guard loc.payload.count == 1 else {
+            Self.logger.warning("Unexpected payload count in LOC (\(loc.payload.count))")
+            return nil
+        }
         let helpers: VideoHelpers = try {
-            switch codec {
+            switch config.codec {
             case .h264:
                 return .init(utilities: H264Utilities(), seiData: ApplicationH264SEIs())
             case .hevc:
@@ -583,7 +561,9 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // Depacketize.
         var extractedFormat: CMFormatDescription?
         var seis: [ApplicationSEI] = []
-        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
+        let buffers = try helpers.utilities.depacketize(loc.payload.first!,
+                                                        format: &extractedFormat,
+                                                        copy: false) {
             do {
                 let parser = ApplicationSeiParser(helpers.seiData)
                 if let sei = try parser.parse(encoded: $0) {
@@ -608,22 +588,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         if seis.count == 0 {
             sei = nil
         } else {
-            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil)) { result, next in
                 let timestamp = next.timestamp ?? result.timestamp
                 let orientation = next.orientation ?? result.orientation
-                let age = next.age ?? result.age
-                return .init(timestamp: timestamp, orientation: orientation, age: age)
+                return .init(timestamp: timestamp, orientation: orientation)
             }
         }
 
         guard let buffers = buffers else { return nil }
-        let timeInfo: CMSampleTimingInfo
-        if let timestamp = sei?.timestamp {
-            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
-        } else {
-            Self.logger.error("Missing expected frame timestamp")
-            timeInfo = .invalid
-        }
+        let timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                          presentationTimeStamp: .init(value: .init(loc.header.timestamp),
+                                                                       timescale: 1_000_000),
+                                          decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
         for buffer in buffers {
@@ -634,21 +610,13 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                                               sampleSizes: [buffer.dataLength]))
         }
 
-        let captureDate: Date?
-        if let age = sei?.age {
-            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
-        } else {
-            captureDate = nil
-        }
-
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
-                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     sequenceNumber: loc.header.sequenceNumber,
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror,
-                     captureDate: captureDate)
+                     verticalMirror: sei?.orientation?.verticalMirror)
     }
 }
 // swiftlint:enable type_body_length

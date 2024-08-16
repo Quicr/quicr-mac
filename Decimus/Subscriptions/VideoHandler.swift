@@ -190,14 +190,15 @@ class VideoHandler: CustomStringConvertible {
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                if let captureDate = frame.captureDate,
-                   let now = now {
-                    let age = now.timeIntervalSince(captureDate)
-                    await measurement.measurement.age(age: age, timestamp: now)
-                }
-                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
-                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
+                // TODO: Redo this.
+//                if let captureDate = frame.captureDate,
+//                   let now = now {
+//                    let age = now.timeIntervalSince(captureDate)
+//                    await measurement.measurement.age(age: age, timestamp: now)
+//                }
+//                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
+//                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
+//                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
             }
         }
     }
