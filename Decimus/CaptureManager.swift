@@ -12,7 +12,7 @@ protocol FrameListener {
     var queue: DispatchQueue { get }
     var device: AVCaptureDevice { get }
     var codec: VideoCodecConfig? { get }
-    func onFrame(_ sampleBuffer: CMSampleBuffer, captureTime: Date)
+    func onFrame(_ sampleBuffer: CMSampleBuffer, timestamp: Date)
 }
 
 fileprivate extension FrameListener {
@@ -55,6 +55,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
     private var pressureObservations: [AVCaptureDevice: NSObjectProtocol] = [:]
+    private let bootDate: Date
 
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -69,6 +70,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         } else {
             self.measurement = nil
         }
+        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         super.init()
     }
 
@@ -331,11 +333,14 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
 
+        // Convert relative timestamp into absolute.
+        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
+
         // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {
-                listener.onFrame(sampleBuffer, captureTime: now)
+                listener.onFrame(sampleBuffer, timestamp: absoluteTimestamp)
             }
         }
     }

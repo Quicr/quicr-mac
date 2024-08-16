@@ -5,9 +5,9 @@ import AVFoundation
 import os
 
 protocol VideoEncoder {
-    typealias EncodedCallback = (CMTime, UnsafeRawBufferPointer, Bool, _ sequence: UInt64) -> Void
+    typealias EncodedCallback = (_ timestamp: Date, UnsafeRawBufferPointer, Bool, _ sequence: UInt64) -> Void
     var frameRate: Float64? { get set }
-    func write(sample: CMSampleBuffer) throws
+    func write(sample: CMSampleBuffer, absoluteTimestamp: Date) throws
     func setCallback(_ callback: @escaping EncodedCallback)
 }
 
@@ -199,17 +199,20 @@ class VTEncoder: VideoEncoder {
         VTCompressionSessionInvalidate(encoder)
     }
 
-    func write(sample: CMSampleBuffer) throws {
+    func write(sample: CMSampleBuffer, absoluteTimestamp: Date) throws {
         guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let presentation = sample.presentationTimeStamp
+        let absoluteTimeCM = CMTime(seconds: absoluteTimestamp.timeIntervalSince1970,
+                                    preferredTimescale: 1_000_000)
+        let time = Unmanaged.passRetained(NSValue(time: absoluteTimeCM)).toOpaque()
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
                                             presentationTimeStamp: presentation,
                                             duration: .invalid,
                                             frameProperties: nil,
-                                            sourceFrameRefcon: nil,
+                                            sourceFrameRefcon: time,
                                             infoFlagsOut: nil)
         }
     }
@@ -338,6 +341,13 @@ class VTEncoder: VideoEncoder {
             }
         }
 
+        // Rebuild absolute timestamp.
+        guard let frameRefCon = frameRefCon else {
+            fatalError("Missing frameRefCon")
+        }
+        let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
+        let absoluteTimestamp = Date.init(timeIntervalSince1970: retrievedTimestamp.seconds)
+
         // Callback the full buffer.
         var fullEncodedRawPtr: UnsafeMutableRawPointer?
         var fullEncodedBufferLength: Int = 0
@@ -347,7 +357,7 @@ class VTEncoder: VideoEncoder {
             assert(fullEncodedBuffer.starts(with: self.startCode))
         }
         if let callback = self.callback {
-            callback(sample.presentationTimeStamp, fullEncodedBuffer, idr, self.sequenceNumber)
+            callback(absoluteTimestamp, fullEncodedBuffer, idr, self.sequenceNumber)
         } else {
             Self.logger.warning("Received encoded frame but consumer callback unset")
         }

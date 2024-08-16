@@ -50,7 +50,7 @@ class VideoHandler: CustomStringConvertible {
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffUs = ManagedAtomic(UInt64.zero)
+    private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -190,15 +190,15 @@ class VideoHandler: CustomStringConvertible {
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                // TODO: Redo this.
-//                if let captureDate = frame.captureDate,
-//                   let now = now {
-//                    let age = now.timeIntervalSince(captureDate)
-//                    await measurement.measurement.age(age: age, timestamp: now)
-//                }
-//                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
-//                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-//                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
+                if let now = now,
+                   let presentationTime = frame.samples.first?.presentationTimeStamp {
+                    let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                    let age = now.timeIntervalSince(presentationDate)
+                    await measurement.measurement.age(age: age, timestamp: now)
+                }
+                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
+                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
+                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
             }
         }
     }
@@ -291,8 +291,8 @@ class VideoHandler: CustomStringConvertible {
     }
 
     func setTimeDiff(diff: TimeInterval) {
-        assert(diff > (1 / 1_000_000))
-        let diffUs = UInt64(diff * 1_000_000)
+        assert(abs(diff) > (1 / 1_000_000))
+        let diffUs = Int64(diff * 1_000_000)
         _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
                                                      desired: diffUs,
                                                      ordering: .acquiringAndReleasing)
