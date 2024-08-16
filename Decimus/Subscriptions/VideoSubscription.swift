@@ -536,19 +536,41 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                              data: Data,
                              groupId: UInt32,
                              objectId: UInt16) throws -> DecimusVideoFrame? {
-        let config = self.profiles[namespace]
-
-        // First, unwrap LOC.
-        let loc: LowOverheadContainer = try data.withUnsafeBytes {
-            try .init(encoded: $0, noCopy: true)
+        guard let config = self.profiles[namespace] else {
+            throw "Missing profile for namespace"
         }
-        // TODO: Support for multiple payloads.
-        // TODO: Actually change the timestamp and sequence number.
-        assert(loc.payload.count == 1)
-        let data = loc.payload.first!
+        // Unwrap LOC.
+        do {
+            let loc: LowOverheadContainer = try data.withUnsafeBytes {
+                try .init(encoded: $0, noCopy: true)
+            }
+            guard loc.payload.count == 1 else {
+                Self.logger.warning("Unexpected payload count in LOC (\(loc.payload.count))")
+                return nil
+            }
+            return try self.depacketize(namespace: namespace,
+                                        data: loc.payload.first!,
+                                        groupId: groupId,
+                                        objectId: objectId,
+                                        codec: config.codec)
+            //      } catch LowOverheadContainerError.failedToParse {
+        } catch {
+            return try depacketize(namespace: namespace,
+                                   data: data,
+                                   groupId: groupId,
+                                   objectId: objectId,
+                                   codec: config.codec)
+        }
+    }
 
+    private func depacketize(namespace: QuicrNamespace,
+                             data: Data,
+                             groupId: UInt32,
+                             objectId: UInt16,
+                             codec: CodecType,
+                             timestamp: Date) throws -> DecimusVideoFrame? {
         let helpers: VideoHelpers = try {
-            switch config?.codec {
+            switch codec {
             case .h264:
                 return .init(utilities: H264Utilities(), seiData: ApplicationH264SEIs())
             case .hevc:
