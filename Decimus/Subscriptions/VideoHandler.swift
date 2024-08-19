@@ -105,9 +105,10 @@ class VideoHandler: CustomStringConvertible {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
+                let now = Date.now
                 if simulreceive != .none {
                     _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
-                                                            now: Date.now)
+                                                            now: now)
                     self.lastDecodedImageLock.lock()
                     defer { self.lastDecodedImageLock.unlock() }
                     self.lastDecodedImage = .init(image: sample,
@@ -119,7 +120,8 @@ class VideoHandler: CustomStringConvertible {
                     do {
                         try self.enqueueSample(sample: sample,
                                                orientation: self.orientation,
-                                               verticalMirror: self.verticalMirror)
+                                               verticalMirror: self.verticalMirror,
+                                               from: now)
                     } catch {
                         Self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
@@ -139,7 +141,7 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter data Encoded H264 frame data.
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
-    func submitEncodedData(_ frame: DecimusVideoFrame) throws {
+    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date) throws {
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -156,9 +158,9 @@ class VideoHandler: CustomStringConvertible {
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
-            try jitterBuffer.write(videoFrame: frame)
+            try jitterBuffer.write(videoFrame: frame, from: from)
         } else {
-            try decode(sample: frame)
+            try decode(sample: frame, from: from)
         }
 
         // Do we need to update the label?
@@ -188,7 +190,7 @@ class VideoHandler: CustomStringConvertible {
 
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date? = self.granularMetrics ? .now : nil
+            let now: Date? = self.granularMetrics ? from : nil
             Task(priority: .utility) {
                 if let now = now,
                    let presentationTime = frame.samples.first?.presentationTimeStamp {
@@ -206,14 +208,24 @@ class VideoHandler: CustomStringConvertible {
     /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
-    func calculateWaitTime(from: Date = .now) -> TimeInterval? {
+    func calculateWaitTime(from: Date) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else {
             fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
+    }
+
+    func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval {
+        guard let jitterBuffer = self.jitterBuffer else {
+            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+        }
+        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
+        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
+        let diff = TimeInterval(diffUs) / 1_000_000.0
+        return jitterBuffer.calculateWaitTime(frame: frame, from: from, offset: diff)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame) throws {
@@ -249,19 +261,20 @@ class VideoHandler: CustomStringConvertible {
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
+                let now = Date.now
 
                 // Wait until we expect to have a frame available.
                 let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
                 let waitTime: TimeInterval
                 if let pid = self.dequeueBehaviour as? PIDDequeuer {
                     pid.currentDepth = jitterBuffer.getDepth()
-                    waitTime = self.dequeueBehaviour!.calculateWaitTime()
+                    waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
                 } else {
                     guard let duration = self.duration else {
                         Self.logger.error("Missing duration")
                         return
                     }
-                    waitTime = calculateWaitTime() ?? duration
+                    waitTime = calculateWaitTime(from: now) ?? duration
                 }
                 if waitTime > 0 {
                     do {
@@ -279,9 +292,17 @@ class VideoHandler: CustomStringConvertible {
                 }
 
                 // Attempt to dequeue a frame.
-                if let sample = jitterBuffer.read() {
+                if let sample = jitterBuffer.read(from: now) {
+                    if self.granularMetrics,
+                       let measurement = self.measurement?.measurement {
+                        let time = self.calculateWaitTime(frame: sample)
+                        Task(priority: .utility) {
+                            await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                        }
+                    }
+
                     do {
-                        try self.decode(sample: sample)
+                        try self.decode(sample: sample, from: now)
                     } catch {
                         Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                     }
@@ -298,7 +319,7 @@ class VideoHandler: CustomStringConvertible {
                                                      ordering: .acquiringAndReleasing)
     }
 
-    private func decode(sample: DecimusVideoFrame) throws {
+    private func decode(sample: DecimusVideoFrame, from: Date) throws {
         // Should we feed this frame to the decoder?
         // get groupId and objectId from the frame (1st frame)
         let groupId = sample.groupId
@@ -328,7 +349,8 @@ class VideoHandler: CustomStringConvertible {
             if self.jitterBufferConfig.mode == .layer {
                 try self.enqueueSample(sample: sampleBuffer,
                                        orientation: sample.orientation,
-                                       verticalMirror: sample.verticalMirror)
+                                       verticalMirror: sample.verticalMirror,
+                                       from: from)
             } else {
                 if let orientation = sample.orientation {
                     self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
@@ -343,10 +365,11 @@ class VideoHandler: CustomStringConvertible {
 
     private func enqueueSample(sample: CMSampleBuffer,
                                orientation: DecimusVideoRotation?,
-                               verticalMirror: Bool?) throws {
+                               verticalMirror: Bool?,
+                               from: Date) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
-            let now: Date? = self.granularMetrics ? .now : nil
+            let now: Date? = self.granularMetrics ? from : nil
             Task(priority: .utility) {
                 await measurement.measurement.decodedFrame(timestamp: now)
             }
@@ -373,10 +396,9 @@ class VideoHandler: CustomStringConvertible {
                 try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
                 if self.granularMetrics,
                    let measurement = self.measurement {
-                    let now = Date.now
                     let timestamp = sample.presentationTimeStamp.seconds
                     Task(priority: .background) {
-                        await measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: now)
+                        await measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
                     }
                 }
             } catch {

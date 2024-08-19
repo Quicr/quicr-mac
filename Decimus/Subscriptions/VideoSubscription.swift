@@ -232,7 +232,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             handler.setTimeDiff(diff: diff)
         }
         do {
-            try handler.submitEncodedData(frame)
+            try handler.submitEncodedData(frame, from: now)
         } catch {
             Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
             return SubscriptionError.none.rawValue
@@ -244,13 +244,14 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.renderTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 guard let self = self else { return }
+                let now = Date.now
                 let duration = self.handlerLock.withLock {
                     guard !self.videoHandlers.isEmpty else {
                         self.renderTask?.cancel()
                         return TimeInterval.nan
                     }
                     do {
-                        return try self.makeSimulreceiveDecision()
+                        return try self.makeSimulreceiveDecision(at: now)
                     } catch {
                         Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
                         self.renderTask?.cancel()
@@ -324,7 +325,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     // Caller must lock handlerLock.
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
-    private func makeSimulreceiveDecision() throws -> TimeInterval {
+    private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
         guard !self.videoHandlers.isEmpty else {
             throw "No handlers"
         }
@@ -347,7 +348,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
-        let decisionTime = self.measurement == nil ? nil : Date.now
+        let decisionTime = self.measurement == nil ? nil : at
         let decision = Self.makeSimulreceiveDecision(choices: &choices)
 
         guard let decision = decision else {
@@ -355,7 +356,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
             let duration: TimeInterval
             if let lastNamespace = self.last,
                let handler = self.videoHandlers[lastNamespace] {
-                duration = handler.calculateWaitTime() ?? (1 / Double(handler.config.fps))
+                duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
             } else {
                 let highestFps = self.videoHandlers.values.reduce(0) { max($0, $1.config.fps) }
                 duration = TimeInterval(1 / highestFps)
@@ -456,7 +457,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
 
         if qualitySkip {
             // We only want to step down in quality if we've missed a few hits.
-            if let duration = handler.calculateWaitTime() {
+            if let duration = handler.calculateWaitTime(from: at) {
                 return duration
             }
             if selectedSample.duration.isValid {
@@ -515,7 +516,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Wait until we have expect to have the next frame available.
-        if let duration = handler.calculateWaitTime() {
+        if let duration = handler.calculateWaitTime(from: at) {
             return duration
         }
         if selectedSample.duration.isValid {

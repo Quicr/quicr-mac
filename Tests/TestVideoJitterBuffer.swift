@@ -29,7 +29,9 @@ final class TestVideoJitterBuffer: XCTestCase {
         let sample = try CMSampleBuffer(dataBuffer: nil,
                                         formatDescription: nil,
                                         numSamples: 1,
-                                        sampleTimings: [],
+                                        sampleTimings: [.init(duration: .init(value: 1, timescale: CMTimeScale(fps)),
+                                                              presentationTimeStamp: .init(seconds: Date.now.timeIntervalSince1970, preferredTimescale: 1),
+                                                              decodeTimeStamp: .invalid)],
                                         sampleSizes: [])
         return .init(samples: [sample],
                      groupId: groupId,
@@ -52,37 +54,37 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        objectId: 0,
                                        sequenceNumber: 0,
                                        fps: 30)
-        try buffer.write(videoFrame: frame1)
-        XCTAssertNil(buffer.read())
+        try buffer.write(videoFrame: frame1, from: Date.now)
+        XCTAssertNil(buffer.read(from: Date.now))
 
         // Write 2, no play.
         let frame2 = try exampleSample(groupId: 0,
                                        objectId: 1,
                                        sequenceNumber: 1,
                                        fps: 30)
-        try buffer.write(videoFrame: frame2)
-        XCTAssertNil(buffer.read())
+        try buffer.write(videoFrame: frame2, from: Date.now)
+        XCTAssertNil(buffer.read(from: Date.now))
 
         // Write 3, play, get 1.
         let frame3 = try exampleSample(groupId: 0,
                                        objectId: 2,
                                        sequenceNumber: 2,
                                        fps: 30)
-        try buffer.write(videoFrame: frame3)
-        XCTAssertEqual(frame1, buffer.read())
+        try buffer.write(videoFrame: frame3, from: Date.now)
+        XCTAssertEqual(frame1, buffer.read(from: Date.now))
 
         // Write 4, get 2.
         let frame4 = try exampleSample(groupId: 0,
                                        objectId: 3,
                                        sequenceNumber: 3,
                                        fps: 30)
-        try buffer.write(videoFrame: frame4)
-        XCTAssertEqual(frame2, buffer.read())
+        try buffer.write(videoFrame: frame4, from: Date.now)
+        XCTAssertEqual(frame2, buffer.read(from: Date.now))
 
         // Get 3, 4 and done.
-        XCTAssertEqual(frame3, buffer.read())
-        XCTAssertEqual(frame4, buffer.read())
-        XCTAssertNil(buffer.read())
+        XCTAssertEqual(frame3, buffer.read(from: Date.now))
+        XCTAssertEqual(frame4, buffer.read(from: Date.now))
+        XCTAssertNil(buffer.read(from: Date.now))
     }
 
     // Out of orders should go in order.
@@ -98,21 +100,21 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        objectId: 1,
                                        sequenceNumber: 1,
                                        fps: 30)
-        try buffer.write(videoFrame: frame2)
+        try buffer.write(videoFrame: frame2, from: Date.now)
 
         // Write older.
         let frame1 = try exampleSample(groupId: 0,
                                        objectId: 0,
                                        sequenceNumber: 0,
                                        fps: 30)
-        try buffer.write(videoFrame: frame1)
+        try buffer.write(videoFrame: frame1, from: Date.now)
 
         // Get older first.
-        let read1 = buffer.read()
+        let read1 = buffer.read(from: Date.now)
         XCTAssertEqual(frame1, read1)
 
         // Then newer.
-        let read2 = buffer.read()
+        let read2 = buffer.read(from: Date.now)
         XCTAssertEqual(frame2, read2)
     }
 
@@ -134,10 +136,10 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        objectId: 1,
                                        sequenceNumber: 1,
                                        fps: 30)
-        try buffer.write(videoFrame: frame2)
+        try buffer.write(videoFrame: frame2, from: Date.now)
 
         // Read newer.
-        let read1 = buffer.read()
+        let read1 = buffer.read(from: Date.now)
         XCTAssertEqual(frame2, read1)
 
         // Write older should fail.
@@ -145,7 +147,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        objectId: 0,
                                        sequenceNumber: 0,
                                        fps: 30)
-        XCTAssertThrowsError(try buffer.write(videoFrame: frame1)) {
+        XCTAssertThrowsError(try buffer.write(videoFrame: frame1, from: Date.now)) {
             XCTAssertEqual("Refused enqueue as older than last read", $0 as? String)
         }
     }
@@ -195,7 +197,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       fps: 1,
                                       orientation: nil,
                                       verticalMirror: nil)
-        try buffer.write(videoFrame: frame)
+        try buffer.write(videoFrame: frame, from: Date.now)
         waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
         XCTAssertNotNil(waitTime)
         XCTAssertEqual(minDepth, waitTime!, accuracy: 1 / 1000)
@@ -234,7 +236,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           fps: 1,
                                           orientation: nil,
                                           verticalMirror: nil)
-            try buffer.write(videoFrame: frame)
+            try buffer.write(videoFrame: frame, from: Date.now)
         }
 
         // There are 2 frames in the buffer. If we have waited min depth, first should be 0.
@@ -244,7 +246,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertEqual(0, waitTime!, accuracy: 1 / 1000)
 
         // If we read this first one, next should be a duration away.
-        let read = buffer.read()
+        let read = buffer.read(from: Date.now)
         XCTAssertNotNil(read)
         let firstReadWait = buffer.calculateWaitTime(from: startTime.addingTimeInterval(minDepth), offset: diff!)
         XCTAssertNotNil(firstReadWait)
@@ -301,7 +303,7 @@ final class TestVideoJitterBuffer: XCTestCase {
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 0,
-                                            sampleTimings: [.init(duration: .invalid,
+                                            sampleTimings: [.init(duration: .init(value: 1, timescale: .init(fps)),
                                                                   presentationTimeStamp: .init(seconds: presentationTime,
                                                                                                preferredTimescale: 30000),
                                                                   decodeTimeStamp: .invalid)],
@@ -314,7 +316,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           fps: UInt8(fps),
                                           orientation: .portrait,
                                           verticalMirror: false)
-            try buffer.write(videoFrame: frame)
+            try buffer.write(videoFrame: frame, from: Date.now)
         }
 
         // Start reading frames and moving through media timeline,
@@ -336,7 +338,7 @@ final class TestVideoJitterBuffer: XCTestCase {
             from.addTimeInterval(waitTime)
 
             // Dequeue this frame.
-            guard let frame = buffer.read() else {
+            guard let frame = buffer.read(from: Date.now) else {
                 XCTFail()
                 return
             }
@@ -344,5 +346,27 @@ final class TestVideoJitterBuffer: XCTestCase {
             // Sanity.
             XCTAssertEqual(frame.sequenceNumber!, UInt64(index))
         }
+    }
+
+    func testDepth() throws {
+        let fps: UInt8 = 30
+        let buffer = try VideoJitterBuffer(namespace: .init(),
+                                           metricsSubmitter: nil,
+                                           sort: true,
+                                           minDepth: 0,
+                                           capacity: 2)
+
+        // 0 when empty.
+        XCTAssertEqual(buffer.getDepth(), 0)
+
+        // Enqueue one.
+        let frame1 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: fps)
+        try buffer.write(videoFrame: frame1, from: Date.now)
+        XCTAssertEqual(buffer.getDepth(), 1 / TimeInterval(fps))
+
+        // Enqueue two.
+        let frame2 = try exampleSample(groupId: 0, objectId: 2, sequenceNumber: 2, fps: fps)
+        try buffer.write(videoFrame: frame2, from: Date.now)
+        XCTAssertEqual(buffer.getDepth(), (1 / (TimeInterval(fps)) * 2))
     }
 }

@@ -2,7 +2,7 @@
 /// between VideoJitterBuffer dequeues.
 protocol VideoDequeuer {
     /// Return how long to wait before querying for a frame again.
-    func calculateWaitTime() -> TimeInterval
+    func calculateWaitTime(from: Date) -> TimeInterval
 }
 
 /// Uses a PID controller to approach a target depth of the jitter buffer,
@@ -32,7 +32,7 @@ class PIDDequeuer: VideoDequeuer {
         self.kd = kd
     }
 
-    func calculateWaitTime() -> TimeInterval {
+    func calculateWaitTime(from: Date) -> TimeInterval {
         let error = self.targetDepth - self.currentDepth
         self.integral += error
         let derivative = error - self.lastError
@@ -59,11 +59,6 @@ class IntervalDequeuer: VideoDequeuer {
         self.minDepth = minDepth
         self.frameDuration = frameDuration
         self.firstWriteTime = firstWriteTime
-    }
-
-    /// Calculate the wait time for frame N = self.dequeuedCount from now.
-    func calculateWaitTime() -> TimeInterval {
-        calculateWaitTime(from: .now)
     }
 
     /// Calculate the wait time for frame N = self.dequeuedCount from the given reference date.

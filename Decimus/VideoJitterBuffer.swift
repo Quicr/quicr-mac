@@ -27,7 +27,6 @@ class VideoJitterBuffer {
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<VideoJitterBufferMeasurement>?
     private var play: Bool = false
-    private var playToken: CMBufferQueueTriggerToken?
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
 
@@ -89,16 +88,12 @@ class VideoJitterBuffer {
         }
 
         self.minDepth = minDepth
-        let minDepthCM = CMTime(value: CMTimeValue(minDepth), timescale: 1)
-        self.playToken = try self.buffer.installTrigger(condition: .whenDurationBecomesGreaterThanOrEqualTo(minDepthCM), { _ in
-            self.play = true
-        })
     }
 
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
-    func write(videoFrame: DecimusVideoFrame) throws {
+    func write(videoFrame: DecimusVideoFrame, from: Date) throws {
         // Check expiry.
         if let thisSeq = videoFrame.sequenceNumber,
            self.lastSequenceSet.load(ordering: .acquiring) {
@@ -111,48 +106,31 @@ class VideoJitterBuffer {
 
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date = .now
             Task(priority: .utility) {
-                await measurement.measurement.write(timestamp: now)
+                await measurement.measurement.write(timestamp: from)
             }
         }
     }
 
     /// Attempt to read a frame from the front of the buffer.
     /// - Returns Either the oldest available frame, or nil.
-    func read() -> DecimusVideoFrame? {
-        let now: Date = .now
-        let depth: TimeInterval = self.buffer.duration.seconds
-
-        // Are we playing out?
-        guard self.play else {
-            return nil
-        }
-
-        // We won't stop.
-        if let playToken = self.playToken {
-            do {
-                try self.buffer.removeTrigger(playToken)
-            } catch {
-                Self.logger.error("Failed to remove playout trigger: \(error.localizedDescription)")
-            }
-            self.playToken = nil
-        }
+    func read(from: Date) -> DecimusVideoFrame? {
+        let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil
 
         // Ensure there's something to get.
         guard let oldest = self.buffer.dequeue() else {
             if let measurement = self.measurement {
                 Task(priority: .utility) {
-                    await measurement.measurement.currentDepth(depth: depth, timestamp: now)
-                    await measurement.measurement.underrun(timestamp: now)
+                    await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+                    await measurement.measurement.underrun(timestamp: from)
                 }
             }
             return nil
         }
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.currentDepth(depth: depth, timestamp: now)
-                await measurement.measurement.read(timestamp: now)
+                await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+                await measurement.measurement.read(timestamp: from)
             }
         }
         let sample = oldest as! DecimusVideoFrame
@@ -175,15 +153,21 @@ class VideoJitterBuffer {
         self.buffer.duration.seconds
     }
 
-    /// Calculate the estimated time interval until the next frame should be rendered.
+    /// Calculate the estimated time interval until this frame should be rendered.
+    /// - Parameter frame The frame to calculate the wait time for.
     /// - Parameter from The time to calculate the time interval from.
     /// - Parameter offset Offset from the start point at which media starts.
     /// - Parameter since The start point of the media timeline.
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: Date = .now, offset: TimeInterval, since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
-        guard let peek = self.buffer.head else { return nil }
-        let frame = peek as! DecimusVideoFrame
-        guard let timestamp = frame.samples.first?.presentationTimeStamp else { return nil }
+    func calculateWaitTime(frame: DecimusVideoFrame,
+                           from: Date,
+                           offset: TimeInterval,
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval {
+        guard let sample = frame.samples.first else {
+            // TODO: Ensure we cannot enqueue a frame with no samples to make this a valid error.
+            fatalError()
+        }
+        let timestamp = sample.presentationTimeStamp
         let targetDate = Date(timeInterval: timestamp.seconds.advanced(by: offset), since: since)
         let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
         if let measurement = self.measurement {
@@ -192,5 +176,18 @@ class VideoJitterBuffer {
             }
         }
         return waitTime
+    }
+
+    /// Calculate the estimated time interval until the next frame should be rendered.
+    /// - Parameter from The time to calculate the time interval from.
+    /// - Parameter offset Offset from the start point at which media starts.
+    /// - Parameter since The start point of the media timeline.
+    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
+    func calculateWaitTime(from: Date,
+                           offset: TimeInterval,
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
+        guard let peek = self.buffer.head else { return nil }
+        let frame = peek as! DecimusVideoFrame
+        return self.calculateWaitTime(frame: frame, from: from, offset: offset, since: since)
     }
 }
