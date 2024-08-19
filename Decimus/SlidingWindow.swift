@@ -1,6 +1,6 @@
 import DequeModule
 
-class SlidingWindow<T: Comparable> {
+class SlidingWindow<T: Numeric> {
     private var values: Deque<(timestamp: Date, value: T)> = []
     private let length: TimeInterval
 
@@ -15,17 +15,13 @@ class SlidingWindow<T: Comparable> {
             _ = self.values.popFirst()
         }
 
-        // Remove anything smaller than this value.
-        while let last = self.values.last,
-              last.value <= value {
-            _ = self.values.popLast()
-        }
-
         self.values.append((timestamp, value))
     }
 
-    func max() -> T? {
-        self.values.first?.value
+    func get(from: Date) -> [T] {
+        self.values.compactMap {
+            from.timeIntervalSince($0.timestamp) <= self.length ? $0.value : nil
+        }
     }
 }
 
@@ -45,7 +41,7 @@ class SlidingTimeWindow {
         self.lastSubmit = timestamp
     }
 
-    func max() -> TimeInterval? {
-        self.window.max()
+    func max(from: Date) -> TimeInterval? {
+        self.window.get(from: from).max()
     }
 }

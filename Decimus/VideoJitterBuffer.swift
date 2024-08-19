@@ -97,7 +97,7 @@ class VideoJitterBuffer {
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame The sample to attempt to sort into the buffer.
-    func write(videoFrame: DecimusVideoFrame) throws {
+    func write(videoFrame: DecimusVideoFrame, from: Date) throws {
         // Check expiry.
         if let thisSeq = videoFrame.sequenceNumber,
            self.lastSequenceSet.load(ordering: .acquiring) {
@@ -110,9 +110,8 @@ class VideoJitterBuffer {
 
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date = .now
             Task(priority: .utility) {
-                await measurement.measurement.write(timestamp: now)
+                await measurement.measurement.write(timestamp: from)
             }
         }
     }
@@ -126,16 +125,15 @@ class VideoJitterBuffer {
 
     /// Attempt to read a frame from the front of the buffer.
     /// - Returns Either the oldest available frame, or nil.
-    func read() -> DecimusVideoFrame? {
-        let now: Date? = self.measurement != nil ? .now : nil
+    func read(from: Date) -> DecimusVideoFrame? {
         let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil
 
         // Ensure there's something to get.
         guard let oldest = self.buffer.dequeue() else {
             if let measurement = self.measurement {
                 Task(priority: .utility) {
-                    await measurement.measurement.currentDepth(depth: depth!, timestamp: now!)
-                    await measurement.measurement.underrun(timestamp: now!)
+                    await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+                    await measurement.measurement.underrun(timestamp: from)
                 }
             }
             Self.logger.error("UNDERRUN!!!!")
@@ -143,8 +141,8 @@ class VideoJitterBuffer {
         }
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.currentDepth(depth: depth!, timestamp: now!)
-                await measurement.measurement.read(timestamp: now!)
+                await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+                await measurement.measurement.read(timestamp: from)
             }
         }
         let sample = oldest as! DecimusVideoFrame
@@ -174,7 +172,7 @@ class VideoJitterBuffer {
     /// - Parameter since The start point of the media timeline.
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(frame: DecimusVideoFrame,
-                           from: Date = .now,
+                           from: Date,
                            offset: TimeInterval,
                            since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval {
         guard let sample = frame.samples.first else {
@@ -197,7 +195,7 @@ class VideoJitterBuffer {
     /// - Parameter offset Offset from the start point at which media starts.
     /// - Parameter since The start point of the media timeline.
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: Date = .now,
+    func calculateWaitTime(from: Date,
                            offset: TimeInterval,
                            since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }

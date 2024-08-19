@@ -57,13 +57,13 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
             // Encode age.
+            let now = measurement != nil && granularMetrics ? Date.now : nil
             if granularMetrics,
                let measurement = measurement {
                 let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                let now = Date.now
-                let age = now.timeIntervalSince(captureDate)
+                let age = now!.timeIntervalSince(captureDate)
                 Task(priority: .utility) {
-                    await measurement.measurement.encoded(age: age, timestamp: now)
+                    await measurement.measurement.encoded(age: age, timestamp: now!)
                 }
             }
 
@@ -72,7 +72,6 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
             // Metrics.
             guard let measurement = measurement else { return }
-            let now: Date? = granularMetrics ? Date.now : nil
             let bytes = data.count
             Task(priority: .utility) {
                 let age: TimeInterval?
