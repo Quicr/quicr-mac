@@ -10,6 +10,7 @@
 #include "QControllerGW.h"
 #include "QMediaDelegates.h"
 #include "QDelegatesObjC.h"
+#include <spdlog/sinks/callback_sink.h>
 
 // objective c
 
@@ -37,15 +38,16 @@
 - (id)initCallback:(CantinaLogCallback)callback
 {
     self = [super init];
-    self->qControllerGW.logger = std::make_shared<cantina::CustomLogger>([=](auto level, const std::string& msg, bool b) {
-        NSString* m = [NSString stringWithCString:msg.c_str() encoding:[NSString defaultCStringEncoding]];
-        callback(static_cast<uint8_t>(level), m, b);
+    self->qControllerGW.logger = spdlog::get("DECIMUS") ? spdlog::get("DECIMUS") : spdlog::callback_logger_mt("DECIMUS", [=](const spdlog::details::log_msg& msg) {
+        std::string msg_str = std::string(msg.payload.begin(), msg.payload.end());
+        NSString* m = [NSString stringWithCString:msg_str.c_str() encoding:[NSString defaultCStringEncoding]];
+        callback(static_cast<uint8_t>(msg.level), m, msg.level >= spdlog::level::err);
     });
 
 #ifdef DEBUG
-    self->qControllerGW.logger->SetLogLevel(cantina::LogLevel::Debug);
+    self->qControllerGW.logger->set_level(spdlog::level::debug);
 #else
-    self->qControllerGW.logger->SetLogLevel(cantina::LogLevel::Info);
+    self->qControllerGW.logger->set_level(spdlog::level::info);
 #endif
 
     return self;
@@ -53,35 +55,48 @@
 
 - (void)dealloc
 {
-    qControllerGW.logger->debug << "QControllerGW - dealloc" << std::flush;
+    //qControllerGW.logger->debug("QControllerGW - dealloc");
 }
 
 -(int) connect: (NSString *) endpointID relay:(NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol chunk_size:(UInt32)chunkSize config:(TransportConfig)config useParentLogger:(bool)useParentLogger encrypt:(bool)encrypt
 {
     try {
         qtransport::TransportConfig tconfig;
-        static_assert(std::is_trivially_copyable<qtransport::TransportConfig>() &&
-                      std::is_trivially_copyable<TransportConfig>() &&
-                      sizeof(tconfig) == sizeof(config));
-        
-        memcpy(&tconfig, &config, sizeof(tconfig));
-        
-        
-        std::string qlog_path;
-        
-        if (config.quic_qlog_path != nullptr) {
-            qlog_path = config.quic_qlog_path;
-            tconfig.quic_qlog_path = const_cast<char *>(qlog_path.c_str());
-        } else {
-            tconfig.quic_qlog_path = nullptr;
+        tconfig.time_queue_init_queue_size    = config.time_queue_init_queue_size;
+        tconfig.time_queue_max_duration       = config.time_queue_max_duration;
+        tconfig.time_queue_bucket_interval    = config.time_queue_bucket_interval;
+        tconfig.time_queue_rx_size            = config.time_queue_rx_size;
+        tconfig.debug                         = config.debug;
+        tconfig.quic_cwin_minimum             = config.quic_cwin_minimum;
+        tconfig.quic_wifi_shadow_rtt_us       = config.quic_wifi_shadow_rtt_us;
+        tconfig.pacing_decrease_threshold_Bps = config.pacing_decrease_threshold_Bps;
+        tconfig.pacing_increase_threshold_Bps = config.pacing_increase_threshold_Bps;
+        tconfig.idle_timeout_ms               = config.idle_timeout_ms;
+        tconfig.use_reset_wait_strategy       = config.use_reset_wait_strategy;
+        tconfig.use_bbr                       = config.use_bbr;
+        tconfig.quic_priority_limit           = config.quic_priority_limit;
+
+        config.tls_cert_filename = "";
+        if (config.tls_cert_filename != nullptr) {
+            tconfig.tls_cert_filename = config.tls_cert_filename;
         }
-            
+
+        tconfig.tls_key_filename = "";
+        if (config.tls_key_filename != nullptr) {
+            tconfig.tls_key_filename = config.tls_key_filename;
+        }
+
+        tconfig.quic_qlog_path = "";
+        if (config.quic_qlog_path != nullptr) {
+            tconfig.quic_qlog_path = const_cast<char *>(config.quic_qlog_path);
+        }
+
         return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger, encrypt);
     } catch(const std::exception& e) {
-        qControllerGW.logger->error << "Failed to connect: " << e.what() << std::flush;
+        qControllerGW.logger->error("Failed to connect: {0}", e.what());
         return -1;
     } catch(...) {
-        qControllerGW.logger->error << "Failed to connect due to unknown error" << std::flush;
+        qControllerGW.logger->error("Failed to connect due to unknown error");
         return -1;
     }
 }
@@ -153,7 +168,7 @@
     qControllerGW.setPublicationSingleOrdered(new_value);
 }
 
-- (void)stopSubscription:(NSString *)quicrNamespace { 
+- (void)stopSubscription:(NSString *)quicrNamespace {
     qControllerGW.stopSubscription(std::string([quicrNamespace UTF8String]));
 }
 
@@ -231,7 +246,7 @@ bool QControllerGW::connected()
 {
     if (!qController)
     {
-        logger->error << "QControllerGW::connected - qController nil" << std::flush;
+        logger->error("QControllerGW::connected - qController nil");
         return false;
     }
 
@@ -242,7 +257,7 @@ void QControllerGW::disconnect()
 {
     if (!qController)
     {
-        logger->error << "QControllerGW::disconnect - qController nil" << std::flush;
+        logger->error("QControllerGW::disconnect - qController nil");
         return;
     }
 
@@ -257,7 +272,7 @@ void QControllerGW::updateManifest(const std::string manifest)
     }
     else
     {
-        logger->error << "QControllerGW::updateManifest - qController nil" << std::flush;
+        logger->error("QControllerGW::updateManifest - qController nil");
     }
 }
 
@@ -280,7 +295,7 @@ void QControllerGW::publishNamedObject(const std::string quicrNamespaceString, s
     }
     else
     {
-        logger->error << "QControllerGW::publishNamedObject - qController nil" << std::flush;
+        logger->error("QControllerGW::publishNamedObject - qController nil");
     }
 }
 
@@ -300,7 +315,7 @@ void QControllerGW::stopSubscription(const std::string& quicrNamespaceString)
     }
     else
     {
-        logger->error << "QControllerGW::stopSubscription - qController nil" << std::flush;
+        logger->error("QControllerGW::stopSubscription - qController nil");
     }
 }
 
