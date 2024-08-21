@@ -12,6 +12,7 @@ class VideoJitterBuffer {
         var mode: Mode = .none
         var minDepth: TimeInterval = 0.2
         var capacity: TimeInterval = 2
+        var adaptive: Bool = false
     }
 
     enum Mode: CaseIterable, Identifiable, Codable {

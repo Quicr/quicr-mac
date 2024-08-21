@@ -228,16 +228,18 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                 }
 
                 // While we're here, set depth for everyone.
-                if let thisMax = self.suspension.max(from: now) {
-                    if let currentMax = self.currentMax,
-                       thisMax != currentMax {
-                        for handler in self.videoHandlers {
-                            // TODO(RichLogan): For now, don't grow beyond configured value.
-                            let realTarget = min(thisMax, self.jitterBufferConfig.minDepth)
-                            handler.value.setTargetDepth(realTarget)
+                if self.jitterBufferConfig.adaptive {
+                    if let thisMax = self.suspension.max(from: now) {
+                        if let currentMax = self.currentMax,
+                           thisMax != currentMax {
+                            for handler in self.videoHandlers {
+                                // TODO(RichLogan): For now, don't grow beyond configured value.
+                                let realTarget = min(thisMax, self.jitterBufferConfig.minDepth)
+                                handler.value.setTargetDepth(realTarget)
+                            }
                         }
+                        self.currentMax = thisMax
                     }
-                    self.currentMax = thisMax
                 }
 
                 return lookup
