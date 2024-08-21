@@ -55,7 +55,7 @@
 
 - (void)dealloc
 {
-    //qControllerGW.logger->debug("QControllerGW - dealloc");
+    qControllerGW.logger->debug("QControllerGW - dealloc");
 }
 
 -(int) connect: (NSString *) endpointID relay:(NSString *)remoteAddress port:(UInt16)remotePort protocol:(UInt8)protocol chunk_size:(UInt32)chunkSize config:(TransportConfig)config useParentLogger:(bool)useParentLogger encrypt:(bool)encrypt
@@ -76,7 +76,7 @@
         tconfig.use_bbr                       = config.use_bbr;
         tconfig.quic_priority_limit           = config.quic_priority_limit;
 
-        config.tls_cert_filename = "";
+        tconfig.tls_cert_filename = "";
         if (config.tls_cert_filename != nullptr) {
             tconfig.tls_cert_filename = config.tls_cert_filename;
         }
@@ -88,7 +88,7 @@
 
         tconfig.quic_qlog_path = "";
         if (config.quic_qlog_path != nullptr) {
-            tconfig.quic_qlog_path = const_cast<char *>(config.quic_qlog_path);
+            tconfig.quic_qlog_path = config.quic_qlog_path;
         }
 
         return qControllerGW.connect(std::string([endpointID UTF8String]), std::string([remoteAddress UTF8String]), remotePort, protocol, chunkSize, tconfig, useParentLogger, encrypt);
