@@ -51,7 +51,7 @@ public:
     quicr::SubscriptionState getSubscriptionState(const quicr::Namespace& quicrNamespace);
 
 public:
-    std::shared_ptr<cantina::Logger> logger;
+    std::shared_ptr<spdlog::logger> logger;
 
 private:
     std::unique_ptr<qmedia::QController> qController;
