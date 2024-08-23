@@ -214,6 +214,10 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         }
 
         // Suspension tracking.
+        if self.currentMax == nil {
+            // Ensure that we take into account our configured value.
+            self.suspension.add(timestamp: now.addingTimeInterval(-self.jitterBufferConfig.minDepth))
+        }
         self.suspension.add(timestamp: now)
 
         let handler: VideoHandler
@@ -233,9 +237,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
                         if let currentMax = self.currentMax,
                            thisMax != currentMax {
                             for handler in self.videoHandlers {
-                                // TODO(RichLogan): For now, don't grow beyond configured value.
-                                let realTarget = min(thisMax, self.jitterBufferConfig.minDepth)
-                                handler.value.setTargetDepth(realTarget)
+                                handler.value.setTargetDepth(thisMax, from: now)
                             }
                         }
                         self.currentMax = thisMax

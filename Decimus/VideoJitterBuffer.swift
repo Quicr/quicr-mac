@@ -31,6 +31,7 @@ class VideoJitterBuffer {
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
     private let capacity: TimeInterval
+    private let originalDepth: TimeInterval
 
     /// Create a new video jitter buffer.
     /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
@@ -84,15 +85,22 @@ class VideoJitterBuffer {
         }
         let elementCapacity = CMItemCount(round(capacity / duration))
         self.buffer = try .init(capacity: elementCapacity, handlers: handlers)
+        guard minDepth < capacity else {
+            throw "Target depth cannot be > capacity"
+        }
+        self.minDepth = minDepth
+        self.originalDepth = minDepth
+        self.capacity = capacity
         if let metricsSubmitter = metricsSubmitter {
             let measurement = VideoJitterBufferMeasurement(namespace: namespace)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            let now = Date.now
+            Task(priority: .utility) {
+                await measurement.targetDepth(depth: self.minDepth, timestamp: now)
+            }
         } else {
             self.measurement = nil
         }
-
-        self.minDepth = minDepth
-        self.capacity = capacity
     }
 
     /// Write a video frame into the jitter buffer.
@@ -117,11 +125,16 @@ class VideoJitterBuffer {
         }
     }
 
-    func setTargetDepth(_ depth: TimeInterval) {
-        // Depth must not exceed capacity.
-        let depth = min(depth, self.capacity)
-        Self.logger.info("Adjusted target depth: \(depth)")
-        self.minDepth = depth
+    func setTargetDepth(_ depth: TimeInterval, from: Date) {
+        // TODO(RichLogan): For now, don't exceed original declared depth.
+        let clampedDepth = min(depth, self.originalDepth)
+        self.minDepth = clampedDepth
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.measurement.targetDepth(depth: clampedDepth, timestamp: from)
+                await measurement.measurement.idealTargetDepth(depth: depth, timestamp: from)
+            }
+        }
     }
 
     /// Attempt to read a frame from the front of the buffer.
@@ -137,7 +150,6 @@ class VideoJitterBuffer {
                     await measurement.measurement.underrun(timestamp: from)
                 }
             }
-            Self.logger.error("UNDERRUN!!!!")
             return nil
         }
         if let measurement = self.measurement {

@@ -144,10 +144,6 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
     func submitEncodedData(_ frame: DecimusVideoFrame, from: Date) throws {
-        // Let's get max elapsed over the last minute.
-        // That's the amount we want to keep in our buffer?
-        // Except maybe some min?
-
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -260,7 +256,6 @@ class VideoHandler: CustomStringConvertible {
                                       capacity: self.jitterBufferConfig.capacity,
                                       duration: duration)
         self.duration = duration
-
     }
 
     private func createDequeueTask() {
@@ -328,13 +323,13 @@ class VideoHandler: CustomStringConvertible {
 
     /// Update the target depth of this handler's jitter buffer, if any.
     /// - Parameter depth: Target depth in seconds.
-    func setTargetDepth(_ depth: TimeInterval) {
+    func setTargetDepth(_ depth: TimeInterval, from: Date) {
         self.currentTargetDepth = depth
         guard let buffer = self.jitterBuffer else {
             Self.logger.warning("Set target depth on nil buffer!?")
             return
         }
-        buffer.setTargetDepth(depth)
+        buffer.setTargetDepth(depth, from: from)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
