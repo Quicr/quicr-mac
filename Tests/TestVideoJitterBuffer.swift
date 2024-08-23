@@ -168,7 +168,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                            metricsSubmitter: nil,
                                            sort: false,
                                            minDepth: minDepth,
-                                           capacity: duration,
+                                           capacity: minDepth,
                                            duration: duration)
 
         // No calculation possible with no frame available.
@@ -185,7 +185,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                            metricsSubmitter: nil,
                                            sort: false,
                                            minDepth: minDepth,
-                                           capacity: duration,
+                                           capacity: minDepth,
                                            duration: duration)
 
         // At first write, and otherwise on time, we should wait the min depth.
@@ -223,7 +223,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                            metricsSubmitter: nil,
                                            sort: false,
                                            minDepth: minDepth,
-                                           capacity: duration.seconds * 2,
+                                           capacity: minDepth * 2,
                                            duration: duration.seconds)
         let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSinceReferenceDate), timescale: 1)
         var diff: TimeInterval?

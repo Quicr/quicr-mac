@@ -85,7 +85,7 @@ class VideoJitterBuffer {
         }
         let elementCapacity = CMItemCount(round(capacity / duration))
         self.buffer = try .init(capacity: elementCapacity, handlers: handlers)
-        guard minDepth < capacity else {
+        guard minDepth <= capacity else {
             throw "Target depth cannot be > capacity"
         }
         self.minDepth = minDepth
