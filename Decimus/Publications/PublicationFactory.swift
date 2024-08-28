@@ -2,11 +2,11 @@ import Foundation
 import AVFoundation
 
 class PublicationFactory {
-    private typealias FactoryCallbackType = (QuicrNamespace,
-                                             QPublishObjectDelegateObjC,
-                                             SourceIDType,
-                                             CodecConfig,
-                                             MetricsSubmitter?) throws -> Publication
+//    private typealias FactoryCallbackType = (QuicrNamespace,
+//                                             QPublishObjectDelegateObjC,
+//                                             SourceIDType,
+//                                             CodecConfig,
+//                                             MetricsSubmitter?) throws -> Publication
 
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
@@ -23,11 +23,22 @@ class PublicationFactory {
         self.granularMetrics = granularMetrics
     }
 
+    func create(publication: ManifestPublication) throws -> [(QuicrNamespace, QPublishTrackHandlerObjC)] {
+        var publications: [(QuicrNamespace, QPublishTrackHandlerObjC)] = []
+        for profile in publication.profileSet.profiles {
+            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+            publications.append(try self.create(profile.namespace,
+                                                sourceID: publication.sourceID,
+                                                config: config,
+                                                metricsSubmitter: nil))
+        }
+        return publications
+    }
+
     func create(_ namespace: QuicrNamespace,
-                publishDelegate: QPublishObjectDelegateObjC,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> Publication {
+                metricsSubmitter: MetricsSubmitter?) throws -> (QuicrNamespace, QPublishTrackHandlerObjC) {
 
         switch config.codec {
         case .h264, .hevc:
@@ -50,28 +61,30 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            return try H264Publication(namespace: namespace,
-                                       publishDelegate: publishDelegate,
-                                       sourceID: sourceID,
-                                       config: config,
-                                       metricsSubmitter: metricsSubmitter,
-                                       reliable: reliability.video.publication,
-                                       granularMetrics: self.granularMetrics,
-                                       encoder: encoder,
-                                       device: device)
+            let handler = try H264Publication(namespace: namespace,
+                                              sourceID: sourceID,
+                                              config: config,
+                                              metricsSubmitter: metricsSubmitter,
+                                              reliable: reliability.video.publication,
+                                              granularMetrics: self.granularMetrics,
+                                              encoder: encoder,
+                                              device: device)
+            return (namespace, handler)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            return try OpusPublication(namespace: namespace,
-                                       publishDelegate: publishDelegate,
-                                       sourceID: sourceID,
-                                       metricsSubmitter: metricsSubmitter,
-                                       opusWindowSize: opusWindowSize,
-                                       reliable: reliability.audio.publication,
-                                       engine: self.engine,
-                                       granularMetrics: self.granularMetrics,
-                                       config: config)
+            fatalError()
+//            let handler = try OpusPublication(namespace: namespace,
+//                                              sourceID: sourceID,
+//                                              metricsSubmitter: metricsSubmitter,
+//                                              opusWindowSize: opusWindowSize,
+//                                              reliable: reliability.audio.publication,
+//                                              engine: self.engine,
+//                                              granularMetrics: self.granularMetrics,
+//                                              config: config)
+//            return (namespace, handler)
+            // return (namespace, .init)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

@@ -58,6 +58,8 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
+		9B52E53E2C7E30EB0038F946 /* QClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52E53D2C7E30EA0038F946 /* QClient.swift */; };
+		9B52E5402C7E3DB10038F946 /* PublishTrackHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */; };
 		9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52EE322B763157006E9C58 /* PublicationPopover.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
@@ -65,6 +67,9 @@
 		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
 		9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */; };
+		9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */; };
+		9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */; };
+		9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D32C7E935E009D8C24 /* QClientObjC.mm */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
@@ -227,6 +232,8 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
+		9B52E53D2C7E30EA0038F946 /* QClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QClient.swift; sourceTree = "<group>"; };
+		9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublishTrackHandler.swift; sourceTree = "<group>"; };
 		9B52EE322B763157006E9C58 /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
@@ -235,6 +242,18 @@
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoUtilities.swift; sourceTree = "<group>"; };
 		9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestDecimusVideoFrame.swift; sourceTree = "<group>"; };
+		9B8E14D12C7E935E009D8C24 /* QClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QClient.h; sourceTree = "<group>"; };
+		9B8E14D22C7E935E009D8C24 /* QClientObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QClientObjC.h; sourceTree = "<group>"; };
+		9B8E14D32C7E935E009D8C24 /* QClientObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QClientObjC.mm; sourceTree = "<group>"; };
+		9B8E14D42C7E935E009D8C24 /* QPublishTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QPublishTrackHandler.h; sourceTree = "<group>"; };
+		9B8E14D52C7E935E009D8C24 /* QPublishTrackHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QPublishTrackHandlerObjC.h; sourceTree = "<group>"; };
+		9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QPublishTrackHandlerObjC.mm; sourceTree = "<group>"; };
+		9B8E14D72C7E935E009D8C24 /* QSubscribeTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandler.h; sourceTree = "<group>"; };
+		9B8E14D82C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerObjC.h; sourceTree = "<group>"; };
+		9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeTrackHandlerObjC.mm; sourceTree = "<group>"; };
+		9B8E14DE2C7E96F1009D8C24 /* QClientCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QClientCallbacks.h; sourceTree = "<group>"; };
+		9B8E14DF2C7E9885009D8C24 /* QCommon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QCommon.h; sourceTree = "<group>"; };
+		9B8E14E02C7E997A009D8C24 /* QPublishTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QPublishTrackHandlerCallbacks.h; sourceTree = "<group>"; };
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
@@ -464,6 +483,25 @@
 			path = Tests;
 			sourceTree = "<group>";
 		};
+		9B8E14DA2C7E935E009D8C24 /* libquicr */ = {
+			isa = PBXGroup;
+			children = (
+				9B8E14E02C7E997A009D8C24 /* QPublishTrackHandlerCallbacks.h */,
+				9B8E14DF2C7E9885009D8C24 /* QCommon.h */,
+				9B8E14DE2C7E96F1009D8C24 /* QClientCallbacks.h */,
+				9B8E14D12C7E935E009D8C24 /* QClient.h */,
+				9B8E14D22C7E935E009D8C24 /* QClientObjC.h */,
+				9B8E14D32C7E935E009D8C24 /* QClientObjC.mm */,
+				9B8E14D42C7E935E009D8C24 /* QPublishTrackHandler.h */,
+				9B8E14D52C7E935E009D8C24 /* QPublishTrackHandlerObjC.h */,
+				9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */,
+				9B8E14D72C7E935E009D8C24 /* QSubscribeTrackHandler.h */,
+				9B8E14D82C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.h */,
+				9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */,
+			);
+			path = libquicr;
+			sourceTree = "<group>";
+		};
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
@@ -624,6 +662,9 @@
 		FF3B952D2A60C77B00CE463F /* Lib */ = {
 			isa = PBXGroup;
 			children = (
+				9B8E14DA2C7E935E009D8C24 /* libquicr */,
+				9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */,
+				9B52E53D2C7E30EA0038F946 /* QClient.swift */,
 				9BDE86892B70ECAD009467A7 /* Utilities */,
 				D7D156352AD73DE600B4E4F2 /* EncodedBuffer */,
 				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
@@ -860,7 +901,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -900,7 +941,9 @@
 				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
 				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
+				9B52E53E2C7E30EB0038F946 /* QClient.swift in Sources */,
 				9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */,
+				9B52E5402C7E3DB10038F946 /* PublishTrackHandler.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */,
@@ -912,6 +955,9 @@
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
 				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
+				9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */,
+				9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */,
+				9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */,
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
@@ -1187,7 +1233,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1195,19 +1241,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
 					"$(PROJECT_DIR)/dependencies/libjitter/**",
-					"$(PROJECT_DIR)/dependencies/build-catalyst-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/transport/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/transport/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1261,7 +1298,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

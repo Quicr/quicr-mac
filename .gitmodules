@@ -7,3 +7,6 @@
 [submodule "dependencies/libjitter"]
 	path = dependencies/libjitter
 	url = https://github.com/Quicr/libjitter.git
+[submodule "dependencies/libquicr"]
+	path = dependencies/libquicr
+	url = https://github.com/Quicr/libquicr.git

@@ -87,73 +87,69 @@ struct SubscriptionConfig: Codable {
     }
 }
 
-class SubscriptionFactory {
-    private typealias FactoryCallbackType = (QuicrNamespace,
-                                             CodecConfig,
-                                             MetricsSubmitter?) throws -> QSubscriptionDelegateObjC?
-
-    private let participants: VideoParticipants
-    private let engine: DecimusAudioEngine
-    private let config: SubscriptionConfig
-    private let granularMetrics: Bool
-    private weak var controller: CallController?
-    init(participants: VideoParticipants,
-         engine: DecimusAudioEngine,
-         config: SubscriptionConfig,
-         granularMetrics: Bool,
-         controller: CallController) {
-        self.participants = participants
-        self.engine = engine
-        self.config = config
-        self.granularMetrics = granularMetrics
-        self.controller = controller
-    }
-
-    func create(_ sourceId: SourceIDType,
-                profileSet: QClientProfileSet,
-                metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
-        // Supported codec sets.
-        let videoCodecs: Set<CodecType> = [.h264, .hevc]
-        let opusCodecs: Set<CodecType> = [.opus]
-
-        // Resolve profile sets to config.
-        var foundCodecs: [CodecType] = []
-        for profileIndex in 0..<profileSet.profilesCount {
-            let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: config.bitrateType)
-            foundCodecs.append(config.codec)
-        }
-        let found = Set(foundCodecs)
-
-        if found.isSubset(of: videoCodecs) {
-            return try VideoSubscription(sourceId: sourceId,
-                                         profileSet: profileSet,
-                                         participants: self.participants,
-                                         metricsSubmitter: metricsSubmitter,
-                                         videoBehaviour: self.config.videoBehaviour,
-                                         reliable: self.config.mediaReliability.video.subscription,
-                                         granularMetrics: self.granularMetrics,
-                                         jitterBufferConfig: self.config.videoJitterBuffer,
-                                         simulreceive: self.config.simulreceive,
-                                         qualityMissThreshold: self.config.qualityMissThreshold,
-                                         pauseMissThreshold: self.config.pauseMissThreshold,
-                                         controller: self.controller,
-                                         pauseResume: self.config.pauseResume)
-        }
-
-        if found.isSubset(of: opusCodecs) {
-            return try OpusSubscription(sourceId: sourceId,
-                                        profileSet: profileSet,
-                                        engine: self.engine,
-                                        submitter: metricsSubmitter,
-                                        jitterDepth: self.config.jitterDepthTime,
-                                        jitterMax: self.config.jitterMaxTime,
-                                        opusWindowSize: self.config.opusWindowSize,
-                                        reliable: self.config.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics)
-        }
-
-        throw CodecError.unsupportedCodecSet(found)
-    }
-}
+//class SubscriptionFactory {
+//    private typealias FactoryCallbackType = (QuicrNamespace,
+//                                             CodecConfig,
+//                                             MetricsSubmitter?) throws -> QSubscriptionDelegateObjC?
+//
+//    private let participants: VideoParticipants
+//    private let engine: DecimusAudioEngine
+//    private let config: SubscriptionConfig
+//    private let granularMetrics: Bool
+//    init(participants: VideoParticipants,
+//         engine: DecimusAudioEngine,
+//         config: SubscriptionConfig,
+//         granularMetrics: Bool) {
+//        self.participants = participants
+//        self.engine = engine
+//        self.config = config
+//        self.granularMetrics = granularMetrics
+//    }
+//
+//    func create(_ sourceId: SourceIDType,
+//                profileSet: QClientProfileSet,
+//                metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
+//        // Supported codec sets.
+//        let videoCodecs: Set<CodecType> = [.h264, .hevc]
+//        let opusCodecs: Set<CodecType> = [.opus]
+//
+//        // Resolve profile sets to config.
+//        var foundCodecs: [CodecType] = []
+//        for profileIndex in 0..<profileSet.profilesCount {
+//            let profile = profileSet.profiles.advanced(by: profileIndex).pointee
+//            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
+//                                                      bitrateType: config.bitrateType)
+//            foundCodecs.append(config.codec)
+//        }
+//        let found = Set(foundCodecs)
+//
+//        if found.isSubset(of: videoCodecs) {
+//            return try VideoSubscription(sourceId: sourceId,
+//                                         profileSet: profileSet,
+//                                         participants: self.participants,
+//                                         metricsSubmitter: metricsSubmitter,
+//                                         videoBehaviour: self.config.videoBehaviour,
+//                                         reliable: self.config.mediaReliability.video.subscription,
+//                                         granularMetrics: self.granularMetrics,
+//                                         jitterBufferConfig: self.config.videoJitterBuffer,
+//                                         simulreceive: self.config.simulreceive,
+//                                         qualityMissThreshold: self.config.qualityMissThreshold,
+//                                         pauseMissThreshold: self.config.pauseMissThreshold,
+//                                         pauseResume: self.config.pauseResume)
+//        }
+//
+//        if found.isSubset(of: opusCodecs) {
+//            return try OpusSubscription(sourceId: sourceId,
+//                                        profileSet: profileSet,
+//                                        engine: self.engine,
+//                                        submitter: metricsSubmitter,
+//                                        jitterDepth: self.config.jitterDepthTime,
+//                                        jitterMax: self.config.jitterMaxTime,
+//                                        opusWindowSize: self.config.opusWindowSize,
+//                                        reliable: self.config.mediaReliability.audio.subscription,
+//                                        granularMetrics: self.granularMetrics)
+//        }
+//
+//        throw CodecError.unsupportedCodecSet(found)
+//    }
+//}

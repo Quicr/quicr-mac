@@ -2,7 +2,7 @@ import AVFAudio
 import CoreAudio
 import os
 
-class OpusSubscription: QSubscriptionDelegateObjC {
+class OpusSubscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
     let sourceId: SourceIDType
@@ -21,7 +21,7 @@ class OpusSubscription: QSubscriptionDelegateObjC {
     private let opusWindowSize: OpusWindowSize
 
     init(sourceId: SourceIDType,
-         profileSet: QClientProfileSet,
+         profileSet: ProfileSet,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
@@ -69,18 +69,6 @@ class OpusSubscription: QSubscriptionDelegateObjC {
         }
 
         Self.logger.info("Subscribed to OPUS stream")
-    }
-
-    func prepare(_ sourceID: SourceIDType!,
-                 label: String!,
-                 profileSet: QClientProfileSet,
-                 transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
-        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
-        return SubscriptionError.none.rawValue
-    }
-
-    func update(_ sourceId: SourceIDType!, label: String!, profileSet: QClientProfileSet) -> Int32 {
-        return SubscriptionError.noDecoder.rawValue
     }
 
     func subscribedObject(_ name: String!,

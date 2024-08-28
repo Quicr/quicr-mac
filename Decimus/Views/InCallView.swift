@@ -15,7 +15,8 @@ struct InCallView: View {
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
-        viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
+        // viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
+        false
     }
 
     /// Callback when call is left.
@@ -56,8 +57,8 @@ struct InCallView: View {
                         } else {
                             // Incoming videos.
                             if let controller = viewModel.controller {
-                                VideoGrid(participants: controller.subscriberDelegate.participants)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+//                                VideoGrid(participants: controller.subscriberDelegate.participants)
+//                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                         }
 
@@ -71,24 +72,24 @@ struct InCallView: View {
                         }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
-                        if let controller = viewModel.controller {
-                            SubscriptionPopover(controller: controller)
-                        }
-                        Spacer()
-                        Button("Done") {
-                            self.isShowingSubscriptions = false
-                        }
-                        .padding()
+//                        if let controller = viewModel.controller {
+//                            SubscriptionPopover(controller: controller)
+//                        }
+//                        Spacer()
+//                        Button("Done") {
+//                            self.isShowingSubscriptions = false
+//                        }
+//                        .padding()
                     }
                     .sheet(isPresented: $isShowingPublications) {
-                        if let controller = viewModel.controller {
-                            PublicationPopover(controller: controller)
-                        }
-                        Spacer()
-                        Button("Done") {
-                            self.isShowingPublications = false
-                        }
-                        .padding()
+//                        if let controller = viewModel.controller {
+//                            PublicationPopover(controller: controller)
+//                        }
+//                        Spacer()
+//                        Button("Done") {
+//                            self.isShowingPublications = false
+//                        }
+//                        .padding()
                     }
 
                     // Call controls panel.
@@ -176,10 +177,10 @@ struct InCallView: View {
                     continue
                 }
 
-                guard await viewModel.connected() else {
-                    await viewModel.leave()
-                    return onLeave()
-                }
+//                guard await viewModel.connected() else {
+//                    await viewModel.leave()
+//                    return onLeave()
+//                }
             }
         }
     }
@@ -191,7 +192,7 @@ extension InCallView {
         private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
         let engine: DecimusAudioEngine?
-        private(set) var controller: CallController?
+        private(set) var controller: MoqCallController?
         private(set) var captureManager: CaptureManager?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
@@ -251,31 +252,34 @@ extension InCallView {
             if let captureManager = self.captureManager,
                let engine = self.engine {
                 do {
-                    self.controller = try .init(metricsSubmitter: submitter,
-                                                captureManager: captureManager,
-                                                config: subscriptionConfig.value,
-                                                engine: engine,
-                                                granularMetrics: influxConfig.value.granular)
+//                    self.controller = try MoqCallController(config: <#T##ClientConfig#>,
+//                                                            manifest: <#T##Manifest#>,
+//                                                            metricsSubmitter: self.submitter,
+//                                                            captureManager: captureManager,
+//                                                            subscriptionConfig: self.subscriptionConfig,
+//                                                            engine: engine,
+//                                                            granularMetrics: ,
+//                                                            videoParticipants: <#T##VideoParticipants#>)
                 } catch {
                     Self.logger.error("CallController failed: \(error.localizedDescription)")
                 }
             }
         }
 
-        func connected() async -> Bool {
-            guard let controller = self.controller else {
-                return false
-            }
-            if !controller.connected() {
-                Self.logger.error("Connection to relay disconnected")
-                return false
-            }
-            return true
-        }
+//        func connected() async -> Bool {
+//            guard let controller = self.controller else {
+//                return false
+//            }
+//            if !controller.connected() {
+//                Self.logger.error("Connection to relay disconnected")
+//                return false
+//            }
+//            return true
+//        }
 
         func join() async -> Bool {
             do {
-                try await self.controller?.connect(config: config)
+                try await self.controller?.connect()
             } catch CallError.failedToConnect(let errorCode) {
                 Self.logger.error("Failed to connect to relay: (\(errorCode))")
                 return false

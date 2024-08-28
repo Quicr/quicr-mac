@@ -15,7 +15,7 @@ struct AvailableImage {
 }
 
 // swiftlint:disable type_body_length
-class VideoSubscription: QSubscriptionDelegateObjC {
+class VideoSubscription {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
     private let sourceId: SourceIDType
@@ -40,7 +40,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private let cleanupTimer: TimeInterval = 1.5
     private var pauseMissCounts: [QuicrNamespace: Int] = [:]
     private let pauseMissThreshold: Int
-    private weak var callController: CallController?
     private let pauseResume: Bool
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: QuicrNamespace?
@@ -52,7 +51,7 @@ class VideoSubscription: QSubscriptionDelegateObjC {
     private var timestampTimeDiff: TimeInterval?
 
     init(sourceId: SourceIDType,
-         profileSet: QClientProfileSet,
+         profileSet: ProfileSet,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
@@ -62,7 +61,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,
-         controller: CallController?,
          pauseResume: Bool) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
@@ -84,27 +82,25 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         self.simulreceive = simulreceive
         self.qualityMissThreshold = qualityMissThreshold
         self.pauseMissThreshold = pauseMissThreshold
-        self.callController = controller
         self.pauseResume = pauseResume
-        self.variances = try .init(expectedOccurrences: profileSet.profilesCount,
+        self.variances = try .init(expectedOccurrences: profileSet.profiles.count,
                                    submitter: self.granularMetrics ? metricsSubmitter : nil,
                                    source: sourceId,
                                    stage: "SubscribedObject")
-        self.decodedVariances = try .init(expectedOccurrences: profileSet.profilesCount,
+        self.decodedVariances = try .init(expectedOccurrences: profileSet.profiles.count,
                                           submitter: self.granularMetrics ? metricsSubmitter : nil,
                                           source: sourceId,
                                           stage: "Decoded")
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
-        for profileIndex in 0..<profileSet.profilesCount {
-            let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
+        for profile in profileSet.profiles {
+            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
                                                       bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
-            let namespace = QuicrNamespace(cString: profile.quicrNamespace)
+            let namespace = profile.namespace
             createdProfiles[namespace] = config
         }
 
@@ -149,18 +145,6 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         if self.simulreceive == .enable {
             self.participants.removeParticipant(identifier: self.sourceId)
         }
-    }
-
-    func prepare(_ sourceID: SourceIDType!,
-                 label: String!,
-                 profileSet: QClientProfileSet,
-                 transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
-        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
-        return SubscriptionError.none.rawValue
-    }
-
-    func update(_ sourceId: String!, label: String!, profileSet: QClientProfileSet) -> Int32 {
-        return SubscriptionError.noDecoder.rawValue
     }
 
     func subscribedObject(_ name: String!,
@@ -400,26 +384,27 @@ class VideoSubscription: QSubscriptionDelegateObjC {
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
         if self.pauseResume {
-            for pauseCandidateCount in self.pauseMissCounts {
-                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
-                      pauseCandidate.config.width > incomingWidth,
-                      let callController = self.callController,
-                      callController.getSubscriptionState(pauseCandidate.namespace) == .ready else {
-                    continue
-                }
-
-                let newValue = pauseCandidateCount.value + 1
-                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
-                if newValue >= self.pauseMissThreshold {
-                    // Pause this subscription.
-                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
-                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
-                    self.pauseMissCounts[pauseCandidate.namespace] = 0
-                } else {
-                    // Increment the pause miss count.
-                    self.pauseMissCounts[pauseCandidate.namespace] = newValue
-                }
-            }
+            fatalError()
+//            for pauseCandidateCount in self.pauseMissCounts {
+//                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
+//                      pauseCandidate.config.width > incomingWidth,
+//                      let callController = self.callController,
+//                      callController.getSubscriptionState(pauseCandidate.namespace) == .ready else {
+//                    continue
+//                }
+//
+//                let newValue = pauseCandidateCount.value + 1
+//                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+//                if newValue >= self.pauseMissThreshold {
+//                    // Pause this subscription.
+//                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
+//                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
+//                    self.pauseMissCounts[pauseCandidate.namespace] = 0
+//                } else {
+//                    // Increment the pause miss count.
+//                    self.pauseMissCounts[pauseCandidate.namespace] = newValue
+//                }
+//            }
         }
 
         guard let handler = self.videoHandlers[selected.namespace] else {
