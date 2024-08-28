@@ -6,26 +6,19 @@
 #endif
 
 #import <Foundation/Foundation.h>
-
-@protocol QSubscribeTrackHandlerCallbacks
-- (int) statusChanged: (int) status;
-- (void) objectReceivedData: (uint8_t *) data length: (size_t) length;
-@end
-
-typedef struct SubFullTrackName
-{
-    NSString *nameSpace;
-    NSString *name;
-} SubFullTrackName;
+#import "QCommon.h"
+#import "QSubscribeTrackHandlerCallbacks.h"
 
 @interface QSubscribeTrackHandlerObjC : NSObject
 {
 #ifdef __cplusplus
+@public
     std::shared_ptr<QSubscribeTrackHandler> handlerPtr;
 #endif
 }
 
--(id) initWithFullTrackName: (SubFullTrackName) full_track_name;
+-(id) initWithFullTrackName: (QFullTrackName) full_track_name;
+-(QSubscribeTrackHandlerStatus) getStatus;
 
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks;
 

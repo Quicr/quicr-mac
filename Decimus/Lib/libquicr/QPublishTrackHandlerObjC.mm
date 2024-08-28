@@ -1,22 +1,12 @@
 #import <Foundation/Foundation.h>
 #import "QPublishTrackHandlerObjC.h"
+#import "QCommon.h"
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
 -(id) initWithFullTrackName: (QFullTrackName) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
 {
-    auto cnamespace = [full_track_name.nameSpace UTF8String];
-    auto cnamespaceLength = [full_track_name.nameSpace length];
-    std::vector<std::uint8_t> name_space(cnamespace, cnamespace + cnamespaceLength);
-    
-    auto cname = [full_track_name.nameSpace UTF8String];
-    auto cnameLength = [full_track_name.nameSpace length];
-    std::vector<std::uint8_t> name(cname, cname + cnameLength);
-    
-    moq::FullTrackName fullTrackName {
-        .name_space = name_space,
-        .name = name
-    };
+    moq::FullTrackName fullTrackName = ftnConvert(full_track_name);
     moq::TrackMode moqTrackMode = (moq::TrackMode)track_mode;
     
     // allocate handler...
@@ -27,10 +17,63 @@
 
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
 {
-    if (handlerPtr)
-    {
-        handlerPtr->SetCallbacks(callbacks);
-    }
+    assert(handlerPtr);
+    handlerPtr->SetCallbacks(callbacks);
+}
+
+moq::ObjectHeaders from(QObjectHeaders objectHeaders) {
+    return moq::ObjectHeaders {
+        .object_id = objectHeaders.objectId,
+        .group_id = objectHeaders.groupId,
+        .priority = objectHeaders.priority,
+        .ttl = objectHeaders.ttl,
+        .payload_length = objectHeaders.payloadLength
+    };
+}
+
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data
+{
+    assert(handlerPtr);
+    auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
+    auto headers = moq::ObjectHeaders {
+        .object_id = objectHeaders.objectId,
+        .group_id = objectHeaders.groupId,
+        .priority = objectHeaders.priority,
+        .ttl = objectHeaders.ttl,
+        .payload_length = objectHeaders.payloadLength
+    };
+    auto status = handlerPtr->PublishObject(headers, {ptr, data.length});
+    return static_cast<QPublishObjectStatus>(status);
+}
+
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data {
+    assert(handlerPtr);
+    auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
+    auto headers = moq::ObjectHeaders {
+        .object_id = objectHeaders.objectId,
+        .group_id = objectHeaders.groupId,
+        .priority = objectHeaders.priority,
+        .ttl = objectHeaders.ttl,
+        .payload_length = objectHeaders.payloadLength
+    };
+    auto status = handlerPtr->PublishPartialObject(headers, {ptr, data.length});
+    return static_cast<QPublishObjectStatus>(status);
+}
+
+-(void) setDefaultPriority: (uint8_t) priority {
+    assert(handlerPtr);
+    handlerPtr->SetDefaultPriority(priority);
+}
+
+-(void) setDefaultTtl: (uint32_t) ttl {
+    assert(handlerPtr);
+    handlerPtr->SetDefaultTTL(ttl);
+}
+
+-(QPublishTrackHandlerStatus) getStatus {
+    assert(handlerPtr);
+    auto status = handlerPtr->GetStatus();
+    return static_cast<QPublishTrackHandlerStatus>(status);
 }
 
 // C++
@@ -46,7 +89,7 @@ void QPublishTrackHandler::StatusChanged(Status status)
 {
     if (_callbacks)
     {
-        [_callbacks statusChanged: (int) status];
+        [_callbacks statusChanged: static_cast<QPublishTrackHandlerStatus>(status)];
     }
 }
 

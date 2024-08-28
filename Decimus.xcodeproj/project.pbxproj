@@ -58,8 +58,6 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
-		9B52E53E2C7E30EB0038F946 /* QClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52E53D2C7E30EA0038F946 /* QClient.swift */; };
-		9B52E5402C7E3DB10038F946 /* PublishTrackHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */; };
 		9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B52EE322B763157006E9C58 /* PublicationPopover.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
@@ -94,8 +92,6 @@
 		9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */; };
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
-		D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */; };
-		D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */ = {isa = PBXBuildFile; fileRef = D78619442A28FC9D00EC0556 /* QControllerGW.mm */; };
 		D7883CA22A2E82A200B88A61 /* qmedia.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; };
 		D7883CA32A2E82A200B88A61 /* qmedia.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = D786194B2A290F1600EC0556 /* qmedia.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
@@ -200,7 +196,6 @@
 		1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "H264Publication+Measurement.swift"; sourceTree = "<group>"; };
 		1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpusSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
-		18821A2A2B10A604009BBA62 /* ProfileSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProfileSet.h; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18A130BF2B4D7E8700F17372 /* OpusHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusHandler.swift; sourceTree = "<group>"; };
@@ -232,8 +227,6 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
-		9B52E53D2C7E30EA0038F946 /* QClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QClient.swift; sourceTree = "<group>"; };
-		9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublishTrackHandler.swift; sourceTree = "<group>"; };
 		9B52EE322B763157006E9C58 /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
@@ -275,6 +268,7 @@
 		9BCA87022C3423F500DA4F41 /* NumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberView.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
+		9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerCallbacks.h; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
@@ -282,12 +276,6 @@
 		9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
-		D78619402A28FC9C00EC0556 /* QDelegatesObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QDelegatesObjC.h; sourceTree = "<group>"; };
-		D78619412A28FC9C00EC0556 /* QMediaDelegates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QMediaDelegates.h; sourceTree = "<group>"; };
-		D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = QMediaDelegates.mm; sourceTree = "<group>"; };
-		D78619432A28FC9D00EC0556 /* QControllerGW.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGW.h; sourceTree = "<group>"; };
-		D78619442A28FC9D00EC0556 /* QControllerGW.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = QControllerGW.mm; sourceTree = "<group>"; };
-		D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QControllerGWObjC.h; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		D786194B2A290F1600EC0556 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = qmedia.xcframework; path = dependencies/qmedia.xcframework; sourceTree = "<group>"; };
 		D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ExtBufferAllocator.hh; sourceTree = "<group>"; };
@@ -441,22 +429,6 @@
 			path = Codec;
 			sourceTree = "<group>";
 		};
-		9B48068A298301ED0040F5D4 /* QMedia */ = {
-			isa = PBXGroup;
-			children = (
-				18821A2A2B10A604009BBA62 /* ProfileSet.h */,
-				D78619432A28FC9D00EC0556 /* QControllerGW.h */,
-				D78619442A28FC9D00EC0556 /* QControllerGW.mm */,
-				D78619452A28FC9D00EC0556 /* QControllerGWObjC.h */,
-				D78619402A28FC9C00EC0556 /* QDelegatesObjC.h */,
-				D78619412A28FC9C00EC0556 /* QMediaDelegates.h */,
-				D78619422A28FC9C00EC0556 /* QMediaDelegates.mm */,
-				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
-				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
-			);
-			path = QMedia;
-			sourceTree = "<group>";
-		};
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -486,6 +458,7 @@
 		9B8E14DA2C7E935E009D8C24 /* libquicr */ = {
 			isa = PBXGroup;
 			children = (
+				9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */,
 				9B8E14E02C7E997A009D8C24 /* QPublishTrackHandlerCallbacks.h */,
 				9B8E14DF2C7E9885009D8C24 /* QCommon.h */,
 				9B8E14DE2C7E96F1009D8C24 /* QClientCallbacks.h */,
@@ -498,6 +471,8 @@
 				9B8E14D72C7E935E009D8C24 /* QSubscribeTrackHandler.h */,
 				9B8E14D82C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.h */,
 				9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */,
+				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
+				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
 			);
 			path = libquicr;
 			sourceTree = "<group>";
@@ -663,12 +638,9 @@
 			isa = PBXGroup;
 			children = (
 				9B8E14DA2C7E935E009D8C24 /* libquicr */,
-				9B52E53F2C7E3DAC0038F946 /* PublishTrackHandler.swift */,
-				9B52E53D2C7E30EA0038F946 /* QClient.swift */,
 				9BDE86892B70ECAD009467A7 /* Utilities */,
 				D7D156352AD73DE600B4E4F2 /* EncodedBuffer */,
 				D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */,
-				9B48068A298301ED0040F5D4 /* QMedia */,
 				FF3B95292A60C19800CE463F /* Jitter */,
 			);
 			path = Lib;
@@ -938,12 +910,9 @@
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
 				184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
-				D78619462A28FC9D00EC0556 /* QMediaDelegates.mm in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
 				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
-				9B52E53E2C7E30EB0038F946 /* QClient.swift in Sources */,
 				9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */,
-				9B52E5402C7E3DB10038F946 /* PublishTrackHandler.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */,
@@ -968,7 +937,6 @@
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
-				D78619472A28FC9D00EC0556 /* QControllerGW.mm in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,

@@ -105,12 +105,4 @@ class ManifestController {
         let decoder = JSONDecoder()
         return try decoder.decode(Manifest.self, from: data)
     }
-
-    func updateManifest() {
-
-    }
-
-    func sendCapabilities() {
-
-    }
 }

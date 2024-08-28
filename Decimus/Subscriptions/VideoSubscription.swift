@@ -15,43 +15,47 @@ struct AvailableImage {
 }
 
 // swiftlint:disable type_body_length
-class VideoSubscription {
+class VideoSubscription: Subscription {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
-    private let sourceId: SourceIDType
+    private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private let granularMetrics: Bool
     private let jitterBufferConfig: VideoJitterBuffer.Config
-    private var videoHandlers: [QuicrNamespace: VideoHandler] = [:]
     private var renderTask: Task<(), Never>?
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
-    private var last: QuicrNamespace?
+    private var last: FullTrackName?
     private var lastImage: AvailableImage?
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
-    private var lastUpdateTimes: [QuicrNamespace: Date] = [:]
+    private var lastUpdateTimes: [FullTrackName: Date] = [:]
     private var handlerLock = OSAllocatedUnfairLock()
-    private let profiles: [QuicrNamespace: VideoCodecConfig]
+    private let profiles: [FullTrackName: VideoCodecConfig]
     private let cleanupTimer: TimeInterval = 1.5
-    private var pauseMissCounts: [QuicrNamespace: Int] = [:]
+    private var pauseMissCounts: [FullTrackName: Int] = [:]
     private let pauseMissThreshold: Int
     private let pauseResume: Bool
     private var lastSimulreceiveLabel: String?
-    private var lastHighlight: QuicrNamespace?
+    private var lastHighlight: FullTrackName?
     private var lastDiscontinous = false
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     private let decodedVariances: VarianceCalculator
-    private var formats: [QuicrNamespace: CMFormatDescription?] = [:]
+    private var formats: [FullTrackName: CMFormatDescription?] = [:]
     private var timestampTimeDiff: TimeInterval?
+    private var videoHandlers: [FullTrackName: VideoHandler] = [:]
 
-    init(sourceId: SourceIDType,
-         profileSet: ProfileSet,
+    private let callback: ObjectReceived = { handler, timestamp, when, userData in
+        let subscription = Unmanaged<VideoSubscription>.fromOpaque(userData).takeUnretainedValue()
+        subscription.receivedObject(handler: handler, timestamp: timestamp, when: when)
+    }
+
+    init(subscription: ManifestSubscription,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
@@ -66,11 +70,11 @@ class VideoSubscription {
             throw "Simulreceive and layer are not compatible"
         }
 
-        self.sourceId = sourceId
+        self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
         if let submitter = metricsSubmitter {
-            let measurement = VideoSubscriptionMeasurement(source: self.sourceId)
+            let measurement = VideoSubscriptionMeasurement(source: self.subscription.sourceID)
             self.measurement = .init(measurement: measurement, submitter: submitter)
         } else {
             self.measurement = nil
@@ -83,34 +87,41 @@ class VideoSubscription {
         self.qualityMissThreshold = qualityMissThreshold
         self.pauseMissThreshold = pauseMissThreshold
         self.pauseResume = pauseResume
-        self.variances = try .init(expectedOccurrences: profileSet.profiles.count,
+        let profiles = subscription.profileSet.profiles
+        self.variances = try .init(expectedOccurrences: profiles.count,
                                    submitter: self.granularMetrics ? metricsSubmitter : nil,
-                                   source: sourceId,
+                                   source: subscription.sourceID,
                                    stage: "SubscribedObject")
-        self.decodedVariances = try .init(expectedOccurrences: profileSet.profiles.count,
+        self.decodedVariances = try .init(expectedOccurrences: profiles.count,
                                           submitter: self.granularMetrics ? metricsSubmitter : nil,
-                                          source: sourceId,
+                                          source: subscription.sourceID,
                                           stage: "Decoded")
 
         // Adjust and store expected quality profiles.
-        var createdProfiles: [QuicrNamespace: VideoCodecConfig] = [:]
-        for profile in profileSet.profiles {
+        var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
+        for profile in profiles {
             let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
                                                       bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
-            let namespace = profile.namespace
-            createdProfiles[namespace] = config
+            let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+            createdProfiles[fullTrackName] = config
         }
 
         // Make all the video handlers upfront.
         self.profiles = createdProfiles
-        for namespace in createdProfiles.keys {
-            self.formats[namespace] = nil
-            self.videoHandlers[namespace] = try makeHandler(namespace: namespace)
+        for fullTrackName in createdProfiles.keys {
+            self.formats[fullTrackName] = nil
+            self.videoHandlers[fullTrackName] = try makeHandler(fullTrackName: fullTrackName)
         }
 
+        // TODO: With MoQ, do we still need this cleanup?
+        // TODO: I think the answer is effectively no, because we cannot know to
+        // TODO: recreate it. The handler itself should hide its video when we don't get
+        // TODO: anything.
+        // TODO: This is a change. State in the handler cannot be reused for a new incoming subscription with the same namespace.
+        // TODO: Our current approach of reusing the names won't work on receiving new subscribed objects on existing handlers.
         // Make task for cleaning up video handlers.
         self.cleanupTask = .init(priority: .utility) { [weak self] in
             while !Task.isCancelled {
@@ -121,7 +132,7 @@ class VideoSubscription {
                         self.lastUpdateTimes.removeValue(forKey: handler.key)
                         if let video = self.videoHandlers.removeValue(forKey: handler.key),
                            let last = self.last,
-                           video.namespace == last {
+                           video.fullTrackName == last {
                             self.last = nil
                             self.lastImage = nil
                         }
@@ -129,7 +140,7 @@ class VideoSubscription {
 
                     // If there are no handlers left and we're simulreceive, we should remove our video render.
                     if self.videoHandlers.isEmpty && self.simulreceive == .enable {
-                        self.participants.removeParticipant(identifier: self.sourceId)
+                        self.participants.removeParticipant(identifier: self.subscription.sourceID)
                     }
                 }
                 try? await Task.sleep(for: .seconds(self.cleanupTimer),
@@ -143,51 +154,33 @@ class VideoSubscription {
 
     deinit {
         if self.simulreceive == .enable {
-            self.participants.removeParticipant(identifier: self.sourceId)
+            self.participants.removeParticipant(identifier: self.subscription.sourceID)
         }
     }
 
-    func subscribedObject(_ name: String!,
-                          data: UnsafeRawPointer!,
-                          length: Int,
-                          groupId: UInt32,
-                          objectId: UInt16) -> Int32 {
-        // Start processing.
-        let now = Date.now
-        let zeroCopiedData = Data(bytesNoCopy: .init(mutating: data), count: length, deallocator: .none)
+    func getHandlers() -> [QSubscribeTrackHandlerObjC] {
+        var handlers: [QSubscribeTrackHandlerObjC] = []
+        for handler in self.videoHandlers {
+            handlers.append(handler.value)
+        }
+        return handlers
+    }
 
-        // Depacketize.
-        let frame: DecimusVideoFrame
-        do {
-            guard let depacketized = try self.depacketize(namespace: name,
-                                                          data: zeroCopiedData,
-                                                          groupId: groupId,
-                                                          objectId: objectId) else {
-                throw "Nothing"
-            }
-            frame = depacketized
-        } catch {
-            Self.logger.error("Failed to depacketize video frame: \(error.localizedDescription)")
-            return 0
+    func receivedObject(handler: VideoHandler, timestamp: TimeInterval, when: Date) {
+        // Set the timestamp diff from the first recveived object will set the time diff.
+        if self.timestampTimeDiff == nil {
+            self.timestampTimeDiff = when.timeIntervalSinceReferenceDate - timestamp
         }
 
-        if let timestamp = frame.samples.first?.presentationTimeStamp.seconds {
-            if self.timestampTimeDiff == nil {
-                self.timestampTimeDiff = now.timeIntervalSinceReferenceDate - timestamp
+        // Calculate switching set arrival variance.
+        _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
+        if self.granularMetrics,
+           let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.measurement.reportTimestamp(namespace: try handler.fullTrackName.getNamespace(),
+                                                              timestamp: timestamp,
+                                                              at: when)
             }
-
-            // Calculate switching set arrival variance.
-            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: now)
-            if self.granularMetrics,
-               let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.reportTimestamp(namespace: name,
-                                                                  timestamp: timestamp,
-                                                                  at: now)
-                }
-            }
-        } else {
-            Self.logger.error("Failed to get timestamp")
         }
 
         // If we're responsible for rendering, start the task.
@@ -195,32 +188,13 @@ class VideoSubscription {
             startRenderTask()
         }
 
-        let handler: VideoHandler
-        do {
-            handler = try self.handlerLock.withLock {
-                self.lastUpdateTimes[name] = now
-                let lookup = self.videoHandlers[name]
-                guard let lookup = lookup else {
-                    let handler = try makeHandler(namespace: name)
-                    self.videoHandlers[name] = handler
-                    return handler
-                }
-                return lookup
-            }
-        } catch {
-            Self.logger.error("Failed to fetch/create handler: \(error.localizedDescription)")
-            return SubscriptionError.none.rawValue
-        }
+        // Record the last time this updated.
+        self.lastUpdateTimes[handler.fullTrackName] = when
+
+        // Timestamp diff.
         if let diff = self.timestampTimeDiff {
             handler.setTimeDiff(diff: diff)
         }
-        do {
-            try handler.submitEncodedData(frame, from: now)
-        } catch {
-            Self.logger.error("Failed to handle video data: \(error.localizedDescription)")
-            return SubscriptionError.none.rawValue
-        }
-        return SubscriptionError.none.rawValue
     }
 
     private func startRenderTask() {
@@ -248,11 +222,12 @@ class VideoSubscription {
         }
     }
 
-    private func makeHandler(namespace: QuicrNamespace) throws -> VideoHandler {
-        guard let config = self.profiles[namespace] else {
-            throw "Missing config for: \(namespace)"
+    private func makeHandler(fullTrackName: FullTrackName) throws -> VideoHandler {
+        guard let config = self.profiles[fullTrackName] else {
+            throw "Missing config for: \(fullTrackName)"
         }
-        return try .init(namespace: namespace,
+        let refToSelf = Unmanaged.passUnretained(self).toOpaque()
+        return try .init(fullTrackName: fullTrackName,
                          config: config,
                          participants: self.participants,
                          metricsSubmitter: self.submitter,
@@ -261,14 +236,16 @@ class VideoSubscription {
                          granularMetrics: self.granularMetrics,
                          jitterBufferConfig: self.jitterBufferConfig,
                          simulreceive: self.simulreceive,
-                         variances: self.decodedVariances)
+                         variances: self.decodedVariances,
+                         callback: self.callback,
+                         userData: refToSelf)
     }
 
     struct SimulreceiveItem: Equatable {
         static func == (lhs: VideoSubscription.SimulreceiveItem, rhs: VideoSubscription.SimulreceiveItem) -> Bool {
-            lhs.namespace == rhs.namespace
+            lhs.fullTrackName == rhs.fullTrackName
         }
-        let namespace: QuicrNamespace
+        let fullTrackName: FullTrackName
         let image: AvailableImage
     }
 
@@ -325,7 +302,7 @@ class VideoSubscription {
                     handler.value.lastDecodedImage = nil
                     continue
                 }
-                initialChoices.append(.init(namespace: handler.key, image: available))
+                initialChoices.append(.init(fullTrackName: handler.key, image: available))
             }
         }
 
@@ -349,7 +326,7 @@ class VideoSubscription {
 
         // Consume all images from our shortlist.
         for choice in choices {
-            let handler = self.videoHandlers[choice.namespace]!
+            let handler = self.videoHandlers[choice.fullTrackName]!
             handler.lastDecodedImageLock.withLock {
                 let theirTime = handler.lastDecodedImage?.image.presentationTimeStamp
                 let ourTime = choice.image.image.presentationTimeStamp
@@ -384,7 +361,7 @@ class VideoSubscription {
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
         if self.pauseResume {
-            fatalError()
+            fatalError("Not supported")
 //            for pauseCandidateCount in self.pauseMissCounts {
 //                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
 //                      pauseCandidate.config.width > incomingWidth,
@@ -407,8 +384,8 @@ class VideoSubscription {
 //            }
         }
 
-        guard let handler = self.videoHandlers[selected.namespace] else {
-            throw "Missing expected handler for namespace: \(selected.namespace)"
+        guard let handler = self.videoHandlers[selected.fullTrackName] else {
+            throw "Missing expected handler for namespace: \(selected.fullTrackName)"
         }
 
         let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
@@ -418,14 +395,14 @@ class VideoSubscription {
             for choice in choices {
                 switch decision {
                 case .highestRes(let item, let pristine):
-                    if choice.namespace == item.namespace {
-                        assert(choice.namespace == selected.namespace)
+                    if choice.fullTrackName == item.fullTrackName {
+                        assert(choice.fullTrackName == selected.fullTrackName)
                         report.append(.init(item: choice, selected: true, reason: "Highest \(pristine ? "Pristine" : "Discontinous")", displayed: !qualitySkip))
                         continue
                     }
                 case .onlyChoice(let item):
-                    if choice.namespace == item.namespace {
-                        assert(choice.namespace == selected.namespace)
+                    if choice.fullTrackName == item.fullTrackName {
+                        assert(choice.fullTrackName == selected.fullTrackName)
                         report.append(.init(item: choice, selected: true, reason: "Only choice", displayed: !qualitySkip))
                     }
                     continue
@@ -453,8 +430,8 @@ class VideoSubscription {
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
-        self.pauseMissCounts[handler.namespace] = 0
-        self.last = handler.namespace
+        self.pauseMissCounts[handler.fullTrackName] = 0
+        self.last = handler.fullTrackName
         self.lastImage = selected.image
 
         if self.simulreceive == .enable {
@@ -475,7 +452,7 @@ class VideoSubscription {
             }
 
             DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.sourceId)
+                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID)
                 if let dispatchLabel = dispatchLabel {
                     participant.label = dispatchLabel
                 }
@@ -487,13 +464,18 @@ class VideoSubscription {
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
-            let namespace = handler.namespace
-            if namespace != self.lastHighlight {
+            let fullTrackName = handler.fullTrackName
+            if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
-                self.lastHighlight = namespace
+                self.lastHighlight = fullTrackName
                 DispatchQueue.main.async {
                     for participant in self.participants.participants {
-                        participant.value.highlight = participant.key == namespace
+                        do {
+                            let namespace = try fullTrackName.getNamespace()
+                            participant.value.highlight = participant.key == namespace
+                        } catch {
+                            Self.logger.error("Failed to parse FTN namespace")
+                        }
                     }
                 }
             }
@@ -511,97 +493,5 @@ class VideoSubscription {
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
-
-    struct VideoHelpers {
-        let utilities: VideoUtilities
-        let seiData: ApplicationSeiData
-    }
-
-    private func depacketize(namespace: QuicrNamespace,
-                             data: Data,
-                             groupId: UInt32,
-                             objectId: UInt16) throws -> DecimusVideoFrame? {
-        let config = self.profiles[namespace]
-        let helpers: VideoHelpers = try {
-            switch config?.codec {
-            case .h264:
-                return .init(utilities: H264Utilities(), seiData: ApplicationH264SEIs())
-            case .hevc:
-                return .init(utilities: HEVCUtilities(), seiData: ApplicationHEVCSEIs())
-            default:
-                throw "Unsupported codec"
-            }
-        }()
-
-        // Depacketize.
-        var extractedFormat: CMFormatDescription?
-        var seis: [ApplicationSEI] = []
-        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
-            do {
-                let parser = ApplicationSeiParser(helpers.seiData)
-                if let sei = try parser.parse(encoded: $0) {
-                    seis.append(sei)
-                }
-            } catch {
-                Self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
-            }
-        }
-        let format: CMFormatDescription?
-        if let extractedFormat = extractedFormat {
-            format = extractedFormat
-            self.formats[namespace] = format
-        } else {
-            guard let existing = self.formats[namespace] else {
-                throw "Expected format"
-            }
-            format = existing
-        }
-
-        let sei: ApplicationSEI?
-        if seis.count == 0 {
-            sei = nil
-        } else {
-            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
-                let timestamp = next.timestamp ?? result.timestamp
-                let orientation = next.orientation ?? result.orientation
-                let age = next.age ?? result.age
-                return .init(timestamp: timestamp, orientation: orientation, age: age)
-            }
-        }
-
-        guard let buffers = buffers else { return nil }
-        let timeInfo: CMSampleTimingInfo
-        if let timestamp = sei?.timestamp {
-            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
-        } else {
-            Self.logger.error("Missing expected frame timestamp")
-            timeInfo = .invalid
-        }
-
-        var samples: [CMSampleBuffer] = []
-        for buffer in buffers {
-            samples.append(try CMSampleBuffer(dataBuffer: buffer,
-                                              formatDescription: format,
-                                              numSamples: 1,
-                                              sampleTimings: [timeInfo],
-                                              sampleSizes: [buffer.dataLength]))
-        }
-
-        let captureDate: Date?
-        if let age = sei?.age {
-            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
-        } else {
-            captureDate = nil
-        }
-
-        return .init(samples: samples,
-                     groupId: groupId,
-                     objectId: objectId,
-                     sequenceNumber: sei?.timestamp?.sequenceNumber,
-                     fps: sei?.timestamp?.fps,
-                     orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror,
-                     captureDate: captureDate)
-    }
 }
 // swiftlint:enable type_body_length

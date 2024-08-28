@@ -251,17 +251,24 @@ extension InCallView {
 
             if let captureManager = self.captureManager,
                let engine = self.engine {
-                do {
-//                    self.controller = try MoqCallController(config: <#T##ClientConfig#>,
-//                                                            manifest: <#T##Manifest#>,
-//                                                            metricsSubmitter: self.submitter,
-//                                                            captureManager: captureManager,
-//                                                            subscriptionConfig: self.subscriptionConfig,
-//                                                            engine: engine,
-//                                                            granularMetrics: ,
-//                                                            videoParticipants: <#T##VideoParticipants#>)
-                } catch {
-                    Self.logger.error("CallController failed: \(error.localizedDescription)")
+                let connectUri: String = "moq://\(config.address)/\(config.port)"
+                let endpointId: String = config.email
+                self.controller = connectUri.withCString { uri in
+                    endpointId.withCString { id in
+                        let config = QClientConfig(connectUri: uri,
+                                                   endpointId: id,
+                                                   transportConfig: .init(),
+                                                   metricsSampleMs: 0)
+                        return .init(config: config,
+                                     metricsSubmitter: self.submitter,
+                                     captureManager: captureManager,
+                                     subscriptionConfig: self.subscriptionConfig.value,
+                                     engine: engine,
+                                     submitter: self.submitter,
+                                     granularMetrics: influxConfig.value.granular,
+                                     // TODO: Where does VideoParticipants come from?
+                                     videoParticipants: VideoParticipants())
+                    }
                 }
             }
         }
@@ -278,8 +285,13 @@ extension InCallView {
 //        }
 
         func join() async -> Bool {
+            guard let controller = self.controller else {
+                fatalError("No controller!?")
+            }
+
+            // Connect to the relay/server.
             do {
-                try await self.controller?.connect()
+                try await controller.connect()
             } catch CallError.failedToConnect(let errorCode) {
                 Self.logger.error("Failed to connect to relay: (\(errorCode))")
                 return false
@@ -288,6 +300,26 @@ extension InCallView {
                 return false
             }
 
+            // Fetch the manifest from the conference server.
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                return false
+            }
+
+            // Inject the manifest in order to create publications & subscriptions.
+            do {
+                try controller.setManifest(manifest)
+            } catch {
+                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
+                return false
+            }
+
+            // Start audio media.
             do {
                 try engine?.start()
                 self.audioCapture = true
@@ -295,6 +327,7 @@ extension InCallView {
                 Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
             }
 
+            // Start video media.
             do {
                 try captureManager?.startCapturing()
                 self.videoCapture = true

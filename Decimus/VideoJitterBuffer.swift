@@ -31,12 +31,12 @@ class VideoJitterBuffer {
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
 
     /// Create a new video jitter buffer.
-    /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
+    /// - Parameter fullTrackName The namespace of the video this buffer is used for, for identification purposes.
     /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
     /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
     /// - Parameter minDepth Fixed initial delay in seconds.
     /// - Parameter capacity Capacity in buffers / elements.
-    init(namespace: QuicrNamespace,
+    init(fullTrackName: FullTrackName,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
          minDepth: TimeInterval,
@@ -81,7 +81,7 @@ class VideoJitterBuffer {
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoJitterBufferMeasurement(namespace: namespace)
+            let measurement = VideoJitterBufferMeasurement(namespace: try fullTrackName.getNamespace())
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil

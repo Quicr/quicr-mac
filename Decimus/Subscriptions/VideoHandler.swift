@@ -11,22 +11,30 @@ enum DecimusVideoRotation: UInt8 {
     case landscapeLeft = 4
 }
 
+struct VideoHelpers {
+    let utilities: VideoUtilities
+    let seiData: ApplicationSeiData
+}
+
+typealias ObjectReceived = (_ handler: VideoHandler,
+                            _ timestamp: TimeInterval,
+                            _ when: Date,
+                            _ userData: UnsafeRawPointer) -> Void
+
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: CustomStringConvertible {
+class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
     let config: VideoCodecConfig
-    /// A description of the video handler.
-    var description: String
-    /// The namespace identifying this stream.
-    let namespace: QuicrNamespace
+    /// The full track name identifiying this stream.
+    let fullTrackName: FullTrackName
 
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
-    private var lastGroup: UInt32?
-    private var lastObject: UInt16?
+    private var lastGroup: UInt64?
+    private var lastObject: UInt64?
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
@@ -56,6 +64,8 @@ class VideoHandler: CustomStringConvertible {
 
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
+    private let callback: ObjectReceived
+    private let userData: UnsafeRawPointer
 
     /// Create a new video handler.
     /// - Parameters:
@@ -69,7 +79,7 @@ class VideoHandler: CustomStringConvertible {
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
-    init(namespace: QuicrNamespace,
+    init(fullTrackName: FullTrackName,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -78,16 +88,17 @@ class VideoHandler: CustomStringConvertible {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         variances: VarianceCalculator) throws {
+         variances: VarianceCalculator,
+         callback: @escaping ObjectReceived,
+         userData: UnsafeRawPointer) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
-
-        self.namespace = namespace
+        self.fullTrackName = fullTrackName
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: namespace)
+            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: try self.fullTrackName.getNamespace())
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
@@ -98,8 +109,10 @@ class VideoHandler: CustomStringConvertible {
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
-        self.description = self.namespace
         self.variances = variances
+        self.callback = callback
+        self.userData = userData
+        super.init()
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -132,10 +145,52 @@ class VideoHandler: CustomStringConvertible {
 
     deinit {
         if self.simulreceive != .enable {
-            self.participants.removeParticipant(identifier: namespace)
+            do {
+                self.participants.removeParticipant(identifier: try self.fullTrackName.getNamespace())
+            } catch {
+                Self.logger.error("Failed to extract FTN namespace")
+            }
         }
         self.dequeueTask?.cancel()
     }
+
+    // MARK: Callbacks.
+
+    func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
+        Self.logger.info("Subscribe Track Status Changed: \(status)")
+    }
+
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+        let now = Date.now
+        let data = Data(bytesNoCopy: data, count: length, deallocator: .none)
+        do {
+            guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
+                                                   data: data,
+                                                   groupId: objectHeaders.groupId,
+                                                   objectId: objectHeaders.objectId) else {
+                Self.logger.warning("No video data in object")
+                return
+            }
+
+            guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
+                Self.logger.error("Missing expected timestamp")
+                return
+            }
+
+            self.callback(self, timestamp, now, self.userData)
+
+            // TODO: This can be inlined here.
+            try self.submitEncodedData(frame, from: now)
+        } catch {
+            Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
+        }
+    }
+
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+        Self.logger.error("Not expecting partial objects")
+    }
+
+    // MARK: Implementation.
 
     /// Pass an encoded video frame to this video handler.
     /// - Parameter data Encoded H264 frame data.
@@ -177,9 +232,8 @@ class VideoHandler: CustomStringConvertible {
                 self.lastDimensions = first.formatDescription?.dimensions
                 DispatchQueue.main.async {
                     do {
-                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
                         guard self.simulreceive != .enable else { return }
-                        let participant = self.participants.getOrMake(identifier: self.namespace)
+                        let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
                         participant.label = .init(describing: self)
                     } catch {
                         Self.logger.error("Failed to set label: \(error.localizedDescription)")
@@ -247,7 +301,7 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Create the video jitter buffer.
-        self.jitterBuffer = try .init(namespace: self.namespace,
+        self.jitterBuffer = try .init(fullTrackName: self.fullTrackName,
                                       metricsSubmitter: self.metricsSubmitter,
                                       sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
@@ -385,8 +439,8 @@ class VideoHandler: CustomStringConvertible {
 
         // Enqueue the sample on the main thread.
         DispatchQueue.main.async {
-            let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
+                let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
@@ -426,8 +480,8 @@ class VideoHandler: CustomStringConvertible {
 
     private func flushDisplayLayer() {
         DispatchQueue.main.async {
-            let participant = self.participants.getOrMake(identifier: self.namespace)
             do {
+                let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
                 try participant.view.flush()
             } catch {
                 Self.logger.error("Could not flush layer: \(error)")
@@ -442,7 +496,89 @@ class VideoHandler: CustomStringConvertible {
             throw "Missing sample format"
         }
         let size = format.dimensions
-        return "\(self.namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+        let namespace = try self.fullTrackName.namespace
+        return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+    }
+    
+    private func depacketize(fullTrackName: FullTrackName,
+                             data: Data,
+                             groupId: UInt64,
+                             objectId: UInt64) throws -> DecimusVideoFrame? {
+        let helpers: VideoHelpers = try {
+            switch self.config.codec {
+            case .h264:
+                return .init(utilities: H264Utilities(), seiData: ApplicationH264SEIs())
+            case .hevc:
+                return .init(utilities: HEVCUtilities(), seiData: ApplicationHEVCSEIs())
+            default:
+                throw "Unsupported codec"
+            }
+        }()
+
+        // Depacketize.
+        var extractedFormat: CMFormatDescription?
+        var seis: [ApplicationSEI] = []
+        let buffers = try helpers.utilities.depacketize(data, format: &extractedFormat, copy: false) {
+            do {
+                let parser = ApplicationSeiParser(helpers.seiData)
+                if let sei = try parser.parse(encoded: $0) {
+                    seis.append(sei)
+                }
+            } catch {
+                Self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
+            }
+        }
+        let format: CMFormatDescription?
+        if let extractedFormat = extractedFormat {
+            self.currentFormat = extractedFormat
+        }
+        format = self.currentFormat
+
+        let sei: ApplicationSEI?
+        if seis.count == 0 {
+            sei = nil
+        } else {
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
+                let timestamp = next.timestamp ?? result.timestamp
+                let orientation = next.orientation ?? result.orientation
+                let age = next.age ?? result.age
+                return .init(timestamp: timestamp, orientation: orientation, age: age)
+            }
+        }
+
+        guard let buffers = buffers else { return nil }
+        let timeInfo: CMSampleTimingInfo
+        if let timestamp = sei?.timestamp {
+            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
+        } else {
+            Self.logger.error("Missing expected frame timestamp")
+            timeInfo = .invalid
+        }
+
+        var samples: [CMSampleBuffer] = []
+        for buffer in buffers {
+            samples.append(try CMSampleBuffer(dataBuffer: buffer,
+                                              formatDescription: format,
+                                              numSamples: 1,
+                                              sampleTimings: [timeInfo],
+                                              sampleSizes: [buffer.dataLength]))
+        }
+
+        let captureDate: Date?
+        if let age = sei?.age {
+            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
+        } else {
+            captureDate = nil
+        }
+
+        return .init(samples: samples,
+                     groupId: groupId,
+                     objectId: objectId,
+                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     fps: sei?.timestamp?.fps,
+                     orientation: sei?.orientation?.orientation,
+                     verticalMirror: sei?.orientation?.verticalMirror,
+                     captureDate: captureDate)
     }
 }
 
@@ -475,17 +611,7 @@ extension DecimusVideoRotation {
     }
 }
 
-extension VideoHandler: Hashable {
-    static func == (lhs: VideoHandler, rhs: VideoHandler) -> Bool {
-        return lhs.namespace == rhs.namespace
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.namespace)
-    }
-}
-
-extension CMVideoDimensions: Equatable {
+extension CMVideoDimensions: @retroactive Equatable {
     public static func == (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
         lhs.width == rhs.width && lhs.height == rhs.height
     }

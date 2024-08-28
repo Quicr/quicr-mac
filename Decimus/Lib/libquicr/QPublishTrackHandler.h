@@ -20,7 +20,6 @@ public:
     
 private:
     id<QPublishTrackHandlerCallbacks> _callbacks;
-    
 };
 
 

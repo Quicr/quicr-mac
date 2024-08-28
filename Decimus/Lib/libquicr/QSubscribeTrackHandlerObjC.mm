@@ -1,58 +1,65 @@
-////
-////  QSubscribeTrackHandler.mm
-////  Decimus
-////
-////  Created by Scott Henning on 8/27/24.
-////
-//
-//#import <Foundation/Foundation.h>
-//
-//@implementation QSubscribeTrackHandlerObjC : NSObject
-//
-//-(id) initWithFullTrackName: fullTrackName: (SubFullTrackName) full_track_name
-//{
-//    moq::FullTrackName fullTrackName;
-//    // I know this doesn't work... just placehodler.
-//    fullTrackName.name_space =(uint8_t *)full_track_name.nameSpace.UTF8String;
-//    fullTrackName.name = (uint8_t *)full_track_name.name.UTF8String;
-//
-//    // allocate handler...
-//    _handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
-//}
-//
-//
-//-(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
-//{
-//    if (handlerPtr)
-//    {
-//        handlerPtr->SetCallbacks(callbacks);
-//    }
-//}
-//
-//// C++
-//
-//QSubscribeTrackHandler::QSubscribeTrackHandler(const FullTrackName& full_track_name): moq::SubscribeTrackHandler(full_track_name)
-//{
-//}
-//
-//void QSubscribeTrackHandler::StatusChanged(Status status)
-//{
-//    if (callbacks)
-//    {
-//        [callbacks statusChanged: (int) status];
-//    }
-//}
-//
-//void QSubscriberTrackHandler::ObjectReceived(const ObjectHeaders& object_headers,
-//                                            Span<uint8_t> data)
-//{
-//    if (callbacks)
-//    {
-//        [callbacks objectReceivedData: data.data length: data.size]
-//    }
-//}
-//
-//void QSubscribeTrackHandler::SetCallbacks(callbacks)
-//{
-//    _callbacks = callbacks;
-//}
+#import <Foundation/Foundation.h>
+#import "QSubscribeTrackHandlerObjC.h"
+#import "QCommon.h"
+
+@implementation QSubscribeTrackHandlerObjC : NSObject
+
+-(id) initWithFullTrackName: (QFullTrackName) full_track_name
+{
+    moq::FullTrackName fullTrackName = ftnConvert(full_track_name);
+    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
+    return self;
+}
+
+-(QSubscribeTrackHandlerStatus) getStatus {
+    assert(handlerPtr);
+    auto status = handlerPtr->GetStatus();
+    return static_cast<QSubscribeTrackHandlerStatus>(status);
+}
+
+-(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
+{
+    assert(handlerPtr);
+    handlerPtr->SetCallbacks(callbacks);
+}
+
+@end
+
+// C++
+
+QSubscribeTrackHandler::QSubscribeTrackHandler(const moq::FullTrackName& full_track_name): moq::SubscribeTrackHandler(full_track_name) { }
+
+void QSubscribeTrackHandler::StatusChanged(Status status)
+{
+    if (_callbacks)
+    {
+        [_callbacks statusChanged: static_cast<QSubscribeTrackHandlerStatus>(status)];
+    }
+}
+
+void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_headers,
+                                            Span<uint8_t> data)
+{
+    if (_callbacks)
+    {
+        // TODO: Translate the headers.
+        QObjectHeaders headers;
+        [_callbacks objectReceived:headers data:data.data() length:data.size()];
+    }
+}
+
+void QSubscribeTrackHandler::PartialObjectReceived(const moq::ObjectHeaders& object_headers,
+                                                   Span<uint8_t> data)
+{
+    if (_callbacks)
+    {
+        // TODO: Translate the headers.
+        QObjectHeaders headers;
+        [_callbacks partialObjectReceived:headers data:data.data() length:data.size()];
+    }
+}
+
+void QSubscribeTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
+{
+    _callbacks = callbacks;
+}

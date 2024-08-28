@@ -1,23 +1,23 @@
 #import <Foundation/Foundation.h>
 
 typedef NS_ENUM(uint8_t, QClientStatus) {
-    kReady,
-    kNotReady,
-    kInternalError,
-    kInvalidParams,
-    kClientConnecting,
-    kDisconnecting,
-    kClientNotConnected,
-    kClientFailedToConnect
+    kQClientStatusReady,
+    kQClientStatusNotReady,
+    kQClientStatusInternalError,
+    kQClientStatusInvalidParams,
+    kQClientStatusClientConnecting,
+    kQClientStatusDisconnecting,
+    kQClientStatusClientNotConnected,
+    kQClientStatusClientFailedToConnect
 };
 
 typedef NS_ENUM(uint8_t, QPublishAnnounceStatus) {
-    kOK,
-    kNotConnected,
-    kNotAnnounced,
-    kPendingAnnounceResponse,
-    kAnnounceNotAuthorized,
-    kSendingUnannounce
+    kQPublishAnnounceStatusOK,
+    kQPublishAnnounceStatusNotConnected,
+    kQPublishAnnounceStatusNotAnnounced,
+    kQPublishAnnounceStatusPendingAnnounceResponse,
+    kQPublishAnnounceStatusAnnounceNotAuthorized,
+    kQPublishAnnounceStatusSendingUnannounce
 };
 
 typedef struct QServerSetupAttributes {

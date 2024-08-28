@@ -2,12 +2,6 @@ import Foundation
 import AVFoundation
 
 class PublicationFactory {
-//    private typealias FactoryCallbackType = (QuicrNamespace,
-//                                             QPublishObjectDelegateObjC,
-//                                             SourceIDType,
-//                                             CodecConfig,
-//                                             MetricsSubmitter?) throws -> Publication
-
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
     private let granularMetrics: Bool
@@ -74,17 +68,15 @@ class PublicationFactory {
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            fatalError()
-//            let handler = try OpusPublication(namespace: namespace,
-//                                              sourceID: sourceID,
-//                                              metricsSubmitter: metricsSubmitter,
-//                                              opusWindowSize: opusWindowSize,
-//                                              reliable: reliability.audio.publication,
-//                                              engine: self.engine,
-//                                              granularMetrics: self.granularMetrics,
-//                                              config: config)
-//            return (namespace, handler)
-            // return (namespace, .init)
+            let handler = try OpusPublication(namespace: namespace,
+                                              sourceID: sourceID,
+                                              metricsSubmitter: metricsSubmitter,
+                                              opusWindowSize: opusWindowSize,
+                                              reliable: reliability.audio.publication,
+                                              engine: self.engine,
+                                              granularMetrics: self.granularMetrics,
+                                              config: config)
+            return (namespace, handler)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

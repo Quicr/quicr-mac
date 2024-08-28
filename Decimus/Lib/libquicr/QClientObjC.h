@@ -7,7 +7,11 @@
 #endif
 
 #import "QPublishTrackHandlerObjC.h"
+#import "QSubscribeTrackHandlerObjC.h"
 #import "QClientCallbacks.h"
+#import "TransportConfig.h"
+
+#import <Foundation/Foundation.h>
 
 @interface QClientObjC : NSObject
 {
@@ -16,18 +20,30 @@
 #endif
 }
 
+typedef struct QClientConfig {
+    const char* connectUri;
+    const char* endpointId;
+    TransportConfig transportConfig;
+    uint64_t metricsSampleMs;
+} QClientConfig;
 
-typedef struct ClientConfig {
-
-} ClientConfig;
-
-
--(id)initWithConfig: (ClientConfig) config;
+-(id)initWithConfig: (QClientConfig) config;
 
 -(QClientStatus)connect;
 -(QClientStatus)disconnect;
 
--(void)publishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
+-(void) publishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
+-(void) unpublishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
+
+-(QPublishAnnounceStatus) publishAnnounce: (NSData*) trackNamespace;
+-(void) publishUnannounce: (NSData*) trackNamespace;
+
+-(void) subscribeTrackWithHandler: (QSubscribeTrackHandlerObjC*) handler;
+-(void) unsubscribeTrackWithHandler: (QSubscribeTrackHandlerObjC*) handler;
+
+-(QPublishAnnounceStatus) getAnnounceStatus: (NSData*) trackNamespace;
+
+
 
 -(void)setCallbacks: (id<QClientCallbacks>) callbacks;
 

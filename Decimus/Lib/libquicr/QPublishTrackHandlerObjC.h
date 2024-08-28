@@ -9,20 +9,28 @@
 #import "QPublishTrackHandlerCallbacks.h"
 #import "QCommon.h"
 
-typedef struct QObjectHeaders {
-    uint64_t groupId;
-    uint64_t objectId;
-    uint64_t payloadLength;
-    uint8_t priority;
-    uint16_t ttl;
-    // TODO: Headers.
-} QObjectHeaders;
-
 typedef NS_ENUM(uint8_t, QTrackMode) {
-    kDatagram,
-    kStreamPerObject,
-    skStreamPerGroup,
-    kStreamPerTrack
+    kQTrackModeDatagram,
+    kQTrackModeStreamPerObject,
+    kQTrackModeStreamPerGroup,
+    kQTrackModeStreamPerTrack
+};
+
+typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
+    kQPublishObjectStatusOk,
+    kQPublishObjectStatusInternalError,
+    kQPublishObjectStatusNotAuthorized,
+    kQPublishObjectStatusNotAnnounced,
+    kQPublishObjectStatusNoSubscribers,
+    kQPublishObjectStatusObjectPayloadLengthExceeded,
+    kQPublishObjectStatusPreviousObjectTruncated,
+    kQPublishObjectStatusNoPreviousObject,
+    kQPublishObjectStatusObjectDataComplete,
+    kQPublishObjectStatusObjectContinuationDataNeeded,
+    kQPublishObjectStatusObjectDataIncomplete,
+    kQPublishObjectStatusObjectDataTooLarge,
+    kQPublishObjectStatusPreviousObjectNotCompleteMustStartNewGroup,
+    kQPublishObjectStatusPreviousObjectNotCompleteMustStartNewTrack,
 };
 
 @interface QPublishTrackHandlerObjC : NSObject
@@ -34,8 +42,12 @@ typedef NS_ENUM(uint8_t, QTrackMode) {
 }
 
 -(id _Nonnull) initWithFullTrackName: (QFullTrackName) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl;
--(int)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data;
--(void)setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data;
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data;
+-(void) setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
+-(void) setDefaultPriority: (uint8_t) priority;
+-(void) setDefaultTtl: (uint32_t) ttl;
+-(QPublishTrackHandlerStatus) getStatus;
 
 @end
 

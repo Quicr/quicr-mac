@@ -23,7 +23,7 @@ extension VideoSubscription {
             for choice in choices {
                 let height = choice.item.image.image.formatDescription!.dimensions.height
                 let tags: [String: String] = [
-                    "namespace": choice.item.namespace,
+                    "namespace": try! choice.item.fullTrackName.getNamespace(), // swiftlint:disable:this force_try
                     "selected": String(choice.selected),
                     "timestamp": String(choice.item.image.image.presentationTimeStamp.seconds),
                     "reason": choice.reason,

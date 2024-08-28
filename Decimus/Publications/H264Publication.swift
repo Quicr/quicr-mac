@@ -90,10 +90,10 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                             deallocator: .none)
             let status = publication.publishObject(headers, data: data)
             switch status {
-            case 0:
-                print("Published object")
+            case .ok:
+                Self.logger.info("Published object: \(publication.currentGroupId)/\(publication.currentObjectId)")
             default:
-                fatalError()
+                Self.logger.error("Failed to publish object: \(status)")
             }
 
             // Metrics.
@@ -120,7 +120,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
         self.setCallbacks(self)
     }
 
-    func statusChanged(_ status: Int32) {
+    func statusChanged(_ status: QPublishTrackHandlerStatus) {
         print("Status changed: \(status)")
     }
 

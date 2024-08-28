@@ -1,31 +1,26 @@
-//
-//  QSubscribTrackHandler.h
-//  Decimus
-//
-//  Created by Scott Henning on 8/27/24.
-//
-
 #ifndef QSubscribeTrackHandler_h
 #define QSubscribeTrackHandler_h
 
 #include "moq/subscribe_track_handler.h"
+#include "moq/track_name.h"
+#import "QSubscribeTrackHandlerCallbacks.h"
 
-class QSubscribeTrackHandler : moq::SubscribeTrackHandler
+class QSubscribeTrackHandler : public moq::SubscribeTrackHandler
 {
 public:
-    QSubscribeTrackHandler(const FullTrackName& full_track_name,
-                                               TrackMode track_mode,
-                                               uint8_t default_priority,
-                                               uint832_t default_ttl);
+    QSubscribeTrackHandler(const moq::FullTrackName& full_track_name);
     
+    // Callbacks.
     void StatusChanged(Status status);
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data);
+    void PartialObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data);
+
+    // Methods.
+    void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);
     
-    void SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks);
     
 private:
     id<QSubscribeTrackHandlerCallbacks> _callbacks;
-    
 };
-
 
 #endif /* QSubscribeTrackHandler_h */

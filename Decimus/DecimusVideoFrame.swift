@@ -2,8 +2,8 @@ import AVFoundation
 
 class DecimusVideoFrame {
     let samples: [CMSampleBuffer]
-    let groupId: UInt32
-    let objectId: UInt16
+    let groupId: UInt64
+    let objectId: UInt64
     let sequenceNumber: UInt64?
     let fps: UInt8?
     let orientation: DecimusVideoRotation?
@@ -11,8 +11,8 @@ class DecimusVideoFrame {
     let captureDate: Date?
 
     init(samples: [CMSampleBuffer],
-         groupId: UInt32,
-         objectId: UInt16,
+         groupId: UInt64,
+         objectId: UInt64,
          sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
