@@ -2,15 +2,14 @@ import AVFAudio
 import CoreAudio
 import os
 
-class OpusSubscription {
+class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrackHandlerCallbacks {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
-    let sourceId: SourceIDType
     private let engine: DecimusAudioEngine
     private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
     private let granularMetrics: Bool
-    private var seq: UInt32 = 0
+    private var seq: UInt64 = 0
     private let handlerLock = OSAllocatedUnfairLock()
     private var handler: OpusHandler?
     private var cleanupTask: Task<(), Never>?
@@ -19,9 +18,9 @@ class OpusSubscription {
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
+    private let subscription: ManifestSubscription
 
-    init(sourceId: SourceIDType,
-         profileSet: ProfileSet,
+    init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
@@ -29,10 +28,10 @@ class OpusSubscription {
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          granularMetrics: Bool) throws {
-        self.sourceId = sourceId
+        self.subscription = subscription
         self.engine = engine
         if let submitter = submitter {
-            let measurement = OpusSubscriptionMeasurement(namespace: sourceId)
+            let measurement = OpusSubscriptionMeasurement(namespace: subscription.sourceID)
             self.measurement = .init(measurement: measurement, submitter: submitter)
         } else {
             self.measurement = nil
@@ -44,13 +43,15 @@ class OpusSubscription {
         self.granularMetrics = granularMetrics
 
         // Create the actual audio handler upfront.
-        self.handler = try .init(sourceId: self.sourceId,
+        self.handler = try .init(sourceId: self.subscription.sourceID,
                                  engine: self.engine,
                                  measurement: self.measurement,
                                  jitterDepth: self.jitterDepth,
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
                                  granularMetrics: self.granularMetrics)
+        super.init()
+        self.setCallbacks(self)
 
         // Make task for cleaning up audio handlers.
         self.cleanupTask = .init(priority: .utility) { [weak self] in
@@ -64,18 +65,24 @@ class OpusSubscription {
                         self.handler = nil
                     }
                 }
-                try? await Task.sleep(for: .seconds(self.cleanupTimer), tolerance: .seconds(self.cleanupTimer), clock: .continuous)
+                try? await Task.sleep(for: .seconds(self.cleanupTimer),
+                                      tolerance: .seconds(self.cleanupTimer),
+                                      clock: .continuous)
             }
         }
 
         Self.logger.info("Subscribed to OPUS stream")
     }
 
-    func subscribedObject(_ name: String!,
-                          data: UnsafeRawPointer!,
-                          length: Int,
-                          groupId: UInt32,
-                          objectId: UInt16) -> Int32 {
+    func getHandlers() -> [QSubscribeTrackHandlerObjC] {
+        return [self]
+    }
+
+    func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
+        Self.logger.info("Status changed: \(status)")
+    }
+
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
         let now: Date = .now
         self.lastUpdateTime = now
 
@@ -83,19 +90,19 @@ class OpusSubscription {
         let date: Date? = self.granularMetrics ? now : nil
 
         // TODO: Handle sequence rollover.
-        if groupId > self.seq {
-            let missing = groupId - self.seq - 1
+        if objectHeaders.groupId > self.seq {
+            let missing = objectHeaders.groupId - self.seq - 1
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
                     await measurement.measurement.receivedBytes(received: UInt(length), timestamp: date)
                     if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(groupId)")
+                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
                         await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                     }
                 }
             }
-            self.seq = groupId
+            self.seq = objectHeaders.groupId
         }
 
         // Do we need to create the handler?
@@ -103,7 +110,7 @@ class OpusSubscription {
         do {
             handler = try self.handlerLock.withLock {
                 guard let handler = self.handler else {
-                    let handler = try OpusHandler(sourceId: self.sourceId,
+                    let handler = try OpusHandler(sourceId: self.subscription.sourceID,
                                                   engine: self.engine,
                                                   measurement: self.measurement,
                                                   jitterDepth: self.jitterDepth,
@@ -117,19 +124,21 @@ class OpusSubscription {
             }
         } catch {
             Self.logger.error("Failed to recreate audio handler")
-            return SubscriptionError.none.rawValue
+            return
         }
 
         do {
             try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
                                                        count: length,
                                                        deallocator: .none),
-                                           sequence: groupId,
+                                           sequence: objectHeaders.groupId,
                                            date: date)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
+    }
 
-        return SubscriptionError.none.rawValue
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+        Self.logger.error("OpusSubscription unexpectedly received a partial object")
     }
 }

@@ -31,17 +31,29 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders) {
     };
 }
 
--(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary * _Nonnull)extensions
 {
     assert(handlerPtr);
-    auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
+    
+    moq::Extensions cppExtensions;
+    for (id key in extensions) {
+        auto extensionKey = (NSUInteger)key;
+        id value = extensions[key];
+        auto* extensionValue = (NSData*)value;
+        std::uint64_t cppKey = extensionKey;
+        const auto* data = reinterpret_cast<const std::uint8_t*>(extensionValue.bytes);
+        std::vector<std::uint8_t> cppValue(data, data + extensionValue.length);
+        cppExtensions[cppKey] = cppValue;
+    }
     auto headers = moq::ObjectHeaders {
         .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
         .priority = objectHeaders.priority,
         .ttl = objectHeaders.ttl,
-        .payload_length = objectHeaders.payloadLength
+        .payload_length = objectHeaders.payloadLength,
+        .extensions = cppExtensions
     };
+    auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
     auto status = handlerPtr->PublishObject(headers, {ptr, data.length});
     return static_cast<QPublishObjectStatus>(status);
 }

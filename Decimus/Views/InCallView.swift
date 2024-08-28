@@ -15,8 +15,7 @@ struct InCallView: View {
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
-        // viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
-        false
+        self.viewModel.videoParticipants.participants.isEmpty
     }
 
     /// Callback when call is left.
@@ -56,10 +55,8 @@ struct InCallView: View {
                             }
                         } else {
                             // Incoming videos.
-                            if let controller = viewModel.controller {
-//                                VideoGrid(participants: controller.subscriberDelegate.participants)
-//                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                            }
+                            VideoGrid(participants: self.viewModel.videoParticipants)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
 
                         HStack {
@@ -117,7 +114,7 @@ struct InCallView: View {
                         .offset(CGSize(width: gWidth - cWidth - pWidth,
                                        height: gHeight / 2 - (cHeight * 0.75) - pHeight))
                 }
-                // swiftlint:enable:force_try
+                // swiftlint:enable force_try
             }
 
             if leaving {
@@ -194,6 +191,7 @@ extension InCallView {
         let engine: DecimusAudioEngine?
         private(set) var controller: MoqCallController?
         private(set) var captureManager: CaptureManager?
+        private(set) var videoParticipants = VideoParticipants()
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
         private var measurement: MeasurementRegistration<_Measurement>?
@@ -266,8 +264,7 @@ extension InCallView {
                                      engine: engine,
                                      submitter: self.submitter,
                                      granularMetrics: influxConfig.value.granular,
-                                     // TODO: Where does VideoParticipants come from?
-                                     videoParticipants: VideoParticipants())
+                                     videoParticipants: self.videoParticipants)
                     }
                 }
             }
@@ -292,11 +289,16 @@ extension InCallView {
             // Connect to the relay/server.
             do {
                 try await controller.connect()
-            } catch CallError.failedToConnect(let errorCode) {
-                Self.logger.error("Failed to connect to relay: (\(errorCode))")
+            } catch let error as MoqCallControllerError {
+                switch error {
+                case .connectionFailure(let status):
+                    Self.logger.error("Failed to connect relay: \(status)")
+                default:
+                    Self.logger.error("Unhandled MoqCallControllerError")
+                }
                 return false
             } catch {
-                Self.logger.error("CallController failed due to unknown error: \(error.localizedDescription)")
+                Self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
                 return false
             }
 

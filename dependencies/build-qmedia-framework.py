@@ -215,5 +215,5 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
                        supported_platforms[platform] for platform in platforms])
 
 if __name__ == "__main__":
-    do_build("new-qmedia", "com.cisco.quicr.qmedia", "qmedia", "src/")
+    do_build("libquicr", "com.cisco.quicr.quicr", "quicr", "")
     do_build("libjitter", "com.cisco.quicr.clibjitter", "clibjitter", "")

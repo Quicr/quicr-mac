@@ -86,6 +86,7 @@
 		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
 		9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCA87022C3423F500DA4F41 /* NumberView.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
+		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
@@ -269,6 +270,7 @@
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
 		9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerCallbacks.h; sourceTree = "<group>"; };
+		9BDA15D02C7FD83700494BFD /* FullTrackName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTrackName.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
@@ -458,6 +460,7 @@
 		9B8E14DA2C7E935E009D8C24 /* libquicr */ = {
 			isa = PBXGroup;
 			children = (
+				9BDA15D02C7FD83700494BFD /* FullTrackName.swift */,
 				9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */,
 				9B8E14E02C7E997A009D8C24 /* QPublishTrackHandlerCallbacks.h */,
 				9B8E14DF2C7E9885009D8C24 /* QCommon.h */,
@@ -940,6 +943,7 @@
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
+				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,

@@ -17,7 +17,6 @@ typedef struct QObjectHeaders {
     uint64_t payloadLength;
     uint8_t priority;
     uint16_t ttl;
-    // TODO: Headers.
 } QObjectHeaders;
 
 

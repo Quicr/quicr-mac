@@ -7,8 +7,6 @@ import os
 class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     private static let logger = DecimusLogger(OpusPublication.self)
 
-    let namespace: QuicrNamespace
-
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
     private let opusWindowSize: OpusWindowSize
@@ -20,16 +18,15 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     private let windowFrames: AVAudioFrameCount
     private var currentGroupId: UInt64 = 0
 
-    init(namespace: QuicrNamespace,
-         sourceID: SourceIDType,
+    init(fullTrackName: FullTrackName,
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
          config: AudioCodecConfig) throws {
-        self.namespace = namespace
         self.engine = engine
+        let namespace = try fullTrackName.getNamespace()
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
                                      submitter: metricsSubmitter)
@@ -71,7 +68,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
             }
         }
 
-        Self.logger.info("Registered OPUS publication for source \(sourceID)")
+        Self.logger.info("Registered OPUS publication for namespace \(namespace)")
     }
 
     deinit {
@@ -95,7 +92,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
                                      payloadLength: UInt64(data.count),
                                      priority: 0,
                                      ttl: 0)
-        let published = self.publishObject(headers, data: data)
+        let published = self.publishObject(headers, data: data, extensions: [:])
         switch published {
         case .ok:
             Self.logger.debug("Published: \(self.currentGroupId)")

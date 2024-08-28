@@ -6,34 +6,38 @@ class PublicationFactory {
     private let reliability: MediaReliability
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private let metricsSubmitter: MetricsSubmitter?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
+         metricsSubmitter: MetricsSubmitter?,
          granularMetrics: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
+        self.metricsSubmitter = metricsSubmitter
         self.granularMetrics = granularMetrics
     }
 
-    func create(publication: ManifestPublication) throws -> [(QuicrNamespace, QPublishTrackHandlerObjC)] {
-        var publications: [(QuicrNamespace, QPublishTrackHandlerObjC)] = []
+    func create(publication: ManifestPublication) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+        var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
             let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
-            publications.append(try self.create(profile.namespace,
-                                                sourceID: publication.sourceID,
-                                                config: config,
-                                                metricsSubmitter: nil))
+            let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+            let publication = try self.create(fullTrackName,
+                                              sourceID: publication.sourceID,
+                                              config: config,
+                                              metricsSubmitter: self.metricsSubmitter)
+            publications.append((fullTrackName, publication))
         }
         return publications
     }
 
-    func create(_ namespace: QuicrNamespace,
+    func create(_ fullTrackName: FullTrackName,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> (QuicrNamespace, QPublishTrackHandlerObjC) {
-
+                metricsSubmitter: MetricsSubmitter?) throws -> QPublishTrackHandlerObjC {
         switch config.codec {
         case .h264, .hevc:
             guard let config = config as? VideoCodecConfig else {
@@ -55,28 +59,24 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            let handler = try H264Publication(namespace: namespace,
-                                              sourceID: sourceID,
-                                              config: config,
-                                              metricsSubmitter: metricsSubmitter,
-                                              reliable: reliability.video.publication,
-                                              granularMetrics: self.granularMetrics,
-                                              encoder: encoder,
-                                              device: device)
-            return (namespace, handler)
+            return try H264Publication(fullTrackName: fullTrackName,
+                                       config: config,
+                                       metricsSubmitter: metricsSubmitter,
+                                       reliable: reliability.video.publication,
+                                       granularMetrics: self.granularMetrics,
+                                       encoder: encoder,
+                                       device: device)
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            let handler = try OpusPublication(namespace: namespace,
-                                              sourceID: sourceID,
-                                              metricsSubmitter: metricsSubmitter,
-                                              opusWindowSize: opusWindowSize,
-                                              reliable: reliability.audio.publication,
-                                              engine: self.engine,
-                                              granularMetrics: self.granularMetrics,
-                                              config: config)
-            return (namespace, handler)
+            return try OpusPublication(fullTrackName: fullTrackName,
+                                       metricsSubmitter: metricsSubmitter,
+                                       opusWindowSize: opusWindowSize,
+                                       reliable: reliability.audio.publication,
+                                       engine: self.engine,
+                                       granularMetrics: self.granularMetrics,
+                                       config: config)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

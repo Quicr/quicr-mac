@@ -2,24 +2,26 @@ import CoreMedia
 import AVFoundation
 import os
 
-enum CallError: Error {
-    case failedToConnect(Int32)
-}
-
+/// Possible errors raised by MoqCallController.
 enum MoqCallControllerError: Error {
+    /// Unexpected status during connection.
     case connectionFailure(QClientStatus)
+    /// This functionality requires the controller to be connected.
     case notConnected
 }
 
+/// Represents a client-facing logical collection of subscriptions, containing one or more actual track subscriptions.
 protocol Subscription {
+    /// The (one or more) subscribe track handlers for this subscription.
     func getHandlers() -> [QSubscribeTrackHandlerObjC]
 }
 
+/// Controller for MoQ pub/sub.
 class MoqCallController: QClientCallbacks {
     private let client: QClientObjC
     private var connectionContinuation: CheckedContinuation<Void, Error>?
 
-    private var publications: [QuicrNamespace: QPublishTrackHandlerObjC] = [:]
+    private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: Subscription] = [:]
 
     private let subscriptionConfig: SubscriptionConfig
@@ -28,6 +30,7 @@ class MoqCallController: QClientCallbacks {
     private let videoParticipants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
     private var connected = false
+    private let logger = DecimusLogger(MoqCallController.self)
 
     init(config: QClientConfig,
          metricsSubmitter: MetricsSubmitter?,
@@ -46,6 +49,7 @@ class MoqCallController: QClientCallbacks {
         self.client.setCallbacks(self)
     }
 
+    /// Connect to the relay.
     func connect() async throws {
         try await withCheckedThrowingContinuation { continuation in
             let status = self.client.connect()
@@ -60,13 +64,19 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
+    /// Inject a manifest into the controller, causing the creation of the corresponding publications and subscriptions
+    /// and media objects.
+    /// - Parameter manifest: The manifest to use.
     func setManifest(_ manifest: Manifest) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
 
-        // Create publications and subscriptions.
+        // Create publications.
+        // TODO: We probably don't need a factory here. Just handle it internal to the controller.
+        // TODO: If it gets bigger, we can extract.
         let pubFactory = PublicationFactory(opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                             reliability: self.subscriptionConfig.mediaReliability,
                                             engine: self.engine,
+                                            metricsSubmitter: self.metricsSubmitter,
                                             granularMetrics: self.granularMetrics)
         for publication in manifest.publications {
             let created = try pubFactory.create(publication: publication)
@@ -76,6 +86,7 @@ class MoqCallController: QClientCallbacks {
             }
         }
 
+        // Create subscriptions.
         for manifestSubscription in manifest.subscriptions {
             let subscription = try self.create(subscription: manifestSubscription)
             self.subscriptions[manifestSubscription.sourceID] = subscription
@@ -85,6 +96,7 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
+    /// Disconnect from the relay.
     func disconnect() throws {
         let status = self.client.disconnect()
         guard status == .disconnecting else {
@@ -95,26 +107,26 @@ class MoqCallController: QClientCallbacks {
     // MARK: Callbacks.
 
     func statusChanged(_ status: QClientStatus) {
-        print("[MoqCallController] Status changed: \(status)")
+        self.logger.info("[MoqCallController] Status changed: \(status)")
         switch status {
         case .ready:
-            guard let connection = connectionContinuation else {
+            guard let connection = self.connectionContinuation else {
                 fatalError("BAD")
             }
             self.connectionContinuation = nil
             self.connected = true
             connection.resume()
         default:
-            fatalError("")
+            self.logger.warning("Unhandled status change: \(status)")
         }
     }
 
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
-        print("Got server setup received message")
+        self.logger.info("Got server setup received message")
     }
 
     func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
-        print("Got announce status changed: \(status)")
+        self.logger.info("Got announce status changed: \(status)")
     }
 
     private func create(subscription: ManifestSubscription) throws -> Subscription {
@@ -145,8 +157,14 @@ class MoqCallController: QClientCallbacks {
         }
 
         if found.isSubset(of: opusCodecs) {
-            // Make an opus subscription object.
-            print("Would have made an OpusSubscription")
+            return try OpusSubscription(subscription: subscription,
+                                        engine: self.engine,
+                                        submitter: self.metricsSubmitter,
+                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
+                                        granularMetrics: self.granularMetrics)
         }
 
         throw CodecError.unsupportedCodecSet(found)

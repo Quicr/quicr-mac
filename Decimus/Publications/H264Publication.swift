@@ -18,7 +18,6 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
 
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
-    let namespace: QuicrNamespace
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
@@ -31,15 +30,14 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
     private var currentGroupId: UInt64 = 0
     private var currentObjectId: UInt64 = 0
 
-    required init(namespace: QuicrNamespace,
-                  sourceID: SourceIDType,
+    required init(fullTrackName: FullTrackName,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool,
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
                   device: AVCaptureDevice) throws {
-        self.namespace = namespace
+        let namespace = try fullTrackName.getNamespace()
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {
@@ -88,7 +86,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
-            let status = publication.publishObject(headers, data: data)
+            let status = publication.publishObject(headers, data: data, extensions: [:])
             switch status {
             case .ok:
                 Self.logger.info("Published object: \(publication.currentGroupId)/\(publication.currentObjectId)")
@@ -113,7 +111,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                                                         metricsTimestamp: now)
             }
         }
-        Self.logger.info("Registered H264 publication for source \(sourceID)")
+        Self.logger.info("Registered H264 publication for namespace \(namespace)")
         super.init()
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
