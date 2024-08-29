@@ -11,7 +11,7 @@ struct ManifestSettingsView: View {
     @AppStorage(Self.defaultsKey)
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
-    @State private var configs: [String] = []
+    @State private var configs: [String] = ["testing"]
     @State private var error: String?
     @State private var showProgressView = false
 

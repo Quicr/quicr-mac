@@ -31,6 +31,7 @@ class MoqCallController: QClientCallbacks {
     private let metricsSubmitter: MetricsSubmitter?
     private var connected = false
     private let logger = DecimusLogger(MoqCallController.self)
+    private let captureManager: CaptureManager
 
     init(config: QClientConfig,
          metricsSubmitter: MetricsSubmitter?,
@@ -46,17 +47,23 @@ class MoqCallController: QClientCallbacks {
         self.granularMetrics = granularMetrics
         self.videoParticipants = videoParticipants
         self.client = .init(config: config)
+        self.captureManager = captureManager
         self.client.setCallbacks(self)
     }
 
     /// Connect to the relay.
     func connect() async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
+            self.connectionContinuation = continuation
             let status = self.client.connect()
             switch status {
             case .clientConnecting:
-                self.connectionContinuation = continuation
+                print("CLIENT CONNECTING")
+                break
             case .ready:
+                // This is here just for the type inference,
+                // but we don't expect it to happen.
+                assert(false)
                 continuation.resume()
             default:
                 continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
@@ -77,7 +84,8 @@ class MoqCallController: QClientCallbacks {
                                             reliability: self.subscriptionConfig.mediaReliability,
                                             engine: self.engine,
                                             metricsSubmitter: self.metricsSubmitter,
-                                            granularMetrics: self.granularMetrics)
+                                            granularMetrics: self.granularMetrics,
+                                            captureManager: self.captureManager)
         for publication in manifest.publications {
             let created = try pubFactory.create(publication: publication)
             for (namespace, handler) in created {
@@ -110,12 +118,22 @@ class MoqCallController: QClientCallbacks {
         self.logger.info("[MoqCallController] Status changed: \(status)")
         switch status {
         case .ready:
+            // TODO: Fix this up.
+            guard let connection = self.connectionContinuation else {
+                print("Got ready when we already had ready!?")
+                return
+            }
+            self.connectionContinuation = nil
+            self.connected = true
+            connection.resume()
+            print("We're connected")
+        case .notReady:
             guard let connection = self.connectionContinuation else {
                 fatalError("BAD")
             }
             self.connectionContinuation = nil
             self.connected = true
-            connection.resume()
+            connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         default:
             self.logger.warning("Unhandled status change: \(status)")
         }

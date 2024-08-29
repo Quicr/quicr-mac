@@ -539,6 +539,6 @@ class VTEncoder: VideoEncoder {
     }
 }
 
-extension String: LocalizedError {
+extension String: @retroactive LocalizedError {
     public var errorDescription: String? { return self }
 }

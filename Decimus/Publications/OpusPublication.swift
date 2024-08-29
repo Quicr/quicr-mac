@@ -48,7 +48,15 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
-        super.init()
+        // TODO: This is unsafe.
+        var qFtn: QFullTrackName = .init()
+        fullTrackName.get {
+            qFtn = $0
+        }
+        super.init(fullTrackName: qFtn,
+                   trackMode: .datagram,
+                   defaultPriority: 0,
+                   defaultTTL: 5000)
         self.setCallbacks(self)
 
         // Setup encode job.
@@ -90,14 +98,14 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         let headers = QObjectHeaders(groupId: self.currentGroupId,
                                      objectId: 0,
                                      payloadLength: UInt64(data.count),
-                                     priority: 0,
-                                     ttl: 0)
+                                     priority: nil,
+                                     ttl: nil)
         let published = self.publishObject(headers, data: data, extensions: [:])
         switch published {
         case .ok:
-            Self.logger.debug("Published: \(self.currentGroupId)")
+            Self.logger.debug("Published audio object: \(self.currentGroupId)")
         default:
-            Self.logger.error("Failed to publish: \(published)")
+            Self.logger.warning("Failed to publish: \(published)")
         }
     }
 

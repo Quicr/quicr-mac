@@ -1,1 +1,1 @@
-extension OSStatus: Error { }
+extension OSStatus: @retroactive Error { }

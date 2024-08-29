@@ -179,8 +179,8 @@ class OpusHandler {
             let constConcealed = concealed
             let timestamp: Date? = handler.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                await measurement.measurement.concealmentFrames(concealed: constConcealed,
-                                                                timestamp: timestamp)
+                measurement.measurement.concealmentFrames(concealed: constConcealed,
+                                                          timestamp: timestamp)
             }
         }
     }

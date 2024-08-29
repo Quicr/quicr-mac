@@ -18,7 +18,7 @@ public:
     
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:
-     id<QClientCallbacks> _callbacks;
+     id<QClientCallbacks> __weak _callbacks;
 };
 
 

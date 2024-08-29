@@ -249,22 +249,48 @@ extension InCallView {
 
             if let captureManager = self.captureManager,
                let engine = self.engine {
-                let connectUri: String = "moq://\(config.address)/\(config.port)"
+                let connectUri: String = "moq://\(config.address):\(config.port)"
                 let endpointId: String = config.email
-                self.controller = connectUri.withCString { uri in
-                    endpointId.withCString { id in
-                        let config = QClientConfig(connectUri: uri,
-                                                   endpointId: id,
-                                                   transportConfig: .init(),
-                                                   metricsSampleMs: 0)
-                        return .init(config: config,
-                                     metricsSubmitter: self.submitter,
-                                     captureManager: captureManager,
-                                     subscriptionConfig: self.subscriptionConfig.value,
-                                     engine: engine,
-                                     submitter: self.submitter,
-                                     granularMetrics: influxConfig.value.granular,
-                                     videoParticipants: self.videoParticipants)
+                let qLogPath: URL
+#if targetEnvironment(macCatalyst)
+                qLogPath = .downloadsDirectory
+#else
+                qLogPath = .documentsDirectory
+#endif
+                
+                let subConfig = self.subscriptionConfig.value
+                self.controller = connectUri.withCString { connectUri in
+                    endpointId.withCString { endpointId in
+                        qLogPath.path.withCString { qLogPath in
+                            let tConfig = TransportConfig(tls_cert_filename: nil,
+                                                          tls_key_filename: nil,
+                                                          time_queue_init_queue_size: 1000,
+                                                          time_queue_max_duration: 5000,
+                                                          time_queue_bucket_interval: 1,
+                                                          time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
+                                                          debug: true,
+                                                          quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
+                                                          quic_wifi_shadow_rtt_us: 0,
+                                                          pacing_decrease_threshold_Bps: 16000,
+                                                          pacing_increase_threshold_Bps: 16000,
+                                                          idle_timeout_ms: 15000,
+                                                          use_reset_wait_strategy: subConfig.useResetWaitCC,
+                                                          use_bbr: subConfig.useBBR,
+                                                          quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
+                                                          quic_priority_limit: subConfig.quicPriorityLimit)
+                            let config = QClientConfig(connectUri: connectUri,
+                                                       endpointId: endpointId,
+                                                       transportConfig: tConfig,
+                                                       metricsSampleMs: 0)
+                            return .init(config: config,
+                                         metricsSubmitter: self.submitter,
+                                         captureManager: captureManager,
+                                         subscriptionConfig: subConfig,
+                                         engine: engine,
+                                         submitter: self.submitter,
+                                         granularMetrics: influxConfig.value.granular,
+                                         videoParticipants: self.videoParticipants)
+                        }
                     }
                 }
             }

@@ -1,5 +1,5 @@
 typedef NS_ENUM(uint8_t, QPublishTrackHandlerStatus) {
-    kQPublishTrackHandlerStatusOK = 0,
+    kQPublishTrackHandlerStatusOk,
     kQPublishTrackHandlerStatusNotConnected,
     kQPublishTrackHandlerStatusNotAnnounced,
     kQPublishTrackHandlerStatusPendingAnnounceResponse,

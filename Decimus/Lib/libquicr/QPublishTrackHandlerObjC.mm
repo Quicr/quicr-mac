@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #import "QPublishTrackHandlerObjC.h"
 #import "QCommon.h"
+#include <iostream>
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
@@ -8,12 +9,9 @@
 {
     moq::FullTrackName fullTrackName = ftnConvert(full_track_name);
     moq::TrackMode moqTrackMode = (moq::TrackMode)track_mode;
-    
-    // allocate handler...
     handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, priority, ttl);
     return self;
 }
-
 
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
 {
@@ -21,55 +19,57 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-moq::ObjectHeaders from(QObjectHeaders objectHeaders) {
+moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* extensions) {
+    std::optional<std::uint8_t> priority;
+    if (objectHeaders.priority != nullptr) {
+        priority = *objectHeaders.priority;
+    } else {
+        priority = std::nullopt;
+    }
+
+    std::optional<std::uint16_t> ttl;
+    if (objectHeaders.ttl != nullptr) {
+        ttl = *objectHeaders.ttl;
+    } else {
+        ttl = std::nullopt;
+    }
+    
+    moq::Extensions moqExtensions;
+    for (NSNumber* number in extensions) {
+        NSData* value = extensions[number];
+        const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
+        moqExtensions[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
+    }
+
     return moq::ObjectHeaders {
         .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
-        .priority = objectHeaders.priority,
-        .ttl = objectHeaders.ttl,
-        .payload_length = objectHeaders.payloadLength
+        .priority = priority,
+        .ttl = ttl,
+        .payload_length = objectHeaders.payloadLength,
+        .extensions = moqExtensions
     };
 }
 
--(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary * _Nonnull)extensions
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*> * _Nonnull)extensions
 {
     assert(handlerPtr);
-    
-    moq::Extensions cppExtensions;
-    for (id key in extensions) {
-        auto extensionKey = (NSUInteger)key;
-        id value = extensions[key];
-        auto* extensionValue = (NSData*)value;
-        std::uint64_t cppKey = extensionKey;
-        const auto* data = reinterpret_cast<const std::uint8_t*>(extensionValue.bytes);
-        std::vector<std::uint8_t> cppValue(data, data + extensionValue.length);
-        cppExtensions[cppKey] = cppValue;
-    }
-    auto headers = moq::ObjectHeaders {
-        .object_id = objectHeaders.objectId,
-        .group_id = objectHeaders.groupId,
-        .priority = objectHeaders.priority,
-        .ttl = objectHeaders.ttl,
-        .payload_length = objectHeaders.payloadLength,
-        .extensions = cppExtensions
-    };
+    moq::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
-    auto status = handlerPtr->PublishObject(headers, {ptr, data.length});
+    moq::BytesSpan span { ptr, data.length };
+    auto status = handlerPtr->PublishObject(headers, span);
     return static_cast<QPublishObjectStatus>(status);
 }
 
--(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data {
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nonnull) extensions {
     assert(handlerPtr);
+    moq::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
-    auto headers = moq::ObjectHeaders {
-        .object_id = objectHeaders.objectId,
-        .group_id = objectHeaders.groupId,
-        .priority = objectHeaders.priority,
-        .ttl = objectHeaders.ttl,
-        .payload_length = objectHeaders.payloadLength
-    };
-    auto status = handlerPtr->PublishPartialObject(headers, {ptr, data.length});
-    return static_cast<QPublishObjectStatus>(status);
+    moq::BytesSpan span { ptr, data.length };
+    // TODO: PublishPartialObject is not implemented in libquicr!
+    abort();
+    // auto status = handlerPtr->PublishPartialObject(headers, span);
+    // return static_cast<QPublishObjectStatus>(status);
 }
 
 -(void) setDefaultPriority: (uint8_t) priority {

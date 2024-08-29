@@ -42,9 +42,26 @@ void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_hea
 {
     if (_callbacks)
     {
-        // TODO: Translate the headers.
-        QObjectHeaders headers;
-        [_callbacks objectReceived:headers data:data.data() length:data.size()];
+        const std::uint8_t* priority = nullptr;
+        if (object_headers.priority.has_value()) {
+            priority = &*object_headers.priority;
+        }
+        const std::uint16_t* ttl = nullptr;
+        if (object_headers.ttl.has_value()) {
+            ttl = &*object_headers.ttl;
+        }
+        QObjectHeaders headers {
+            .objectId = object_headers.object_id,
+            .groupId = object_headers.group_id,
+            .payloadLength = object_headers.payload_length,
+            .priority = priority,
+            .ttl = ttl
+        };
+
+        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
+        // TODO: Populate extensions.
+        NSDictionary* extensions = @{};
+        [_callbacks objectReceived:headers data:nsData extensions: extensions];
     }
 }
 
@@ -53,9 +70,25 @@ void QSubscribeTrackHandler::PartialObjectReceived(const moq::ObjectHeaders& obj
 {
     if (_callbacks)
     {
-        // TODO: Translate the headers.
-        QObjectHeaders headers;
-        [_callbacks partialObjectReceived:headers data:data.data() length:data.size()];
+        const std::uint8_t* priority = nullptr;
+        if (object_headers.priority.has_value()) {
+            priority = &*object_headers.priority;
+        }
+        const std::uint16_t* ttl = nullptr;
+        if (object_headers.ttl.has_value()) {
+            ttl = &*object_headers.ttl;
+        }
+        QObjectHeaders headers {
+            .objectId = object_headers.object_id,
+            .groupId = object_headers.group_id,
+            .payloadLength = object_headers.payload_length,
+            .priority = priority,
+            .ttl = ttl
+        };
+        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
+        // TODO: Populate extensions.
+        NSDictionary<NSNumber*, NSData*>* extensions = @{};
+        [_callbacks partialObjectReceived:headers data:nsData extensions:extensions];
     }
 }
 

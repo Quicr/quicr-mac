@@ -19,7 +19,7 @@ public:
     void SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks);
     
 private:
-    id<QPublishTrackHandlerCallbacks> _callbacks;
+    id<QPublishTrackHandlerCallbacks> __weak _callbacks;
 };
 
 

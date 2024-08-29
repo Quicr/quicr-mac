@@ -20,7 +20,7 @@ public:
     
     
 private:
-    id<QSubscribeTrackHandlerCallbacks> _callbacks;
+    id<QSubscribeTrackHandlerCallbacks> __weak _callbacks;
 };
 
 #endif /* QSubscribeTrackHandler_h */

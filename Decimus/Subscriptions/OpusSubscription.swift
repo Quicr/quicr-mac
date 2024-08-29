@@ -28,6 +28,10 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          granularMetrics: Bool) throws {
+        guard subscription.profileSet.profiles.count == 1,
+              let profile = subscription.profileSet.profiles.first else {
+            throw "OpusSubscription only supports one profile"
+        }
         self.subscription = subscription
         self.engine = engine
         if let submitter = submitter {
@@ -50,7 +54,14 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
                                  granularMetrics: self.granularMetrics)
-        super.init()
+        // TODO: This is sketchy.
+        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        // TODO: This is unsafe.
+        var qFtn: QFullTrackName = .init()
+        fullTrackName.get {
+            qFtn = $0
+        }
+        super.init(fullTrackName: qFtn)
         self.setCallbacks(self)
 
         // Make task for cleaning up audio handlers.
@@ -82,7 +93,9 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
         Self.logger.info("Status changed: \(status)")
     }
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
+        Self.logger.debug("Got opus object: \(objectHeaders.groupId)")
+        
         let now: Date = .now
         self.lastUpdateTime = now
 
@@ -95,7 +108,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
-                    await measurement.measurement.receivedBytes(received: UInt(length), timestamp: date)
+                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
                     if missing > 0 {
                         Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
                         await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
@@ -128,9 +141,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
         }
 
         do {
-            try handler.submitEncodedAudio(data: .init(bytesNoCopy: .init(mutating: data),
-                                                       count: length,
-                                                       deallocator: .none),
+            try handler.submitEncodedAudio(data: data,
                                            sequence: objectHeaders.groupId,
                                            date: date)
         } catch {
@@ -138,7 +149,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
         }
     }
 
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
         Self.logger.error("OpusSubscription unexpectedly received a partial object")
     }
 }

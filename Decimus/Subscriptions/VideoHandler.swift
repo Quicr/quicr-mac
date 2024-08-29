@@ -112,7 +112,13 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         self.variances = variances
         self.callback = callback
         self.userData = userData
-        super.init()
+        
+        // TODO: This is unsafe.
+        var qFtn: QFullTrackName = .init()
+        fullTrackName.get {
+            qFtn = $0
+        }
+        super.init(fullTrackName: qFtn)
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -159,10 +165,10 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         Self.logger.info("Subscribe Track Status Changed: \(status)")
     }
-
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+    
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
+        Self.logger.info("Got video object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
         let now = Date.now
-        let data = Data(bytesNoCopy: data, count: length, deallocator: .none)
         do {
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: data,
@@ -186,7 +192,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         }
     }
 
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: UnsafeMutablePointer<UInt8>!, length: Int) {
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
         Self.logger.error("Not expecting partial objects")
     }
 
@@ -496,7 +502,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
             throw "Missing sample format"
         }
         let size = format.dimensions
-        let namespace = try self.fullTrackName.namespace
+        let namespace = self.fullTrackName.namespace
         return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
     

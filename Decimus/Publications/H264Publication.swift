@@ -81,17 +81,17 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             let headers = QObjectHeaders(groupId: publication.currentGroupId,
                                          objectId: publication.currentObjectId,
                                          payloadLength: UInt64(data.count),
-                                         priority: 0,
-                                         ttl: 0)
+                                         priority: nil,
+                                         ttl: nil)
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
             let status = publication.publishObject(headers, data: data, extensions: [:])
             switch status {
             case .ok:
-                Self.logger.info("Published object: \(publication.currentGroupId)/\(publication.currentObjectId)")
+                Self.logger.debug("Published video object: \(publication.currentGroupId)/\(publication.currentObjectId)")
             default:
-                Self.logger.error("Failed to publish object: \(status)")
+                Self.logger.warning("Failed to publish object: \(status)")
             }
 
             // Metrics.
@@ -112,14 +112,27 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             }
         }
         Self.logger.info("Registered H264 publication for namespace \(namespace)")
-        super.init()
+
+        // TODO: This is unsafe.
+        var qFtn: QFullTrackName = .init()
+        fullTrackName.get {
+            qFtn = $0
+        }
+        super.init(fullTrackName: qFtn,
+                   trackMode: .streamPerGroup,
+                   defaultPriority: 0,
+                   defaultTTL: 5000)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
         self.setCallbacks(self)
     }
 
+    deinit {
+        fatalError()
+    }
+
     func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        print("Status changed: \(status)")
+        Self.logger.info("Status changed: \(status)")
     }
 
     /// This callback fires when a video frame arrives.

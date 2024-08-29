@@ -7,17 +7,20 @@ class PublicationFactory {
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
     private let metricsSubmitter: MetricsSubmitter?
+    private let captureManager: CaptureManager
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
          metricsSubmitter: MetricsSubmitter?,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         captureManager: CaptureManager) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
         self.metricsSubmitter = metricsSubmitter
         self.granularMetrics = granularMetrics
+        self.captureManager = captureManager
     }
 
     func create(publication: ManifestPublication) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
@@ -59,13 +62,15 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            return try H264Publication(fullTrackName: fullTrackName,
-                                       config: config,
-                                       metricsSubmitter: metricsSubmitter,
-                                       reliable: reliability.video.publication,
-                                       granularMetrics: self.granularMetrics,
-                                       encoder: encoder,
-                                       device: device)
+            let publication = try H264Publication(fullTrackName: fullTrackName,
+                                                  config: config,
+                                                  metricsSubmitter: metricsSubmitter,
+                                                  reliable: reliability.video.publication,
+                                                  granularMetrics: self.granularMetrics,
+                                                  encoder: encoder,
+                                                  device: device)
+            try self.captureManager.addInput(publication)
+            return publication
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))

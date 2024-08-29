@@ -35,7 +35,7 @@ typedef struct QClientConfig {
 -(void) publishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
 -(void) unpublishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
 
--(QPublishAnnounceStatus) publishAnnounce: (NSData*) trackNamespace;
+-(void) publishAnnounce: (NSData*) trackNamespace;
 -(void) publishUnannounce: (NSData*) trackNamespace;
 
 -(void) subscribeTrackWithHandler: (QSubscribeTrackHandlerObjC*) handler;
@@ -45,7 +45,7 @@ typedef struct QClientConfig {
 
 
 
--(void)setCallbacks: (id<QClientCallbacks>) callbacks;
+-(void)setCallbacks: (id<QClientCallbacks> __weak) callbacks;
 
 @end
 
