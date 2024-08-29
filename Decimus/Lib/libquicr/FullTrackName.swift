@@ -30,18 +30,17 @@ struct FullTrackName: Hashable {
         }
         return name
     }
-
-    func get(_ closure: (QFullTrackName) -> Void) {
-        self.namespace.withUnsafeBytes { namespace in
+    
+    func getUnsafe() -> QFullTrackName {
+        return self.namespace.withUnsafeBytes { namespace in
             let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self, capacity: namespace.count)
-            self.name.withUnsafeBytes { name in
+            return self.name.withUnsafeBytes { name in
                 let namePtr: UnsafePointer<CChar> = name.baseAddress!.bindMemory(to: CChar.self, capacity: name.count)
 
-                let qFtn = QFullTrackName(nameSpace: namespacePtr,
-                                          nameSpaceLength: self.namespace.count,
-                                          name: namePtr,
-                                          nameLength: self.name.count)
-                closure(qFtn)
+                return .init(nameSpace: namespacePtr,
+                             nameSpaceLength: self.namespace.count,
+                             name: namePtr,
+                             nameLength: self.name.count)
             }
         }
     }

@@ -18,7 +18,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     private let windowFrames: AVAudioFrameCount
     private var currentGroupId: UInt64 = 0
 
-    init(fullTrackName: FullTrackName,
+    init(profile: Profile,
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
@@ -26,7 +26,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
          granularMetrics: Bool,
          config: AudioCodecConfig) throws {
         self.engine = engine
-        let namespace = try fullTrackName.getNamespace()
+        let namespace = profile.namespace
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
                                      submitter: metricsSubmitter)
@@ -48,13 +48,9 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
-        // TODO: This is unsafe.
-        var qFtn: QFullTrackName = .init()
-        fullTrackName.get {
-            qFtn = $0
-        }
-        super.init(fullTrackName: qFtn,
-                   trackMode: .datagram,
+        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        super.init(fullTrackName: fullTrackName.getUnsafe(),
+                   trackMode: reliable ? .streamPerGroup : .datagram,
                    defaultPriority: 0,
                    defaultTTL: 5000)
         self.setCallbacks(self)

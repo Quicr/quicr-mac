@@ -16,35 +16,13 @@ private class MockEncoder: VideoEncoder {
         self.callback()
     }
 
-    func setCallback(_ callback: @escaping EncodedCallback) {
+    func setCallback(_ callback: @escaping EncodedCallback, userData: UnsafeRawPointer?) {
         // NOOP.
-    }
-}
-
-private class MockDelegate: QPublishObjectDelegateObjC {
-    typealias Callback = (String, Data, Bool) -> Void
-    private let callback: Callback
-
-    init(_ callback: @escaping Callback) {
-        self.callback = callback
-    }
-
-    func publishObject(_ quicrNamespace: String!, data: Data!, group groupFlag: Bool) {
-        self.callback(quicrNamespace, data, groupFlag)
-    }
-
-    func publishObject(_ quicrNamespace: String!, data dataPtr: UnsafeRawPointer!, length dataLen: Int, group groupFlag: Bool) {
-        self.callback(quicrNamespace, Data(bytesNoCopy: .init(mutating: dataPtr), count: dataLen, deallocator: .none), groupFlag)
     }
 }
 
 final class TestVideoPublication: XCTestCase {
     func testPublicationStartDelay() throws {
-        let mockDelegate = MockDelegate { _, _, _ in
-            XCTFail()
-            return
-        }
-
         var shouldFire = false
         let mockEncoder = MockEncoder {
             guard shouldFire else {
@@ -65,9 +43,8 @@ final class TestVideoPublication: XCTestCase {
                                       width: 1920,
                                       height: 960,
                                       bitrateType: .average)
-        let publication = try H264Publication(namespace: "1",
-                                              publishDelegate: mockDelegate,
-                                              sourceID: "1",
+
+        let publication = try H264Publication(profile: .init(qualityProfile: "", expiry: [], priorities: [], namespace: ""),
                                               config: config,
                                               metricsSubmitter: nil,
                                               reliable: true,

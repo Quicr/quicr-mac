@@ -49,6 +49,13 @@ struct Profile: Codable {
         case namespace = "quicrNamespace"
     }
 
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: String) {
+        self.qualityProfile = qualityProfile
+        self.expiry = expiry
+        self.priorities = priorities
+        self.namespace = namespace
+    }
+
     init(from decoder: Swift.Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         qualityProfile = try values.decode(String.self, forKey: .qualityProfile)

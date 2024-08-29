@@ -54,14 +54,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
                                  granularMetrics: self.granularMetrics)
-        // TODO: This is sketchy.
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-        // TODO: This is unsafe.
-        var qFtn: QFullTrackName = .init()
-        fullTrackName.get {
-            qFtn = $0
-        }
-        super.init(fullTrackName: qFtn)
+        super.init(fullTrackName: fullTrackName.getUnsafe())
         self.setCallbacks(self)
 
         // Make task for cleaning up audio handlers.

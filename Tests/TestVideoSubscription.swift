@@ -26,7 +26,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                                decodeTimeStamp: .invalid)),
                                           fps: 30,
                                           discontinous: discontinous[0])
-        let highest = VideoSubscription.SimulreceiveItem(namespace: "1", image: highestImage)
+        let highest = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "1", name: ""), image: highestImage)
 
         let mediumBuffer = try testImage(width: 1280, height: 960)
         let mediumImage = AvailableImage(image: try .init(imageBuffer: mediumBuffer,
@@ -36,7 +36,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                               decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[1])
-        let medium = VideoSubscription.SimulreceiveItem(namespace: "2", image: mediumImage)
+        let medium = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "2", name: ""), image: mediumImage)
 
         let lowerBuffer = try testImage(width: 1280, height: 960)
         let lowerImage = AvailableImage(image: try .init(imageBuffer: lowerBuffer,
@@ -46,7 +46,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                              decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[2])
-        let lower = VideoSubscription.SimulreceiveItem(namespace: "3", image: lowerImage)
+        let lower = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "3", name: ""), image: lowerImage)
 
         return [highest, medium, lower]
     }

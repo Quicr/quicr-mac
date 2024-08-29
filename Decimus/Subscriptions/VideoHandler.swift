@@ -112,13 +112,8 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         self.variances = variances
         self.callback = callback
         self.userData = userData
-        
-        // TODO: This is unsafe.
-        var qFtn: QFullTrackName = .init()
-        fullTrackName.get {
-            qFtn = $0
-        }
-        super.init(fullTrackName: qFtn)
+
+        super.init(fullTrackName: fullTrackName.getUnsafe())
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.

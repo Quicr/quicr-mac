@@ -28,7 +28,7 @@ class PublicationFactory {
         for profile in publication.profileSet.profiles {
             let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
             let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-            let publication = try self.create(fullTrackName,
+            let publication = try self.create(profile,
                                               sourceID: publication.sourceID,
                                               config: config,
                                               metricsSubmitter: self.metricsSubmitter)
@@ -37,7 +37,7 @@ class PublicationFactory {
         return publications
     }
 
-    func create(_ fullTrackName: FullTrackName,
+    func create(_ profile: Profile,
                 sourceID: SourceIDType,
                 config: CodecConfig,
                 metricsSubmitter: MetricsSubmitter?) throws -> QPublishTrackHandlerObjC {
@@ -62,7 +62,8 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            let publication = try H264Publication(fullTrackName: fullTrackName,
+            
+            let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
                                                   reliable: reliability.video.publication,
@@ -75,7 +76,7 @@ class PublicationFactory {
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            return try OpusPublication(fullTrackName: fullTrackName,
+            return try OpusPublication(profile: profile,
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,

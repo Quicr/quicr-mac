@@ -29,15 +29,17 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
     private var startTime: Date?
     private var currentGroupId: UInt64 = 0
     private var currentObjectId: UInt64 = 0
+    private let profile: Profile
 
-    required init(fullTrackName: FullTrackName,
+    required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool,
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
                   device: AVCaptureDevice) throws {
-        let namespace = try fullTrackName.getNamespace()
+        self.profile = profile
+        let namespace = profile.namespace
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {
@@ -77,16 +79,25 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                 publication.currentObjectId += 1
             }
 
-            // Publish.
+            // Object headers.
             let headers = QObjectHeaders(groupId: publication.currentGroupId,
                                          objectId: publication.currentObjectId,
                                          payloadLength: UInt64(data.count),
                                          priority: nil,
                                          ttl: nil)
+
+            // Use extensions for LOC.
+            var timestamp = presentationTimestamp.seconds
+            let timestampData = Data(bytes: &timestamp, count: MemoryLayout<Double>.size)
+            let extensions: [NSNumber: Data] = [
+                1: timestampData
+            ]
+
+            // Publish.
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
-            let status = publication.publishObject(headers, data: data, extensions: [:])
+            let status = publication.publishObject(headers, data: data, extensions: extensions);
             switch status {
             case .ok:
                 Self.logger.debug("Published video object: \(publication.currentGroupId)/\(publication.currentObjectId)")
@@ -112,23 +123,18 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             }
         }
         Self.logger.info("Registered H264 publication for namespace \(namespace)")
-
-        // TODO: This is unsafe.
-        var qFtn: QFullTrackName = .init()
-        fullTrackName.get {
-            qFtn = $0
-        }
-        super.init(fullTrackName: qFtn,
-                   trackMode: .streamPerGroup,
+        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        super.init(fullTrackName: fullTrackName.getUnsafe(),
+                   trackMode: reliable ? .streamPerGroup : .datagram,
                    defaultPriority: 0,
-                   defaultTTL: 5000)
+                   defaultTTL: 0)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
         self.setCallbacks(self)
     }
 
     deinit {
-        fatalError()
+        Self.logger.debug("deinit")
     }
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {
