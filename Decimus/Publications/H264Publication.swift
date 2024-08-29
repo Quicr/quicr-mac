@@ -54,7 +54,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
         self.encoder = encoder
         self.device = device
 
-        let onEncodedData: VTEncoder.EncodedCallback = { presentationTimestamp, captureTime, data, flag, userData in
+        let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
             guard let userData = userData else {
                 Self.logger.error("UserData unexpectedly was nil")
                 return
@@ -65,8 +65,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             let now = publication.measurement != nil && granularMetrics ? Date.now : nil
             if granularMetrics,
                let measurement = publication.measurement {
-                let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                let age = now!.timeIntervalSince(captureDate)
+                let age = now!.timeIntervalSince(presentationDate)
                 Task(priority: .utility) {
                     await measurement.measurement.encoded(age: age, timestamp: now!)
                 }
@@ -87,10 +86,15 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                                          ttl: nil)
 
             // Use extensions for LOC.
-            var timestamp = presentationTimestamp.seconds
-            let timestampData = Data(bytes: &timestamp, count: MemoryLayout<Double>.size)
+            var timestamp = UInt64(presentationDate.timeIntervalSince1970 * 1_000_000)
+            let timestampData = Data(bytes: &timestamp, count: MemoryLayout.size(ofValue: timestamp))
+            let timestampKey: NSNumber = 1
+            let sequenceKey: NSNumber = 2
+            var sequence = sequence
+            let sequenceData = Data(bytes: &sequence, count: MemoryLayout.size(ofValue: sequence))
             let extensions: [NSNumber: Data] = [
-                1: timestampData
+                timestampKey: timestampData,
+                sequenceKey: sequenceData
             ]
 
             // Publish.
@@ -108,18 +112,18 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             // Metrics.
             guard let measurement = publication.measurement else { return }
             let bytes = data.count
+            let sent: Date? = granularMetrics ? Date.now : nil
             Task(priority: .utility) {
                 let age: TimeInterval?
-                if let now = now {
-                    let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                    age = now.timeIntervalSince(captureDate)
+                if let sent = sent {
+                    age = sent.timeIntervalSince(presentationDate)
                 } else {
                     age = nil
                 }
                 await measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                                        timestamp: presentationTimestamp.seconds,
+                                                        timestamp: presentationDate.timeIntervalSince1970,
                                                         age: age,
-                                                        metricsTimestamp: now)
+                                                        metricsTimestamp: sent)
             }
         }
         Self.logger.info("Registered H264 publication for namespace \(namespace)")
@@ -143,7 +147,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
 
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
-                 captureTime: Date) {
+                 timestamp: Date) {
         // Configure FPS.
         let maxRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
         if self.encoder.frameRate == nil {
@@ -156,15 +160,15 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
 
         // Stagger the publication's start time by its height in ms.
         guard let startTime = self.startTime else {
-            self.startTime = captureTime
+            self.startTime = timestamp
             return
         }
-        let interval = captureTime.timeIntervalSince(startTime)
+        let interval = timestamp.timeIntervalSince(startTime)
         guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer, captureTime: captureTime)
+            try encoder.write(sample: sampleBuffer, timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
@@ -175,16 +179,15 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let presentationTimestamp = sampleBuffer.presentationTimeStamp.seconds
-        let date: Date? = self.granularMetrics ? captureTime : nil
+        let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
         Task(priority: .utility) {
             await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
             if let date = date {
                 // TODO: This age is probably useless.
-                let age = now.timeIntervalSince(captureTime)
+                let age = now.timeIntervalSince(timestamp)
                 await measurement.measurement.age(age: age,
-                                                  presentationTimestamp: presentationTimestamp,
+                                                  presentationTimestamp: timestamp.timeIntervalSince1970,
                                                   metricsTimestamp: date)
             }
         }

@@ -58,7 +58,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffUs = ManagedAtomic(UInt64.zero)
+    private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -165,10 +165,25 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         Self.logger.info("Got video object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
         let now = Date.now
         do {
+            var timestamp: UInt64 = 0
+            if let timestampData = extensions[1] {
+                timestamp = timestampData.withUnsafeBytes {
+                    return $0.load(as: UInt64.self)
+                }
+            }
+            var sequenceNumber: UInt64 = 0
+            if let sequenceData = extensions[2] {
+                sequenceNumber = sequenceData.withUnsafeBytes {
+                    return $0.load(as: UInt64.self)
+                }
+            }
+
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: data,
                                                    groupId: objectHeaders.groupId,
-                                                   objectId: objectHeaders.objectId) else {
+                                                   objectId: objectHeaders.objectId,
+                                                   sequenceNumber: sequenceNumber,
+                                                   timestamp: timestamp) else {
                 Self.logger.warning("No video data in object")
                 return
             }
@@ -247,9 +262,10 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? from : nil
             Task(priority: .utility) {
-                if let captureDate = frame.captureDate,
-                   let now = now {
-                    let age = now.timeIntervalSince(captureDate)
+                if let now = now,
+                   let presentationTime = frame.samples.first?.presentationTimeStamp {
+                    let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                    let age = now.timeIntervalSince(presentationDate)
                     await measurement.measurement.age(age: age, timestamp: now)
                 }
                 await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
@@ -366,8 +382,8 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     }
 
     func setTimeDiff(diff: TimeInterval) {
-        assert(diff > (1 / 1_000_000))
-        let diffUs = UInt64(diff * 1_000_000)
+        assert(abs(diff) > (1 / 1_000_000))
+        let diffUs = Int64(diff * 1_000_000)
         _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
                                                      desired: diffUs,
                                                      ordering: .acquiringAndReleasing)
@@ -504,7 +520,9 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private func depacketize(fullTrackName: FullTrackName,
                              data: Data,
                              groupId: UInt64,
-                             objectId: UInt64) throws -> DecimusVideoFrame? {
+                             objectId: UInt64,
+                             sequenceNumber: UInt64,
+                             timestamp: UInt64) throws -> DecimusVideoFrame? {
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -539,22 +557,18 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         if seis.count == 0 {
             sei = nil
         } else {
-            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil, age: nil)) { result, next in
+            sei = seis.reduce(ApplicationSEI(timestamp: nil, orientation: nil)) { result, next in
                 let timestamp = next.timestamp ?? result.timestamp
                 let orientation = next.orientation ?? result.orientation
-                let age = next.age ?? result.age
-                return .init(timestamp: timestamp, orientation: orientation, age: age)
+                return .init(timestamp: timestamp, orientation: orientation)
             }
         }
 
         guard let buffers = buffers else { return nil }
-        let timeInfo: CMSampleTimingInfo
-        if let timestamp = sei?.timestamp {
-            timeInfo = .init(duration: .invalid, presentationTimeStamp: timestamp.timestamp, decodeTimeStamp: .invalid)
-        } else {
-            Self.logger.error("Missing expected frame timestamp")
-            timeInfo = .invalid
-        }
+        let timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp),
+                                                                       timescale: 1_000_00),
+                                          decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
         for buffer in buffers {
@@ -565,21 +579,13 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                                               sampleSizes: [buffer.dataLength]))
         }
 
-        let captureDate: Date?
-        if let age = sei?.age {
-            captureDate = Date(timeIntervalSinceReferenceDate: age.timestamp.seconds)
-        } else {
-            captureDate = nil
-        }
-
         return .init(samples: samples,
                      groupId: groupId,
                      objectId: objectId,
-                     sequenceNumber: sei?.timestamp?.sequenceNumber,
+                     sequenceNumber: sequenceNumber,
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror,
-                     captureDate: captureDate)
+                     verticalMirror: sei?.orientation?.verticalMirror)
     }
 }
 

@@ -162,7 +162,7 @@ class VideoJitterBuffer {
     func calculateWaitTime(frame: DecimusVideoFrame,
                            from: Date,
                            offset: TimeInterval,
-                           since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval {
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval {
         guard let sample = frame.samples.first else {
             // TODO: Ensure we cannot enqueue a frame with no samples to make this a valid error.
             fatalError()
@@ -185,7 +185,7 @@ class VideoJitterBuffer {
     /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(from: Date,
                            offset: TimeInterval,
-                           since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let frame = peek as! DecimusVideoFrame
         return self.calculateWaitTime(frame: frame, from: from, offset: offset, since: since)

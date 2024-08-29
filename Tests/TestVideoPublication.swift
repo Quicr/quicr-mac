@@ -12,7 +12,7 @@ private class MockEncoder: VideoEncoder {
         self.callback = writeCallback
     }
 
-    func write(sample: CMSampleBuffer, captureTime: Date) throws {
+    func write(sample: CMSampleBuffer, timestamp: Date) throws {
         self.callback()
     }
 
@@ -62,15 +62,15 @@ final class TestVideoPublication: XCTestCase {
         // Let's make the start time, now.
         let now = Date.now
         // This one should not fire.
-        publication.onFrame(sample, captureTime: now)
+        publication.onFrame(sample, timestamp: now)
 
         // This one still should not fire.
         let advancedLessThanHeight = now.addingTimeInterval(TimeInterval(config.height) / 1000 / 2)
-        publication.onFrame(sample, captureTime: advancedLessThanHeight)
+        publication.onFrame(sample, timestamp: advancedLessThanHeight)
 
         // This one should.
         let advancedMoreThanHeight = now.addingTimeInterval(TimeInterval(config.height) / 1000)
         shouldFire = true
-        publication.onFrame(sample, captureTime: advancedMoreThanHeight)
+        publication.onFrame(sample, timestamp: advancedMoreThanHeight)
     }
 }

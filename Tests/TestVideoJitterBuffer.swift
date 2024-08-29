@@ -39,8 +39,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                      sequenceNumber: sequenceNumber,
                      fps: fps,
                      orientation: nil,
-                     verticalMirror: nil,
-                     captureDate: .now)
+                     verticalMirror: nil)
     }
 
     func testPlayout(sort: Bool) throws {
@@ -179,8 +178,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                            capacity: 1)
 
         // At first write, and otherwise on time, we should wait the min depth.
-        let presentation = CMTime(value: CMTimeValue(Date.timeIntervalSinceReferenceDate), timescale: 1)
-        let diff = startTime.timeIntervalSinceReferenceDate - presentation.seconds
+        let presentation = CMTime(value: CMTimeValue(Date.now.timeIntervalSince1970), timescale: 1)
+        let diff = startTime.timeIntervalSince1970 - presentation.seconds
         let sample = try CMSampleBuffer(dataBuffer: nil,
                                         formatDescription: nil,
                                         numSamples: 1,
@@ -197,8 +196,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       sequenceNumber: 1,
                                       fps: 1,
                                       orientation: nil,
-                                      verticalMirror: nil,
-                                      captureDate: .now)
+                                      verticalMirror: nil)
         try buffer.write(videoFrame: frame, from: Date.now)
         waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
         XCTAssertNotNil(waitTime)
@@ -213,13 +211,13 @@ final class TestVideoJitterBuffer: XCTestCase {
                                            sort: false,
                                            minDepth: minDepth,
                                            capacity: 2)
-        let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSinceReferenceDate), timescale: 1)
+        let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSince1970), timescale: 1)
         var diff: TimeInterval?
         let duration = CMTime(value: 1, timescale: 30)
 
         for count in 0..<2 {
             if diff == nil {
-                diff = startTime.timeIntervalSinceReferenceDate - presentation.seconds
+                diff = startTime.timeIntervalSince1970 - presentation.seconds
             }
             let adjust = CMTimeMultiply(duration, multiplier: Int32(count))
             let sample = try CMSampleBuffer(dataBuffer: nil,
@@ -237,8 +235,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           sequenceNumber: 1,
                                           fps: 1,
                                           orientation: nil,
-                                          verticalMirror: nil,
-                                          captureDate: .now)
+                                          verticalMirror: nil)
             try buffer.write(videoFrame: frame, from: Date.now)
         }
 
@@ -287,7 +284,7 @@ final class TestVideoJitterBuffer: XCTestCase {
 
         // A lot of frames will arrive now().
         let firstArrival = Date.now
-        let nowInterval = firstArrival.timeIntervalSinceReferenceDate
+        let nowInterval = firstArrival.timeIntervalSince1970
 
         // We will start their presentation at some random value (before or after now).
         let range: Range<TimeInterval>
@@ -299,7 +296,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         var presentationTime: TimeInterval = .random(in: range)
 
         // Record the media start time from the first frame.
-        let diff = firstArrival.timeIntervalSinceReferenceDate - presentationTime
+        let diff = firstArrival.timeIntervalSince1970 - presentationTime
 
         // Burst arrive N frames all of duration and presentationTime += duration.
         for index in 0..<capacity {
@@ -318,8 +315,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           sequenceNumber: UInt64(index),
                                           fps: UInt8(fps),
                                           orientation: .portrait,
-                                          verticalMirror: false,
-                                          captureDate: nil)
+                                          verticalMirror: false)
             try buffer.write(videoFrame: frame, from: Date.now)
         }
 

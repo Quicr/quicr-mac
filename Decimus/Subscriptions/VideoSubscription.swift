@@ -169,7 +169,7 @@ class VideoSubscription: Subscription {
     func receivedObject(handler: VideoHandler, timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object will set the time diff.
         if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = when.timeIntervalSinceReferenceDate - timestamp
+            self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
         }
 
         // Calculate switching set arrival variance.
