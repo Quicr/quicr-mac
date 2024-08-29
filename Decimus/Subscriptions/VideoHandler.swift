@@ -165,6 +165,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         Self.logger.info("Got video object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
         let now = Date.now
         do {
+            // Pull LOC data out of headers.
             var timestamp: UInt64 = 0
             if let timestampData = extensions[1] {
                 timestamp = timestampData.withUnsafeBytes {
