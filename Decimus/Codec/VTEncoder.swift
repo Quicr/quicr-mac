@@ -528,6 +528,6 @@ class VTEncoder: VideoEncoder {
     }
 }
 
-extension String: @retroactive LocalizedError {
+extension Swift.String: Foundation.LocalizedError {
     public var errorDescription: String? { return self }
 }

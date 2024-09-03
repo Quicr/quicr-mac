@@ -66,6 +66,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
     private let userData: UnsafeRawPointer
+    private var tempSequenceNumber: UInt64 = 0
 
     /// Create a new video handler.
     /// - Parameters:
@@ -161,24 +162,17 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         Self.logger.info("Subscribe Track Status Changed: \(status)")
     }
-    
+
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
-        Self.logger.info("Got video object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+        Self.logger.info("Got video subscription!")
         let now = Date.now
         do {
             // Pull LOC data out of headers.
-            var timestamp: UInt64 = 0
-            if let timestampData = extensions[1] {
-                timestamp = timestampData.withUnsafeBytes {
-                    return $0.load(as: UInt64.self)
-                }
-            }
-            var sequenceNumber: UInt64 = 0
-            if let sequenceData = extensions[2] {
-                sequenceNumber = sequenceData.withUnsafeBytes {
-                    return $0.load(as: UInt64.self)
-                }
-            }
+            // TODO: Make mandatory once libquicr updated.
+            let loc = LowOverheadContainer(from: extensions)
+            let timestamp = loc.timestamp ?? now
+            let sequenceNumber = loc.sequence ?? self.tempSequenceNumber
+            self.tempSequenceNumber += 1
 
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: data,
@@ -518,13 +512,13 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         let namespace = self.fullTrackName.namespace
         return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
-    
+
     private func depacketize(fullTrackName: FullTrackName,
                              data: Data,
                              groupId: UInt64,
                              objectId: UInt64,
                              sequenceNumber: UInt64,
-                             timestamp: UInt64) throws -> DecimusVideoFrame? {
+                             timestamp: Date) throws -> DecimusVideoFrame? {
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -568,8 +562,8 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
 
         guard let buffers = buffers else { return nil }
         let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp),
-                                                                       timescale: 1_000_00),
+                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970),
+                                                                       timescale: 1),
                                           decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
@@ -620,7 +614,7 @@ extension DecimusVideoRotation {
     }
 }
 
-extension CMVideoDimensions: @retroactive Equatable {
+extension CoreMedia.CMVideoDimensions: Swift.Equatable {
     public static func == (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
         lhs.width == rhs.width && lhs.height == rhs.height
     }

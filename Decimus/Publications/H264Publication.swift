@@ -86,25 +86,18 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                                          ttl: nil)
 
             // Use extensions for LOC.
-            var timestamp = UInt64(presentationDate.timeIntervalSince1970 * 1_000_000)
-            let timestampData = Data(bytes: &timestamp, count: MemoryLayout.size(ofValue: timestamp))
-            let timestampKey: NSNumber = 1
-            let sequenceKey: NSNumber = 2
-            var sequence = sequence
-            let sequenceData = Data(bytes: &sequence, count: MemoryLayout.size(ofValue: sequence))
-            let extensions: [NSNumber: Data] = [
-                timestampKey: timestampData,
-                sequenceKey: sequenceData
-            ]
+            let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
 
             // Publish.
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
-            let status = publication.publishObject(headers, data: data, extensions: extensions);
+            let status = publication.publishObject(headers,
+                                                   data: data,
+                                                   extensions: loc.extensions)
             switch status {
             case .ok:
-                Self.logger.debug("Published video object: \(publication.currentGroupId)/\(publication.currentObjectId)")
+                break
             default:
                 Self.logger.warning("Failed to publish object: \(status)")
             }

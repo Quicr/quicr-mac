@@ -88,8 +88,6 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrac
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
-        Self.logger.debug("Got opus object: \(objectHeaders.groupId)")
-        
         let now: Date = .now
         self.lastUpdateTime = now
 

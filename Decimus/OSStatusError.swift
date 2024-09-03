@@ -1,1 +1,1 @@
-extension OSStatus: @retroactive Error { }
+extension CoreFoundation.OSStatus: Swift.Error { }

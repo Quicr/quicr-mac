@@ -99,7 +99,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         let published = self.publishObject(headers, data: data, extensions: [:])
         switch published {
         case .ok:
-            Self.logger.debug("Published audio object: \(self.currentGroupId)")
+            break
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
