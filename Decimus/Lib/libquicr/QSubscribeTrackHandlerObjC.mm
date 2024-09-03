@@ -58,19 +58,16 @@ void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_hea
             .ttl = ttl
         };
 
-        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
-        // TODO: Populate extensions.
-        NSDictionary<NSNumber*, NSData*>* extensions = @{};
+        // Convert extensions.
+        NSMutableDictionary<NSNumber*, NSData*>* extensions = [NSMutableDictionary dictionary];
         if (object_headers.extensions.has_value()) {
             for (const auto& kvp : *object_headers.extensions) {
-                extensions.
-                
-                extensions[kvp.first] = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data() length:kvp.second.size()];
+                NSNumber* key = @(kvp.first);
+                NSData* data = [NSData dataWithBytesNoCopy:(void*)kvp.second.data() length:kvp.second.size()];
+                [extensions setObject:data forKey:key];
             }
         }
-        for (const auto& kvp : object_headers.extensions) {
-            
-        }
+        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
         [_callbacks objectReceived:headers data:nsData extensions: extensions];
     }
 }

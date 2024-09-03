@@ -114,6 +114,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         self.userData = userData
 
         super.init(fullTrackName: fullTrackName.getUnsafe())
+        self.setCallbacks(self)
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
