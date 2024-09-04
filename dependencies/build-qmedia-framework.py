@@ -138,11 +138,11 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     supported_platforms = {
         PlatformType.CATALYST_ARM: Platform(PlatformType.CATALYST_ARM, "MAC_CATALYST_ARM64", f"build-catalyst-{source_folder}"),
         PlatformType.CATALYST_X86: Platform(PlatformType.CATALYST_X86, "MAC_CATALYST", f"build-catalyst-x86-{source_folder}"),
-        #PlatformType.IOS: Platform(PlatformType.IOS, "OS64", f"build-ios-{source_folder}"),
-        #PlatformType.IOS_SIMULATOR: Platform(
-            #PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}"),
-        #PlatformType.TVOS: Platform(PlatformType.TVOS, "TVOS", f"build-tvos-{source_folder}"),
-        #PlatformType.TVOS_SIMULATOR: Platform(PlatformType.TVOS_SIMULATOR, "SIMULATORARM64_TVOS", f"build-tvossim-{source_folder}"),
+        PlatformType.IOS: Platform(PlatformType.IOS, "OS64", f"build-ios-{source_folder}"),
+        PlatformType.IOS_SIMULATOR: Platform(
+            PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}"),
+        PlatformType.TVOS: Platform(PlatformType.TVOS, "TVOS", f"build-tvos-{source_folder}"),
+        PlatformType.TVOS_SIMULATOR: Platform(PlatformType.TVOS_SIMULATOR, "SIMULATORARM64_TVOS", f"build-tvossim-{source_folder}"),
     }
 
     # Get dependencies directory (assuming this is where this script lives).
@@ -183,7 +183,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
             build_number = args.build_number
     else:
         # Default will build all supported.
-        platforms = [PlatformType.CATALYST_ARM, PlatformType.CATALYST_X86]
+        platforms = [platform for platform in PlatformType]
 
     # CMake generate & build.
     with ThreadPoolExecutor(max_workers=len(platforms)) as pool:
