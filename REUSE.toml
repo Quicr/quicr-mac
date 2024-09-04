@@ -21,6 +21,8 @@ path = [
   "dependencies/MacOSXFrameworkInfo.plist.in",
   "docs/formats.md",
   "Decimus.xcodeproj/**",
+  "dependencies/ios.toolchain.cmake",
+  "Decimus/Preview Content/Preview Assets.xcassets/Contents.json",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2023 Cisco Systems"
 SPDX-License-Identifier = "BSD-2-Clause"
