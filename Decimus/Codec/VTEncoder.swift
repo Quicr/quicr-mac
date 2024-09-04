@@ -349,7 +349,8 @@ class VTEncoder: VideoEncoder {
 
         // Rebuild absolute timestamp.
         guard let frameRefCon = frameRefCon else {
-            fatalError("Missing frameRefCon")
+            Self.logger.error("Missing expected frameRefCon (timestamp)")
+            return
         }
         let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
         let absoluteTimestamp = Date.init(timeIntervalSince1970: retrievedTimestamp.seconds)

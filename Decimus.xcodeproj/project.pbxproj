@@ -44,7 +44,6 @@
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
 		18F7C4D82AB1C7AA005EDB88 /* VideoJitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
-		9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */; };
 		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */; };
 		9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */; };
@@ -108,8 +107,6 @@
 		FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */; };
 		FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */; };
 		FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */; };
-		FF6C80A92A16DB850094751E /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80A82A16DB850094751E /* Publication.swift */; };
-		FF6C80AB2A17E8980094751E /* SubscriptionError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF6C80AA2A17E8980094751E /* SubscriptionError.swift */; };
 		FF6D6D302A00410400B535DA /* fonts in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D2F2A00410400B535DA /* fonts */; };
 		FF6D6D522A00415300B535DA /* CiscoSansTT-MediumOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D512A00410A00B535DA /* CiscoSansTT-MediumOblique.woff2 */; };
 		FF6D6D532A00415300B535DA /* CiscoSansTTThinOblique.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FF6D6D3F2A00410A00B535DA /* CiscoSansTTThinOblique.woff2 */; };
@@ -148,8 +145,6 @@
 		FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */ = {isa = PBXBuildFile; productRef = FFA0E84F2A6F25A20027603B /* WrappingHStack */; };
 		FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB8CBE429C148B70093C623 /* ActionPicker.swift */; };
 		FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFBF2FB629BFE48100D769CF /* ActionButton.swift */; };
-		FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */; };
-		FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */; };
 		FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFFF72D62A27D47D00D4D5EE /* ErrorView.swift */; };
 		FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFFF72D82A27FBEA00D4D5EE /* RelayConfig.swift */; };
 		FFFF72DB2A280A8000D4D5EE /* RelaySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFFF72DA2A280A8000D4D5EE /* RelaySettingsView.swift */; };
@@ -215,7 +210,6 @@
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoJitterBuffer.swift; sourceTree = "<group>"; };
-		9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WrappedOptional.swift; sourceTree = "<group>"; };
 		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationH264SEIs.swift; sourceTree = "<group>"; };
@@ -298,8 +292,6 @@
 		FF3B952A2A60C1EF00CE463F /* QJitterBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QJitterBuffer.h; sourceTree = "<group>"; };
 		FF3B952B2A60C1EF00CE463F /* QJitterBuffer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QJitterBuffer.mm; sourceTree = "<group>"; };
 		FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
-		FF6C80A82A16DB850094751E /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
-		FF6C80AA2A17E8980094751E /* SubscriptionError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionError.swift; sourceTree = "<group>"; };
 		FF6D6D2F2A00410400B535DA /* fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fonts; path = "dependencies/momentum-ui/core/fonts"; sourceTree = "<group>"; };
 		FF6D6D322A00410A00B535DA /* CiscoSansTTHeavy.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTHeavy.woff; sourceTree = "<group>"; };
 		FF6D6D332A00410A00B535DA /* CiscoSansTTCondBold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = CiscoSansTTCondBold.woff; sourceTree = "<group>"; };
@@ -339,8 +331,6 @@
 		FFBB04412A2923580038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FFBB04422A29235D0038A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Decimus/Info.plist; sourceTree = SOURCE_ROOT; };
 		FFBF2FB629BFE48100D769CF /* ActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButton.swift; sourceTree = "<group>"; };
-		FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublisherDelegate.swift; sourceTree = "<group>"; };
-		FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriberDelegate.swift; sourceTree = "<group>"; };
 		FFFF72D62A27D47D00D4D5EE /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		FFFF72D82A27FBEA00D4D5EE /* RelayConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayConfig.swift; sourceTree = "<group>"; };
 		FFFF72DA2A280A8000D4D5EE /* RelaySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelaySettingsView.swift; sourceTree = "<group>"; };
@@ -530,7 +520,6 @@
 				9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */,
 				FF6D6D742A01CCAE00B535DA /* ManifestController.swift */,
 				9B9622DB2A7A669A00949234 /* QHelpers.swift */,
-				9B0C4E1B2A94BA5D00F6A644 /* WrappedOptional.swift */,
 				18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */,
 				18F7C4D72AB1C7AA005EDB88 /* VideoJitterBuffer.swift */,
 				1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */,
@@ -575,10 +564,6 @@
 				9B48068829829FB90040F5D4 /* VideoParticipant.swift */,
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
 				FFFF72D82A27FBEA00D4D5EE /* RelayConfig.swift */,
-				FF6C80A82A16DB850094751E /* Publication.swift */,
-				FF6C80AA2A17E8980094751E /* SubscriptionError.swift */,
-				FFD1CFED2A2131250034CDD0 /* PublisherDelegate.swift */,
-				FFD1CFEF2A214FA60034CDD0 /* SubscriberDelegate.swift */,
 				FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */,
 			);
 			path = Models;
@@ -949,24 +934,19 @@
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
-				9B0C4E1C2A94BA5D00F6A644 /* WrappedOptional.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */,
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscription+Measurement.swift in Sources */,
-				FF6C80AB2A17E8980094751E /* SubscriptionError.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,
-				FF6C80A92A16DB850094751E /* Publication.swift in Sources */,
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				9B52EE332B763157006E9C58 /* PublicationPopover.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
-				FFD1CFF02A214FA60034CDD0 /* SubscriberDelegate.swift in Sources */,
-				FFD1CFEE2A2131250034CDD0 /* PublisherDelegate.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
 				183600592B6BCBAC00BC2919 /* SubscriptionPopover.swift in Sources */,
@@ -1018,7 +998,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -1042,7 +1022,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
@@ -1207,7 +1187,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1273,7 +1253,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

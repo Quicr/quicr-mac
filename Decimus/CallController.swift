@@ -10,59 +10,70 @@ enum MoqCallControllerError: Error {
     case notConnected
 }
 
-/// Represents a client-facing logical collection of subscriptions, containing one or more actual track subscriptions.
-protocol Subscription {
-    /// The (one or more) subscribe track handlers for this subscription.
+/// Represents a client-facing collection of logically related subscriptions, containing one or more actual track subscriptions. Implementing this interface with >1 handler is useful when data streams across multiple subscribe handlers need to be compared or collated.
+protocol SubscriptionSet {
+    /// Get the subscribe track handlers for this subscription set.
+    /// - Returns: The (one or more) subscribe track handlers for this subscription.
     func getHandlers() -> [QSubscribeTrackHandlerObjC]
 }
 
-/// Controller for MoQ pub/sub.
+/// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
+/// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
-    private let client: QClientObjC
-    private var connectionContinuation: CheckedContinuation<Void, Error>?
-
-    private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
-    private var subscriptions: [SourceIDType: Subscription] = [:]
-
+    // Dependencies.
     private let subscriptionConfig: SubscriptionConfig
     private let engine: DecimusAudioEngine
     private let granularMetrics: Bool
     private let videoParticipants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
-    private var connected = false
     private let logger = DecimusLogger(MoqCallController.self)
     private let captureManager: CaptureManager
 
+    // State.
+    private let client: QClientObjC
+    private var connectionContinuation: CheckedContinuation<Void, Error>?
+    private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
+    private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
+    private var connected = false
+
+    /// Create a new controller.
+    /// - Parameters:
+    ///   - config: Underlying [`moq::Client`](https://quicr.github.io/libquicr/moq-api-html/classmoq_1_1_client.html) config.
+    ///   - captureManager: Video camera capture manager.
+    ///   - subscriptionConfig: Application configuration for subscription creation.
+    ///   - engine: Audio capture/playout engine.
+    ///   - videoParticipants: Video rendering manager.
+    ///   - submitter: Optionally, a submitter through which to submit metrics.
+    ///   - granularMetrics: True to enable granular metrics, with a potential performance cost.
     init(config: QClientConfig,
-         metricsSubmitter: MetricsSubmitter?,
          captureManager: CaptureManager,
          subscriptionConfig: SubscriptionConfig,
          engine: DecimusAudioEngine,
+         videoParticipants: VideoParticipants,
          submitter: MetricsSubmitter?,
-         granularMetrics: Bool,
-         videoParticipants: VideoParticipants) {
-        self.engine = engine
-        self.subscriptionConfig = subscriptionConfig
-        self.metricsSubmitter = submitter
-        self.granularMetrics = granularMetrics
-        self.videoParticipants = videoParticipants
+         granularMetrics: Bool) {
         self.client = .init(config: config)
         self.captureManager = captureManager
+        self.subscriptionConfig = subscriptionConfig
+        self.engine = engine
+        self.videoParticipants = videoParticipants
+        self.metricsSubmitter = submitter
+        self.granularMetrics = granularMetrics
         self.client.setCallbacks(self)
     }
 
     /// Connect to the relay.
+    /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` when an unexpected status is returned.
     func connect() async throws {
         try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
             self.connectionContinuation = continuation
             let status = self.client.connect()
             switch status {
             case .clientConnecting:
-                print("CLIENT CONNECTING")
                 break
             case .ready:
                 // This is here just for the type inference,
-                // but we don't expect it to happen.
+                // but we don't actually expect it to happen.
                 assert(false)
                 continuation.resume()
             default:
@@ -71,9 +82,10 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
-    /// Inject a manifest into the controller, causing the creation of the corresponding publications and subscriptions
-    /// and media objects.
+    /// Inject a manifest into the controller, causing the creation of the corresponding publications and subscriptions and media objects. This should be called after
+    /// connecting.
     /// - Parameter manifest: The manifest to use.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
     func setManifest(_ manifest: Manifest) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
 
@@ -105,6 +117,7 @@ class MoqCallController: QClientCallbacks {
     }
 
     /// Disconnect from the relay.
+    /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
         let status = self.client.disconnect()
         guard status == .disconnecting else {
@@ -114,6 +127,8 @@ class MoqCallController: QClientCallbacks {
 
     // MARK: Callbacks.
 
+    /// moq::Client callback for status change.
+    /// - Parameter status: The new status.
     func statusChanged(_ status: QClientStatus) {
         self.logger.info("[MoqCallController] Status changed: \(status)")
         switch status {
@@ -126,10 +141,10 @@ class MoqCallController: QClientCallbacks {
             self.connectionContinuation = nil
             self.connected = true
             connection.resume()
-            print("We're connected")
         case .notReady:
             guard let connection = self.connectionContinuation else {
-                fatalError("BAD")
+                self.logger.error("Got notReady status when connection was nil")
+                return
             }
             self.connectionContinuation = nil
             self.connected = true
@@ -139,15 +154,23 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
+    /// moq::Client serverSetupReceived event.
+    /// - Parameter setup: The set setup attributes received with the event.
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
         self.logger.info("Got server setup received message")
     }
 
+    /// moq::Client announcement status changed in response to a publishAnnounce()
+    /// - Parameter namespace: The namespace the changed announcement was for.
+    /// - Parameter status: The new status the announcement has.
     func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
         self.logger.info("Got announce status changed: \(status)")
     }
 
-    private func create(subscription: ManifestSubscription) throws -> Subscription {
+    /// Create subscription tracks and owning object for a manifest entry.
+    /// - Parameter subscription: The manifest entry detailing this set of related subscription tracks.
+    /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type. Other errors on failure to create client media subscription handlers.
+    private func create(subscription: ManifestSubscription) throws -> SubscriptionSet {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]

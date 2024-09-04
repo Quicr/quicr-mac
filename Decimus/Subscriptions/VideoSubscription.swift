@@ -15,7 +15,7 @@ struct AvailableImage {
 }
 
 // swiftlint:disable type_body_length
-class VideoSubscription: Subscription {
+class VideoSubscription: SubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscription.self)
 
     private let subscription: ManifestSubscription
@@ -362,26 +362,26 @@ class VideoSubscription: Subscription {
         // if they exceed this count.
         if self.pauseResume {
             fatalError("Not supported")
-//            for pauseCandidateCount in self.pauseMissCounts {
-//                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
-//                      pauseCandidate.config.width > incomingWidth,
-//                      let callController = self.callController,
-//                      callController.getSubscriptionState(pauseCandidate.namespace) == .ready else {
-//                    continue
-//                }
-//
-//                let newValue = pauseCandidateCount.value + 1
-//                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
-//                if newValue >= self.pauseMissThreshold {
-//                    // Pause this subscription.
-//                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
-//                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
-//                    self.pauseMissCounts[pauseCandidate.namespace] = 0
-//                } else {
-//                    // Increment the pause miss count.
-//                    self.pauseMissCounts[pauseCandidate.namespace] = newValue
-//                }
-//            }
+            //            for pauseCandidateCount in self.pauseMissCounts {
+            //                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
+            //                      pauseCandidate.config.width > incomingWidth,
+            //                      let callController = self.callController,
+            //                      callController.getSubscriptionState(pauseCandidate.namespace) == .ready else {
+            //                    continue
+            //                }
+            //
+            //                let newValue = pauseCandidateCount.value + 1
+            //                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+            //                if newValue >= self.pauseMissThreshold {
+            //                    // Pause this subscription.
+            //                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
+            //                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
+            //                    self.pauseMissCounts[pauseCandidate.namespace] = 0
+            //                } else {
+            //                    // Increment the pause miss count.
+            //                    self.pauseMissCounts[pauseCandidate.namespace] = newValue
+            //                }
+            //            }
         }
 
         guard let handler = self.videoHandlers[selected.fullTrackName] else {
@@ -411,8 +411,12 @@ class VideoSubscription: Subscription {
             }
             let completedReport = report
             Task(priority: .utility) {
-                await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
-                                                                       timestamp: decisionTime!)
+                do {
+                    try await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
+                                                                               timestamp: decisionTime!)
+                } catch {
+                    Self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
+                }
             }
         }
 

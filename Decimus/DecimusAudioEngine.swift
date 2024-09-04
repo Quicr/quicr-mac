@@ -1,9 +1,8 @@
 import AVFAudio
 import os
 
-/// Wrapper for app specific AVAudioEngine functionality.
+/// Wrapper for app specific `AVAudioEngine` functionality.
 class DecimusAudioEngine {
-
     /// The audio format the application should use.
     static let format: AVAudioFormat = .init(commonFormat: .pcmFormatFloat32,
                                              sampleRate: .opus48khz,
@@ -15,7 +14,7 @@ class DecimusAudioEngine {
     /// Microphone data in enqueued into this buffer.
     let microphoneBuffer: CircularBuffer?
 
-    /// The AVAudioEngine instance this AudioEngine wraps.
+    // The AVAudioEngine instance this AudioEngine wraps.
     private let engine: AVAudioEngine
     private var notificationObservers: [NSObjectProtocol] = []
     private let sink: AVAudioSinkNode?
@@ -80,6 +79,8 @@ class DecimusAudioEngine {
         Self.logger.debug("Route change: \(reason)")
     }
 
+    /// Create a new app audio engine, configuring the session, formats, I/O devices, and processing.
+    /// - Throws: Any of the many possible errors during setup.
     init() throws {
         // Configure the session.
         let engine = AVAudioEngine()
@@ -201,7 +202,7 @@ class DecimusAudioEngine {
         }
     }
 
-    /// Run the audio engine.
+    /// Run the audio engine. It is an error to call this when already running.
     func start() throws {
         guard !engine.isRunning else { throw "Already running" }
         try AVAudioSession.sharedInstance().setActive(true)
@@ -209,7 +210,7 @@ class DecimusAudioEngine {
         stopped = false
     }
 
-    /// Stop the audio engine running.
+    /// Stop the audio engine running. It is an error to call this when already stopped.
     func stop() throws {
         guard engine.isRunning else { throw "Not running" }
         engine.stop()
@@ -220,6 +221,7 @@ class DecimusAudioEngine {
     /// Add a source node to this engine, to be mixed with any others.
     /// - Parameter identifier: Identifier for this source.
     /// - Parameter node: The source node supplying audio.
+    /// - Throws: Error if the target node has already been added.
     func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: Self.format)
@@ -234,6 +236,7 @@ class DecimusAudioEngine {
 
     /// Remove a previously added source node.
     /// - Parameter identifier: Identifier of the source node to remove.
+    /// - Throws: Error if the source node has not beed added,
     func removePlayer(identifier: SourceIDType) throws {
         try self.lock.withLock {
             guard let element = elements.removeValue(forKey: identifier) else {
@@ -244,15 +247,20 @@ class DecimusAudioEngine {
         Self.logger.info("(\(identifier)) Removed player node")
     }
 
+    /// Is the microphone / input device currently muted?
+    /// - Returns: True if muted, or if no input device available.
     func isInputMuted() -> Bool {
         self.inputNodePresent ? self.engine.inputNode.isVoiceProcessingInputMuted : true
     }
 
+    /// Toggle mute status.
     func toggleMute() {
         guard self.inputNodePresent else { return }
         self.engine.inputNode.isVoiceProcessingInputMuted.toggle()
     }
 
+    /// Register a callback for notifications of speech detection while mutex.
+    /// - Parameter block: The callback to receive the muted speech event.
     @available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *)
     func setMutedSpeechActivityEventListener(_ block: ((AVAudioVoiceProcessingSpeechActivityEvent) -> Void)?) throws {
         guard self.inputNodePresent else { return }

@@ -2,7 +2,7 @@ import AVFAudio
 import CoreAudio
 import os
 
-class OpusSubscription: QSubscribeTrackHandlerObjC, Subscription, QSubscribeTrackHandlerCallbacks {
+class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeTrackHandlerCallbacks {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
     private let engine: DecimusAudioEngine

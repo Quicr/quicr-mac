@@ -1,9 +1,11 @@
 import AVFoundation
 
-/// Allows access to cameras.
+/// Allows querying this systems' video devices.
 class VideoDevices: ObservableObject {
+    /// The list of a available cameras.
     @Published var cameras: [AVCaptureDevice]
 
+    /// Create and execute a query for available devices.
     init() {
         // Get all microphones and cameras.
         var types: [AVCaptureDevice.DeviceType] = [
@@ -27,6 +29,6 @@ class VideoDevices: ObservableObject {
             deviceTypes: types,
             mediaType: .video,
             position: .unspecified)
-        cameras = cameraDiscovery.devices
+        self.cameras = cameraDiscovery.devices
     }
 }

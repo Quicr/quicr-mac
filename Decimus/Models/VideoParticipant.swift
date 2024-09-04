@@ -6,12 +6,19 @@ enum ParticipantError: Error {
     case notFound
 }
 
+/// Represents a visible video display.
 class VideoParticipant: ObservableObject, Identifiable {
+    /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
     var id: SourceIDType
+    /// The SwiftUI view for video display.
     var view: VideoView = .init()
+    /// The label to display under the video.
     @Published var label: String
+    /// True if this video should be highlighted.
     @Published var highlight: Bool
 
+    /// Create a new participant for the given identifier.
+    /// - Parameter id: Namespace or source ID.
     init(id: SourceIDType) {
         self.id = id
         self.label = id
@@ -19,12 +26,17 @@ class VideoParticipant: ObservableObject, Identifiable {
     }
 }
 
+/// Holder for all video participants.
 class VideoParticipants: ObservableObject {
     private static let logger = DecimusLogger(VideoParticipants.self)
 
+    /// All tracked participants by identifier.
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
 
+    /// Get or create a ``VideoParticipant``.
+    /// - Parameter identifier: The identifier for the target view.
+    /// - Returns: The created video view.
     func getOrMake(identifier: SourceIDType) -> VideoParticipant {
         if let participant = participants[identifier] {
             return participant
@@ -41,6 +53,8 @@ class VideoParticipants: ObservableObject {
         return new
     }
 
+    /// Remove a participant view.
+    /// - Parameter identifier: The identifier for the target view to remove.
     func removeParticipant(identifier: SourceIDType) {
         DispatchQueue.main.async {
             guard let removed = self.participants.removeValue(forKey: identifier) else {

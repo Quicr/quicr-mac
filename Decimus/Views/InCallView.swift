@@ -69,24 +69,24 @@ struct InCallView: View {
                         }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
-//                        if let controller = viewModel.controller {
-//                            SubscriptionPopover(controller: controller)
-//                        }
-//                        Spacer()
-//                        Button("Done") {
-//                            self.isShowingSubscriptions = false
-//                        }
-//                        .padding()
+                        //                        if let controller = viewModel.controller {
+                        //                            SubscriptionPopover(controller: controller)
+                        //                        }
+                        //                        Spacer()
+                        //                        Button("Done") {
+                        //                            self.isShowingSubscriptions = false
+                        //                        }
+                        //                        .padding()
                     }
                     .sheet(isPresented: $isShowingPublications) {
-//                        if let controller = viewModel.controller {
-//                            PublicationPopover(controller: controller)
-//                        }
-//                        Spacer()
-//                        Button("Done") {
-//                            self.isShowingPublications = false
-//                        }
-//                        .padding()
+                        //                        if let controller = viewModel.controller {
+                        //                            PublicationPopover(controller: controller)
+                        //                        }
+                        //                        Spacer()
+                        //                        Button("Done") {
+                        //                            self.isShowingPublications = false
+                        //                        }
+                        //                        .padding()
                     }
 
                     // Call controls panel.
@@ -174,10 +174,10 @@ struct InCallView: View {
                     continue
                 }
 
-//                guard await viewModel.connected() else {
-//                    await viewModel.leave()
-//                    return onLeave()
-//                }
+                //                guard await viewModel.connected() else {
+                //                    await viewModel.leave()
+                //                    return onLeave()
+                //                }
             }
         }
     }
@@ -252,12 +252,12 @@ extension InCallView {
                 let connectUri: String = "moq://\(config.address):\(config.port)"
                 let endpointId: String = config.email
                 let qLogPath: URL
-#if targetEnvironment(macCatalyst)
+                #if targetEnvironment(macCatalyst)
                 qLogPath = .downloadsDirectory
-#else
+                #else
                 qLogPath = .documentsDirectory
-#endif
-                
+                #endif
+
                 let subConfig = self.subscriptionConfig.value
                 self.controller = connectUri.withCString { connectUri in
                     endpointId.withCString { endpointId in
@@ -283,29 +283,28 @@ extension InCallView {
                                                        transportConfig: tConfig,
                                                        metricsSampleMs: 0)
                             return .init(config: config,
-                                         metricsSubmitter: self.submitter,
                                          captureManager: captureManager,
                                          subscriptionConfig: subConfig,
                                          engine: engine,
+                                         videoParticipants: self.videoParticipants,
                                          submitter: self.submitter,
-                                         granularMetrics: influxConfig.value.granular,
-                                         videoParticipants: self.videoParticipants)
+                                         granularMetrics: influxConfig.value.granular)
                         }
                     }
                 }
             }
         }
 
-//        func connected() async -> Bool {
-//            guard let controller = self.controller else {
-//                return false
-//            }
-//            if !controller.connected() {
-//                Self.logger.error("Connection to relay disconnected")
-//                return false
-//            }
-//            return true
-//        }
+        //        func connected() async -> Bool {
+        //            guard let controller = self.controller else {
+        //                return false
+        //            }
+        //            if !controller.connected() {
+        //                Self.logger.error("Connection to relay disconnected")
+        //                return false
+        //            }
+        //            return true
+        //        }
 
         func join() async -> Bool {
             guard let controller = self.controller else {
