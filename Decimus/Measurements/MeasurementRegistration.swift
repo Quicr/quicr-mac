@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 class MeasurementRegistration<Metric> where Metric: Measurement {
     let measurement: Metric
     let registration: Task<Void, Never>

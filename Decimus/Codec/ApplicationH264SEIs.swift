@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 class ApplicationH264SEIs: ApplicationSeiData {
     func getOrientationOffset(_ field: OrientationSeiField) -> Int {
         switch field {
