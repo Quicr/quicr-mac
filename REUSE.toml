@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+  ".clang-format",
+  ".clang-tidy",
+  ".github/workflows/cmake.yml",
+  ".gitignore",
+  ".gitmodules",
+  ".pre-commit-config.yaml",
+  ".swiftlint.yml",
+  "ci_scripts/Decimus.entitlements",
+  "docs/formats.md",
+  "AUTHORS.md",
+  "README.md"
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "BSD-2-Clause"
