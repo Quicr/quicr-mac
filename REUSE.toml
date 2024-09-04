@@ -12,10 +12,23 @@ path = [
   ".gitmodules",
   ".pre-commit-config.yaml",
   ".swiftlint.yml",
-  "ci_scripts/Decimus.entitlements",
-  "docs/formats.md",
   "AUTHORS.md",
-  "README.md"
+  "Decimus/Decimus.entitlements",
+  "Decimus/Info.plist",
+  "README.md",
+  "TestPlan.xctestplan",
+  "ci_scripts/Decimus.entitlements",
+  "dependencies/MacOSXFrameworkInfo.plist.in",
+  "docs/formats.md",
+  "Decimus.xcodeproj/**",
 ]
-SPDX-FileCopyrightText = "NONE"
+SPDX-FileCopyrightText = "Copyright (c) 2023 Cisco Systems"
 SPDX-License-Identifier = "BSD-2-Clause"
+
+
+[[annotations]]
+path = "Decimus/Assets.xcassets/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2023 Cisco Systems"
+SPDX-License-Identifier = "CC-BY-4.0"
+
