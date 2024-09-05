@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
+version = 1
+
+[[annotations]]
+path = [
+  ".clang-format",
+  ".clang-tidy",
+  ".github/workflows/cmake.yml",
+  ".gitignore",
+  ".gitmodules",
+  ".pre-commit-config.yaml",
+  ".swiftlint.yml",
+  "AUTHORS.md",
+  "Decimus/Decimus.entitlements",
+  "Decimus/Info.plist",
+  "README.md",
+  "TestPlan.xctestplan",
+  "ci_scripts/Decimus.entitlements",
+  "dependencies/MacOSXFrameworkInfo.plist.in",
+  "docs/formats.md",
+  "Decimus.xcodeproj/**",
+  "dependencies/ios.toolchain.cmake",
+  "Decimus/Preview Content/Preview Assets.xcassets/Contents.json",
+]
+SPDX-FileCopyrightText = "Copyright (c) 2023 Cisco Systems"
+SPDX-License-Identifier = "BSD-2-Clause"
+
+
+[[annotations]]
+path = "Decimus/Assets.xcassets/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright (c) 2023 Cisco Systems"
+SPDX-License-Identifier = "CC-BY-4.0"
+

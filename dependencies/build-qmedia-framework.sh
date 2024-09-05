@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 set -e
+
 
 # Get correct directory
 DIR="$(cd "$(dirname "$0")";pwd -P)"

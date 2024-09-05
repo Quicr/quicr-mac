@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Univeral catalyst binary
 DIR="$(cd "$(dirname "$0")";pwd -P)"
 ORIGINAL=$(readlink -f $DIR/build-catalyst-$BUILD_FOLDER/$TARGET_PATH/$TARGET.framework/$TARGET)
