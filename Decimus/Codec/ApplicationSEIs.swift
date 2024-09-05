@@ -50,8 +50,10 @@ struct OrientationSei {
         var extractedOrientation: UInt8?
         var extractedVerticalMirror: UInt8?
         encoded.withUnsafeBytes {
-            extractedOrientation = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.orientation), as: UInt8.self)
-            extractedVerticalMirror = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.mirror), as: UInt8.self)
+            extractedOrientation = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.orientation),
+                                                    as: UInt8.self)
+            extractedVerticalMirror = $0.loadUnaligned(fromByteOffset: data.getOrientationOffset(.mirror),
+                                                       as: UInt8.self)
         }
 
         guard let extractedOrientation = extractedOrientation,
@@ -70,7 +72,8 @@ struct OrientationSei {
         var bytes = Data(data.orientationSei)
         if !startCode {
             bytes.withUnsafeMutableBytes {
-                $0.storeBytes(of: UInt32(data.orientationSei.count - H264Utilities.naluStartCode.count).byteSwapped, as: UInt32.self)
+                $0.storeBytes(of: UInt32(data.orientationSei.count - H264Utilities.naluStartCode.count).byteSwapped,
+                              as: UInt32.self)
             }
         }
         bytes[data.getOrientationOffset(.orientation)] = self.orientation.rawValue
@@ -110,7 +113,8 @@ struct TimestampSei {
         let fps = self.fps
         bytes.withUnsafeMutableBytes {
             if !startCode {
-                $0.storeBytes(of: UInt32(data.timestampSei.count - H264Utilities.naluStartCode.count).byteSwapped, as: UInt32.self)
+                $0.storeBytes(of: UInt32(data.timestampSei.count - H264Utilities.naluStartCode.count).byteSwapped,
+                              as: UInt32.self)
             }
             $0.storeBytes(of: fps, toByteOffset: data.getTimestampOffset(.fps), as: UInt8.self)
         }

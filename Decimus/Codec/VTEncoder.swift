@@ -97,7 +97,6 @@ class VTEncoder: VideoEncoder {
                                  value: kCFBooleanTrue)
         }
 
-        // swiftlint:disable switch_case_alignment
         #if !os(tvOS)
         try OSStatusError.checked("Set Profile Level") {
             return switch config.codec {
@@ -114,7 +113,6 @@ class VTEncoder: VideoEncoder {
             }
         }
         #endif
-        // swiftlint:enable switch_case_alignment
 
         try OSStatusError.checked("Set allow frame reordering") {
             VTSessionSetProperty(compressionSession,
@@ -304,14 +302,16 @@ class VTEncoder: VideoEncoder {
                 Self.logger.error("Couldn't allocate parameters buffer")
                 return
             }
-            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress, count: totalSize)
+            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress,
+                                                                     count: totalSize)
 
             var offset = 0
             for set in parameterSets {
                 // Copy either start code or UInt32 length.
                 if self.emitStartCodes {
                     self.startCode.withUnsafeBytes {
-                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!, byteCount: $0.count)
+                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
+                                                                                          byteCount: $0.count)
                         offset += $0.count
                     }
                 } else {
@@ -449,7 +449,9 @@ class VTEncoder: VideoEncoder {
     private func prependOrientationSEI(orientation: DecimusVideoRotation,
                                        verticalMirror: Bool,
                                        bufferAllocator: BufferAllocator) throws {
-        let bytes = OrientationSei(orientation: orientation, verticalMirror: verticalMirror).getBytes(self.seiData, startCode: self.emitStartCodes)
+        let bytes = OrientationSei(orientation: orientation,
+                                   verticalMirror: verticalMirror).getBytes(self.seiData,
+                                                                            startCode: self.emitStartCodes)
         guard let orientationPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
             throw "Failed to allocate orientation header"
         }
@@ -531,6 +533,7 @@ class VTEncoder: VideoEncoder {
         ]
     }
 }
+// swiftlint:enable type_body_length
 
 extension Swift.String: Foundation.LocalizedError {
     public var errorDescription: String? { return self }

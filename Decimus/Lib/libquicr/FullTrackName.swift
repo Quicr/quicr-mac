@@ -54,7 +54,8 @@ struct FullTrackName: Hashable {
     /// - Returns: A ``QFullTrackName`` view into this ``FullTrackName``.
     func getUnsafe() -> QFullTrackName {
         return self.namespace.withUnsafeBytes { namespace in
-            let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self, capacity: namespace.count)
+            let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self,
+                                                                                       capacity: namespace.count)
             return self.name.withUnsafeBytes { name in
                 let namePtr: UnsafePointer<CChar> = name.baseAddress!.bindMemory(to: CChar.self, capacity: name.count)
 

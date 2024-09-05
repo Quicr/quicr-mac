@@ -126,7 +126,8 @@ class VideoJitterBuffer {
     }
 
     /// Attempt to read a frame from the front of the buffer.
-    /// - Parameter from: The timestamp of this read operation. This is an optimization to reduce the number of now() calculations, and has no bearing on jitter buffer behaviour.
+    /// - Parameter from: The timestamp of this read operation.
+    /// This is an optimization to reduce the number of now() calculations, and has no bearing on jitter buffer behaviour.
     /// - Returns: Either the oldest available frame, or nil.
     func read(from: Date) -> DecimusVideoFrame? {
         let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil
@@ -205,3 +206,5 @@ class VideoJitterBuffer {
         return self.calculateWaitTime(frame: frame, from: from, offset: offset, since: since)
     }
 }
+
+// swiftlint:enable force_cast

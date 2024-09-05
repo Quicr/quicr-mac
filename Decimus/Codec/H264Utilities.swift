@@ -4,8 +4,6 @@
 import CoreMedia
 import AVFoundation
 
-// swiftlint:disable function_body_length
-
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities: VideoUtilities {
     private static let logger = DecimusLogger(H264Utilities.self)
@@ -61,13 +59,15 @@ class H264Utilities: VideoUtilities {
             let rawType = data.load(fromByteOffset: offset + MemoryLayout<UInt32>.size, as: UInt8.self)
             let type = H264Types(rawValue: rawType & 0x1F)
             if type == .sps {
-                spsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)),
+                let ptr = data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)
+                spsData = .init(bytesNoCopy: .init(mutating: ptr),
                                 count: Int(length),
                                 deallocator: .none)
             }
 
             if type == .pps {
-                ppsData = .init(bytesNoCopy: .init(mutating: data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)),
+                let ptr = data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)
+                ppsData = .init(bytesNoCopy: .init(mutating: ptr),
                                 count: Int(length),
                                 deallocator: .none)
             }
@@ -86,8 +86,10 @@ class H264Utilities: VideoUtilities {
             }
 
             if type == .pFrame || type == .idr {
-                results.append(try Self.buildBlockBuffer(UnsafeRawBufferPointer(start: data.baseAddress!.advanced(by: offset),
-                                                                                count: Int(length) + MemoryLayout<UInt32>.size),
+                let ptr = data.baseAddress!.advanced(by: offset)
+                let length = Int(length) + MemoryLayout<UInt32>.size
+                results.append(try Self.buildBlockBuffer(UnsafeRawBufferPointer(start: ptr,
+                                                                                count: length),
                                                          copy: copy))
             }
             offset += MemoryLayout<UInt32>.size + Int(length)

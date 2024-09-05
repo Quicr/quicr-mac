@@ -13,7 +13,10 @@ enum MoqCallControllerError: Error {
     case notConnected
 }
 
-/// Represents a client-facing collection of logically related subscriptions, containing one or more actual track subscriptions. Implementing this interface with >1 handler is useful when data streams across multiple subscribe handlers need to be compared or collated.
+/// Represents a client-facing collection of logically related subscriptions,
+/// containing one or more actual track subscriptions.
+/// Implementing this interface with >1 handler is useful when data streams
+/// across multiple subscribe handlers need to be compared or collated.
 protocol SubscriptionSet {
     /// Get the subscribe track handlers for this subscription set.
     /// - Returns: The (one or more) subscribe track handlers for this subscription.
@@ -41,7 +44,7 @@ class MoqCallController: QClientCallbacks {
 
     /// Create a new controller.
     /// - Parameters:
-    ///   - config: Underlying [`moq::Client`](https://quicr.github.io/libquicr/moq-api-html/classmoq_1_1_client.html) config.
+    ///   - config: Underlying `moq::Client` config.
     ///   - captureManager: Video camera capture manager.
     ///   - subscriptionConfig: Application configuration for subscription creation.
     ///   - engine: Audio capture/playout engine.
@@ -89,8 +92,9 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
-    /// Inject a manifest into the controller, causing the creation of the corresponding publications and subscriptions and media objects. This should be called after
-    /// connecting.
+    /// Inject a manifest into the controller.
+    /// This causes the creation of the corresponding publications and subscriptions and media objects.
+    /// This MUST be called after connecting.
     /// - Parameter manifest: The manifest to use.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
     func setManifest(_ manifest: Manifest) throws {
@@ -161,7 +165,6 @@ class MoqCallController: QClientCallbacks {
             connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         case .clientConnecting:
             assert(self.connectionContinuation != nil)
-            break
         default:
             self.logger.warning("Unhandled status change: \(status)")
         }
@@ -182,7 +185,8 @@ class MoqCallController: QClientCallbacks {
 
     /// Create subscription tracks and owning object for a manifest entry.
     /// - Parameter subscription: The manifest entry detailing this set of related subscription tracks.
-    /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type. Other errors on failure to create client media subscription handlers.
+    /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type.
+    /// Other errors on failure to create client media subscription handlers.
     private func create(subscription: ManifestSubscription) throws -> SubscriptionSet {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
