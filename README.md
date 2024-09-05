@@ -2,6 +2,8 @@
 
 Decimus is a proof of concept Media over QUIC application allowing audio / video conferencing using [libquicr](https://github.com/quicr/libquicr).
 
+If you would like to try out Decimus as a user, you can add yourself to the TestFlight distribution here: https://testflight.apple.com/join/z4mV8YDk
+
 ## Building
 
 1. Ensure dependencies cloned / up to date:
