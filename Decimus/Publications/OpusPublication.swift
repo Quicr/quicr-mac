@@ -80,6 +80,7 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
 
     deinit {
         self.encodeTask?.cancel()
+        Self.logger.debug("Deinit")
     }
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {

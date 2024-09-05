@@ -134,7 +134,7 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
     }
 
     deinit {
-        Self.logger.debug("deinit")
+        Self.logger.debug("Deinit")
     }
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {

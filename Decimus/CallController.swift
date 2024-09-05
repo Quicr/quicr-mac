@@ -65,6 +65,10 @@ class MoqCallController: QClientCallbacks {
         self.client.setCallbacks(self)
     }
 
+    deinit {
+        self.logger.debug("Deinit")
+    }
+
     /// Connect to the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` when an unexpected status is returned.
     func connect() async throws {
@@ -126,6 +130,9 @@ class MoqCallController: QClientCallbacks {
         guard status == .disconnecting else {
             throw MoqCallControllerError.connectionFailure(status)
         }
+        self.logger.info("[MoqCallController] Disconnected")
+        self.publications.removeAll()
+        self.subscriptions.removeAll()
     }
 
     // MARK: Callbacks.
@@ -152,6 +159,9 @@ class MoqCallController: QClientCallbacks {
             self.connectionContinuation = nil
             self.connected = true
             connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
+        case .clientConnecting:
+            assert(self.connectionContinuation != nil)
+            break
         default:
             self.logger.warning("Unhandled status change: \(status)")
         }

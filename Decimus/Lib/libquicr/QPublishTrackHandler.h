@@ -14,8 +14,8 @@ class QPublishTrackHandler : public moq::PublishTrackHandler
 public:
     QPublishTrackHandler(const moq::FullTrackName& full_track_name,
                          moq::TrackMode track_mode,
-                         uint8_t default_priority,
-                         uint32_t default_ttl);
+                         std::uint8_t default_priority,
+                         std::uint32_t default_ttl);
 
     void StatusChanged(Status status);
 

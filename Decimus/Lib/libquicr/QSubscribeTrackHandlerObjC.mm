@@ -41,7 +41,7 @@ void QSubscribeTrackHandler::StatusChanged(Status status)
 }
 
 void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_headers,
-                                            Span<uint8_t> data)
+                                            moq::BytesSpan data)
 {
     if (_callbacks)
     {
@@ -66,17 +66,17 @@ void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_hea
         if (object_headers.extensions.has_value()) {
             for (const auto& kvp : *object_headers.extensions) {
                 NSNumber* key = @(kvp.first);
-                NSData* data = [NSData dataWithBytesNoCopy:(void*)kvp.second.data() length:kvp.second.size()];
+                NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data()  length:kvp.second.size() deallocator:nil];
                 [extensions setObject:data forKey:key];
             }
         }
-        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
+        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
         [_callbacks objectReceived:headers data:nsData extensions: extensions];
     }
 }
 
 void QSubscribeTrackHandler::PartialObjectReceived(const moq::ObjectHeaders& object_headers,
-                                                   Span<uint8_t> data)
+                                                   moq::BytesSpan data)
 {
     if (_callbacks)
     {
@@ -95,9 +95,18 @@ void QSubscribeTrackHandler::PartialObjectReceived(const moq::ObjectHeaders& obj
             .priority = priority,
             .ttl = ttl
         };
-        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:data.data() length:data.size()];
-        // TODO: Populate extensions.
-        NSDictionary<NSNumber*, NSData*>* extensions = @{};
+
+        // Convert extensions.
+        NSMutableDictionary<NSNumber*, NSData*>* extensions = [NSMutableDictionary dictionary];
+        if (object_headers.extensions.has_value()) {
+            for (const auto& kvp : *object_headers.extensions) {
+                NSNumber* key = @(kvp.first);
+                NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data()  length:kvp.second.size() deallocator:nil];
+                [extensions setObject:data forKey:key];
+            }
+        }
+
+        NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
         [_callbacks partialObjectReceived:headers data:nsData extensions:extensions];
     }
 }

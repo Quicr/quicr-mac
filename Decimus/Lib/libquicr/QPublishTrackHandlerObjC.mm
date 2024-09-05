@@ -95,8 +95,8 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
 
 QPublishTrackHandler::QPublishTrackHandler(const moq::FullTrackName& full_track_name,
                                            moq::TrackMode track_mode,
-                                           uint8_t default_priority,
-                                           uint32_t default_ttl) : moq::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+                                           std::uint8_t default_priority,
+                                           std::uint32_t default_ttl) : moq::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
 {
 }
 

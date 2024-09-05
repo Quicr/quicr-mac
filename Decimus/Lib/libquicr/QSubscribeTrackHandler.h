@@ -15,8 +15,8 @@ public:
     
     // Callbacks.
     void StatusChanged(Status status);
-    void ObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data);
-    void PartialObjectReceived(const moq::ObjectHeaders& object_headers, Span<uint8_t> data);
+    void ObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data);
+    void PartialObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data);
 
     // Methods.
     void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);

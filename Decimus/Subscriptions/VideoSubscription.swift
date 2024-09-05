@@ -159,6 +159,7 @@ class VideoSubscription: SubscriptionSet {
         if self.simulreceive == .enable {
             self.participants.removeParticipant(identifier: self.subscription.sourceID)
         }
+        Self.logger.debug("Deinit")
     }
 
     func getHandlers() -> [QSubscribeTrackHandlerObjC] {

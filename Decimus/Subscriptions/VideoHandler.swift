@@ -70,6 +70,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private let callback: ObjectReceived
     private let userData: UnsafeRawPointer
     private var tempSequenceNumber: UInt64 = 0
+    private var time: Date?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -158,6 +159,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
             }
         }
         self.dequeueTask?.cancel()
+        Self.logger.debug("Deinit")
     }
 
     // MARK: Callbacks.
@@ -167,13 +169,15 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
-        Self.logger.info("Got video subscription!")
         let now = Date.now
+        if self.time == nil {
+            self.time = now
+        }
         do {
             // Pull LOC data out of headers.
             // TODO: Make mandatory once libquicr updated.
             let loc = LowOverheadContainer(from: extensions)
-            let timestamp = loc.timestamp ?? now
+            let timestamp = loc.timestamp ?? self.time!
             let sequenceNumber = loc.sequence ?? self.tempSequenceNumber
             self.tempSequenceNumber += 1
 
@@ -186,6 +190,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                 Self.logger.warning("No video data in object")
                 return
             }
+            self.time = self.time!.addingTimeInterval(1/30)
 
             guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
                 Self.logger.error("Missing expected timestamp")

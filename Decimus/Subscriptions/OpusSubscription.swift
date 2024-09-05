@@ -82,6 +82,10 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         Self.logger.info("Subscribed to OPUS stream")
     }
 
+    deinit {
+        Self.logger.debug("Deinit")
+    }
+
     func getHandlers() -> [QSubscribeTrackHandlerObjC] {
         return [self]
     }
