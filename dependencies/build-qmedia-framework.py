@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 
 from enum import Enum
 import sys

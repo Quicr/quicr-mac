@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 import Foundation
 import AVFoundation
 
@@ -62,7 +65,7 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            
+
             let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,

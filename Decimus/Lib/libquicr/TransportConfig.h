@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 /// C mapping for <transport/transport.h> qtransport::TransportConfig.
 
 #ifndef TransportConfig_h

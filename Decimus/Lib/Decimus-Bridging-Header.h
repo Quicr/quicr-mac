@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifndef Decimus_Bridging_Header_h
 #define Decimus_Bridging_Header_h
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 /// Provides handling of names.
 protocol NameGate {
     func handle(groupId: UInt64, objectId: UInt64, lastGroup: UInt64?, lastObject: UInt64?) -> Bool

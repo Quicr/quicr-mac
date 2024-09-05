@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 @testable import Decimus
 import Foundation
 import XCTest
@@ -34,8 +37,8 @@ final class TestVideoSubscription: XCTestCase {
                                                           sampleTiming: .init(duration: .invalid,
                                                                               presentationTimeStamp: timing?[1] ?? .init(value: 1, timescale: 1),
                                                                               decodeTimeStamp: .invalid)),
-                                        fps: 30,
-                                        discontinous: discontinous[1])
+                                         fps: 30,
+                                         discontinous: discontinous[1])
         let medium = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "2", name: ""), image: mediumImage)
 
         let lowerBuffer = try testImage(width: 1280, height: 960)

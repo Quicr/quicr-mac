@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+# SPDX-License-Identifier: BSD-2-Clause
 
 # Skip package validation for build plugins.
 defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES

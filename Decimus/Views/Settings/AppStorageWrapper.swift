@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 // https://forums.swift.org/t/rawrepresentable-conformance-leads-to-crash/51912/3
 
 import Foundation

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 // Allows CoreFoundation return codes to be thrown as Swift errors.
 extension CoreFoundation.OSStatus: Swift.Error { }
 

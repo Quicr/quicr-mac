@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 import AVFoundation
 
 /// A video frame and all related appliaction metadata as used in Decimus.
