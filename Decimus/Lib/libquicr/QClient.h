@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifndef QClient_h
 #define QClient_h
 
@@ -15,10 +18,9 @@ public:
     void StatusChanged(Status status) override;
     void ServerSetupReceived(const moq::ServerSetupAttributes& serverSetupAttributes) override;
     
-    
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:
-     id<QClientCallbacks> __weak _callbacks;
+    __weak id<QClientCallbacks> _callbacks;
 };
 
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifndef QPublishTrackHandler_h
 #define QPublishTrackHandler_h
 
@@ -19,7 +22,7 @@ public:
     void SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks);
     
 private:
-    id<QPublishTrackHandlerCallbacks> __weak _callbacks;
+    __weak id<QPublishTrackHandlerCallbacks> _callbacks;
 };
 
 

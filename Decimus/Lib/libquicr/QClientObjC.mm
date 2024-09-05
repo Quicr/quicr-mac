@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clauses
+
 #import <Foundation/Foundation.h>
 #import "QClient.h"
 #import "QClientObjC.h"

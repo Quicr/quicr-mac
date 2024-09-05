@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 /// Possible errors raised by ``FullTrackName``.
 enum FullTrackNameError: Error {
     /// A ``FullTrackName`` could not constructed or parsed into a `String`.

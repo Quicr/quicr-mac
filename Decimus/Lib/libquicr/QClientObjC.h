@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
+// SPDX-License-Identifier: BSD-2-Clause
+
 #ifndef QClientObjC_h
 #define QClientObjC_h
 
@@ -43,9 +46,7 @@ typedef struct QClientConfig {
 
 -(QPublishAnnounceStatus) getAnnounceStatus: (NSData*) trackNamespace;
 
-
-
--(void)setCallbacks: (id<QClientCallbacks> __weak) callbacks;
+-(void)setCallbacks: (id<QClientCallbacks>) callbacks;
 
 @end
 
