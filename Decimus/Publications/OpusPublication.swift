@@ -7,11 +7,8 @@ import AVFoundation
 import CoreAudio
 import os
 
-class OpusPublication: Publication {
+class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     private static let logger = DecimusLogger(OpusPublication.self)
-
-    let namespace: QuicrNamespace
-    internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
 
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
@@ -22,19 +19,17 @@ class OpusPublication: Publication {
     private var encodeTask: Task<(), Never>?
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
+    private var currentGroupId: UInt64 = 0
 
-    init(namespace: QuicrNamespace,
-         publishDelegate: QPublishObjectDelegateObjC,
-         sourceID: SourceIDType,
+    init(profile: Profile,
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
          config: AudioCodecConfig) throws {
-        self.namespace = namespace
-        self.publishObjectDelegate = publishDelegate
         self.engine = engine
+        let namespace = profile.namespace
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
                                      submitter: metricsSubmitter)
@@ -56,6 +51,13 @@ class OpusPublication: Publication {
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
+        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        super.init(fullTrackName: fullTrackName.getUnsafe(),
+                   trackMode: reliable ? .streamPerGroup : .datagram,
+                   defaultPriority: 0,
+                   defaultTTL: 5000)
+        self.setCallbacks(self)
+
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
             while !Task.isCancelled {
@@ -73,20 +75,16 @@ class OpusPublication: Publication {
             }
         }
 
-        Self.logger.info("Registered OPUS publication for source \(sourceID)")
+        Self.logger.info("Registered OPUS publication for namespace \(namespace)")
     }
 
     deinit {
         self.encodeTask?.cancel()
+        Self.logger.debug("Deinit")
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
-        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
-        return PublicationError.None.rawValue
-    }
-
-    func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
-        return PublicationError.NoSource.rawValue
+    func statusChanged(_ status: QPublishTrackHandlerStatus) {
+        Self.logger.info("PublishTrackHandler status changed: \(status)")
     }
 
     private func publish(data: Data) {
@@ -96,7 +94,19 @@ class OpusPublication: Publication {
                 await measurement.measurement.publishedBytes(sentBytes: data.count, timestamp: now)
             }
         }
-        self.publishObjectDelegate?.publishObject(self.namespace, data: data, group: true)
+        self.currentGroupId += 1
+        let headers = QObjectHeaders(groupId: self.currentGroupId,
+                                     objectId: 0,
+                                     payloadLength: UInt64(data.count),
+                                     priority: nil,
+                                     ttl: nil)
+        let published = self.publishObject(headers, data: data, extensions: [:])
+        switch published {
+        case .ok:
+            break
+        default:
+            Self.logger.warning("Failed to publish: \(published)")
+        }
     }
 
     private func encode() throws -> Data? {

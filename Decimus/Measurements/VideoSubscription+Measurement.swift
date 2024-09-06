@@ -21,12 +21,12 @@ extension VideoSubscription {
             tags["sourceId"] = source
         }
 
-        func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) {
+        func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) throws {
             var offset: TimeInterval = 0
             for choice in choices {
                 let height = choice.item.image.image.formatDescription!.dimensions.height
                 let tags: [String: String] = [
-                    "namespace": choice.item.namespace,
+                    "namespace": try choice.item.fullTrackName.getNamespace(),
                     "selected": String(choice.selected),
                     "timestamp": String(choice.item.image.image.presentationTimeStamp.seconds),
                     "reason": choice.reason,

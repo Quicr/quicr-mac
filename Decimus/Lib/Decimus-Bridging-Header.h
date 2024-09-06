@@ -4,11 +4,16 @@
 #ifndef Decimus_Bridging_Header_h
 #define Decimus_Bridging_Header_h
 
-#import "Qmedia/ProfileSet.h"
-#import "Qmedia/QControllerGWObjC.h"
 #import "Jitter/QJitterBuffer.h"
 #import "EncodedBuffer/EncodedFrameBufferAllocator.h"
 #import "Utilities/SwiftInterop.h"
 
-#endif
+#import "libquicr/QPublishTrackHandlerCallbacks.h"
+#import "libquicr/QSubscribeTrackHandlerCallbacks.h"
+#import "libquicr/QCommon.h"
+#import "libquicr/QClientCallbacks.h"
+#import "libquicr/QClientObjC.h"
+#import "libquicr/QPublishTrackHandlerObjC.h"
+#import "libquicr/QSubscribeTrackHandlerObjC.h"
 
+#endif

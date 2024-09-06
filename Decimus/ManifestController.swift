@@ -4,21 +4,29 @@
 import Foundation
 import os
 
+/// Configuration object for ``ManifestController``.
 struct ManifestServerConfig: Codable, Equatable {
+    /// URL scheme.
     var scheme: String = "https"
+    /// Manifest/conference FQDN.
     var url: String = "conf.quicr.ctgpoc.com"
+    /// Manifest/conference port.
     var port: Int = 411
+    /// Which manifest configuration to query against.
     var config: String = ""
 }
 
+/// Fetches and parses manifest/conference information from a server.
 class ManifestController {
-    private static let logger = DecimusLogger(ManifestController.self)
-
+    /// The shared ``ManifestController``.
     static let shared = ManifestController()
+    private static let logger = DecimusLogger(ManifestController.self)
 
     private var components: URLComponents = .init()
     private var currentConfig: String = ""
 
+    /// Inject the server's configuration.
+    /// - Parameter config: The new configuration to use.
     func setServer(config: ManifestServerConfig) {
         self.components = URLComponents()
         self.components.scheme = config.scheme
@@ -27,19 +35,8 @@ class ManifestController {
         self.currentConfig = config.config
     }
 
-    private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
-        guard let url = URL(string: components.string!) else {
-            throw "Invalid URL: \(components)"
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 90
-
-        return request
-    }
-
+    /// Get the available configurations.
+    /// - Returns: Array of available configurations.
     func getConfigs() async throws -> [Config] {
         var url = components
         url.path = "/configs"
@@ -56,6 +53,8 @@ class ManifestController {
         return configs
     }
 
+    /// Get a user's details from their email.
+    /// - Parameter email: User's email.
     func getUser(email: String) async throws -> User {
         var url = components
         url.path = "/users"
@@ -77,6 +76,9 @@ class ManifestController {
         return user
     }
 
+    /// Get the list of available conferences for the given user.
+    /// - Parameter email: Target user's email address.
+    /// - Returns: List of conferences this user can join.
     func getConferences(for email: String) async throws -> [Conference] {
         var url = components
         url.path = "/conferences"
@@ -94,6 +96,10 @@ class ManifestController {
         return conferences
     }
 
+    /// Get the MoQ manifest for this user/conference combination.
+    /// - Parameter confId: Conference ID to query.
+    /// - Parameter email: Email of user querying the conference.
+    /// - Returns: The manifest.
     func getManifest(confId: UInt32, email: String) async throws -> Manifest {
         var url = components
         url.path = "/conferences/\(confId)/manifest"
@@ -109,11 +115,16 @@ class ManifestController {
         return try decoder.decode(Manifest.self, from: data)
     }
 
-    func updateManifest() {
+    private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
+        guard let url = URL(string: components.string!) else {
+            throw "Invalid URL: \(components)"
+        }
 
-    }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 90
 
-    func sendCapabilities() {
-
+        return request
     }
 }

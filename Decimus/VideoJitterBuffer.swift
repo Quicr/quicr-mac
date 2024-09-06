@@ -11,16 +11,25 @@ import Atomics
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
 
+    /// Jiitter buffer configuration.
     struct Config: Codable {
+        /// The mode of operation.
         var mode: Mode = .none
+        /// The initial target & minimum depth frames will be delayed for.
         var minDepth: TimeInterval = 0.2
+        /// The maximum storage capacity of the jitter buffer.
         var capacity: TimeInterval = 2
     }
 
+    /// Possible modes of jitter buffer usage.
     enum Mode: CaseIterable, Identifiable, Codable {
+        /// Use a PID controller to maintain target depth.
         case pid
+        /// Attempt to schedule individual frames to be played out according to their timestamp.
         case interval
+        /// Delegate timing control to `AVSampleBufferDisplayLayer`
         case layer
+        /// No jitter buffer, play frames syncronously on receive.
         case none
         var id: Self { self }
     }
@@ -34,12 +43,12 @@ class VideoJitterBuffer {
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
 
     /// Create a new video jitter buffer.
-    /// - Parameter namespace The namespace of the video this buffer is used for, for identification purposes.
-    /// - Parameter metricsSubmitter Optionally, an object to submit metrics through.
-    /// - Parameter sort True to actually sort on sequence number, false if they're already in order.
-    /// - Parameter minDepth Fixed initial delay in seconds.
-    /// - Parameter capacity Capacity in buffers / elements.
-    init(namespace: QuicrNamespace,
+    /// - Parameter fullTrackName: The namespace of the video this buffer is used for, for identification purposes.
+    /// - Parameter metricsSubmitter: Optionally, an object to submit metrics through.
+    /// - Parameter sort: True to actually sort on sequence number, false if they're already in order.
+    /// - Parameter minDepth: Fixed initial & target delay in seconds.
+    /// - Parameter capacity: Capacity in number of buffers / elements.
+    init(fullTrackName: FullTrackName,
          metricsSubmitter: MetricsSubmitter?,
          sort: Bool,
          minDepth: TimeInterval,
@@ -84,7 +93,7 @@ class VideoJitterBuffer {
         }
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoJitterBufferMeasurement(namespace: namespace)
+            let measurement = VideoJitterBufferMeasurement(namespace: try fullTrackName.getNamespace())
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
@@ -95,7 +104,8 @@ class VideoJitterBuffer {
 
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
-    /// - Parameter videoFrame The sample to attempt to sort into the buffer.
+    /// - Parameter videoFrame: The sample to attempt to sort into the buffer.
+    /// - Throws: Buffer is full, or video frame is older than last read.
     func write(videoFrame: DecimusVideoFrame, from: Date) throws {
         // Check expiry.
         if let thisSeq = videoFrame.sequenceNumber,
@@ -116,7 +126,9 @@ class VideoJitterBuffer {
     }
 
     /// Attempt to read a frame from the front of the buffer.
-    /// - Returns Either the oldest available frame, or nil.
+    /// - Parameter from: The timestamp of this read operation.
+    /// This is an optimization to reduce the number of now() calculations, and has no bearing on jitter buffer behaviour.
+    /// - Returns: Either the oldest available frame, or nil.
     func read(from: Date) -> DecimusVideoFrame? {
         let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil
 
@@ -145,27 +157,27 @@ class VideoJitterBuffer {
     }
 
     /// Get the CMBuffer at the front of the buffer without removing it.
-    /// - Returns The head of the buffer, if any.
+    /// - Returns: The head of the buffer, if any.
     func peek() -> CMBuffer? {
         self.buffer.head
     }
 
     /// Get the current depth of the queue (sum of all contained durations).
-    /// - Returns Duration in seconds.
+    /// - Returns: Duration in seconds.
     func getDepth() -> TimeInterval {
         self.buffer.duration.seconds
     }
 
     /// Calculate the estimated time interval until this frame should be rendered.
-    /// - Parameter frame The frame to calculate the wait time for.
-    /// - Parameter from The time to calculate the time interval from.
-    /// - Parameter offset Offset from the start point at which media starts.
-    /// - Parameter since The start point of the media timeline.
-    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
+    /// - Parameter frame: The frame to calculate the wait time for.
+    /// - Parameter from: The time to calculate the time interval from.
+    /// - Parameter offset: Offset from the start point at which media starts.
+    /// - Parameter since: The start point of the media timeline.
+    /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(frame: DecimusVideoFrame,
                            from: Date,
                            offset: TimeInterval,
-                           since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval {
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval {
         guard let sample = frame.samples.first else {
             // TODO: Ensure we cannot enqueue a frame with no samples to make this a valid error.
             fatalError()
@@ -182,15 +194,17 @@ class VideoJitterBuffer {
     }
 
     /// Calculate the estimated time interval until the next frame should be rendered.
-    /// - Parameter from The time to calculate the time interval from.
-    /// - Parameter offset Offset from the start point at which media starts.
-    /// - Parameter since The start point of the media timeline.
-    /// - Returns The time to wait, or nil if no estimation can be made. (There is no next frame).
+    /// - Parameter from: The time to calculate the time interval from.
+    /// - Parameter offset: Offset from the start point at which media starts.
+    /// - Parameter since: The start point of the media timeline.
+    /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(from: Date,
                            offset: TimeInterval,
-                           since: Date = .init(timeIntervalSinceReferenceDate: 0)) -> TimeInterval? {
+                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let frame = peek as! DecimusVideoFrame
         return self.calculateWaitTime(frame: frame, from: from, offset: offset, since: since)
     }
 }
+
+// swiftlint:enable force_cast

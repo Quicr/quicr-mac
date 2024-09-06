@@ -3,24 +3,31 @@
 
 import AVFoundation
 
+/// A video frame and all related appliaction metadata as used in Decimus.
 class DecimusVideoFrame {
+    /// Video data samples and attachments (typically one).
     let samples: [CMSampleBuffer]
-    let groupId: UInt32
-    let objectId: UInt16
+    /// The MoQ group ID for this frame.
+    let groupId: UInt64
+    /// The MoQ object ID for this frame.
+    let objectId: UInt64
+    /// The sequence number for this frame.
     let sequenceNumber: UInt64?
+    /// If present, the expected FPS (1/duration) of this frame's stream.
     let fps: UInt8?
+    /// If present, the orientation of this video frame.
     let orientation: DecimusVideoRotation?
+    /// If present and true, this frame is vertically mirrored.
     let verticalMirror: Bool?
-    let captureDate: Date?
 
+    /// Create a new video frame from its parts.
     init(samples: [CMSampleBuffer],
-         groupId: UInt32,
-         objectId: UInt16,
+         groupId: UInt64,
+         objectId: UInt64,
          sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
-         verticalMirror: Bool?,
-         captureDate: Date?) {
+         verticalMirror: Bool?) {
         self.samples = samples
         self.groupId = groupId
         self.objectId = objectId
@@ -28,10 +35,11 @@ class DecimusVideoFrame {
         self.fps = fps
         self.orientation = orientation
         self.verticalMirror = verticalMirror
-        self.captureDate = captureDate
     }
 
-    /// Create a video frame from a deep copy of the provided frame and its data.
+    /// Create a video frame by deep copying the provided frame and its data.
+    /// - Parameter copy: The frame to deep copy.
+    /// - Throws: No data, or failure to create destination memory blocks.
     init(copy: DecimusVideoFrame) throws {
         // Deep copy all sample data blocks.
         var samples: [CMSampleBuffer] = []
@@ -59,6 +67,5 @@ class DecimusVideoFrame {
         self.fps = copy.fps
         self.orientation = copy.orientation
         self.verticalMirror = copy.verticalMirror
-        self.captureDate = copy.captureDate
     }
 }

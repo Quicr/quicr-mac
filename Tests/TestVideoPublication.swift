@@ -15,39 +15,17 @@ private class MockEncoder: VideoEncoder {
         self.callback = writeCallback
     }
 
-    func write(sample: CMSampleBuffer, captureTime: Date) throws {
+    func write(sample: CMSampleBuffer, timestamp: Date) throws {
         self.callback()
     }
 
-    func setCallback(_ callback: @escaping EncodedCallback) {
+    func setCallback(_ callback: @escaping EncodedCallback, userData: UnsafeRawPointer?) {
         // NOOP.
-    }
-}
-
-private class MockDelegate: QPublishObjectDelegateObjC {
-    typealias Callback = (String, Data, Bool) -> Void
-    private let callback: Callback
-
-    init(_ callback: @escaping Callback) {
-        self.callback = callback
-    }
-
-    func publishObject(_ quicrNamespace: String!, data: Data!, group groupFlag: Bool) {
-        self.callback(quicrNamespace, data, groupFlag)
-    }
-
-    func publishObject(_ quicrNamespace: String!, data dataPtr: UnsafeRawPointer!, length dataLen: Int, group groupFlag: Bool) {
-        self.callback(quicrNamespace, Data(bytesNoCopy: .init(mutating: dataPtr), count: dataLen, deallocator: .none), groupFlag)
     }
 }
 
 final class TestVideoPublication: XCTestCase {
     func testPublicationStartDelay() throws {
-        let mockDelegate = MockDelegate { _, _, _ in
-            XCTFail()
-            return
-        }
-
         var shouldFire = false
         let mockEncoder = MockEncoder {
             guard shouldFire else {
@@ -68,9 +46,8 @@ final class TestVideoPublication: XCTestCase {
                                       width: 1920,
                                       height: 960,
                                       bitrateType: .average)
-        let publication = try H264Publication(namespace: "1",
-                                              publishDelegate: mockDelegate,
-                                              sourceID: "1",
+
+        let publication = try H264Publication(profile: .init(qualityProfile: "", expiry: [], priorities: [], namespace: ""),
                                               config: config,
                                               metricsSubmitter: nil,
                                               reliable: true,
@@ -88,15 +65,15 @@ final class TestVideoPublication: XCTestCase {
         // Let's make the start time, now.
         let now = Date.now
         // This one should not fire.
-        publication.onFrame(sample, captureTime: now)
+        publication.onFrame(sample, timestamp: now)
 
         // This one still should not fire.
         let advancedLessThanHeight = now.addingTimeInterval(TimeInterval(config.height) / 1000 / 2)
-        publication.onFrame(sample, captureTime: advancedLessThanHeight)
+        publication.onFrame(sample, timestamp: advancedLessThanHeight)
 
         // This one should.
         let advancedMoreThanHeight = now.addingTimeInterval(TimeInterval(config.height) / 1000)
         shouldFire = true
-        publication.onFrame(sample, captureTime: advancedMoreThanHeight)
+        publication.onFrame(sample, timestamp: advancedMoreThanHeight)
     }
 }

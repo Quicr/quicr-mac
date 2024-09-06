@@ -3,21 +3,20 @@
 
 import Foundation
 
-// swiftlint:disable identifier_name
-enum SubscriptionFactoryError: Error {
-    case NoFactory
-    case InvalidCodecConfig(Any)
-}
-// swiftlint:enable identifier_name
-
+/// Possible modes of rendering video.
 enum VideoBehaviour: CaseIterable, Identifiable, Codable {
+    /// Continue to feed frames even if there discontinuities, resulting in artifacts.
     case artifact
+    /// Freeze the video on a discontinuity, resuming only on a new GOP.
     case freeze
     var id: Self { self }
 }
 
+/// Describes target reliable or unreliable transport mode for publications and subscriptions.
 struct Reliability: Codable {
+    /// Publication reliablility state.
     var publication: Bool
+    /// Subscription reliability state.
     var subscription: Bool
 
     init(publication: Bool, subscription: Bool) {
@@ -30,8 +29,11 @@ struct Reliability: Codable {
     }
 }
 
+/// Reliability structure breakout by media.
 struct MediaReliability: Codable {
+    /// Target reliability state for audio.
     var audio: Reliability
+    /// Target reliability state for video.
     var video: Reliability
 
     init() {
@@ -40,30 +42,54 @@ struct MediaReliability: Codable {
     }
 }
 
+/// Application configuration.
 struct SubscriptionConfig: Codable {
+    /// Audio max jitter depth.
     var jitterMaxTime: TimeInterval
+    /// Audio target jitter depth.
     var jitterDepthTime: TimeInterval
+    /// Opus encode/decode window size to use.
     var opusWindowSize: OpusWindowSize
+    /// Control behaviour of video rendering.
     var videoBehaviour: VideoBehaviour
+    /// Describes target media reliability states.
     var mediaReliability: MediaReliability
+    /// QUIC CWIN setting for underlying transport.
     var quicCwinMinimumKiB: UInt64
+    /// Video jitter buffer mode and configuration.
     var videoJitterBuffer: VideoJitterBuffer.Config
+    /// True to only subscribe to the highest quality in a profile set.
     var isSingleOrderedSub: Bool
+    /// True to only publish to the highest quality in a profile set.
     var isSingleOrderedPub: Bool
+    /// Control simulreceive rendering.
     var simulreceive: SimulreceiveMode
+    /// The number of frames to miss in a row before stepping down in quality.
     var qualityMissThreshold: Int
+    /// The number of frames to miss in a row before pausing the subscription.
     var pauseMissThreshold: Int
+    /// TTL for underlying libquicr time queue.
     var timeQueueTTL: Int
+    /// If >0, set chunk size in libquicr.
     var chunkSize: UInt32
+    /// Control encoder bitrate budgets.
     var bitrateType: BitrateType
+    /// True to enable "reset & wait" functionality.
     var useResetWaitCC: Bool
+    /// True to use BBR congestion control.
     var useBBR: Bool
+    /// True to emit a qlog at the end of the call into Downloads or Documents.
     var enableQlog: Bool
+    /// True to enable pause/resume behaviour.
     var pauseResume: Bool
+    /// True to callback libquicr logs into unified logger (possible performance hit).
     var quicrLogs: Bool
+    /// Override picoquic pacing for priorities.
     var quicPriorityLimit: UInt8
+    /// True to enable SFrame encryption of media.
     var doSFrame: Bool
 
+    /// Create with default settings.
     init() {
         jitterMaxTime = 0.2
         jitterDepthTime = 0.2
@@ -87,76 +113,5 @@ struct SubscriptionConfig: Codable {
         quicrLogs = false
         quicPriorityLimit = 0
         doSFrame = true
-    }
-}
-
-class SubscriptionFactory {
-    private typealias FactoryCallbackType = (QuicrNamespace,
-                                             CodecConfig,
-                                             MetricsSubmitter?) throws -> QSubscriptionDelegateObjC?
-
-    private let participants: VideoParticipants
-    private let engine: DecimusAudioEngine
-    private let config: SubscriptionConfig
-    private let granularMetrics: Bool
-    private weak var controller: CallController?
-    init(participants: VideoParticipants,
-         engine: DecimusAudioEngine,
-         config: SubscriptionConfig,
-         granularMetrics: Bool,
-         controller: CallController) {
-        self.participants = participants
-        self.engine = engine
-        self.config = config
-        self.granularMetrics = granularMetrics
-        self.controller = controller
-    }
-
-    func create(_ sourceId: SourceIDType,
-                profileSet: QClientProfileSet,
-                metricsSubmitter: MetricsSubmitter?) throws -> QSubscriptionDelegateObjC? {
-        // Supported codec sets.
-        let videoCodecs: Set<CodecType> = [.h264, .hevc]
-        let opusCodecs: Set<CodecType> = [.opus]
-
-        // Resolve profile sets to config.
-        var foundCodecs: [CodecType] = []
-        for profileIndex in 0..<profileSet.profilesCount {
-            let profile = profileSet.profiles.advanced(by: profileIndex).pointee
-            let config = CodecFactory.makeCodecConfig(from: .init(cString: profile.qualityProfile),
-                                                      bitrateType: config.bitrateType)
-            foundCodecs.append(config.codec)
-        }
-        let found = Set(foundCodecs)
-
-        if found.isSubset(of: videoCodecs) {
-            return try VideoSubscription(sourceId: sourceId,
-                                         profileSet: profileSet,
-                                         participants: self.participants,
-                                         metricsSubmitter: metricsSubmitter,
-                                         videoBehaviour: self.config.videoBehaviour,
-                                         reliable: self.config.mediaReliability.video.subscription,
-                                         granularMetrics: self.granularMetrics,
-                                         jitterBufferConfig: self.config.videoJitterBuffer,
-                                         simulreceive: self.config.simulreceive,
-                                         qualityMissThreshold: self.config.qualityMissThreshold,
-                                         pauseMissThreshold: self.config.pauseMissThreshold,
-                                         controller: self.controller,
-                                         pauseResume: self.config.pauseResume)
-        }
-
-        if found.isSubset(of: opusCodecs) {
-            return try OpusSubscription(sourceId: sourceId,
-                                        profileSet: profileSet,
-                                        engine: self.engine,
-                                        submitter: metricsSubmitter,
-                                        jitterDepth: self.config.jitterDepthTime,
-                                        jitterMax: self.config.jitterMaxTime,
-                                        opusWindowSize: self.config.opusWindowSize,
-                                        reliable: self.config.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics)
-        }
-
-        throw CodecError.unsupportedCodecSet(found)
     }
 }

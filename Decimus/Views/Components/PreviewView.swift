@@ -21,7 +21,7 @@ class PreviewUIView: VideoUIView, FrameListener {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func onFrame(_ sampleBuffer: CMSampleBuffer, captureTime: Date) {
+    func onFrame(_ sampleBuffer: CMSampleBuffer, timestamp: Date) {
         DispatchQueue.main.async {
             guard let layer = self.layer as? AVSampleBufferDisplayLayer else {
                 fatalError()

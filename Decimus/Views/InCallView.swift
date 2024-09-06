@@ -18,7 +18,7 @@ struct InCallView: View {
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     var noParticipants: Bool {
-        viewModel.controller?.subscriberDelegate.participants.participants.isEmpty ?? true
+        self.viewModel.videoParticipants.participants.isEmpty
     }
 
     /// Callback when call is left.
@@ -58,10 +58,8 @@ struct InCallView: View {
                             }
                         } else {
                             // Incoming videos.
-                            if let controller = viewModel.controller {
-                                VideoGrid(participants: controller.subscriberDelegate.participants)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                            }
+                            VideoGrid(participants: self.viewModel.videoParticipants)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
 
                         HStack {
@@ -74,24 +72,24 @@ struct InCallView: View {
                         }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
-                        if let controller = viewModel.controller {
-                            SubscriptionPopover(controller: controller)
-                        }
-                        Spacer()
-                        Button("Done") {
-                            self.isShowingSubscriptions = false
-                        }
-                        .padding()
+                        //                        if let controller = viewModel.controller {
+                        //                            SubscriptionPopover(controller: controller)
+                        //                        }
+                        //                        Spacer()
+                        //                        Button("Done") {
+                        //                            self.isShowingSubscriptions = false
+                        //                        }
+                        //                        .padding()
                     }
                     .sheet(isPresented: $isShowingPublications) {
-                        if let controller = viewModel.controller {
-                            PublicationPopover(controller: controller)
-                        }
-                        Spacer()
-                        Button("Done") {
-                            self.isShowingPublications = false
-                        }
-                        .padding()
+                        //                        if let controller = viewModel.controller {
+                        //                            PublicationPopover(controller: controller)
+                        //                        }
+                        //                        Spacer()
+                        //                        Button("Done") {
+                        //                            self.isShowingPublications = false
+                        //                        }
+                        //                        .padding()
                     }
 
                     // Call controls panel.
@@ -119,7 +117,7 @@ struct InCallView: View {
                         .offset(CGSize(width: gWidth - cWidth - pWidth,
                                        height: gHeight / 2 - (cHeight * 0.75) - pHeight))
                 }
-                // swiftlint:enable:force_try
+                // swiftlint:enable force_try
             }
 
             if leaving {
@@ -179,10 +177,10 @@ struct InCallView: View {
                     continue
                 }
 
-                guard await viewModel.connected() else {
-                    await viewModel.leave()
-                    return onLeave()
-                }
+                //                guard await viewModel.connected() else {
+                //                    await viewModel.leave()
+                //                    return onLeave()
+                //                }
             }
         }
     }
@@ -194,8 +192,9 @@ extension InCallView {
         private static let logger = DecimusLogger(InCallView.ViewModel.self)
 
         let engine: DecimusAudioEngine?
-        private(set) var controller: CallController?
+        private(set) var controller: MoqCallController?
         private(set) var captureManager: CaptureManager?
+        private(set) var videoParticipants = VideoParticipants()
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
         private var measurement: MeasurementRegistration<_Measurement>?
@@ -253,40 +252,104 @@ extension InCallView {
 
             if let captureManager = self.captureManager,
                let engine = self.engine {
-                do {
-                    self.controller = try .init(metricsSubmitter: submitter,
-                                                captureManager: captureManager,
-                                                config: subscriptionConfig.value,
-                                                engine: engine,
-                                                granularMetrics: influxConfig.value.granular)
-                } catch {
-                    Self.logger.error("CallController failed: \(error.localizedDescription)")
+                let connectUri: String = "moq://\(config.address):\(config.port)"
+                let endpointId: String = config.email
+                let qLogPath: URL
+                #if targetEnvironment(macCatalyst)
+                qLogPath = .downloadsDirectory
+                #else
+                qLogPath = .documentsDirectory
+                #endif
+
+                let subConfig = self.subscriptionConfig.value
+                self.controller = connectUri.withCString { connectUri in
+                    endpointId.withCString { endpointId in
+                        qLogPath.path.withCString { qLogPath in
+                            let tConfig = TransportConfig(tls_cert_filename: nil,
+                                                          tls_key_filename: nil,
+                                                          time_queue_init_queue_size: 1000,
+                                                          time_queue_max_duration: 5000,
+                                                          time_queue_bucket_interval: 1,
+                                                          time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
+                                                          debug: true,
+                                                          quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
+                                                          quic_wifi_shadow_rtt_us: 0,
+                                                          pacing_decrease_threshold_Bps: 16000,
+                                                          pacing_increase_threshold_Bps: 16000,
+                                                          idle_timeout_ms: 15000,
+                                                          use_reset_wait_strategy: subConfig.useResetWaitCC,
+                                                          use_bbr: subConfig.useBBR,
+                                                          quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
+                                                          quic_priority_limit: subConfig.quicPriorityLimit)
+                            let config = QClientConfig(connectUri: connectUri,
+                                                       endpointId: endpointId,
+                                                       transportConfig: tConfig,
+                                                       metricsSampleMs: 0)
+                            return .init(config: config,
+                                         captureManager: captureManager,
+                                         subscriptionConfig: subConfig,
+                                         engine: engine,
+                                         videoParticipants: self.videoParticipants,
+                                         submitter: self.submitter,
+                                         granularMetrics: influxConfig.value.granular)
+                        }
+                    }
                 }
             }
         }
 
-        func connected() async -> Bool {
-            guard let controller = self.controller else {
-                return false
-            }
-            if !controller.connected() {
-                Self.logger.error("Connection to relay disconnected")
-                return false
-            }
-            return true
-        }
+        //        func connected() async -> Bool {
+        //            guard let controller = self.controller else {
+        //                return false
+        //            }
+        //            if !controller.connected() {
+        //                Self.logger.error("Connection to relay disconnected")
+        //                return false
+        //            }
+        //            return true
+        //        }
 
         func join() async -> Bool {
+            guard let controller = self.controller else {
+                fatalError("No controller!?")
+            }
+
+            // Connect to the relay/server.
             do {
-                try await self.controller?.connect(config: config)
-            } catch CallError.failedToConnect(let errorCode) {
-                Self.logger.error("Failed to connect to relay: (\(errorCode))")
+                try await controller.connect()
+            } catch let error as MoqCallControllerError {
+                switch error {
+                case .connectionFailure(let status):
+                    Self.logger.error("Failed to connect relay: \(status)")
+                default:
+                    Self.logger.error("Unhandled MoqCallControllerError")
+                }
                 return false
             } catch {
-                Self.logger.error("CallController failed due to unknown error: \(error.localizedDescription)")
+                Self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
                 return false
             }
 
+            // Fetch the manifest from the conference server.
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                return false
+            }
+
+            // Inject the manifest in order to create publications & subscriptions.
+            do {
+                try controller.setManifest(manifest)
+            } catch {
+                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
+                return false
+            }
+
+            // Start audio media.
             do {
                 try engine?.start()
                 self.audioCapture = true
@@ -294,6 +357,7 @@ extension InCallView {
                 Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
             }
 
+            // Start video media.
             do {
                 try captureManager?.startCapturing()
                 self.videoCapture = true

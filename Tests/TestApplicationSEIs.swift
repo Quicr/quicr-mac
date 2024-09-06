@@ -16,7 +16,7 @@ final class TestApplicationSEIs: XCTestCase {
 
     func testGetTimestampBytes(startCode: Bool, seiData: ApplicationSeiData) {
         let time = CMTime(seconds: 1234, preferredTimescale: 5678)
-        let timestampSei = TimestampSei(timestamp: time, sequenceNumber: 1, fps: 30)
+        let timestampSei = TimestampSei(fps: 30)
         let bytes = timestampSei.getBytes(seiData, startCode: startCode)
         XCTAssert(bytes.count == seiData.timestampSei.count)
         if startCode {

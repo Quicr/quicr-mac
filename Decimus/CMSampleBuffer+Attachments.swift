@@ -4,12 +4,16 @@
 import AVFoundation
 
 extension CMSampleBuffer {
+    /// Check if this frame is an IDR (does NOT depend on others).
+    /// - Returns: `true` if this sample is an IDR.
     func isIDR() -> Bool {
         guard let value = self.getAttachmentValue(for: .dependsOnOthers) else { return false }
         guard let dependsOnOthers = value as? Bool else { return false }
         return !dependsOnOthers
     }
 
+    /// Check if this frame is discontinuous (a preceeding dependent frame is missing).
+    /// - Returns: `true` if this sample is discontinous.
     var discontinous: Bool {
         get {
             guard let value = self.getAttachmentValue(for: .discontinous) else { return false }
@@ -31,8 +35,8 @@ extension CMSampleBuffer {
     }
 
     private func setAttachmentValue(atIndex index: Int,
-                            for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key,
-                            value: Any?) throws {
+                                    for key: CMSampleBuffer.PerSampleAttachmentsDictionary.Key,
+                                    value: Any?) throws {
         guard self.sampleAttachments.count > index else {
             throw "Missing sampleAttachments dictionary"
         }
@@ -41,5 +45,6 @@ extension CMSampleBuffer {
 }
 
 extension CMSampleBuffer.PerSampleAttachmentsDictionary.Key {
+    /// Set if a preceeding dependent of this frame is missing.
     public static let discontinous: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: "decimus_discontinous" as CFString)
 }

@@ -5,126 +5,226 @@ import CoreMedia
 import AVFoundation
 import os
 
-enum CallError: Error {
-    case failedToConnect(Int32)
+/// Possible errors raised by MoqCallController.
+enum MoqCallControllerError: Error {
+    /// Unexpected status during connection.
+    case connectionFailure(QClientStatus)
+    /// This functionality requires the controller to be connected.
+    case notConnected
 }
 
-class MutableWrapper<T> {
-    var value: T
-    init(value: T) {
-        self.value = value
-    }
+/// Represents a client-facing collection of logically related subscriptions,
+/// containing one or more actual track subscriptions.
+/// Implementing this interface with >1 handler is useful when data streams
+/// across multiple subscribe handlers need to be compared or collated.
+protocol SubscriptionSet {
+    /// Get the subscribe track handlers for this subscription set.
+    /// - Returns: The (one or more) subscribe track handlers for this subscription.
+    func getHandlers() -> [QSubscribeTrackHandlerObjC]
 }
 
-actor ManifestHolder {
-    var currentManifest: Manifest?
-    func setManifest(manifest: Manifest) {
-        self.currentManifest = manifest
-    }
-}
+/// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
+/// publish and subscribe track implementations and their creation from a manifest entry.
+class MoqCallController: QClientCallbacks {
+    // Dependencies.
+    private let subscriptionConfig: SubscriptionConfig
+    private let engine: DecimusAudioEngine
+    private let granularMetrics: Bool
+    private let videoParticipants: VideoParticipants
+    private let metricsSubmitter: MetricsSubmitter?
+    private let logger = DecimusLogger(MoqCallController.self)
+    private let captureManager: CaptureManager
 
-class CallController: QControllerGWObjC<PublisherDelegate, SubscriberDelegate> {
-    private let config: SubscriptionConfig
-    private static let logger = DecimusLogger(CallController.self)
-    let manifest = ManifestHolder()
+    // State.
+    private let client: QClientObjC
+    private var connectionContinuation: CheckedContinuation<Void, Error>?
+    private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
+    private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
+    private var connected = false
 
-    init(metricsSubmitter: MetricsSubmitter?,
+    /// Create a new controller.
+    /// - Parameters:
+    ///   - config: Underlying `moq::Client` config.
+    ///   - captureManager: Video camera capture manager.
+    ///   - subscriptionConfig: Application configuration for subscription creation.
+    ///   - engine: Audio capture/playout engine.
+    ///   - videoParticipants: Video rendering manager.
+    ///   - submitter: Optionally, a submitter through which to submit metrics.
+    ///   - granularMetrics: True to enable granular metrics, with a potential performance cost.
+    init(config: QClientConfig,
          captureManager: CaptureManager,
-         config: SubscriptionConfig,
+         subscriptionConfig: SubscriptionConfig,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) throws {
-        self.config = config
-        super.init { level, msg, alert in
-            let level: DecimusLogger.LogLevel = .init(rawValue: level) ?? .error
-            guard let msg = msg else { return }
-            CallController.logger.log(level: level, msg, alert: alert)
-        }
-        self.subscriberDelegate = SubscriberDelegate(submitter: metricsSubmitter,
-                                                     config: config,
-                                                     engine: engine,
-                                                     granularMetrics: granularMetrics,
-                                                     controller: self)
-        self.publisherDelegate = PublisherDelegate(publishDelegate: self,
-                                                   metricsSubmitter: metricsSubmitter,
-                                                   captureManager: captureManager,
-                                                   opusWindowSize: config.opusWindowSize,
-                                                   reliability: config.mediaReliability,
-                                                   engine: engine,
-                                                   granularMetrics: granularMetrics,
-                                                   bitrateType: config.bitrateType)
+         videoParticipants: VideoParticipants,
+         submitter: MetricsSubmitter?,
+         granularMetrics: Bool) {
+        self.client = .init(config: config)
+        self.captureManager = captureManager
+        self.subscriptionConfig = subscriptionConfig
+        self.engine = engine
+        self.videoParticipants = videoParticipants
+        self.metricsSubmitter = submitter
+        self.granularMetrics = granularMetrics
+        self.client.setCallbacks(self)
     }
 
-    func connect(config: CallConfig) async throws {
-        let url: URL
-        #if targetEnvironment(macCatalyst)
-        url = .downloadsDirectory
-        #else
-        url = .documentsDirectory
-        #endif
-        try url.path.withCString { dir in
-            let transportConfig: TransportConfig = .init(tls_cert_filename: nil,
-                                                         tls_key_filename: nil,
-                                                         time_queue_init_queue_size: 1000,
-                                                         time_queue_max_duration: 5000,
-                                                         time_queue_bucket_interval: 1,
-                                                         time_queue_rx_size: UInt32(self.config.timeQueueTTL),
-                                                         debug: true,
-                                                         quic_cwin_minimum: self.config.quicCwinMinimumKiB * 1024,
-                                                         quic_wifi_shadow_rtt_us: 0,
-                                                         pacing_decrease_threshold_Bps: 16000,
-                                                         pacing_increase_threshold_Bps: 16000,
-                                                         idle_timeout_ms: 15000,
-                                                         use_reset_wait_strategy: self.config.useResetWaitCC,
-                                                         use_bbr: self.config.useBBR,
-                                                         quic_qlog_path: self.config.enableQlog ? dir : nil,
-                                                         quic_priority_limit: self.config.quicPriorityLimit)
-            let error = super.connect(config.email,
-                                      relay: config.address,
-                                      port: config.port,
-                                      protocol: config.connectionProtocol.rawValue,
-                                      chunk_size: self.config.chunkSize,
-                                      config: transportConfig,
-                                      useParentLogger: self.config.quicrLogs,
-                                      encrypt: self.config.doSFrame)
-            guard error == .zero else {
-                throw CallError.failedToConnect(error)
+    deinit {
+        self.logger.debug("Deinit")
+    }
+
+    /// Connect to the relay.
+    /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` when an unexpected status is returned.
+    func connect() async throws {
+        try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
+            self.connectionContinuation = continuation
+            let status = self.client.connect()
+            switch status {
+            case .clientConnecting:
+                break
+            case .ready:
+                // This is here just for the type inference,
+                // but we don't actually expect it to happen.
+                assert(false)
+                continuation.resume()
+            default:
+                continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
+            }
+        }
+    }
+
+    /// Inject a manifest into the controller.
+    /// This causes the creation of the corresponding publications and subscriptions and media objects.
+    /// This MUST be called after connecting.
+    /// - Parameter manifest: The manifest to use.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
+    func setManifest(_ manifest: Manifest) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+
+        // Create publications.
+        // TODO: We probably don't need a factory here. Just handle it internal to the controller.
+        // TODO: If it gets bigger, we can extract.
+        let pubFactory = PublicationFactory(opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                            reliability: self.subscriptionConfig.mediaReliability,
+                                            engine: self.engine,
+                                            metricsSubmitter: self.metricsSubmitter,
+                                            granularMetrics: self.granularMetrics,
+                                            captureManager: self.captureManager)
+        for publication in manifest.publications {
+            let created = try pubFactory.create(publication: publication)
+            for (namespace, handler) in created {
+                self.publications[namespace] = handler
+                self.client.publishTrack(withHandler: handler)
             }
         }
 
-        let manifest = try await ManifestController.shared.getManifest(confId: config.conferenceID, email: config.email)
-        await self.manifest.setManifest(manifest: manifest)
-
-        let jsonEncoder = JSONEncoder()
-        jsonEncoder.outputFormatting = .prettyPrinted
-
-        let manifestJSON = try jsonEncoder.encode(manifest)
-        self.setSubscriptionSingleOrdered(self.config.isSingleOrderedSub)
-        self.setPublicationSingleOrdered(self.config.isSingleOrderedPub)
-        super.updateManifest(String(data: manifestJSON, encoding: .utf8)!)
-    }
-
-    enum CallControllerError: Error {
-        case malformed
-    }
-
-    func fetchSwitchingSets() throws -> [String] {
-        guard let sets = self.getSwitchingSets() as NSArray as? [String] else {
-            throw CallControllerError.malformed
+        // Create subscriptions.
+        for manifestSubscription in manifest.subscriptions {
+            let subscription = try self.create(subscription: manifestSubscription)
+            self.subscriptions[manifestSubscription.sourceID] = subscription
+            for handler in subscription.getHandlers() {
+                self.client.subscribeTrack(withHandler: handler)
+            }
         }
-        return sets
     }
 
-    func fetchSubscriptions(sourceId: String) throws -> [String] {
-        guard let subs = self.getSubscriptions(sourceId) as NSArray as? [String] else {
-            throw CallControllerError.malformed
+    /// Disconnect from the relay.
+    /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
+    func disconnect() throws {
+        let status = self.client.disconnect()
+        guard status == .disconnecting else {
+            throw MoqCallControllerError.connectionFailure(status)
         }
-        return subs
+        self.logger.info("[MoqCallController] Disconnected")
+        self.publications.removeAll()
+        self.subscriptions.removeAll()
     }
 
-    func fetchPublications() throws -> [PublicationReport] {
-        guard let pubs = self.getPublications() as NSArray as? [PublicationReport] else {
-            throw CallControllerError.malformed
+    // MARK: Callbacks.
+
+    /// moq::Client callback for status change.
+    /// - Parameter status: The new status.
+    func statusChanged(_ status: QClientStatus) {
+        self.logger.info("[MoqCallController] Status changed: \(status)")
+        switch status {
+        case .ready:
+            // TODO: Fix this up.
+            guard let connection = self.connectionContinuation else {
+                print("Got ready when we already had ready!?")
+                return
+            }
+            self.connectionContinuation = nil
+            self.connected = true
+            connection.resume()
+        case .notReady:
+            guard let connection = self.connectionContinuation else {
+                self.logger.error("Got notReady status when connection was nil")
+                return
+            }
+            self.connectionContinuation = nil
+            self.connected = true
+            connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
+        case .clientConnecting:
+            assert(self.connectionContinuation != nil)
+        default:
+            self.logger.warning("Unhandled status change: \(status)")
         }
-        return pubs
+    }
+
+    /// moq::Client serverSetupReceived event.
+    /// - Parameter setup: The set setup attributes received with the event.
+    func serverSetupReceived(_ setup: QServerSetupAttributes) {
+        self.logger.info("Got server setup received message")
+    }
+
+    /// moq::Client announcement status changed in response to a publishAnnounce()
+    /// - Parameter namespace: The namespace the changed announcement was for.
+    /// - Parameter status: The new status the announcement has.
+    func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
+        self.logger.info("Got announce status changed: \(status)")
+    }
+
+    /// Create subscription tracks and owning object for a manifest entry.
+    /// - Parameter subscription: The manifest entry detailing this set of related subscription tracks.
+    /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type.
+    /// Other errors on failure to create client media subscription handlers.
+    private func create(subscription: ManifestSubscription) throws -> SubscriptionSet {
+        // Supported codec sets.
+        let videoCodecs: Set<CodecType> = [.h264, .hevc]
+        let opusCodecs: Set<CodecType> = [.opus]
+
+        // Resolve profile sets to config.
+        var foundCodecs: [CodecType] = []
+        for profile in subscription.profileSet.profiles {
+            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
+                                                      bitrateType: self.subscriptionConfig.bitrateType)
+            foundCodecs.append(config.codec)
+        }
+        let found = Set(foundCodecs)
+        if found.isSubset(of: videoCodecs) {
+            return try VideoSubscription(subscription: subscription,
+                                         participants: self.videoParticipants,
+                                         metricsSubmitter: self.metricsSubmitter,
+                                         videoBehaviour: self.subscriptionConfig.videoBehaviour,
+                                         reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                         granularMetrics: self.granularMetrics,
+                                         jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
+                                         simulreceive: self.subscriptionConfig.simulreceive,
+                                         qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
+                                         pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
+                                         pauseResume: self.subscriptionConfig.pauseResume)
+        }
+
+        if found.isSubset(of: opusCodecs) {
+            return try OpusSubscription(subscription: subscription,
+                                        engine: self.engine,
+                                        submitter: self.metricsSubmitter,
+                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
+                                        granularMetrics: self.granularMetrics)
+        }
+
+        throw CodecError.unsupportedCodecSet(found)
     }
 }

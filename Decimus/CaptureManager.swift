@@ -6,16 +6,28 @@ import UIKit
 import os
 
 public extension AVCaptureDevice {
+    /// An unsigned 64 bit probably unique identifier for a capture device.
     var id: UInt64 {
         .init(truncatingIfNeeded: uniqueID.hashValue)
     }
 }
 
+/// Represents the ability to receive camera frames.
 protocol FrameListener {
+    /// The queue that this object will receive camera frames on.
     var queue: DispatchQueue { get }
+
+    /// The device this listener is interested in receiving frames from.
     var device: AVCaptureDevice { get }
+
+    /// Optionally, the configuration that the listener wishes to receive frames in from ``device``.
+    /// This is a best-effort minimum value, callers MUST NOT assume the format of the received frames will match this.
     var codec: VideoCodecConfig? { get }
-    func onFrame(_ sampleBuffer: CMSampleBuffer, captureTime: Date)
+
+    /// This function will be called with video frames from the target ``device``, executed on ``queue``.
+    /// - Parameter sampleBuffer: The camera frame.
+    /// - Parameter timestamp: The timestamp this frame was captured at.
+    func onFrame(_ sampleBuffer: CMSampleBuffer, timestamp: Date)
 }
 
 fileprivate extension FrameListener {
@@ -26,16 +38,23 @@ fileprivate extension FrameListener {
     }
 }
 
+/// Possible errors raised by ``CaptureManager``.
 enum CaptureManagerError: Error {
+    /// `AVCaptureMultiCamSession` is not supported on this platform.
     case multicamNotSuported
+    /// The requested operation is invalid in this state. (E.g start when started).
     case badSessionState
+    /// The requested operation targeted a device is not registered.
     case missingInput(AVCaptureDevice)
+    /// Failed to add the target device.
     case couldNotAdd(AVCaptureDevice)
+    /// ``CaptureManager`` should not be used to manage audio devices. See ``DecimusAudioEngine``.
     case noAudio
+    /// The requested operation MUST be called from the main thread, and was not.
     case mainThread
 }
 
-/// Manages local media capture.
+/// Manages local video capture.
 class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private static let logger = DecimusLogger(CaptureManager.self)
 
@@ -58,7 +77,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
     private var pressureObservations: [AVCaptureDevice: NSObjectProtocol] = [:]
+    private let bootDate: Date
 
+    /// Create a new ``CaptureManager``.
+    /// - Parameter metricsSubmitter: Optionally, a submitter to collect/submit metrics through.
+    /// - Parameter granularMetrics: Collect granular metrics when a submitter is present, at a potential performance penalty.
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
@@ -72,24 +95,34 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         } else {
             self.measurement = nil
         }
+        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         super.init()
     }
 
+    /// Get a list of all managed devices.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func devices() throws -> [AVCaptureDevice] {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         return Array(connections.keys)
     }
 
+    /// Get the subset of ``devices()`` that are active.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func activeDevices() throws -> [AVCaptureDevice] {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         return Array(try connections.keys.filter { try !isMuted(device: $0) })
     }
 
+    /// Is the given device is already registered to the manager?
+    /// - Returns: True if managed.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func usingInput(device: AVCaptureDevice) throws -> Bool {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         return inputs[device] != nil
     }
 
+    /// Start capturing video from all target devices.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread. ``CaptureManagerError/badSessionState`` if already running.
     func startCapturing() throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard !session.isRunning else {
@@ -109,8 +142,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
 
-    @Sendable
-    private nonisolated func onStartFailure(notification: Notification) {
+    private func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
             Self.logger.error("AVCaptureSession failed for unknown reason")
             return
@@ -118,6 +150,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
     }
 
+    /// Stop capturing media.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread. ``CaptureManagerError/badSessionState`` if already stopped.
     func stopCapturing() throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard session.isRunning else {
@@ -126,6 +160,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         self.session.stopRunning()
     }
 
+    /// Mute/unmute the target device.
+    /// - Parameter device: The device to toggle mute status on.
+    /// - Parameter toggled: Callback with the new current state.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func toggleInput(device: AVCaptureDevice, toggled: @escaping (Bool) -> Void) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = self.connections[device] else { fatalError() }
@@ -237,6 +275,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         self.multiVideoDelegate[device] = [listener]
     }
 
+    /// Add a listener for frame callbacks, adding the target device if not already.
+    /// - Parameter listener: Receiver of video frames.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func addInput(_ listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         Self.logger.info("Adding capture device: \(listener.device.localizedName)")
@@ -250,6 +291,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         try addCamera(listener: listener)
     }
 
+    /// Remove a listener for frame callbacks, removing the target device if no other listeners targetting that device are left.
+    /// - Parameter listener: Receiver of video frames.
+    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main. ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
     func removeInput(listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
 
@@ -287,6 +331,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.logger.info("Removing input for \(device.localizedName)")
     }
 
+    /// Query the mute state of the target device.
+    /// - Parameter device: The device to query.
+    /// - Returns: True if currently muted.
+    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main. ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
     func isMuted(device: AVCaptureDevice) throws -> Bool {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = connections[device] else {
@@ -295,6 +343,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return !connection.isEnabled
     }
 
+    /// Add a preview view for a device.
+    /// - Parameter device: The device to add a preview for.
+    /// - Parameter preview: The preview layer to hook to the device.
     func addPreview(device: AVCaptureDevice, preview: AVCaptureVideoPreviewLayer) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = connections[device] else {
@@ -315,6 +366,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return subscribers
     }
 
+    /// `AVCaptureVideoDataOutputSampleBufferDelegate` camera frame callback.
     func captureOutput(_ output: AVCaptureOutput,
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
@@ -334,15 +386,19 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
 
+        // Convert relative timestamp into absolute.
+        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
+
         // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
         for listener in cameraFrameListeners {
             listener.queue.async {
-                listener.onFrame(sampleBuffer, captureTime: now)
+                listener.onFrame(sampleBuffer, timestamp: absoluteTimestamp)
             }
         }
     }
 
+    /// `AVCaptureVideoDataOutputSampleBufferDelegate` dropped frame callback.
     func captureOutput(_ output: AVCaptureOutput,
                        didDrop sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
@@ -409,6 +465,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
 #if !os(tvOS)
 extension UIDeviceOrientation {
+    /// Get Decimus' representation of this orientation.
     var videoOrientation: DecimusVideoRotation {
         switch self {
         case .portrait:

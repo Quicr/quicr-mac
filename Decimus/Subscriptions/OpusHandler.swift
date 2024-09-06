@@ -71,7 +71,7 @@ class OpusHandler {
         node?.reset()
     }
 
-    func submitEncodedAudio(data: Data, sequence: UInt32, date: Date?) throws {
+    func submitEncodedAudio(data: Data, sequence: UInt64, date: Date?) throws {
         // Generate PLC prior to real decode.
         let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
         jitterBuffer.prepare(UInt(sequence),
@@ -188,7 +188,7 @@ class OpusHandler {
         }
     }
 
-    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date?, sequence: UInt32) throws {
+    private func queueDecodedAudio(buffer: AVAudioPCMBuffer, timestamp: Date?, sequence: UInt64) throws {
         // Ensure this buffer looks valid.
         let list = buffer.audioBufferList
         guard list.pointee.mNumberBuffers == 1 else {

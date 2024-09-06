@@ -16,13 +16,11 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
+class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, FrameListener {
     private static let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
-    let namespace: QuicrNamespace
-    internal weak var publishObjectDelegate: QPublishObjectDelegateObjC?
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
@@ -32,18 +30,19 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
     private var startTime: Date?
+    private var currentGroupId: UInt64 = 0
+    private var currentObjectId: UInt64 = 0
+    private let profile: Profile
 
-    required init(namespace: QuicrNamespace,
-                  publishDelegate: QPublishObjectDelegateObjC,
-                  sourceID: SourceIDType,
+    required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   reliable: Bool,
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
                   device: AVCaptureDevice) throws {
-        self.namespace = namespace
-        self.publishObjectDelegate = publishDelegate
+        self.profile = profile
+        let namespace = profile.namespace
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {
@@ -58,58 +57,93 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         self.encoder = encoder
         self.device = device
 
-        let onEncodedData: VTEncoder.EncodedCallback = { [weak publishDelegate, measurement, namespace] presentationTimestamp, captureTime, data, flag in
+        let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
+            guard let userData = userData else {
+                Self.logger.error("UserData unexpectedly was nil")
+                return
+            }
+            let publication = Unmanaged<H264Publication>.fromOpaque(userData).takeUnretainedValue()
+
             // Encode age.
-            let now = measurement != nil && granularMetrics ? Date.now : nil
+            let now = publication.measurement != nil && granularMetrics ? Date.now : nil
             if granularMetrics,
-               let measurement = measurement {
-                let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                let age = now!.timeIntervalSince(captureDate)
+               let measurement = publication.measurement {
+                let age = now!.timeIntervalSince(presentationDate)
                 Task(priority: .utility) {
                     await measurement.measurement.encoded(age: age, timestamp: now!)
                 }
             }
 
+            if flag {
+                publication.currentGroupId += 1
+                publication.currentObjectId = 0
+            } else {
+                publication.currentObjectId += 1
+            }
+
+            // Object headers.
+            let headers = QObjectHeaders(groupId: publication.currentGroupId,
+                                         objectId: publication.currentObjectId,
+                                         payloadLength: UInt64(data.count),
+                                         priority: nil,
+                                         ttl: nil)
+
+            // Use extensions for LOC.
+            let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
+
             // Publish.
-            publishDelegate?.publishObject(namespace, data: data.baseAddress!, length: data.count, group: flag)
+            let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
+                            count: data.count,
+                            deallocator: .none)
+            let status = publication.publishObject(headers,
+                                                   data: data,
+                                                   extensions: loc.extensions)
+            switch status {
+            case .ok:
+                break
+            default:
+                Self.logger.warning("Failed to publish object: \(status)")
+            }
 
             // Metrics.
-            guard let measurement = measurement else { return }
+            guard let measurement = publication.measurement else { return }
             let bytes = data.count
+            let sent: Date? = granularMetrics ? Date.now : nil
             Task(priority: .utility) {
                 let age: TimeInterval?
-                if let now = now {
-                    let captureDate = Date(timeIntervalSinceReferenceDate: captureTime.seconds)
-                    age = now.timeIntervalSince(captureDate)
+                if let sent = sent {
+                    age = sent.timeIntervalSince(presentationDate)
                 } else {
                     age = nil
                 }
                 await measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                                        timestamp: presentationTimestamp.seconds,
+                                                        timestamp: presentationDate.timeIntervalSince1970,
                                                         age: age,
-                                                        metricsTimestamp: now)
+                                                        metricsTimestamp: sent)
             }
         }
-        self.encoder.setCallback(onEncodedData)
-        super.init()
-
-        Self.logger.info("Registered H264 publication for source \(sourceID)")
+        Self.logger.info("Registered H264 publication for namespace \(namespace)")
+        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        super.init(fullTrackName: fullTrackName.getUnsafe(),
+                   trackMode: reliable ? .streamPerGroup : .datagram,
+                   defaultPriority: 0,
+                   defaultTTL: 0)
+        let userData = Unmanaged.passUnretained(self).toOpaque()
+        self.encoder.setCallback(onEncodedData, userData: userData)
+        self.setCallbacks(self)
     }
 
-    func prepare(_ sourceID: SourceIDType!, qualityProfile: String!, transportMode: UnsafeMutablePointer<TransportMode>!) -> Int32 {
-        transportMode.pointee = self.reliable ? .reliablePerGroup : .unreliable
-        return PublicationError.None.rawValue
+    deinit {
+        Self.logger.debug("Deinit")
     }
 
-    func update(_ sourceId: String!, qualityProfile: String!) -> Int32 {
-        return PublicationError.NoSource.rawValue
+    func statusChanged(_ status: QPublishTrackHandlerStatus) {
+        Self.logger.info("Status changed: \(status)")
     }
-
-    func publish(_ flag: Bool) {}
 
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
-                 captureTime: Date) {
+                 timestamp: Date) {
         // Configure FPS.
         let maxRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
         if self.encoder.frameRate == nil {
@@ -122,15 +156,15 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
 
         // Stagger the publication's start time by its height in ms.
         guard let startTime = self.startTime else {
-            self.startTime = captureTime
+            self.startTime = timestamp
             return
         }
-        let interval = captureTime.timeIntervalSince(startTime)
+        let interval = timestamp.timeIntervalSince(startTime)
         guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer, captureTime: captureTime)
+            try encoder.write(sample: sampleBuffer, timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
@@ -141,16 +175,15 @@ class H264Publication: NSObject, AVCaptureDevicePublication, FrameListener {
         let width = CVPixelBufferGetWidth(buffer)
         let height = CVPixelBufferGetHeight(buffer)
         let pixels: UInt64 = .init(width * height)
-        let presentationTimestamp = sampleBuffer.presentationTimeStamp.seconds
-        let date: Date? = self.granularMetrics ? captureTime : nil
+        let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
         Task(priority: .utility) {
             await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
             if let date = date {
                 // TODO: This age is probably useless.
-                let age = now.timeIntervalSince(captureTime)
+                let age = now.timeIntervalSince(timestamp)
                 await measurement.measurement.age(age: age,
-                                                  presentationTimestamp: presentationTimestamp,
+                                                  presentationTimestamp: timestamp.timeIntervalSince1970,
                                                   metricsTimestamp: date)
             }
         }

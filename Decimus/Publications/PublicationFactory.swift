@@ -5,33 +5,45 @@ import Foundation
 import AVFoundation
 
 class PublicationFactory {
-    private typealias FactoryCallbackType = (QuicrNamespace,
-                                             QPublishObjectDelegateObjC,
-                                             SourceIDType,
-                                             CodecConfig,
-                                             MetricsSubmitter?) throws -> Publication
-
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private let metricsSubmitter: MetricsSubmitter?
+    private let captureManager: CaptureManager
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
          engine: DecimusAudioEngine,
-         granularMetrics: Bool) {
+         metricsSubmitter: MetricsSubmitter?,
+         granularMetrics: Bool,
+         captureManager: CaptureManager) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
+        self.metricsSubmitter = metricsSubmitter
         self.granularMetrics = granularMetrics
+        self.captureManager = captureManager
     }
 
-    func create(_ namespace: QuicrNamespace,
-                publishDelegate: QPublishObjectDelegateObjC,
+    func create(publication: ManifestPublication) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+        var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
+        for profile in publication.profileSet.profiles {
+            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+            let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+            let publication = try self.create(profile,
+                                              sourceID: publication.sourceID,
+                                              config: config,
+                                              metricsSubmitter: self.metricsSubmitter)
+            publications.append((fullTrackName, publication))
+        }
+        return publications
+    }
+
+    func create(_ profile: Profile,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> Publication {
-
+                metricsSubmitter: MetricsSubmitter?) throws -> QPublishTrackHandlerObjC {
         switch config.codec {
         case .h264, .hevc:
             guard let config = config as? VideoCodecConfig else {
@@ -53,22 +65,21 @@ class PublicationFactory {
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)
-            return try H264Publication(namespace: namespace,
-                                       publishDelegate: publishDelegate,
-                                       sourceID: sourceID,
-                                       config: config,
-                                       metricsSubmitter: metricsSubmitter,
-                                       reliable: reliability.video.publication,
-                                       granularMetrics: self.granularMetrics,
-                                       encoder: encoder,
-                                       device: device)
+
+            let publication = try H264Publication(profile: profile,
+                                                  config: config,
+                                                  metricsSubmitter: metricsSubmitter,
+                                                  reliable: reliability.video.publication,
+                                                  granularMetrics: self.granularMetrics,
+                                                  encoder: encoder,
+                                                  device: device)
+            try self.captureManager.addInput(publication)
+            return publication
         case .opus:
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            return try OpusPublication(namespace: namespace,
-                                       publishDelegate: publishDelegate,
-                                       sourceID: sourceID,
+            return try OpusPublication(profile: profile,
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,

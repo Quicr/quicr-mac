@@ -33,8 +33,7 @@ final class TestDecimusVideoFrame: XCTestCase {
                                          sequenceNumber: 3,
                                          fps: 4,
                                          orientation: .portrait,
-                                         verticalMirror: true,
-                                         captureDate: now)
+                                         verticalMirror: true)
 
         // Create deep copy.
         let copied = try DecimusVideoFrame(copy: original)
@@ -51,7 +50,6 @@ final class TestDecimusVideoFrame: XCTestCase {
         XCTAssertEqual(copied.fps, original.fps)
         XCTAssertEqual(copied.orientation, original.orientation)
         XCTAssertEqual(copied.verticalMirror, original.verticalMirror)
-        XCTAssertEqual(copied.captureDate, original.captureDate)
 
         let first = copied.samples.first
         XCTAssertNotNil(first)
