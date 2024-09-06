@@ -992,6 +992,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
@@ -1016,6 +1017,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
@@ -1186,11 +1188,11 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/dependencies/libjitter/**",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
-					"$(PROJECT_DIR)/dependencies/libquicr/include",
 					"$(PROJECT_DIR)/dependencies/libquicr/src",
+					"$(PROJECT_DIR)/dependencies/libquicr/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/libjitter/include",
+					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
@@ -1252,20 +1254,11 @@
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/qname/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/numero-uri/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/sframe/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/include",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/src",
-					"$(PROJECT_DIR)/dependencies/libjitter/**",
-					"$(PROJECT_DIR)/dependencies/build-catalyst-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-ios-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/build-iossim-new-qmedia/**",
-					"$(PROJECT_DIR)/dependencies/new-qmedia/dependencies/libquicr/dependencies/transport/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/src",
+					"$(PROJECT_DIR)/dependencies/libquicr/include",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/libjitter/include",
+					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
