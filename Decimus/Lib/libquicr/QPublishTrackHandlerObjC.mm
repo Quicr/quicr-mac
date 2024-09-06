@@ -22,7 +22,7 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* extensions) {
+moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
     std::optional<std::uint8_t> priority;
     if (objectHeaders.priority != nullptr) {
         priority = *objectHeaders.priority;
@@ -36,12 +36,19 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
     } else {
         ttl = std::nullopt;
     }
-    
-    moq::Extensions moqExtensions;
-    for (NSNumber* number in extensions) {
-        NSData* value = extensions[number];
-        const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
-        moqExtensions[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
+
+    std::optional<moq::Extensions> moqExtensions;
+    if (extensions == nil || extensions.count == 0) {
+        moqExtensions = std::nullopt;
+    } else {
+        moq::Extensions built;
+        for (NSNumber* number in extensions) {
+            NSData* value = extensions[number];
+            const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
+            built[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
+        }
+        // TODO: Move?
+        moqExtensions = built;
     }
 
     return moq::ObjectHeaders {
@@ -54,7 +61,7 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
     };
 }
 
--(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*> * _Nonnull)extensions
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*> * _Nullable)extensions
 {
     assert(handlerPtr);
     moq::ObjectHeaders headers = from(objectHeaders, extensions);
@@ -64,7 +71,7 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
     return static_cast<QPublishObjectStatus>(status);
 }
 
--(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nonnull) extensions {
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nullable) extensions {
     assert(handlerPtr);
     moq::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);

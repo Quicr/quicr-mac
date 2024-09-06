@@ -3,15 +3,28 @@
 
 import Foundation
 
+/// Possible errors thrown by ``LowOverheadContainer``.
+enum LowOverheadContainerError: Error {
+    /// The container was missing a mandatory field.
+    case missingField
+}
+
+/// Representation of https://datatracker.ietf.org/doc/draft-mzanaty-moq-loc/
 struct LowOverheadContainer {
     static let microsecondsPerSecond: TimeInterval = 1_000_000
     private let timestampKey: NSNumber = 1
     private let sequenceKey: NSNumber = 2
 
-    let timestamp: Date?
-    let sequence: UInt64?
+    /// Contained object's timestamp.
+    let timestamp: Date
+    /// Contained object's sequence number.
+    let sequence: UInt64
+    /// Wire encoded LOC as MoQ object header extension dictionary.
     let extensions: [NSNumber: Data]
 
+    /// Encode a new LOC from its constituent parts.
+    /// - Parameter timestamp: Timestamp of this media.
+    /// - Parameter sequence: Sequence number of this media.
     init(timestamp: Date, sequence: UInt64) {
         self.timestamp = timestamp
         self.sequence = sequence
@@ -27,23 +40,21 @@ struct LowOverheadContainer {
         ]
     }
 
-    init(from extensions: [NSNumber: Data]) {
+    /// Parse a LOC from a MoQ header extension dictionary.
+    /// - Throws: ``LowOverheadContainerError/missingField`` if a mandatory field is missing.
+    init(from extensions: [NSNumber: Data]) throws {
         self.extensions = extensions
-        let timestamp: UInt64
-        if let timestampData = extensions[self.timestampKey] {
-            timestamp = timestampData.withUnsafeBytes {
-                return $0.load(as: UInt64.self)
-            }
-            self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / Self.microsecondsPerSecond)
-        } else {
-            self.timestamp = nil
+        guard let timestampData = extensions[self.timestampKey],
+              let sequenceData = extensions[self.sequenceKey] else {
+            throw LowOverheadContainerError.missingField
         }
-        if let sequenceData = extensions[self.sequenceKey] {
-            self.sequence = sequenceData.withUnsafeBytes {
-                return $0.load(as: UInt64.self)
-            }
-        } else {
-            self.sequence = nil
+
+        let timestamp: UInt64 = timestampData.withUnsafeBytes {
+            return $0.load(as: UInt64.self)
+        }
+        self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / Self.microsecondsPerSecond)
+        self.sequence = sequenceData.withUnsafeBytes {
+            return $0.load(as: UInt64.self)
         }
     }
 }

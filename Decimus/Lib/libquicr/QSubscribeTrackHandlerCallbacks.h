@@ -15,6 +15,6 @@ typedef NS_ENUM(uint8_t, QSubscribeTrackHandlerStatus) {
 
 @protocol QSubscribeTrackHandlerCallbacks
 - (void) statusChanged: (QSubscribeTrackHandlerStatus) status;
-- (void) objectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nonnull) extensions;
-- (void) partialObjectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nonnull) extensions;
+- (void) objectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
+- (void) partialObjectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
 @end

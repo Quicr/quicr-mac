@@ -69,8 +69,6 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
     private let userData: UnsafeRawPointer
-    private var tempSequenceNumber: UInt64 = 0
-    private var time: Date?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -168,29 +166,24 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         Self.logger.info("Subscribe Track Status Changed: \(status)")
     }
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         let now = Date.now
-        if self.time == nil {
-            self.time = now
-        }
         do {
             // Pull LOC data out of headers.
-            // TODO: Make mandatory once libquicr updated.
-            let loc = LowOverheadContainer(from: extensions)
-            let timestamp = loc.timestamp ?? self.time!
-            let sequenceNumber = loc.sequence ?? self.tempSequenceNumber
-            self.tempSequenceNumber += 1
-
+            guard let extensions = extensions else {
+                Self.logger.warning("Missing expected LOC headers")
+                return
+            }
+            let loc = try LowOverheadContainer(from: extensions)
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: data,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
-                                                   sequenceNumber: sequenceNumber,
-                                                   timestamp: timestamp) else {
+                                                   sequenceNumber: loc.sequence,
+                                                   timestamp: loc.timestamp) else {
                 Self.logger.warning("No video data in object")
                 return
             }
-            self.time = self.time!.addingTimeInterval(1/30)
 
             guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
                 Self.logger.error("Missing expected timestamp")
@@ -206,7 +199,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         }
     }
 
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]) {
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         Self.logger.error("Not expecting partial objects")
     }
 
@@ -570,8 +563,8 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
 
         guard let buffers = buffers else { return nil }
         let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970),
-                                                                       timescale: 1),
+                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
+                                                                       timescale: 1_000_000),
                                           decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
