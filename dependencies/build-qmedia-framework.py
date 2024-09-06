@@ -52,6 +52,9 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "-DENABLE_STRICT_TRY_COMPILE=ON",
         f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
         f"-DCMAKE_MODULE_PATH={current_directory}",
+        f"-DMACOSX_FRAMEWORK_INFO_PLIST={current_directory}/MacOSXFrameworkInfo.plist",
+        f"-DMACOSX_FRAMEWORK_BUNDLE_VERSION=1.0.{build_number}",
+        f"-DMACOSX_FRAMEWORK_SHORT_VERSION_STRING=1.0.{build_number}",
         f"-DBUILD_NUMBER={build_number}",
         "-Wno-dev"]
     generate = subprocess.Popen(
