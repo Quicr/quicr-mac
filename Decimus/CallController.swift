@@ -41,6 +41,7 @@ class MoqCallController: QClientCallbacks {
     private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
+    private let callEnded: () -> Void
 
     /// Create a new controller.
     /// - Parameters:
@@ -57,7 +58,8 @@ class MoqCallController: QClientCallbacks {
          engine: DecimusAudioEngine,
          videoParticipants: VideoParticipants,
          submitter: MetricsSubmitter?,
-         granularMetrics: Bool) {
+         granularMetrics: Bool,
+         callEnded: @escaping () -> Void) {
         self.client = .init(config: config)
         self.captureManager = captureManager
         self.subscriptionConfig = subscriptionConfig
@@ -65,6 +67,7 @@ class MoqCallController: QClientCallbacks {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = submitter
         self.granularMetrics = granularMetrics
+        self.callEnded = callEnded
         self.client.setCallbacks(self)
     }
 
@@ -165,6 +168,16 @@ class MoqCallController: QClientCallbacks {
             connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         case .clientConnecting:
             assert(self.connectionContinuation != nil)
+        case .clientNotConnected:
+            self.connected = false
+            guard let connection = self.connectionContinuation else {
+                self.logger.error("Disconnected from relay")
+                self.callEnded()
+                return
+            }
+            self.connectionContinuation = nil
+            connection.resume(throwing: MoqCallControllerError.connectionFailure(.clientNotConnected))
+            return
         default:
             self.logger.warning("Unhandled status change: \(status)")
         }
