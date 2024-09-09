@@ -43,8 +43,7 @@ static moq::TransportConfig convert(TransportConfig config) {
     moqConfig.transport_config = convert(config.transportConfig);
 
     auto logger = spdlog::get("DECIMUS") ? spdlog::get("DECIMUS") : spdlog::callback_logger_mt("DECIMUS", [=](const spdlog::details::log_msg& msg) {
-        std::string msg_str = std::string(msg.payload.begin(), msg.payload.end());
-        NSString* m = [NSString stringWithCString:msg_str.c_str() encoding:[NSString defaultCStringEncoding]];
+        NSString* m = [[NSString alloc] initWithBytesNoCopy: (void*)msg.payload.data() length: msg.payload.size() encoding: NSUTF8StringEncoding freeWhenDone: false];
         logCallback(static_cast<uint8_t>(msg.level), m, msg.level >= spdlog::level::err);
     });
 
