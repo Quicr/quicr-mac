@@ -30,7 +30,9 @@ typedef struct QClientConfig {
     uint64_t metricsSampleMs;
 } QClientConfig;
 
--(id)initWithConfig: (QClientConfig) config;
+typedef void(*LogCallback)(uint8_t, NSString*, bool);
+
+-(id)initWithConfig: (QClientConfig) config logCallback:(LogCallback) logCallback;
 
 -(QClientStatus)connect;
 -(QClientStatus)disconnect;

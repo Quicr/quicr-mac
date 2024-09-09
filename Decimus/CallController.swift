@@ -26,13 +26,14 @@ protocol SubscriptionSet {
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
+    static private let logger = DecimusLogger(MoqCallController.self)
+
     // Dependencies.
     private let subscriptionConfig: SubscriptionConfig
     private let engine: DecimusAudioEngine
     private let granularMetrics: Bool
     private let videoParticipants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
-    private let logger = DecimusLogger(MoqCallController.self)
     private let captureManager: CaptureManager
 
     // State.
@@ -58,7 +59,11 @@ class MoqCallController: QClientCallbacks {
          videoParticipants: VideoParticipants,
          submitter: MetricsSubmitter?,
          granularMetrics: Bool) {
-        self.client = .init(config: config)
+        self.client = .init(config: config) { level, msg, alert in
+            let level: DecimusLogger.LogLevel = .init(rawValue: level) ?? .error
+            guard let msg = msg else { return }
+            MoqCallController.logger.log(level: level, msg, alert: alert)
+        }
         self.captureManager = captureManager
         self.subscriptionConfig = subscriptionConfig
         self.engine = engine
@@ -69,7 +74,7 @@ class MoqCallController: QClientCallbacks {
     }
 
     deinit {
-        self.logger.debug("Deinit")
+        Self.logger.debug("Deinit")
     }
 
     /// Connect to the relay.
@@ -134,7 +139,7 @@ class MoqCallController: QClientCallbacks {
         guard status == .disconnecting else {
             throw MoqCallControllerError.connectionFailure(status)
         }
-        self.logger.info("[MoqCallController] Disconnected")
+        Self.logger.info("[MoqCallController] Disconnected")
         self.publications.removeAll()
         self.subscriptions.removeAll()
     }
@@ -144,12 +149,12 @@ class MoqCallController: QClientCallbacks {
     /// moq::Client callback for status change.
     /// - Parameter status: The new status.
     func statusChanged(_ status: QClientStatus) {
-        self.logger.info("[MoqCallController] Status changed: \(status)")
+        Self.logger.info("[MoqCallController] Status changed: \(status)")
         switch status {
         case .ready:
             // TODO: Fix this up.
             guard let connection = self.connectionContinuation else {
-                print("Got ready when we already had ready!?")
+                Self.logger.error("Got ready when we already had ready!?")
                 return
             }
             self.connectionContinuation = nil
@@ -157,7 +162,7 @@ class MoqCallController: QClientCallbacks {
             connection.resume()
         case .notReady:
             guard let connection = self.connectionContinuation else {
-                self.logger.error("Got notReady status when connection was nil")
+                Self.logger.error("Got notReady status when connection was nil")
                 return
             }
             self.connectionContinuation = nil
@@ -166,21 +171,21 @@ class MoqCallController: QClientCallbacks {
         case .clientConnecting:
             assert(self.connectionContinuation != nil)
         default:
-            self.logger.warning("Unhandled status change: \(status)")
+            Self.logger.warning("Unhandled status change: \(status)")
         }
     }
 
     /// moq::Client serverSetupReceived event.
     /// - Parameter setup: The set setup attributes received with the event.
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
-        self.logger.info("Got server setup received message")
+        Self.logger.info("Got server setup received message")
     }
 
     /// moq::Client announcement status changed in response to a publishAnnounce()
     /// - Parameter namespace: The namespace the changed announcement was for.
     /// - Parameter status: The new status the announcement has.
     func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
-        self.logger.info("Got announce status changed: \(status)")
+        Self.logger.info("Got announce status changed: \(status)")
     }
 
     /// Create subscription tracks and owning object for a manifest entry.

@@ -12,7 +12,7 @@
 class QClient : public moq::Client
 {
 public:
-    QClient(moq::ClientConfig config);
+    QClient(moq::ClientConfig config, std::shared_ptr<spdlog::logger> logger);
     ~QClient();
 
     void StatusChanged(Status status) override;

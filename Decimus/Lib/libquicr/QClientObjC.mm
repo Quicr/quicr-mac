@@ -4,9 +4,12 @@
 #import <Foundation/Foundation.h>
 #import "QClient.h"
 #import "QClientObjC.h"
+#include "TransportConfig.h"
+
+#include <spdlog/sinks/callback_sink.h>
+
 #include <memory>
 #include <iostream>
-#include "TransportConfig.h"
 
 static moq::TransportConfig convert(TransportConfig config) {
     moq::TransportConfig moq;
@@ -31,14 +34,21 @@ static moq::TransportConfig convert(TransportConfig config) {
 
 @implementation QClientObjC : NSObject
 
--(id)initWithConfig: (QClientConfig) config
+-(id)initWithConfig: (QClientConfig) config logCallback:(LogCallback) logCallback
 {
     moq::ClientConfig moqConfig;
     moqConfig.connect_uri = std::string(config.connectUri);
     moqConfig.endpoint_id = std::string(config.endpointId);
     moqConfig.metrics_sample_ms = config.metricsSampleMs;
     moqConfig.transport_config = convert(config.transportConfig);
-    qClientPtr = std::make_unique<QClient>(moqConfig);
+
+    auto logger = spdlog::get("DECIMUS") ? spdlog::get("DECIMUS") : spdlog::callback_logger_mt("DECIMUS", [=](const spdlog::details::log_msg& msg) {
+        std::string msg_str = std::string(msg.payload.begin(), msg.payload.end());
+        NSString* m = [NSString stringWithCString:msg_str.c_str() encoding:[NSString defaultCStringEncoding]];
+        logCallback(static_cast<uint8_t>(msg.level), m, msg.level >= spdlog::level::err);
+    });
+
+    qClientPtr = std::make_unique<QClient>(moqConfig, std::move(logger));
     return self;
 }
 
@@ -129,7 +139,8 @@ static moq::TransportConfig convert(TransportConfig config) {
 
 // C++
 
-QClient::QClient(moq::ClientConfig config) : moq::Client(config)
+QClient::QClient(moq::ClientConfig config, std::shared_ptr<spdlog::logger> logger)
+    : moq::Client(config, std::move(logger))
 {
 }
 
