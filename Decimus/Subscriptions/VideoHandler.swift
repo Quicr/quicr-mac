@@ -69,6 +69,12 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
     private let userData: UnsafeRawPointer
+    private var mediaDescription: String = "VideoHandler"
+    override var description: String {
+        get {
+            return self.mediaDescription
+        }
+    }
 
     /// Create a new video handler.
     /// - Parameters:
@@ -245,6 +251,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                 self.lastDimensions = first.formatDescription?.dimensions
                 DispatchQueue.main.async {
                     do {
+                        self.mediaDescription = try self.labelFromSample(sample: first, fps: resolvedFps)
                         guard self.simulreceive != .enable else { return }
                         let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
                         participant.label = .init(describing: self)
@@ -510,7 +517,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
             throw "Missing sample format"
         }
         let size = format.dimensions
-        let namespace = self.fullTrackName.namespace
+        let namespace = try self.fullTrackName.getNamespace()
         return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 
