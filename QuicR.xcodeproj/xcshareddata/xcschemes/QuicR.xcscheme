@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9BA27FC1297D7270007013B2"
-               BuildableName = "Decimus.app"
-               BlueprintName = "Decimus"
-               ReferencedContainer = "container:Decimus.xcodeproj">
+               BuildableName = "QuicR.app"
+               BlueprintName = "QuicR"
+               ReferencedContainer = "container:QuicR.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -42,7 +42,7 @@
                BlueprintIdentifier = "9B85951A29F04521008C813C"
                BuildableName = "Tests.xctest"
                BlueprintName = "Tests"
-               ReferencedContainer = "container:Decimus.xcodeproj">
+               ReferencedContainer = "container:QuicR.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9BA27FC1297D7270007013B2"
-            BuildableName = "Decimus.app"
-            BlueprintName = "Decimus"
-            ReferencedContainer = "container:Decimus.xcodeproj">
+            BuildableName = "QuicR.app"
+            BlueprintName = "QuicR"
+            ReferencedContainer = "container:QuicR.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -79,9 +79,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9BA27FC1297D7270007013B2"
-            BuildableName = "Decimus.app"
-            BlueprintName = "Decimus"
-            ReferencedContainer = "container:Decimus.xcodeproj">
+            BuildableName = "QuicR.app"
+            BlueprintName = "QuicR"
+            ReferencedContainer = "container:QuicR.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
