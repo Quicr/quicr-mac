@@ -34,7 +34,7 @@ struct InCallView: View {
     init(config: CallConfig, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
-        _viewModel = .init(wrappedValue: .init(config: config))
+        _viewModel = .init(wrappedValue: .init(config: config, onLeave: onLeave))
     }
 
     var body: some View {
@@ -164,25 +164,6 @@ struct InCallView: View {
                 }
             }
         }
-        .task {
-            // Check connnection status
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: .seconds(2))
-                } catch {
-                    return
-                }
-
-                if connecting || leaving {
-                    continue
-                }
-
-                //                guard await viewModel.connected() else {
-                //                    await viewModel.leave()
-                //                    return onLeave()
-                //                }
-            }
-        }
     }
 }
 
@@ -201,6 +182,7 @@ extension InCallView {
         private var submitter: MetricsSubmitter?
         private var audioCapture = false
         private var videoCapture = false
+        private let onLeave: () -> Void
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -208,8 +190,9 @@ extension InCallView {
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
-        init(config: CallConfig) {
+        init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
+            self.onLeave = onLeave
             do {
                 self.engine = try .init()
             } catch {
@@ -291,23 +274,13 @@ extension InCallView {
                                          engine: engine,
                                          videoParticipants: self.videoParticipants,
                                          submitter: self.submitter,
-                                         granularMetrics: influxConfig.value.granular)
+                                         granularMetrics: influxConfig.value.granular,
+                                         callEnded: onLeave)
                         }
                     }
                 }
             }
         }
-
-        //        func connected() async -> Bool {
-        //            guard let controller = self.controller else {
-        //                return false
-        //            }
-        //            if !controller.connected() {
-        //                Self.logger.error("Connection to relay disconnected")
-        //                return false
-        //            }
-        //            return true
-        //        }
 
         func join() async -> Bool {
             guard let controller = self.controller else {

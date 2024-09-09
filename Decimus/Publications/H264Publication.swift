@@ -4,6 +4,7 @@
 import Foundation
 import AVFoundation
 import os
+import Atomics
 
 enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)
@@ -16,7 +17,7 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, FrameListener {
+class H264Publication: Publication, FrameListener {
     private static let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
@@ -32,7 +33,6 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
     private var startTime: Date?
     private var currentGroupId: UInt64 = 0
     private var currentObjectId: UInt64 = 0
-    private let profile: Profile
 
     required init(profile: Profile,
                   config: VideoCodecConfig,
@@ -41,7 +41,6 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
                   device: AVCaptureDevice) throws {
-        self.profile = profile
         let namespace = profile.namespace
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -95,6 +94,12 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
+            guard publication.publish.load(ordering: .acquiring) else {
+                // TODO: Need to make a smarter decision about resumption.
+                Self.logger.warning("Not published due to status")
+                return
+            }
+
             let status = publication.publishObject(headers,
                                                    data: data,
                                                    extensions: loc.extensions)
@@ -123,22 +128,16 @@ class H264Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks, 
             }
         }
         Self.logger.info("Registered H264 publication for namespace \(namespace)")
-        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-        super.init(fullTrackName: fullTrackName.getUnsafe(),
-                   trackMode: reliable ? .streamPerGroup : .datagram,
-                   defaultPriority: 0,
-                   defaultTTL: 0)
+        try super.init(profile: profile,
+                       trackMode: reliable ? .streamPerGroup : .datagram,
+                       defaultPriority: 0,
+                       defaultTTL: 0)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
-        self.setCallbacks(self)
     }
 
     deinit {
         Self.logger.debug("Deinit")
-    }
-
-    func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        Self.logger.info("Status changed: \(status)")
     }
 
     /// This callback fires when a video frame arrives.
