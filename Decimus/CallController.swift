@@ -171,6 +171,7 @@ class MoqCallController: QClientCallbacks {
         case .clientNotConnected:
             self.connected = false
             guard let connection = self.connectionContinuation else {
+                self.logger.error("Disconnected from relay")
                 self.callEnded()
                 return
             }

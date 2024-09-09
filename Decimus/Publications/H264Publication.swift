@@ -4,7 +4,6 @@
 import Foundation
 import AVFoundation
 import os
-import Atomics
 
 enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)

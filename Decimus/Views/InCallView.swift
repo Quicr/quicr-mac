@@ -274,8 +274,11 @@ extension InCallView {
                                          engine: engine,
                                          videoParticipants: self.videoParticipants,
                                          submitter: self.submitter,
-                                         granularMetrics: influxConfig.value.granular,
-                                         callEnded: onLeave)
+                                         granularMetrics: influxConfig.value.granular) {
+                                DispatchQueue.main.async {
+                                    onLeave()
+                                }
+                            }
                         }
                     }
                 }
