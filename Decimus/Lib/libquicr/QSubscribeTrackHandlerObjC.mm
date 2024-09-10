@@ -9,7 +9,7 @@
 
 -(id) initWithFullTrackName: (QFullTrackName) full_track_name
 {
-    moq::FullTrackName fullTrackName = ftnConvert(full_track_name);
+    quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
     return self;
 }
@@ -30,7 +30,7 @@
 
 // C++
 
-QSubscribeTrackHandler::QSubscribeTrackHandler(const moq::FullTrackName& full_track_name): moq::SubscribeTrackHandler(full_track_name) { }
+QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name): quicr::SubscribeTrackHandler(full_track_name) { }
 
 void QSubscribeTrackHandler::StatusChanged(Status status)
 {
@@ -40,8 +40,8 @@ void QSubscribeTrackHandler::StatusChanged(Status status)
     }
 }
 
-void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_headers,
-                                            moq::BytesSpan data)
+void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_headers,
+                                            quicr::BytesSpan data)
 {
     if (_callbacks)
     {
@@ -75,8 +75,8 @@ void QSubscribeTrackHandler::ObjectReceived(const moq::ObjectHeaders& object_hea
     }
 }
 
-void QSubscribeTrackHandler::PartialObjectReceived(const moq::ObjectHeaders& object_headers,
-                                                   moq::BytesSpan data)
+void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& object_headers,
+                                                   quicr::BytesSpan data)
 {
     if (_callbacks)
     {

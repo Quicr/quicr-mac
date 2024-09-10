@@ -6,18 +6,18 @@
 
 #import "QClientCallbacks.h"
 
-#include "moq/client.h"
-#include "moq/config.h"
+#include "quicr/client.h"
+#include "quicr/config.h"
 
-class QClient : public moq::Client
+class QClient : public quicr::Client
 {
 public:
-    QClient(moq::ClientConfig config);
+    QClient(quicr::ClientConfig config);
     ~QClient();
 
     void StatusChanged(Status status) override;
-    void ServerSetupReceived(const moq::ServerSetupAttributes& serverSetupAttributes) override;
-    
+    void ServerSetupReceived(const quicr::ServerSetupAttributes& serverSetupAttributes) override;
+
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:
     __weak id<QClientCallbacks> _callbacks;

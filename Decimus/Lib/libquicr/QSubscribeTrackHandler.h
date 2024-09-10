@@ -4,24 +4,24 @@
 #ifndef QSubscribeTrackHandler_h
 #define QSubscribeTrackHandler_h
 
-#include "moq/subscribe_track_handler.h"
-#include "moq/track_name.h"
+#include "quicr/subscribe_track_handler.h"
+#include "quicr/track_name.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
 
-class QSubscribeTrackHandler : public moq::SubscribeTrackHandler
+class QSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
 public:
-    QSubscribeTrackHandler(const moq::FullTrackName& full_track_name);
-    
+    QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name);
+
     // Callbacks.
     void StatusChanged(Status status);
-    void ObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data);
-    void PartialObjectReceived(const moq::ObjectHeaders& object_headers, moq::BytesSpan data);
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data);
+    void PartialObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data);
 
     // Methods.
     void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);
-    
-    
+
+
 private:
     __weak id<QSubscribeTrackHandlerCallbacks> _callbacks;
 };

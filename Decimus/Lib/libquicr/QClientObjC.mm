@@ -8,8 +8,8 @@
 #include <iostream>
 #include "TransportConfig.h"
 
-static moq::TransportConfig convert(TransportConfig config) {
-    moq::TransportConfig moq;
+static quicr::TransportConfig convert(TransportConfig config) {
+    quicr::TransportConfig moq;
     moq.debug = config.debug;
     moq.idle_timeout_ms = config.idle_timeout_ms;
     moq.pacing_decrease_threshold_bps = config.pacing_decrease_threshold_Bps;
@@ -33,7 +33,7 @@ static moq::TransportConfig convert(TransportConfig config) {
 
 -(id)initWithConfig: (QClientConfig) config
 {
-    moq::ClientConfig moqConfig;
+    quicr::ClientConfig moqConfig;
     moqConfig.connect_uri = std::string(config.connectUri);
     moqConfig.endpoint_id = std::string(config.endpointId);
     moqConfig.metrics_sample_ms = config.metricsSampleMs;
@@ -61,7 +61,7 @@ static moq::TransportConfig convert(TransportConfig config) {
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<moq::PublishTrackHandler>(trackHandler->handlerPtr);
+        auto handler = std::static_pointer_cast<quicr::PublishTrackHandler>(trackHandler->handlerPtr);
         qClientPtr->PublishTrack(handler);
     }
 }
@@ -71,7 +71,7 @@ static moq::TransportConfig convert(TransportConfig config) {
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<moq::PublishTrackHandler>(trackHandler->handlerPtr);
+        auto handler = std::static_pointer_cast<quicr::PublishTrackHandler>(trackHandler->handlerPtr);
         qClientPtr->UnpublishTrack(handler);
     }
 }
@@ -81,7 +81,7 @@ static moq::TransportConfig convert(TransportConfig config) {
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<moq::SubscribeTrackHandler>(trackHandler->handlerPtr);
+        auto handler = std::static_pointer_cast<quicr::SubscribeTrackHandler>(trackHandler->handlerPtr);
         qClientPtr->SubscribeTrack(handler);
     }
 }
@@ -91,7 +91,7 @@ static moq::TransportConfig convert(TransportConfig config) {
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<moq::SubscribeTrackHandler>(trackHandler->handlerPtr);
+        auto handler = std::static_pointer_cast<quicr::SubscribeTrackHandler>(trackHandler->handlerPtr);
         qClientPtr->UnsubscribeTrack(handler);
     }
 }
@@ -100,7 +100,7 @@ static moq::TransportConfig convert(TransportConfig config) {
 {
     assert(qClientPtr);
     auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    moq::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
+    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
     qClientPtr->PublishAnnounce(name_space);
 }
 
@@ -108,7 +108,7 @@ static moq::TransportConfig convert(TransportConfig config) {
 {
     assert(qClientPtr);
     auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    moq::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
+    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
     qClientPtr->PublishUnannounce(name_space);
 }
 
@@ -122,14 +122,14 @@ static moq::TransportConfig convert(TransportConfig config) {
 {
     assert(qClientPtr);
     auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    moq::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
+    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
     auto status = qClientPtr->GetAnnounceStatus(name_space);
     return static_cast<QPublishAnnounceStatus>(status);
 }
 
 // C++
 
-QClient::QClient(moq::ClientConfig config) : moq::Client(config)
+QClient::QClient(quicr::ClientConfig config) : quicr::Client(config)
 {
 }
 
@@ -145,7 +145,7 @@ void QClient::StatusChanged(Status status)
     }
 }
 
-void QClient::ServerSetupReceived(const moq::ServerSetupAttributes& server_setup_attributes) {
+void QClient::ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) {
     // TODO: Implement.
 }
 
