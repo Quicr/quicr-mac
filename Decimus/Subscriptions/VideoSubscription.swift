@@ -69,18 +69,10 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
 
         super.init(fullTrackName: fullTrackName.getUnsafe())
         self.setCallbacks(self)
+    }
 
-        self.cleanupTask = .init(priority: .utility) { [weak self] in
-            while !Task.isCancelled {
-                guard let self = self else { return }
-                if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                    self.handlerLock.withLock {
-                        self.handler = nil
-                    }
-                }
-                try? await Task.sleep(for: .seconds(self.cleanupTimer))
-            }
-        }
+    deinit {
+        self.logger.debug("Deinit")
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
@@ -88,6 +80,20 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        if self.cleanupTask == nil {
+            self.cleanupTask = .init(priority: .utility) { [weak self] in
+                while !Task.isCancelled {
+                    guard let self = self else { return }
+                    if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                        self.handlerLock.withLock {
+                            self.handler = nil
+                        }
+                    }
+                    try? await Task.sleep(for: .seconds(self.cleanupTimer))
+                }
+            }
+        }
+
         let now = Date.now
         self.lastUpdateTime = now
 
