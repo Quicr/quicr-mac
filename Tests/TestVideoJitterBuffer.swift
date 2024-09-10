@@ -3,10 +3,10 @@
 
 import CoreMedia
 import XCTest
-@testable import Decimus
+@testable import QuicR
 
 extension DecimusVideoFrame: Equatable {
-    public static func == (lhs: Decimus.DecimusVideoFrame, rhs: Decimus.DecimusVideoFrame) -> Bool {
+    public static func == (lhs: QuicR.DecimusVideoFrame, rhs: QuicR.DecimusVideoFrame) -> Bool {
         lhs.samples == rhs.samples &&
             lhs.groupId == rhs.groupId &&
             lhs.objectId == rhs.objectId &&

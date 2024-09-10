@@ -244,7 +244,7 @@
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
-		9BA27FC2297D7270007013B2 /* Decimus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Decimus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9BA27FC2297D7270007013B2 /* QuicR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuicR.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
 		9BA27FC9297D7271007013B2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9BA27FCC297D7271007013B2 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -489,7 +489,7 @@
 		9BA27FC3297D7270007013B2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				9BA27FC2297D7270007013B2 /* Decimus.app */,
+				9BA27FC2297D7270007013B2 /* QuicR.app */,
 				9B85951B29F04521008C813C /* Tests.xctest */,
 			);
 			name = Products;
@@ -715,9 +715,9 @@
 			productReference = 9B85951B29F04521008C813C /* Tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		9BA27FC1297D7270007013B2 /* Decimus */ = {
+		9BA27FC1297D7270007013B2 /* QuicR */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */;
+			buildConfigurationList = 9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "QuicR" */;
 			buildPhases = (
 				9B76FFD9298D4836006B5267 /* Build QMedia */,
 				9BA27FBE297D7270007013B2 /* Sources */,
@@ -729,7 +729,7 @@
 			);
 			dependencies = (
 			);
-			name = Decimus;
+			name = QuicR;
 			packageProductDependencies = (
 				9BDD5B12299697DE00C01D54 /* DequeModule */,
 				18C89A392A13D1E4005B333B /* InfluxDBSwift */,
@@ -740,7 +740,7 @@
 				9B8B6F672B9B01F700FBB0D1 /* Atomics */,
 			);
 			productName = Decimus;
-			productReference = 9BA27FC2297D7270007013B2 /* Decimus.app */;
+			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -763,7 +763,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "Decimus" */;
+			buildConfigurationList = 9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "QuicR" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -785,7 +785,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				9BA27FC1297D7270007013B2 /* Decimus */,
+				9BA27FC1297D7270007013B2 /* QuicR */,
 				9B85951A29F04521008C813C /* Tests */,
 			);
 		};
@@ -981,7 +981,7 @@
 /* Begin PBXTargetDependency section */
 		9B85952029F04521008C813C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 9BA27FC1297D7270007013B2 /* Decimus */;
+			target = 9BA27FC1297D7270007013B2 /* QuicR */;
 			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -1008,7 +1008,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuicR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuicR";
 			};
 			name = Debug;
 		};
@@ -1033,7 +1033,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Decimus.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Decimus";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuicR.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuicR";
 			};
 			name = Release;
 		};
@@ -1199,10 +1199,10 @@
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
+				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1220,7 +1220,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
@@ -1265,10 +1265,10 @@
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Decimus;
+				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Decimus needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Decimus needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -1286,7 +1286,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
@@ -1314,7 +1314,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "Decimus" */ = {
+		9BA27FBD297D7270007013B2 /* Build configuration list for PBXProject "QuicR" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9BA27FE4297D7271007013B2 /* Debug */,
@@ -1323,7 +1323,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "Decimus" */ = {
+		9BA27FE6297D7271007013B2 /* Build configuration list for PBXNativeTarget "QuicR" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9BA27FE7297D7271007013B2 /* Debug */,
