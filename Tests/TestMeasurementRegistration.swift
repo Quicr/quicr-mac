@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-@testable import Decimus
+@testable import QuicR
 import XCTest
 
 final class TestMeasurementRegistration: XCTestCase {
     actor MockMetricsSubmitter: MetricsSubmitter {
-        var measurement: Decimus.Measurement?
+        var measurement: QuicR.Measurement?
         typealias Callback = (UUID) -> Void
         private let registerCallback: Callback?
         private let unregisterCallback: Callback?
@@ -16,7 +16,7 @@ final class TestMeasurementRegistration: XCTestCase {
             self.unregisterCallback = unregisterCallback
         }
 
-        func register(measurement: any Decimus.Measurement) {
+        func register(measurement: any QuicR.Measurement) {
             self.registerCallback?(measurement.id)
             self.measurement = measurement
         }
@@ -29,10 +29,10 @@ final class TestMeasurementRegistration: XCTestCase {
         func submit() async { }
     }
 
-    actor MockMeasurement: Decimus.Measurement {
+    actor MockMeasurement: QuicR.Measurement {
         let id = UUID()
         var name = "MockMeasurement"
-        var fields: Decimus.Fields = [:]
+        var fields: QuicR.Fields = [:]
         var tags: [String: String] = [:]
     }
 

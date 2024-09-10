@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
-@testable import Decimus
+@testable import QuicR
 
 final class TestQHelpers: XCTestCase {
     func testSequentialObjectBlockingNameGate() throws {

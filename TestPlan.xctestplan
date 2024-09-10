@@ -22,9 +22,8 @@
   },
   "testTargets" : [
     {
-      "parallelizable" : true,
       "target" : {
-        "containerPath" : "container:Decimus.xcodeproj",
+        "containerPath" : "container:QuicR.xcodeproj",
         "identifier" : "9B85951A29F04521008C813C",
         "name" : "Tests"
       }
