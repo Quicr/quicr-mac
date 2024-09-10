@@ -6,7 +6,7 @@
 
 #import <Foundation/Foundation.h>
 #ifdef __cplusplus
-#include <moq/track_name.h>
+#include <quicr/track_name.h>
 #endif
 
 typedef struct QFullTrackName
@@ -27,7 +27,7 @@ typedef struct QObjectHeaders {
 
 
 #ifdef __cplusplus
-static moq::FullTrackName ftnConvert(QFullTrackName qFtn) {
+static quicr::FullTrackName ftnConvert(QFullTrackName qFtn) {
     return {
         .name_space = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength),
         .name = std::vector<std::uint8_t>(qFtn.name, qFtn.name + qFtn.nameLength)

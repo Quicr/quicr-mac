@@ -4,23 +4,23 @@
 #ifndef QPublishTrackHandler_h
 #define QPublishTrackHandler_h
 
-#include "moq/publish_track_handler.h"
-#include "moq/track_name.h"
+#include "quicr/publish_track_handler.h"
+#include "quicr/track_name.h"
 
 #import "QPublishTrackHandlerCallbacks.h"
 
-class QPublishTrackHandler : public moq::PublishTrackHandler
+class QPublishTrackHandler : public quicr::PublishTrackHandler
 {
 public:
-    QPublishTrackHandler(const moq::FullTrackName& full_track_name,
-                         moq::TrackMode track_mode,
+    QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
+                         quicr::TrackMode track_mode,
                          std::uint8_t default_priority,
                          std::uint32_t default_ttl);
 
     void StatusChanged(Status status);
 
     void SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks);
-    
+
 private:
     __weak id<QPublishTrackHandlerCallbacks> _callbacks;
 };
