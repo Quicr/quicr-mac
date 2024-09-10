@@ -25,7 +25,7 @@ typealias ObjectReceived = (_ handler: VideoHandler,
                             _ userData: UnsafeRawPointer) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
+class VideoHandler: CustomStringConvertible {
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -68,13 +68,9 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
+    private var callbackSet = ManagedAtomic(true)
     private let userData: UnsafeRawPointer
-    private var mediaDescription: String = "VideoHandler"
-    override var description: String {
-        get {
-            return self.mediaDescription
-        }
-    }
+    var description = "VideoHandler"
 
     /// Create a new video handler.
     /// - Parameters:
@@ -122,9 +118,6 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         self.callback = callback
         self.userData = userData
 
-        super.init(fullTrackName: fullTrackName.getUnsafe())
-        self.setCallbacks(self)
-
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
@@ -168,12 +161,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
 
     // MARK: Callbacks.
 
-    func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        Self.logger.info("Subscribe Track Status Changed: \(status)")
-    }
-
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        let now = Date.now
+    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?, when: Date) {
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
@@ -196,17 +184,19 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                 return
             }
 
-            self.callback(self, timestamp, now, self.userData)
+            if self.callbackSet.load(ordering: .acquiring) {
+                self.callback(self, timestamp, when, self.userData)
+            }
 
             // TODO: This can be inlined here.
-            try self.submitEncodedData(frame, from: now)
+            try self.submitEncodedData(frame, from: when)
         } catch {
             Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
     }
 
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        Self.logger.error("Not expecting partial objects")
+    func unsetCallback() {
+        self.callbackSet.store(false, ordering: .releasing)
     }
 
     // MARK: Implementation.
@@ -251,7 +241,7 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                 self.lastDimensions = first.formatDescription?.dimensions
                 DispatchQueue.main.async {
                     do {
-                        self.mediaDescription = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
                         guard self.simulreceive != .enable else { return }
                         let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
                         participant.label = .init(describing: self)
@@ -283,11 +273,9 @@ class VideoHandler: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
     func calculateWaitTime(from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else {
-            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
-        }
+        guard let jitterBuffer = self.jitterBuffer else { return nil }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
+        guard diffUs > 0 else { return nil }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }

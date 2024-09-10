@@ -133,6 +133,14 @@ class MoqCallController: QClientCallbacks {
     /// Disconnect from the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
+        for publication in self.publications {
+            self.client.unpublishTrack(withHandler: publication.value)
+        }
+        for set in self.subscriptions {
+            for subscription in set.value.getHandlers() {
+                self.client.unsubscribeTrack(withHandler: subscription)
+            }
+        }
         let status = self.client.disconnect()
         guard status == .disconnecting else {
             throw MoqCallControllerError.connectionFailure(status)
@@ -214,17 +222,17 @@ class MoqCallController: QClientCallbacks {
         }
         let found = Set(foundCodecs)
         if found.isSubset(of: videoCodecs) {
-            return try VideoSubscription(subscription: subscription,
-                                         participants: self.videoParticipants,
-                                         metricsSubmitter: self.metricsSubmitter,
-                                         videoBehaviour: self.subscriptionConfig.videoBehaviour,
-                                         reliable: self.subscriptionConfig.mediaReliability.video.subscription,
-                                         granularMetrics: self.granularMetrics,
-                                         jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
-                                         simulreceive: self.subscriptionConfig.simulreceive,
-                                         qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
-                                         pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
-                                         pauseResume: self.subscriptionConfig.pauseResume)
+            return try VideoSubscriptionSet(subscription: subscription,
+                                            participants: self.videoParticipants,
+                                            metricsSubmitter: self.metricsSubmitter,
+                                            videoBehaviour: self.subscriptionConfig.videoBehaviour,
+                                            reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                            granularMetrics: self.granularMetrics,
+                                            jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
+                                            simulreceive: self.subscriptionConfig.simulreceive,
+                                            qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
+                                            pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
+                                            pauseResume: self.subscriptionConfig.pauseResume)
         }
 
         if found.isSubset(of: opusCodecs) {
