@@ -7,7 +7,7 @@ import AVFoundation
 import CoreAudio
 import os
 
-class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
+class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
 
     private let encoder: LibOpusEncoder
@@ -51,12 +51,10 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
-        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-        super.init(fullTrackName: fullTrackName.getUnsafe(),
-                   trackMode: reliable ? .streamPerGroup : .datagram,
-                   defaultPriority: 0,
-                   defaultTTL: 5000)
-        self.setCallbacks(self)
+        try super.init(profile: profile,
+                       trackMode: reliable ? .streamPerTrack : .datagram,
+                       defaultPriority: UInt8(profile.priorities?.first ?? 0),
+                       defaultTTL: UInt32(profile.expiry?.first ?? 0))
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
@@ -83,10 +81,6 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         Self.logger.debug("Deinit")
     }
 
-    func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        Self.logger.info("PublishTrackHandler status changed: \(status)")
-    }
-
     private func publish(data: Data) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
@@ -100,6 +94,10 @@ class OpusPublication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
                                      payloadLength: UInt64(data.count),
                                      priority: nil,
                                      ttl: nil)
+        guard self.publish.load(ordering: .acquiring) else {
+            Self.logger.warning("Not publishing due to status")
+            return
+        }
         let published = self.publishObject(headers, data: data, extensions: [:])
         switch published {
         case .ok:
