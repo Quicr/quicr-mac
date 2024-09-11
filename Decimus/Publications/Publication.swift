@@ -53,7 +53,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         guard let priorities = profile.priorities,
               index < priorities.count,
               priorities[index] <= UInt8.max,
-              priorities[index] > UInt8.min else {
+              priorities[index] >= UInt8.min else {
             return self.defaultPriority
         }
         return UInt8(priorities[index])
@@ -66,8 +66,8 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     public func getTTL(_ index: Int) -> UInt16 {
         guard let ttls = profile.expiry,
               index < ttls.count,
-              ttls[index] <= UInt8.max,
-              ttls[index] > UInt8.min else {
+              ttls[index] <= UInt16.max,
+              ttls[index] >= UInt16.min else {
             return self.defaultTTL
         }
         return UInt16(ttls[index])
