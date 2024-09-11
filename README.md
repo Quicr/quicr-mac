@@ -2,8 +2,6 @@
 
 QuicR-mac is a MacOS/iOS/tvOS proof of concept Media over QUIC application allowing audio / video conferencing using [libquicr](https://github.com/quicr/libquicr).
 
-If you would like to try out QuicR as a user, you can add yourself to the TestFlight distribution here: https://testflight.apple.com/join/z4mV8YDk
-
 > [!TIP]  
 > This client's working title was "Decimus", which may still be present in the codebase or project. Any reference to "Decimus" refers to this application. Its display name is also now just QuicR, as the `-mac` suffix is implied when on an Apple platform.
 
