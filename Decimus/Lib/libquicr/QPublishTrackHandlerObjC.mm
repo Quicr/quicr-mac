@@ -10,8 +10,8 @@
 
 -(id) initWithFullTrackName: (QFullTrackName) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
 {
-    moq::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    moq::TrackMode moqTrackMode = (moq::TrackMode)track_mode;
+    quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
+    quicr::TrackMode moqTrackMode = (quicr::TrackMode)track_mode;
     handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, priority, ttl);
     return self;
 }
@@ -22,7 +22,7 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
+quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
     std::optional<std::uint8_t> priority;
     if (objectHeaders.priority != nullptr) {
         priority = *objectHeaders.priority;
@@ -37,11 +37,11 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
         ttl = std::nullopt;
     }
 
-    std::optional<moq::Extensions> moqExtensions;
+    std::optional<quicr::Extensions> moqExtensions;
     if (extensions == nil || extensions.count == 0) {
         moqExtensions = std::nullopt;
     } else {
-        moq::Extensions built;
+        quicr::Extensions built;
         for (NSNumber* number in extensions) {
             NSData* value = extensions[number];
             const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
@@ -51,7 +51,7 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
         moqExtensions = built;
     }
 
-    return moq::ObjectHeaders {
+    return quicr::ObjectHeaders {
         .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
         .priority = priority,
@@ -64,18 +64,18 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
 -(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*> * _Nullable)extensions
 {
     assert(handlerPtr);
-    moq::ObjectHeaders headers = from(objectHeaders, extensions);
+    quicr::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
-    moq::BytesSpan span { ptr, data.length };
+    quicr::BytesSpan span { ptr, data.length };
     auto status = handlerPtr->PublishObject(headers, span);
     return static_cast<QPublishObjectStatus>(status);
 }
 
 -(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nullable) extensions {
     assert(handlerPtr);
-    moq::ObjectHeaders headers = from(objectHeaders, extensions);
+    quicr::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
-    moq::BytesSpan span { ptr, data.length };
+    quicr::BytesSpan span { ptr, data.length };
     // TODO: PublishPartialObject is not implemented in libquicr!
     abort();
     // auto status = handlerPtr->PublishPartialObject(headers, span);
@@ -100,10 +100,10 @@ moq::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NS
 
 // C++
 
-QPublishTrackHandler::QPublishTrackHandler(const moq::FullTrackName& full_track_name,
-                                           moq::TrackMode track_mode,
+QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
+                                           quicr::TrackMode track_mode,
                                            std::uint8_t default_priority,
-                                           std::uint32_t default_ttl) : moq::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+                                           std::uint32_t default_ttl) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
 {
 }
 

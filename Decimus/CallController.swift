@@ -45,7 +45,7 @@ class MoqCallController: QClientCallbacks {
 
     /// Create a new controller.
     /// - Parameters:
-    ///   - config: Underlying `moq::Client` config.
+    ///   - config: Underlying `quicr::Client` config.
     ///   - captureManager: Video camera capture manager.
     ///   - subscriptionConfig: Application configuration for subscription creation.
     ///   - engine: Audio capture/playout engine.
@@ -152,7 +152,7 @@ class MoqCallController: QClientCallbacks {
 
     // MARK: Callbacks.
 
-    /// moq::Client callback for status change.
+    /// quicr::Client callback for status change.
     /// - Parameter status: The new status.
     func statusChanged(_ status: QClientStatus) {
         self.logger.info("[MoqCallController] Status changed: \(status)")
@@ -191,13 +191,13 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
-    /// moq::Client serverSetupReceived event.
+    /// quicr::Client serverSetupReceived event.
     /// - Parameter setup: The set setup attributes received with the event.
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
         self.logger.info("Got server setup received message")
     }
 
-    /// moq::Client announcement status changed in response to a publishAnnounce()
+    /// quicr::Client announcement status changed in response to a publishAnnounce()
     /// - Parameter namespace: The namespace the changed announcement was for.
     /// - Parameter status: The new status the announcement has.
     func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
