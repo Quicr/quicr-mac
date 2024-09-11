@@ -30,7 +30,7 @@ class H264Publication: Publication, FrameListener {
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
     private var startTime: Date?
-    private var currentGroupId: UInt64 = 0
+    private var currentGroupId: UInt64?
     private var currentObjectId: UInt64 = 0
 
     required init(profile: Profile,
@@ -72,8 +72,12 @@ class H264Publication: Publication, FrameListener {
                 }
             }
 
+            if publication.currentGroupId == nil {
+                publication.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
+            }
+
             if flag {
-                publication.currentGroupId += 1
+                publication.currentGroupId! += 1
                 publication.currentObjectId = 0
             } else {
                 publication.currentObjectId += 1
@@ -92,7 +96,7 @@ class H264Publication: Publication, FrameListener {
                 Self.logger.warning("Didn't publish due to status")
                 return
             }
-            let status = publication.publish(groupId: publication.currentGroupId,
+            let status = publication.publish(groupId: publication.currentGroupId!,
                                              objectId: publication.currentObjectId,
                                              data: data,
                                              priority: &priority,

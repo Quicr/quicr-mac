@@ -62,14 +62,15 @@ struct InCallView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
 
-                        HStack {
-                            Button("Alter Subscriptions") {
-                                self.isShowingSubscriptions = true
-                            }
-                            Button("Alter Publications") {
-                                self.isShowingPublications = true
-                            }
-                        }
+                        // TODO: Re-enable on reimplementation.
+                        //                        HStack {
+                        //                            Button("Alter Subscriptions") {
+                        //                                self.isShowingSubscriptions = true
+                        //                            }
+                        //                            Button("Alter Publications") {
+                        //                                self.isShowingPublications = true
+                        //                            }
+                        //                        }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
                         //                        if let controller = viewModel.controller {

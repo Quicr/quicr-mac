@@ -19,7 +19,7 @@ class OpusPublication: Publication {
     private var encodeTask: Task<(), Never>?
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
-    private var currentGroupId: UInt64 = 0
+    private var currentGroupId: UInt64?
 
     init(profile: Profile,
          metricsSubmitter: MetricsSubmitter?,
@@ -95,10 +95,13 @@ class OpusPublication: Publication {
         }
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
+        if self.currentGroupId == nil {
+            self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
+        }
         let published = self.publish(data: data, priority: &priority, ttl: &ttl)
         switch published {
         case .ok:
-            self.currentGroupId += 1
+            self.currentGroupId! += 1
             break
         default:
             Self.logger.warning("Failed to publish: \(published)")
@@ -106,7 +109,7 @@ class OpusPublication: Publication {
     }
 
     private func publish(data: Data, priority: UnsafePointer<UInt8>?, ttl: UnsafePointer<UInt16>?) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: self.currentGroupId,
+        let headers = QObjectHeaders(groupId: self.currentGroupId!,
                                      objectId: 0,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
