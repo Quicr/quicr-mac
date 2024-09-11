@@ -54,7 +54,7 @@ class OpusPublication: Publication {
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
                        defaultPriority: UInt8(profile.priorities?.first ?? 0),
-                       defaultTTL: UInt32(profile.expiry?.first ?? 0))
+                       defaultTTL: UInt16(profile.expiry?.first ?? 0))
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
@@ -88,23 +88,30 @@ class OpusPublication: Publication {
                 await measurement.measurement.publishedBytes(sentBytes: data.count, timestamp: now)
             }
         }
-        self.currentGroupId += 1
-        let headers = QObjectHeaders(groupId: self.currentGroupId,
-                                     objectId: 0,
-                                     payloadLength: UInt64(data.count),
-                                     priority: nil,
-                                     ttl: nil)
+
         guard self.publish.load(ordering: .acquiring) else {
-            Self.logger.warning("Not publishing due to status")
+            Self.logger.warning("Not published due to status")
             return
         }
-        let published = self.publishObject(headers, data: data, extensions: [:])
+        var priority = self.getPriority(0)
+        var ttl = self.getTTL(0)
+        let published = self.publish(data: data, priority: &priority, ttl: &ttl)
         switch published {
         case .ok:
+            self.currentGroupId += 1
             break
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
+    }
+
+    private func publish(data: Data, priority: UnsafePointer<UInt8>?, ttl: UnsafePointer<UInt16>?) -> QPublishObjectStatus {
+        let headers = QObjectHeaders(groupId: self.currentGroupId,
+                                     objectId: 0,
+                                     payloadLength: UInt64(data.count),
+                                     priority: priority,
+                                     ttl: ttl)
+        return self.publishObject(headers, data: data, extensions: nil)
     }
 
     private func encode() throws -> Data? {

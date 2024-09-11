@@ -79,13 +79,6 @@ class H264Publication: Publication, FrameListener {
                 publication.currentObjectId += 1
             }
 
-            // Object headers.
-            let headers = QObjectHeaders(groupId: publication.currentGroupId,
-                                         objectId: publication.currentObjectId,
-                                         payloadLength: UInt64(data.count),
-                                         priority: nil,
-                                         ttl: nil)
-
             // Use extensions for LOC.
             let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
 
@@ -93,15 +86,18 @@ class H264Publication: Publication, FrameListener {
             let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                             count: data.count,
                             deallocator: .none)
+            var priority = publication.getPriority(flag ? 0 : 1)
+            var ttl = publication.getTTL(flag ? 0 : 1)
             guard publication.publish.load(ordering: .acquiring) else {
-                // TODO: Need to make a smarter decision about resumption.
-                Self.logger.warning("Not published due to status")
+                Self.logger.warning("Didn't publish due to status")
                 return
             }
-
-            let status = publication.publishObject(headers,
-                                                   data: data,
-                                                   extensions: loc.extensions)
+            let status = publication.publish(groupId: publication.currentGroupId,
+                                             objectId: publication.currentObjectId,
+                                             data: data,
+                                             priority: &priority,
+                                             ttl: &ttl,
+                                             extensions: loc.extensions)
             switch status {
             case .ok:
                 break
@@ -133,6 +129,15 @@ class H264Publication: Publication, FrameListener {
                        defaultTTL: 0)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
+    }
+
+    private func publish(groupId: UInt64, objectId: UInt64, data: Data, priority: UnsafePointer<UInt8>?, ttl: UnsafePointer<UInt16>?, extensions: [NSNumber: Data]) -> QPublishObjectStatus {
+        let headers = QObjectHeaders(groupId: groupId,
+                                     objectId: objectId,
+                                     payloadLength: UInt64(data.count),
+                                     priority: priority,
+                                     ttl: ttl)
+        return self.publishObject(headers, data: data, extensions: extensions)
     }
 
     deinit {
