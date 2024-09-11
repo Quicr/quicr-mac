@@ -1201,6 +1201,12 @@
 					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-tvos-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1267,6 +1273,12 @@
 					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-catalyst-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-tvos-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
