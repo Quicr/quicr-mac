@@ -20,7 +20,7 @@ final class TestVideoSubscription: XCTestCase {
         return buffer
     }
 
-    private func getQualities(discontinous: [Bool], timing: [CMTime]? = nil) throws -> [VideoSubscription.SimulreceiveItem] {
+    private func getQualities(discontinous: [Bool], timing: [CMTime]? = nil) throws -> [VideoSubscriptionSet.SimulreceiveItem] {
         let highestBuffer = try testImage(width: 1920, height: 1280)
         let highestImage = AvailableImage(image: try .init(imageBuffer: highestBuffer,
                                                            formatDescription: .init(imageBuffer: highestBuffer),
@@ -29,7 +29,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                                decodeTimeStamp: .invalid)),
                                           fps: 30,
                                           discontinous: discontinous[0])
-        let highest = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "1", name: ""), image: highestImage)
+        let highest = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "1", name: ""), image: highestImage)
 
         let mediumBuffer = try testImage(width: 1280, height: 960)
         let mediumImage = AvailableImage(image: try .init(imageBuffer: mediumBuffer,
@@ -39,7 +39,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                               decodeTimeStamp: .invalid)),
                                          fps: 30,
                                          discontinous: discontinous[1])
-        let medium = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "2", name: ""), image: mediumImage)
+        let medium = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "2", name: ""), image: mediumImage)
 
         let lowerBuffer = try testImage(width: 1280, height: 960)
         let lowerImage = AvailableImage(image: try .init(imageBuffer: lowerBuffer,
@@ -49,7 +49,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                              decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[2])
-        let lower = VideoSubscription.SimulreceiveItem(fullTrackName: try .init(namespace: "3", name: ""), image: lowerImage)
+        let lower = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "3", name: ""), image: lowerImage)
 
         return [highest, medium, lower]
     }
@@ -60,8 +60,8 @@ final class TestVideoSubscription: XCTestCase {
                                        timing: [.init(value: 2, timescale: 1),
                                                 .init(value: 1, timescale: 1),
                                                 .init(value: 1, timescale: 1)])
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        let result = VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
         switch result {
         case .highestRes(let item, _):
@@ -73,16 +73,16 @@ final class TestVideoSubscription: XCTestCase {
     }
 
     func testNothingGivesNothing() {
-        let choices: [VideoSubscription.SimulreceiveItem] = []
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        XCTAssertNil(VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices))
+        let choices: [VideoSubscriptionSet.SimulreceiveItem] = []
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        XCTAssertNil(VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices))
     }
 
     func testOneReturnsItself() throws {
         let all = try getQualities(discontinous: .init(repeating: false, count: 3))
         let choices = [all[0]]
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        let result = VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
         switch result {
         case .onlyChoice(let item):
@@ -95,8 +95,8 @@ final class TestVideoSubscription: XCTestCase {
     func testHighestResolutionWhenAllPristine() throws {
         // When we have all available pristine images, highest quality should be picked.
         let choices = try getQualities(discontinous: .init(repeating: false, count: 3))
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        let result = VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
         switch result {
         case .highestRes(let item, let pristine):
@@ -112,8 +112,8 @@ final class TestVideoSubscription: XCTestCase {
     func testLowerPristineWhenHigherIsNot() throws {
         // When we have all available images, highest pristine should be picked.
         let choices = try getQualities(discontinous: [true, false, false])
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        let result = VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
         switch result {
         case .highestRes(let item, let pristine):
@@ -129,8 +129,8 @@ final class TestVideoSubscription: XCTestCase {
     func testAllDiscontinous() throws {
         // When we have all discontinous images, highest resolution should be picked.
         let choices = try getQualities(discontinous: .init(repeating: true, count: 3))
-        var inOutChoices = choices as any Collection<VideoSubscription.SimulreceiveItem>
-        let result = VideoSubscription.makeSimulreceiveDecision(choices: &inOutChoices)
+        var inOutChoices = choices as any Collection<VideoSubscriptionSet.SimulreceiveItem>
+        let result = VideoSubscriptionSet.makeSimulreceiveDecision(choices: &inOutChoices)
         XCTAssertNotNil(result)
         switch result {
         case .highestRes(let item, let pristine):

@@ -3,7 +3,7 @@
 
 import CoreMedia
 
-extension VideoSubscription {
+extension VideoSubscriptionSet {
     struct SimulreceiveChoiceReport {
         let item: SimulreceiveItem
         let selected: Bool
