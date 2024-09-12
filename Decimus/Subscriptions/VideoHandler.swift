@@ -236,14 +236,16 @@ class VideoHandler: CustomStringConvertible {
                 resolvedFps = self.config.fps
             }
 
-            if resolvedFps != self.lastFps || first.formatDescription?.dimensions != self.lastDimensions {
+            if let format = first.formatDescription,
+               resolvedFps != self.lastFps || format.dimensions != self.lastDimensions {
                 self.lastFps = resolvedFps
-                self.lastDimensions = first.formatDescription?.dimensions
+                self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
                     do {
-                        self.description = try self.labelFromSample(sample: first, fps: resolvedFps)
+                        let namespace = try self.fullTrackName.getNamespace()
+                        self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps)
                         guard self.simulreceive != .enable else { return }
-                        let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
+                        let participant = self.participants.getOrMake(identifier: namespace)
                         participant.label = .init(describing: self)
                     } catch {
                         Self.logger.error("Failed to set label: \(error.localizedDescription)")
@@ -500,12 +502,8 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
-    private func labelFromSample(sample: CMSampleBuffer, fps: UInt16) throws -> String {
-        guard let format = sample.formatDescription else {
-            throw "Missing sample format"
-        }
+    private func labelFromSample(namespace: String, format: CMFormatDescription, fps: UInt16) -> String {
         let size = format.dimensions
-        let namespace = try self.fullTrackName.getNamespace()
         return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
     }
 
