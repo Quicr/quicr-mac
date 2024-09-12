@@ -64,17 +64,22 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         // Make task for cleaning up audio handlers.
         self.cleanupTask = .init(priority: .utility) { [weak self] in
             while !Task.isCancelled {
-                guard let self = self else { return }
-                self.handlerLock.withLock {
-                    // Remove the audio handler if expired.
-                    guard let lastUpdateTime = self.lastUpdateTime else { return }
-                    if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
-                        self.lastUpdateTime = nil
-                        self.handler = nil
+                let sleepTimer: TimeInterval
+                if let self = self {
+                    sleepTimer = self.cleanupTimer
+                    self.handlerLock.withLock {
+                        // Remove the audio handler if expired.
+                        guard let lastUpdateTime = self.lastUpdateTime else { return }
+                        if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
+                            self.lastUpdateTime = nil
+                            self.handler = nil
+                        }
                     }
+                } else {
+                    return
                 }
-                try? await Task.sleep(for: .seconds(self.cleanupTimer),
-                                      tolerance: .seconds(self.cleanupTimer),
+                try? await Task.sleep(for: .seconds(sleepTimer),
+                                      tolerance: .seconds(sleepTimer),
                                       clock: .continuous)
             }
         }

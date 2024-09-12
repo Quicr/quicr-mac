@@ -93,7 +93,7 @@ class H264Publication: Publication, FrameListener {
             var priority = publication.getPriority(flag ? 0 : 1)
             var ttl = publication.getTTL(flag ? 0 : 1)
             guard publication.publish.load(ordering: .acquiring) else {
-                Self.logger.warning("Didn't publish due to status")
+                Self.logger.warning("Didn't publish due to status: \(publication.currentStatus)")
                 return
             }
             let status = publication.publish(groupId: publication.currentGroupId!,

@@ -53,11 +53,6 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var timestampTimeDiff: TimeInterval?
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
 
-    private let callback: ObjectReceived = { handler, timestamp, when, userData in
-        let subscription = Unmanaged<VideoSubscriptionSet>.fromOpaque(userData).takeUnretainedValue()
-        subscription.receivedObject(handler: handler, timestamp: timestamp, when: when)
-    }
-
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -123,12 +118,16 @@ class VideoSubscriptionSet: SubscriptionSet {
         if simulreceive == .enable {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
-                    guard let self = self else { return }
-                    if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                    let time: TimeInterval
+                    if let self = self,
+                       Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                        time = self.cleanupTimer
                         self.resetState()
+                    } else {
+                        return
                     }
-                    try? await Task.sleep(for: .seconds(self.cleanupTimer),
-                                          tolerance: .seconds(self.cleanupTimer),
+                    try? await Task.sleep(for: .seconds(time),
+                                          tolerance: .seconds(time),
                                           clock: .continuous)
                 }
             }
@@ -139,8 +138,8 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     deinit {
         self.cleanupTask?.cancel()
-        for subscription in self.videoSubscriptions {
-            subscription.value.handler?.unsetCallback()
+        for (_, subscription) in self.videoSubscriptions {
+            // subscription
         }
         if self.simulreceive == .enable {
             self.participants.removeParticipant(identifier: self.subscription.sourceID)
@@ -156,10 +155,21 @@ class VideoSubscriptionSet: SubscriptionSet {
         return handlers
     }
 
-    func receivedObject(handler: VideoHandler, timestamp: TimeInterval, when: Date) {
-        // Set the timestamp diff from the first recveived object will set the time diff.
+    private func receivedObject(timestamp: TimeInterval, when: Date) {
+        // Set the timestamp diff from the first recveived object.
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
+        }
+
+        // Set this diff for all handlers, if not already.
+        // TODO: Don't do this if already done.
+        if let diff = self.timestampTimeDiff {
+            for (_, sub) in self.videoSubscriptions {
+                sub.handlerLock.withLock {
+                    guard let handler = sub.handler else { return }
+                    handler.setTimeDiff(diff: diff)
+                }
+            }
         }
 
         // Calculate switching set arrival variance.
@@ -167,7 +177,7 @@ class VideoSubscriptionSet: SubscriptionSet {
         if self.granularMetrics,
            let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.reportTimestamp(namespace: try handler.fullTrackName.getNamespace(),
+                await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
                                                               at: when)
             }
@@ -180,11 +190,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Record the last time this updated.
         self.lastUpdateTime = when
-
-        // Timestamp diff.
-        if let diff = self.timestampTimeDiff {
-            handler.setTimeDiff(diff: diff)
-        }
     }
 
     private func resetState() {
@@ -194,20 +199,24 @@ class VideoSubscriptionSet: SubscriptionSet {
     private func startRenderTask() {
         self.renderTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
-                guard let self = self else { return }
-                let now = Date.now
-                let duration = self.handlerLock.withLock {
-                    guard !self.videoSubscriptions.isEmpty else {
-                        self.renderTask?.cancel()
-                        return TimeInterval.nan
+                let duration: TimeInterval
+                if let self = self {
+                    let now = Date.now
+                    duration = self.handlerLock.withLock {
+                        guard !self.videoSubscriptions.isEmpty else {
+                            self.renderTask?.cancel()
+                            return TimeInterval.nan
+                        }
+                        do {
+                            return try self.makeSimulreceiveDecision(at: now)
+                        } catch {
+                            Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+                            self.renderTask?.cancel()
+                            return TimeInterval.nan
+                        }
                     }
-                    do {
-                        return try self.makeSimulreceiveDecision(at: now)
-                    } catch {
-                        Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
-                        self.renderTask?.cancel()
-                        return TimeInterval.nan
-                    }
+                } else {
+                    return
                 }
                 if duration > 0 {
                     try? await Task.sleep(for: .seconds(duration))
@@ -230,9 +239,10 @@ class VideoSubscriptionSet: SubscriptionSet {
                          granularMetrics: self.granularMetrics,
                          jitterBufferConfig: self.jitterBufferConfig,
                          simulreceive: self.simulreceive,
-                         variances: self.decodedVariances,
-                         callback: self.callback,
-                         userData: refToSelf)
+                         variances: self.decodedVariances) { [weak self] timestamp, when in
+            guard let self = self else { return }
+            self.receivedObject(timestamp: timestamp, when: when)
+        }
     }
 
     struct SimulreceiveItem: Equatable {

@@ -19,10 +19,8 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
-typealias ObjectReceived = (_ handler: VideoHandler,
-                            _ timestamp: TimeInterval,
-                            _ when: Date,
-                            _ userData: UnsafeRawPointer) -> Void
+typealias ObjectReceived = (_ timestamp: TimeInterval,
+                            _ when: Date) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible {
@@ -67,9 +65,9 @@ class VideoHandler: CustomStringConvertible {
 
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
-    private let callback: ObjectReceived
-    private var callbackSet = ManagedAtomic(true)
-    private let userData: UnsafeRawPointer
+    private var callbacks: [Int: ObjectReceived] = [:]
+    private var currentCallbackToken = 0
+    private let callbackLock = OSAllocatedUnfairLock()
     var description = "VideoHandler"
 
     /// Create a new video handler.
@@ -93,9 +91,7 @@ class VideoHandler: CustomStringConvertible {
          granularMetrics: Bool,
          jitterBufferConfig: VideoJitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         variances: VarianceCalculator,
-         callback: @escaping ObjectReceived,
-         userData: UnsafeRawPointer) throws {
+         variances: VarianceCalculator) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -115,8 +111,6 @@ class VideoHandler: CustomStringConvertible {
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
-        self.callback = callback
-        self.userData = userData
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -159,6 +153,25 @@ class VideoHandler: CustomStringConvertible {
         Self.logger.debug("Deinit")
     }
 
+    /// Register to receive notifications of an object being received.
+    /// - Parameter callback: Callback to be called.
+    /// - Returns: Token for unregister.
+    func registerCallback(_ callback: @escaping ObjectReceived) -> Int {
+        self.callbackLock.withLock {
+            self.currentCallbackToken += 1
+            self.callbacks[self.currentCallbackToken] = callback
+            return self.currentCallbackToken
+        }
+    }
+
+    /// Unregister a previously registered callback.
+    /// - Parameter token: Token from a ``registerCallback(_:)`` call.
+    func unregisterCallback(_ token: Int) {
+        self.callbackLock.withLock {
+            _ = self.callbacks.removeValue(forKey: token)
+        }
+    }
+
     // MARK: Callbacks.
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?, when: Date) {
@@ -184,8 +197,11 @@ class VideoHandler: CustomStringConvertible {
                 return
             }
 
-            if self.callbackSet.load(ordering: .acquiring) {
-                self.callback(self, timestamp, when, self.userData)
+            let toCall: [ObjectReceived] = self.callbackLock.withLock {
+                Array(self.callbacks.values)
+            }
+            for callback in toCall {
+                callback(timestamp, when)
             }
 
             // TODO: This can be inlined here.
@@ -193,10 +209,6 @@ class VideoHandler: CustomStringConvertible {
         } catch {
             Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
-    }
-
-    func unsetCallback() {
-        self.callbackSet.store(false, ordering: .releasing)
     }
 
     // MARK: Implementation.
@@ -324,51 +336,51 @@ class VideoHandler: CustomStringConvertible {
         // Start the frame dequeue task.
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
-                guard let self = self else { return }
-                let now = Date.now
-
-                // Wait until we expect to have a frame available.
-                let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
                 let waitTime: TimeInterval
-                if let pid = self.dequeueBehaviour as? PIDDequeuer {
-                    pid.currentDepth = jitterBuffer.getDepth()
-                    waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
-                } else {
-                    guard let duration = self.duration else {
-                        Self.logger.error("Missing duration")
-                        return
-                    }
-                    waitTime = calculateWaitTime(from: now) ?? duration
-                }
-                if waitTime > 0 {
-                    do {
-                        try await Task.sleep(for: .seconds(waitTime),
-                                             tolerance: .seconds(waitTime / 2),
-                                             clock: .continuous)
-                        guard let task = self.dequeueTask,
-                              !task.isCancelled else {
+                let now: Date
+                if let self = self {
+                    now = Date.now
+
+                    // Wait until we expect to have a frame available.
+                    let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
+                    if let pid = self.dequeueBehaviour as? PIDDequeuer {
+                        pid.currentDepth = jitterBuffer.getDepth()
+                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
+                    } else {
+                        guard let duration = self.duration else {
+                            Self.logger.error("Missing duration")
                             return
                         }
-                    } catch {
-                        Self.logger.error("Exception during sleep: \(error.localizedDescription)")
-                        continue
+                        waitTime = calculateWaitTime(from: now) ?? duration
                     }
+                } else {
+                    return
                 }
 
-                // Attempt to dequeue a frame.
-                if let sample = jitterBuffer.read(from: now) {
-                    if self.granularMetrics,
-                       let measurement = self.measurement?.measurement {
-                        let time = self.calculateWaitTime(frame: sample)
-                        Task(priority: .utility) {
-                            await measurement.frameDelay(delay: time, metricsTimestamp: now)
-                        }
-                    }
+                // Sleep without holding a strong reference.
+                if waitTime > 0 {
+                    try? await Task.sleep(for: .seconds(waitTime),
+                                          tolerance: .seconds(waitTime / 2),
+                                          clock: .continuous)
+                }
 
-                    do {
-                        try self.decode(sample: sample, from: now)
-                    } catch {
-                        Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                // Regain our strong reference after sleeping.
+                if let self = self {
+                    // Attempt to dequeue a frame.
+                    if let sample = self.jitterBuffer!.read(from: now) {
+                        if self.granularMetrics,
+                           let measurement = self.measurement?.measurement {
+                            let time = self.calculateWaitTime(frame: sample)
+                            Task(priority: .utility) {
+                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                            }
+                        }
+
+                        do {
+                            try self.decode(sample: sample, from: now)
+                        } catch {
+                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                        }
                     }
                 }
             }
