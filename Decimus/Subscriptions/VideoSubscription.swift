@@ -19,7 +19,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
-    private let userData: UnsafeRawPointer
+    private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
 
     var handler: VideoHandler?
@@ -39,8 +39,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
          jitterBufferConfig: VideoJitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          variances: VarianceCalculator,
-         callback: @escaping ObjectReceived,
-         userData: UnsafeRawPointer) throws {
+         callback: @escaping ObjectReceived) throws {
         self.fullTrackName = fullTrackName
         self.config = config
         self.participants = participants
@@ -52,20 +51,19 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
-        self.userData = userData
 
-        self.handler = try .init(fullTrackName: fullTrackName,
-                                 config: config,
-                                 participants: participants,
-                                 metricsSubmitter: metricsSubmitter,
-                                 videoBehaviour: videoBehaviour,
-                                 reliable: reliable,
-                                 granularMetrics: granularMetrics,
-                                 jitterBufferConfig: jitterBufferConfig,
-                                 simulreceive: simulreceive,
-                                 variances: variances,
-                                 callback: callback,
-                                 userData: userData)
+        let handler = try VideoHandler(fullTrackName: fullTrackName,
+                                       config: config,
+                                       participants: participants,
+                                       metricsSubmitter: metricsSubmitter,
+                                       videoBehaviour: videoBehaviour,
+                                       reliable: reliable,
+                                       granularMetrics: granularMetrics,
+                                       jitterBufferConfig: jitterBufferConfig,
+                                       simulreceive: simulreceive,
+                                       variances: variances)
+        self.token = handler.registerCallback(callback)
+        self.handler = handler
 
         super.init(fullTrackName: fullTrackName.getUnsafe())
         self.setCallbacks(self)
@@ -83,13 +81,20 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         if self.cleanupTask == nil {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
-                    guard let self = self else { return }
-                    if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                        self.handlerLock.withLock {
-                            self.handler = nil
+                    let duration: TimeInterval
+                    if let self = self {
+                        duration = self.cleanupTimer
+                        if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                            self.handlerLock.withLock {
+                                self.handler?.unregisterCallback(self.token)
+                                self.token = 0
+                                self.handler = nil
+                            }
                         }
+                    } else {
+                        return
                     }
-                    try? await Task.sleep(for: .seconds(self.cleanupTimer))
+                    try? await Task.sleep(for: .seconds(duration))
                 }
             }
         }
@@ -127,9 +132,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                              granularMetrics: self.granularMetrics,
                                              jitterBufferConfig: self.jitterBufferConfig,
                                              simulreceive: self.simulreceive,
-                                             variances: self.variances,
-                                             callback: self.callback,
-                                             userData: self.userData)
+                                             variances: self.variances)
+            self.token = recreated.registerCallback(self.callback)
             self.handler = recreated
             handler = recreated
         }

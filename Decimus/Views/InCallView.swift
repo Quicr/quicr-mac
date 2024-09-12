@@ -215,13 +215,17 @@ extension InCallView {
                 if influxConfig.value.realtime {
                     // Application metrics timer.
                     self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                        while !Task.isCancelled,
-                              let self = self {
-                            let usage = try cpuUsage()
-                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-
-                            await self.submitter?.submit()
-                            try? await Task.sleep(for: .seconds(influxConfig.value.intervalSecs), tolerance: .seconds(1))
+                        while !Task.isCancelled {
+                            let duration: TimeInterval
+                            if let self = self {
+                                duration = TimeInterval(self.influxConfig.value.intervalSecs)
+                                let usage = try cpuUsage()
+                                await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                                await self.submitter?.submit()
+                            } else {
+                                return
+                            }
+                            try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
                         }
                     }
                 }

@@ -59,13 +59,14 @@ class OpusPublication: Publication {
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
             while !Task.isCancelled {
-                guard let self = self else { return }
-                do {
-                    while let data = try self.encode() {
-                        self.publish(data: data)
+                if let self = self {
+                    do {
+                        while let data = try self.encode() {
+                            self.publish(data: data)
+                        }
+                    } catch {
+                        Self.logger.error("Failed encode: \(error)")
                     }
-                } catch {
-                    Self.logger.error("Failed encode: \(error)")
                 }
                 try? await Task.sleep(for: .seconds(opusWindowSize.rawValue),
                                       tolerance: .seconds(opusWindowSize.rawValue / 2),
