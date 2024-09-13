@@ -84,11 +84,14 @@ class MoqCallController: QClientCallbacks {
             switch status {
             case .clientConnecting:
                 break
+            case .clientPendigServerSetup:
+                break;
             case .ready:
                 // This is here just for the type inference,
                 // but we don't actually expect it to happen.
                 assert(false)
                 continuation.resume()
+
             default:
                 continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
             }
@@ -175,6 +178,8 @@ class MoqCallController: QClientCallbacks {
             self.connected = true
             connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         case .clientConnecting:
+            assert(self.connectionContinuation != nil)
+        case .clientPendigServerSetup:
             assert(self.connectionContinuation != nil)
         case .clientNotConnected:
             self.connected = false

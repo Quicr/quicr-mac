@@ -105,6 +105,8 @@ extension QClientStatus: CustomStringConvertible {
         switch self {
         case .clientConnecting:
             "clientConnecting"
+        case .clientPendigServerSetup:
+            "clientPendingServerSetup"
         case .clientFailedToConnect:
             "clientFailedToConnect"
         case .clientNotConnected:
