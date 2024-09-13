@@ -23,6 +23,18 @@ protocol SubscriptionSet {
     func getHandlers() -> [QSubscribeTrackHandlerObjC]
 }
 
+/// Swift mapping for underlying client configuration.
+struct ClientConfig {
+    /// Moq URI for relay connection.
+    let connectUri: String
+    /// Local identifier for this client.
+    let endpointUri: String
+    /// In-depth transport configuration.
+    let transportConfig: TransportConfig
+    /// Interval at which to sample for metrics in milliseconds.
+    let metricsSampleMs: UInt64
+}
+
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
@@ -32,6 +44,7 @@ class MoqCallController: QClientCallbacks {
     private let granularMetrics: Bool
     private let videoParticipants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
+    private let measurement: MeasurementRegistration<MoqCallControllerMeasurement>?
     private let logger = DecimusLogger(MoqCallController.self)
     private let captureManager: CaptureManager
 
@@ -42,6 +55,7 @@ class MoqCallController: QClientCallbacks {
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
     private let callEnded: () -> Void
+    private var serverId: String?
 
     /// Create a new controller.
     /// - Parameters:
@@ -52,7 +66,7 @@ class MoqCallController: QClientCallbacks {
     ///   - videoParticipants: Video rendering manager.
     ///   - submitter: Optionally, a submitter through which to submit metrics.
     ///   - granularMetrics: True to enable granular metrics, with a potential performance cost.
-    init(config: QClientConfig,
+    init(config: ClientConfig,
          captureManager: CaptureManager,
          subscriptionConfig: SubscriptionConfig,
          engine: DecimusAudioEngine,
@@ -60,7 +74,14 @@ class MoqCallController: QClientCallbacks {
          submitter: MetricsSubmitter?,
          granularMetrics: Bool,
          callEnded: @escaping () -> Void) {
-        self.client = .init(config: config)
+        self.client = config.connectUri.withCString { connectUri in
+            config.endpointUri.withCString { endpointId in
+                QClientObjC(config: .init(connectUri: connectUri,
+                                          endpointId: endpointId,
+                                          transportConfig: config.transportConfig,
+                                          metricsSampleMs: config.metricsSampleMs))
+            }
+        }
         self.captureManager = captureManager
         self.subscriptionConfig = subscriptionConfig
         self.engine = engine
@@ -68,6 +89,12 @@ class MoqCallController: QClientCallbacks {
         self.metricsSubmitter = submitter
         self.granularMetrics = granularMetrics
         self.callEnded = callEnded
+        if let metricsSubmitter = submitter {
+            let measurement = MoqCallController.MoqCallControllerMeasurement(endpointId: config.endpointUri)
+            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
         self.client.setCallbacks(self)
     }
 
@@ -194,7 +221,13 @@ class MoqCallController: QClientCallbacks {
     /// quicr::Client serverSetupReceived event.
     /// - Parameter setup: The set setup attributes received with the event.
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
-        self.logger.info("Got server setup received message")
+        let serverId = String(cString: setup.server_id)
+        if let measurement = self.measurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.setRelayId(serverId)
+            }
+        }
+        self.logger.debug("Got server setup received message from: \(serverId)")
     }
 
     /// quicr::Client announcement status changed in response to a publishAnnounce()
@@ -247,5 +280,15 @@ class MoqCallController: QClientCallbacks {
         }
 
         throw CodecError.unsupportedCodecSet(found)
+    }
+
+    /// libquicr's metrics callback.
+    /// - Parameter metrics: Object containing all metrics.
+    func metricsSampled(_ metrics: QConnectionMetrics) {
+        if let measurement = self.measurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
+        }
     }
 }
