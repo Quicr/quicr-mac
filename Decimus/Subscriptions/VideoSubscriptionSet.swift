@@ -119,10 +119,11 @@ class VideoSubscriptionSet: SubscriptionSet {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
                     let time: TimeInterval
-                    if let self = self,
-                       Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                    if let self = self {
                         time = self.cleanupTimer
-                        self.resetState()
+                        if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                            self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                        }
                     } else {
                         return
                     }
@@ -186,10 +187,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Record the last time this updated.
         self.lastUpdateTime = when
-    }
-
-    private func resetState() {
-        self.participants.removeParticipant(identifier: self.subscription.sourceID)
     }
 
     private func startRenderTask() {
