@@ -138,9 +138,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     deinit {
         self.cleanupTask?.cancel()
-        for (_, subscription) in self.videoSubscriptions {
-            // subscription
-        }
         if self.simulreceive == .enable {
             self.participants.removeParticipant(identifier: self.subscription.sourceID)
         }
@@ -162,7 +159,6 @@ class VideoSubscriptionSet: SubscriptionSet {
         }
 
         // Set this diff for all handlers, if not already.
-        // TODO: Don't do this if already done.
         if let diff = self.timestampTimeDiff {
             for (_, sub) in self.videoSubscriptions {
                 sub.handlerLock.withLock {
@@ -229,7 +225,6 @@ class VideoSubscriptionSet: SubscriptionSet {
         guard let config = self.profiles[fullTrackName] else {
             throw "Missing config for: \(fullTrackName)"
         }
-        let refToSelf = Unmanaged.passUnretained(self).toOpaque()
         return try .init(fullTrackName: fullTrackName,
                          config: config,
                          participants: self.participants,
