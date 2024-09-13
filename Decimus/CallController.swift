@@ -103,6 +103,15 @@ class MoqCallController: QClientCallbacks {
     func setManifest(_ manifest: Manifest) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
 
+        // Create subscriptions.
+        for manifestSubscription in manifest.subscriptions {
+            let subscription = try self.create(subscription: manifestSubscription)
+            self.subscriptions[manifestSubscription.sourceID] = subscription
+            for handler in subscription.getHandlers() {
+                self.client.subscribeTrack(withHandler: handler)
+            }
+        }
+
         // Create publications.
         // TODO: We probably don't need a factory here. Just handle it internal to the controller.
         // TODO: If it gets bigger, we can extract.
@@ -117,15 +126,6 @@ class MoqCallController: QClientCallbacks {
             for (namespace, handler) in created {
                 self.publications[namespace] = handler
                 self.client.publishTrack(withHandler: handler)
-            }
-        }
-
-        // Create subscriptions.
-        for manifestSubscription in manifest.subscriptions {
-            let subscription = try self.create(subscription: manifestSubscription)
-            self.subscriptions[manifestSubscription.sourceID] = subscription
-            for handler in subscription.getHandlers() {
-                self.client.subscribeTrack(withHandler: handler)
             }
         }
     }
