@@ -26,8 +26,8 @@ actor TrackMeasurement: Measurement {
 
     func record(_ metrics: QPublishTrackMetrics) {
         let time = Date.now
-        record(field: "bytesPublished", value: metrics.bytesPublished as AnyObject, timestamp: time)
-        record(field: "objectsPublished", value: metrics.objectsPublished as AnyObject, timestamp: time)
+        record(field: "tx_bytes", value: metrics.bytesPublished as AnyObject, timestamp: time)
+        record(field: "tx_objs", value: metrics.objectsPublished as AnyObject, timestamp: time)
         record("tx_queue_size", values: metrics.quic.tx_queue_size, time: time)
         record("tx_callback_ms", values: metrics.quic.tx_callback_ms, time: time)
         record("tx_object_duration_us", values: metrics.quic.tx_object_duration_us, time: time)
@@ -40,7 +40,7 @@ actor TrackMeasurement: Measurement {
 
     func record(_ metrics: QSubscribeTrackMetrics) {
         let time = Date.now
-        record(field: "bytesPublished", value: metrics.bytesPublished as AnyObject, timestamp: time)
-        record(field: "objectsPublished", value: metrics.objectsPublished as AnyObject, timestamp: time)
+        record(field: "rx_bytes", value: metrics.bytesReceived as AnyObject, timestamp: time)
+        record(field: "rx_objs", value: metrics.objectsReceived as AnyObject, timestamp: time)
     }
 }

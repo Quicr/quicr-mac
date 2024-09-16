@@ -15,8 +15,8 @@ typedef NS_ENUM(uint8_t, QSubscribeTrackHandlerStatus) {
 
 typedef struct QSubscribeTrackMetrics {
     uint64_t lastSampleTime;
-    uint64_t bytesPublished;
-    uint64_t objectsPublished;
+    uint64_t bytesReceived;
+    uint64_t objectsReceived;
 } QSubscribeTrackMetrics;
 
 @protocol QSubscribeTrackHandlerCallbacks
