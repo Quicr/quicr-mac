@@ -39,7 +39,9 @@ class H264Publication: Publication, FrameListener {
                   reliable: Bool,
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
-                  device: AVCaptureDevice) throws {
+                  device: AVCaptureDevice,
+                  endpointId: String,
+                  relayId: String) throws {
         let namespace = profile.namespace
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -130,7 +132,10 @@ class H264Publication: Publication, FrameListener {
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerGroup : .datagram,
                        defaultPriority: 0,
-                       defaultTTL: 0)
+                       defaultTTL: 0,
+                       submitter: metricsSubmitter,
+                       endpointId: endpointId,
+                       relayId: relayId)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }

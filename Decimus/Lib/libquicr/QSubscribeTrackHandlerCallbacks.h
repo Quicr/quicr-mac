@@ -13,8 +13,15 @@ typedef NS_ENUM(uint8_t, QSubscribeTrackHandlerStatus) {
     kQSubscribeTrackHandlerStatusSendingUnsubscribe
 };
 
+typedef struct QSubscribeTrackMetrics {
+    uint64_t lastSampleTime;
+    uint64_t bytesPublished;
+    uint64_t objectsPublished;
+} QSubscribeTrackMetrics;
+
 @protocol QSubscribeTrackHandlerCallbacks
 - (void) statusChanged: (QSubscribeTrackHandlerStatus) status;
 - (void) objectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
 - (void) partialObjectReceived: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
+- (void) metricsSampled: (QSubscribeTrackMetrics) metrics;
 @end

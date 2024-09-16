@@ -9,6 +9,14 @@
 #include <quicr/track_name.h>
 #endif
 
+typedef struct QMinMaxAvg {
+    uint64_t min;
+    uint64_t max;
+    uint64_t avg;
+    uint64_t value_sum;
+    uint64_t value_count;
+} QMinMaxAvg;
+
 typedef struct QFullTrackName
 {
     const char* nameSpace;

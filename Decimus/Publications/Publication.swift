@@ -7,14 +7,30 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     internal var publish = ManagedAtomic(false)
     internal let profile: Profile
     private let logger = DecimusLogger(Publication.self)
+    private let measurement: MeasurementRegistration<TrackMeasurement>?
     internal let defaultPriority: UInt8
     internal let defaultTTL: UInt16
     internal var currentStatus: QPublishTrackHandlerStatus?
 
-    init(profile: Profile, trackMode: QTrackMode, defaultPriority: UInt8, defaultTTL: UInt16) throws {
+    init(profile: Profile,
+         trackMode: QTrackMode,
+         defaultPriority: UInt8,
+         defaultTTL: UInt16,
+         submitter: MetricsSubmitter?,
+         endpointId: String,
+         relayId: String) throws {
         self.profile = profile
         self.defaultPriority = defaultPriority
         self.defaultTTL = defaultTTL
+        if let submitter = submitter {
+            let measurement = TrackMeasurement(type: .publish,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: profile.namespace)
+            self.measurement = .init(measurement: measurement, submitter: submitter)
+        } else {
+            self.measurement = nil
+        }
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
         super.init(fullTrackName: fullTrackName.getUnsafe(),
                    trackMode: trackMode,
@@ -73,5 +89,13 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
             return self.defaultTTL
         }
         return UInt16(ttls[index])
+    }
+
+    func metricsSampled(_ metrics: QPublishTrackMetrics) {
+        if let measurement = self.measurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
+        }
     }
 }

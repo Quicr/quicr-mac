@@ -1,12 +1,21 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+extension Measurement {
+    func record(_ prefix: String, values: QMinMaxAvg, time: Date) {
+        self.record(field: "\(prefix)_min", value: values.min as AnyObject, timestamp: time)
+        self.record(field: "\(prefix)_max", value: values.max as AnyObject, timestamp: time)
+        self.record(field: "\(prefix)_avg", value: values.avg as AnyObject, timestamp: time)
+    }
+}
+
 extension MoqCallController {
     actor MoqCallControllerMeasurement: Measurement {
         let id = UUID()
         var name: String = "quic-connection"
         var fields: Fields = [:]
         var tags: [String: String] = [:]
+        var setup = false
 
         init(endpointId: String) {
             self.tags["endpoint_id"] = endpointId
@@ -15,6 +24,7 @@ extension MoqCallController {
 
         func setRelayId(_ relayId: String) {
             self.tags["relay_id"] = relayId
+            self.setup = true
         }
 
         func record(_ metrics: QConnectionMetrics) {
@@ -40,12 +50,6 @@ extension MoqCallController {
             self.record(field: "tx_dgram_ack", value: metrics.quic.tx_dgram_ack as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_spurious", value: metrics.quic.tx_dgram_spurious as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_drops", value: metrics.quic.tx_dgram_drops as AnyObject, timestamp: time)
-        }
-
-        private func record(_ prefix: String, values: QMinMaxAvg, time: Date) {
-            self.record(field: "\(prefix)_min", value: values.min as AnyObject, timestamp: time)
-            self.record(field: "\(prefix)_max", value: values.max as AnyObject, timestamp: time)
-            self.record(field: "\(prefix)_avg", value: values.avg as AnyObject, timestamp: time)
         }
     }
 }

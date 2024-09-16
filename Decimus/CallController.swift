@@ -11,6 +11,8 @@ enum MoqCallControllerError: Error {
     case connectionFailure(QClientStatus)
     /// This functionality requires the controller to be connected.
     case notConnected
+    /// No server message was received.
+    case missingSetup
 }
 
 /// Represents a client-facing collection of logically related subscriptions,
@@ -50,6 +52,7 @@ class MoqCallController: QClientCallbacks {
 
     // State.
     private let client: QClientObjC
+    private let config: ClientConfig
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
@@ -74,6 +77,7 @@ class MoqCallController: QClientCallbacks {
          submitter: MetricsSubmitter?,
          granularMetrics: Bool,
          callEnded: @escaping () -> Void) {
+        self.config = config
         self.client = config.connectUri.withCString { connectUri in
             config.endpointUri.withCString { endpointId in
                 QClientObjC(config: .init(connectUri: connectUri,
@@ -129,10 +133,13 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
     func setManifest(_ manifest: Manifest) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let serverId = self.serverId else { throw MoqCallControllerError.missingSetup }
 
         // Create subscriptions.
         for manifestSubscription in manifest.subscriptions {
-            let subscription = try self.create(subscription: manifestSubscription)
+            let subscription = try self.create(subscription: manifestSubscription,
+                                               endpointId: self.config.endpointUri,
+                                               relayId: serverId)
             self.subscriptions[manifestSubscription.sourceID] = subscription
             for handler in subscription.getHandlers() {
                 self.client.subscribeTrack(withHandler: handler)
@@ -149,7 +156,9 @@ class MoqCallController: QClientCallbacks {
                                             granularMetrics: self.granularMetrics,
                                             captureManager: self.captureManager)
         for publication in manifest.publications {
-            let created = try pubFactory.create(publication: publication)
+            let created = try pubFactory.create(publication: publication,
+                                                endpointId: self.config.endpointUri,
+                                                relayId: serverId)
             for (namespace, handler) in created {
                 self.publications[namespace] = handler
                 self.client.publishTrack(withHandler: handler)
@@ -228,6 +237,7 @@ class MoqCallController: QClientCallbacks {
             }
         }
         self.logger.debug("Got server setup received message from: \(serverId)")
+        self.serverId = serverId
     }
 
     /// quicr::Client announcement status changed in response to a publishAnnounce()
@@ -239,9 +249,13 @@ class MoqCallController: QClientCallbacks {
 
     /// Create subscription tracks and owning object for a manifest entry.
     /// - Parameter subscription: The manifest entry detailing this set of related subscription tracks.
+    /// - Parameter endpointId: This endpoints unique identifier (for metrics/correlation).
+    /// - Parameter relayId: The identifier of the relay we are connecting to (for metrics/correlation).
     /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type.
     /// Other errors on failure to create client media subscription handlers.
-    private func create(subscription: ManifestSubscription) throws -> SubscriptionSet {
+    private func create(subscription: ManifestSubscription,
+                        endpointId: String,
+                        relayId: String) throws -> SubscriptionSet {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
@@ -265,7 +279,9 @@ class MoqCallController: QClientCallbacks {
                                             simulreceive: self.subscriptionConfig.simulreceive,
                                             qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
                                             pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
-                                            pauseResume: self.subscriptionConfig.pauseResume)
+                                            pauseResume: self.subscriptionConfig.pauseResume,
+                                            endpointId: endpointId,
+                                            relayId: relayId)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -276,7 +292,9 @@ class MoqCallController: QClientCallbacks {
                                         jitterMax: self.subscriptionConfig.jitterMaxTime,
                                         opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                         reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics)
+                                        granularMetrics: self.granularMetrics,
+                                        endpointId: endpointId,
+                                        relayId: relayId)
         }
 
         throw CodecError.unsupportedCodecSet(found)

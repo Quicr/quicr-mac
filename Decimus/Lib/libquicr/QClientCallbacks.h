@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #import <Foundation/Foundation.h>
+#import "QCommon.h"
 
 typedef NS_ENUM(uint8_t, QClientStatus) {
     kQClientStatusReady,
@@ -27,14 +28,6 @@ typedef struct QServerSetupAttributes {
     uint64_t moqt_version;
     const char* server_id;
 } QServerSetupAttributes;
-
-typedef struct QMinMaxAvg {
-    uint64_t min;
-    uint64_t max;
-    uint64_t avg;
-    uint64_t value_sum;
-    uint64_t value_count;
-} QMinMaxAvg;
 
 typedef struct QQuicConnectionMetrics {
     uint64_t cwin_congested;

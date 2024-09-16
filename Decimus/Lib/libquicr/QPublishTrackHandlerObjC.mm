@@ -115,6 +115,32 @@ void QPublishTrackHandler::StatusChanged(Status status)
     }
 }
 
+static QPublishTrackMetricsQuic convert(const quicr::PublishTrackMetrics::Quic& metrics)
+{
+    static_assert(sizeof(QPublishTrackMetricsQuic) == sizeof(quicr::PublishTrackMetrics::Quic));
+    QPublishTrackMetricsQuic converted;
+    memcpy(&converted, &metrics, sizeof(QPublishTrackMetricsQuic));
+    return converted;
+}
+
+static QPublishTrackMetrics convert(const quicr::PublishTrackMetrics& metrics)
+{
+    return QPublishTrackMetrics {
+        .lastSampleTime = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .bytesPublished = metrics.bytes_published,
+        .objectsPublished = metrics.objects_published,
+        .quic = convert(metrics.quic)
+    };
+}
+
+void QPublishTrackHandler::MetricsSampled(const quicr::PublishTrackMetrics& metrics)
+{
+    if (_callbacks)
+    {
+        [_callbacks metricsSampled: convert(metrics)];
+    }
+}
+
 void QPublishTrackHandler::SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;
