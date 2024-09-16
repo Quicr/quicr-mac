@@ -123,7 +123,8 @@ static QSubscribeTrackMetrics convert(const quicr::SubscribeTrackMetrics& metric
 void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &metrics)
 {
     if (_callbacks) {
-        [_callbacks metricsSampled:convert(metrics)];
+        const QSubscribeTrackMetrics converted = convert(metrics);
+        [_callbacks metricsSampled: &converted];
     }
 }
 

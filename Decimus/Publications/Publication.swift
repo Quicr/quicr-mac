@@ -91,10 +91,10 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         return UInt16(ttls[index])
     }
 
-    func metricsSampled(_ metrics: QPublishTrackMetrics) {
+    func metricsSampled(_ metrics: UnsafePointer<QPublishTrackMetrics>) {
         if let measurement = self.measurement?.measurement {
             Task(priority: .utility) {
-                await measurement.record(metrics)
+                await measurement.record(metrics.pointee)
             }
         }
     }

@@ -61,5 +61,5 @@ typedef struct QConnectionMetrics {
 - (void) statusChanged: (QClientStatus) status;
 - (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
 - (void) announceStatusChanged: (NSData*) track_namespace status: (QPublishAnnounceStatus) status;
-- (void) metricsSampled: (QConnectionMetrics) metrics;
+- (void) metricsSampled: (const QConnectionMetrics* _Nonnull) metrics;
 @end

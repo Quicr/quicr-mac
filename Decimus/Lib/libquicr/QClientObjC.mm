@@ -145,14 +145,6 @@ static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metric
     return converted;
 }
 
-static QConnectionMetrics convert(const quicr::ConnectionMetrics& metrics)
-{
-    return QConnectionMetrics {
-        .last_sample_time_us = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
-        .quic = convert(metrics.quic)
-    };
-}
-
 void QClient::StatusChanged(Status status)
 {
     if (_callbacks)
@@ -161,11 +153,20 @@ void QClient::StatusChanged(Status status)
     }
 }
 
+static QConnectionMetrics convert(const quicr::ConnectionMetrics& metrics)
+{
+    return QConnectionMetrics {
+        .last_sample_time_us = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .quic = convert(metrics.quic)
+    };
+}
+
 void QClient::MetricsSampled(const quicr::ConnectionMetrics& metrics)
 {
     if (_callbacks)
     {
-        [_callbacks metricsSampled:convert(metrics)];
+        const QConnectionMetrics converted = convert(metrics);
+        [_callbacks metricsSampled: &converted];
     }
 }
 
