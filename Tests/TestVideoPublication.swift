@@ -53,7 +53,9 @@ final class TestVideoPublication: XCTestCase {
                                               reliable: true,
                                               granularMetrics: false,
                                               encoder: mockEncoder,
-                                              device: device)
+                                              device: device,
+                                              endpointId: "",
+                                              relayId: "")
 
         // Mock sample.
         let sample = try CMSampleBuffer(dataBuffer: nil,
