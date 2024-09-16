@@ -168,8 +168,9 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
 
     func metricsSampled(_ metrics: UnsafePointer<QSubscribeTrackMetrics>) {
         if let measurement = self.quicrMeasurement?.measurement {
+            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(metrics.pointee)
+                await measurement.record(copy)
             }
         }
     }

@@ -58,7 +58,7 @@ class MoqCallController: QClientCallbacks {
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
     private let callEnded: () -> Void
-    private var serverId: String?
+    var serverId: String?
 
     /// Create a new controller.
     /// - Parameters:
@@ -304,8 +304,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter metrics: Object containing all metrics.
     func metricsSampled(_ metrics: UnsafePointer<QConnectionMetrics>) {
         if let measurement = self.measurement?.measurement {
+            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(metrics.pointee)
+                await measurement.record(copy)
             }
         }
     }

@@ -93,8 +93,9 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
 
     func metricsSampled(_ metrics: UnsafePointer<QPublishTrackMetrics>) {
         if let measurement = self.measurement?.measurement {
+            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(metrics.pointee)
+                await measurement.record(copy)
             }
         }
     }

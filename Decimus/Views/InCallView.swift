@@ -17,6 +17,7 @@ struct InCallView: View {
     @State private var lastTap: Date = .now
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
+    @State private var debugDetail = false
     var noParticipants: Bool {
         self.viewModel.videoParticipants.participants.isEmpty
     }
@@ -62,15 +63,18 @@ struct InCallView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
 
-                        // TODO: Re-enable on reimplementation.
-                        //                        HStack {
-                        //                            Button("Alter Subscriptions") {
-                        //                                self.isShowingSubscriptions = true
-                        //                            }
-                        //                            Button("Alter Publications") {
-                        //                                self.isShowingPublications = true
-                        //                            }
-                        //                        }
+                        HStack {
+                            // TODO: Re-enable on reimplementation.
+                            //                            Button("Alter Subscriptions") {
+                            //                                self.isShowingSubscriptions = true
+                            //                            }
+                            //                            Button("Alter Publications") {
+                            //                                self.isShowingPublications = true
+                            //                            }
+                            Button("Toggle Debug Details") {
+                                self.debugDetail = true
+                            }
+                        }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
                         //                        if let controller = viewModel.controller {
@@ -91,6 +95,19 @@ struct InCallView: View {
                         //                            self.isShowingPublications = false
                         //                        }
                         //                        .padding()
+                    }
+                    .sheet(isPresented: self.$debugDetail) {
+                        VStack {
+                            Text("Debug Details").font(.title)
+                            HStack {
+                                Text("Relay: ").bold()
+                                Text(self.viewModel.controller?.serverId ?? "Unknown").monospaced()
+                            }
+                        }.padding()
+                        Spacer()
+                        Button("Done") {
+                            self.debugDetail = false
+                        }.padding()
                     }
 
                     // Call controls panel.
@@ -184,6 +201,7 @@ extension InCallView {
         private var audioCapture = false
         private var videoCapture = false
         private let onLeave: () -> Void
+        var relayId: String?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -294,6 +312,7 @@ extension InCallView {
             // Connect to the relay/server.
             do {
                 try await controller.connect()
+                self.relayId = controller.serverId
             } catch let error as MoqCallControllerError {
                 switch error {
                 case .connectionFailure(let status):

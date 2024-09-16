@@ -132,8 +132,9 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
 
     func metricsSampled(_ metrics: UnsafePointer<QSubscribeTrackMetrics>) {
         if let measurement = self.measurement?.measurement {
+            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(metrics.pointee)
+                await measurement.record(copy)
             }
         }
     }
