@@ -15,7 +15,7 @@ struct RelaySettingsView: View {
                 LabeledContent("Address") {
                     TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
                         .keyboardType(.URL)
-                        .onSubmit {
+                        .onChange(of: relayConfig.value.address) {
                             if let url = URL(string: relayConfig.value.address) {
                                 relayConfig.value.address = url.host() ?? relayConfig.value.address;
                             }
