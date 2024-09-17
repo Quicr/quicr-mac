@@ -138,7 +138,7 @@ void QPublishTrackHandler::MetricsSampled(const quicr::PublishTrackMetrics& metr
     if (_callbacks)
     {
         const QPublishTrackMetrics converted = convert(metrics);
-        [_callbacks metricsSampled: &converted];
+        [_callbacks metricsSampled: converted];
     }
 }
 

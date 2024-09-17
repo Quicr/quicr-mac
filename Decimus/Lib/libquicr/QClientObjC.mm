@@ -166,7 +166,7 @@ void QClient::MetricsSampled(const quicr::ConnectionMetrics& metrics)
     if (_callbacks)
     {
         const QConnectionMetrics converted = convert(metrics);
-        [_callbacks metricsSampled: &converted];
+        [_callbacks metricsSampled: converted];
     }
 }
 

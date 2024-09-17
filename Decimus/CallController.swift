@@ -302,11 +302,10 @@ class MoqCallController: QClientCallbacks {
 
     /// libquicr's metrics callback.
     /// - Parameter metrics: Object containing all metrics.
-    func metricsSampled(_ metrics: UnsafePointer<QConnectionMetrics>) {
+    func metricsSampled(_ metrics: QConnectionMetrics) {
         if let measurement = self.measurement?.measurement {
-            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(copy)
+                await measurement.record(metrics)
             }
         }
     }

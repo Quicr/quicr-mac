@@ -166,11 +166,10 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         Self.logger.error("OpusSubscription unexpectedly received a partial object")
     }
 
-    func metricsSampled(_ metrics: UnsafePointer<QSubscribeTrackMetrics>) {
+    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
         if let measurement = self.quicrMeasurement?.measurement {
-            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(copy)
+                await measurement.record(metrics)
             }
         }
     }

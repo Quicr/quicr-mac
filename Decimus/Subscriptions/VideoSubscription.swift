@@ -130,11 +130,10 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.logger.warning("Partial objects not supported")
     }
 
-    func metricsSampled(_ metrics: UnsafePointer<QSubscribeTrackMetrics>) {
+    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
         if let measurement = self.measurement?.measurement {
-            let copy = metrics.pointee
             Task(priority: .utility) {
-                await measurement.record(copy)
+                await measurement.record(metrics)
             }
         }
     }

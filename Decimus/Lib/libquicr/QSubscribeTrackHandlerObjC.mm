@@ -124,7 +124,7 @@ void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &
 {
     if (_callbacks) {
         const QSubscribeTrackMetrics converted = convert(metrics);
-        [_callbacks metricsSampled: &converted];
+        [_callbacks metricsSampled: converted];
     }
 }
 

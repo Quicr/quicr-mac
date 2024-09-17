@@ -33,5 +33,5 @@ typedef struct QPublishTrackMetrics {
 
 @protocol QPublishTrackHandlerCallbacks
 - (void) statusChanged: (QPublishTrackHandlerStatus) status;
-- (void) metricsSampled: (const QPublishTrackMetrics* _Nonnull) metrics;
+- (void) metricsSampled: (QPublishTrackMetrics) metrics;
 @end
