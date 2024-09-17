@@ -17,6 +17,7 @@ public:
 
     void StatusChanged(Status status) override;
     void ServerSetupReceived(const quicr::ServerSetupAttributes& serverSetupAttributes) override;
+    void MetricsSampled(const quicr::ConnectionMetrics& metrics) override;
 
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:

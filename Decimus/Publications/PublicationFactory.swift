@@ -26,7 +26,7 @@ class PublicationFactory {
         self.captureManager = captureManager
     }
 
-    func create(publication: ManifestPublication) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+    func create(publication: ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
             let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
@@ -34,7 +34,9 @@ class PublicationFactory {
             let publication = try self.create(profile,
                                               sourceID: publication.sourceID,
                                               config: config,
-                                              metricsSubmitter: self.metricsSubmitter)
+                                              metricsSubmitter: self.metricsSubmitter,
+                                              endpointId: endpointId,
+                                              relayId: relayId)
             publications.append((fullTrackName, publication))
         }
         return publications
@@ -43,7 +45,9 @@ class PublicationFactory {
     func create(_ profile: Profile,
                 sourceID: SourceIDType,
                 config: CodecConfig,
-                metricsSubmitter: MetricsSubmitter?) throws -> QPublishTrackHandlerObjC {
+                metricsSubmitter: MetricsSubmitter?,
+                endpointId: String,
+                relayId: String) throws -> QPublishTrackHandlerObjC {
         switch config.codec {
         case .h264, .hevc:
             guard let config = config as? VideoCodecConfig else {
@@ -72,7 +76,9 @@ class PublicationFactory {
                                                   reliable: reliability.video.publication,
                                                   granularMetrics: self.granularMetrics,
                                                   encoder: encoder,
-                                                  device: device)
+                                                  device: device,
+                                                  endpointId: endpointId,
+                                                  relayId: relayId)
             try self.captureManager.addInput(publication)
             return publication
         case .opus:
@@ -85,7 +91,9 @@ class PublicationFactory {
                                        reliable: reliability.audio.publication,
                                        engine: self.engine,
                                        granularMetrics: self.granularMetrics,
-                                       config: config)
+                                       config: config,
+                                       endpointId: endpointId,
+                                       relayId: relayId)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

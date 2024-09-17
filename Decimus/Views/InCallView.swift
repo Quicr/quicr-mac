@@ -17,6 +17,7 @@ struct InCallView: View {
     @State private var lastTap: Date = .now
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
+    @State private var debugDetail = false
     var noParticipants: Bool {
         self.viewModel.videoParticipants.participants.isEmpty
     }
@@ -62,15 +63,18 @@ struct InCallView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
 
-                        // TODO: Re-enable on reimplementation.
-                        //                        HStack {
-                        //                            Button("Alter Subscriptions") {
-                        //                                self.isShowingSubscriptions = true
-                        //                            }
-                        //                            Button("Alter Publications") {
-                        //                                self.isShowingPublications = true
-                        //                            }
-                        //                        }
+                        HStack {
+                            // TODO: Re-enable on reimplementation.
+                            //                            Button("Alter Subscriptions") {
+                            //                                self.isShowingSubscriptions = true
+                            //                            }
+                            //                            Button("Alter Publications") {
+                            //                                self.isShowingPublications = true
+                            //                            }
+                            Button("Toggle Debug Details") {
+                                self.debugDetail = true
+                            }
+                        }
                     }
                     .sheet(isPresented: $isShowingSubscriptions) {
                         //                        if let controller = viewModel.controller {
@@ -91,6 +95,19 @@ struct InCallView: View {
                         //                            self.isShowingPublications = false
                         //                        }
                         //                        .padding()
+                    }
+                    .sheet(isPresented: self.$debugDetail) {
+                        VStack {
+                            Text("Debug Details").font(.title)
+                            HStack {
+                                Text("Relay: ").bold()
+                                Text(self.viewModel.controller?.serverId ?? "Unknown").monospaced()
+                            }
+                        }.padding()
+                        Spacer()
+                        Button("Done") {
+                            self.debugDetail = false
+                        }.padding()
                     }
 
                     // Call controls panel.
@@ -184,6 +201,7 @@ extension InCallView {
         private var audioCapture = false
         private var videoCapture = false
         private let onLeave: () -> Void
+        var relayId: String?
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -250,40 +268,36 @@ extension InCallView {
                 #endif
 
                 let subConfig = self.subscriptionConfig.value
-                self.controller = connectUri.withCString { connectUri in
-                    endpointId.withCString { endpointId in
-                        qLogPath.path.withCString { qLogPath in
-                            let tConfig = TransportConfig(tls_cert_filename: nil,
-                                                          tls_key_filename: nil,
-                                                          time_queue_init_queue_size: 1000,
-                                                          time_queue_max_duration: 5000,
-                                                          time_queue_bucket_interval: 1,
-                                                          time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
-                                                          debug: true,
-                                                          quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
-                                                          quic_wifi_shadow_rtt_us: 0,
-                                                          pacing_decrease_threshold_Bps: 16000,
-                                                          pacing_increase_threshold_Bps: 16000,
-                                                          idle_timeout_ms: 15000,
-                                                          use_reset_wait_strategy: subConfig.useResetWaitCC,
-                                                          use_bbr: subConfig.useBBR,
-                                                          quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
-                                                          quic_priority_limit: subConfig.quicPriorityLimit)
-                            let config = QClientConfig(connectUri: connectUri,
-                                                       endpointId: endpointId,
-                                                       transportConfig: tConfig,
-                                                       metricsSampleMs: 0)
-                            return .init(config: config,
-                                         captureManager: captureManager,
-                                         subscriptionConfig: subConfig,
-                                         engine: engine,
-                                         videoParticipants: self.videoParticipants,
-                                         submitter: self.submitter,
-                                         granularMetrics: influxConfig.value.granular) {
-                                DispatchQueue.main.async {
-                                    onLeave()
-                                }
-                            }
+                self.controller = qLogPath.path.withCString { qLogPath in
+                    let tConfig = TransportConfig(tls_cert_filename: nil,
+                                                  tls_key_filename: nil,
+                                                  time_queue_init_queue_size: 1000,
+                                                  time_queue_max_duration: 5000,
+                                                  time_queue_bucket_interval: 1,
+                                                  time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
+                                                  debug: true,
+                                                  quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
+                                                  quic_wifi_shadow_rtt_us: 0,
+                                                  pacing_decrease_threshold_Bps: 16000,
+                                                  pacing_increase_threshold_Bps: 16000,
+                                                  idle_timeout_ms: 15000,
+                                                  use_reset_wait_strategy: subConfig.useResetWaitCC,
+                                                  use_bbr: subConfig.useBBR,
+                                                  quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
+                                                  quic_priority_limit: subConfig.quicPriorityLimit)
+                    let config = ClientConfig(connectUri: connectUri,
+                                              endpointUri: endpointId,
+                                              transportConfig: tConfig,
+                                              metricsSampleMs: 0)
+                    return .init(config: config,
+                                 captureManager: captureManager,
+                                 subscriptionConfig: subConfig,
+                                 engine: engine,
+                                 videoParticipants: self.videoParticipants,
+                                 submitter: self.submitter,
+                                 granularMetrics: influxConfig.value.granular) {
+                        DispatchQueue.main.async {
+                            onLeave()
                         }
                     }
                 }
@@ -298,6 +312,7 @@ extension InCallView {
             // Connect to the relay/server.
             do {
                 try await controller.connect()
+                self.relayId = controller.serverId
             } catch let error as MoqCallControllerError {
                 switch error {
                 case .connectionFailure(let status):

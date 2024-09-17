@@ -137,6 +137,14 @@ QClient::~QClient()
 {
 }
 
+static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metrics)
+{
+    static_assert(sizeof(quicr::QuicConnectionMetrics) == sizeof(QQuicConnectionMetrics));
+    QQuicConnectionMetrics converted;
+    memcpy(&converted, &metrics, sizeof(QQuicConnectionMetrics));
+    return converted;
+}
+
 void QClient::StatusChanged(Status status)
 {
     if (_callbacks)
@@ -145,8 +153,37 @@ void QClient::StatusChanged(Status status)
     }
 }
 
-void QClient::ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes) {
-    // TODO: Implement.
+static QConnectionMetrics convert(const quicr::ConnectionMetrics& metrics)
+{
+    return QConnectionMetrics {
+        .last_sample_time_us = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .quic = convert(metrics.quic)
+    };
+}
+
+void QClient::MetricsSampled(const quicr::ConnectionMetrics& metrics)
+{
+    if (_callbacks)
+    {
+        const QConnectionMetrics converted = convert(metrics);
+        [_callbacks metricsSampled: converted];
+    }
+}
+
+static QServerSetupAttributes convert(const quicr::ServerSetupAttributes& server_setup_atttributes)
+{
+    QServerSetupAttributes attributes;
+    attributes.moqt_version = server_setup_atttributes.moqt_version;
+    attributes.server_id = server_setup_atttributes.server_id.c_str();
+    return attributes;
+}
+
+void QClient::ServerSetupReceived(const quicr::ServerSetupAttributes& server_setup_attributes)
+{
+    if (_callbacks)
+    {
+        [_callbacks serverSetupReceived:convert(server_setup_attributes)];
+    }
 }
 
 void QClient::SetCallbacks(id<QClientCallbacks> callbacks)

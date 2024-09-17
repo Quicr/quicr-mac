@@ -12,7 +12,10 @@ final class TestPublication: XCTestCase {
         let publication = try Publication(profile: profile,
                                           trackMode: .datagram,
                                           defaultPriority: expectedPriority,
-                                          defaultTTL: expectedTTL)
+                                          defaultTTL: expectedTTL,
+                                          submitter: nil,
+                                          endpointId: "",
+                                          relayId: "")
         XCTAssertEqual(expectedPriority, publication.getPriority(.random(in: 0..<Int.max)))
         XCTAssertEqual(expectedTTL, publication.getTTL(.random(in: 0..<Int.max)))
     }
@@ -24,7 +27,10 @@ final class TestPublication: XCTestCase {
         let publication = try Publication(profile: profile,
                                           trackMode: .datagram,
                                           defaultPriority: expectedPriority,
-                                          defaultTTL: expectedTTL)
+                                          defaultTTL: expectedTTL,
+                                          submitter: nil,
+                                          endpointId: "",
+                                          relayId: "")
         XCTAssertEqual(5, publication.getPriority(0))
         XCTAssertEqual(6, publication.getPriority(1))
         XCTAssertEqual(expectedPriority, publication.getPriority(3))

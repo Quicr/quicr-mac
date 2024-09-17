@@ -111,6 +111,23 @@ void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& o
     }
 }
 
+static QSubscribeTrackMetrics convert(const quicr::SubscribeTrackMetrics& metrics)
+{
+    return QSubscribeTrackMetrics {
+        .lastSampleTime = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .bytesReceived = metrics.bytes_received,
+        .objectsReceived = metrics.objects_received
+    };
+}
+
+void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &metrics)
+{
+    if (_callbacks) {
+        const QSubscribeTrackMetrics converted = convert(metrics);
+        [_callbacks metricsSampled: converted];
+    }
+}
+
 void QSubscribeTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;

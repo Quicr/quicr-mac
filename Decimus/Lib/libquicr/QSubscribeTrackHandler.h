@@ -14,9 +14,10 @@ public:
     QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name);
 
     // Callbacks.
-    void StatusChanged(Status status);
-    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data);
-    void PartialObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data);
+    void StatusChanged(Status status) override;
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override;
+    void PartialObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override;
+    void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
 
     // Methods.
     void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);

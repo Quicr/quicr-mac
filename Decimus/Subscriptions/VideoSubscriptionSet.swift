@@ -63,7 +63,9 @@ class VideoSubscriptionSet: SubscriptionSet {
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,
-         pauseResume: Bool) throws {
+         pauseResume: Bool,
+         endpointId: String,
+         relayId: String) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -111,7 +113,9 @@ class VideoSubscriptionSet: SubscriptionSet {
         self.profiles = createdProfiles
         for fullTrackName in createdProfiles.keys {
             self.formats[fullTrackName] = nil
-            self.videoSubscriptions[fullTrackName] = try makeSubscription(fullTrackName: fullTrackName)
+            self.videoSubscriptions[fullTrackName] = try makeSubscription(fullTrackName: fullTrackName,
+                                                                          endpointId: endpointId,
+                                                                          relayId: relayId)
         }
 
         // Make task for cleaning up simulreceive rendering.
@@ -218,7 +222,9 @@ class VideoSubscriptionSet: SubscriptionSet {
         }
     }
 
-    private func makeSubscription(fullTrackName: FullTrackName) throws -> VideoSubscription {
+    private func makeSubscription(fullTrackName: FullTrackName,
+                                  endpointId: String,
+                                  relayId: String) throws -> VideoSubscription {
         guard let config = self.profiles[fullTrackName] else {
             throw "Missing config for: \(fullTrackName)"
         }
@@ -231,7 +237,9 @@ class VideoSubscriptionSet: SubscriptionSet {
                          granularMetrics: self.granularMetrics,
                          jitterBufferConfig: self.jitterBufferConfig,
                          simulreceive: self.simulreceive,
-                         variances: self.decodedVariances) { [weak self] timestamp, when in
+                         variances: self.decodedVariances,
+                         endpointId: endpointId,
+                         relayId: relayId) { [weak self] timestamp, when in
             guard let self = self else { return }
             self.receivedObject(timestamp: timestamp, when: when)
         }

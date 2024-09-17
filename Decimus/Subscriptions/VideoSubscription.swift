@@ -21,6 +21,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let callback: ObjectReceived
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
+    private let measurement: MeasurementRegistration<TrackMeasurement>?
 
     var handler: VideoHandler?
     let handlerLock = OSAllocatedUnfairLock()
@@ -39,6 +40,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
          jitterBufferConfig: VideoJitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          variances: VarianceCalculator,
+         endpointId: String,
+         relayId: String,
          callback: @escaping ObjectReceived) throws {
         self.fullTrackName = fullTrackName
         self.config = config
@@ -51,6 +54,16 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
+
+        if let metricsSubmitter = metricsSubmitter {
+            let measurement = TrackMeasurement(type: .subscribe,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: try fullTrackName.getNamespace())
+            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+        } else {
+            self.measurement = nil
+        }
 
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
@@ -115,6 +128,14 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
 
     func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         self.logger.warning("Partial objects not supported")
+    }
+
+    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
+        if let measurement = self.measurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
+        }
     }
 
     private func getCreateHandler() throws -> VideoHandler {

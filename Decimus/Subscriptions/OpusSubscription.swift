@@ -10,6 +10,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
 
     private let engine: DecimusAudioEngine
     private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
+    private let quicrMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
@@ -30,7 +31,9 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
-         granularMetrics: Bool) throws {
+         granularMetrics: Bool,
+         endpointId: String,
+         relayId: String) throws {
         guard subscription.profileSet.profiles.count == 1,
               let profile = subscription.profileSet.profiles.first else {
             throw "OpusSubscription only supports one profile"
@@ -40,8 +43,14 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         if let submitter = submitter {
             let measurement = OpusSubscriptionMeasurement(namespace: subscription.sourceID)
             self.measurement = .init(measurement: measurement, submitter: submitter)
+            let quicrMeasurement = TrackMeasurement(type: .subscribe,
+                                                    endpointId: endpointId,
+                                                    relayId: relayId,
+                                                    namespace: profile.namespace)
+            self.quicrMeasurement = .init(measurement: quicrMeasurement, submitter: submitter)
         } else {
             self.measurement = nil
+            self.quicrMeasurement = nil
         }
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
@@ -155,5 +164,13 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
 
     func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         Self.logger.error("OpusSubscription unexpectedly received a partial object")
+    }
+
+    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
+        if let measurement = self.quicrMeasurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
+        }
     }
 }

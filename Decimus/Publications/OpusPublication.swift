@@ -27,7 +27,9 @@ class OpusPublication: Publication {
          reliable: Bool,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
-         config: AudioCodecConfig) throws {
+         config: AudioCodecConfig,
+         endpointId: String,
+         relayId: String) throws {
         self.engine = engine
         let namespace = profile.namespace
         if let metricsSubmitter = metricsSubmitter {
@@ -54,7 +56,10 @@ class OpusPublication: Publication {
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
                        defaultPriority: UInt8(profile.priorities?.first ?? 0),
-                       defaultTTL: UInt16(profile.expiry?.first ?? 0))
+                       defaultTTL: UInt16(profile.expiry?.first ?? 0),
+                       submitter: metricsSubmitter,
+                       endpointId: endpointId,
+                       relayId: relayId)
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in

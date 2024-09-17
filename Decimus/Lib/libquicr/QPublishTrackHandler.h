@@ -17,7 +17,8 @@ public:
                          std::uint8_t default_priority,
                          std::uint32_t default_ttl);
 
-    void StatusChanged(Status status);
+    void StatusChanged(Status status) override;
+    void MetricsSampled(const quicr::PublishTrackMetrics&) override;
 
     void SetCallbacks(id<QPublishTrackHandlerCallbacks> callbacks);
 
