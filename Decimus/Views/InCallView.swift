@@ -31,10 +31,10 @@ struct InCallView: View {
         .autoconnect()
     #endif
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, manifest: ManifestController, onLeave: @escaping () -> Void) {
         UIApplication.shared.isIdleTimerDisabled = true
         self.onLeave = onLeave
-        _viewModel = .init(wrappedValue: .init(config: config, onLeave: onLeave))
+        _viewModel = .init(wrappedValue: .init(config: config, manifest: manifest, onLeave: onLeave))
     }
 
     var body: some View {
@@ -184,6 +184,7 @@ extension InCallView {
         private var audioCapture = false
         private var videoCapture = false
         private let onLeave: () -> Void
+        private let manifestController: ManifestController
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
@@ -191,8 +192,9 @@ extension InCallView {
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
-        init(config: CallConfig, onLeave: @escaping () -> Void) {
+        init(config: CallConfig, manifest: ManifestController, onLeave: @escaping () -> Void) {
             self.config = config
+            self.manifestController = manifest
             self.onLeave = onLeave
             do {
                 self.engine = try .init()
@@ -314,9 +316,8 @@ extension InCallView {
             // Fetch the manifest from the conference server.
             let manifest: Manifest
             do {
-                let mController = ManifestController.shared
-                manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                             email: self.config.email)
+                manifest = try await self.manifestController.getManifest(confId: self.config.conferenceID,
+                                                                         email: self.config.email)
             } catch {
                 Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                 return false
@@ -392,6 +393,7 @@ struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
         InCallView(config: .init(address: "127.0.0.1",
                                  port: 5001,
-                                 connectionProtocol: .QUIC)) { }
+                                 connectionProtocol: .QUIC),
+                   manifest: try! .init(.init())) { }
     }
 }

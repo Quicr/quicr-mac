@@ -6,17 +6,24 @@ import SwiftUI
 struct ConfigCallView: View {
     @State private var config: CallConfig?
 
+    @AppStorage("manifestConfig")
+    private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
+
     var body: some View {
-        if config != nil {
-            InCallView(config: config!) { config = nil }
-#if !os(tvOS)
+        if let controller = try? ManifestController(self.manifestConfig.value) {
+            if let config = self.config {
+                InCallView(config: config, manifest: controller) { self.config = nil }
+                #if !os(tvOS)
                 .navigationBarTitleDisplayMode(.inline)
-#endif
+                #endif
+            } else {
+                CallSetupView(controller) { self.config = $0 }
+                #if !os(tvOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+            }
         } else {
-            CallSetupView { self.config = $0 }
-#if !os(tvOS)
-                .navigationBarTitleDisplayMode(.inline)
-#endif
+            Text("Failed to parse Manifest URL - check settings").foregroundStyle(.red).font(.headline)
         }
     }
 }

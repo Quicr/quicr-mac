@@ -21,29 +21,8 @@ struct ManifestSettingsView: View {
     var body: some View {
         Section("Manifest") {
             Form {
-                LabeledContent("Scheme") {
-                    Picker("Scheme", selection: $manifestConfig.value.scheme) {
-                        ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
-                            Text(scheme.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                LabeledContent("Address") {
-                    TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
-                        .keyboardType(.URL)
-                        .onSubmit {
-                            if let url = URL(string: manifestConfig.value.url) {
-                                manifestConfig.value.url = url.host() ?? manifestConfig.value.url;
-                            }
-                        }
-                }
-
-                LabeledContent("Port") {
-                    NumberView(value: $manifestConfig.value.port,
-                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                               name: "Port")
+                LabeledContent("URL") {
+                    URLField(name: "URL", url: self.$manifestConfig.value.url)
                 }
 
                 HStack {
@@ -54,8 +33,8 @@ struct ManifestSettingsView: View {
                     }
                     Spacer()
                     Button {
-                        Task {
-                            self.configs = await self.getConfigs()
+                        Task(priority: .userInitiated) {
+                            await self.refresh()
                         }
                     } label: {
                         if self.showProgressView {
@@ -77,21 +56,32 @@ struct ManifestSettingsView: View {
             .formStyle(.columns)
         }
         .task {
-            self.configs = await getConfigs()
+            await self.refresh()
         }
         .onChange(of: self.manifestConfig.value) {
-            ManifestController.shared.setServer(config: self.manifestConfig.value)
-            Task {
-                self.configs = await self.getConfigs()
+            Task(priority: .userInitiated) {
+                await self.refresh()
             }
         }
     }
 
-    private func getConfigs() async -> [String] {
+    private func refresh() async {
+        let controller: ManifestController
+        do {
+            controller = try ManifestController(self.manifestConfig.value)
+        } catch {
+            self.error = error.localizedDescription
+            self.configs = []
+            return
+        }
+        self.configs = await self.getConfigs(controller)
+    }
+
+    private func getConfigs(_ controller: ManifestController) async -> [String] {
         self.showProgressView = true
         defer { self.showProgressView = false }
         do {
-            let configs = try await ManifestController.shared.getConfigs()
+            let configs = try await controller.getConfigs()
             self.error = nil
             let sorted = configs.sorted { $0.configProfile < $1.configProfile }
             return sorted.reduce(into: [], { $0.append($1.configProfile) })

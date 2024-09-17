@@ -22,6 +22,8 @@
 		1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */; };
 		1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */; };
 		1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1867950A2AD58E54008F99C6 /* PreviewView.swift */; };
+		187DE3752C9993190090FB68 /* TestManifestController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 187DE3742C9993140090FB68 /* TestManifestController.swift */; };
+		187DE3792C99B1460090FB68 /* URLField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 187DE3782C99B1460090FB68 /* URLField.swift */; };
 		18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */; };
 		188ABB562A792E9C00B31A6E /* Opus in Frameworks */ = {isa = PBXBuildFile; productRef = 188ABB552A792E9C00B31A6E /* Opus */; };
 		18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */; };
@@ -193,6 +195,8 @@
 		1867635C2B2B6BB000339421 /* H264Publication+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "H264Publication+Measurement.swift"; sourceTree = "<group>"; };
 		1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OpusSubscription+Measurement.swift"; sourceTree = "<group>"; };
 		1867950A2AD58E54008F99C6 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		187DE3742C9993140090FB68 /* TestManifestController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestManifestController.swift; sourceTree = "<group>"; };
+		187DE3782C99B1460090FB68 /* URLField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLField.swift; sourceTree = "<group>"; };
 		18865CC62A81356100B9A647 /* SubscriptionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSettingsView.swift; sourceTree = "<group>"; };
 		18A108CF2AA60DAB00FDC0A5 /* CpuUsage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CpuUsage.swift; sourceTree = "<group>"; };
 		18A130BF2B4D7E8700F17372 /* OpusHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusHandler.swift; sourceTree = "<group>"; };
@@ -439,6 +443,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				187DE3742C9993140090FB68 /* TestManifestController.swift */,
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
 				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
@@ -696,6 +701,7 @@
 				FFB8CBE429C148B70093C623 /* ActionPicker.swift */,
 				FF4DA06C29FAEF4F00A01E5D /* ViewExtensions.swift */,
 				1867950A2AD58E54008F99C6 /* PreviewView.swift */,
+				187DE3782C99B1460090FB68 /* URLField.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -868,7 +874,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -887,6 +893,7 @@
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
+				187DE3752C9993190090FB68 /* TestManifestController.swift in Sources */,
 				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -935,6 +942,7 @@
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
+				187DE3792C99B1460090FB68 /* URLField.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
@@ -1002,7 +1010,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1027,7 +1035,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1193,7 +1201,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1265,7 +1273,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

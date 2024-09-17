@@ -38,10 +38,11 @@ private struct LoginForm: View {
                                                email: "",
                                                conferenceID: 0)
     private var joinMeetingCallback: ConfigCallback
+    private let controller: ManifestController
 
-    init(_ onJoin: @escaping ConfigCallback) {
+    init(_ controller: ManifestController, _ onJoin: @escaping ConfigCallback) {
+        self.controller = controller
         joinMeetingCallback = onJoin
-        ManifestController.shared.setServer(config: manifestConfig.value)
     }
 
     var body: some View {
@@ -167,8 +168,7 @@ private struct LoginForm: View {
                                 email: email,
                                 conferenceID: UInt32(confId))
         isLoading = true
-        meetings = try await
-            ManifestController.shared.getConferences(for: callConfig.email)
+        self.meetings = try await self.controller.getConferences(for: self.callConfig.email)
             .reduce(into: [:]) { $0[$1.id] = $1.title }
         isLoading = false
     }
@@ -181,8 +181,10 @@ private struct LoginForm: View {
 struct CallSetupView: View {
     private var joinMeetingCallback: ConfigCallback
     @State private var settingsOpen: Bool = false
+    private let manifestController: ManifestController
 
-    init(_ onJoin: @escaping ConfigCallback) {
+    init(_ manifest: ManifestController, _ onJoin: @escaping ConfigCallback) {
+        self.manifestController = manifest
         UIApplication.shared.isIdleTimerDisabled = false
         joinMeetingCallback = onJoin
     }
@@ -214,7 +216,7 @@ struct CallSetupView: View {
                     Text("Join a meeting")
                         .font(.title)
                         .foregroundColor(.white)
-                    LoginForm(joinMeetingCallback)
+                    LoginForm(self.manifestController, joinMeetingCallback)
                     #if targetEnvironment(macCatalyst)
                     .frame(maxWidth: 350)
                     #endif
@@ -233,6 +235,6 @@ struct CallSetupView: View {
 
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
-        CallSetupView { _ in }
+        CallSetupView(try! ManifestController(.init())) { _ in }
     }
 }

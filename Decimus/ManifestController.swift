@@ -4,34 +4,32 @@
 import Foundation
 import os
 
+/// Possible errors thrown by ``ManifestController``
+enum ManifestControllerError: Error {
+    case invalidURL(_ url: URL)
+    case badState
+}
+
 /// Configuration object for ``ManifestController``.
 struct ManifestServerConfig: Codable, Equatable {
-    /// URL scheme.
-    var scheme: String = "https"
-    /// Manifest/conference FQDN.
-    var url: String = "conf.quicr.ctgpoc.com"
-    /// Manifest/conference port.
-    var port: Int = 411
+    /// URL.
+    var url: URL = .init(string: "https://conf.quicr.ctgpoc.com:411")!
     /// Which manifest configuration to query against.
-    var config: String = ""
+    var config: String = "testing"
 }
 
 /// Fetches and parses manifest/conference information from a server.
 class ManifestController {
-    /// The shared ``ManifestController``.
-    static let shared = ManifestController()
     private static let logger = DecimusLogger(ManifestController.self)
 
-    private var components: URLComponents = .init()
+    private let components: URLComponents
     private var currentConfig: String = ""
 
-    /// Inject the server's configuration.
-    /// - Parameter config: The new configuration to use.
-    func setServer(config: ManifestServerConfig) {
-        self.components = URLComponents()
-        self.components.scheme = config.scheme
-        self.components.host = config.url
-        self.components.port = config.port
+    init(_ config: ManifestServerConfig) throws {
+        guard let components = URLComponents(url: config.url, resolvingAgainstBaseURL: false) else {
+            throw ManifestControllerError.invalidURL(config.url)
+        }
+        self.components = components
         self.currentConfig = config.config
     }
 
@@ -80,7 +78,7 @@ class ManifestController {
     /// - Parameter email: Target user's email address.
     /// - Returns: List of conferences this user can join.
     func getConferences(for email: String) async throws -> [Conference] {
-        var url = components
+        var url = self.components
         url.path = "/conferences"
 
         url.queryItems = [
@@ -116,13 +114,11 @@ class ManifestController {
     }
 
     private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
-        guard let str = components.string else {
-            throw "Invalid URL: no components"
+        guard let componentString = components.string,
+              let url = URL(string: componentString) else {
+            assert(false) // We should never be in this position.
+            throw ManifestControllerError.badState
         }
-        guard let url = URL(string: str) else {
-            throw "Invalid URL: \(components)"
-        }
-
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
