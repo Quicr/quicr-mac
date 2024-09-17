@@ -11,7 +11,8 @@ typedef NS_ENUM(uint8_t, QClientStatus) {
     kQClientStatusClientConnecting,
     kQClientStatusDisconnecting,
     kQClientStatusClientNotConnected,
-    kQClientStatusClientFailedToConnect
+    kQClientStatusClientFailedToConnect,
+    kQClientStatusClientPendingServerSetup
 };
 
 typedef NS_ENUM(uint8_t, QPublishAnnounceStatus) {
