@@ -294,12 +294,18 @@ class VideoHandler: CustomStringConvertible {
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
-    func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval {
+    private func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else {
-            fatalError("Shouldn't use calculateWaitTime with no jitterbuffer")
+            assert(false)
+            Self.logger.error("App misconfiguration, please report this")
+            return nil
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { fatalError("This must be set prior to dequeueing") }
+        guard diffUs > 0 else {
+            assert(false)
+            Self.logger.warning("Missing initial timestamp")
+            return nil
+        }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(frame: frame, from: from, offset: diff)
     }
@@ -369,8 +375,8 @@ class VideoHandler: CustomStringConvertible {
                     // Attempt to dequeue a frame.
                     if let sample = self.jitterBuffer!.read(from: now) {
                         if self.granularMetrics,
-                           let measurement = self.measurement?.measurement {
-                            let time = self.calculateWaitTime(frame: sample)
+                           let measurement = self.measurement?.measurement,
+                           let time = self.calculateWaitTime(frame: sample) {
                             Task(priority: .utility) {
                                 await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
@@ -387,9 +393,10 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
+    /// Set the difference in time between incoming stream timestamps and wall clock.
+    /// - Parameter diff: Difference in time in seconds.
     func setTimeDiff(diff: TimeInterval) {
-        assert(abs(diff) > (1 / 1_000_000))
-        let diffUs = Int64(diff * 1_000_000)
+        let diffUs = min(Int64(diff * 1_000_000), 1)
         _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
                                                      desired: diffUs,
                                                      ordering: .acquiringAndReleasing)
