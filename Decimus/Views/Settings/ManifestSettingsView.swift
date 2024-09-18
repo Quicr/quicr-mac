@@ -22,7 +22,7 @@ struct ManifestSettingsView: View {
         Section("Manifest") {
             Form {
                 LabeledContent("URL") {
-                    URLField(name: "URL", url: self.$manifestConfig.value.url)
+                    URLField(name: "URL", validation: nil, url: self.$manifestConfig.value.url)
                 }
 
                 HStack {

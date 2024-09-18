@@ -6,11 +6,7 @@ import Foundation
 /// Configuration for joining a call.
 struct CallConfig: Hashable {
     /// Address of the server.
-    var address: String
-    /// Port to connect on.
-    var port: UInt16
-    /// Protocol to use in qmedia
-    var connectionProtocol: ProtocolType
+    var address: URL = defaultUrl
     /// Email address of the user joining the call
     var email: String = ""
     /// Conference ID to join

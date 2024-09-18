@@ -18,7 +18,7 @@ private struct LoginForm: View {
     @AppStorage("email")
     private var email: String = ""
 
-    @AppStorage("relayConfig")
+    @AppStorage(RelayConfig.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
     @AppStorage("manifestConfig")
@@ -32,11 +32,7 @@ private struct LoginForm: View {
     @State private var meetings: [UInt32: String] = [:]
     @State private var showContinuityDevicePicker: Bool = false
 
-    @State private var callConfig = CallConfig(address: "",
-                                               port: 0,
-                                               connectionProtocol: .QUIC,
-                                               email: "",
-                                               conferenceID: 0)
+    @State private var callConfig = CallConfig()
     private var joinMeetingCallback: ConfigCallback
     private let controller: ManifestController
 
@@ -163,8 +159,6 @@ private struct LoginForm: View {
 
     private func fetchManifest() async throws {
         callConfig = CallConfig(address: relayConfig.value.address,
-                                port: relayConfig.value.port,
-                                connectionProtocol: relayConfig.value.connectionProtocol,
                                 email: email,
                                 conferenceID: UInt32(confId))
         isLoading = true

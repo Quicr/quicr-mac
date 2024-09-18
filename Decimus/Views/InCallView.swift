@@ -203,10 +203,9 @@ extension InCallView {
                 self.engine = nil
             }
             let tags: [String: String] = [
-                "relay": "\(config.address):\(config.port)",
+                "relay": config.address.absoluteString,
                 "email": config.email,
-                "conference": "\(config.conferenceID)",
-                "protocol": "\(config.connectionProtocol)"
+                "conference": "\(config.conferenceID)"
             ]
 
             if influxConfig.value.submit {
@@ -242,7 +241,13 @@ extension InCallView {
 
             if let captureManager = self.captureManager,
                let engine = self.engine {
-                let connectUri: String = "moq://\(config.address):\(config.port)"
+                let moqAddress = config.address.absoluteString
+                guard let scheme = config.address.scheme,
+                      scheme == "moq" else {
+                    Self.logger.error("URL scheme must be moq://")
+                    return
+                }
+                let connectUri: String = "\(moqAddress)"
                 let endpointId: String = config.email
                 let qLogPath: URL
                 #if targetEnvironment(macCatalyst)
@@ -294,7 +299,7 @@ extension InCallView {
 
         func join() async -> Bool {
             guard let controller = self.controller else {
-                fatalError("No controller!?")
+                return false
             }
 
             // Connect to the relay/server.
@@ -391,9 +396,7 @@ extension InCallView.ViewModel {
 
 struct InCallView_Previews: PreviewProvider {
     static var previews: some View {
-        InCallView(config: .init(address: "127.0.0.1",
-                                 port: 5001,
-                                 connectionProtocol: .QUIC),
+        InCallView(config: CallConfig(),
                    manifest: try! .init(.init())) { }
     }
 }

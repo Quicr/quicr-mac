@@ -21,7 +21,7 @@ struct SettingsView: View {
                                 isPresented: self.$cancelConfirmation) {
                 Button("Reset", role: .destructive) {
                     // Reset all settings to defaults.
-                    UserDefaults.standard.removeObject(forKey: RelaySettingsView.defaultsKey)
+                    UserDefaults.standard.removeObject(forKey: RelayConfig.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: ManifestSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: InfluxSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
@@ -58,9 +58,9 @@ struct DecimusTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
         #if os(tvOS)
-            .textFieldStyle(.plain)
+        .textFieldStyle(.plain)
         #else
-            .textFieldStyle(.roundedBorder)
+        .textFieldStyle(.roundedBorder)
         #endif
     }
 }

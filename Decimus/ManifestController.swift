@@ -78,7 +78,7 @@ class ManifestController {
     /// - Parameter email: Target user's email address.
     /// - Returns: List of conferences this user can join.
     func getConferences(for email: String) async throws -> [Conference] {
-        var url = self.components
+        var url = components
         url.path = "/conferences"
 
         url.queryItems = [

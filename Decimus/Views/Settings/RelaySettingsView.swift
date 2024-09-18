@@ -4,40 +4,22 @@
 import SwiftUI
 
 struct RelaySettingsView: View {
-    static let defaultsKey = "relayConfig"
-
-    @AppStorage(Self.defaultsKey)
+    @AppStorage(RelayConfig.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
     var body: some View {
         Section("Relay") {
             Form {
                 LabeledContent("Address") {
-                    TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
-                        .keyboardType(.URL)
-                        .onSubmit {
-                            if let url = URL(string: relayConfig.value.address) {
-                                relayConfig.value.address = url.host() ?? relayConfig.value.address;
-                            }
-                        }
-                }
-
-                LabeledContent("Protocol") {
-                    Picker("Protocol", selection: $relayConfig.value.connectionProtocol) {
-                        ForEach(ProtocolType.allCases) { prot in
-                            Text(String(describing: prot)).tag(prot)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: relayConfig.value.connectionProtocol) { _, newValue in
-                        relayConfig.value.port = defaultProtocolPorts[newValue] ?? relayConfig.value.port
-                    }
-                }
-
-                LabeledContent("Port") {
-                    NumberView(value: self.$relayConfig.value.port,
-                               formatStyle: IntegerFormatStyle<UInt16>.number.grouping(.never),
-                               name: "Port")
+                    URLField(name: "relay_address",
+                             validation: { url in
+                                guard let scheme = url.scheme,
+                                      scheme == "moq" else {
+                                    return "Must have moq:// scheme"
+                                }
+                                return nil
+                             },
+                             url: self.$relayConfig.value.address)
                 }
             }
             .formStyle(.columns)
