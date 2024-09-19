@@ -13,7 +13,7 @@ struct ManifestServerConfig: Codable, Equatable {
     /// Manifest/conference port.
     var port: Int = 411
     /// Which manifest configuration to query against.
-    var config: String = ""
+    var config: String = "testing"
 }
 
 /// Fetches and parses manifest/conference information from a server.
