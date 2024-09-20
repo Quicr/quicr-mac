@@ -6,6 +6,7 @@ import SwiftUI
 struct SettingsView: View {
 
     @State private var cancelConfirmation = false
+    private let logger = DecimusLogger(SettingsView.self)
 
     var body: some View {
         // Reset all.
@@ -23,7 +24,11 @@ struct SettingsView: View {
                     // Reset all settings to defaults.
                     UserDefaults.standard.removeObject(forKey: RelaySettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: ManifestSettingsView.defaultsKey)
-                    UserDefaults.standard.removeObject(forKey: InfluxSettingsView.defaultsKey)
+                    do {
+                        try InfluxSettingsView.reset()
+                    } catch {
+                        self.logger.warning("Failed to reset settings: \(error.localizedDescription)", alert: true)
+                    }
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
                 }
             }
@@ -58,9 +63,9 @@ struct DecimusTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
         #if os(tvOS)
-            .textFieldStyle(.plain)
+        .textFieldStyle(.plain)
         #else
-            .textFieldStyle(.roundedBorder)
+        .textFieldStyle(.roundedBorder)
         #endif
     }
 }
