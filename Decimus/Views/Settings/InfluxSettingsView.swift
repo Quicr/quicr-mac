@@ -9,6 +9,13 @@ struct InfluxSettingsView: View {
     @AppStorage(Self.defaultsKey)
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
+    private static let tokenStorage = try! TokenStorage(tag: Self.defaultsKey)
+
+    @State
+    private var token: String = ""
+
+    private let logger = DecimusLogger(InfluxSettingsView.self)
+
     var body: some View {
         Section("Influx Connection") {
             Form {
@@ -37,14 +44,6 @@ struct InfluxSettingsView: View {
                     TextField("URL", text: $influxConfig.value.url)
                 }
 
-                LabeledContent("Username") {
-                    TextField("Username", text: $influxConfig.value.username)
-                }
-
-                LabeledContent("Password") {
-                    SecureField("Password", text: $influxConfig.value.password)
-                }
-
                 LabeledContent("Bucket") {
                     TextField("Bucket", text: $influxConfig.value.bucket)
                 }
@@ -54,11 +53,34 @@ struct InfluxSettingsView: View {
                 }
 
                 LabeledContent("Token") {
-                    SecureField("Token", text: $influxConfig.value.token)
+                    SecureField("Token", text: self.$token)
                 }
             }
             .formStyle(.columns)
+            .onAppear {
+                do {
+                    if let token = try Self.tokenStorage.retrieve() {
+                        self.token = token
+                    } else {
+                        self.token = ""
+                    }
+                } catch {
+                    self.logger.error("Error fetching influx token: \(error.localizedDescription)")
+                }
+            }
+            .onChange(of: self.token) {
+                do {
+                    try Self.tokenStorage.store(self.token)
+                } catch {
+                    self.logger.error("Error storing influx token: \(error.localizedDescription)")
+                }
+            }
         }
+    }
+
+    static func reset() throws {
+        UserDefaults.standard.removeObject(forKey: InfluxSettingsView.defaultsKey)
+        try Self.tokenStorage.delete()
     }
 }
 
