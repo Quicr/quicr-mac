@@ -18,3 +18,6 @@ fi
 
 # Build QMedia.
 sh $CI_PRIMARY_REPOSITORY_PATH/dependencies/build-qmedia-framework.sh
+
+# Patch in secrets.
+plutil -insert INFLUXDB_TOKEN -string $INFLUXDB_TOKEN ../Decimus/Info.plist

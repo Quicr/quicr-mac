@@ -370,11 +370,18 @@ extension InCallView {
         private func doMetrics(_ tags: [String: String]) {
             let token: String
             do {
+                // Try and get metrics from storage.
                 let storage = try TokenStorage(tag: InfluxSettingsView.defaultsKey)
-                guard let fetched = try storage.retrieve() else {
-                    throw "No token stored"
+                if let fetched = try storage.retrieve() {
+                    token = fetched
+                    Self.logger.debug("Resolved influx token from keychain")
+                } else {
+                    // Fetch from plist in this case.
+                    let defaultValue = try InfluxSettingsView.tokenFromPlist()
+                    try storage.store(defaultValue)
+                    token = defaultValue
+                    Self.logger.debug("Resolved influx token from default")
                 }
-                token = fetched
             } catch {
                 Self.logger.warning("Failed to fetch metrics credentials", alert: true)
                 return
