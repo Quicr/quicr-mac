@@ -23,9 +23,10 @@ class TokenStorage {
     }
 
     /// Store a new string into the store.
-    /// - Parameter token: UTF-8 encodable string.
+    /// - Parameter token: Non empty UTF-8 encodable string.
     func store(_ token: String) throws {
-        guard let token = token.data(using: .utf8) else {
+        guard !token.isEmpty,
+              let token = token.data(using: .utf8) else {
             throw TokenStorageError.badToken
         }
 

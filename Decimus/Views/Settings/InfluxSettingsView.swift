@@ -15,6 +15,7 @@ struct InfluxSettingsView: View {
     private var token: String = ""
 
     private let logger = DecimusLogger(InfluxSettingsView.self)
+    static private let plistKey = "INFLUXDB_TOKEN"
 
     var body: some View {
         Section("Influx Connection") {
@@ -62,13 +63,15 @@ struct InfluxSettingsView: View {
                     if let token = try Self.tokenStorage.retrieve() {
                         self.token = token
                     } else {
-                        self.token = ""
+                        self.token = try Self.tokenFromPlist()
+                        self.logger.debug("Restored influx token from plist")
                     }
                 } catch {
                     self.logger.error("Error fetching influx token: \(error.localizedDescription)")
                 }
             }
             .onChange(of: self.token) {
+                guard !self.token.isEmpty else { return }
                 do {
                     try Self.tokenStorage.store(self.token)
                 } catch {
@@ -81,6 +84,13 @@ struct InfluxSettingsView: View {
     static func reset() throws {
         UserDefaults.standard.removeObject(forKey: InfluxSettingsView.defaultsKey)
         try Self.tokenStorage.delete()
+    }
+
+    static func tokenFromPlist() throws -> String {
+        guard let token = Bundle.main.object(forInfoDictionaryKey: Self.plistKey) as? String else {
+            throw "Missing \(Self.plistKey) in Info.plist"
+        }
+        return token
     }
 }
 
