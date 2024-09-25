@@ -11,6 +11,8 @@ import multiprocessing
 import argparse
 import shutil
 
+build_type = "RelWithDebInfo"
+generator = "Ninja"
 
 class Platform:
     def __init__(self, type, cmake_platform, build_folder):
@@ -27,7 +29,6 @@ class PlatformType(Enum):
     TVOS = 5
     TVOS_SIMULATOR = 6
 
-
 def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
 
     build_dir = f"{current_directory}/{platform.build_folder}"
@@ -37,8 +38,9 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
 
     command = [
         cmake_path,
+        f"-G{generator}",
         f"-DCMAKE_TOOLCHAIN_FILE={current_directory}/ios.toolchain.cmake",
-        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+        f"-DCMAKE_BUILD_TYPE={build_type}",
         "-S",
         source,
         "-B",
@@ -48,6 +50,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "-DDEPLOYMENT_TARGET=16.0",
         "-DQUICR_BUILD_SHARED=ON",
         "-DENABLE_VISIBILITY=ON",
+        "-DWITH_DTRACE=OFF",
         "-DHAVE_H_ERRNO_ASSIGNABLE=0",
         "-DENABLE_STRICT_TRY_COMPILE=ON",
         f"-DMACOSX_FRAMEWORK_IDENTIFIER={identifier}",
@@ -55,6 +58,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DMACOSX_FRAMEWORK_INFO_PLIST={current_directory}/MacOSXFrameworkInfo.plist",
         f"-DMACOSX_FRAMEWORK_BUNDLE_VERSION=1.0.{build_number}",
         f"-DMACOSX_FRAMEWORK_SHORT_VERSION_STRING=1.0.{build_number}",
+        # f"-DMACOSX_FRAMEWORK_BUNDLE_NAME={identifier}",
         f"-DBUILD_NUMBER={build_number}",
         "-Wno-dev"]
     generate = subprocess.Popen(
@@ -69,7 +73,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "--build",
         build_dir,
         f"--target {target}",
-        "--config RelWithDebInfo",
+        f"--config {build_type}",
         f"-j{multiprocessing.cpu_count()}"
     ]
     build_process = subprocess.Popen(
@@ -103,9 +107,9 @@ def create_xcframework(target: str, target_path: str, current_directory: str, pl
     for platform in platforms:
         command.append("-framework")
         command.append(
-            f"{current_directory}/{platform.build_folder}/{target_path}/{target}.framework")
+            f"{current_directory}/{platform.build_folder}/{target_path}/{get_build_folder(platform.type)}/{target}.framework")
         command.append("-debug-symbols")
-        command.append(f"{current_directory}/{platform.build_folder}/{target_path}/{target}.dSYM")
+        command.append(f"{current_directory}/{platform.build_folder}/{target_path}/{get_build_folder(platform.type)}/{target}.dSYM")
     command.append("-output")
     command.append(xcframework_path)
 
@@ -183,6 +187,9 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
                 platforms.append(PlatformType.IOS_SIMULATOR)
             elif "tvos" in args.effective_platform_name:
                 platforms.append(PlatformType.TVOS)
+            else:
+                print(f"Unhandled effective platform: {args.effective_platform_name}")
+                exit(1)
 
         if args.build_number:
             build_number = args.build_number
@@ -203,7 +210,16 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
             print(f"[{platform.type.name}] Built")
 
     for platform in platforms:
-        result, output, error = generate_dsym(f"{current_directory}/{supported_platforms[platform].build_folder}/{target_path}", target)
+        framework_path = f"{current_directory}/{supported_platforms[platform].build_folder}/{target_path}/{get_build_folder(platform)}/"
+
+        # Patch plist with minimum version.
+        if platform == PlatformType.IOS:
+            patch_plist(f"{framework_path}{target}.framework/Info.plist", "17.0")
+        elif platform == PlatformType.TVOS:
+            patch_plist(f"{framework_path}{target}.framework/Info.plist", "15.6")
+
+        # Generate dSYM.
+        result, output, error = generate_dsym(framework_path, target)
         if result != 0:
             print(f"Couldn't make dsym for {platform}")
             print(output)
@@ -220,6 +236,37 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     create_xcframework(target, target_path, current_directory, [
                        supported_platforms[platform] for platform in platforms])
 
+def get_build_folder(type: PlatformType) -> str:
+    if generator == "Xcode":
+        if type == PlatformType.IOS:
+            return f"{build_type}-iphoneos"
+        elif type == PlatformType.TVOS:
+            return f"{build_type}-appletvos"
+        else:
+            return build_type
+    else:
+        return ""
+
+def patch_plist(plist: str, version: str) -> bool:
+    print(f"Patching plist @ {plist}")
+
+    command = [
+        "plutil",
+        "-replace",
+        "MinimumOSVersion",
+        "-string",
+        f"{version}",
+        f"{plist}"
+    ]
+    generate = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = generate.communicate()
+    if generate.returncode != 0:
+        print("Plist patch failed")
+        print(generate.stdout)
+        return False
+    return True
+
 if __name__ == "__main__":
-    do_build("libquicr", "com.cisco.quicr.quicr", "quicr", "src/")
+    do_build("libquicr", "com.cisco.quicr.quicr", "quicr", "src")
     do_build("libjitter", "com.cisco.quicr.clibjitter", "clibjitter", "")
