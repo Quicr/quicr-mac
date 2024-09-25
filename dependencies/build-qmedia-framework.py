@@ -58,7 +58,6 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DMACOSX_FRAMEWORK_INFO_PLIST={current_directory}/MacOSXFrameworkInfo.plist",
         f"-DMACOSX_FRAMEWORK_BUNDLE_VERSION=1.0.{build_number}",
         f"-DMACOSX_FRAMEWORK_SHORT_VERSION_STRING=1.0.{build_number}",
-        # f"-DMACOSX_FRAMEWORK_BUNDLE_NAME={identifier}",
         f"-DBUILD_NUMBER={build_number}",
         "-Wno-dev"]
     generate = subprocess.Popen(
@@ -216,7 +215,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
         if platform == PlatformType.IOS:
             patch_plist(f"{framework_path}{target}.framework/Info.plist", "17.0")
         elif platform == PlatformType.TVOS:
-            patch_plist(f"{framework_path}{target}.framework/Info.plist", "15.6")
+            patch_plist(f"{framework_path}{target}.framework/Info.plist", "17.6")
 
         # Generate dSYM.
         result, output, error = generate_dsym(framework_path, target)
