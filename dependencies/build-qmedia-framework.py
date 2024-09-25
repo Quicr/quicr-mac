@@ -12,7 +12,7 @@ import argparse
 import shutil
 
 build_type = "RelWithDebInfo"
-generator = "Ninja"
+generator = "Unix Makefiles"
 
 class Platform:
     def __init__(self, type, cmake_platform, build_folder):
