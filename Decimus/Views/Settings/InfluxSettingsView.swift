@@ -13,6 +13,9 @@ struct InfluxSettingsView: View {
 
     @State
     private var token: String = ""
+    
+    @State
+    private var tokenError: String = ""
 
     private let logger = DecimusLogger(InfluxSettingsView.self)
     static private let plistKey = "INFLUXDB_TOKEN"
@@ -54,7 +57,12 @@ struct InfluxSettingsView: View {
                 }
 
                 LabeledContent("Token") {
-                    SecureField("Token", text: self.$token)
+                    VStack {
+                        SecureField("Token", text: self.$token)
+                        Text(self.tokenError)
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                    }
                 }
             }
             .formStyle(.columns)
@@ -65,17 +73,23 @@ struct InfluxSettingsView: View {
                     } else {
                         self.token = try Self.tokenFromPlist()
                         self.logger.debug("Restored influx token from plist")
+                        self.tokenError = ""
                     }
                 } catch {
-                    self.logger.error("Error fetching influx token: \(error.localizedDescription)")
+                    let message = "Error fetching influx token: \(error.localizedDescription)"
+                    self.tokenError = message
+                    self.logger.warning(message)
                 }
             }
             .onChange(of: self.token) {
                 guard !self.token.isEmpty else { return }
                 do {
                     try Self.tokenStorage.store(self.token)
+                    self.tokenError = ""
                 } catch {
-                    self.logger.error("Error storing influx token: \(error.localizedDescription)")
+                    let message = "Error storing influx token: \(error.localizedDescription)"
+                    self.tokenError = message
+                    self.logger.warning(message)
                 }
             }
         }
