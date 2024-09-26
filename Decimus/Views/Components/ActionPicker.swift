@@ -113,7 +113,9 @@ struct ActionPicker<Content>: View where Content: View {
             }
             .disabled(isDisabled)
             .background(.black)
+            #if canImport(UIKit)
             .cornerRadius(30, corners: [.topLeft, .bottomLeft])
+            #endif
 
             //            Button(action: pickerAction) {
             //                Image(systemName: "chevron.\(expanded ? "up" : "down")")

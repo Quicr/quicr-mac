@@ -55,7 +55,10 @@ class PublicationFactory {
             }
             // TODO: SourceID from manifest is bogus, do this for now to retrieve valid device
             let device: AVCaptureDevice
-            if #available(iOS 17.0, tvOS 17.0, *) {
+            #if os(macOS)
+            device = AVCaptureDevice.default(.external, for: .video, position: .unspecified)!
+            #else
+            if #available(iOS 17.0, tvOS 17.0, macOS 13.0, *) {
                 guard let preferred = AVCaptureDevice.systemPreferredCamera else {
                     throw H264PublicationError.noCamera(sourceID)
                 }
@@ -66,6 +69,7 @@ class PublicationFactory {
                 }
                 device = preferred
             }
+            #endif
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
                                         emitStartCodes: config.codec == .hevc)

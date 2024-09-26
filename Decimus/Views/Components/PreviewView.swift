@@ -31,6 +31,40 @@ class PreviewUIView: VideoUIView, FrameListener {
     }
 }
 
+#if os(macOS)
+struct PreviewView: NSViewRepresentable {
+
+    private static let logger = DecimusLogger(PreviewView.self)
+    let view: PreviewUIView
+    private let captureManager: CaptureManager
+
+    init(captureManager: CaptureManager, device: AVCaptureDevice) throws {
+        self.captureManager = captureManager
+        self.view = PreviewUIView(device: device,
+                                  captureManager: captureManager,
+                                  frame: .zero)
+    }
+
+    func makeNSView(context: Context) -> PreviewUIView {
+        do {
+            try captureManager.addInput(self.view)
+        } catch {
+            Self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: PreviewUIView, context: Context) {}
+
+    static func dismantleNSView(_ nsView: PreviewUIView, coordinator: ()) {
+        do {
+            try nsView.captureManager.removeInput(listener: nsView)
+        } catch {
+            Self.logger.error("Failed to remove input for preview: \(error.localizedDescription)")
+        }
+    }
+}
+#else
 struct PreviewView: UIViewRepresentable {
     private static let logger = DecimusLogger(PreviewView.self)
     let view: PreviewUIView
@@ -63,3 +97,4 @@ struct PreviewView: UIViewRepresentable {
         }
     }
 }
+#endif

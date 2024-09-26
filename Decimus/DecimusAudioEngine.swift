@@ -4,6 +4,21 @@
 import AVFAudio
 import os
 
+#if os(macOS)
+class DecimusAudioEngine {
+    let microphoneBuffer: CircularBuffer? = nil
+    static let format: AVAudioFormat = .init(commonFormat: .pcmFormatFloat32,
+                                             sampleRate: .opus48khz,
+                                             channels: 1,
+                                             interleaved: false)!
+    func start() {}
+    func stop() {}
+    func addPlayer(identifier: SourceIDType, node: AVAudioSourceNode) throws {}
+    func removePlayer(identifier: SourceIDType) {}
+    func toggleMute() {}
+    func isInputMuted() -> Bool { true }
+}
+#else
 /// Wrapper for app specific `AVAudioEngine` functionality.
 class DecimusAudioEngine {
     /// The audio format the application should use.
@@ -352,3 +367,5 @@ class DecimusAudioEngine {
         try self.start()
     }
 }
+
+#endif

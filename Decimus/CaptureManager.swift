@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFoundation
+#if canImport(UIKit)
 import UIKit
+#endif
 import os
 
 public extension AVCaptureDevice {
@@ -64,7 +66,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Callback of a device event.
     typealias DeviceChangeCallback = (AVCaptureDevice, DeviceEvent) -> Void
 
+    #if os(macOS)
+    private let session: AVCaptureSession
+    #else
     private let session: AVCaptureMultiCamSession
+    #endif
     private var inputs: [AVCaptureDevice: AVCaptureDeviceInput] = [:]
     private var outputs: [AVCaptureOutput: AVCaptureDevice] = [:]
     private var startTime: [AVCaptureOutput: Date] = [:]
@@ -83,11 +89,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// - Parameter metricsSubmitter: Optionally, a submitter to collect/submit metrics through.
     /// - Parameter granularMetrics: Collect granular metrics when a submitter is present, at a potential performance penalty.
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
+        #if !os(macOS)
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
             throw CaptureManagerError.multicamNotSuported
         }
+        #endif
         session = .init()
+        #if !os(macOS)
         session.automaticallyConfiguresApplicationAudioSession = false
+        #endif
         self.granularMetrics = granularMetrics
         if let metricsSubmitter = metricsSubmitter {
             let measurement = CaptureManager.CaptureManagerMeasurement()
@@ -179,12 +189,15 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         defer { device.unlockForConfiguration() }
 
         let allowableFormats = device.formats.reversed().filter { format in
-            var supported = format.isMultiCamSupported &&
+            var supported =
                 format.formatDescription.dimensions.width == config.width &&
                 format.formatDescription.dimensions.height == config.height &&
-                format.supportedColorSpaces.contains(.sRGB)
+                format.supportedColorSpaces.contains(.sRGB) &&
+                format.formatDescription.mediaSubType == .init(string: "420v")
             if config.codec == .hevc {
+                #if !os(macOS)
                 supported = supported && format.isVideoHDRSupported
+                #endif
             }
             return supported
         }
@@ -230,11 +243,13 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         // Register for pressure state notifications.
+        #if !os(macOS)
         let token = device.observe(\.systemPressureState, options: [.initial, .new]) { [weak self] _, _ in
             guard let self = self else { return }
             self.recordPressureState(device)
         }
         self.pressureObservations[device] = token
+        #endif
 
         // Prepare IO.
         // TODO: Theoretically all of these may need to be reconfigured on a device format change.
@@ -248,11 +263,13 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
             Self.logger.debug("[\(device.localizedName)] Using lossy compressed format")
         }
+        #if !os(macOS)
         output.videoSettings[AVVideoColorPropertiesKey] = [
             AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
             AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
             AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
         ]
+        #endif
         output.setSampleBufferDelegate(self, queue: self.queue)
         guard session.canAddInput(input),
               session.canAddOutput(output) else {
@@ -262,9 +279,14 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Apply these changes.
         session.beginConfiguration()
+        #if os(macOS)
+        session.addOutput(output)
+        session.addInput(input)
+        #else
         session.addOutputWithNoConnections(output)
         session.addInputWithNoConnections(input)
         session.addConnection(connection)
+        #endif
 
         // Done.
         session.commitConfiguration()
@@ -415,6 +437,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     private func recordPressureState(_ device: AVCaptureDevice) {
+        #if !os(macOS)
         let pressure = device.systemPressureState
         let level: Int
         let factor: String
@@ -460,10 +483,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                 await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
             }
         }
+        #endif
     }
 }
 
-#if !os(tvOS)
+#if !os(tvOS) && !os(macOS)
 extension UIDeviceOrientation {
     /// Get Decimus' representation of this orientation.
     var videoOrientation: DecimusVideoRotation {

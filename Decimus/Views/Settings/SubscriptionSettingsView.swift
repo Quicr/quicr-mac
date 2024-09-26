@@ -15,7 +15,7 @@ struct SubscriptionSettingsView: View {
     private let noPreference = "None"
 
     init() {
-        if #available(iOS 17.0, *) {
+        if #available(iOS 17.0, macOS 13.0, *) {
             self.preferredCamera = AVCaptureDevice.userPreferredCamera?.uniqueID ?? self.noPreference
         } else {
             self.preferredCamera = self.noPreference
@@ -65,7 +65,7 @@ struct SubscriptionSettingsView: View {
                     }.pickerStyle(.segmented)
                 }
 
-                if #available(iOS 17.0, *) {
+                if #available(iOS 17.0, macOS 13.0, *) {
                     Picker("Preferred Camera", selection: $preferredCamera) {
                         Text("None").tag("None")
                         ForEach(devices.cameras, id: \.uniqueID) {

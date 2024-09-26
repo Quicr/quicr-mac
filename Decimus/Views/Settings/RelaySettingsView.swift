@@ -14,7 +14,9 @@ struct RelaySettingsView: View {
             Form {
                 LabeledContent("Address") {
                     TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
-                        .keyboardType(.URL)
+                    #if canImport(UIKit)
+                    .keyboardType(.URL)
+                    #endif
                 }
 
                 LabeledContent("Protocol") {

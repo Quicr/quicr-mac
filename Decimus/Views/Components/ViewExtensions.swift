@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 
 struct Above<AboveContent: View>: ViewModifier {
     let aboveContent: AboveContent
@@ -21,23 +23,33 @@ struct Above<AboveContent: View>: ViewModifier {
 
 struct CornerRadiusShape: Shape {
     var radius: CGFloat = CGFloat.infinity
+    #if canImport(UIKit)
     var corners: UIRectCorner = UIRectCorner.allCorners
+    #endif
 
     func path(in rect: CGRect) -> Path {
+        #if canImport(UIKit)
         let path = UIBezierPath(roundedRect: rect,
                                 byRoundingCorners: corners,
                                 cornerRadii: CGSize(width: radius, height: radius))
         return Path(path.cgPath)
+        #else
+        return Path(ellipseIn: rect)
+        #endif
     }
 }
 
 struct CornerRadiusStyle: ViewModifier {
     var radius: CGFloat
+    #if canImport(UIKit)
     var corners: UIRectCorner
+    #endif
 
     func body(content: Content) -> some View {
         content
-            .clipShape(CornerRadiusShape(radius: radius, corners: corners))
+        #if canImport(UIKit)
+        .clipShape(CornerRadiusShape(radius: radius, corners: corners))
+        #endif
     }
 }
 
@@ -46,7 +58,9 @@ extension View {
         self.modifier(Above(aboveContent: above))
     }
 
+    #if canImport(UIKit)
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> ModifiedContent<Self, CornerRadiusStyle> {
         self.modifier(CornerRadiusStyle(radius: radius, corners: corners))
     }
+    #endif
 }

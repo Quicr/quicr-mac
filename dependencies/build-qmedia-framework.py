@@ -28,6 +28,7 @@ class PlatformType(Enum):
     IOS_SIMULATOR = 4
     TVOS = 5
     TVOS_SIMULATOR = 6
+    MACOS = 7
 
 def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
 
@@ -151,6 +152,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
             PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}"),
         PlatformType.TVOS: Platform(PlatformType.TVOS, "TVOS", f"build-tvos-{source_folder}"),
         PlatformType.TVOS_SIMULATOR: Platform(PlatformType.TVOS_SIMULATOR, "SIMULATORARM64_TVOS", f"build-tvossim-{source_folder}"),
+        PlatformType.MACOS: Platform(PlatformType.MACOS, "MAC_ARM64", f"build-macos-{source_folder}")
     }
 
     # Get dependencies directory (assuming this is where this script lives).

@@ -3,7 +3,9 @@
 
 import SwiftUI
 import AVFoundation
+#if canImport(UIKit)
 import UIKit
+#endif
 import os
 
 /// View to show when in a call.
@@ -24,7 +26,7 @@ struct InCallView: View {
 
     /// Callback when call is left.
     private let onLeave: () -> Void
-    #if !os(tvOS)
+    #if !os(tvOS) && !os(macOS)
     private let orientationChanged = NotificationCenter
         .default
         .publisher(for: UIDevice.orientationDidChangeNotification)
@@ -33,7 +35,9 @@ struct InCallView: View {
     #endif
 
     init(config: CallConfig, onLeave: @escaping () -> Void) {
+        #if canImport(UIKit)
         UIApplication.shared.isIdleTimerDisabled = true
+        #endif
         self.onLeave = onLeave
         _viewModel = .init(wrappedValue: .init(config: config, onLeave: onLeave))
     }

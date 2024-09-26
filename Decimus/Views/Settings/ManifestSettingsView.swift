@@ -32,7 +32,9 @@ struct ManifestSettingsView: View {
 
                 LabeledContent("Address") {
                     TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
-                        .keyboardType(.URL)
+                    #if canImport(UIKit)
+                    .keyboardType(.URL)
+                    #endif
                 }
 
                 LabeledContent("Port") {
