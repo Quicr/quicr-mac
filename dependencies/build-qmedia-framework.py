@@ -28,7 +28,8 @@ class PlatformType(Enum):
     IOS_SIMULATOR = 4
     TVOS = 5
     TVOS_SIMULATOR = 6
-    MACOS = 7
+    MACOS_ARM64 = 7
+    MACOS_X86 = 8
 
 def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
 
@@ -124,11 +125,12 @@ def create_xcframework(target: str, target_path: str, current_directory: str, pl
         print(output.decode())
 
 
-def patch_universal(current_directory: str, build_folder: str, target: str, target_path: str):
+def patch_universal(current_directory: str, build_folder: str, target: str, target_path: str, prefix: str):
     env = os.environ.copy()
     env["TARGET"] = target
     env["BUILD_FOLDER"] = build_folder
     env["TARGET_PATH"] = target_path
+    env["PREFIX"] = prefix
     make_universal = subprocess.Popen(
         ["sh", f"{current_directory}/make_universal.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     _, error = make_universal.communicate()
@@ -152,7 +154,8 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
             PlatformType.IOS_SIMULATOR, "SIMULATORARM64", f"build-iossim-{source_folder}"),
         PlatformType.TVOS: Platform(PlatformType.TVOS, "TVOS", f"build-tvos-{source_folder}"),
         PlatformType.TVOS_SIMULATOR: Platform(PlatformType.TVOS_SIMULATOR, "SIMULATORARM64_TVOS", f"build-tvossim-{source_folder}"),
-        PlatformType.MACOS: Platform(PlatformType.MACOS, "MAC_ARM64", f"build-macos-{source_folder}")
+        PlatformType.MACOS_ARM64: Platform(PlatformType.MACOS_ARM64, "MAC_ARM64", f"build-macos-{source_folder}"),
+        PlatformType.MACOS_X86: Platform(PlatformType.MACOS_X86, "MAC", f"build-macos-x86-{source_folder}")
     }
 
     # Get dependencies directory (assuming this is where this script lives).
@@ -229,9 +232,15 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     # Universal LIPO.
     if PlatformType.CATALYST_ARM in platforms and PlatformType.CATALYST_X86 in platforms:
         # Patch and then drop the x86 support, as it's now included in the ARM binary.
-        patch_universal(current_directory, source_folder, target, target_path)
+        patch_universal(current_directory, source_folder, target, target_path, "catalyst")
         platforms.remove(PlatformType.CATALYST_X86)
         print(f"[{PlatformType.CATALYST_ARM.name} & {PlatformType.CATALYST_X86.name}] Patched universal catalyst binary for ARM64 & x86")
+
+    if PlatformType.MACOS_ARM64 in platforms and PlatformType.MACOS_X86 in platforms:
+        # Patch and then drop the x86 support, as it's now included in the ARM binary.
+        patch_universal(current_directory, source_folder, target, target_path, "macos")
+        platforms.remove(PlatformType.MACOS_X86)
+        print(f"[{PlatformType.MACOS_ARM64.name} & {PlatformType.MACOS_X86.name}] Patched universal MacOS binary for ARM64 & x86")
 
     # XCFramework.
     create_xcframework(target, target_path, current_directory, [
