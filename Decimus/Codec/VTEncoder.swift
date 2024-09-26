@@ -277,7 +277,7 @@ class VTEncoder: VideoEncoder {
                             bufferAllocator: self.bufferAllocator)
 
         // Append Orientation SEI to buffer
-        #if os(iOS)
+        #if os(iOS) && !targetEnvironment(macCatalyst)
         do {
             try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
                                       verticalMirror: verticalMirror,
