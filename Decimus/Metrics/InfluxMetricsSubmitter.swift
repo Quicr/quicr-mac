@@ -21,10 +21,10 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     private var measurements: [UUID: WeakMeasurement] = [:]
     private var tags: [String: String]
 
-    init(config: InfluxConfig, tags: [String: String]) {
+    init(token: String, config: InfluxConfig, tags: [String: String]) {
         // Create the influx API instance.
         client = .init(url: config.url,
-                       token: config.token,
+                       token: token,
                        options: .init(bucket: config.bucket,
                                       org: config.org,
                                       enableGzip: true))

@@ -222,35 +222,15 @@ extension InCallView {
                 Self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
                 self.engine = nil
             }
-            let tags: [String: String] = [
-                "relay": "\(config.address):\(config.port)",
-                "email": config.email,
-                "conference": "\(config.conferenceID)",
-                "protocol": "\(config.connectionProtocol)"
-            ]
 
             if influxConfig.value.submit {
-                let influx = InfluxMetricsSubmitter(config: influxConfig.value, tags: tags)
-                submitter = influx
-                let measurement = _Measurement()
-                self.measurement = .init(measurement: measurement, submitter: influx)
-                if influxConfig.value.realtime {
-                    // Application metrics timer.
-                    self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                        while !Task.isCancelled {
-                            let duration: TimeInterval
-                            if let self = self {
-                                duration = TimeInterval(self.influxConfig.value.intervalSecs)
-                                let usage = try cpuUsage()
-                                await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-                                await self.submitter?.submit()
-                            } else {
-                                return
-                            }
-                            try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
-                        }
-                    }
-                }
+                let tags: [String: String] = [
+                    "relay": "\(config.address):\(config.port)",
+                    "email": config.email,
+                    "conference": "\(config.conferenceID)",
+                    "protocol": "\(config.connectionProtocol)"
+                ]
+                self.doMetrics(tags)
             }
 
             do {
@@ -388,6 +368,51 @@ extension InCallView {
                 try controller?.disconnect()
             } catch {
                 Self.logger.error("Error while leaving call: \(error)")
+            }
+        }
+
+        private func doMetrics(_ tags: [String: String]) {
+            let token: String
+            do {
+                // Try and get metrics from storage.
+                let storage = try TokenStorage(tag: InfluxSettingsView.defaultsKey)
+                if let fetched = try storage.retrieve() {
+                    token = fetched
+                    Self.logger.debug("Resolved influx token from keychain")
+                } else {
+                    // Fetch from plist in this case.
+                    let defaultValue = try InfluxSettingsView.tokenFromPlist()
+                    try storage.store(defaultValue)
+                    token = defaultValue
+                    Self.logger.debug("Resolved influx token from default")
+                }
+            } catch {
+                Self.logger.warning("Failed to fetch metrics credentials", alert: true)
+                return
+            }
+
+            let influx = InfluxMetricsSubmitter(token: token,
+                                                config: influxConfig.value,
+                                                tags: tags)
+            submitter = influx
+            let measurement = _Measurement()
+            self.measurement = .init(measurement: measurement, submitter: influx)
+            if influxConfig.value.realtime {
+                // Application metrics timer.
+                self.appMetricTimer = .init(priority: .utility) { [weak self] in
+                    while !Task.isCancelled {
+                        let duration: TimeInterval
+                        if let self = self {
+                            duration = TimeInterval(self.influxConfig.value.intervalSecs)
+                            let usage = try cpuUsage()
+                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                            await self.submitter?.submit()
+                        } else {
+                            return
+                        }
+                        try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
+                    }
+                }
             }
         }
     }
