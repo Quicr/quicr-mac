@@ -6,6 +6,12 @@ import XCTest
 
 final class TestTokenStorage: XCTestCase {
     func testStoreAndRetrieve() throws {
+        if let ci = ProcessInfo.processInfo.environment["CI"],
+           ci == "TRUE" {
+            _ = XCTSkip("Skipping keychain test in CI")
+            return
+        }
+
         let storage = try TokenStorage(tag: "foo")
         addTeardownBlock {
             try storage.delete()
