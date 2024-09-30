@@ -130,7 +130,7 @@ struct ActionPicker<Content>: View where Content: View {
             //            .cornerRadius(20, corners: [.topRight, .bottomRight])
         }
         .overlay(RoundedRectangle(cornerRadius: 30).stroke(.gray, lineWidth: 1))
-        #if targetEnvironment(macCatalyst)
+        #if targetEnvironment(macCatalyst) || os(macOS)
         .float(above: MenuModal(presented: $expanded, content: content)
         .padding(.bottom))
         #else

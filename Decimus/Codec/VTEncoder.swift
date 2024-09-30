@@ -58,7 +58,7 @@ class VTEncoder: VideoEncoder {
         self.emitStartCodes = emitStartCodes
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
         let allocator: CFAllocator?
-        #if targetEnvironment(macCatalyst)
+        #if targetEnvironment(macCatalyst) || os(macOS)
         allocator = self.bufferAllocator.allocator().takeUnretainedValue()
         #else
         allocator = nil
@@ -250,7 +250,7 @@ class VTEncoder: VideoEncoder {
         }
 
         let buffer: CMBlockBuffer
-        #if !targetEnvironment(macCatalyst)
+        #if !targetEnvironment(macCatalyst) || os(macOS)
         let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
         guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {

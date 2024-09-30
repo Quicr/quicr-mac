@@ -219,7 +219,7 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
-                    #if targetEnvironment(macCatalyst)
+                    #if targetEnvironment(macCatalyst) || os(macOS)
                     .frame(maxWidth: 350)
                     #endif
 

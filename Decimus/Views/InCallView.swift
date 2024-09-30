@@ -245,7 +245,7 @@ extension InCallView {
                 let connectUri: String = "moq://\(config.address):\(config.port)"
                 let endpointId: String = config.email
                 let qLogPath: URL
-                #if targetEnvironment(macCatalyst)
+                #if targetEnvironment(macCatalyst) || os(macOS)
                 qLogPath = .downloadsDirectory
                 #else
                 qLogPath = .documentsDirectory
