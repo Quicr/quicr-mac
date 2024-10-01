@@ -15,7 +15,7 @@ struct SubscriptionSettingsView: View {
     private let noPreference = "None"
 
     init() {
-        if #available(iOS 17.0, *) {
+        if #available(iOS 17.0, macOS 13.0, *) {
             self.preferredCamera = AVCaptureDevice.userPreferredCamera?.uniqueID ?? self.noPreference
         } else {
             self.preferredCamera = self.noPreference
@@ -33,6 +33,7 @@ struct SubscriptionSettingsView: View {
                         "Depth (s)",
                         value: $subscriptionConfig.value.jitterDepthTime,
                         format: .number)
+                        .labelsHidden()
                         .onChange(of: subscriptionConfig.value.jitterDepthTime) {
                             subscriptionConfig.value.videoJitterBuffer.minDepth = $0
                             subscriptionConfig.value.jitterMaxTime = $0
@@ -43,6 +44,7 @@ struct SubscriptionSettingsView: View {
                         "Capacity (s)",
                         value: $subscriptionConfig.value.videoJitterBuffer.capacity,
                         format: .number)
+                        .labelsHidden()
                 }
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {
@@ -54,7 +56,9 @@ struct SubscriptionSettingsView: View {
                         ForEach(VideoBehaviour.allCases) {
                             Text(String(describing: $0))
                         }
-                    }.pickerStyle(.segmented)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
                 }
 
                 LabeledContent("Encoder bitrate") {
@@ -62,10 +66,12 @@ struct SubscriptionSettingsView: View {
                         ForEach(BitrateType.allCases) {
                             Text(String(describing: $0))
                         }
-                    }.pickerStyle(.segmented)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
                 }
 
-                if #available(iOS 17.0, *) {
+                if #available(iOS 17.0, macOS 13.0, *) {
                     Picker("Preferred Camera", selection: $preferredCamera) {
                         Text("None").tag("None")
                         ForEach(devices.cameras, id: \.uniqueID) {
@@ -85,15 +91,11 @@ struct SubscriptionSettingsView: View {
                     }
                 }
 
-                HStack {
-                    Text("Single Publication")
-                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedPub) {}
-                }
+                LabeledToggle("Single Publication",
+                              isOn: $subscriptionConfig.value.isSingleOrderedPub)
 
-                HStack {
-                    Text("Single Subscription")
-                    Toggle(isOn: $subscriptionConfig.value.isSingleOrderedSub) {}
-                }
+                LabeledToggle("Single Subscription",
+                              isOn: $subscriptionConfig.value.isSingleOrderedSub)
 
                 LabeledContent("Simulreceive") {
                     Picker("Simulreceive", selection: $subscriptionConfig.value.simulreceive) {
@@ -124,10 +126,8 @@ struct SubscriptionSettingsView: View {
                                name: "Threshold")
                 }
 
-                HStack {
-                    Text("Do Pause/Resume")
-                    Toggle(isOn: $subscriptionConfig.value.pauseResume) {}
-                }
+                LabeledToggle("Do Pause/Resunme",
+                              isOn: $subscriptionConfig.value.pauseResume)
 
                 LabeledContent("Pause miss threshold (frames)") {
                     NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
@@ -139,22 +139,21 @@ struct SubscriptionSettingsView: View {
         }
         Section("Reliability") {
             HStack {
-                Text("Audio Publication")
-                Toggle(isOn: $subscriptionConfig.value.mediaReliability.audio.publication) {}
-                Text("Audio Subscription")
-                Toggle(isOn: $subscriptionConfig.value.mediaReliability.audio.subscription) {}
+                LabeledToggle("Audio Publication",
+                              isOn: $subscriptionConfig.value.mediaReliability.audio.publication)
+                LabeledToggle("Audio Subscription",
+                              isOn: $subscriptionConfig.value.mediaReliability.audio.subscription)
             }
             HStack {
-                Text("Video Publication")
-                Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.publication) {}
-                Text("Video Subscription")
-                Toggle(isOn: $subscriptionConfig.value.mediaReliability.video.subscription) {}
+                LabeledToggle("Video Publication",
+                              isOn: $subscriptionConfig.value.mediaReliability.video.publication)
+                LabeledToggle("Video Subscription",
+                              isOn: $subscriptionConfig.value.mediaReliability.video.subscription)
             }
         }
         Section("Security") {
             HStack {
-                Text("SFrame")
-                Toggle(isOn: $subscriptionConfig.value.doSFrame) {}
+                LabeledToggle("SFrame", isOn: $subscriptionConfig.value.doSFrame)
             }
         }
         Section("Transport") {

@@ -27,6 +27,7 @@ class DecimusAudioEngine {
     private let outputNodePresent: Bool
     private var lock = OSAllocatedUnfairLock()
 
+    #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
         Self.logger.debug("AVAudioEngineConfigurationChange")
@@ -81,12 +82,14 @@ class DecimusAudioEngine {
         }
         Self.logger.debug("Route change: \(reason)")
     }
+    #endif
 
     /// Create a new app audio engine, configuring the session, formats, I/O devices, and processing.
     /// - Throws: Any of the many possible errors during setup.
     init() throws {
         // Configure the session.
         let engine = AVAudioEngine()
+        #if !os(macOS)
         let session = AVAudioSession.sharedInstance()
         try session.setSupportsMultichannelContent(false)
         let options: AVAudioSession.CategoryOptions
@@ -113,6 +116,9 @@ class DecimusAudioEngine {
         } else {
             self.inputNodePresent = false
         }
+        #else
+        self.inputNodePresent = true
+        #endif
 
         if !self.inputNodePresent {
             Self.logger.warning("Couldn't find a microphone to use", alert: true)
@@ -179,6 +185,7 @@ class DecimusAudioEngine {
         try localReconfigure()
 
         // Register interest in reconfigure events.
+        #if !os(macOS)
         let notifications: NotificationCenter = .default
         notificationObservers.append(notifications.addObserver(forName: .AVAudioEngineConfigurationChange,
                                                                object: nil,
@@ -197,6 +204,7 @@ class DecimusAudioEngine {
                                                                object: AVAudioSession.sharedInstance(),
                                                                queue: nil,
                                                                using: routeChange))
+        #endif
     }
 
     deinit {
@@ -208,7 +216,9 @@ class DecimusAudioEngine {
     /// Run the audio engine. It is an error to call this when already running.
     func start() throws {
         guard !engine.isRunning else { throw "Already running" }
+        #if !os(macOS)
         try AVAudioSession.sharedInstance().setActive(true)
+        #endif
         try engine.start()
         stopped = false
     }
@@ -217,7 +227,9 @@ class DecimusAudioEngine {
     func stop() throws {
         guard engine.isRunning else { throw "Not running" }
         engine.stop()
+        #if !os(macOS)
         try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
         stopped = true
     }
 
@@ -273,6 +285,7 @@ class DecimusAudioEngine {
     }
 
     private func localReconfigure() throws {
+        #if !os(macOS)
         // Reconfigure the audio session.
         let session: AVAudioSession = .sharedInstance()
         try session.setPreferredSampleRate(Self.format.sampleRate)
@@ -294,6 +307,7 @@ class DecimusAudioEngine {
             let postSetOutput = session.outputNumberOfChannels
             assert(preSetOutput == postSetOutput)
         }
+        #endif
 
         // We shouldn't be running at this point.
         assert(!engine.isRunning)

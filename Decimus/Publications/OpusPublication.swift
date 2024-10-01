@@ -124,7 +124,13 @@ class OpusPublication: Publication {
     }
 
     private func encode() throws -> Data? {
-        guard let buffer = self.engine.microphoneBuffer else { throw "No Audio Input" }
+        guard let buffer = self.engine.microphoneBuffer else {
+            #if os(macOS)
+            return nil
+            #else
+            throw "No Audio Input"
+            #endif
+        }
 
         // Are there enough frames available to fill an opus window?
         let available = buffer.peek()

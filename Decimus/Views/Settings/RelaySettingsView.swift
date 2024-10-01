@@ -14,7 +14,10 @@ struct RelaySettingsView: View {
             Form {
                 LabeledContent("Address") {
                     TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
+                        #if canImport(UIKit)
                         .keyboardType(.URL)
+                        #endif
+                        .labelsHidden()
                 }
 
                 LabeledContent("Protocol") {
@@ -23,6 +26,7 @@ struct RelaySettingsView: View {
                             Text(String(describing: prot)).tag(prot)
                         }
                     }
+                    .labelsHidden()
                     .pickerStyle(.segmented)
                     .onChange(of: relayConfig.value.connectionProtocol) { _, newValue in
                         relayConfig.value.port = defaultProtocolPorts[newValue] ?? relayConfig.value.port
@@ -33,6 +37,7 @@ struct RelaySettingsView: View {
                     NumberView(value: self.$relayConfig.value.port,
                                formatStyle: IntegerFormatStyle<UInt16>.number.grouping(.never),
                                name: "Port")
+                        .labelsHidden()
                 }
             }
             .formStyle(.columns)

@@ -50,13 +50,15 @@ struct ActionButtonStyle: ButtonStyle {
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(borderColour, lineWidth: borderSize)
-                    .hoverEffect(.highlight)
+                #if !os(macOS)
+                .hoverEffect(.highlight)
+                #endif
             )
         #if !os(tvOS)
-            .onHover { hovered in
-                borderColour = (hovered ? styleConfig.hoverColour : styleConfig.borderColour) ??
-                    styleConfig.borderColour ?? .clear
-            }
+        .onHover { hovered in
+        borderColour = (hovered ? styleConfig.hoverColour : styleConfig.borderColour) ??
+        styleConfig.borderColour ?? .clear
+        }
         #endif
     }
 }

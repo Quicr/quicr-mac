@@ -14,11 +14,14 @@ struct DecimusApp: App {
                 AlertView()
             }
             .preferredColorScheme(.dark)
+            #if canImport(UIKit)
             .removeTitleBar()
+            #endif
         }
     }
 }
 
+#if canImport(UIKit)
 extension View {
     fileprivate func withHostingWindow(_ callback: @escaping (UIWindow?) -> Void) -> some View {
         self.background(HostingWindowFinder(callback: callback))
@@ -49,3 +52,4 @@ private struct HostingWindowFinder: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {}
 }
+#endif

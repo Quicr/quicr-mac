@@ -50,7 +50,9 @@ private struct LoginForm: View {
                 VStack(alignment: .leading) {
                     Text("Email")
                     TextField("email", text: $callConfig.email, prompt: Text("example@cisco.com"))
+                        #if canImport(UIKit)
                         .keyboardType(.emailAddress)
+                        #endif
                         .onChange(of: callConfig.email, perform: { value in
                             email = value
                             Task {
@@ -183,7 +185,9 @@ struct CallSetupView: View {
     @State private var settingsOpen: Bool = false
 
     init(_ onJoin: @escaping ConfigCallback) {
+        #if canImport(UIKit)
         UIApplication.shared.isIdleTimerDisabled = false
+        #endif
         joinMeetingCallback = onJoin
     }
 
@@ -194,7 +198,7 @@ struct CallSetupView: View {
                     .resizable()
                     .scaledToFill()
                     .edgesIgnoringSafeArea(.top)
-                #if targetEnvironment(macCatalyst)
+                #if targetEnvironment(macCatalyst) || os(macOS)
                 .frame(maxWidth: .infinity,
                 maxHeight: .infinity,
                 alignment: .center)
@@ -215,7 +219,7 @@ struct CallSetupView: View {
                         .font(.title)
                         .foregroundColor(.white)
                     LoginForm(joinMeetingCallback)
-                    #if targetEnvironment(macCatalyst)
+                    #if targetEnvironment(macCatalyst) || os(macOS)
                     .frame(maxWidth: 350)
                     #endif
 

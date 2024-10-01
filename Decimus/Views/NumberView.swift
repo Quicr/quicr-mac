@@ -17,7 +17,10 @@ struct NumberView<T: FixedWidthInteger>: View {
     var body: some View {
         VStack {
             TextField(self.name, text: self.$text)
+                #if canImport(UIKit)
                 .keyboardType(.numberPad)
+                #endif
+                .labelsHidden()
                 .onChange(of: self.text) {
                     do {
                         switch try validate(self.text) {

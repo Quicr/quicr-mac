@@ -12,7 +12,9 @@ struct VideoJitterBufferSettingsView: View {
                 ForEach(VideoJitterBuffer.Mode.allCases) {
                     Text(String(describing: $0))
                 }
-            }.pickerStyle(.segmented)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
     }
 }

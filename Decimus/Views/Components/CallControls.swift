@@ -153,6 +153,7 @@ extension CallControls {
             self.capture = captureManager
             self.engine = engine
             self.audioOn = !(self.engine?.isInputMuted() ?? true)
+            #if !os(macOS)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
                 do {
                     try self.engine?.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
@@ -173,9 +174,11 @@ extension CallControls {
                     return
                 }
             }
+            #endif
         }
 
         deinit {
+            #if !os(macOS)
             if #available(iOS 17.0, macOS 14.0, macCatalyst 17.0, tvOS 17.0, visionOS 1.0, *) {
                 do {
                     try self.engine?.setMutedSpeechActivityEventListener(nil)
@@ -183,6 +186,7 @@ extension CallControls {
                     Self.logger.warning("Unable to unset muted speech activity listener")
                 }
             }
+            #endif
         }
 
         func toggleVideos() {

@@ -35,6 +35,7 @@ struct SettingsView: View {
             .buttonStyle(BorderedButtonStyle())
             .padding(.horizontal)
         }
+        .padding()
 
         // Settings.
         Form {

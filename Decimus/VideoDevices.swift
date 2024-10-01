@@ -12,18 +12,22 @@ class VideoDevices: ObservableObject {
     init() {
         // Get all microphones and cameras.
         var types: [AVCaptureDevice.DeviceType] = [
+            .builtInWideAngleCamera
+        ]
+        #if !os(macOS)
+        types.append(contentsOf: [
             .builtInDualWideCamera,
             .builtInDualCamera,
             .builtInTelephotoCamera,
             .builtInTripleCamera,
             .builtInTrueDepthCamera,
             .builtInDualCamera,
-            .builtInUltraWideCamera,
-            .builtInWideAngleCamera
-        ]
+            .builtInUltraWideCamera
+        ])
         if #available(iOS 15.4, *) {
             types.append(.builtInLiDARDepthCamera)
         }
+        #endif
         if #available(macCatalyst 17.0, iOS 17.0, *) {
             types.append(.continuityCamera)
         }
