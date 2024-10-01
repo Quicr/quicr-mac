@@ -13,7 +13,7 @@ struct InfluxSettingsView: View {
 
     @State
     private var token: String = ""
-    
+
     @State
     private var tokenError: String = ""
 
@@ -24,18 +24,12 @@ struct InfluxSettingsView: View {
         Section("Influx Connection") {
             Form {
                 HStack {
-                    HStack {
-                        Text("Submit Metrics")
-                        Toggle(isOn: $influxConfig.value.submit) {}
-                    }
-                    HStack {
-                        Text("Granular")
-                        Toggle(isOn: $influxConfig.value.granular) {}
-                    }
-                    HStack {
-                        Text("Realtime")
-                        Toggle(isOn: $influxConfig.value.realtime) {}
-                    }
+                    LabeledToggle("Submit Metrics",
+                                  isOn: $influxConfig.value.submit)
+                    LabeledToggle("Granular",
+                                  isOn: $influxConfig.value.granular)
+                    LabeledToggle("Realtime",
+                                  isOn: $influxConfig.value.realtime)
                 }
 
                 LabeledContent("Interval (s)") {
@@ -46,19 +40,23 @@ struct InfluxSettingsView: View {
 
                 LabeledContent("URL") {
                     TextField("URL", text: $influxConfig.value.url)
+                        .labelsHidden()
                 }
 
                 LabeledContent("Bucket") {
                     TextField("Bucket", text: $influxConfig.value.bucket)
+                        .labelsHidden()
                 }
 
                 LabeledContent("Org") {
                     TextField("Org", text: $influxConfig.value.org)
+                        .labelsHidden()
                 }
 
                 LabeledContent("Token") {
                     VStack {
                         SecureField("Token", text: self.$token)
+                            .labelsHidden()
                         Text(self.tokenError)
                             .foregroundStyle(.red)
                             .font(.footnote)

@@ -20,6 +20,7 @@ struct NumberView<T: FixedWidthInteger>: View {
                 #if canImport(UIKit)
                 .keyboardType(.numberPad)
                 #endif
+                .labelsHidden()
                 .onChange(of: self.text) {
                     do {
                         switch try validate(self.text) {

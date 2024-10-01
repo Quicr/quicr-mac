@@ -33,14 +33,10 @@ struct TransportConfigSettings: View {
             }
         }
         #endif
-        HStack {
-            Text("Use Reset and Wait")
-            Toggle(isOn: self.$useResetWaitCC) {}
-        }
-        HStack {
-            Text("Use BBR")
-            Toggle(isOn: self.$useBBR) {}
-        }
+        LabeledToggle("Use Reset and Wait",
+                      isOn: self.$useResetWaitCC)
+        LabeledToggle("Use BBR",
+                      isOn: self.$useBBR)
         LabeledContent("Time Queue RX Size") {
             NumberView(value: self.$timeQueueTTL,
                        formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
@@ -56,13 +52,9 @@ struct TransportConfigSettings: View {
                        formatStyle: IntegerFormatStyle<UInt8>.number.grouping(.never),
                        name: "Priority")
         }
-        HStack {
-            Text("Capture QUICR logs")
-            Toggle(isOn: self.$quicrLogs) {}
-        }
-        HStack {
-            Text("Enable QLOG")
-            Toggle(isOn: self.$enableQlog) {}
-        }
+        LabeledToggle("Capture QUICR logs",
+                      isOn: self.$quicrLogs)
+        LabeledToggle("Enable QLOG",
+                      isOn: self.$enableQlog)
     }
 }

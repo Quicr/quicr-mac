@@ -56,6 +56,7 @@
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
 		9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */; };
 		9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */; };
+		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
 		9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3E44162C8F1FD60000B98D /* Publication.swift */; };
 		9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */; };
 		9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */; };
@@ -231,6 +232,7 @@
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
 		9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CallController+Measurement.swift"; sourceTree = "<group>"; };
 		9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMeasurement.swift; sourceTree = "<group>"; };
+		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
 		9B3E44162C8F1FD60000B98D /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
 		9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularBuffer.swift; sourceTree = "<group>"; };
 		9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoSubscriptionSet.swift; sourceTree = "<group>"; };
@@ -712,6 +714,7 @@
 		FFBF2FB529BFE47000D769CF /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */,
 				FF1C5C2A29DD110600887833 /* CallControls.swift */,
 				FF1C5C2B29DD110600887833 /* LeaveModal.swift */,
 				FF1C5C2C29DD110600887833 /* VideoGrid.swift */,
@@ -969,6 +972,7 @@
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
+				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
@@ -1273,7 +1277,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1348,7 +1352,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
-				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;

@@ -27,14 +27,16 @@ struct ManifestSettingsView: View {
                             Text(scheme.rawValue)
                         }
                     }
+                    .labelsHidden()
                     .pickerStyle(.segmented)
                 }
 
                 LabeledContent("Address") {
                     TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
-                    #if canImport(UIKit)
-                    .keyboardType(.URL)
-                    #endif
+                        #if canImport(UIKit)
+                        .keyboardType(.URL)
+                        #endif
+                        .labelsHidden()
                 }
 
                 LabeledContent("Port") {
