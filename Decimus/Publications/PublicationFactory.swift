@@ -72,7 +72,7 @@ class PublicationFactory {
             #endif
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
-                                        emitStartCodes: config.codec == .hevc)
+                                        emitStartCodes: false)
 
             let publication = try H264Publication(profile: profile,
                                                   config: config,

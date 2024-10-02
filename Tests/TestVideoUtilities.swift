@@ -6,8 +6,16 @@ import CoreMedia
 import AVFoundation
 import XCTest
 
-final class TestH264Utilities: XCTestCase {
-    func testDepacketization() throws {
+final class TestVideoUtilities: XCTestCase {
+    func testH264Depacketization() throws {
+        try self.testDepacketization(H264Utilities())
+    }
+
+    func testHEVCDepacketization() throws {
+        try self.testDepacketization(HEVCUtilities())
+    }
+
+    func testDepacketization(_ utilities: VideoUtilities) throws {
         let values: [UInt8] = [
             0x00, 0x00, 0x00, 0x01,
             1, 2, 3, 4, 5,
@@ -17,10 +25,10 @@ final class TestH264Utilities: XCTestCase {
         let data = Data(values)
         var format: CMFormatDescription? = try .init(metadataFormatType: .h264)
         let callback: (Data) -> Void = { _ in }
-        guard let samples = try H264Utilities().depacketize(data,
-                                                            format: &format,
-                                                            copy: true,
-                                                            seiCallback: callback) else {
+        guard let samples = try utilities.depacketize(data,
+                                                      format: &format,
+                                                      copy: true,
+                                                      seiCallback: callback) else {
             XCTFail()
             return
         }
