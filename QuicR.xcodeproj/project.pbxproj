@@ -67,7 +67,7 @@
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
-		9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */; };
+		9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
@@ -243,7 +243,7 @@
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
-		9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestH264Utilities.swift; sourceTree = "<group>"; };
+		9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoUtilities.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -466,7 +466,7 @@
 				187DE36C2C997A140090FB68 /* TestCallController.swift */,
 				18B2F4072AC59582008E3BFD /* TestVideoJitterBuffer.swift */,
 				9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */,
-				9B7F40032ACB5808003333C3 /* TestH264Utilities.swift */,
+				9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */,
 				9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */,
 				9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */,
 				9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */,
@@ -917,7 +917,7 @@
 				187DE36D2C997A180090FB68 /* TestCallController.swift in Sources */,
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				187DE3712C997C7A0090FB68 /* TestVideoSubscription.swift in Sources */,
-				9B7F40042ACB5808003333C3 /* TestH264Utilities.swift in Sources */,
+				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
 				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
 			);

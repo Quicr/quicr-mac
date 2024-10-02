@@ -25,6 +25,25 @@ class HEVCUtilities: VideoUtilities {
         case missingStartCode
     }
 
+    func depacketize(_ data: Data,
+                     format: inout CMFormatDescription?,
+                     copy: Bool,
+                     seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+        if data.starts(with: Self.naluStartCode) {
+            return try depacketizeAnnexB(data,
+                                         format: &format,
+                                         copy: copy,
+                                         seiCallback: seiCallback)
+        } else {
+            return try data.withUnsafeBytes {
+                try depacketizeLength($0,
+                                      format: &format,
+                                      copy: copy,
+                                      seiCallback: seiCallback)
+            }
+        }
+    }
+
     /// Turns an HEVC Annex B bitstream into CMSampleBuffer per NALU.
     /// - Parameter data The HEVC data.
     /// This is used in place and will be modified, so much outlive any use of the created samples.
@@ -32,10 +51,10 @@ class HEVCUtilities: VideoUtilities {
     /// - Parameter format The current format of the stream if known.
     /// If SPS/PPS are found, it will be replaced by the found format.
     /// - Parameter sei If an SEI if found, it will be passed to this callback (start code included).
-    func depacketize(_ data: Data, // swiftlint:disable:this function_body_length
-                     format: inout CMFormatDescription?,
-                     copy: Bool,
-                     seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+    func depacketizeAnnexB(_ data: Data, // swiftlint:disable:this function_body_length
+                           format: inout CMFormatDescription?,
+                           copy: Bool,
+                           seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
         guard data.starts(with: Self.naluStartCode) else {
             throw PacketizationError.missingStartCode
         }
@@ -144,6 +163,70 @@ class HEVCUtilities: VideoUtilities {
                 results.append(try H264Utilities.buildBlockBuffer($0,
                                                                   copy: copy))
             }
+        }
+        return results.count > 0 ? results : nil
+    }
+
+    private func depacketizeLength(_ data: UnsafeRawBufferPointer,
+                                   format: inout CMFormatDescription?,
+                                   copy: Bool,
+                                   seiCallback: (Data) -> Void) throws -> [CMBlockBuffer]? {
+        var results: [CMBlockBuffer] = []
+        var offset = 0
+        var spsData: Data?
+        var ppsData: Data?
+        var vpsData: Data?
+        while offset < data.count {
+            // Get the NAL length.
+            let length = data.loadUnaligned(fromByteOffset: offset, as: UInt32.self).byteSwapped
+
+            // Get the NALU type.
+            let rawType = data.load(fromByteOffset: offset + MemoryLayout<UInt32>.size, as: UInt8.self) >> 1
+            let type = HEVCTypes(rawValue: rawType & 0x3f)
+
+            if type == .sps || type == .pps || type == .vps {
+                let ptr = data.baseAddress!.advanced(by: offset + MemoryLayout<UInt32>.size)
+                let data = Data(bytesNoCopy: .init(mutating: ptr),
+                                count: Int(length),
+                                deallocator: .none)
+                switch type {
+                case .sps:
+                    spsData = data
+                case .pps:
+                    ppsData = data
+                case .vps:
+                    vpsData = data
+                default:
+                    fatalError()
+                }
+            }
+
+            if type == .sei {
+                seiCallback(.init(bytes: data.baseAddress!.advanced(by: offset),
+                                  count: Int(length) + MemoryLayout<UInt32>.size))
+            }
+
+            if let sps = spsData,
+               let pps = ppsData,
+               let vps = vpsData {
+                format = try CMVideoFormatDescription(hevcParameterSets: [vps, sps, pps],
+                                                      nalUnitHeaderLength: Self.naluStartCode.count)
+                vpsData = nil
+                spsData = nil
+                ppsData = nil
+            }
+
+            if type != .vps,
+               type != .sps,
+               type != .pps,
+               type != .sei {
+                let ptr = data.baseAddress!.advanced(by: offset)
+                let length = Int(length) + MemoryLayout<UInt32>.size
+                results.append(try H264Utilities.buildBlockBuffer(UnsafeRawBufferPointer(start: ptr,
+                                                                                         count: length),
+                                                                  copy: copy))
+            }
+            offset += MemoryLayout<UInt32>.size + Int(length)
         }
         return results.count > 0 ? results : nil
     }
