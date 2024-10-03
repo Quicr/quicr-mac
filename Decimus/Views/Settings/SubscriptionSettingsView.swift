@@ -71,21 +71,23 @@ struct SubscriptionSettingsView: View {
                     .labelsHidden()
                 }
 
-                if #available(iOS 17.0, macOS 13.0, *) {
-                    Picker("Preferred Camera", selection: $preferredCamera) {
-                        Text("None").tag("None")
-                        ForEach(devices.cameras, id: \.uniqueID) {
-                            Text($0.localizedName)
-                                .tag($0.uniqueID)
-                        }.onChange(of: preferredCamera) { _ in
-                            guard self.preferredCamera != self.noPreference else {
-                                AVCaptureDevice.userPreferredCamera = nil
-                                return
-                            }
+                if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
+                    LabeledContent("Preferred Camera") {
+                        Picker("Preferred Camera", selection: $preferredCamera) {
+                            Text("None").tag("None")
+                            ForEach(devices.cameras, id: \.uniqueID) {
+                                Text($0.localizedName)
+                                    .tag($0.uniqueID)
+                            }.onChange(of: preferredCamera) {
+                                guard self.preferredCamera != self.noPreference else {
+                                    AVCaptureDevice.userPreferredCamera = nil
+                                    return
+                                }
 
-                            for camera in devices.cameras where camera.uniqueID == preferredCamera {
-                                AVCaptureDevice.userPreferredCamera = camera
-                                break
+                                for camera in devices.cameras where camera.uniqueID == preferredCamera {
+                                    AVCaptureDevice.userPreferredCamera = camera
+                                    break
+                                }
                             }
                         }
                     }

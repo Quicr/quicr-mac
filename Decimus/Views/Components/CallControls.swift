@@ -158,12 +158,17 @@ extension CallControls {
                 do {
                     try self.engine?.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
                         guard let self = self else { return }
+                        assert(Thread.isMainThread)
                         switch voiceEvent {
                         case .started:
-                            self.talkingWhileMuted = true
+                            DispatchQueue.main.async {
+                                self.talkingWhileMuted = true
+                            }
                             Self.logger.info("Talking while muted")
                         case .ended:
-                            self.talkingWhileMuted = false
+                            DispatchQueue.main.async {
+                                self.talkingWhileMuted = false
+                            }
                             Self.logger.info("Stopped talking while muted")
                         default:
                             break

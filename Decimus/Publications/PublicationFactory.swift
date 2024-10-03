@@ -11,6 +11,7 @@ class PublicationFactory {
     private let engine: DecimusAudioEngine
     private let metricsSubmitter: MetricsSubmitter?
     private let captureManager: CaptureManager
+    private let logger = DecimusLogger(PublicationFactory.self)
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -31,13 +32,17 @@ class PublicationFactory {
         for profile in publication.profileSet.profiles {
             let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
             let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-            let publication = try self.create(profile,
-                                              sourceID: publication.sourceID,
-                                              config: config,
-                                              metricsSubmitter: self.metricsSubmitter,
-                                              endpointId: endpointId,
-                                              relayId: relayId)
-            publications.append((fullTrackName, publication))
+            do {
+                let publication = try self.create(profile,
+                                                  sourceID: publication.sourceID,
+                                                  config: config,
+                                                  metricsSubmitter: self.metricsSubmitter,
+                                                  endpointId: endpointId,
+                                                  relayId: relayId)
+                publications.append((fullTrackName, publication))
+            } catch {
+                self.logger.error("[\((try? fullTrackName.getNamespace()) ?? "?")] Failed to create publication: \(error.localizedDescription)")
+            }
         }
         return publications
     }
@@ -57,6 +62,8 @@ class PublicationFactory {
             let device: AVCaptureDevice
             #if os(macOS)
             device = AVCaptureDevice.default(.external, for: .video, position: .unspecified)!
+            #elseif os(tvOS) && targetEnvironment(simulator)
+            throw H264PublicationError.noCamera(sourceID)
             #else
             if #available(iOS 17.0, tvOS 17.0, macOS 13.0, *) {
                 guard let preferred = AVCaptureDevice.systemPreferredCamera else {
