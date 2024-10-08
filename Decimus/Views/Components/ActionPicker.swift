@@ -95,6 +95,9 @@ struct ActionPicker<Content>: View where Content: View {
     }
 
     var body: some View {
+        #if os(tvOS)
+        Button(self.label, action: self.action)
+        #else
         HStack(alignment: .center, spacing: 0) {
             Button(action: action) {
                 HStack(alignment: .center) {
@@ -141,6 +144,7 @@ struct ActionPicker<Content>: View where Content: View {
         .padding()
         .presentationDetents([.medium])
         })
+        #endif
         #endif
     }
 }
