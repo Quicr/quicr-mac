@@ -179,6 +179,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let connection = self.connections[device] else { fatalError() }
         queue.async { [weak connection] in
             guard let connection = connection else { return }
+            #if os(macOS)
+            guard let connection = connection.output?.connections.first else { return }
+            #endif
             connection.isEnabled.toggle()
             toggled(connection.isEnabled)
         }
