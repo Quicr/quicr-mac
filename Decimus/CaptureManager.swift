@@ -222,7 +222,6 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private func addCamera(listener: FrameListener) throws {
         // Device is already setup, add this delegate.
         let device = listener.device
-        print(device.localizedName)
 
         if var cameraFrameListeners = self.multiVideoDelegate[device] {
             let ranges = device.activeFormat.videoSupportedFrameRateRanges

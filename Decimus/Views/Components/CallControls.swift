@@ -158,7 +158,6 @@ extension CallControls {
                 do {
                     try self.engine?.setMutedSpeechActivityEventListener { [weak self] voiceEvent in
                         guard let self = self else { return }
-                        assert(Thread.isMainThread)
                         switch voiceEvent {
                         case .started:
                             DispatchQueue.main.async {

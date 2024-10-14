@@ -152,19 +152,15 @@ private struct LoginForm: View {
         }
         #if os(tvOS)
         .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { device in
-        guard let device = device else {
-        Self.logger.info("No continuity device selected")
-        return
-        }
-        print("Selected a device: \(device)")
-        for camera in device.videoDevices {
-        print("Available camera: \(camera.localizedName)")
-        }
+            guard let device = device else {
+                Self.logger.info("No continuity device selected")
+                return
+            }
         }
         .task {
-        showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
-        for: .video,
-        position: .unspecified) == nil
+            showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+                                                                 for: .video,
+                                                                 position: .unspecified) == nil
         }
         #endif
     }
