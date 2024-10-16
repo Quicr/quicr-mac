@@ -151,13 +151,16 @@ private struct LoginForm: View {
             }
         }
         #if os(tvOS)
-        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { _ in
-        print("Selected a device")
+        .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { device in
+            guard let device = device else {
+                Self.logger.info("No continuity device selected")
+                return
+            }
         }
         .task {
-        showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
-        for: .video,
-        position: .unspecified) == nil
+            showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+                                                                 for: .video,
+                                                                 position: .unspecified) == nil
         }
         #endif
     }

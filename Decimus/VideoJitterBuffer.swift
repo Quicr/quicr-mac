@@ -8,6 +8,12 @@ import Atomics
 
 // swiftlint:disable force_cast
 
+/// Possible errors thrown by ``VideoJitterBuffer``
+enum VideoJitterBufferError: Error {
+    /// The buffer was full and this sample couldn't be enqueued.
+    case full
+}
+
 /// A very simplified jitter buffer designed to contain compressed video frames in order.
 class VideoJitterBuffer {
 
@@ -115,7 +121,12 @@ class VideoJitterBuffer {
             }
         }
 
-        try self.buffer.enqueue(videoFrame)
+        do {
+            try self.buffer.enqueue(videoFrame)
+        } catch let error as NSError {
+            guard error.code == -12764 else { throw error }
+            throw VideoJitterBufferError.full
+        }
 
         // Metrics.
         if let measurement = self.measurement {

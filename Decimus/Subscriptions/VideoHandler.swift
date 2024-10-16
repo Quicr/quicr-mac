@@ -234,7 +234,11 @@ class VideoHandler: CustomStringConvertible {
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
-            try jitterBuffer.write(videoFrame: frame, from: from)
+            do {
+                try jitterBuffer.write(videoFrame: frame, from: from)
+            } catch VideoJitterBufferError.full {
+                Self.logger.warning("Didn't enqueue as queue was full")
+            }
         } else {
             try decode(sample: frame, from: from)
         }

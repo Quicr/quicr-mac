@@ -144,11 +144,13 @@ class VTEncoder: VideoEncoder {
             NSNumber(value: eightFrameTimes * bitrateInBytes),
             NSNumber(value: eightFrameTimes)
         ]
+#if !os(tvOS)
         try OSStatusError.checked("Set data limit") {
             VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_DataRateLimits,
                                  value: dataRateLimits as CFArray)
         }
+#endif
 
         try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
             VTSessionSetProperty(compressionSession,

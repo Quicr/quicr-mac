@@ -23,6 +23,7 @@ struct InCallView: View {
     var noParticipants: Bool {
         self.viewModel.videoParticipants.participants.isEmpty
     }
+    @State private var showControls = false
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -45,83 +46,101 @@ struct InCallView: View {
     var body: some View {
         ZStack {
             GeometryReader { geometry in
-                VStack {
-                    Group {
-                        if connecting || noParticipantsDetected {
-                            // Waiting for other participants / connecting.
-                            ZStack {
-                                Image("RTMC-Background")
-                                    .resizable()
-                                    .frame(maxHeight: .infinity,
-                                           alignment: .center)
-                                    .cornerRadius(12)
-                                    .padding([.horizontal, .bottom])
-                                if connecting {
-                                    ProgressView()
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                Group {
+#if os(tvOS)
+                    ZStack {
+                        // Incoming videos.
+                        VideoGrid(connecting: self.$connecting,
+                                  blur: self.$showControls,
+                                  videoParticipants: self.viewModel.videoParticipants)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        HStack {
+                            if self.showControls {
+                                Group {
+                                    Button("Hide Controls") {
+                                        self.showControls = false
+                                    }
+                                    Button("Toggle Debug Details") {
+                                        self.debugDetail = true
+                                    }
+                                    // Call controls panel.
+                                    CallControls(captureManager: self.viewModel.captureManager,
+                                                 engine: self.viewModel.engine,
+                                                 leaving: self.$leaving)
+                                }
+                            } else {
+                                Spacer()
+                                VStack {
+                                    Button("Show Controls") {
+                                        self.showControls = true
+                                    }
+                                    Spacer()
                                 }
                             }
-                        } else {
-                            // Incoming videos.
-                            VideoGrid(participants: self.viewModel.videoParticipants)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         }
-
-                        HStack {
-                            // TODO: Re-enable on reimplementation.
-                            //                            Button("Alter Subscriptions") {
-                            //                                self.isShowingSubscriptions = true
-                            //                            }
-                            //                            Button("Alter Publications") {
-                            //                                self.isShowingPublications = true
-                            //                            }
-                            Button("Toggle Debug Details") {
-                                self.debugDetail = true
-                            }
+                        .disabled(self.leaving)
+                    }
+#else
+                    VStack {
+                        VideoGrid(connecting: self.$connecting,
+                                  blur: .constant(false),
+                                  videoParticipants: self.viewModel.videoParticipants)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        
+                        // TODO: Re-enable on reimplementation.
+                        //                            Button("Alter Subscriptions") {
+                        //                                self.isShowingSubscriptions = true
+                        //                            }
+                        //                            Button("Alter Publications") {
+                        //                                self.isShowingPublications = true
+                        //                            }
+                        Button("Toggle Debug Details") {
+                            self.debugDetail = true
                         }
-                    }
-                    .sheet(isPresented: $isShowingSubscriptions) {
-                        //                        if let controller = viewModel.controller {
-                        //                            SubscriptionPopover(controller: controller)
-                        //                        }
-                        //                        Spacer()
-                        //                        Button("Done") {
-                        //                            self.isShowingSubscriptions = false
-                        //                        }
-                        //                        .padding()
-                    }
-                    .sheet(isPresented: $isShowingPublications) {
-                        //                        if let controller = viewModel.controller {
-                        //                            PublicationPopover(controller: controller)
-                        //                        }
-                        //                        Spacer()
-                        //                        Button("Done") {
-                        //                            self.isShowingPublications = false
-                        //                        }
-                        //                        .padding()
-                    }
-                    .sheet(isPresented: self.$debugDetail) {
-                        VStack {
-                            Text("Debug Details").font(.title)
-                            HStack {
-                                Text("Relay: ").bold()
-                                Text(self.viewModel.controller?.serverId ?? "Unknown").monospaced()
-                            }
-                        }.padding()
-                        Spacer()
-                        Button("Done") {
-                            self.debugDetail = false
-                        }.padding()
-                    }
-
-                    // Call controls panel.
-                    CallControls(captureManager: viewModel.captureManager,
-                                 engine: viewModel.engine,
-                                 leaving: $leaving)
+                        
+                        // Call controls panel.
+                        CallControls(captureManager: viewModel.captureManager,
+                                     engine: viewModel.engine,
+                                     leaving: $leaving)
                         .disabled(leaving)
                         .padding(.bottom)
                         .frame(alignment: .top)
-                } // VStack end.
+                    }
+#endif
+                }
+                .sheet(isPresented: $isShowingSubscriptions) {
+                    //                        if let controller = viewModel.controller {
+                    //                            SubscriptionPopover(controller: controller)
+                    //                        }
+                    //                        Spacer()
+                    //                        Button("Done") {
+                    //                            self.isShowingSubscriptions = false
+                    //                        }
+                    //                        .padding()
+                }
+                .sheet(isPresented: $isShowingPublications) {
+                    //                        if let controller = viewModel.controller {
+                    //                            PublicationPopover(controller: controller)
+                    //                        }
+                    //                        Spacer()
+                    //                        Button("Done") {
+                    //                            self.isShowingPublications = false
+                    //                        }
+                    //                        .padding()
+                }
+                .sheet(isPresented: self.$debugDetail) {
+                    VStack {
+                        Text("Debug Details").font(.title)
+                        HStack {
+                            Text("Relay: ").bold()
+                            Text(self.viewModel.controller?.serverId ?? "Unknown").monospaced()
+                        }
+                    }.padding()
+                    Spacer()
+                    Button("Done") {
+                        self.debugDetail = false
+                    }.padding()
+                }
 
                 // Preview / self-view.
                 // swiftlint:disable force_try
@@ -290,7 +309,8 @@ extension InCallView {
 
         func join() async -> Bool {
             guard let controller = self.controller else {
-                fatalError("No controller!?")
+                Self.logger.error("Missing CallController due to previous error")
+                return false
             }
 
             // Connect to the relay/server.

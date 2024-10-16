@@ -9,14 +9,11 @@ struct VideoGrid: View {
     private let maxColumns: Int = 4
     private let spacing: CGFloat = 10
     private let cornerRadius: CGFloat = 12
-
-    @StateObject private var videoParticipants: VideoParticipants
+    @Binding var connecting: Bool
+    @Binding var blur: Bool
+    @StateObject var videoParticipants: VideoParticipants
     private var participants: [VideoParticipant] {
         return Array(videoParticipants.participants.values)
-    }
-
-    init(participants: VideoParticipants) {
-        _videoParticipants = StateObject(wrappedValue: participants)
     }
 
     private func calcColumns() -> CGFloat {
@@ -28,37 +25,62 @@ struct VideoGrid: View {
     }
 
     var body: some View {
-        let numColumns = calcColumns()
-        GeometryReader { geo in
-            WrappingHStack(alignment: .center) {
-                ForEach(participants) { participant in
-                    participant.view
-                        .scaledToFill()
-                        .frame(maxWidth: (geo.size.width / numColumns) - (2 * spacing),
-                               maxHeight: abs(geo.size.height) / calcRows(numColumns))
-                        .cornerRadius(cornerRadius)
-                        .overlay(alignment: .bottom) {
-                            Text(participant.label)
-                                .padding(5)
-                                .foregroundColor(.black)
-                                .background(.white)
-                                .cornerRadius(12)
-                                .padding(.bottom)
-                        }
-                        .border(.green, width: participant.highlight ? 3 : 0)
+        if self.participants.isEmpty {
+            // Waiting for other participants / connecting.
+            ZStack {
+                Image("RTMC-Background")
+                    .resizable()
+                    .frame(maxHeight: .infinity,
+                           alignment: .center)
+                    .cornerRadius(self.cornerRadius)
+                    .padding([.horizontal, .bottom])
+#if os(tvOS)
+                    .ignoresSafeArea()
+#endif
+                if self.connecting {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
             }
-            .cornerRadius(cornerRadius)
-            .frame(height: geo.size.height)
+        } else {
+            let numColumns = self.calcColumns()
+            GeometryReader { geo in
+                WrappingHStack(alignment: .center) {
+                    ForEach(self.participants) { participant in
+                        participant.view
+                            .scaledToFill()
+                            .frame(maxWidth: (geo.size.width / numColumns) - (2 * self.spacing),
+                                   maxHeight: abs(geo.size.height) / self.calcRows(numColumns))
+                            .cornerRadius(self.cornerRadius)
+                            .overlay(alignment: .bottom) {
+                                Text(participant.label)
+                                    .padding(5)
+                                    .foregroundColor(.black)
+                                    .background(.white)
+                                    .cornerRadius(self.cornerRadius)
+                                    .padding(.bottom)
+                            }
+                            .border(.green, width: participant.highlight ? 3 : 0)
+                            .conditionalModifier(self.blur) {
+                                $0.blur(radius: self.cornerRadius)
+                            }
+                    }
+                }
+                .cornerRadius(cornerRadius)
+                .frame(height: geo.size.height)
+            }
+            .frame(maxHeight: .infinity)
+            .padding([.horizontal, .bottom])
+#if os(tvOS)
+            .ignoresSafeArea()
+#endif
         }
-        .frame(maxHeight: .infinity)
-        .padding([.horizontal, .bottom])
     }
 }
 
 struct VideoGrid_Previews: PreviewProvider {
     static let exampleParticipants: VideoParticipants = .init()
     static var previews: some View {
-        VideoGrid(participants: exampleParticipants)
+        VideoGrid(connecting: .constant(true), blur: .constant(false), videoParticipants: .init())
     }
 }
