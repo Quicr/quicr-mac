@@ -114,7 +114,7 @@ void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& o
 static QSubscribeTrackMetrics convert(const quicr::SubscribeTrackMetrics& metrics)
 {
     return QSubscribeTrackMetrics {
-        .lastSampleTime = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .lastSampleTime = metrics.last_sample_time,
         .bytesReceived = metrics.bytes_received,
         .objectsReceived = metrics.objects_received
     };

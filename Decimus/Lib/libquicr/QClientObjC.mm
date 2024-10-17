@@ -156,7 +156,7 @@ void QClient::StatusChanged(Status status)
 static QConnectionMetrics convert(const quicr::ConnectionMetrics& metrics)
 {
     return QConnectionMetrics {
-        .last_sample_time_us = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .last_sample_time_us = metrics.last_sample_time,
         .quic = convert(metrics.quic)
     };
 }

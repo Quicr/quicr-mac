@@ -126,7 +126,7 @@ static QPublishTrackMetricsQuic convert(const quicr::PublishTrackMetrics::Quic& 
 static QPublishTrackMetrics convert(const quicr::PublishTrackMetrics& metrics)
 {
     return QPublishTrackMetrics {
-        .lastSampleTime = static_cast<uint64_t>(metrics.last_sample_time.time_since_epoch().count()),
+        .lastSampleTime = metrics.last_sample_time,
         .bytesPublished = metrics.bytes_published,
         .objectsPublished = metrics.objects_published,
         .quic = convert(metrics.quic)
