@@ -129,10 +129,16 @@ class H264Publication: Publication, FrameListener {
             }
         }
         Self.logger.info("Registered H264 publication for namespace \(namespace)")
+
+        guard let defaultPriority = profile.priorities?.first,
+              let defaultTTL = profile.expiry?.first else {
+            throw "Missing expected profile values"
+        }
+
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerGroup : .datagram,
-                       defaultPriority: 0,
-                       defaultTTL: 0,
+                       defaultPriority: UInt8(clamping: defaultPriority),
+                       defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
                        relayId: relayId)
