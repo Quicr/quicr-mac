@@ -53,10 +53,15 @@ class OpusPublication: Publication {
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
 
+        guard let defaultPriority = profile.priorities?.first,
+              let defaultTTL = profile.expiry?.first else {
+            throw "Missing expected profile values"
+        }
+
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
-                       defaultPriority: UInt8(profile.priorities?.first ?? 0),
-                       defaultTTL: UInt16(profile.expiry?.first ?? 0),
+                       defaultPriority: UInt8(clamping: defaultPriority),
+                       defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
                        relayId: relayId)
