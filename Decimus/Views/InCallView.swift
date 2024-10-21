@@ -50,7 +50,8 @@ struct InCallView: View {
                     #if os(tvOS)
                     ZStack {
                         // Incoming videos.
-                        VideoGrid(connecting: self.$connecting,
+                        VideoGrid(showLabels: self.viewModel.showLabels,
+                                  connecting: self.$connecting,
                                   blur: self.$showControls,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
