@@ -9,6 +9,7 @@ struct VideoGrid: View {
     private let maxColumns: Int = 4
     private let spacing: CGFloat = 10
     private let cornerRadius: CGFloat = 12
+    let showLabels: Bool
     @Binding var connecting: Bool
     @Binding var blur: Bool
     @StateObject var videoParticipants: VideoParticipants
@@ -34,9 +35,9 @@ struct VideoGrid: View {
                            alignment: .center)
                     .cornerRadius(self.cornerRadius)
                     .padding([.horizontal, .bottom])
-#if os(tvOS)
-                    .ignoresSafeArea()
-#endif
+                #if os(tvOS)
+                .ignoresSafeArea()
+                #endif
                 if self.connecting {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -52,13 +53,15 @@ struct VideoGrid: View {
                             .frame(maxWidth: (geo.size.width / numColumns) - (2 * self.spacing),
                                    maxHeight: abs(geo.size.height) / self.calcRows(numColumns))
                             .cornerRadius(self.cornerRadius)
-                            .overlay(alignment: .bottom) {
-                                Text(participant.label)
-                                    .padding(5)
-                                    .foregroundColor(.black)
-                                    .background(.white)
-                                    .cornerRadius(self.cornerRadius)
-                                    .padding(.bottom)
+                            .conditionalModifier(self.showLabels) {
+                                $0.overlay(alignment: .bottom) {
+                                    Text(participant.label)
+                                        .padding(5)
+                                        .foregroundColor(.black)
+                                        .background(.white)
+                                        .cornerRadius(self.cornerRadius)
+                                        .padding(.bottom)
+                                }
                             }
                             .border(.green, width: participant.highlight ? 3 : 0)
                             .conditionalModifier(self.blur) {
@@ -71,9 +74,9 @@ struct VideoGrid: View {
             }
             .frame(maxHeight: .infinity)
             .padding([.horizontal, .bottom])
-#if os(tvOS)
+            #if os(tvOS)
             .ignoresSafeArea()
-#endif
+            #endif
         }
     }
 }
@@ -81,6 +84,9 @@ struct VideoGrid: View {
 struct VideoGrid_Previews: PreviewProvider {
     static let exampleParticipants: VideoParticipants = .init()
     static var previews: some View {
-        VideoGrid(connecting: .constant(true), blur: .constant(false), videoParticipants: .init())
+        VideoGrid(showLabels: true,
+                  connecting: .constant(true),
+                  blur: .constant(false),
+                  videoParticipants: .init())
     }
 }
