@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension JitterBuffer {
-    actor VideoJitterBufferMeasurement: Measurement {
+    actor JitterBufferMeasurement: Measurement {
         let id = UUID()
         var name: String = "VideoJitterBuffer"
         var fields: Fields = [:]

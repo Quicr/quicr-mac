@@ -44,11 +44,11 @@ class JitterBuffer {
     private static let logger = DecimusLogger(JitterBuffer.self)
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
-    private let measurement: MeasurementRegistration<VideoJitterBufferMeasurement>?
+    private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
     private var play: Bool = false
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
-    
+
     protocol JitterItem: AnyObject {
         var sequenceNumber: UInt64 { get }
         var timestamp: CMTime { get }
@@ -67,7 +67,7 @@ class JitterBuffer {
          handlers: CMBufferQueue.Handlers) throws {
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoJitterBufferMeasurement(namespace: try fullTrackName.getNamespace())
+            let measurement = JitterBufferMeasurement(namespace: try fullTrackName.getNamespace())
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil

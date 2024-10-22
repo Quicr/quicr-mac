@@ -239,6 +239,8 @@ class VideoHandler: CustomStringConvertible {
                 try jitterBuffer.write(item: item, from: from)
             } catch JitterBufferError.full {
                 Self.logger.warning("Didn't enqueue as queue was full")
+            } catch JitterBufferError.old {
+                Self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
             try decode(sample: frame, from: from)
@@ -677,7 +679,7 @@ class DecimusVideoFrameJitterItem: JitterBuffer.JitterItem {
     let frame: DecimusVideoFrame
     let sequenceNumber: UInt64
     let timestamp: CMTime
-    
+
     init(_ frame: DecimusVideoFrame) throws {
         guard let seq = frame.sequenceNumber,
               let time = frame.samples.first?.presentationTimeStamp else {
