@@ -15,7 +15,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private let granularMetrics: Bool
-    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
@@ -37,7 +37,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
          videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config,
+         jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          variances: VarianceCalculator,
          endpointId: String,

@@ -57,7 +57,7 @@ struct SubscriptionConfig: Codable {
     /// QUIC CWIN setting for underlying transport.
     var quicCwinMinimumKiB: UInt64
     /// Video jitter buffer mode and configuration.
-    var videoJitterBuffer: VideoJitterBuffer.Config
+    var videoJitterBuffer: JitterBuffer.Config
     /// True to only subscribe to the highest quality in a profile set.
     var isSingleOrderedSub: Bool
     /// True to only publish to the highest quality in a profile set.

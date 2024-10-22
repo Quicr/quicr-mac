@@ -65,7 +65,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  jitterDepth: self.jitterDepth,
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
-                                 granularMetrics: self.granularMetrics)
+                                 granularMetrics: self.granularMetrics,
+                                 useNewJitterBuffer: false)
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
         super.init(fullTrackName: fullTrackName.getUnsafe())
         self.setCallbacks(self)
@@ -142,7 +143,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                                   jitterDepth: self.jitterDepth,
                                                   jitterMax: self.jitterMax,
                                                   opusWindowSize: self.opusWindowSize,
-                                                  granularMetrics: self.granularMetrics)
+                                                  granularMetrics: self.granularMetrics,
+                                                  useNewJitterBuffer: false)
                     self.handler = handler
                     return handler
                 }
@@ -156,7 +158,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         do {
             try handler.submitEncodedAudio(data: data,
                                            sequence: objectHeaders.groupId,
-                                           date: date)
+                                           date: now)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }

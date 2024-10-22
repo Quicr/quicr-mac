@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-extension VideoJitterBuffer {
+extension JitterBuffer {
     actor VideoJitterBufferMeasurement: Measurement {
         let id = UUID()
         var name: String = "VideoJitterBuffer"
