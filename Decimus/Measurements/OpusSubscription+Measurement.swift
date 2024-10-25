@@ -15,6 +15,7 @@ extension OpusSubscription {
         private var missing: UInt64 = 0
         private var callbacks: UInt64 = 0
         private var dropped: UInt64 = 0
+        private var playoutFull: UInt64 = 0
 
         init(namespace: QuicrNamespace) {
             tags["namespace"] = namespace
@@ -62,6 +63,15 @@ extension OpusSubscription {
 
         func depth(depthMs: Int, timestamp: Date) {
             record(field: "currentDepth", value: TimeInterval(depthMs) / 1000.0, timestamp: timestamp)
+        }
+
+        func frameDelay(delay: TimeInterval, metricsTimestamp: Date) {
+            record(field: "delay", value: delay, timestamp: metricsTimestamp)
+        }
+
+        func playoutFull(timestamp: Date?) {
+            self.playoutFull += 1
+            record(field: "playoutFull", value: self.playoutFull as AnyObject, timestamp: timestamp)
         }
     }
 }

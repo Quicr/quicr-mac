@@ -6,16 +6,10 @@ import AVFAudio
 import CoreAudio
 import Atomics
 import CTPCircularBuffer
+import Opus
 
 enum OpusSubscriptionError: Error {
     case failedDecoderCreation
-}
-
-private class Weak<T> {
-    var value: T
-    init(value: T) {
-        self.value = value
-    }
 }
 
 class OpusHandler {
@@ -27,6 +21,7 @@ class OpusHandler {
     private var node: AVAudioSourceNode?
     private var jitterBuffer: QJitterBuffer?
     private var newJitterBuffer: JitterBuffer?
+    private let useNewJitterBuffer: Bool
     private var playoutBuffer: CircularBuffer?
     private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
     private var underrun = ManagedAtomic<UInt64>(0)
@@ -36,10 +31,20 @@ class OpusHandler {
     private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
     private var lastUsedSequence: UInt64?
     private var timestampTimeDiffSet = false
+    private var windowSizeUs = ManagedAtomic<UInt32>(0)
+    private var windowSize: OpusWindowSize?
+    private let metricsSubmitter: MetricsSubmitter?
+    private let jitterDepth: TimeInterval
+    private let jitterMax: TimeInterval
+    private var playing: ManagedAtomic<Bool> = .init(false)
 
-    class AudioJitterItem: JitterBuffer.JitterItem {
+    /// Audio data to be emplaced into the jitter buffer.
+    private class AudioJitterItem: JitterBuffer.JitterItem {
+        /// Encoded opus data.
         let data: Data
+        /// Sequence number of this opus packet.
         let sequenceNumber: UInt64
+        /// Capture timestamp of this audio (first frame's time).
         let timestamp: CMTime
 
         init(data: Data, sequenceNumber: UInt64, timestamp: CMTime) {
@@ -64,49 +69,11 @@ class OpusHandler {
         self.granularMetrics = granularMetrics
         self.decoder = try .init(format: DecimusAudioEngine.format)
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        if useNewJitterBuffer {
-            let handlers = CMBufferQueue.Handlers { builder in
-                builder.compare {
-                    let first = $0 as! AudioJitterItem
-                    let second = $1 as! AudioJitterItem
-                    let seq1 = first.sequenceNumber
-                    let seq2 = second.sequenceNumber
-                    if seq1 < seq2 {
-                        return .compareLessThan
-                    } else if seq1 > seq2 {
-                        return .compareGreaterThan
-                    } else if seq1 == seq2 {
-                        return .compareEqualTo
-                    }
-                    assert(false)
-                    return .compareLessThan
-                }
-                builder.getDecodeTimeStamp {
-                    ($0 as! AudioJitterItem).timestamp
-                }
-                builder.getDuration { _ in
-                    .invalid
-                }
-                builder.getPresentationTimeStamp {
-                    ($0 as! AudioJitterItem).timestamp
-                }
-                builder.getSize {
-                    ($0 as! AudioJitterItem).data.count
-                }
-                builder.isDataReady { _ in
-                    true
-                }
-            }
-            self.newJitterBuffer = try .init(fullTrackName: .init(namespace: sourceId, name: ""),
-                                             metricsSubmitter: metricsSubmitter,
-                                             minDepth: jitterDepth,
-                                             capacity: 100, // 2 secs.
-                                             handlers: handlers)
-            self.playoutBuffer = try .init(length: 48 * 32 * 100 / 8, // 100ms
-                                           format: self.asbd.pointee)
-            self.jitterBuffer = nil
-            self.createDequeueTask()
-        } else {
+        self.useNewJitterBuffer = useNewJitterBuffer
+        self.metricsSubmitter = metricsSubmitter
+        self.jitterDepth = jitterDepth
+        self.jitterMax = jitterMax
+        if !self.useNewJitterBuffer {
             // Create the jitter buffer.
             let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
             self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
@@ -116,12 +83,13 @@ class OpusHandler {
                                               minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
                 OpusHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
             }
+            // Create the player node.
+            self.node = .init(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
+            let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
+            self.node = node
+            try self.engine.addPlayer(identifier: sourceId, node: node)
             self.newJitterBuffer = nil
         }
-
-        // Create the player node.
-        self.node = .init(format: decoder.decodedFormat, renderBlock: renderBlock)
-        try self.engine.addPlayer(identifier: sourceId, node: node!)
     }
 
     deinit {
@@ -136,22 +104,92 @@ class OpusHandler {
         node?.reset()
     }
 
+    func createNewJitterBuffer(windowDuration: CMTime) throws -> JitterBuffer {
+        guard self.useNewJitterBuffer else { throw "Configuration Issue" }
+        let handlers = CMBufferQueue.Handlers { builder in
+            builder.compare {
+                let first = $0 as! AudioJitterItem
+                let second = $1 as! AudioJitterItem
+                let seq1 = first.sequenceNumber
+                let seq2 = second.sequenceNumber
+                if seq1 < seq2 {
+                    return .compareLessThan
+                } else if seq1 > seq2 {
+                    return .compareGreaterThan
+                } else if seq1 == seq2 {
+                    return .compareEqualTo
+                }
+                assert(false)
+                return .compareLessThan
+            }
+            builder.getDecodeTimeStamp {
+                ($0 as! AudioJitterItem).timestamp
+            }
+            builder.getDuration { _ in
+                windowDuration
+            }
+            builder.getPresentationTimeStamp {
+                ($0 as! AudioJitterItem).timestamp
+            }
+            builder.getSize {
+                ($0 as! AudioJitterItem).data.count
+            }
+            builder.isDataReady { _ in
+                true
+            }
+        }
+        let buffer = try JitterBuffer(fullTrackName: .init(namespace: self.sourceId, name: ""),
+                                      metricsSubmitter: self.metricsSubmitter,
+                                      minDepth: self.jitterDepth,
+                                      capacity: Int(self.jitterMax / windowDuration.seconds),
+                                      handlers: handlers)
+        self.newJitterBuffer = buffer
+        let playoutLength = UInt32(48000 * 32 * self.jitterMax / 8)
+        print("Playout length: \(playoutLength)")
+        self.playoutBuffer = try .init(length: playoutLength,
+                                       format: self.asbd.pointee)
+        self.createDequeueTask()
+        // Create the player node.
+        let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
+        self.node = node
+        try self.engine.addPlayer(identifier: self.sourceId, node: node)
+        return buffer
+    }
+
     func submitEncodedAudio(data: Data, sequence: UInt64, date: Date, timestamp: Date) throws {
-        print("RECV: \(sequence)")
-        if let jitterBuffer = self.newJitterBuffer {
+        if self.useNewJitterBuffer {
+            let jitterBuffer: JitterBuffer
+            if let existing = self.newJitterBuffer {
+                jitterBuffer = existing
+            } else {
+                // What's the duration of this packet?
+                let frames = try self.decoder.frames(data: data)
+                let duration = TimeInterval(frames) / 48000.0 // TODO: Sample rate?
+                let durationUs = duration * microsecondsPerSecond
+                let cmDuration = CMTime(value: CMTimeValue(durationUs), timescale: CMTimeScale(microsecondsPerSecond))
+                // Create jitter buffer.
+                jitterBuffer = try self.createNewJitterBuffer(windowDuration: cmDuration)
+            }
+
             // Set the timestamp diff from the first recveived object.
             if !self.timestampTimeDiffSet {
                 let diff = date.timeIntervalSince1970 - timestamp.timeIntervalSince1970
-                let diffUs = min(Int64(diff * 1_000_000), 1)
-                _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                             desired: diffUs,
-                                                             ordering: .acquiringAndReleasing)
-                self.timestampTimeDiffSet = true
+                let diffUs = min(Int64(diff * microsecondsPerSecond), 1)
+                let (exchanged, _) = self.timestampTimeDiffUs.compareExchange(expected: 0,
+                                                                              desired: diffUs,
+                                                                              ordering: .acquiringAndReleasing)
+                if exchanged {
+                    self.timestampTimeDiffSet = true
+                }
             }
 
+            // TODO: Is this right?
+            // We don't want to emplace this if we're not playing out yet.
+            guard self.playing.load(ordering: .acquiring) else { return }
+
             // Emplace this encoded data into the jitter buffer.
-            let usSinceEpoch = timestamp.timeIntervalSince1970 * 1_000_000
-            let timestamp = CMTime(value: CMTimeValue(usSinceEpoch), timescale: 1_000_000)
+            let usSinceEpoch = timestamp.timeIntervalSince1970 * microsecondsPerSecond
+            let timestamp = CMTime(value: CMTimeValue(usSinceEpoch), timescale: CMTimeScale(microsecondsPerSecond))
             let item = AudioJitterItem(data: data, sequenceNumber: sequence, timestamp: timestamp)
             do {
                 try jitterBuffer.write(item: item, from: date)
@@ -160,38 +198,42 @@ class OpusHandler {
             } catch JitterBufferError.old {
                 Self.logger.warning("Didn't enqueue audio as already concealed / used")
             }
-        } else {
-            // Generate PLC prior to real decode.
-            guard let jitterBuffer = self.jitterBuffer else {
-                throw "Invalid Jitter Buffer State"
-            }
-            let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
-            jitterBuffer.prepare(UInt(sequence),
-                                 concealmentCallback: self.plcCallback,
-                                 userData: selfPtr)
+            return
+        }
 
-            // Decode and queue for playout.
-            let decoded = try decoder.write(data: data)
-            try self.queueDecodedAudio(buffer: decoded, timestamp: date, sequence: sequence)
+        // Generate PLC prior to real decode.
+        guard let jitterBuffer = self.jitterBuffer else {
+            throw "Invalid Jitter Buffer State"
+        }
+        let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
+        jitterBuffer.prepare(UInt(sequence),
+                             concealmentCallback: self.plcCallback,
+                             userData: selfPtr)
 
-            // Metrics.
-            let metricsDate = self.granularMetrics ? date : nil
-            if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
-                                                                 timestamp: metricsDate)
-                    await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
-                                                            timestamp: metricsDate)
-                    if let metricsDate = metricsDate {
-                        await measurement.measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
-                                                            timestamp: metricsDate)
-                    }
+        // Decode and queue for playout.
+        let decoded = try decoder.write(data: data)
+        try self.queueDecodedAudio(buffer: decoded, timestamp: date, sequence: sequence)
+
+        // Metrics.
+        let metricsDate = self.granularMetrics ? date : nil
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                                             timestamp: metricsDate)
+                await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                                        timestamp: metricsDate)
+                if let metricsDate = metricsDate {
+                    await measurement.measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
+                                                        timestamp: metricsDate)
                 }
             }
         }
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, playoutBuffer, asbd, weak underrun, weak callbacks] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, playoutBuffer, asbd, weak underrun, weak callbacks, weak playing] silence, _, numFrames, data in
+        if let playing = playing {
+            playing.store(true, ordering: .releasing)
+        }
         // Fill the buffers as best we can.
         if let callbacks = callbacks {
             callbacks.wrappingIncrement(by: UInt64(numFrames), ordering: .relaxed)
@@ -218,13 +260,12 @@ class OpusHandler {
         if let playoutBuffer = playoutBuffer {
             let result = playoutBuffer.dequeue(frames: numFrames, buffer: &data.pointee)
             copiedFrames = Int(result.frames)
-        } else {
-            guard let jitterBuffer = jitterBuffer else {
-                fatalError()
-            }
+        } else if let jitterBuffer = jitterBuffer {
             copiedFrames = jitterBuffer.dequeue(buffer.mData,
                                                 destinationLength: Int(buffer.mDataByteSize),
                                                 elements: Int(numFrames))
+        } else {
+            copiedFrames = 0
         }
         guard copiedFrames == numFrames else {
             // Ensure any incomplete data is pure silence.
@@ -339,12 +380,30 @@ class OpusHandler {
             while !Task.isCancelled {
                 let waitTime: TimeInterval
                 let now: Date
+                let windowSize: OpusWindowSize
                 if let self = self {
                     now = Date.now
+                    // Get current window size / backup wait.
+                    if let set = self.windowSize {
+                        windowSize = set
+                    } else {
+                        let stored = self.windowSizeUs.load(ordering: .acquiring)
+                        if stored == 0 {
+                            windowSize = .twentyMs
+                        } else {
+                            let interval = TimeInterval(stored) / microsecondsPerSecond
+                            guard let window = OpusWindowSize(rawValue: interval) else {
+                                Self.logger.error("Bad opus window size calculation")
+                                return
+                            }
+                            self.windowSize = window
+                            windowSize = window
+                        }
+                    }
+
                     // Wait until we expect to have a frame available.
-                    // TODO: Need opus window size here.
                     let calc = self.calculateWaitTime(from: now)
-                    waitTime = calc ?? (20 / 1000)
+                    waitTime = calc ?? windowSize.rawValue
                 } else {
                     return
                 }
@@ -359,48 +418,70 @@ class OpusHandler {
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    if let item: AudioJitterItem = self.newJitterBuffer!.read(from: now) {
-                        if self.granularMetrics,
-                           let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(packet: item) {
+                    guard let item: AudioJitterItem  = self.newJitterBuffer!.read(from: now) else { continue }
+
+                    // Record the actual delay (difference between when this should
+                    // be presented, and now).
+                    if self.granularMetrics,
+                       let measurement = self.measurement?.measurement {
+                        let now = Date.now
+                        if let time = self.calculateWaitTime(packet: item, from: now) {
                             Task(priority: .utility) {
-                                // await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
                         }
-                        // We got an opus packet. Do we have any discontinuity?
-                        self.decodeWithConcealment(item)
                     }
+
+                    // Decode, conceal, enqueue for playout.
+                    self.decodeWithConcealment(item, window: windowSize, when: now)
                 }
             }
         }
     }
 
-    private func decodeWithConcealment(_ item: AudioJitterItem) {
+    private func decodeWithConcealment(_ item: AudioJitterItem, window: OpusWindowSize, when: Date) {
         // Deal with any discontinuity.
         if var lastUsedSequence = self.lastUsedSequence,
            item.sequenceNumber != lastUsedSequence + 1 {
             // There is a discontinuity.
-            print("DISCON")
-            print("HAD: \(lastUsedSequence)")
-            print("GOT: \(item.sequenceNumber)")
             let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
             Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
             for _ in 0..<packetsToGenerate {
                 do {
-                    // TODO: Calculate frames.
-                    let plc = try self.decoder.plc(frames: 960)
+                    let frames = AVAudioFrameCount(window.rawValue * 48000) // TODO: Sample rate??
+                    let plc = try self.decoder.plc(frames: frames)
                     lastUsedSequence += 1
                     self.newJitterBuffer!.updateLastSequenceRead(lastUsedSequence)
                     var timestamp = AudioTimeStamp()
-                    try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
-                                                    timestamp: &timestamp,
-                                                    frames: nil)
+                    do {
+                        try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
+                                                        timestamp: &timestamp,
+                                                        frames: nil)
+                    } catch {
+                        Self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
+                        if let measurement = self.measurement?.measurement {
+                            Task(priority: .utility) {
+                                await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
+                            }
+                        }
+                    }
                 } catch {
-                    Self.logger.warning("Failure generating PLC: \(error.localizedDescription)")
+                    Self.logger.error("Failure generating PLC: \(error.localizedDescription)")
                 }
             }
         }
         self.lastUsedSequence = item.sequenceNumber
+
+        // Set window size.
+        if self.windowSizeUs.load(ordering: .acquiring) == 0 {
+            do {
+                let frames = try self.decoder.frames(data: item.data)
+                let windowSize: TimeInterval = TimeInterval(frames) / 48000 // TODO: sample rate comes from??
+                self.windowSizeUs.store(.init(windowSize * microsecondsPerSecond), ordering: .releasing)
+            } catch {
+                Self.logger.error("Failed to extract frame count from Opus")
+            }
+        }
 
         // Decode.
         guard let decoded = try? self.decoder.write(data: item.data) else {
@@ -411,11 +492,28 @@ class OpusHandler {
         // Enqueue for playout.
         var timestamp = AudioTimeStamp()
         do {
-            try self.playoutBuffer?.enqueue(buffer: &decoded.mutableAudioBufferList.pointee,
-                                            timestamp: &timestamp,
-                                            frames: nil)
+            guard let playoutBuffer = self.playoutBuffer else {
+                Self.logger.error("Missing playout buffer")
+                return
+            }
+            let depth = playoutBuffer.peek().frames
+            if self.granularMetrics,
+               let measurement = self.measurement?.measurement {
+                Task(priority: .utility) {
+                    let depthMs = TimeInterval(depth) / 48000 * 1000
+                    await measurement.depth(depthMs: Int(depthMs), timestamp: when)
+                }
+            }
+            try playoutBuffer.enqueue(buffer: &decoded.mutableAudioBufferList.pointee,
+                                      timestamp: &timestamp,
+                                      frames: nil)
         } catch {
-            Self.logger.error("Failed to enqueue decoded audio to playout buffer: \(error.localizedDescription)")
+            Self.logger.warning("Failed to enqueue decoded audio to playout buffer: \(error.localizedDescription)")
+            if let measurement = self.measurement?.measurement {
+                Task(priority: .utility) {
+                    await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
+                }
+            }
         }
     }
 
@@ -426,11 +524,12 @@ class OpusHandler {
         guard let jitterBuffer = self.newJitterBuffer else { return nil }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
         guard diffUs > 0 else { return nil }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(from: from, offset: diff)
+        let diff = TimeInterval(diffUs) / microsecondsPerSecond
+        let waitTime = jitterBuffer.calculateWaitTime(from: from, offset: diff)
+        return waitTime
     }
 
-    private func calculateWaitTime(packet: AudioJitterItem, from: Date = .now) -> TimeInterval? {
+    private func calculateWaitTime(packet: AudioJitterItem, from: Date) -> TimeInterval? {
         guard let jitterBuffer = self.newJitterBuffer else {
             assert(false)
             Self.logger.error("App misconfiguration, please report this")
@@ -442,7 +541,7 @@ class OpusHandler {
             Self.logger.warning("Missing initial timestamp")
             return nil
         }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
+        let diff = TimeInterval(diffUs) / microsecondsPerSecond
         return jitterBuffer.calculateWaitTime(item: packet, from: from, offset: diff)
     }
 }

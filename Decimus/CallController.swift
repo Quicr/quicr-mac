@@ -116,7 +116,7 @@ class MoqCallController: QClientCallbacks {
             case .clientConnecting:
                 break
             case .clientPendingServerSetup:
-                break;
+                break
             case .ready:
                 // This is here just for the type inference,
                 // but we don't actually expect it to happen.
@@ -299,7 +299,8 @@ class MoqCallController: QClientCallbacks {
                                         reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics,
                                         endpointId: endpointId,
-                                        relayId: relayId)
+                                        relayId: relayId,
+                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer)
         }
 
         throw CodecError.unsupportedCodecSet(found)

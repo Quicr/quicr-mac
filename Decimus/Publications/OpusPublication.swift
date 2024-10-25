@@ -153,7 +153,8 @@ class OpusPublication: Publication {
 
         // Get absolute time.
         let nano = AudioConvertHostTimeToNanos(dequeued.timestamp.mHostTime)
-        let wallClock = self.bootDate.addingTimeInterval(TimeInterval(nano / 1_000_000_000))
+        let nanoInterval = TimeInterval(nano) / 1_000_000_000
+        let wallClock = self.bootDate.addingTimeInterval(nanoInterval)
 
         self.pcm.frameLength = dequeued.frames
         guard dequeued.frames == self.windowFrames else {

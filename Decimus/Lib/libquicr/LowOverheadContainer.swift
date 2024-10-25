@@ -3,6 +3,8 @@
 
 import Foundation
 
+let microsecondsPerSecond: TimeInterval = 1_000_000
+
 /// Possible errors thrown by ``LowOverheadContainer``.
 enum LowOverheadContainerError: Error {
     /// The container was missing a mandatory field.
@@ -11,7 +13,6 @@ enum LowOverheadContainerError: Error {
 
 /// Representation of https://datatracker.ietf.org/doc/draft-mzanaty-moq-loc/
 struct LowOverheadContainer {
-    static let microsecondsPerSecond: TimeInterval = 1_000_000
     private let timestampKey: NSNumber = 1
     private let sequenceKey: NSNumber = 2
 
@@ -28,7 +29,7 @@ struct LowOverheadContainer {
     init(timestamp: Date, sequence: UInt64) {
         self.timestamp = timestamp
         self.sequence = sequence
-        var timestamp = UInt64(timestamp.timeIntervalSince1970 * LowOverheadContainer.microsecondsPerSecond)
+        var timestamp = UInt64(timestamp.timeIntervalSince1970 * microsecondsPerSecond)
         let timestampData = Data(bytes: &timestamp,
                                  count: MemoryLayout.size(ofValue: timestamp))
         var sequence = sequence
@@ -52,7 +53,7 @@ struct LowOverheadContainer {
         let timestamp: UInt64 = timestampData.withUnsafeBytes {
             return $0.load(as: UInt64.self)
         }
-        self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / Self.microsecondsPerSecond)
+        self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / microsecondsPerSecond)
         self.sequence = sequenceData.withUnsafeBytes {
             return $0.load(as: UInt64.self)
         }

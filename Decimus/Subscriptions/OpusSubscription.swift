@@ -24,6 +24,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let opusWindowSize: OpusWindowSize
     private let subscription: ManifestSubscription
     private let metricsSubmitter: MetricsSubmitter?
+    private let useNewJitterBuffer: Bool
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -34,7 +35,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
          reliable: Bool,
          granularMetrics: Bool,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         useNewJitterBuffer: Bool) throws {
         guard subscription.profileSet.profiles.count == 1,
               let profile = subscription.profileSet.profiles.first else {
             throw "OpusSubscription only supports one profile"
@@ -59,6 +61,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
+        self.useNewJitterBuffer = useNewJitterBuffer
 
         // Create the actual audio handler upfront.
         self.handler = try .init(sourceId: self.subscription.sourceID,
@@ -68,7 +71,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
                                  granularMetrics: self.granularMetrics,
-                                 useNewJitterBuffer: true,
+                                 useNewJitterBuffer: self.useNewJitterBuffer,
                                  metricsSubmitter: self.metricsSubmitter)
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
         super.init(fullTrackName: fullTrackName.getUnsafe())
@@ -147,7 +150,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                                   jitterMax: self.jitterMax,
                                                   opusWindowSize: self.opusWindowSize,
                                                   granularMetrics: self.granularMetrics,
-                                                  useNewJitterBuffer: true,
+                                                  useNewJitterBuffer: self.useNewJitterBuffer,
                                                   metricsSubmitter: self.metricsSubmitter)
                     self.handler = handler
                     return handler

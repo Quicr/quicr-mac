@@ -48,6 +48,8 @@ struct SubscriptionConfig: Codable {
     var jitterMaxTime: TimeInterval
     /// Audio target jitter depth.
     var jitterDepthTime: TimeInterval
+    /// Use video jitter buffer for audio.
+    var useNewJitterBuffer: Bool
     /// Opus encode/decode window size to use.
     var opusWindowSize: OpusWindowSize
     /// Control behaviour of video rendering.
@@ -93,6 +95,7 @@ struct SubscriptionConfig: Codable {
     init() {
         jitterMaxTime = 0.2
         jitterDepthTime = 0.2
+        useNewJitterBuffer = false
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
         mediaReliability = .init()
