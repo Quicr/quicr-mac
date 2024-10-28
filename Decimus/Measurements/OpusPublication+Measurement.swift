@@ -21,5 +21,9 @@ extension OpusPublication {
             record(field: "publishedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
             record(field: "publishedFrames", value: self.frames as AnyObject, timestamp: timestamp)
         }
+
+        func encode(_ count: Int, timestamp: Date) {
+            record(field: "encode", value: count as AnyObject, timestamp: timestamp)
+        }
     }
 }

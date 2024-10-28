@@ -145,7 +145,6 @@ class OpusHandler {
                                       handlers: handlers)
         self.newJitterBuffer = buffer
         let playoutLength = UInt32(48000 * 32 * self.jitterMax / 8)
-        print("Playout length: \(playoutLength)")
         self.playoutBuffer = try .init(length: playoutLength,
                                        format: self.asbd.pointee)
         self.createDequeueTask()

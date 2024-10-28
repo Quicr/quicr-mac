@@ -73,8 +73,17 @@ class OpusPublication: Publication {
             while !Task.isCancelled {
                 if let self = self {
                     do {
+                        var encodePassCount = 0
                         while let data = try self.encode() {
+                            encodePassCount += 1
                             self.publish(data: data.0, timestamp: data.1)
+                        }
+                        if self.granularMetrics,
+                           let measurement = self.measurement?.measurement {
+                            let now = Date.now
+                            Task(priority: .utility) {
+                                await measurement.encode(encodePassCount, timestamp: now)
+                            }
                         }
                     } catch {
                         Self.logger.error("Failed encode: \(error)")
