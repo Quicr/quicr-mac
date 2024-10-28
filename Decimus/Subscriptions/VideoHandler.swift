@@ -223,7 +223,7 @@ class VideoHandler: CustomStringConvertible {
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            try createJitterBuffer(frame: frame)
+            try createJitterBuffer(frame: frame, reliable: self.reliable)
             assert(self.dequeueTask == nil)
             createDequeueTask()
         }
@@ -317,7 +317,7 @@ class VideoHandler: CustomStringConvertible {
         return jitterBuffer.calculateWaitTime(item: frame, from: from, offset: diff)
     }
 
-    private func createJitterBuffer(frame: DecimusVideoFrame) throws {
+    private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
         let remoteFPS: UInt16
         if let fps = frame.fps {
             remoteFPS = UInt16(fps)
@@ -339,7 +339,7 @@ class VideoHandler: CustomStringConvertible {
         // Create the video jitter buffer.
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
-                if self.reliable {
+                if reliable {
                     return .compareLessThan
                 }
                 let first = $0 as! DecimusVideoFrameJitterItem
