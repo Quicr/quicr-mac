@@ -20,4 +20,13 @@ final class TestOpusPublication: XCTestCase {
         //                                               relayId: "")
         //        publication.metricsSampled(.init())
     }
+
+    #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
+    func testAudioTimestamp() throws {
+        let exampleHostTime: UInt64 = 2243357893184
+        let mac = getAudioDateMac(exampleHostTime)
+        let ios = try getAudioDateiOS(exampleHostTime)
+        XCTAssertEqual(mac, ios)
+    }
+    #endif
 }

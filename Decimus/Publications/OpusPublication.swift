@@ -159,19 +159,45 @@ class OpusPublication: Publication {
         // Dequeue a window size worth of data.
         self.pcm.frameLength = self.windowFrames
         let dequeued = buffer.dequeue(frames: self.windowFrames, buffer: &self.pcm.mutableAudioBufferList.pointee)
-
-        // Get absolute time.
-        let nano = AudioConvertHostTimeToNanos(dequeued.timestamp.mHostTime)
-        let nanoInterval = TimeInterval(nano) / 1_000_000_000
-        let wallClock = self.bootDate.addingTimeInterval(nanoInterval)
-
         self.pcm.frameLength = dequeued.frames
         guard dequeued.frames == self.windowFrames else {
             Self.logger.warning("Dequeue only got: \(dequeued.frames)/\(self.windowFrames)")
             return nil
         }
 
+        // Get absolute time.
+        let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
+
         // Encode this data.
         return (try self.encoder.write(data: self.pcm), wallClock)
     }
+}
+
+func getAudioDate(_ hostTime: UInt64, bootDate: Date) throws -> Date {
+    let nano: UInt64
+    #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
+    nano = getAudioDateMac(hostTime)
+    #else
+    nano = try getAudioDateiOS(hostTime)
+    #endif
+    let nanoInterval = TimeInterval(nano) / 1_000_000_000
+    return bootDate.addingTimeInterval(nanoInterval)
+}
+
+#if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
+func getAudioDateMac(_ hostTime: UInt64) -> UInt64 {
+    AudioConvertHostTimeToNanos(hostTime)
+}
+#endif
+
+func getAudioDateiOS(_ hostTime: UInt64) throws -> UInt64 {
+    // Get absolute time.
+    var info = mach_timebase_info_data_t()
+    let result = mach_timebase_info(&info)
+    guard result == KERN_SUCCESS else {
+        throw "Failed to get mach time"
+    }
+    let factor = TimeInterval(info.numer) / TimeInterval(info.denom)
+    let ns = TimeInterval(hostTime) * factor
+    return UInt64(ns)
 }
