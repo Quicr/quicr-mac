@@ -47,10 +47,11 @@ struct InCallView: View {
         ZStack {
             GeometryReader { geometry in
                 Group {
-#if os(tvOS)
+                    #if os(tvOS)
                     ZStack {
                         // Incoming videos.
-                        VideoGrid(connecting: self.$connecting,
+                        VideoGrid(showLabels: self.viewModel.showLabels,
+                                  connecting: self.$connecting,
                                   blur: self.$showControls,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -80,13 +81,14 @@ struct InCallView: View {
                         }
                         .disabled(self.leaving)
                     }
-#else
+                    #else
                     VStack {
-                        VideoGrid(connecting: self.$connecting,
+                        VideoGrid(showLabels: self.viewModel.showLabels,
+                                  connecting: self.$connecting,
                                   blur: .constant(false),
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        
+
                         // TODO: Re-enable on reimplementation.
                         //                            Button("Alter Subscriptions") {
                         //                                self.isShowingSubscriptions = true
@@ -97,16 +99,16 @@ struct InCallView: View {
                         Button("Toggle Debug Details") {
                             self.debugDetail = true
                         }
-                        
+
                         // Call controls panel.
                         CallControls(captureManager: viewModel.captureManager,
                                      engine: viewModel.engine,
                                      leaving: $leaving)
-                        .disabled(leaving)
-                        .padding(.bottom)
-                        .frame(alignment: .top)
+                            .disabled(leaving)
+                            .padding(.bottom)
+                            .frame(alignment: .top)
                     }
-#endif
+                    #endif
                 }
                 .sheet(isPresented: $isShowingSubscriptions) {
                     //                        if let controller = viewModel.controller {
@@ -225,6 +227,9 @@ extension InCallView {
         private var videoCapture = false
         private let onLeave: () -> Void
         var relayId: String?
+
+        @AppStorage(SubscriptionSettingsView.showLabelsKey)
+        var showLabels: Bool = true
 
         @AppStorage("influxConfig")
         private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())

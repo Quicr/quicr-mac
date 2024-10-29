@@ -6,6 +6,10 @@ import AVFoundation
 
 struct SubscriptionSettingsView: View {
     static let defaultsKey = "subscriptionConfig"
+    static let showLabelsKey = "showLabels"
+
+    @AppStorage(Self.showLabelsKey)
+    private var showLabels: Bool = true
 
     @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
@@ -26,6 +30,9 @@ struct SubscriptionSettingsView: View {
     var body: some View {
         Section("Subscription Config") {
             Form {
+                LabeledToggle("Show Labels",
+                              isOn: self.$showLabels)
+
                 VideoJitterBufferSettingsView(config: $subscriptionConfig.value.videoJitterBuffer)
 
                 LabeledContent("Jitter Target Depth (s)") {
