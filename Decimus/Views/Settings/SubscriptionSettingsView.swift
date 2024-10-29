@@ -53,6 +53,8 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .labelsHidden()
                 }
+                LabeledToggle("New Audio Buffer",
+                              isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {
                         Text(String(describing: $0))

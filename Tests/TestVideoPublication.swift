@@ -40,8 +40,8 @@ final class TestVideoPublication: XCTestCase {
                                       bitrateType: .average)
 
         return try .init(profile: .init(qualityProfile: "",
-                                        expiry: [],
-                                        priorities: [],
+                                        expiry: [1, 2],
+                                        priorities: [1, 2],
                                         namespace: ""),
                          config: config,
                          metricsSubmitter: nil,

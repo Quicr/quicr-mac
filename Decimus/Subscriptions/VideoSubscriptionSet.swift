@@ -27,7 +27,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
     private let granularMetrics: Bool
-    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let jitterBufferConfig: JitterBuffer.Config
     private var renderTask: Task<(), Never>?
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
@@ -59,7 +59,7 @@ class VideoSubscriptionSet: SubscriptionSet {
          videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config,
+         jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          qualityMissThreshold: Int,
          pauseMissThreshold: Int,

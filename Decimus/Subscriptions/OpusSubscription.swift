@@ -23,6 +23,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
     private let subscription: ManifestSubscription
+    private let metricsSubmitter: MetricsSubmitter?
+    private let useNewJitterBuffer: Bool
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -33,13 +35,15 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
          reliable: Bool,
          granularMetrics: Bool,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         useNewJitterBuffer: Bool) throws {
         guard subscription.profileSet.profiles.count == 1,
               let profile = subscription.profileSet.profiles.first else {
             throw "OpusSubscription only supports one profile"
         }
         self.subscription = subscription
         self.engine = engine
+        self.metricsSubmitter = submitter
         if let submitter = submitter {
             let measurement = OpusSubscriptionMeasurement(namespace: subscription.sourceID)
             self.measurement = .init(measurement: measurement, submitter: submitter)
@@ -57,6 +61,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
+        self.useNewJitterBuffer = useNewJitterBuffer
 
         // Create the actual audio handler upfront.
         self.handler = try .init(sourceId: self.subscription.sourceID,
@@ -65,7 +70,9 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  jitterDepth: self.jitterDepth,
                                  jitterMax: self.jitterMax,
                                  opusWindowSize: self.opusWindowSize,
-                                 granularMetrics: self.granularMetrics)
+                                 granularMetrics: self.granularMetrics,
+                                 useNewJitterBuffer: self.useNewJitterBuffer,
+                                 metricsSubmitter: self.metricsSubmitter)
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
         super.init(fullTrackName: fullTrackName.getUnsafe())
         self.setCallbacks(self)
@@ -142,7 +149,9 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                                   jitterDepth: self.jitterDepth,
                                                   jitterMax: self.jitterMax,
                                                   opusWindowSize: self.opusWindowSize,
-                                                  granularMetrics: self.granularMetrics)
+                                                  granularMetrics: self.granularMetrics,
+                                                  useNewJitterBuffer: self.useNewJitterBuffer,
+                                                  metricsSubmitter: self.metricsSubmitter)
                     self.handler = handler
                     return handler
                 }
@@ -153,10 +162,16 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
             return
         }
 
+        guard let extensions = extensions,
+              let loc = try? LowOverheadContainer(from: extensions) else {
+            Self.logger.warning("Missing expected LOC headers")
+            return
+        }
         do {
             try handler.submitEncodedAudio(data: data,
                                            sequence: objectHeaders.groupId,
-                                           date: date)
+                                           date: now,
+                                           timestamp: loc.timestamp)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }

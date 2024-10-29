@@ -39,11 +39,11 @@ class VideoHandler: CustomStringConvertible {
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
-    private var jitterBuffer: VideoJitterBuffer?
+    private var jitterBuffer: JitterBuffer?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
-    private let jitterBufferConfig: VideoJitterBuffer.Config
+    private let jitterBufferConfig: JitterBuffer.Config
     var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
         return result == 0 ? nil : .init(rawValue: result)
@@ -89,7 +89,7 @@ class VideoHandler: CustomStringConvertible {
          videoBehaviour: VideoBehaviour,
          reliable: Bool,
          granularMetrics: Bool,
-         jitterBufferConfig: VideoJitterBuffer.Config,
+         jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          variances: VarianceCalculator) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
@@ -223,7 +223,7 @@ class VideoHandler: CustomStringConvertible {
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            try createJitterBuffer(frame: frame)
+            try createJitterBuffer(frame: frame, reliable: self.reliable)
             assert(self.dequeueTask == nil)
             createDequeueTask()
         }
@@ -234,10 +234,13 @@ class VideoHandler: CustomStringConvertible {
 
         // Either write the frame to the jitter buffer or otherwise decode it.
         if let jitterBuffer = self.jitterBuffer {
+            let item = try DecimusVideoFrameJitterItem(frame)
             do {
-                try jitterBuffer.write(videoFrame: frame, from: from)
-            } catch VideoJitterBufferError.full {
+                try jitterBuffer.write(item: item, from: from)
+            } catch JitterBufferError.full {
                 Self.logger.warning("Didn't enqueue as queue was full")
+            } catch JitterBufferError.old {
+                Self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
             try decode(sample: frame, from: from)
@@ -298,7 +301,7 @@ class VideoHandler: CustomStringConvertible {
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
-    private func calculateWaitTime(frame: DecimusVideoFrame, from: Date = .now) -> TimeInterval? {
+    private func calculateWaitTime(frame: DecimusVideoFrameJitterItem, from: Date = .now) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else {
             assert(false)
             Self.logger.error("App misconfiguration, please report this")
@@ -311,10 +314,10 @@ class VideoHandler: CustomStringConvertible {
             return nil
         }
         let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(frame: frame, from: from, offset: diff)
+        return jitterBuffer.calculateWaitTime(item: frame, from: from, offset: diff)
     }
 
-    private func createJitterBuffer(frame: DecimusVideoFrame) throws {
+    private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
         let remoteFPS: UInt16
         if let fps = frame.fps {
             remoteFPS = UInt16(fps)
@@ -334,11 +337,46 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Create the video jitter buffer.
+        let handlers = CMBufferQueue.Handlers { builder in
+            builder.compare {
+                if reliable {
+                    return .compareLessThan
+                }
+                let first = $0 as! DecimusVideoFrameJitterItem
+                let second = $1 as! DecimusVideoFrameJitterItem
+                let seq1 = first.sequenceNumber
+                let seq2 = second.sequenceNumber
+                if seq1 < seq2 {
+                    return .compareLessThan
+                } else if seq1 > seq2 {
+                    return .compareGreaterThan
+                } else if seq1 == seq2 {
+                    return .compareEqualTo
+                }
+                assert(false)
+                return .compareLessThan
+            }
+            builder.getDecodeTimeStamp {
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.decodeTimeStamp ?? .invalid
+            }
+            builder.getDuration {
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.duration ?? .invalid
+            }
+            builder.getPresentationTimeStamp {
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.presentationTimeStamp ?? .invalid
+            }
+            builder.getSize {
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(0) { $0 + $1.totalSampleSize }
+            }
+            builder.isDataReady {
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
+            }
+        }
         self.jitterBuffer = try .init(fullTrackName: self.fullTrackName,
                                       metricsSubmitter: self.metricsSubmitter,
-                                      sort: !self.reliable,
                                       minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)))
+                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
+                                      handlers: handlers)
         self.duration = duration
     }
 
@@ -377,17 +415,17 @@ class VideoHandler: CustomStringConvertible {
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue a frame.
-                    if let sample = self.jitterBuffer!.read(from: now) {
+                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now) {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(frame: sample) {
+                           let time = self.calculateWaitTime(frame: item) {
                             Task(priority: .utility) {
                                 await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
                         }
 
                         do {
-                            try self.decode(sample: sample, from: now)
+                            try self.decode(sample: item.frame, from: now)
                         } catch {
                             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                         }
@@ -634,5 +672,21 @@ extension DecimusVideoRotation {
 extension CoreMedia.CMVideoDimensions: Swift.Equatable {
     public static func == (lhs: CMVideoDimensions, rhs: CMVideoDimensions) -> Bool {
         lhs.width == rhs.width && lhs.height == rhs.height
+    }
+}
+
+class DecimusVideoFrameJitterItem: JitterBuffer.JitterItem {
+    let frame: DecimusVideoFrame
+    let sequenceNumber: UInt64
+    let timestamp: CMTime
+
+    init(_ frame: DecimusVideoFrame) throws {
+        guard let seq = frame.sequenceNumber,
+              let time = frame.samples.first?.presentationTimeStamp else {
+            throw "Missing non optional fields"
+        }
+        self.frame = frame
+        self.sequenceNumber = seq
+        self.timestamp = time
     }
 }

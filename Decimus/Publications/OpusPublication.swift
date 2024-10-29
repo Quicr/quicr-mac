@@ -20,6 +20,7 @@ class OpusPublication: Publication {
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
     private var currentGroupId: UInt64?
+    private let bootDate: Date
 
     init(profile: Profile,
          metricsSubmitter: MetricsSubmitter?,
@@ -57,6 +58,7 @@ class OpusPublication: Publication {
               let defaultTTL = profile.expiry?.first else {
             throw "Missing expected profile values"
         }
+        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -71,8 +73,17 @@ class OpusPublication: Publication {
             while !Task.isCancelled {
                 if let self = self {
                     do {
+                        var encodePassCount = 0
                         while let data = try self.encode() {
-                            self.publish(data: data)
+                            encodePassCount += 1
+                            self.publish(data: data.0, timestamp: data.1)
+                        }
+                        if self.granularMetrics,
+                           let measurement = self.measurement?.measurement {
+                            let now = Date.now
+                            Task(priority: .utility) {
+                                await measurement.encode(encodePassCount, timestamp: now)
+                            }
                         }
                     } catch {
                         Self.logger.error("Failed encode: \(error)")
@@ -92,7 +103,7 @@ class OpusPublication: Publication {
         Self.logger.debug("Deinit")
     }
 
-    private func publish(data: Data) {
+    private func publish(data: Data, timestamp: Date) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -109,7 +120,8 @@ class OpusPublication: Publication {
         if self.currentGroupId == nil {
             self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
         }
-        let published = self.publish(data: data, priority: &priority, ttl: &ttl)
+        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
+        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
             self.currentGroupId! += 1
@@ -119,16 +131,19 @@ class OpusPublication: Publication {
         }
     }
 
-    private func publish(data: Data, priority: UnsafePointer<UInt8>?, ttl: UnsafePointer<UInt16>?) -> QPublishObjectStatus {
+    private func publish(data: Data,
+                         priority: UnsafePointer<UInt8>?,
+                         ttl: UnsafePointer<UInt16>?,
+                         loc: LowOverheadContainer) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId!,
                                      objectId: 0,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: nil)
+        return self.publishObject(headers, data: data, extensions: loc.extensions)
     }
 
-    private func encode() throws -> Data? {
+    private func encode() throws -> (Data, Date)? {
         guard let buffer = self.engine.microphoneBuffer else {
             #if os(macOS)
             return nil
@@ -144,6 +159,12 @@ class OpusPublication: Publication {
         // Dequeue a window size worth of data.
         self.pcm.frameLength = self.windowFrames
         let dequeued = buffer.dequeue(frames: self.windowFrames, buffer: &self.pcm.mutableAudioBufferList.pointee)
+
+        // Get absolute time.
+        let nano = AudioConvertHostTimeToNanos(dequeued.timestamp.mHostTime)
+        let nanoInterval = TimeInterval(nano) / 1_000_000_000
+        let wallClock = self.bootDate.addingTimeInterval(nanoInterval)
+
         self.pcm.frameLength = dequeued.frames
         guard dequeued.frames == self.windowFrames else {
             Self.logger.warning("Dequeue only got: \(dequeued.frames)/\(self.windowFrames)")
@@ -151,8 +172,6 @@ class OpusPublication: Publication {
         }
 
         // Encode this data.
-        return try self.encoder.write(data: self.pcm)
+        return (try self.encoder.write(data: self.pcm), wallClock)
     }
-
-    func publish(_ flag: Bool) {}
 }
