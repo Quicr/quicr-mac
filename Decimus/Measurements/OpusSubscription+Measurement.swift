@@ -73,5 +73,13 @@ extension OpusSubscription {
             self.playoutFull += 1
             record(field: "playoutFull", value: self.playoutFull as AnyObject, timestamp: timestamp)
         }
+
+        func timeDiff(_ diff: TimeInterval, timestamp: Date) {
+            record(field: "timeDiff", value: diff, timestamp: timestamp)
+        }
+
+        func receivedFrame(_ time: TimeInterval, timestamp: Date) {
+            record(field: "timestamp", value: time, timestamp: timestamp)
+        }
     }
 }

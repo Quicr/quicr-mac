@@ -28,9 +28,9 @@ class OpusHandler {
     private var callbacks = ManagedAtomic<UInt64>(0)
     private let granularMetrics: Bool
     private var dequeueTask: Task<Void, Never>?
+    private var locklessTimestampTimeDiff = TimeInterval.greatestFiniteMagnitude
     private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
     private var lastUsedSequence: UInt64?
-    private var timestampTimeDiffSet = false
     private var windowSizeUs = ManagedAtomic<UInt32>(0)
     private var windowSize: OpusWindowSize?
     private let metricsSubmitter: MetricsSubmitter?
@@ -171,15 +171,20 @@ class OpusHandler {
             }
 
             // Set the timestamp diff from the first recveived object.
-            if !self.timestampTimeDiffSet {
-                let diff = date.timeIntervalSince1970 - timestamp.timeIntervalSince1970
-                let diffUs = min(Int64(diff * microsecondsPerSecond), 1)
-                let (exchanged, _) = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                                              desired: diffUs,
-                                                                              ordering: .acquiringAndReleasing)
-                if exchanged {
-                    self.timestampTimeDiffSet = true
+            let diff = date.timeIntervalSince1970 - timestamp.timeIntervalSince1970
+            let newMin = min(diff, self.locklessTimestampTimeDiff)
+            #if DEBUG
+            if let measurement = self.measurement?.measurement {
+                Task(priority: .utility) {
+                    await measurement.timeDiff(diff, timestamp: date)
+                    await measurement.receivedFrame(timestamp.timeIntervalSince1970, timestamp: date)
                 }
+            }
+            #endif
+            if newMin < self.locklessTimestampTimeDiff {
+                let diffUs = min(Int64(newMin * microsecondsPerSecond), 1)
+                self.timestampTimeDiffUs.store(diffUs, ordering: .releasing)
+                self.locklessTimestampTimeDiff = newMin
             }
 
             // TODO: Is this right?

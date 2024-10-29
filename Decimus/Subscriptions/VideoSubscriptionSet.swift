@@ -50,7 +50,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private let variances: VarianceCalculator
     private let decodedVariances: VarianceCalculator
     private var formats: [FullTrackName: CMFormatDescription?] = [:]
-    private var timestampTimeDiff: TimeInterval?
+    private var timestampTimeDiff: TimeInterval = .greatestFiniteMagnitude
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
 
     init(subscription: ManifestSubscription,
@@ -159,12 +159,9 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     private func receivedObject(timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object.
-        if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
-        }
-
-        // Set this diff for all handlers, if not already.
-        if let diff = self.timestampTimeDiff {
+        let diff = when.timeIntervalSince1970 - timestamp
+        if diff < self.timestampTimeDiff {
+            self.timestampTimeDiff = diff
             for (_, sub) in self.videoSubscriptions {
                 sub.handlerLock.withLock {
                     guard let handler = sub.handler else { return }

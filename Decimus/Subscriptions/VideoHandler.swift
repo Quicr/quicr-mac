@@ -439,9 +439,7 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter diff: Difference in time in seconds.
     func setTimeDiff(diff: TimeInterval) {
         let diffUs = min(Int64(diff * 1_000_000), 1)
-        _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                     desired: diffUs,
-                                                     ordering: .acquiringAndReleasing)
+        self.timestampTimeDiffUs.store(diffUs, ordering: .releasing)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
