@@ -58,6 +58,7 @@
 		9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
 		9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3E44162C8F1FD60000B98D /* Publication.swift */; };
+		9B3F2C9B2CD23FF90053CBC1 /* ActiveSpeakerControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3F2C9A2CD23FF50053CBC1 /* ActiveSpeakerControl.swift */; };
 		9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */; };
 		9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
@@ -234,6 +235,7 @@
 		9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMeasurement.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
 		9B3E44162C8F1FD60000B98D /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
+		9B3F2C9A2CD23FF50053CBC1 /* ActiveSpeakerControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerControl.swift; sourceTree = "<group>"; };
 		9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularBuffer.swift; sourceTree = "<group>"; };
 		9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoSubscriptionSet.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
@@ -639,6 +641,7 @@
 		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
 			isa = PBXGroup;
 			children = (
+				9B3F2C9A2CD23FF50053CBC1 /* ActiveSpeakerControl.swift */,
 				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
 				FF2498B62A55E95E00C6D66D /* VideoSubscriptionSet.swift */,
 				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
@@ -895,7 +898,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1011,6 +1014,7 @@
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,
 				186763592B2B6B3B00339421 /* JitterBuffer+Measurement.swift in Sources */,
 				FFFF72DD2A280B6300D4D5EE /* ManifestSettingsView.swift in Sources */,
+				9B3F2C9B2CD23FF90053CBC1 /* ActiveSpeakerControl.swift in Sources */,
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
 				180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */,
@@ -1038,7 +1042,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1063,7 +1067,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1229,7 +1233,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1304,7 +1308,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

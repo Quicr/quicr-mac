@@ -13,6 +13,8 @@ enum MoqCallControllerError: Error {
     case notConnected
     /// No server message was received.
     case missingSetup
+    /// The specified publication was not found.
+    case publicationNotFound
 }
 
 /// Represents a client-facing collection of logically related subscriptions,
@@ -22,7 +24,7 @@ enum MoqCallControllerError: Error {
 protocol SubscriptionSet {
     /// Get the subscribe track handlers for this subscription set.
     /// - Returns: The (one or more) subscribe track handlers for this subscription.
-    func getHandlers() -> [QSubscribeTrackHandlerObjC]
+    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC]
 }
 
 /// Swift mapping for underlying client configuration.
@@ -51,25 +53,29 @@ class MoqCallController: QClientCallbacks {
     private let captureManager: CaptureManager
 
     // State.
-    private let client: QClientObjC
-    private let config: ClientConfig
+    private let client: MoqClient
+    private let endpointUri: String
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
     private let callEnded: () -> Void
-    var serverId: String?
+
+    /// The identifier of the connected server, or nil if not connected.
+    public private(set) var serverId: String?
 
     /// Create a new controller.
     /// - Parameters:
-    ///   - config: Underlying `quicr::Client` config.
+    ///   - endpointUri: A unique identifier for this endpoint.
+    ///   - client: An implementation of a MoQ client.
     ///   - captureManager: Video camera capture manager.
     ///   - subscriptionConfig: Application configuration for subscription creation.
     ///   - engine: Audio capture/playout engine.
     ///   - videoParticipants: Video rendering manager.
     ///   - submitter: Optionally, a submitter through which to submit metrics.
     ///   - granularMetrics: True to enable granular metrics, with a potential performance cost.
-    init(config: ClientConfig,
+    init(endpointUri: String,
+         client: MoqClient,
          captureManager: CaptureManager,
          subscriptionConfig: SubscriptionConfig,
          engine: DecimusAudioEngine,
@@ -77,15 +83,8 @@ class MoqCallController: QClientCallbacks {
          submitter: MetricsSubmitter?,
          granularMetrics: Bool,
          callEnded: @escaping () -> Void) {
-        self.config = config
-        self.client = config.connectUri.withCString { connectUri in
-            config.endpointUri.withCString { endpointId in
-                QClientObjC(config: .init(connectUri: connectUri,
-                                          endpointId: endpointId,
-                                          transportConfig: config.transportConfig,
-                                          metricsSampleMs: config.metricsSampleMs))
-            }
-        }
+        self.endpointUri = endpointUri
+        self.client = client
         self.captureManager = captureManager
         self.subscriptionConfig = subscriptionConfig
         self.engine = engine
@@ -94,7 +93,7 @@ class MoqCallController: QClientCallbacks {
         self.granularMetrics = granularMetrics
         self.callEnded = callEnded
         if let metricsSubmitter = submitter {
-            let measurement = MoqCallController.MoqCallControllerMeasurement(endpointId: config.endpointUri)
+            let measurement = MoqCallController.MoqCallControllerMeasurement(endpointId: endpointUri)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
@@ -134,51 +133,30 @@ class MoqCallController: QClientCallbacks {
     /// This MUST be called after connecting.
     /// - Parameter manifest: The manifest to use.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
-    func setManifest(_ manifest: Manifest) throws {
+    func setManifest(_ manifest: Manifest, publicationFactory: PublicationFactory, subscriptionFactory: SubscriptionFactory) throws {
+        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
-        guard let serverId = self.serverId else { throw MoqCallControllerError.missingSetup }
 
         // Create subscriptions.
         for manifestSubscription in manifest.subscriptions {
-            let subscription = try self.create(subscription: manifestSubscription,
-                                               endpointId: self.config.endpointUri,
-                                               relayId: serverId)
-            self.subscriptions[manifestSubscription.sourceID] = subscription
-            for handler in subscription.getHandlers() {
-                self.client.subscribeTrack(withHandler: handler)
-            }
+            try self.subscribeToSet(details: manifestSubscription, factory: subscriptionFactory)
         }
 
         // Create publications.
-        // TODO: We probably don't need a factory here. Just handle it internal to the controller.
-        // TODO: If it gets bigger, we can extract.
-        let pubFactory = PublicationFactory(opusWindowSize: self.subscriptionConfig.opusWindowSize,
-                                            reliability: self.subscriptionConfig.mediaReliability,
-                                            engine: self.engine,
-                                            metricsSubmitter: self.metricsSubmitter,
-                                            granularMetrics: self.granularMetrics,
-                                            captureManager: self.captureManager)
         for publication in manifest.publications {
-            let created = try pubFactory.create(publication: publication,
-                                                endpointId: self.config.endpointUri,
-                                                relayId: serverId)
-            for (namespace, handler) in created {
-                self.publications[namespace] = handler
-                self.client.publishTrack(withHandler: handler)
-            }
+            try self.publish(details: publication, factory: publicationFactory)
         }
     }
 
     /// Disconnect from the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
+        assert(Thread.isMainThread)
         for publication in self.publications {
-            self.client.unpublishTrack(withHandler: publication.value)
+            try self.unpublish(publication.key)
         }
         for set in self.subscriptions {
-            for subscription in set.value.getHandlers() {
-                self.client.unsubscribeTrack(withHandler: subscription)
-            }
+            try self.unsubscribeToSet(set.key)
         }
         let status = self.client.disconnect()
         guard status == .disconnecting else {
@@ -187,6 +165,61 @@ class MoqCallController: QClientCallbacks {
         self.logger.info("[MoqCallController] Disconnected")
         self.publications.removeAll()
         self.subscriptions.removeAll()
+    }
+
+    // MARK: Pub/Sub Modification APIs.
+
+    /// Setup a publication for a track.
+    /// - Parameter details: The details for the publication from the manifest.
+    /// - Parameter factory: Factory to create publication objects.
+    public func publish(details: ManifestPublication, factory: PublicationFactory) throws {
+        assert(Thread.isMainThread)
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let created = try factory.create(publication: details,
+                                         endpointId: self.endpointUri,
+                                         relayId: self.serverId!)
+        for (namespace, handler) in created {
+            self.publications[namespace] = handler
+            self.client.publishTrack(withHandler: handler)
+        }
+    }
+
+    /// Stop publishing to a track.
+    /// - Parameter fullTrackName: The FTN to unpublish.
+    public func unpublish(_ fullTrackName: FullTrackName) throws {
+        assert(Thread.isMainThread)
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let publication = self.publications.removeValue(forKey: fullTrackName) else {
+            throw MoqCallControllerError.publicationNotFound
+        }
+        self.client.unpublishTrack(withHandler: publication)
+    }
+
+    /// Subscribe to a logically related set of subscriptions.
+    /// - Parameter details: The details of the subscription set.
+    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory) throws {
+        assert(Thread.isMainThread)
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let subscription = try factory.create(subscription: details,
+                                              endpointId: self.endpointUri,
+                                              relayId: self.serverId!)
+        self.subscriptions[details.sourceID] = subscription
+        for handler in subscription.getHandlers() {
+            self.client.subscribeTrack(withHandler: handler.value)
+        }
+    }
+
+    /// Unpublish a subscription set (and all contained track subscriptions).
+    /// - Parameter sourceID: The identifier of the subscription set.
+    public func unsubscribeToSet(_ sourceID: SourceIDType) throws {
+        assert(Thread.isMainThread)
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let subscription = self.subscriptions.removeValue(forKey: sourceID) else {
+            throw MoqCallControllerError.publicationNotFound
+        }
+        for handler in subscription.getHandlers() {
+            self.client.unsubscribeTrack(withHandler: handler.value)
+        }
     }
 
     // MARK: Callbacks.
@@ -200,6 +233,12 @@ class MoqCallController: QClientCallbacks {
             // TODO: Fix this up.
             guard let connection = self.connectionContinuation else {
                 print("Got ready when we already had ready!?")
+                return
+            }
+            guard self.serverId != nil else {
+                self.logger.error("Missing expected Server Setup on ready")
+                connection.resume(throwing: MoqCallControllerError.missingSetup)
+                self.connectionContinuation = nil
                 return
             }
             self.connectionContinuation = nil
@@ -258,53 +297,6 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter relayId: The identifier of the relay we are connecting to (for metrics/correlation).
     /// - Throws: ``CodecError/unsupportedCodecSet(_:)`` if unsupported media type.
     /// Other errors on failure to create client media subscription handlers.
-    private func create(subscription: ManifestSubscription,
-                        endpointId: String,
-                        relayId: String) throws -> SubscriptionSet {
-        // Supported codec sets.
-        let videoCodecs: Set<CodecType> = [.h264, .hevc]
-        let opusCodecs: Set<CodecType> = [.opus]
-
-        // Resolve profile sets to config.
-        var foundCodecs: [CodecType] = []
-        for profile in subscription.profileSet.profiles {
-            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
-                                                      bitrateType: self.subscriptionConfig.bitrateType)
-            foundCodecs.append(config.codec)
-        }
-        let found = Set(foundCodecs)
-        if found.isSubset(of: videoCodecs) {
-            return try VideoSubscriptionSet(subscription: subscription,
-                                            participants: self.videoParticipants,
-                                            metricsSubmitter: self.metricsSubmitter,
-                                            videoBehaviour: self.subscriptionConfig.videoBehaviour,
-                                            reliable: self.subscriptionConfig.mediaReliability.video.subscription,
-                                            granularMetrics: self.granularMetrics,
-                                            jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
-                                            simulreceive: self.subscriptionConfig.simulreceive,
-                                            qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
-                                            pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
-                                            pauseResume: self.subscriptionConfig.pauseResume,
-                                            endpointId: endpointId,
-                                            relayId: relayId)
-        }
-
-        if found.isSubset(of: opusCodecs) {
-            return try OpusSubscription(subscription: subscription,
-                                        engine: self.engine,
-                                        submitter: self.metricsSubmitter,
-                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
-                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
-                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics,
-                                        endpointId: endpointId,
-                                        relayId: relayId,
-                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer)
-        }
-
-        throw CodecError.unsupportedCodecSet(found)
-    }
 
     /// libquicr's metrics callback.
     /// - Parameter metrics: Object containing all metrics.

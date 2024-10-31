@@ -4,7 +4,11 @@
 import Foundation
 import AVFoundation
 
-class PublicationFactory {
+protocol PublicationFactory {
+    func create(publication: ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
+}
+
+class PublicationFactoryImpl: PublicationFactory {
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
     private let granularMetrics: Bool

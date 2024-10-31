@@ -149,12 +149,8 @@ class VideoSubscriptionSet: SubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [QSubscribeTrackHandlerObjC] {
-        var handlers: [QSubscribeTrackHandlerObjC] = []
-        for handler in self.videoSubscriptions {
-            handlers.append(handler.value)
-        }
-        return handlers
+    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
+        self.videoSubscriptions
     }
 
     private func receivedObject(timestamp: TimeInterval, when: Date) {
