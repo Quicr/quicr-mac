@@ -36,8 +36,10 @@ typedef struct QObjectHeaders {
 
 #ifdef __cplusplus
 static quicr::FullTrackName ftnConvert(QFullTrackName qFtn) {
+    const auto nameSpace = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength);
+    std::vector<std::vector<std::uint8_t>> tuple = { nameSpace };
     return {
-        .name_space = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength),
+        .name_space = quicr::TrackNamespace(tuple),
         .name = std::vector<std::uint8_t>(qFtn.name, qFtn.name + qFtn.nameLength)
     };
 }
