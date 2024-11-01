@@ -320,12 +320,7 @@ extension InCallView {
                     }
                     return .init(endpointUri: endpointId,
                                  client: client,
-                                 captureManager: captureManager,
-                                 subscriptionConfig: subConfig,
-                                 engine: engine,
-                                 videoParticipants: self.videoParticipants,
-                                 submitter: self.submitter,
-                                 granularMetrics: influxConfig.value.granular) {
+                                 submitter: self.submitter) {
                         DispatchQueue.main.async {
                             onLeave()
                         }

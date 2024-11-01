@@ -43,14 +43,9 @@ struct ClientConfig {
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
     // Dependencies.
-    private let subscriptionConfig: SubscriptionConfig
-    private let engine: DecimusAudioEngine
-    private let granularMetrics: Bool
-    private let videoParticipants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
     private let measurement: MeasurementRegistration<MoqCallControllerMeasurement>?
     private let logger = DecimusLogger(MoqCallController.self)
-    private let captureManager: CaptureManager
 
     // State.
     private let client: MoqClient
@@ -68,29 +63,15 @@ class MoqCallController: QClientCallbacks {
     /// - Parameters:
     ///   - endpointUri: A unique identifier for this endpoint.
     ///   - client: An implementation of a MoQ client.
-    ///   - captureManager: Video camera capture manager.
-    ///   - subscriptionConfig: Application configuration for subscription creation.
-    ///   - engine: Audio capture/playout engine.
-    ///   - videoParticipants: Video rendering manager.
     ///   - submitter: Optionally, a submitter through which to submit metrics.
-    ///   - granularMetrics: True to enable granular metrics, with a potential performance cost.
+    ///   - callEnded: Closure to call when the call ends.
     init(endpointUri: String,
          client: MoqClient,
-         captureManager: CaptureManager,
-         subscriptionConfig: SubscriptionConfig,
-         engine: DecimusAudioEngine,
-         videoParticipants: VideoParticipants,
          submitter: MetricsSubmitter?,
-         granularMetrics: Bool,
          callEnded: @escaping () -> Void) {
         self.endpointUri = endpointUri
         self.client = client
-        self.captureManager = captureManager
-        self.subscriptionConfig = subscriptionConfig
-        self.engine = engine
-        self.videoParticipants = videoParticipants
         self.metricsSubmitter = submitter
-        self.granularMetrics = granularMetrics
         self.callEnded = callEnded
         if let metricsSubmitter = submitter {
             let measurement = MoqCallController.MoqCallControllerMeasurement(endpointId: endpointUri)
@@ -117,24 +98,21 @@ class MoqCallController: QClientCallbacks {
             case .clientPendingServerSetup:
                 break
             case .ready:
-                // This is here just for the type inference,
-                // but we don't actually expect it to happen.
-                assert(false)
+                self.connected = true
                 continuation.resume()
-
             default:
                 continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
             }
         }
     }
 
+    // TODO: Remove this function.
     /// Inject a manifest into the controller.
     /// This causes the creation of the corresponding publications and subscriptions and media objects.
     /// This MUST be called after connecting.
     /// - Parameter manifest: The manifest to use.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
     func setManifest(_ manifest: Manifest, publicationFactory: PublicationFactory, subscriptionFactory: SubscriptionFactory) throws {
-        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
 
         // Create subscriptions.
@@ -173,7 +151,6 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter details: The details for the publication from the manifest.
     /// - Parameter factory: Factory to create publication objects.
     public func publish(details: ManifestPublication, factory: PublicationFactory) throws {
-        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
                                          endpointId: self.endpointUri,
@@ -187,7 +164,6 @@ class MoqCallController: QClientCallbacks {
     /// Stop publishing to a track.
     /// - Parameter fullTrackName: The FTN to unpublish.
     public func unpublish(_ fullTrackName: FullTrackName) throws {
-        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
         guard let publication = self.publications.removeValue(forKey: fullTrackName) else {
             throw MoqCallControllerError.publicationNotFound
@@ -198,7 +174,6 @@ class MoqCallController: QClientCallbacks {
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory) throws {
-        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let subscription = try factory.create(subscription: details,
                                               endpointId: self.endpointUri,
@@ -212,7 +187,6 @@ class MoqCallController: QClientCallbacks {
     /// Unpublish a subscription set (and all contained track subscriptions).
     /// - Parameter sourceID: The identifier of the subscription set.
     public func unsubscribeToSet(_ sourceID: SourceIDType) throws {
-        assert(Thread.isMainThread)
         guard self.connected else { throw MoqCallControllerError.notConnected }
         guard let subscription = self.subscriptions.removeValue(forKey: sourceID) else {
             throw MoqCallControllerError.publicationNotFound
