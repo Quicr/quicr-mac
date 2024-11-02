@@ -99,17 +99,19 @@ static quicr::TransportConfig convert(TransportConfig config) {
 -(void) publishAnnounce: (NSData*) trackNamespace
 {
     assert(qClientPtr);
-    auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
-    qClientPtr->PublishAnnounce(name_space);
+    const auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
+    const std::vector<std::uint8_t> name_space(ptr, ptr + trackNamespace.length);
+    const quicr::TrackNamespace track_namespace(name_space);
+    qClientPtr->PublishAnnounce(track_namespace);
 }
 
 -(void) publishUnannounce: (NSData*) trackNamespace
 {
     assert(qClientPtr);
-    auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
-    qClientPtr->PublishUnannounce(name_space);
+    const auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
+    const std::vector<std::uint8_t> name_space(ptr, ptr + trackNamespace.length);
+    const quicr::TrackNamespace track_namespace(name_space);
+    qClientPtr->PublishUnannounce(track_namespace);
 }
 
 -(void)setCallbacks: (id<QClientCallbacks>) callbacks
@@ -121,9 +123,10 @@ static quicr::TransportConfig convert(TransportConfig config) {
 -(QPublishAnnounceStatus) getAnnounceStatus: (NSData*) trackNamespace
 {
     assert(qClientPtr);
-    auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
-    quicr::TrackNamespace name_space(ptr, ptr + trackNamespace.length);
-    auto status = qClientPtr->GetAnnounceStatus(name_space);
+    const auto ptr = static_cast<const std::uint8_t*>(trackNamespace.bytes);
+    const std::vector<std::uint8_t> name_space(ptr, ptr + trackNamespace.length);
+    const quicr::TrackNamespace track_namespace(name_space);
+    const auto status = qClientPtr->GetAnnounceStatus(track_namespace);
     return static_cast<QPublishAnnounceStatus>(status);
 }
 

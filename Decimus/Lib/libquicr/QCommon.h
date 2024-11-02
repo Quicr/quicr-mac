@@ -7,6 +7,7 @@
 #import <Foundation/Foundation.h>
 #ifdef __cplusplus
 #include <quicr/track_name.h>
+#include <quicr/detail/messages.h>
 #endif
 
 typedef struct QMinMaxAvg {
@@ -36,8 +37,9 @@ typedef struct QObjectHeaders {
 
 #ifdef __cplusplus
 static quicr::FullTrackName ftnConvert(QFullTrackName qFtn) {
+    const auto nameSpace = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength);
     return {
-        .name_space = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength),
+        .name_space = quicr::TrackNamespace(nameSpace),
         .name = std::vector<std::uint8_t>(qFtn.name, qFtn.name + qFtn.nameLength)
     };
 }

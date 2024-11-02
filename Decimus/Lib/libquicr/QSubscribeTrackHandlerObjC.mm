@@ -10,7 +10,7 @@
 -(id) initWithFullTrackName: (QFullTrackName) full_track_name
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
+    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, 2, 1);
     return self;
 }
 
@@ -30,7 +30,7 @@
 
 // C++
 
-QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name): quicr::SubscribeTrackHandler(full_track_name) { }
+QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name, uint8_t priority, uint8_t group_order): quicr::SubscribeTrackHandler(full_track_name, static_cast<quicr::messages::ObjectPriority> (priority), static_cast<quicr::messages::GroupOrder>(group_order)) { }
 
 void QSubscribeTrackHandler::StatusChanged(Status status)
 {
