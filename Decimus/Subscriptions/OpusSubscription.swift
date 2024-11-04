@@ -76,7 +76,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  metricsSubmitter: self.metricsSubmitter)
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
         self.fullTrackName = fullTrackName
-        super.init(fullTrackName: fullTrackName.getUnsafe())
+        super.init(fullTrackName: fullTrackName.get())
         self.setCallbacks(self)
 
         // Make task for cleaning up audio handlers.

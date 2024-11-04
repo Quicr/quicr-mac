@@ -29,6 +29,18 @@ struct FullTrackName: Hashable {
         self.name = name
     }
 
+    func get() -> QFullTrackName {
+        let ftn = QFullTrackName()
+        ftn.nameSpace = self.namespace
+        ftn.name = self.name
+        return ftn
+    }
+
+    init(_ ftn: QFullTrackName) {
+        self.namespace = ftn.nameSpace
+        self.name = ftn.name
+    }
+
     /// Get the namespace as an ASCII string.
     /// - Returns: ASCII string of namespace.
     /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
@@ -47,23 +59,5 @@ struct FullTrackName: Hashable {
             throw FullTrackNameError.parseError
         }
         return name
-    }
-
-    /// Get the underlying ``QFullTrackName`` object corresponding to this ``FullTrackName``.
-    /// This reference MUST NOT be used outside of the scope of the owning ``FullTrackName``.
-    /// - Returns: A ``QFullTrackName`` view into this ``FullTrackName``.
-    func getUnsafe() -> QFullTrackName {
-        return self.namespace.withUnsafeBytes { namespace in
-            let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self,
-                                                                                       capacity: namespace.count)
-            return self.name.withUnsafeBytes { name in
-                let namePtr: UnsafePointer<CChar> = name.baseAddress!.bindMemory(to: CChar.self, capacity: name.count)
-
-                return .init(nameSpace: namespacePtr,
-                             nameSpaceLength: self.namespace.count,
-                             name: namePtr,
-                             nameLength: self.name.count)
-            }
-        }
     }
 }

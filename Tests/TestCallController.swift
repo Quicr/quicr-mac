@@ -4,6 +4,32 @@
 import XCTest
 @testable import QuicR
 
+final class TestFullTrackName: XCTestCase {
+    /// Test compatbility between Swift and Objective-C representations of ``FullTrackName``.
+    func testBidirectional() throws {
+        // FTN roundtrip.
+        let namespace = "namespace"
+        let name = "name"
+        let ftn = try FullTrackName(namespace: namespace, name: name)
+        XCTAssertEqual(try ftn.getName(), name)
+        XCTAssertEqual(try ftn.getNamespace(), namespace)
+        let qFullTrackName = ftn.get()
+        let reconstructed = FullTrackName(qFullTrackName)
+        XCTAssertEqual(try reconstructed.getName(), name)
+        XCTAssertEqual(try reconstructed.getNamespace(), namespace)
+
+        // QFullTrackName.
+        let qftn = QFullTrackName()
+        qftn.nameSpace = namespace.data(using: .ascii)!
+        qftn.name = name.data(using: .ascii)!
+        let swift = FullTrackName(qftn)
+        XCTAssertEqual(swift.name, qftn.name)
+        XCTAssertEqual(swift.namespace, qftn.nameSpace)
+        XCTAssertEqual(try swift.getName(), name)
+        XCTAssertEqual(try swift.getNamespace(), namespace)
+    }
+}
+
 final class TestCallController: XCTestCase {
 
     class MockPublicationFactory: PublicationFactory {
@@ -33,7 +59,7 @@ final class TestCallController: XCTestCase {
     }
 
     class MockPublication: Publication { }
-    
+
     class MockSubscriptionFactory: SubscriptionFactory {
         typealias SubscriptionCreated = (SubscriptionSet) -> Void
         private let callback: SubscriptionCreated
@@ -50,10 +76,8 @@ final class TestCallController: XCTestCase {
     }
 
     class MockSubscription: QSubscribeTrackHandlerObjC {
-        private let ftn: FullTrackName
         init(ftn: FullTrackName) {
-            self.ftn = ftn
-            super.init(fullTrackName: self.ftn.getUnsafe())
+            super.init(fullTrackName: ftn.get())
         }
     }
 
@@ -169,44 +193,44 @@ final class TestCallController: XCTestCase {
         // Calling publish should result in a matching publication being created from the factory, and a publish track being issued on it.
         try controller.publish(details: details, factory: MockPublicationFactory(creationCallback))
         XCTAssert(published)
-        
+
         // This publication should show as tracked.
         var publications = controller.getPublications()
         let namespace = details.profileSet.profiles.first!.namespace
         let ftn = try FullTrackName(namespace: namespace, name: "")
         XCTAssertEqual(publications, [ftn])
-        
+
         // Removing should unpublish.
         try controller.unpublish(ftn)
         XCTAssert(unpublished)
-        
+
         // No publications should be left.
         publications = controller.getPublications()
         XCTAssertEqual(publications, [])
     }
-    
+
     func testSubscriptionAlter() async throws {
         let sourceID = "TESTING"
         let namespace = "namespace"
         let details = ManifestSubscription(mediaType: "video",
                                            sourceName: "test",
-                                           sourceID: "",
+                                           sourceID: sourceID,
                                            label: "testLabel",
                                            profileSet: .init(type: "video",
                                                              profiles: [
                                                                 .init(qualityProfile: "h264",
                                                                       expiry: nil,
                                                                       priorities: nil,
-                                                                      namespace: "namespace")
+                                                                      namespace: namespace)
                                                              ]))
-        
+
         let expectedFtn: [FullTrackName] = [try .init(namespace: namespace, name: "")]
         var factoryCreated: SubscriptionSet?
         let creationCallback: MockSubscriptionFactory.SubscriptionCreated = {
             factoryCreated = $0
         }
         let factory = MockSubscriptionFactory(creationCallback)
-        
+
         // Create controller.
         let publish: MockClient.PublishTrackCallback = { _ in }
         let unpublish: MockClient.UnpublishTrackCallback = { _ in }
@@ -221,13 +245,24 @@ final class TestCallController: XCTestCase {
         let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
         try await controller.connect()
-        
+
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
         try controller.subscribeToSet(details: details, factory: factory)
+        XCTAssertNotNil(factoryCreated)
         XCTAssertEqual(subscribed, expectedFtn)
-        
-        
+
+        // Should show as tracked.
+        var sets = controller.getSubscriptionSets()
+        XCTAssertEqual([sourceID], sets)
+
+        // Removing should unsubscribe.
+        try controller.unsubscribeToSet(sourceID)
+        XCTAssertEqual(unsubscribed, expectedFtn)
+
+        // No sets should be left.
+        sets = controller.getSubscriptionSets()
+        XCTAssertEqual([], sets)
     }
 
     func testMetrics() throws {

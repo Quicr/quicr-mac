@@ -11,6 +11,7 @@
 #import <Foundation/Foundation.h>
 #import "QCommon.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
+#import "QFullTrackName.h"
 
 @interface QSubscribeTrackHandlerObjC : NSObject
 {
@@ -20,10 +21,10 @@
 #endif
 }
 
--(id) initWithFullTrackName: (QFullTrackName) full_track_name;
+-(id _Nonnull) initWithFullTrackName: (QFullTrackName* _Nonnull) full_track_name;
 -(QSubscribeTrackHandlerStatus) getStatus;
--(QFullTrackName) getFullTrackName;
--(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks;
+-(QFullTrackName* _Nonnull) getFullTrackName;
+-(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 
 @end
 
