@@ -22,7 +22,7 @@
 
 -(id) initWithFullTrackName: (QFullTrackName) full_track_name;
 -(QSubscribeTrackHandlerStatus) getStatus;
-
+-(QFullTrackName) getFullTrackName;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks;
 
 @end

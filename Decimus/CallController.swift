@@ -147,6 +147,10 @@ class MoqCallController: QClientCallbacks {
 
     // MARK: Pub/Sub Modification APIs.
 
+    public func getPublications() -> [FullTrackName] {
+        Array(self.publications.keys)
+    }
+
     /// Setup a publication for a track.
     /// - Parameter details: The details for the publication from the manifest.
     /// - Parameter factory: Factory to create publication objects.
@@ -169,6 +173,10 @@ class MoqCallController: QClientCallbacks {
             throw MoqCallControllerError.publicationNotFound
         }
         self.client.unpublishTrack(withHandler: publication)
+    }
+
+    public func getSubscriptionSets() -> [SourceIDType] {
+        Array(self.subscriptions.keys)
     }
 
     /// Subscribe to a logically related set of subscriptions.
