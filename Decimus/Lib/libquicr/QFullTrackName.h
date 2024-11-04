@@ -7,7 +7,6 @@
 #import <Foundation/Foundation.h>
 #ifdef __cplusplus
 #include <quicr/track_name.h>
-#include <iostream>
 #endif
 
 @interface QFullTrackName: NSObject

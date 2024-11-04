@@ -365,13 +365,21 @@ extension InCallView {
 
             // Inject the manifest in order to create publications & subscriptions.
             do {
+                // Unwrap factory optionals.
                 guard let publicationFactory = self.publicationFactory,
                       let subscriptionFactory = self.subscriptionFactory else {
                     throw "Missing factory"
                 }
-                try controller.setManifest(manifest,
-                                           publicationFactory: publicationFactory,
-                                           subscriptionFactory: subscriptionFactory)
+
+                // Publish.
+                for publication in manifest.publications {
+                    try controller.publish(details: publication, factory: publicationFactory)
+                }
+
+                // Subscribe.
+                for subscription in manifest.subscriptions {
+                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory)
+                }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
                 return false

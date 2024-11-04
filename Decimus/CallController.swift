@@ -106,26 +106,6 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
-    // TODO: Remove this function.
-    /// Inject a manifest into the controller.
-    /// This causes the creation of the corresponding publications and subscriptions and media objects.
-    /// This MUST be called after connecting.
-    /// - Parameter manifest: The manifest to use.
-    /// - Throws: ``MoqCallControllerError/notConnected`` if not yet connected.
-    func setManifest(_ manifest: Manifest, publicationFactory: PublicationFactory, subscriptionFactory: SubscriptionFactory) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
-
-        // Create subscriptions.
-        for manifestSubscription in manifest.subscriptions {
-            try self.subscribeToSet(details: manifestSubscription, factory: subscriptionFactory)
-        }
-
-        // Create publications.
-        for publication in manifest.publications {
-            try self.publish(details: publication, factory: publicationFactory)
-        }
-    }
-
     /// Disconnect from the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
