@@ -141,5 +141,6 @@ void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &
 
 void QSubscribeTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
 {
+    std::cout << "Set callbacks" << std::endl;
     _callbacks = callbacks;
 }

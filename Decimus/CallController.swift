@@ -15,6 +15,10 @@ enum MoqCallControllerError: Error {
     case missingSetup
     /// The specified publication was not found.
     case publicationNotFound
+    /// The specified subscription set was not found.
+    case subscriptionSetNotFound
+    /// The specified subscription was not found in the set.
+    case subscriptionNotFound
 }
 
 /// Represents a client-facing collection of logically related subscriptions,
@@ -22,9 +26,17 @@ enum MoqCallControllerError: Error {
 /// Implementing this interface with >1 handler is useful when data streams
 /// across multiple subscribe handlers need to be compared or collated.
 protocol SubscriptionSet {
+    var sourceId: SourceIDType { get }
+
     /// Get the subscribe track handlers for this subscription set.
     /// - Returns: The (one or more) subscribe track handlers for this subscription.
     func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC]
+
+    /// Remove a handler for the given track name.
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC?
+
+    /// Add a handler for the given track name to the set.
+    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC)
 }
 
 /// Swift mapping for underlying client configuration.
@@ -114,7 +126,7 @@ class MoqCallController: QClientCallbacks {
             try self.unpublish(publication.key)
         }
         for set in self.subscriptions {
-            try self.unsubscribeToSet(set.key)
+            try self.unsubscribeToSet(sourceID: set.key)
         }
         let status = self.client.disconnect()
         guard status == .disconnecting else {
@@ -155,32 +167,71 @@ class MoqCallController: QClientCallbacks {
         self.client.unpublishTrack(withHandler: publication)
     }
 
-    public func getSubscriptionSets() -> [SourceIDType] {
-        Array(self.subscriptions.keys)
+    public func getSubscriptionSet(_ sourceID: SourceIDType) -> SubscriptionSet? {
+        self.subscriptions[sourceID]
+    }
+
+    public func getSubscriptionSets() -> [SubscriptionSet] {
+        Array(self.subscriptions.values)
+    }
+
+    public func getSubscriptions(_ set: SubscriptionSet) -> [QSubscribeTrackHandlerObjC] {
+        return Array(set.getHandlers().values)
     }
 
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
-        let subscription = try factory.create(subscription: details,
+        let set = try factory.create(subscription: details,
+                                     endpointId: self.endpointUri,
+                                     relayId: self.serverId!)
+        for profile in details.profileSet.profiles {
+            try self.subscribe(set: set, profile: profile, factory: factory)
+        }
+        self.subscriptions[details.sourceID] = set
+    }
+
+    /// Subscribe to a specific track and add it to a subscription set.
+    /// - Parameter set: The subscription set to add the track to.
+    /// - Parameter profile: The profile to subscribe to.
+    /// - Parameter factory: Factory to create subscription objects.
+    func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let ftn = try FullTrackName(namespace: profile.namespace, name: "")
+        let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+        let subscription = try factory.create(set: set,
+                                              ftn: ftn,
+                                              config: config,
                                               endpointId: self.endpointUri,
                                               relayId: self.serverId!)
-        self.subscriptions[details.sourceID] = subscription
-        for handler in subscription.getHandlers() {
-            self.client.subscribeTrack(withHandler: handler.value)
+        set.addHandler(ftn, handler: subscription)
+        self.client.subscribeTrack(withHandler: subscription)
+    }
+
+    /// Unsubscribe to an entire subscription set.
+    /// - Parameter sourceID: The identifier of the subscription set.
+    public func unsubscribeToSet(sourceID: SourceIDType) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let subscription = self.subscriptions.removeValue(forKey: sourceID) else {
+            throw MoqCallControllerError.subscriptionSetNotFound
+        }
+        for (_, handler) in subscription.getHandlers() {
+            self.client.unsubscribeTrack(withHandler: handler)
         }
     }
 
-    /// Unpublish a subscription set (and all contained track subscriptions).
-    /// - Parameter sourceID: The identifier of the subscription set.
-    public func unsubscribeToSet(_ sourceID: SourceIDType) throws {
+    /// Unsubscribe to a specific track within a subscription set.
+    /// - Parameter source: The identifier of the subscription set.
+    /// - Parameter ftn: The full track name to unsubscribe.
+    /// - Throws: ``MoqCallControllerError`` if the set or track is not found.
+    public func unsubscribe(source: SourceIDType, ftn: FullTrackName) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
-        guard let subscription = self.subscriptions.removeValue(forKey: sourceID) else {
-            throw MoqCallControllerError.publicationNotFound
+        guard let set = self.subscriptions[source] else {
+            throw MoqCallControllerError.subscriptionSetNotFound
         }
-        for handler in subscription.getHandlers() {
-            self.client.unsubscribeTrack(withHandler: handler.value)
+        guard set.removeHandler(ftn) != nil else {
+            throw MoqCallControllerError.subscriptionNotFound
         }
     }
 

@@ -19,8 +19,13 @@ struct AvailableImage {
 
 // swiftlint:disable type_body_length
 class VideoSubscriptionSet: SubscriptionSet {
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+        self.videoSubscriptions.removeValue(forKey: ftn)
+    }
+
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
+    let sourceId: SourceIDType
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
@@ -48,8 +53,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var lastDiscontinous = false
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
-    private let decodedVariances: VarianceCalculator
-    private var formats: [FullTrackName: CMFormatDescription?] = [:]
+    let decodedVariances: VarianceCalculator
     private var timestampTimeDiff: TimeInterval?
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
 
@@ -70,6 +74,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             throw "Simulreceive and layer are not compatible"
         }
 
+        self.sourceId = subscription.sourceID
         self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
@@ -111,12 +116,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
-        for fullTrackName in createdProfiles.keys {
-            self.formats[fullTrackName] = nil
-            self.videoSubscriptions[fullTrackName] = try makeSubscription(fullTrackName: fullTrackName,
-                                                                          endpointId: endpointId,
-                                                                          relayId: relayId)
-        }
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -153,8 +152,20 @@ class VideoSubscriptionSet: SubscriptionSet {
         self.videoSubscriptions
     }
 
-    private func receivedObject(timestamp: TimeInterval, when: Date) {
+    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) {
+        guard let videoSubscription = handler as? VideoSubscription else {
+            fatalError()
+        }
+        self.videoSubscriptions[ftn] = videoSubscription
+    }
+
+    func removeHandler(_ ftn: FullTrackName) {
+        _ = self.videoSubscriptions.removeValue(forKey: ftn)
+    }
+
+    public func receivedObject(timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object.
+        print("RECV")
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
         }
@@ -215,29 +226,6 @@ class VideoSubscriptionSet: SubscriptionSet {
                     try? await Task.sleep(for: .seconds(duration))
                 }
             }
-        }
-    }
-
-    private func makeSubscription(fullTrackName: FullTrackName,
-                                  endpointId: String,
-                                  relayId: String) throws -> VideoSubscription {
-        guard let config = self.profiles[fullTrackName] else {
-            throw "Missing config for: \(fullTrackName)"
-        }
-        return try .init(fullTrackName: fullTrackName,
-                         config: config,
-                         participants: self.participants,
-                         metricsSubmitter: self.submitter,
-                         videoBehaviour: self.videoBehaviour,
-                         reliable: self.reliable,
-                         granularMetrics: self.granularMetrics,
-                         jitterBufferConfig: self.jitterBufferConfig,
-                         simulreceive: self.simulreceive,
-                         variances: self.decodedVariances,
-                         endpointId: endpointId,
-                         relayId: relayId) { [weak self] timestamp, when in
-            guard let self = self else { return }
-            self.receivedObject(timestamp: timestamp, when: when)
         }
     }
 

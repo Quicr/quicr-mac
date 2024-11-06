@@ -12,6 +12,10 @@ class QSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
 public:
     QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name);
+    ~QSubscribeTrackHandler() {
+        std::cout << "QSubscribeTrackHandler deinit" << std::endl;
+        assert(false);
+    }
 
     // Callbacks.
     void StatusChanged(Status status) override;
