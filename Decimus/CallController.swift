@@ -230,9 +230,10 @@ class MoqCallController: QClientCallbacks {
         guard let set = self.subscriptions[source] else {
             throw MoqCallControllerError.subscriptionSetNotFound
         }
-        guard set.removeHandler(ftn) != nil else {
+        guard let handler = set.removeHandler(ftn) else {
             throw MoqCallControllerError.subscriptionNotFound
         }
+        self.client.unsubscribeTrack(withHandler: handler)
     }
 
     // MARK: Callbacks.

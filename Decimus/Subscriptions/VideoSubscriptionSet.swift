@@ -165,7 +165,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     public func receivedObject(timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object.
-        print("RECV")
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
         }
