@@ -6,9 +6,11 @@ import AVFAudio
 import AVFoundation
 import CoreAudio
 import os
+import Accelerate
 
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
+    static let energyLevelKey = NSNumber(integerLiteral: 3)
 
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
@@ -76,7 +78,7 @@ class OpusPublication: Publication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.0, timestamp: data.1)
+                            self.publish(data: data.0, timestamp: data.1, decibel: data.2)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -103,7 +105,7 @@ class OpusPublication: Publication {
         Self.logger.debug("Deinit")
     }
 
-    private func publish(data: Data, timestamp: Date) {
+    private func publish(data: Data, timestamp: Date, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -121,6 +123,8 @@ class OpusPublication: Publication {
             self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
         }
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
+        let energyLevelValue: UInt8 = UInt8(abs(decibel)) | 0b10000000
+        loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
@@ -143,7 +147,7 @@ class OpusPublication: Publication {
         return self.publishObject(headers, data: data, extensions: loc.extensions)
     }
 
-    private func encode() throws -> (Data, Date)? {
+    private func encode() throws -> (Data, Date, Int)? {
         guard let buffer = self.engine.microphoneBuffer else {
             #if os(macOS)
             return nil
@@ -165,11 +169,40 @@ class OpusPublication: Publication {
             return nil
         }
 
+        // Encode this data.
+        let encoded = try self.encoder.write(data: self.pcm)
+
         // Get absolute time.
         let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
 
+        // Get audio level.
+        let decibel = try self.db(self.pcm)
+
         // Encode this data.
-        return (try self.encoder.write(data: self.pcm), wallClock)
+        return (encoded, wallClock, decibel)
+    }
+
+    private func db(_ buffer: AVAudioPCMBuffer) throws -> Int {
+        guard let data = buffer.floatChannelData else {
+            throw "Missing float data"
+        }
+        let channels = Int(buffer.format.channelCount)
+        var rms: Float = 0.0
+        for channel in 0..<channels {
+            var channelRms: Float = 0.0
+            vDSP_rmsqv(data[channel], 1, &channelRms, vDSP_Length(buffer.frameLength))
+            rms += abs(channelRms)
+        }
+        rms = rms / Float(channels)
+        let minAudioLevel: Float = -127
+        let maxAudioLevel: Float = 0
+        guard rms > 0 else {
+            return Int(minAudioLevel)
+        }
+        var decibel = 20 * log10(rms)
+        decibel = min(decibel, maxAudioLevel)
+        decibel = max(decibel, minAudioLevel)
+        return Int(decibel.rounded())
     }
 }
 
