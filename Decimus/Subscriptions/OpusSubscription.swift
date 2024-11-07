@@ -29,6 +29,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
+    private var enabled = true
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -114,7 +115,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     }
 
     func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        return [self.fullTrackName: self]
+        self.enabled ? [self.fullTrackName: self] : [:]
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
@@ -122,8 +123,14 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     }
 
     // In this case, the set is the handler.
-    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) { }
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? { self }
+    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) {
+        self.enabled = true
+    }
+
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+        self.enabled = false
+        return self
+    }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         let now: Date = .now
