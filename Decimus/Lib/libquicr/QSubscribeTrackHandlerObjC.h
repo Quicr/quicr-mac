@@ -21,9 +21,9 @@
 #endif
 }
 
--(id _Nonnull) initWithFullTrackName: (QFullTrackName* _Nonnull) full_track_name;
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name;
 -(QSubscribeTrackHandlerStatus) getStatus;
--(QFullTrackName* _Nonnull) getFullTrackName;
+-(id<QFullTrackName> _Nonnull) getFullTrackName;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 
 @end

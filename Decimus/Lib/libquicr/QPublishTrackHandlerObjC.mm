@@ -8,7 +8,7 @@
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (QFullTrackName*) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     quicr::TrackMode moqTrackMode = (quicr::TrackMode)track_mode;

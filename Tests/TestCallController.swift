@@ -4,32 +4,6 @@
 import XCTest
 @testable import QuicR
 
-final class TestFullTrackName: XCTestCase {
-    /// Test compatbility between Swift and Objective-C representations of ``FullTrackName``.
-    func testBidirectional() throws {
-        // FTN roundtrip.
-        let namespace = "namespace"
-        let name = "name"
-        let ftn = try FullTrackName(namespace: namespace, name: name)
-        XCTAssertEqual(try ftn.getName(), name)
-        XCTAssertEqual(try ftn.getNamespace(), namespace)
-        let qFullTrackName = ftn.get()
-        let reconstructed = FullTrackName(qFullTrackName)
-        XCTAssertEqual(try reconstructed.getName(), name)
-        XCTAssertEqual(try reconstructed.getNamespace(), namespace)
-
-        // QFullTrackName.
-        let qftn = QFullTrackName()
-        qftn.nameSpace = namespace.data(using: .ascii)!
-        qftn.name = name.data(using: .ascii)!
-        let swift = FullTrackName(qftn)
-        XCTAssertEqual(swift.name, qftn.name)
-        XCTAssertEqual(swift.namespace, qftn.nameSpace)
-        XCTAssertEqual(try swift.getName(), name)
-        XCTAssertEqual(try swift.getNamespace(), namespace)
-    }
-}
-
 final class TestCallController: XCTestCase {
 
     class MockPublicationFactory: PublicationFactory {
@@ -77,7 +51,7 @@ final class TestCallController: XCTestCase {
 
     class MockSubscription: QSubscribeTrackHandlerObjC {
         init(ftn: FullTrackName) {
-            super.init(fullTrackName: ftn.get())
+            super.init(fullTrackName: ftn)
         }
     }
 
@@ -224,7 +198,7 @@ final class TestCallController: XCTestCase {
                                                                       namespace: namespace)
                                                              ]))
 
-        let expectedFtn: [FullTrackName] = [try .init(namespace: namespace, name: "")]
+        let expectedFtn: [QFullTrackName] = [try FullTrackName(namespace: namespace, name: "")]
         var factoryCreated: SubscriptionSet?
         let creationCallback: MockSubscriptionFactory.SubscriptionCreated = {
             factoryCreated = $0
@@ -234,13 +208,13 @@ final class TestCallController: XCTestCase {
         // Create controller.
         let publish: MockClient.PublishTrackCallback = { _ in }
         let unpublish: MockClient.UnpublishTrackCallback = { _ in }
-        var subscribed: [FullTrackName] = []
-        var unsubscribed: [FullTrackName] = []
+        var subscribed: [QFullTrackName] = []
+        var unsubscribed: [QFullTrackName] = []
         let subscribe: MockClient.SubscribeTrackCallback = {
-            subscribed.append(FullTrackName($0.getFullTrackName()))
+            subscribed.append($0.getFullTrackName())
         }
         let unsubscribe: MockClient.UnsubscribeTrackCallback = {
-            unsubscribed.append(FullTrackName($0.getFullTrackName()))
+            unsubscribed.append($0.getFullTrackName())
         }
         let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
@@ -250,7 +224,7 @@ final class TestCallController: XCTestCase {
         // and subscribeTrack to be called on all contained subscriptions.
         try controller.subscribeToSet(details: details, factory: factory)
         XCTAssertNotNil(factoryCreated)
-        XCTAssertEqual(subscribed, expectedFtn)
+        XCTAssert(self.assertFtnEquality(subscribed, rhs: expectedFtn))
 
         // Should show as tracked.
         var sets = controller.getSubscriptionSets()
@@ -258,11 +232,29 @@ final class TestCallController: XCTestCase {
 
         // Removing should unsubscribe.
         try controller.unsubscribeToSet(sourceID)
-        XCTAssertEqual(unsubscribed, expectedFtn)
+        XCTAssert(self.assertFtnEquality(unsubscribed, rhs: expectedFtn))
 
         // No sets should be left.
         sets = controller.getSubscriptionSets()
         XCTAssertEqual([], sets)
+    }
+
+    func testAssertFtnEquality() throws {
+        let a: [QFullTrackName] = [try FullTrackName(namespace: "a", name: "a")]
+        let b: [QFullTrackName] = [try FullTrackName(namespace: "b", name: "b")]
+        XCTAssertTrue(self.assertFtnEquality(a, rhs: a))
+        XCTAssertFalse(self.assertFtnEquality(a, rhs: b))
+    }
+
+    func assertFtnEquality(_ lhs: [QFullTrackName], rhs: [QFullTrackName]) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        var match = true
+        for ftn in lhs {
+            match = match && rhs.contains(where: { other in
+                ftn.name == other.name && ftn.nameSpace == other.nameSpace
+            })
+        }
+        return match
     }
 
     func testMetrics() throws {
