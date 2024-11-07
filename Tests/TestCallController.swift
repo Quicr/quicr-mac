@@ -309,13 +309,13 @@ final class TestCallController: XCTestCase {
         // Create controller.
         let publish: MockClient.PublishTrackCallback = { _ in }
         let unpublish: MockClient.UnpublishTrackCallback = { _ in }
-        var subscribed: [FullTrackName] = []
-        var unsubscribed: [FullTrackName] = []
+        var subscribed: [QFullTrackName] = []
+        var unsubscribed: [QFullTrackName] = []
         let subscribe: MockClient.SubscribeTrackCallback = {
-            subscribed.append(FullTrackName($0.getFullTrackName()))
+            subscribed.append($0.getFullTrackName())
         }
         let unsubscribe: MockClient.UnsubscribeTrackCallback = {
-            unsubscribed.append(FullTrackName($0.getFullTrackName()))
+            unsubscribed.append($0.getFullTrackName())
         }
         let client = MockClient(publish: publish,
                                 unpublish: unpublish,
@@ -330,7 +330,7 @@ final class TestCallController: XCTestCase {
         // and subscribeTrack to be called on all contained subscriptions.
         try controller.subscribeToSet(details: details, factory: factory)
         XCTAssertNotNil(factoryCreated)
-        XCTAssertEqual(subscribed, [ftn1, ftn2])
+        XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1, ftn2]))
         subscribed = []
 
         // Handlers should show both.
@@ -345,7 +345,7 @@ final class TestCallController: XCTestCase {
         // Unsubscribe from one of the tracks.
         try controller.unsubscribe(source: factoryCreated!.sourceId, ftn: ftn1)
         // Unsubscribe track should have been called.
-        XCTAssertEqual(unsubscribed.sorted(by: compare), [ftn1].sorted(by: compare))
+        XCTAssert(self.assertFtnEquality(unsubscribed, rhs: [ftn1]))
 
         // Handlers should show only one.
         handlers = factoryCreated!.getHandlers()
@@ -355,13 +355,13 @@ final class TestCallController: XCTestCase {
         // Resubscribe.
         try controller.subscribe(set: factoryCreated!, profile: profile1, factory: factory)
         // Subscribe track should have been called.
-        XCTAssertEqual(subscribed, [ftn1])
+        XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1]))
 
         // Handlers should show both.
         handlers = factoryCreated!.getHandlers()
         XCTAssertEqual(handlers.count, 2)
         let ftns2 = handlers.map { $0.key }
-        XCTAssertEqual(ftns2, [ftn1, ftn2])
+        XCTAssert(self.assertFtnEquality(ftns2, rhs: [ftn1, ftn2]))
     }
 
     func testAssertFtnEquality() throws {
