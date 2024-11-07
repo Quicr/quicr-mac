@@ -98,8 +98,8 @@ final class TestCallController: XCTestCase {
             self.handlers.removeValue(forKey: ftn)
         }
 
-        func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) {
-            self.handlers[ftn] = handler
+        func addHandler(_ handler: QSubscribeTrackHandlerObjC) {
+            self.handlers[.init(handler.getFullTrackName())] = handler
         }
     }
 
@@ -203,7 +203,7 @@ final class TestCallController: XCTestCase {
         var publications = controller.getPublications()
         let namespace = details.profileSet.profiles.first!.namespace
         let ftn = try FullTrackName(namespace: namespace, name: "")
-        XCTAssertEqual(publications, [ftn])
+        XCTAssert(self.assertFtnEquality(publications.map { $0.getFullTrackName() }, rhs: [ftn]))
 
         // Removing should unpublish.
         try controller.unpublish(ftn)
@@ -262,7 +262,7 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual([sourceID], sets.map { $0.sourceId })
 
         // Removing should unsubscribe.
-        try controller.unsubscribeToSet(sourceID: sourceID)
+        try controller.unsubscribeToSet(sourceID)
         XCTAssert(self.assertFtnEquality(unsubscribed, rhs: expectedFtn))
 
         // No sets should be left.
@@ -343,7 +343,7 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual(ftns.sorted(by: compare), [ftn1, ftn2].sorted(by: compare))
 
         // Unsubscribe from one of the tracks.
-        try controller.unsubscribe(source: factoryCreated!.sourceId, ftn: ftn1)
+        try controller.unsubscribe(factoryCreated!.sourceId, ftn: ftn1)
         // Unsubscribe track should have been called.
         XCTAssert(self.assertFtnEquality(unsubscribed, rhs: [ftn1]))
 

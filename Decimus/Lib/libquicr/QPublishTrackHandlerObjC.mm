@@ -16,6 +16,17 @@
     return self;
 }
 
+-(id<QFullTrackName>) getFullTrackName {
+    assert(handlerPtr);
+    const auto ftn = handlerPtr->GetFullTrackName();
+    const auto converted = [[QFullTrackNameImpl alloc] init];
+    NSData* nameSpace = [[NSData alloc] initWithBytes:(void*)ftn.name_space.data()  length:ftn.name_space.size()];
+    converted.nameSpace = nameSpace;
+    NSData* name = [[NSData alloc] initWithBytes:(void*)ftn.name.data()  length:ftn.name.size()];
+    converted.name = name;
+    return converted;
+}
+
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
 {
     assert(handlerPtr);
