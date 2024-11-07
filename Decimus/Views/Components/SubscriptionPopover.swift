@@ -22,10 +22,9 @@ struct SubscriptionPopover: View {
             .font(.title)
 
         ForEach(self.manifest.subscriptions, id: \.sourceID) { manifestSubscriptionSet in
-            Text(manifestSubscriptionSet.sourceID)
-                .bold()
-            let set = self.controller.getSubscriptionSet(manifestSubscriptionSet.sourceID)
-            if let set = set {
+            if let set = self.controller.getSubscriptionSet(manifestSubscriptionSet.sourceID) {
+                Text(manifestSubscriptionSet.sourceID)
+                    .bold()
                 let existing = self.controller.getSubscriptions(set)
                 ForEach(manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
                     // Is this profile already subscribed to?
@@ -41,7 +40,7 @@ struct SubscriptionPopover: View {
                             try! self.controller.subscribe(set: set, profile: manifestSubscription, factory: self.factory)
                         } else {
                             let ftn = try! FullTrackName(namespace: manifestSubscription.namespace, name: "")
-                            try! self.controller.unsubscribe(source: set.sourceId, ftn: ftn)
+                            try! self.controller.unsubscribe(set.sourceId, ftn: ftn)
                         }
                         // Manually cause the view to refresh now we've changed the state.
                         self.model.objectWillChange.send()
@@ -50,7 +49,7 @@ struct SubscriptionPopover: View {
                                   isOn: binding)
                 }
             } else {
-                Text("This is bad")
+                Text(manifestSubscriptionSet.sourceID).foregroundStyle(.red)
             }
         }
     }

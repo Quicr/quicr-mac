@@ -19,10 +19,6 @@ struct AvailableImage {
 
 // swiftlint:disable type_body_length
 class VideoSubscriptionSet: SubscriptionSet {
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        self.videoSubscriptions.removeValue(forKey: ftn)
-    }
-
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     let sourceId: SourceIDType
@@ -56,6 +52,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     let decodedVariances: VarianceCalculator
     private var timestampTimeDiff: TimeInterval?
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
+    private var videoSubscriptionLock = OSAllocatedUnfairLock()
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -152,17 +149,25 @@ class VideoSubscriptionSet: SubscriptionSet {
         self.videoSubscriptions
     }
 
-    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) {
-        guard let videoSubscription = handler as? VideoSubscription else {
-            fatalError()
+    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+        let ftn = FullTrackName(handler.getFullTrackName())
+        try self.videoSubscriptionLock.withLock {
+            guard self.videoSubscriptions[ftn] == nil else {
+                throw SubscriptionSetError.handlerExists
+            }
+            self.videoSubscriptions[ftn] = (handler as! VideoSubscription)
         }
-        self.videoSubscriptions[ftn] = videoSubscription
     }
 
-    func removeHandler(_ ftn: FullTrackName) {
-        _ = self.videoSubscriptions.removeValue(forKey: ftn)
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+        self.videoSubscriptionLock.withLock {
+            self.videoSubscriptions.removeValue(forKey: ftn)
+        }
     }
 
+    /// Inform the set that a video frame from a managed subscription arrived.
+    /// - Parameter timestamp: Media timestamp of the arrived frame.
+    /// - Parameter when: The local datetime this happened.
     public func receivedObject(timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object.
         if self.timestampTimeDiff == nil {
@@ -171,7 +176,10 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Set this diff for all handlers, if not already.
         if let diff = self.timestampTimeDiff {
-            for (_, sub) in self.videoSubscriptions {
+            let subscriptions = self.videoSubscriptionLock.withLock {
+                self.videoSubscriptions
+            }
+            for (_, sub) in subscriptions {
                 sub.handlerLock.withLock {
                     guard let handler = sub.handler else { return }
                     handler.setTimeDiff(diff: diff)
@@ -275,7 +283,10 @@ class VideoSubscriptionSet: SubscriptionSet {
     private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
-        for subscription in self.videoSubscriptions {
+        let subscriptions = self.videoSubscriptionLock.withLock {
+            self.videoSubscriptions
+        }
+        for subscription in subscriptions {
             guard let handler = subscription.value.handler else {
                 continue
             }

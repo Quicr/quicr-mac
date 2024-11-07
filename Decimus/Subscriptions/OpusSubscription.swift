@@ -4,6 +4,7 @@
 import AVFAudio
 import CoreAudio
 import os
+import Atomics
 
 class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeTrackHandlerCallbacks {
 
@@ -29,7 +30,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
-    private var enabled = true
+    private var enabled = ManagedAtomic(true)
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -115,7 +116,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     }
 
     func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        self.enabled ? [self.fullTrackName: self] : [:]
+        let enabled = self.enabled.load(ordering: .acquiring)
+        return enabled ? [self.fullTrackName: self] : [:]
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
@@ -123,12 +125,12 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     }
 
     // In this case, the set is the handler.
-    func addHandler(_ ftn: FullTrackName, handler: QSubscribeTrackHandlerObjC) {
-        self.enabled = true
+    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+        self.enabled.store(true, ordering: .releasing)
     }
 
     func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        self.enabled = false
+        self.enabled.store(false, ordering: .releasing)
         return self
     }
 

@@ -214,10 +214,10 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 guard let set = set else { return }
                 set.receivedObject(timestamp: ts, when: when)
             }
-        } else if let audioConfig = config as? AudioCodecConfig {
+        } else if config as? AudioCodecConfig != nil {
             let set = set as! OpusSubscription
             return set
         }
-        fatalError()
+        throw CodecError.invalidCodecConfig(config)
     }
 }

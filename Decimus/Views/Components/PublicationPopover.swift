@@ -13,9 +13,5 @@ struct PublicationPopover: View {
     var body: some View {
         Text("Publications")
             .font(.title)
-        ForEach(self.controller.getPublications(), id: \.self) {
-            let name: String = (try? $0.getNamespace()) ?? "<bytes>"
-            Text(name)
-        }
     }
 }
