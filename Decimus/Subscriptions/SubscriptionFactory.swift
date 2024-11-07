@@ -118,3 +118,75 @@ struct SubscriptionConfig: Codable {
         doSFrame = true
     }
 }
+
+protocol SubscriptionFactory {
+    func create(subscription: ManifestSubscription,
+                endpointId: String,
+                relayId: String) throws -> SubscriptionSet
+}
+
+class SubscriptionFactoryImpl: SubscriptionFactory {
+    private let videoParticipants: VideoParticipants
+    private let metricsSubmitter: MetricsSubmitter?
+    private let subscriptionConfig: SubscriptionConfig
+    private let granularMetrics: Bool
+    private let engine: DecimusAudioEngine
+
+    init(videoParticipants: VideoParticipants,
+         metricsSubmitter: MetricsSubmitter?,
+         subscriptionConfig: SubscriptionConfig,
+         granularMetrics: Bool,
+         engine: DecimusAudioEngine) {
+        self.videoParticipants = videoParticipants
+        self.metricsSubmitter = metricsSubmitter
+        self.subscriptionConfig = subscriptionConfig
+        self.granularMetrics = granularMetrics
+        self.engine = engine
+    }
+
+    func create(subscription: ManifestSubscription, endpointId: String, relayId: String) throws -> any SubscriptionSet {
+        // Supported codec sets.
+        let videoCodecs: Set<CodecType> = [.h264, .hevc]
+        let opusCodecs: Set<CodecType> = [.opus]
+
+        // Resolve profile sets to config.
+        var foundCodecs: [CodecType] = []
+        for profile in subscription.profileSet.profiles {
+            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
+                                                      bitrateType: self.subscriptionConfig.bitrateType)
+            foundCodecs.append(config.codec)
+        }
+        let found = Set(foundCodecs)
+        if found.isSubset(of: videoCodecs) {
+            return try VideoSubscriptionSet(subscription: subscription,
+                                            participants: self.videoParticipants,
+                                            metricsSubmitter: self.metricsSubmitter,
+                                            videoBehaviour: self.subscriptionConfig.videoBehaviour,
+                                            reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                            granularMetrics: self.granularMetrics,
+                                            jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
+                                            simulreceive: self.subscriptionConfig.simulreceive,
+                                            qualityMissThreshold: self.subscriptionConfig.qualityMissThreshold,
+                                            pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
+                                            pauseResume: self.subscriptionConfig.pauseResume,
+                                            endpointId: endpointId,
+                                            relayId: relayId)
+        }
+
+        if found.isSubset(of: opusCodecs) {
+            return try OpusSubscription(subscription: subscription,
+                                        engine: self.engine,
+                                        submitter: self.metricsSubmitter,
+                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
+                                        granularMetrics: self.granularMetrics,
+                                        endpointId: endpointId,
+                                        relayId: relayId,
+                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer)
+        }
+
+        throw CodecError.unsupportedCodecSet(found)
+    }
+}

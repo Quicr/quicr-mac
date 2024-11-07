@@ -25,6 +25,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let subscription: ManifestSubscription
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
+    private let fullTrackName: FullTrackName
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -74,7 +75,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  useNewJitterBuffer: self.useNewJitterBuffer,
                                  metricsSubmitter: self.metricsSubmitter)
         let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-        super.init(fullTrackName: fullTrackName.getUnsafe())
+        self.fullTrackName = fullTrackName
+        super.init(fullTrackName: fullTrackName)
         self.setCallbacks(self)
 
         // Make task for cleaning up audio handlers.
@@ -107,8 +109,8 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [QSubscribeTrackHandlerObjC] {
-        return [self]
+    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
+        return [self.fullTrackName: self]
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {

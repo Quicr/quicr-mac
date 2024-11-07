@@ -8,6 +8,7 @@
 #import "EncodedBuffer/EncodedFrameBufferAllocator.h"
 #import "Utilities/SwiftInterop.h"
 
+#import "libquicr/QFullTrackName.h"
 #import "libquicr/QPublishTrackHandlerCallbacks.h"
 #import "libquicr/QSubscribeTrackHandlerCallbacks.h"
 #import "libquicr/QCommon.h"

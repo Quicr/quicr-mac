@@ -8,9 +8,13 @@ enum FullTrackNameError: Error {
 }
 
 /// A MoQ full track name identifies a track within a namespace.
-struct FullTrackName: Hashable {
+class FullTrackName: QFullTrackName, Hashable {
+    static func == (lhs: FullTrackName, rhs: FullTrackName) -> Bool {
+        lhs.nameSpace == rhs.nameSpace && lhs.name == rhs.name
+    }
+
     /// The namespace portion of the full track name.
-    let namespace: Data
+    let nameSpace: Data
     /// The name portion of the full track name.
     let name: Data
 
@@ -22,18 +26,23 @@ struct FullTrackName: Hashable {
         guard let namespace = namespace.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
-        self.namespace = namespace
+        self.nameSpace = namespace
         guard let name = name.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
         self.name = name
     }
 
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.name)
+        hasher.combine(self.nameSpace)
+    }
+
     /// Get the namespace as an ASCII string.
     /// - Returns: ASCII string of namespace.
     /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
     func getNamespace() throws -> String {
-        guard let namespace = String(data: self.namespace, encoding: .ascii) else {
+        guard let namespace = String(data: self.nameSpace, encoding: .ascii) else {
             throw FullTrackNameError.parseError
         }
         return namespace
@@ -47,23 +56,5 @@ struct FullTrackName: Hashable {
             throw FullTrackNameError.parseError
         }
         return name
-    }
-
-    /// Get the underlying ``QFullTrackName`` object corresponding to this ``FullTrackName``.
-    /// This reference MUST NOT be used outside of the scope of the owning ``FullTrackName``.
-    /// - Returns: A ``QFullTrackName`` view into this ``FullTrackName``.
-    func getUnsafe() -> QFullTrackName {
-        return self.namespace.withUnsafeBytes { namespace in
-            let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self,
-                                                                                       capacity: namespace.count)
-            return self.name.withUnsafeBytes { name in
-                let namePtr: UnsafePointer<CChar> = name.baseAddress!.bindMemory(to: CChar.self, capacity: name.count)
-
-                return .init(nameSpace: namespacePtr,
-                             nameSpaceLength: self.namespace.count,
-                             name: namePtr,
-                             nameLength: self.name.count)
-            }
-        }
     }
 }

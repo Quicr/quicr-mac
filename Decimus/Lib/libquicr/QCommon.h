@@ -17,14 +17,6 @@ typedef struct QMinMaxAvg {
     uint64_t value_count;
 } QMinMaxAvg;
 
-typedef struct QFullTrackName
-{
-    const char* nameSpace;
-    size_t nameSpaceLength;
-    const char* name;
-    size_t nameLength;
-} QFullTrackName;
-
 typedef struct QObjectHeaders {
     uint64_t groupId;
     uint64_t objectId;
@@ -33,13 +25,4 @@ typedef struct QObjectHeaders {
     const uint16_t* ttl;
 } QObjectHeaders;
 
-
-#ifdef __cplusplus
-static quicr::FullTrackName ftnConvert(QFullTrackName qFtn) {
-    return {
-        .name_space = std::vector<std::uint8_t>(qFtn.nameSpace, qFtn.nameSpace + qFtn.nameSpaceLength),
-        .name = std::vector<std::uint8_t>(qFtn.name, qFtn.name + qFtn.nameLength)
-    };
-}
-#endif
 #endif
