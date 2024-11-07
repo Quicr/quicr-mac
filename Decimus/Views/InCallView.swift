@@ -110,32 +110,17 @@ struct InCallView: View {
                     }
                     #endif
                 }
-                .sheet(isPresented: $isShowingSubscriptions) {
-                    //                        if let controller = viewModel.controller {
-                    //                            SubscriptionPopover(controller: controller)
-                    //                        }
-                    //                        Spacer()
-                    //                        Button("Done") {
-                    //                            self.isShowingSubscriptions = false
-                    //                        }
-                    //                        .padding()
-                }
-                .sheet(isPresented: $isShowingPublications) {
-                    //                        if let controller = viewModel.controller {
-                    //                            PublicationPopover(controller: controller)
-                    //                        }
-                    //                        Spacer()
-                    //                        Button("Done") {
-                    //                            self.isShowingPublications = false
-                    //                        }
-                    //                        .padding()
-                }
                 .sheet(isPresented: self.$debugDetail) {
                     VStack {
-                        Text("Debug Details").font(.title)
-                        HStack {
-                            Text("Relay: ").bold()
-                            Text(self.viewModel.controller?.serverId ?? "Unknown").monospaced()
+                        if let controller = self.viewModel.controller,
+                           let manifest = self.viewModel.currentManifest {
+                            Text("Debug Details").font(.title)
+                            HStack {
+                                Text("Relay: ").bold()
+                                Text(controller.serverId ?? "Unknown").monospaced()
+                            }
+                            SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
+                            PublicationPopover(controller)
                         }
                     }.padding()
                     Spacer()
@@ -219,6 +204,7 @@ extension InCallView {
         private(set) var controller: MoqCallController?
         private(set) var captureManager: CaptureManager?
         private(set) var videoParticipants = VideoParticipants()
+        private(set) var currentManifest: Manifest?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
         private var measurement: MeasurementRegistration<_Measurement>?
@@ -227,8 +213,8 @@ extension InCallView {
         private var videoCapture = false
         private let onLeave: () -> Void
         var relayId: String?
-        private var publicationFactory: PublicationFactory?
-        private var subscriptionFactory: SubscriptionFactory?
+        private(set) var publicationFactory: PublicationFactory?
+        private(set) var subscriptionFactory: SubscriptionFactory?
 
         @AppStorage(SubscriptionSettingsView.showLabelsKey)
         var showLabels: Bool = true
@@ -362,6 +348,7 @@ extension InCallView {
                 Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                 return false
             }
+            self.currentManifest = manifest
 
             // Inject the manifest in order to create publications & subscriptions.
             do {

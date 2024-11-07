@@ -123,6 +123,12 @@ protocol SubscriptionFactory {
     func create(subscription: ManifestSubscription,
                 endpointId: String,
                 relayId: String) throws -> SubscriptionSet
+
+    func create(set: SubscriptionSet,
+                ftn: FullTrackName,
+                config: CodecConfig,
+                endpointId: String,
+                relayId: String) throws -> QSubscribeTrackHandlerObjC
 }
 
 class SubscriptionFactoryImpl: SubscriptionFactory {
@@ -188,5 +194,30 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
 
         throw CodecError.unsupportedCodecSet(found)
+    }
+
+    func create(set: SubscriptionSet, ftn: FullTrackName, config: CodecConfig, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+        if let videoConfig = config as? VideoCodecConfig {
+            let set = set as! VideoSubscriptionSet
+            return try VideoSubscription(fullTrackName: ftn,
+                                         config: videoConfig,
+                                         participants: self.videoParticipants,
+                                         metricsSubmitter: self.metricsSubmitter,
+                                         videoBehaviour: self.subscriptionConfig.videoBehaviour,
+                                         reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                         granularMetrics: self.granularMetrics,
+                                         jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
+                                         simulreceive: self.subscriptionConfig.simulreceive,
+                                         variances: set.decodedVariances,
+                                         endpointId: endpointId,
+                                         relayId: relayId) { [weak set] ts, when in
+                guard let set = set else { return }
+                set.receivedObject(timestamp: ts, when: when)
+            }
+        } else if config as? AudioCodecConfig != nil {
+            let set = set as! OpusSubscription
+            return set
+        }
+        throw CodecError.invalidCodecConfig(config)
     }
 }

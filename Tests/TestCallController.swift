@@ -4,6 +4,23 @@
 import XCTest
 @testable import QuicR
 
+final class TestFullTrackName: XCTestCase {
+    /// Test compatbility between Swift and Objective-C representations of ``FullTrackName``.
+    func testFullTrackName() throws {
+        // QFullTrackName.
+        let namespace = "namespace"
+        let name = "name"
+        let qftn = QFullTrackNameImpl()
+        qftn.nameSpace = namespace.data(using: .ascii)!
+        qftn.name = name.data(using: .ascii)!
+        let swift = FullTrackName(qftn as QFullTrackName)
+        XCTAssertEqual(swift.name, qftn.name)
+        XCTAssertEqual(swift.nameSpace, qftn.nameSpace)
+        XCTAssertEqual(try swift.getName(), name)
+        XCTAssertEqual(try swift.getNamespace(), namespace)
+    }
+}
+
 final class TestCallController: XCTestCase {
 
     class MockPublicationFactory: PublicationFactory {
@@ -47,6 +64,10 @@ final class TestCallController: XCTestCase {
             self.callback(set)
             return set
         }
+
+        func create(set: any SubscriptionSet, ftn: FullTrackName, config: any CodecConfig, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+            MockSubscription(ftn: ftn)
+        }
     }
 
     class MockSubscription: QSubscribeTrackHandlerObjC {
@@ -56,19 +77,29 @@ final class TestCallController: XCTestCase {
     }
 
     class MockSubscriptionSet: SubscriptionSet {
+        let sourceId: QuicR.SourceIDType
+        private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
         private let subscription: ManifestSubscription
 
         init(_ subscription: ManifestSubscription) {
+            self.sourceId = subscription.sourceID
             self.subscription = subscription
+            for profile in self.subscription.profileSet.profiles {
+                let ftn = try! FullTrackName(namespace: profile.namespace, name: "")
+                self.handlers[ftn] = MockSubscription(ftn: ftn)
+            }
         }
 
         func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-            var subs: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
-            for profile in self.subscription.profileSet.profiles {
-                let ftn = try! FullTrackName(namespace: profile.namespace, name: "")
-                subs[ftn] = MockSubscription(ftn: ftn)
-            }
-            return subs
+            self.handlers
+        }
+
+        func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+            self.handlers.removeValue(forKey: ftn)
+        }
+
+        func addHandler(_ handler: QSubscribeTrackHandlerObjC) {
+            self.handlers[.init(handler.getFullTrackName())] = handler
         }
     }
 
@@ -172,7 +203,7 @@ final class TestCallController: XCTestCase {
         var publications = controller.getPublications()
         let namespace = details.profileSet.profiles.first!.namespace
         let ftn = try FullTrackName(namespace: namespace, name: "")
-        XCTAssertEqual(publications, [ftn])
+        XCTAssert(self.assertFtnEquality(publications.map { $0.getFullTrackName() }, rhs: [ftn]))
 
         // Removing should unpublish.
         try controller.unpublish(ftn)
@@ -183,7 +214,7 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual(publications, [])
     }
 
-    func testSubscriptionAlter() async throws {
+    func testSubscriptionSetAlter() async throws {
         let sourceID = "TESTING"
         let namespace = "namespace"
         let details = ManifestSubscription(mediaType: "video",
@@ -228,7 +259,7 @@ final class TestCallController: XCTestCase {
 
         // Should show as tracked.
         var sets = controller.getSubscriptionSets()
-        XCTAssertEqual([sourceID], sets)
+        XCTAssertEqual([sourceID], sets.map { $0.sourceId })
 
         // Removing should unsubscribe.
         try controller.unsubscribeToSet(sourceID)
@@ -236,7 +267,101 @@ final class TestCallController: XCTestCase {
 
         // No sets should be left.
         sets = controller.getSubscriptionSets()
-        XCTAssertEqual([], sets)
+        XCTAssertEqual([], sets.map { $0.sourceId })
+    }
+
+    func testSubscriptionAlter() async throws {
+        let sourceID = "TESTING"
+        let namespace = "namespace1"
+        let namespace2 = "namespace2"
+
+        let profile1 = Profile(qualityProfile: "h264",
+                               expiry: nil,
+                               priorities: nil,
+                               namespace: namespace)
+        let profile2 = Profile(qualityProfile: "h264",
+                               expiry: nil,
+                               priorities: nil,
+                               namespace: namespace2)
+
+        let details = ManifestSubscription(mediaType: "video",
+                                           sourceName: "test",
+                                           sourceID: sourceID,
+                                           label: "testLabel",
+                                           profileSet: .init(type: "video",
+                                                             profiles: [
+                                                                profile1,
+                                                                profile2
+                                                             ]))
+
+        let ftn1 = try FullTrackName(namespace: namespace, name: "")
+        let ftn2 = try FullTrackName(namespace: namespace2, name: "")
+
+        XCTAssertEqual(ftn1, try .init(namespace: namespace, name: ""))
+        XCTAssertEqual([ftn1], [try .init(namespace: namespace, name: "")])
+
+        var factoryCreated: SubscriptionSet?
+        let creationCallback: MockSubscriptionFactory.SubscriptionCreated = {
+            factoryCreated = $0
+        }
+        let factory = MockSubscriptionFactory(creationCallback)
+
+        // Create controller.
+        let publish: MockClient.PublishTrackCallback = { _ in }
+        let unpublish: MockClient.UnpublishTrackCallback = { _ in }
+        var subscribed: [QFullTrackName] = []
+        var unsubscribed: [QFullTrackName] = []
+        let subscribe: MockClient.SubscribeTrackCallback = {
+            subscribed.append($0.getFullTrackName())
+        }
+        let unsubscribe: MockClient.UnsubscribeTrackCallback = {
+            unsubscribed.append($0.getFullTrackName())
+        }
+        let client = MockClient(publish: publish,
+                                unpublish: unpublish,
+                                subscribe: subscribe,
+                                unsubscribe: unsubscribe)
+        let controller = MoqCallController(endpointUri: "1",
+                                           client: client,
+                                           submitter: nil) { }
+        try await controller.connect()
+
+        // Subscribing to the set should cause a set to be created,
+        // and subscribeTrack to be called on all contained subscriptions.
+        try controller.subscribeToSet(details: details, factory: factory)
+        XCTAssertNotNil(factoryCreated)
+        XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1, ftn2]))
+        subscribed = []
+
+        // Handlers should show both.
+        var handlers = factoryCreated!.getHandlers()
+        XCTAssertEqual(handlers.count, 2)
+        let ftns = handlers.map { $0.key }
+        let compare: (FullTrackName, FullTrackName) -> Bool = {
+            try! $0.getNamespace() < $1.getNamespace()
+        }
+        XCTAssertEqual(ftns.sorted(by: compare), [ftn1, ftn2].sorted(by: compare))
+
+        // Unsubscribe from one of the tracks.
+        try controller.unsubscribe(factoryCreated!.sourceId, ftn: ftn1)
+        // Unsubscribe track should have been called.
+        XCTAssert(self.assertFtnEquality(unsubscribed, rhs: [ftn1]))
+
+        // Handlers should show only one.
+        handlers = factoryCreated!.getHandlers()
+        XCTAssertEqual(handlers.count, 1)
+        XCTAssertEqual(handlers.keys.first, ftn2)
+
+        // Resubscribe.
+        try controller.subscribe(set: factoryCreated!, profile: profile1, factory: factory)
+        // Subscribe track should have been called.
+        XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1]))
+
+        // Handlers should show both.
+        handlers = factoryCreated!.getHandlers()
+        XCTAssertEqual(handlers.count, 2)
+        let ftns2 = handlers.map { $0.key }
+        XCTAssert(self.assertFtnEquality(ftns2, rhs: [ftn1, ftn2]))
     }
 
     func testAssertFtnEquality() throws {

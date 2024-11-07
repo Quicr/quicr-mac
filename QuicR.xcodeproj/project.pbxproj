@@ -50,6 +50,8 @@
 		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */; };
 		9B1246322CD8EB83004C020C /* QFullTrackName.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246312CD8EB7F004C020C /* QFullTrackName.mm */; };
+		9B1246342CD90927004C020C /* SubscriptionPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246332CD90923004C020C /* SubscriptionPopover.swift */; };
+		9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246352CD90B00004C020C /* PublicationPopover.swift */; };
 		9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */; };
 		9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */; };
 		9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */; };
@@ -227,6 +229,8 @@
 		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscriptionSet+Measurement.swift"; sourceTree = "<group>"; };
 		9B1246312CD8EB7F004C020C /* QFullTrackName.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFullTrackName.mm; sourceTree = "<group>"; };
+		9B1246332CD90923004C020C /* SubscriptionPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionPopover.swift; sourceTree = "<group>"; };
+		9B1246352CD90B00004C020C /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
 		9B131C662B7E467500B29D77 /* ApplicationH264SEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationH264SEIs.swift; sourceTree = "<group>"; };
 		9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusVideoFrame.swift; sourceTree = "<group>"; };
 		9B131E322B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationHEVCSEIs.swift; sourceTree = "<group>"; };
@@ -719,6 +723,8 @@
 		FFBF2FB529BFE47000D769CF /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				9B1246352CD90B00004C020C /* PublicationPopover.swift */,
+				9B1246332CD90923004C020C /* SubscriptionPopover.swift */,
 				9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */,
 				FF1C5C2A29DD110600887833 /* CallControls.swift */,
 				FF1C5C2B29DD110600887833 /* LeaveModal.swift */,
@@ -936,6 +942,7 @@
 				1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */,
 				18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */,
 				1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */,
+				9B1246342CD90927004C020C /* SubscriptionPopover.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */,
 				9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */,
@@ -985,6 +992,7 @@
 				9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */,
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
+				9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */,
 				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,

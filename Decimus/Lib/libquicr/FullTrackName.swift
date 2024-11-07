@@ -33,6 +33,11 @@ class FullTrackName: QFullTrackName, Hashable {
         self.name = name
     }
 
+    init(_ ftn: QFullTrackName) {
+        self.nameSpace = ftn.nameSpace
+        self.name = ftn.name
+    }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.name)
         hasher.combine(self.nameSpace)

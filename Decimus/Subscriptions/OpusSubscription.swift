@@ -4,8 +4,12 @@
 import AVFAudio
 import CoreAudio
 import os
+import Atomics
 
 class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeTrackHandlerCallbacks {
+
+    let sourceId: SourceIDType
+
     private static let logger = DecimusLogger(OpusSubscription.self)
 
     private let engine: DecimusAudioEngine
@@ -26,6 +30,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
+    private var enabled = ManagedAtomic(true)
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -63,6 +68,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
+        self.sourceId = subscription.sourceID
 
         // Create the actual audio handler upfront.
         self.handler = try .init(sourceId: self.subscription.sourceID,
@@ -110,11 +116,22 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
     }
 
     func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        return [self.fullTrackName: self]
+        let enabled = self.enabled.load(ordering: .acquiring)
+        return enabled ? [self.fullTrackName: self] : [:]
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         Self.logger.info("Status changed: \(status)")
+    }
+
+    // In this case, the set is the handler.
+    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+        self.enabled.store(true, ordering: .releasing)
+    }
+
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+        self.enabled.store(false, ordering: .releasing)
+        return self
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {

@@ -3,7 +3,6 @@
 
 #import "QFullTrackName.h"
 
-// Empty implementation for QFullTrackName
 @implementation QFullTrackNameImpl
 
 -(instancetype _Nonnull) initWithNamespace: (NSData* _Nonnull) nameSpace name: (NSData* _Nonnull) name {
