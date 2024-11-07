@@ -26,6 +26,7 @@ enum MoqCallControllerError: Error {
 /// Implementing this interface with >1 handler is useful when data streams
 /// across multiple subscribe handlers need to be compared or collated.
 protocol SubscriptionSet {
+    /// Identifier for this subscription set.
     var sourceId: SourceIDType { get }
 
     /// Get the subscribe track handlers for this subscription set.

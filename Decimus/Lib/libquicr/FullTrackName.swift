@@ -8,9 +8,13 @@ enum FullTrackNameError: Error {
 }
 
 /// A MoQ full track name identifies a track within a namespace.
-struct FullTrackName: Hashable {
+class FullTrackName: QFullTrackName, Hashable {
+    static func == (lhs: FullTrackName, rhs: FullTrackName) -> Bool {
+        lhs.nameSpace == rhs.nameSpace && lhs.name == rhs.name
+    }
+
     /// The namespace portion of the full track name.
-    let namespace: Data
+    let nameSpace: Data
     /// The name portion of the full track name.
     let name: Data
 
@@ -22,30 +26,28 @@ struct FullTrackName: Hashable {
         guard let namespace = namespace.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
-        self.namespace = namespace
+        self.nameSpace = namespace
         guard let name = name.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
         self.name = name
     }
 
-    func get() -> QFullTrackName {
-        let ftn = QFullTrackName()
-        ftn.nameSpace = self.namespace
-        ftn.name = self.name
-        return ftn
+    init(_ ftn: QFullTrackName) {
+        self.nameSpace = ftn.nameSpace
+        self.name = ftn.name
     }
 
-    init(_ ftn: QFullTrackName) {
-        self.namespace = ftn.nameSpace
-        self.name = ftn.name
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.name)
+        hasher.combine(self.nameSpace)
     }
 
     /// Get the namespace as an ASCII string.
     /// - Returns: ASCII string of namespace.
     /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
     func getNamespace() throws -> String {
-        guard let namespace = String(data: self.namespace, encoding: .ascii) else {
+        guard let namespace = String(data: self.nameSpace, encoding: .ascii) else {
             throw FullTrackNameError.parseError
         }
         return namespace

@@ -9,13 +9,19 @@
 #include <quicr/track_name.h>
 #endif
 
-@interface QFullTrackName: NSObject
-@property (strong) NSData* name;
-@property (strong) NSData* nameSpace;
+@protocol QFullTrackName
+@property (readonly, strong) NSData* _Nonnull name;
+@property (readonly, strong) NSData* _Nonnull nameSpace;
+@end
+
+@interface QFullTrackNameImpl: NSObject<QFullTrackName>
+@property (strong) NSData* _Nonnull name;
+@property (strong) NSData* _Nonnull nameSpace;
+-(instancetype _Nonnull) initWithNamespace: (NSData* _Nonnull) nameSpace name: (NSData* _Nonnull) name;
 @end
 
 #ifdef __cplusplus
-static quicr::FullTrackName ftnConvert(QFullTrackName* qFtn) {
+static quicr::FullTrackName ftnConvert(id<QFullTrackName> _Nonnull qFtn) {
     const auto nameSpaceBytes = reinterpret_cast<const std::uint8_t*>(qFtn.nameSpace.bytes);
     const auto nameBytes = reinterpret_cast<const std::uint8_t*>(qFtn.name.bytes);
     return {

@@ -77,7 +77,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                        variances: variances)
         self.token = handler.registerCallback(callback)
         self.handler = handler
-        super.init(fullTrackName: fullTrackName.get())
+        super.init(fullTrackName: fullTrackName)
         self.setCallbacks(self)
     }
 

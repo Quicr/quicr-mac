@@ -7,7 +7,7 @@
 
 @implementation QSubscribeTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (QFullTrackName*) full_track_name
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
@@ -20,10 +20,10 @@
     return static_cast<QSubscribeTrackHandlerStatus>(status);
 }
 
--(QFullTrackName*) getFullTrackName {
+-(id<QFullTrackName>) getFullTrackName {
     assert(handlerPtr);
     const auto ftn = handlerPtr->GetFullTrackName();
-    const auto converted = [[QFullTrackName alloc] init];
+    const auto converted = [[QFullTrackNameImpl alloc] init];
     NSData* nameSpace = [[NSData alloc] initWithBytes:(void*)ftn.name_space.data()  length:ftn.name_space.size()];
     converted.nameSpace = nameSpace;
     NSData* name = [[NSData alloc] initWithBytes:(void*)ftn.name.data()  length:ftn.name.size()];
