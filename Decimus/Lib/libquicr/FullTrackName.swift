@@ -14,7 +14,7 @@ class FullTrackName: QFullTrackName, Hashable {
     }
 
     /// The namespace portion of the full track name.
-    let nameSpace: Data
+    let nameSpace: [Data]
     /// The name portion of the full track name.
     let name: Data
 
@@ -26,7 +26,7 @@ class FullTrackName: QFullTrackName, Hashable {
         guard let namespace = namespace.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
-        self.nameSpace = namespace
+        self.nameSpace = [namespace]
         guard let name = name.data(using: .ascii) else {
             throw FullTrackNameError.parseError
         }
@@ -47,7 +47,8 @@ class FullTrackName: QFullTrackName, Hashable {
     /// - Returns: ASCII string of namespace.
     /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
     func getNamespace() throws -> String {
-        guard let namespace = String(data: self.nameSpace, encoding: .ascii) else {
+        guard let element = self.nameSpace.first,
+              let namespace = String(data: element, encoding: .ascii) else {
             throw FullTrackNameError.parseError
         }
         return namespace

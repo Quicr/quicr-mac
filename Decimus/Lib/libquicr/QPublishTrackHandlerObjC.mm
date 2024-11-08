@@ -20,8 +20,12 @@
     assert(handlerPtr);
     const auto ftn = handlerPtr->GetFullTrackName();
     const auto converted = [[QFullTrackNameImpl alloc] init];
-    NSData* nameSpace = [[NSData alloc] initWithBytes:(void*)ftn.name_space.data()  length:ftn.name_space.size()];
-    converted.nameSpace = nameSpace;
+    NSMutableArray<NSData*>* tuple = [NSMutableArray arrayWithCapacity:ftn.name_space.size()];
+    for (const auto& element : ftn.name_space.GetEntries()) {
+        NSData* objcElement = [[NSData alloc] initWithBytes:(void*)element.data() length:ftn.name_space.size()];
+        [tuple addObject:objcElement];
+    }
+    converted.nameSpace = tuple;
     NSData* name = [[NSData alloc] initWithBytes:(void*)ftn.name.data()  length:ftn.name.size()];
     converted.name = name;
     return converted;

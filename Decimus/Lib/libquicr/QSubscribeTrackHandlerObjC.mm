@@ -7,10 +7,11 @@
 
 @implementation QSubscribeTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName);
+    const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order);
     return self;
 }
 
@@ -22,13 +23,7 @@
 
 -(id<QFullTrackName>) getFullTrackName {
     assert(handlerPtr);
-    const auto ftn = handlerPtr->GetFullTrackName();
-    const auto converted = [[QFullTrackNameImpl alloc] init];
-    NSData* nameSpace = [[NSData alloc] initWithBytes:(void*)ftn.name_space.data()  length:ftn.name_space.size()];
-    converted.nameSpace = nameSpace;
-    NSData* name = [[NSData alloc] initWithBytes:(void*)ftn.name.data()  length:ftn.name.size()];
-    converted.name = name;
-    return converted;
+    return ftnConvert(handlerPtr->GetFullTrackName());
 }
 
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
@@ -41,7 +36,11 @@
 
 // C++
 
-QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name): quicr::SubscribeTrackHandler(full_track_name) { }
+QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
+                                               quicr::messages::ObjectPriority priority,
+                                               quicr::messages::GroupOrder group_order): quicr::SubscribeTrackHandler(full_track_name,
+                                                                                                                      priority,
+                                                                                                                      group_order) {}
 
 void QSubscribeTrackHandler::StatusChanged(Status status)
 {
