@@ -18,17 +18,7 @@
 
 -(id<QFullTrackName>) getFullTrackName {
     assert(handlerPtr);
-    const auto ftn = handlerPtr->GetFullTrackName();
-    const auto converted = [[QFullTrackNameImpl alloc] init];
-    NSMutableArray<NSData*>* tuple = [NSMutableArray arrayWithCapacity:ftn.name_space.size()];
-    for (const auto& element : ftn.name_space.GetEntries()) {
-        NSData* objcElement = [[NSData alloc] initWithBytes:(void*)element.data() length:ftn.name_space.size()];
-        [tuple addObject:objcElement];
-    }
-    converted.nameSpace = tuple;
-    NSData* name = [[NSData alloc] initWithBytes:(void*)ftn.name.data()  length:ftn.name.size()];
-    converted.name = name;
-    return converted;
+    return ftnConvert(handlerPtr->GetFullTrackName());
 }
 
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
