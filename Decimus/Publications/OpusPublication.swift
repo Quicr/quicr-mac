@@ -179,13 +179,13 @@ class OpusPublication: Publication {
         let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
 
         // Get audio level.
-        let decibel = try self.db(self.pcm)
+        let decibel = try self.getAudioLevel(self.pcm)
 
         // Encode this data.
         return (encoded, wallClock, decibel)
     }
 
-    private func db(_ buffer: AVAudioPCMBuffer) throws -> Int {
+    private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {
         guard let data = buffer.floatChannelData else {
             throw "Missing float data"
         }
