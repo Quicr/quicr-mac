@@ -69,6 +69,7 @@
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
+		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
@@ -248,6 +249,7 @@
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
+		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
 		9B749B882CD8E3CD002E0FC7 /* QFullTrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFullTrackName.h; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoUtilities.swift; sourceTree = "<group>"; };
@@ -423,6 +425,7 @@
 		18C89A472A14EF02005B333B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */,
 				18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */,
 				18C89A452A14E667005B333B /* AppStorageWrapper.swift */,
 				9B87FB612A03B91E00C92DD1 /* SettingsView.swift */,
@@ -952,6 +955,7 @@
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */,
 				FF2498B22A53575D00C6D66D /* PublicationFactory.swift in Sources */,
+				9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */,
 				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
 				9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,

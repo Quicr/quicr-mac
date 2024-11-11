@@ -24,6 +24,7 @@ struct SettingsView: View {
                     // Reset all settings to defaults.
                     UserDefaults.standard.removeObject(forKey: RelaySettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: ManifestSettingsView.defaultsKey)
+                    UserDefaults.standard.removeObject(forKey: PlaytimeSettingsView.defaultsKey)
                     do {
                         try InfluxSettingsView.reset()
                     } catch {
@@ -49,6 +50,9 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             SubscriptionSettingsView()
+                .decimusTextStyle()
+
+            PlaytimeSettingsView()
                 .decimusTextStyle()
         }
     }

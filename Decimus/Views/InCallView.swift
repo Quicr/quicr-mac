@@ -24,6 +24,8 @@ struct InCallView: View {
         self.viewModel.videoParticipants.participants.isEmpty
     }
     @State private var showControls = false
+    @AppStorage(PlaytimeSettingsView.defaultsKey)
+    private var playtime = AppStorageWrapper<PlaytimeSettings>(value: .init())
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -86,6 +88,7 @@ struct InCallView: View {
                         VideoGrid(showLabels: self.viewModel.showLabels,
                                   connecting: self.$connecting,
                                   blur: .constant(false),
+                                  restrictedCount: self.playtime.value.playtime ? self.playtime.value.restrictedGridCount : nil,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
