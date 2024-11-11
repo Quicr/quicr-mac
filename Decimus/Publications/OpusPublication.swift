@@ -11,6 +11,7 @@ import Accelerate
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey = NSNumber(integerLiteral: 3)
+    private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
@@ -123,7 +124,9 @@ class OpusPublication: Publication {
             self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
         }
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
-        let energyLevelValue: UInt8 = UInt8(abs(decibel)) | 0b10000000
+        let adjusted = UInt8(abs(decibel))
+        let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
+        let energyLevelValue = adjusted | mask
         loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
