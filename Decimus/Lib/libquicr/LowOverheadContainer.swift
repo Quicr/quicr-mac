@@ -12,7 +12,7 @@ enum LowOverheadContainerError: Error {
 }
 
 /// Representation of https://datatracker.ietf.org/doc/draft-mzanaty-moq-loc/
-struct LowOverheadContainer {
+class LowOverheadContainer {
     private let timestampKey: NSNumber = 1
     private let sequenceKey: NSNumber = 2
 
@@ -21,7 +21,7 @@ struct LowOverheadContainer {
     /// Contained object's sequence number.
     let sequence: UInt64
     /// Wire encoded LOC as MoQ object header extension dictionary.
-    let extensions: [NSNumber: Data]
+    private(set) var extensions: [NSNumber: Data]
 
     /// Encode a new LOC from its constituent parts.
     /// - Parameter timestamp: Timestamp of this media.
@@ -39,6 +39,20 @@ struct LowOverheadContainer {
             self.timestampKey: timestampData,
             self.sequenceKey: sequenceData
         ]
+    }
+
+    /// Add a new key-value pair to the container.
+    /// - Parameter key: Key to add.
+    /// - Parameter value: Value to add.
+    func add(key: NSNumber, value: Data) {
+        self.extensions[key] = value
+    }
+
+    /// Get a value from the container.
+    /// - Parameter key: Key to retrieve.
+    /// - Returns: Value associated with the key, if any.
+    func get(key: NSNumber) -> Data? {
+        return self.extensions[key]
     }
 
     /// Parse a LOC from a MoQ header extension dictionary.
