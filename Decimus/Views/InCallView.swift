@@ -49,12 +49,14 @@ struct InCallView: View {
         ZStack {
             GeometryReader { geometry in
                 Group {
+                    let gridCount = self.playtime.value.playtime ? self.playtime.value.restrictedGridCount : nil
                     #if os(tvOS)
                     ZStack {
                         // Incoming videos.
                         VideoGrid(showLabels: self.viewModel.showLabels,
                                   connecting: self.$connecting,
                                   blur: self.$showControls,
+                                  restrictedCount: gridCount,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         HStack {
@@ -88,7 +90,7 @@ struct InCallView: View {
                         VideoGrid(showLabels: self.viewModel.showLabels,
                                   connecting: self.$connecting,
                                   blur: .constant(false),
-                                  restrictedCount: self.playtime.value.playtime ? self.playtime.value.restrictedGridCount : nil,
+                                  restrictedCount: gridCount,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
