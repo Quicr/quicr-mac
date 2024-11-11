@@ -8,62 +8,59 @@ enum FullTrackNameError: Error {
 }
 
 /// A MoQ full track name identifies a track within a namespace.
-struct FullTrackName: Hashable {
+class FullTrackName: QFullTrackName, Hashable {
+    static func == (lhs: FullTrackName, rhs: FullTrackName) -> Bool {
+        lhs.nameSpace == rhs.nameSpace && lhs.name == rhs.name
+    }
+
     /// The namespace portion of the full track name.
-    let namespace: Data
+    let nameSpace: [Data]
     /// The name portion of the full track name.
     let name: Data
 
-    /// Construct a full track name from ASCII string components.
-    /// - Parameter namespace: ASCII string namespace.
-    /// - Parameter name: ASCII string name.
-    /// - Throws: ``FullTrackNameError/parseError`` if strings are not ASCII.
+    /// Construct a full track name from UTF8 string components.
+    /// - Parameter namespace: UTF8 string namespace.
+    /// - Parameter name: UTF8 string name.
+    /// - Throws: ``FullTrackNameError/parseError`` if strings are not UTF8.
     init(namespace: String, name: String) throws {
-        guard let namespace = namespace.data(using: .ascii) else {
+        guard let namespace = namespace.data(using: .utf8) else {
             throw FullTrackNameError.parseError
         }
-        self.namespace = namespace
-        guard let name = name.data(using: .ascii) else {
+        self.nameSpace = [namespace]
+        guard let name = name.data(using: .utf8) else {
             throw FullTrackNameError.parseError
         }
         self.name = name
     }
 
-    /// Get the namespace as an ASCII string.
-    /// - Returns: ASCII string of namespace.
-    /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
+    init(_ ftn: QFullTrackName) {
+        self.nameSpace = ftn.nameSpace
+        self.name = ftn.name
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.name)
+        hasher.combine(self.nameSpace)
+    }
+
+    /// Get the namespace as an UTF8 string.
+    /// - Returns: UTF8 string of namespace.
+    /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as UTF8.
     func getNamespace() throws -> String {
-        guard let namespace = String(data: self.namespace, encoding: .ascii) else {
+        guard let element = self.nameSpace.first,
+              let namespace = String(data: element, encoding: .utf8) else {
             throw FullTrackNameError.parseError
         }
         return namespace
     }
 
-    /// Get the name as an ASCII string.
-    /// - Returns: ASCII string of name.
-    /// - Throws: ``FullTrackNameError/parseError`` if ``name`` is not ecodable as ASCII.
+    /// Get the name as an UTF8 string.
+    /// - Returns: UTF8 string of name.
+    /// - Throws: ``FullTrackNameError/parseError`` if ``name`` is not ecodable as UTF8.
     func getName() throws -> String {
-        guard let name = String(data: self.name, encoding: .ascii) else {
+        guard let name = String(data: self.name, encoding: .utf8) else {
             throw FullTrackNameError.parseError
         }
         return name
-    }
-
-    /// Get the underlying ``QFullTrackName`` object corresponding to this ``FullTrackName``.
-    /// This reference MUST NOT be used outside of the scope of the owning ``FullTrackName``.
-    /// - Returns: A ``QFullTrackName`` view into this ``FullTrackName``.
-    func getUnsafe() -> QFullTrackName {
-        return self.namespace.withUnsafeBytes { namespace in
-            let namespacePtr: UnsafePointer<CChar> = namespace.baseAddress!.bindMemory(to: CChar.self,
-                                                                                       capacity: namespace.count)
-            return self.name.withUnsafeBytes { name in
-                let namePtr: UnsafePointer<CChar> = name.baseAddress!.bindMemory(to: CChar.self, capacity: name.count)
-
-                return .init(nameSpace: namespacePtr,
-                             nameSpaceLength: self.namespace.count,
-                             name: namePtr,
-                             nameLength: self.name.count)
-            }
-        }
     }
 }

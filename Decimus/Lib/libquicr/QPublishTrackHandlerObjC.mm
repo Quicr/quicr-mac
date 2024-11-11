@@ -8,12 +8,17 @@
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (QFullTrackName) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     quicr::TrackMode moqTrackMode = (quicr::TrackMode)track_mode;
     handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, priority, ttl);
     return self;
+}
+
+-(id<QFullTrackName>) getFullTrackName {
+    assert(handlerPtr);
+    return ftnConvert(handlerPtr->GetFullTrackName());
 }
 
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks

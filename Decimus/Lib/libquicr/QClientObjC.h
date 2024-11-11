@@ -16,37 +16,34 @@
 
 #import <Foundation/Foundation.h>
 
-@interface QClientObjC : NSObject
+typedef struct QClientConfig {
+    const char* _Nonnull connectUri;
+    const char* _Nonnull endpointId;
+    TransportConfig transportConfig;
+    uint64_t metricsSampleMs;
+} QClientConfig;
+
+@protocol MoqClient
+- (QClientStatus)connect;
+- (QClientStatus)disconnect;
+- (void)publishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
+- (void)unpublishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
+- (void)publishAnnounce:(NSData * _Nonnull)trackNamespace;
+- (void)publishUnannounce:(NSData * _Nonnull)trackNamespace;
+- (void)subscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
+- (void)unsubscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
+- (QPublishAnnounceStatus)getAnnounceStatus:(NSData * _Nonnull)trackNamespace;
+- (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
+@end
+
+@interface QClientObjC : NSObject<MoqClient>
 {
 #ifdef __cplusplus
    std::unique_ptr<QClient> qClientPtr;
 #endif
 }
 
-typedef struct QClientConfig {
-    const char* connectUri;
-    const char* endpointId;
-    TransportConfig transportConfig;
-    uint64_t metricsSampleMs;
-} QClientConfig;
-
--(id)initWithConfig: (QClientConfig) config;
-
--(QClientStatus)connect;
--(QClientStatus)disconnect;
-
--(void) publishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
--(void) unpublishTrackWithHandler: (QPublishTrackHandlerObjC*) handler;
-
--(void) publishAnnounce: (NSData*) trackNamespace;
--(void) publishUnannounce: (NSData*) trackNamespace;
-
--(void) subscribeTrackWithHandler: (QSubscribeTrackHandlerObjC*) handler;
--(void) unsubscribeTrackWithHandler: (QSubscribeTrackHandlerObjC*) handler;
-
--(QPublishAnnounceStatus) getAnnounceStatus: (NSData*) trackNamespace;
-
--(void)setCallbacks: (id<QClientCallbacks>) callbacks;
+- (nonnull instancetype)initWithConfig:(QClientConfig)config;
 
 @end
 

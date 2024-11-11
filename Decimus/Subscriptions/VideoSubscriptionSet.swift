@@ -21,6 +21,7 @@ struct AvailableImage {
 class VideoSubscriptionSet: SubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
+    let sourceId: SourceIDType
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
@@ -48,10 +49,10 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var lastDiscontinous = false
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
-    private let decodedVariances: VarianceCalculator
-    private var formats: [FullTrackName: CMFormatDescription?] = [:]
+    let decodedVariances: VarianceCalculator
     private var timestampTimeDiff: TimeInterval?
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
+    private var videoSubscriptionLock = OSAllocatedUnfairLock()
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -70,6 +71,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             throw "Simulreceive and layer are not compatible"
         }
 
+        self.sourceId = subscription.sourceID
         self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
@@ -111,12 +113,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
-        for fullTrackName in createdProfiles.keys {
-            self.formats[fullTrackName] = nil
-            self.videoSubscriptions[fullTrackName] = try makeSubscription(fullTrackName: fullTrackName,
-                                                                          endpointId: endpointId,
-                                                                          relayId: relayId)
-        }
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -149,15 +145,30 @@ class VideoSubscriptionSet: SubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [QSubscribeTrackHandlerObjC] {
-        var handlers: [QSubscribeTrackHandlerObjC] = []
-        for handler in self.videoSubscriptions {
-            handlers.append(handler.value)
-        }
-        return handlers
+    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
+        self.videoSubscriptions
     }
 
-    private func receivedObject(timestamp: TimeInterval, when: Date) {
+    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+        let ftn = FullTrackName(handler.getFullTrackName())
+        try self.videoSubscriptionLock.withLock {
+            guard self.videoSubscriptions[ftn] == nil else {
+                throw SubscriptionSetError.handlerExists
+            }
+            self.videoSubscriptions[ftn] = (handler as! VideoSubscription)
+        }
+    }
+
+    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+        self.videoSubscriptionLock.withLock {
+            self.videoSubscriptions.removeValue(forKey: ftn)
+        }
+    }
+
+    /// Inform the set that a video frame from a managed subscription arrived.
+    /// - Parameter timestamp: Media timestamp of the arrived frame.
+    /// - Parameter when: The local datetime this happened.
+    public func receivedObject(timestamp: TimeInterval, when: Date) {
         // Set the timestamp diff from the first recveived object.
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
@@ -165,7 +176,10 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Set this diff for all handlers, if not already.
         if let diff = self.timestampTimeDiff {
-            for (_, sub) in self.videoSubscriptions {
+            let subscriptions = self.videoSubscriptionLock.withLock {
+                self.videoSubscriptions
+            }
+            for (_, sub) in subscriptions {
                 sub.handlerLock.withLock {
                     guard let handler = sub.handler else { return }
                     handler.setTimeDiff(diff: diff)
@@ -222,29 +236,6 @@ class VideoSubscriptionSet: SubscriptionSet {
         }
     }
 
-    private func makeSubscription(fullTrackName: FullTrackName,
-                                  endpointId: String,
-                                  relayId: String) throws -> VideoSubscription {
-        guard let config = self.profiles[fullTrackName] else {
-            throw "Missing config for: \(fullTrackName)"
-        }
-        return try .init(fullTrackName: fullTrackName,
-                         config: config,
-                         participants: self.participants,
-                         metricsSubmitter: self.submitter,
-                         videoBehaviour: self.videoBehaviour,
-                         reliable: self.reliable,
-                         granularMetrics: self.granularMetrics,
-                         jitterBufferConfig: self.jitterBufferConfig,
-                         simulreceive: self.simulreceive,
-                         variances: self.decodedVariances,
-                         endpointId: endpointId,
-                         relayId: relayId) { [weak self] timestamp, when in
-            guard let self = self else { return }
-            self.receivedObject(timestamp: timestamp, when: when)
-        }
-    }
-
     struct SimulreceiveItem: Equatable {
         static func == (lhs: VideoSubscriptionSet.SimulreceiveItem, rhs: VideoSubscriptionSet.SimulreceiveItem) -> Bool {
             lhs.fullTrackName == rhs.fullTrackName
@@ -292,7 +283,10 @@ class VideoSubscriptionSet: SubscriptionSet {
     private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
-        for subscription in self.videoSubscriptions {
+        let subscriptions = self.videoSubscriptionLock.withLock {
+            self.videoSubscriptions
+        }
+        for subscription in subscriptions {
             guard let handler = subscription.value.handler else {
                 continue
             }
