@@ -12,6 +12,7 @@ struct VideoGrid: View {
     let showLabels: Bool
     @Binding var connecting: Bool
     @Binding var blur: Bool
+    let restrictedCount: Int?
     @StateObject var videoParticipants: VideoParticipants
     private var participants: [VideoParticipant] {
         return Array(videoParticipants.participants.values)
@@ -47,7 +48,10 @@ struct VideoGrid: View {
             let numColumns = self.calcColumns()
             GeometryReader { geo in
                 WrappingHStack(alignment: .center) {
-                    ForEach(self.participants) { participant in
+                    let participants: [VideoParticipant] = self.restrictedCount != nil ?
+                        Array(self.videoParticipants.participants.values.prefix(self.restrictedCount!)) :
+                        Array(self.videoParticipants.participants.values)
+                    ForEach(participants) { participant in
                         participant.view
                             .scaledToFill()
                             .frame(maxWidth: (geo.size.width / numColumns) - (2 * self.spacing),
@@ -87,6 +91,7 @@ struct VideoGrid_Previews: PreviewProvider {
         VideoGrid(showLabels: true,
                   connecting: .constant(true),
                   blur: .constant(false),
+                  restrictedCount: nil,
                   videoParticipants: .init())
     }
 }
