@@ -18,16 +18,16 @@ class FullTrackName: QFullTrackName, Hashable {
     /// The name portion of the full track name.
     let name: Data
 
-    /// Construct a full track name from ASCII string components.
-    /// - Parameter namespace: ASCII string namespace.
-    /// - Parameter name: ASCII string name.
-    /// - Throws: ``FullTrackNameError/parseError`` if strings are not ASCII.
+    /// Construct a full track name from UTF8 string components.
+    /// - Parameter namespace: UTF8 string namespace.
+    /// - Parameter name: UTF8 string name.
+    /// - Throws: ``FullTrackNameError/parseError`` if strings are not UTF8.
     init(namespace: String, name: String) throws {
-        guard let namespace = namespace.data(using: .ascii) else {
+        guard let namespace = namespace.data(using: .utf8) else {
             throw FullTrackNameError.parseError
         }
         self.nameSpace = [namespace]
-        guard let name = name.data(using: .ascii) else {
+        guard let name = name.data(using: .utf8) else {
             throw FullTrackNameError.parseError
         }
         self.name = name
@@ -43,22 +43,22 @@ class FullTrackName: QFullTrackName, Hashable {
         hasher.combine(self.nameSpace)
     }
 
-    /// Get the namespace as an ASCII string.
-    /// - Returns: ASCII string of namespace.
-    /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as ASCII.
+    /// Get the namespace as an UTF8 string.
+    /// - Returns: UTF8 string of namespace.
+    /// - Throws: ``FullTrackNameError/parseError`` if ``namespace`` is not ecodable as UTF8.
     func getNamespace() throws -> String {
         guard let element = self.nameSpace.first,
-              let namespace = String(data: element, encoding: .ascii) else {
+              let namespace = String(data: element, encoding: .utf8) else {
             throw FullTrackNameError.parseError
         }
         return namespace
     }
 
-    /// Get the name as an ASCII string.
-    /// - Returns: ASCII string of name.
-    /// - Throws: ``FullTrackNameError/parseError`` if ``name`` is not ecodable as ASCII.
+    /// Get the name as an UTF8 string.
+    /// - Returns: UTF8 string of name.
+    /// - Throws: ``FullTrackNameError/parseError`` if ``name`` is not ecodable as UTF8.
     func getName() throws -> String {
-        guard let name = String(data: self.name, encoding: .ascii) else {
+        guard let name = String(data: self.name, encoding: .utf8) else {
             throw FullTrackNameError.parseError
         }
         return name
