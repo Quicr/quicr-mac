@@ -5,7 +5,7 @@
 
 @implementation QFullTrackNameImpl
 
--(instancetype _Nonnull) initWithNamespace: (NSData* _Nonnull) nameSpace name: (NSData* _Nonnull) name {
+-(instancetype _Nonnull) initWithNamespace: (QTrackNamespace) nameSpace name: (QName) name {
     self.nameSpace = nameSpace;
     self.name = name;
     return self;

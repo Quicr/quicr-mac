@@ -11,8 +11,8 @@ final class TestFullTrackName: XCTestCase {
         let namespace = "namespace"
         let name = "name"
         let qftn = QFullTrackNameImpl()
-        qftn.nameSpace = namespace.data(using: .ascii)!
-        qftn.name = name.data(using: .ascii)!
+        qftn.nameSpace = [namespace.data(using: .utf8)!]
+        qftn.name = name.data(using: .utf8)!
         let swift = FullTrackName(qftn as QFullTrackName)
         XCTAssertEqual(swift.name, qftn.name)
         XCTAssertEqual(swift.nameSpace, qftn.nameSpace)
@@ -72,7 +72,7 @@ final class TestCallController: XCTestCase {
 
     class MockSubscription: QSubscribeTrackHandlerObjC {
         init(ftn: FullTrackName) {
-            super.init(fullTrackName: ftn)
+            super.init(fullTrackName: ftn, priority: 0, groupOrder: .originalPublisherOrder)
         }
     }
 
