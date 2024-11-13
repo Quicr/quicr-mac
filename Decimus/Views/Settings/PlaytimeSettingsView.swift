@@ -5,7 +5,6 @@ import SwiftUI
 
 struct PlaytimeSettings: Codable {
     var playtime = false
-    var restrictedGridCount = 4
 }
 
 struct PlaytimeSettingsView: View {
@@ -19,11 +18,6 @@ struct PlaytimeSettingsView: View {
             LabeledToggle("Playtime", isOn: self.$playtimeConfig.value.playtime)
             if self.playtimeConfig.value.playtime {
                 Form {
-                    LabeledContent("Grid View Max") {
-                        NumberView(value: self.$playtimeConfig.value.restrictedGridCount,
-                                   formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                                   name: "Grid View Max")
-                    }
                 }
                 .formStyle(.columns)
             }
