@@ -355,4 +355,42 @@ class MoqCallController: QClientCallbacks {
             }
         }
     }
+
+    // TODO: Do we need to worry about mismatched endpoint IDs in subscription sets?
+
+    /// Get all managed subscriptions originating from the given endpoint ID.
+    /// - Parameter endpointId: The endpoint ID to query on.
+    /// - Returns: List of subscription track handlers.
+    func getSubscriptionsByEndpoint(_ endpointId: EndpointId) throws -> [QSubscribeTrackHandlerObjC] {
+        var results: [QSubscribeTrackHandlerObjC] = []
+        for set in self.subscriptions.values {
+            for handler in set.getHandlers().values {
+                let ftn = FullTrackName(handler.getFullTrackName())
+                let thisEndpointId = try ftn.getEndpointId()
+                guard thisEndpointId == endpointId else {
+                    continue
+                }
+                results.append(handler)
+            }
+        }
+        return results
+    }
+}
+
+extension FullTrackName {
+    /// Extract endpoint ID from namespace as a leading 0 padded 4 digit string.
+    func getEndpointId() throws -> Substring {
+        try self.extract(18, 21)
+    }
+
+    func getMediaType() throws -> Substring {
+        try self.extract(16, 17)
+    }
+
+    private func extract(_ start: Int, _ end: Int) throws -> Substring {
+        let namespace = try self.getNamespace()
+        let startIndex = namespace.index(namespace.startIndex, offsetBy: start)
+        let endIndex = namespace.index(namespace.startIndex, offsetBy: end)
+        return namespace[startIndex...endIndex]
+    }
 }

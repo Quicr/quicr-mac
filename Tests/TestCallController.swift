@@ -105,19 +105,17 @@ final class TestCallController: XCTestCase {
 
     class MockClient: MoqClient {
         typealias PublishTrackCallback = (QPublishTrackHandlerObjC) -> Void
-        typealias UnpublishTrackCallback = (QPublishTrackHandlerObjC) -> Void
         typealias SubscribeTrackCallback = (QSubscribeTrackHandlerObjC) -> Void
-        typealias UnsubscribeTrackCallback = (QSubscribeTrackHandlerObjC) -> Void
         private let publish: PublishTrackCallback
-        private let unpublish: UnpublishTrackCallback
+        private let unpublish: PublishTrackCallback
         private let subscribe: SubscribeTrackCallback
-        private let unsubscribe: UnsubscribeTrackCallback
+        private let unsubscribe: SubscribeTrackCallback
         private var callbacks: QClientCallbacks?
 
         init(publish: @escaping PublishTrackCallback,
-             unpublish: @escaping UnpublishTrackCallback,
+             unpublish: @escaping PublishTrackCallback,
              subscribe: @escaping SubscribeTrackCallback,
-             unsubscribe: @escaping UnsubscribeTrackCallback) {
+             unsubscribe: @escaping SubscribeTrackCallback) {
             self.publish = publish
             self.unpublish = unpublish
             self.subscribe = subscribe
@@ -186,11 +184,11 @@ final class TestCallController: XCTestCase {
         let publish: MockClient.PublishTrackCallback = {
             published = $0 == factoryCreated
         }
-        let unpublish: MockClient.UnpublishTrackCallback = {
+        let unpublish: MockClient.PublishTrackCallback = {
             unpublished = $0 == factoryCreated
         }
         let subscribe: MockClient.SubscribeTrackCallback = { _ in }
-        let unsubscribe: MockClient.UnsubscribeTrackCallback = { _ in }
+        let unsubscribe: MockClient.SubscribeTrackCallback = { _ in }
         let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
         try await controller.connect()
@@ -238,13 +236,13 @@ final class TestCallController: XCTestCase {
 
         // Create controller.
         let publish: MockClient.PublishTrackCallback = { _ in }
-        let unpublish: MockClient.UnpublishTrackCallback = { _ in }
+        let unpublish: MockClient.PublishTrackCallback = { _ in }
         var subscribed: [QFullTrackName] = []
         var unsubscribed: [QFullTrackName] = []
         let subscribe: MockClient.SubscribeTrackCallback = {
             subscribed.append($0.getFullTrackName())
         }
-        let unsubscribe: MockClient.UnsubscribeTrackCallback = {
+        let unsubscribe: MockClient.SubscribeTrackCallback = {
             unsubscribed.append($0.getFullTrackName())
         }
         let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
@@ -308,13 +306,13 @@ final class TestCallController: XCTestCase {
 
         // Create controller.
         let publish: MockClient.PublishTrackCallback = { _ in }
-        let unpublish: MockClient.UnpublishTrackCallback = { _ in }
+        let unpublish: MockClient.PublishTrackCallback = { _ in }
         var subscribed: [QFullTrackName] = []
         var unsubscribed: [QFullTrackName] = []
         let subscribe: MockClient.SubscribeTrackCallback = {
             subscribed.append($0.getFullTrackName())
         }
-        let unsubscribe: MockClient.UnsubscribeTrackCallback = {
+        let unsubscribe: MockClient.SubscribeTrackCallback = {
             unsubscribed.append($0.getFullTrackName())
         }
         let client = MockClient(publish: publish,
@@ -380,6 +378,68 @@ final class TestCallController: XCTestCase {
             })
         }
         return match
+    }
+
+    func testEndpointIdLookup() throws {
+        let match: Substring = "0001"
+        let exampleNamespace = "0x000001010003F2A0\(match)000000000000/80"
+        let exampleNamespaceFail = "0x000001010003F2A00002000000000000/80"
+        let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
+        XCTAssertEqual(match, try fullTrackName.getEndpointId())
+        let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
+        XCTAssertNotEqual(match, try fullTrackNameFail.getEndpointId())
+    }
+
+    func testMediaTypeLookup() throws {
+        let match: Substring = "A0"
+        let exampleNamespace = "0x000001010003F2A00001000000000000/80"
+        let exampleNamespaceFail = "0x000001010003F2A10001000000000000/80"
+        let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
+        XCTAssertEqual(match, try fullTrackName.getMediaType())
+        let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
+        XCTAssertNotEqual(match, try fullTrackNameFail.getMediaType())
+    }
+
+    func testSubscriptionsByEndpointId() async throws {
+        let mockClient = MockClient { _ in
+        } unpublish: { _ in
+        } subscribe: { _ in
+        } unsubscribe: { _ in
+        }
+
+        let callController = MoqCallController(endpointUri: "1", client: mockClient, submitter: nil) {}
+
+        // Let matching.
+        let target = "0001"
+        let nonTarget = "0002"
+        let matching = "0x000001010003F2A0\(target)000000000000/80"
+        let matchingFtn = try FullTrackName(namespace: matching, name: "")
+        let nonMatching = "0x000001010003F2A0\(nonTarget)000000000000/80"
+        let nonMatchingFtn = try FullTrackName(namespace: nonMatching, name: "")
+
+        let manifestSubscription = ManifestSubscription(mediaType: "test",
+                                                        sourceName: "test",
+                                                        sourceID: "test",
+                                                        label: "test",
+                                                        profileSet: .init(type: "test",
+                                                                          profiles: [
+                                                                            .init(qualityProfile: "",
+                                                                                  expiry: nil,
+                                                                                  priorities: nil,
+                                                                                  namespace: matching),
+                                                                            .init(qualityProfile: "",
+                                                                                  expiry: nil,
+                                                                                  priorities: nil,
+                                                                                  namespace: nonMatching)
+                                                                          ]))
+
+        try await callController.connect()
+        try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }))
+        let handlers = try callController.getSubscriptionsByEndpoint(target)
+        XCTAssertEqual(handlers.count, 1)
+        let retrievedFtn = FullTrackName(handlers.first!.getFullTrackName())
+        XCTAssertEqual(retrievedFtn, matchingFtn)
+        XCTAssertNotEqual(retrievedFtn, nonMatchingFtn)
     }
 
     func testMetrics() throws {
