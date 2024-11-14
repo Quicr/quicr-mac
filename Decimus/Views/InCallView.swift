@@ -172,8 +172,8 @@ struct InCallView: View {
                                     HStack {
                                         TextField("Active Speakers",
                                                   text: self.$activeSpeakers)
-                                        Button("Set") {
-                                            self.viewModel
+                                        .keyboardType(.asciiCapable)
+                                        Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                         }
                                     }
                                 }
@@ -432,7 +432,7 @@ extension InCallView {
 
                 // Subscribe.
                 for subscription in manifest.subscriptions {
-                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory)
+                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
                 }
 
                 // Active speaker handling.
@@ -466,7 +466,13 @@ extension InCallView {
         }
 
         func setManualActiveSpeaker(_ json: String) {
-
+            guard self.playtimeConfig.value.playtime,
+                  let data = json.data(using: .ascii),
+                  let speakers = try? JSONDecoder().decode([EndpointId].self, from: data) else {
+                Self.logger.error("Bad speaker JSON: \(json)")
+                return
+            }
+            self.manualActiveSpeaker!.setActiveSpeakers(speakers)
         }
 
         func leave() async {

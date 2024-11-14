@@ -56,6 +56,7 @@ class ActiveSpeakerApply {
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, unsubscribe from video for any speakers that are no longer active.
+        var unsubbed = false
         for set in existing {
             for handler in set.getHandlers().values {
                 do {
@@ -67,22 +68,27 @@ class ActiveSpeakerApply {
                         continue
                     }
                     try self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn.getNamespace()) (\(endpointId))")
+                    unsubbed = true
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {
                     self.logger.warning("Error getting endpoint ID: \(error)")
                 }
             }
         }
+        if !unsubbed {
+            self.logger.debug("[ActiveSpeakers] No new unsubscribes needed")
+        }
 
         // Now, subscribe to video from any speakers we are not already subscribed to.
+        var subbed = false
+        
+        let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
         for speaker in speakers {
             for set in self.manifest {
                 for subscription in set.profileSet.profiles {
                     do {
-                        // If this subscription is in existing, skip it.
-                        let existingSources = existing.map { $0.sourceId }
                         let ftn = try FullTrackName(namespace: subscription.namespace, name: "")
-                        guard !existingSources.contains(set.sourceID),
+                        guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }),
                               let mediaType = UInt16(try ftn.getMediaType(), radix: 16),
                               mediaType & 0x80 != 0 else {
                             continue
@@ -90,12 +96,28 @@ class ActiveSpeakerApply {
                         let endpointId = try ftn.getEndpointId()
                         guard endpointId == speaker else { continue }
                         self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(endpointId))")
-                        try self.controller.subscribeToSet(details: set, factory: self.factory)
+                        // Does a set for this already exist?
+                        // TODO: Clean this up.
+                        let targetSet: SubscriptionSet
+                        if let found = existing.filter({$0.sourceId == set.sourceID}).first {
+                            targetSet = found
+                        } else {
+                            targetSet = try self.controller.subscribeToSet(details: set,
+                                                                           factory: self.factory,
+                                                                           subscribe: false)
+                        }
+                        try self.controller.subscribe(set: targetSet,
+                                                      profile: subscription,
+                                                      factory: self.factory)
+                        subbed = true
                     } catch {
                         self.logger.error("Failed to subscribe: \(subscription.namespace)")
                     }
                 }
             }
+        }
+        if !subbed {
+            self.logger.debug("[ActiveSpeakers] No new subscribes needed")
         }
     }
 }

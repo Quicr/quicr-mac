@@ -251,9 +251,12 @@ final class TestCallController: XCTestCase {
 
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
-        try controller.subscribeToSet(details: details, factory: factory)
+        let set = try controller.subscribeToSet(details: details,
+                                                factory: factory,
+                                                subscribe: true)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: expectedFtn))
+        XCTAssertEqual(set.sourceId, sourceID)
 
         // Should show as tracked.
         var sets = controller.getSubscriptionSets()
@@ -326,7 +329,8 @@ final class TestCallController: XCTestCase {
 
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
-        try controller.subscribeToSet(details: details, factory: factory)
+        let set = try controller.subscribeToSet(details: details, factory: factory, subscribe: true)
+        XCTAssertEqual(set.sourceId, sourceID)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1, ftn2]))
         subscribed = []
@@ -434,7 +438,8 @@ final class TestCallController: XCTestCase {
                                                                           ]))
 
         try await callController.connect()
-        try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }))
+        let set = try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }), subscribe: true)
+        XCTAssertEqual(set.sourceId, "test")
         let handlers = try callController.getSubscriptionsByEndpoint(target)
         XCTAssertEqual(handlers.count, 1)
         let retrievedFtn = FullTrackName(handlers.first!.getFullTrackName())

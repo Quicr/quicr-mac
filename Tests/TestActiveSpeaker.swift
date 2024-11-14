@@ -77,12 +77,12 @@ final class TestActiveSpeaker: XCTestCase {
         try await controller.connect()
 
         // Subscribe to 1 and 2.
-        try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
+        _ = try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
             XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
-        }))
-        try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
+        }), subscribe: true)
+        _ = try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
             XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
-        }))
+        }), subscribe: true)
 
         // 1 and 2 should be created and subscribed to.
         let initialSubscriptionSets = controller.getSubscriptionSets()
