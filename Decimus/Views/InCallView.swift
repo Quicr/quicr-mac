@@ -46,6 +46,7 @@ struct InCallView: View {
     @State private var isShowingPublications = false
     @State private var debugDetail = false
     @State private var layout = VideoLayout.nByN
+    @State private var activeSpeakers: String = ""
     var noParticipants: Bool {
         self.viewModel.videoParticipants.participants.isEmpty
     }
@@ -167,6 +168,15 @@ struct InCallView: View {
                                     .labelsHidden()
                                     .pickerStyle(.segmented)
                                 }
+                                LabeledContent("Active Speakers") {
+                                    HStack {
+                                        TextField("Active Speakers",
+                                                  text: self.$activeSpeakers)
+                                        Button("Set") {
+                                            self.viewModel
+                                        }
+                                    }
+                                }
                             }
                             SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
                             PublicationPopover(controller)
@@ -251,6 +261,8 @@ extension InCallView {
 
         let engine: DecimusAudioEngine?
         private(set) var controller: MoqCallController?
+        private(set) var activeSpeaker: ActiveSpeakerApply?
+        private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
         private(set) var videoParticipants = VideoParticipants()
         private(set) var currentManifest: Manifest?
@@ -273,6 +285,9 @@ extension InCallView {
 
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+
+        @AppStorage(PlaytimeSettingsView.defaultsKey)
+        private var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
         init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
@@ -361,6 +376,9 @@ extension InCallView {
                         }
                     }
                 }
+                if self.playtimeConfig.value.playtime {
+                    self.manualActiveSpeaker = .init()
+                }
             }
         }
 
@@ -416,6 +434,14 @@ extension InCallView {
                 for subscription in manifest.subscriptions {
                     try controller.subscribeToSet(details: subscription, factory: subscriptionFactory)
                 }
+
+                // Active speaker handling.
+                if self.playtimeConfig.value.playtime {
+                    self.activeSpeaker = .init(notifier: self.manualActiveSpeaker!,
+                                               controller: controller,
+                                               subscriptions: manifest.subscriptions,
+                                               factory: subscriptionFactory)
+                }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
                 return false
@@ -437,6 +463,10 @@ extension InCallView {
                 Self.logger.warning("Camera failure", alert: true)
             }
             return true
+        }
+
+        func setManualActiveSpeaker(_ json: String) {
+
         }
 
         func leave() async {
