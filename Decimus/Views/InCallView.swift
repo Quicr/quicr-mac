@@ -34,6 +34,18 @@ struct InCallView: View {
                 "Film Strip"
             }
         }
+
+        /// The number of participants to show in this layout.
+        var count: Int? {
+            switch self {
+            case .oneByOne:
+                1
+            case .twoByTwo:
+                4
+            default:
+                nil
+            }
+        }
     }
 
     @StateObject var viewModel: ViewModel
@@ -172,14 +184,16 @@ struct InCallView: View {
                                     HStack {
                                         TextField("Active Speakers",
                                                   text: self.$activeSpeakers)
-                                        .keyboardType(.asciiCapable)
+                                            .keyboardType(.asciiCapable)
                                         Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                         }
                                     }
                                 }
                             }
-                            SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
-                            PublicationPopover(controller)
+                            ScrollView {
+                                SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
+                                PublicationPopover(controller)
+                            }
                         }
                     }.padding()
                     Spacer()
@@ -218,6 +232,11 @@ struct InCallView: View {
         .background(.black)
         .onChange(of: noParticipants) { _, newValue in
             noParticipantsDetected = newValue
+        }
+        .onChange(of: self.layout) {
+            if let activeSpeaker = self.viewModel.activeSpeaker {
+                activeSpeaker.setClampCount(self.layout.count)
+            }
         }
         .task {
             connecting = true

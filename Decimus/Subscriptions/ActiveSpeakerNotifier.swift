@@ -27,6 +27,8 @@ class ActiveSpeakerApply {
     private let manifest: [ManifestSubscription]
     private let factory: SubscriptionFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
+    private var lastSpeakers: [EndpointId]?
+    private var count: Int?
 
     /// Initialize the active speaker manager.
     /// - Parameters:
@@ -51,8 +53,19 @@ class ActiveSpeakerApply {
         self.notifier.unregisterActiveSpeakerCallback(self.callbackToken!)
     }
 
+    /// Set the number of active speakers to consider.
+    /// - Parameter count: Subset of active speakers to consider, nil for all.
+    func setClampCount(_ count: Int?) {
+        self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
+        self.count = count
+        guard let lastSpeakers = self.lastSpeakers else { return }
+        self.onActiveSpeakersChanged(lastSpeakers)
+    }
+
     private func onActiveSpeakersChanged(_ speakers: [EndpointId]) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        self.lastSpeakers = speakers
+        let speakers = self.count == nil ? speakers : Array(speakers.prefix(self.count!))
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, unsubscribe from video for any speakers that are no longer active.
@@ -81,7 +94,7 @@ class ActiveSpeakerApply {
 
         // Now, subscribe to video from any speakers we are not already subscribed to.
         var subbed = false
-        
+
         let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
         for speaker in speakers {
             for set in self.manifest {
