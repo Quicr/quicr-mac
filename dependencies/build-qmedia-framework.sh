@@ -15,7 +15,13 @@ if [ "$CI" = TRUE ] ; then
     elif [ "$CI_PRODUCT_PLATFORM" == "tvOS" ] ; then
         CMD_LINE="--platform TVOS"
     fi
-    $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER"
+
+    CRYPTO="boringssl"
+    if [ "$CI_WORKFLOW" == "PR" ] ; then
+        CRYPTO="mbedtls"
+    fi
+
+    $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER" --crypto="$CRYPTO"
 else
     $DIR/build-qmedia-framework.py
 fi
