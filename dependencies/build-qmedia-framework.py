@@ -20,6 +20,9 @@ class Platform:
         self.cmake_platform = cmake_platform
         self.build_folder = build_folder
 
+class Crypto(Enum):
+    BORINGSSL = 1
+    MBEDTLS = 2
 
 class PlatformType(Enum):
     CATALYST_ARM = 1
@@ -31,12 +34,14 @@ class PlatformType(Enum):
     MACOS_ARM64 = 7
     MACOS_X86 = 8
 
-def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str):
+def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str, crypto: Crypto):
 
     build_dir = f"{current_directory}/{platform.build_folder}"
     print(f"[{platform.type.name}] Building {identifier} @ {build_dir}")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
+
+    mbedtls = "ON" if crypto == Crypto.MBEDTLS else "OFF"
 
     command = [
         cmake_path,
@@ -61,6 +66,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DMACOSX_FRAMEWORK_BUNDLE_VERSION=1.0.{build_number}",
         f"-DMACOSX_FRAMEWORK_SHORT_VERSION_STRING=1.0.{build_number}",
         f"-DBUILD_NUMBER={build_number}",
+        f"-DUSE_MBEDTLS={mbedtls}",
         "-Wno-dev"]
     generate = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -164,6 +170,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     # Get the desired platforms from args.
     platforms = []
     build_number = 1234
+    crypto = Crypto.BORINGSSL
     if len(sys.argv) > 1:
         parse = argparse.ArgumentParser("Build Dependencies")
         parse.add_argument("--platform", action="append",
@@ -173,37 +180,45 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
                            help="Optional, used by xcode")
         parse.add_argument(
             "--build-number", help="Optional, used by xcode cloud")
+        parse.add_argument("--crypto", help="Optional, used by xcode cloud")
         args = parse.parse_args()
         if args.platform:
             # Build requested platforms.
             platforms = [PlatformType[platform] for platform in args.platform]
         else:
             # Build appropriate platforms for this xcode build.
-            if "maccatalyst" in args.effective_platform_name:
-                for arch in args.archs.split(" "):
-                    if arch == "arm64":
-                        platforms.append(PlatformType.CATALYST_ARM)
-                    elif arch == "x86_64":
-                        platforms.append(PlatformType.CATALYST_X86)
-            elif "iphoneos" in args.effective_platform_name:
-                platforms.append(PlatformType.IOS)
-            elif "iphonesimulator" in args.effective_platform_name:
-                platforms.append(PlatformType.IOS_SIMULATOR)
-            elif "tvos" in args.effective_platform_name:
-                platforms.append(PlatformType.TVOS)
+            if args.effective_platform_name:
+                if "maccatalyst" in args.effective_platform_name:
+                    for arch in args.archs.split(" "):
+                        if arch == "arm64":
+                            platforms.append(PlatformType.CATALYST_ARM)
+                        elif arch == "x86_64":
+                            platforms.append(PlatformType.CATALYST_X86)
+                elif "iphoneos" in args.effective_platform_name:
+                    platforms.append(PlatformType.IOS)
+                elif "iphonesimulator" in args.effective_platform_name:
+                    platforms.append(PlatformType.IOS_SIMULATOR)
+                elif "tvos" in args.effective_platform_name:
+                    platforms.append(PlatformType.TVOS)
+                else:
+                    print(f"Unhandled effective platform: {args.effective_platform_name}")
+                    exit(1)
             else:
-                print(f"Unhandled effective platform: {args.effective_platform_name}")
-                exit(1)
+                platforms = [platform for platform in PlatformType]
 
         if args.build_number:
             build_number = args.build_number
+
+        if args.crypto and args.crypto == "mbedtls":
+            crypto = Crypto.MBEDTLS
+
     else:
         # Default will build all supported.
         platforms = [platform for platform in PlatformType]
 
     # CMake generate & build.
     with ThreadPoolExecutor(max_workers=len(platforms)) as pool:
-        builds = [pool.submit(build, current_directory, supported_platforms[platform], cmake, build_number, f"{current_directory}/{source_folder}", identifier, target)
+        builds = [pool.submit(build, current_directory, supported_platforms[platform], cmake, build_number, f"{current_directory}/{source_folder}", identifier, target, crypto)
                   for platform in platforms]
     for completed in builds:
         platform, return_code, output, error = completed.result()
