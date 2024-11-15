@@ -81,7 +81,7 @@ class ActiveSpeakerApply {
                     do {
                         // If this subscription is in existing, skip it.
                         let existingSources = existing.map { $0.sourceId }
-                        let ftn = try FullTrackName(namespace: subscription.namespace, name: "")
+                        let ftn = try subscription.getFullTrackName()
                         guard !existingSources.contains(set.sourceID),
                               let mediaType = UInt16(try ftn.getMediaType(), radix: 16),
                               mediaType & 0x80 != 0 else {

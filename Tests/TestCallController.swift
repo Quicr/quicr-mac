@@ -34,7 +34,7 @@ final class TestCallController: XCTestCase {
         func create(publication: QuicR.ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
             var pubs: [(FullTrackName, QPublishTrackHandlerObjC)] = []
             for profile in publication.profileSet.profiles {
-                let ftn = try FullTrackName(namespace: profile.namespace, name: "")
+                let ftn = try profile.getFullTrackName()
                 let publication = try MockPublication(profile: profile,
                                                       trackMode: .streamPerGroup,
                                                       defaultPriority: 0,
@@ -85,7 +85,7 @@ final class TestCallController: XCTestCase {
             self.sourceId = subscription.sourceID
             self.subscription = subscription
             for profile in self.subscription.profileSet.profiles {
-                let ftn = try! FullTrackName(namespace: profile.namespace, name: "")
+                let ftn = try! profile.getFullTrackName()
                 self.handlers[ftn] = MockSubscription(ftn: ftn)
             }
         }
@@ -199,8 +199,7 @@ final class TestCallController: XCTestCase {
 
         // This publication should show as tracked.
         var publications = controller.getPublications()
-        let namespace = details.profileSet.profiles.first!.namespace
-        let ftn = try FullTrackName(namespace: namespace, name: "")
+        let ftn = try details.profileSet.profiles.first!.getFullTrackName()
         XCTAssert(self.assertFtnEquality(publications.map { $0.getFullTrackName() }, rhs: [ftn]))
 
         // Removing should unpublish.

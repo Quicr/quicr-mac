@@ -80,7 +80,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
                                  granularMetrics: self.granularMetrics,
                                  useNewJitterBuffer: self.useNewJitterBuffer,
                                  metricsSubmitter: self.metricsSubmitter)
-        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+        let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder)
         self.setCallbacks(self)

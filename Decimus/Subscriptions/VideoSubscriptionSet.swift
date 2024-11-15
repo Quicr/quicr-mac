@@ -107,7 +107,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"
             }
-            let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
+            let fullTrackName = try profile.getFullTrackName()
             createdProfiles[fullTrackName] = config
         }
 

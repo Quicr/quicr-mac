@@ -39,7 +39,7 @@ struct SubscriptionPopover: View {
                         if isOn {
                             try! self.controller.subscribe(set: set, profile: manifestSubscription, factory: self.factory)
                         } else {
-                            let ftn = try! FullTrackName(namespace: manifestSubscription.namespace, name: "")
+                            let ftn = try! manifestSubscription.getFullTrackName()
                             try! self.controller.unsubscribe(set.sourceId, ftn: ftn)
                         }
                         // Manually cause the view to refresh now we've changed the state.

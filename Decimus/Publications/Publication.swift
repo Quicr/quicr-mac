@@ -31,8 +31,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         } else {
             self.measurement = nil
         }
-        let fullTrackName = try FullTrackName(namespace: profile.namespace, name: "")
-        super.init(fullTrackName: fullTrackName,
+        super.init(fullTrackName: try profile.getFullTrackName(),
                    trackMode: trackMode,
                    defaultPriority: defaultPriority,
                    defaultTTL: UInt32(defaultTTL))
