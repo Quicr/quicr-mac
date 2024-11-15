@@ -116,6 +116,7 @@ class MoqCallController: QClientCallbacks {
         try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
             self.connectionContinuation = continuation
             let status = self.client.connect()
+            self.logger.debug("[MoqCallController] Connect => \(status)")
             switch status {
             case .clientConnecting:
                 break
@@ -125,7 +126,10 @@ class MoqCallController: QClientCallbacks {
                 self.connected = true
                 continuation.resume()
             default:
-                continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
+                if let connectionContinuation = self.connectionContinuation {
+                    self.connected = false
+                    connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
+                }
             }
         }
     }
@@ -289,15 +293,15 @@ class MoqCallController: QClientCallbacks {
             self.connected = true
             connection.resume()
         case .notReady:
-            guard let connection = self.connectionContinuation else {
-                self.logger.error("Got notReady status when connection was nil")
+            guard let connectionContinuation = self.connectionContinuation else {
+                self.logger.error("Missing expected continuation")
                 return
             }
             self.connectionContinuation = nil
-            self.connected = true
-            connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
+            self.connected = false
+            connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         case .clientConnecting:
-            assert(self.connectionContinuation != nil)
+            break
         case .clientPendingServerSetup:
             assert(self.connectionContinuation != nil)
         case .clientNotConnected:
