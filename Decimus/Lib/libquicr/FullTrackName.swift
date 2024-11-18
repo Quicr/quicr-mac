@@ -64,3 +64,9 @@ class FullTrackName: QFullTrackName, Hashable {
         return name
     }
 }
+
+extension Profile {
+    func getFullTrackName() throws -> FullTrackName {
+        try .init(namespace: self.namespace, name: "")
+    }
+}

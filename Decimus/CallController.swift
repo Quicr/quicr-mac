@@ -235,7 +235,7 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
     func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
-        let ftn = try FullTrackName(namespace: profile.namespace, name: "")
+        let ftn = try profile.getFullTrackName()
         let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
         let subscription = try factory.create(set: set,
                                               ftn: ftn,
