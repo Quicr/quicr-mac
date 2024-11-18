@@ -27,7 +27,7 @@ final class TestActiveSpeaker: XCTestCase {
         }
     }
 
-    func testActiveSpeaker() async throws {
+    func testActiveSpeaker(clamp: Bool) async throws {
         // Given a list of active speakers, the controller's subscriptions should change
         // to reflect the list.
 
@@ -77,12 +77,12 @@ final class TestActiveSpeaker: XCTestCase {
         try await controller.connect()
 
         // Subscribe to 1 and 2.
-        try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
+        _ = try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
             XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
-        }))
-        try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
+        }), subscribe: true)
+        _ = try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
             XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
-        }))
+        }), subscribe: true)
 
         // 1 and 2 should be created and subscribed to.
         let initialSubscriptionSets = controller.getSubscriptionSets()
@@ -113,20 +113,37 @@ final class TestActiveSpeaker: XCTestCase {
         XCTAssert(unsubbed.isEmpty)
 
         // Mock active speaker change.
+        if clamp {
+            activeSpeakerController.setClampCount(1)
+        }
         notifier.fire(newSpeakers)
 
-        // Factory should have created subscription 3.
-        XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
-        // Controller should have subscribed to 3.
-        XCTAssert(try subbed.reduce(into: true, {
-            try $0 = $0 && FullTrackName($1.getFullTrackName()).getEndpointId() == speakerThree
-        }))
-        // Should have unsubscribed from 2.
+        if !clamp {
+            // Factory should have created subscription 3.
+            XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+            // Controller should have subscribed to 3.
+            XCTAssert(try subbed.reduce(into: true, {
+                try $0 = $0 && FullTrackName($1.getFullTrackName()).getEndpointId() == speakerThree
+            }))
+        } else {
+            // Subscription 3 shouldn't be considered because of the clamping.
+            XCTAssertEqual(created.map { $0.sourceId }, [])
+            XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
+        }
+        // Should have unsubscribed from 2 regardless of clamping.
         XCTAssert(try unsubbed.reduce(into: true, {
             try $0 = $0 && FullTrackName($1.getFullTrackName()).getEndpointId() == speakerTwo
         }))
-        // 1 should still be present.
+        // 1 should still be present regardless of clamping.
         let active = try controller.getSubscriptionsByEndpoint(speakerOne)
         XCTAssert(active.count == 1)
+    }
+
+    func testActiveSpeaker() async throws {
+        try await self.testActiveSpeaker(clamp: false)
+    }
+
+    func testActiveSpeakerClamped() async throws {
+        try await self.testActiveSpeaker(clamp: true)
     }
 }

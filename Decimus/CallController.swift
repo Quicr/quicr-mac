@@ -211,16 +211,21 @@ class MoqCallController: QClientCallbacks {
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     /// - Parameter factory: Factory to create subscription handlers from.
+    /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
+    /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory) throws {
+    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory, subscribe: Bool) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
-        for profile in details.profileSet.profiles {
-            try self.subscribe(set: set, profile: profile, factory: factory)
+        if subscribe {
+            for profile in details.profileSet.profiles {
+                try self.subscribe(set: set, profile: profile, factory: factory)
+            }
         }
         self.subscriptions[details.sourceID] = set
+        return set
     }
 
     /// Subscribe to a specific track and add it to an existing subscription set.
