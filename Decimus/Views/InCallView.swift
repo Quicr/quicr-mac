@@ -11,6 +11,43 @@ import os
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.
 struct InCallView: View {
+    /// Supported supported video layouts.
+    enum VideoLayout: CaseIterable, CustomStringConvertible {
+        /// A 1x1 grid (of the active speaker, if known).
+        case oneByOne
+        /// A 2x2 grid (ranked by speaker, if known).
+        case twoByTwo
+        /// A unlimited grid (ranked by speaker, if known).
+        case nByN
+        /// A film strip of large active speaker and small others at top.
+        case filmStrip
+
+        var description: String {
+            switch self {
+            case .oneByOne:
+                "1x1"
+            case .twoByTwo:
+                "2x2"
+            case .nByN:
+                "Grid"
+            case .filmStrip:
+                "Film Strip"
+            }
+        }
+
+        /// The number of participants to show in this layout.
+        var count: Int? {
+            switch self {
+            case .oneByOne:
+                1
+            case .twoByTwo:
+                4
+            default:
+                nil
+            }
+        }
+    }
+
     @StateObject var viewModel: ViewModel
     @State private var leaving: Bool = false
     @State private var connecting: Bool = false
@@ -20,6 +57,8 @@ struct InCallView: View {
     @State private var isShowingSubscriptions = false
     @State private var isShowingPublications = false
     @State private var debugDetail = false
+    @State private var layout = VideoLayout.nByN
+    @State private var activeSpeakers: String = ""
     var noParticipants: Bool {
         self.viewModel.videoParticipants.participants.isEmpty
     }
@@ -49,7 +88,14 @@ struct InCallView: View {
         ZStack {
             GeometryReader { geometry in
                 Group {
-                    let gridCount = self.playtime.value.playtime ? self.playtime.value.restrictedGridCount : nil
+                    let gridCount: Int? = switch self.layout {
+                    case .oneByOne:
+                        1
+                    case .twoByTwo:
+                        4
+                    default:
+                        nil
+                    }
                     #if os(tvOS)
                     ZStack {
                         // Incoming videos.
@@ -120,12 +166,34 @@ struct InCallView: View {
                         if let controller = self.viewModel.controller,
                            let manifest = self.viewModel.currentManifest {
                             Text("Debug Details").font(.title)
-                            HStack {
-                                Text("Relay: ").bold()
-                                Text(controller.serverId ?? "Unknown").monospaced()
+                            Form {
+                                HStack {
+                                    Text("Relay")
+                                    Text(controller.serverId ?? "Unknown").monospaced()
+                                }
+                                LabeledContent("Layout") {
+                                    Picker("Layout", selection: self.$layout) {
+                                        ForEach(VideoLayout.allCases, id: \.self) { layout in
+                                            Text("\(layout)")
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    .pickerStyle(.segmented)
+                                }
+                                LabeledContent("Active Speakers") {
+                                    HStack {
+                                        TextField("Active Speakers",
+                                                  text: self.$activeSpeakers)
+                                            .keyboardType(.asciiCapable)
+                                        Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
+                                        }
+                                    }
+                                }
                             }
-                            SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
-                            PublicationPopover(controller)
+                            ScrollView {
+                                SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
+                                PublicationPopover(controller)
+                            }
                         }
                     }.padding()
                     Spacer()
@@ -164,6 +232,11 @@ struct InCallView: View {
         .background(.black)
         .onChange(of: noParticipants) { _, newValue in
             noParticipantsDetected = newValue
+        }
+        .onChange(of: self.layout) {
+            if let activeSpeaker = self.viewModel.activeSpeaker {
+                activeSpeaker.setClampCount(self.layout.count)
+            }
         }
         .task {
             connecting = true
@@ -207,6 +280,8 @@ extension InCallView {
 
         let engine: DecimusAudioEngine?
         private(set) var controller: MoqCallController?
+        private(set) var activeSpeaker: ActiveSpeakerApply?
+        private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
         private(set) var videoParticipants = VideoParticipants()
         private(set) var currentManifest: Manifest?
@@ -229,6 +304,9 @@ extension InCallView {
 
         @AppStorage("subscriptionConfig")
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+
+        @AppStorage(PlaytimeSettingsView.defaultsKey)
+        private var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
         init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
@@ -317,6 +395,9 @@ extension InCallView {
                         }
                     }
                 }
+                if self.playtimeConfig.value.playtime {
+                    self.manualActiveSpeaker = .init()
+                }
             }
         }
 
@@ -370,7 +451,15 @@ extension InCallView {
 
                 // Subscribe.
                 for subscription in manifest.subscriptions {
-                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory)
+                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
+                }
+
+                // Active speaker handling.
+                if self.playtimeConfig.value.playtime {
+                    self.activeSpeaker = .init(notifier: self.manualActiveSpeaker!,
+                                               controller: controller,
+                                               subscriptions: manifest.subscriptions,
+                                               factory: subscriptionFactory)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
@@ -393,6 +482,16 @@ extension InCallView {
                 Self.logger.warning("Camera failure", alert: true)
             }
             return true
+        }
+
+        func setManualActiveSpeaker(_ json: String) {
+            guard self.playtimeConfig.value.playtime,
+                  let data = json.data(using: .ascii),
+                  let speakers = try? JSONDecoder().decode([EndpointId].self, from: data) else {
+                Self.logger.error("Bad speaker JSON: \(json)")
+                return
+            }
+            self.manualActiveSpeaker!.setActiveSpeakers(speakers)
         }
 
         func leave() async {

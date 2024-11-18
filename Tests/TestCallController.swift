@@ -34,7 +34,7 @@ final class TestCallController: XCTestCase {
         func create(publication: QuicR.ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
             var pubs: [(FullTrackName, QPublishTrackHandlerObjC)] = []
             for profile in publication.profileSet.profiles {
-                let ftn = try profile.getFullTrackName()
+                let ftn = try FullTrackName(namespace: profile.namespace, name: "")
                 let publication = try MockPublication(profile: profile,
                                                       trackMode: .streamPerGroup,
                                                       defaultPriority: 0,
@@ -85,7 +85,7 @@ final class TestCallController: XCTestCase {
             self.sourceId = subscription.sourceID
             self.subscription = subscription
             for profile in self.subscription.profileSet.profiles {
-                let ftn = try! profile.getFullTrackName()
+                let ftn = try! FullTrackName(namespace: profile.namespace, name: "")
                 self.handlers[ftn] = MockSubscription(ftn: ftn)
             }
         }
@@ -199,7 +199,8 @@ final class TestCallController: XCTestCase {
 
         // This publication should show as tracked.
         var publications = controller.getPublications()
-        let ftn = try details.profileSet.profiles.first!.getFullTrackName()
+        let namespace = details.profileSet.profiles.first!.namespace
+        let ftn = try FullTrackName(namespace: namespace, name: "")
         XCTAssert(self.assertFtnEquality(publications.map { $0.getFullTrackName() }, rhs: [ftn]))
 
         // Removing should unpublish.
@@ -250,9 +251,12 @@ final class TestCallController: XCTestCase {
 
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
-        try controller.subscribeToSet(details: details, factory: factory)
+        let set = try controller.subscribeToSet(details: details,
+                                                factory: factory,
+                                                subscribe: true)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: expectedFtn))
+        XCTAssertEqual(set.sourceId, sourceID)
 
         // Should show as tracked.
         var sets = controller.getSubscriptionSets()
@@ -325,7 +329,8 @@ final class TestCallController: XCTestCase {
 
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
-        try controller.subscribeToSet(details: details, factory: factory)
+        let set = try controller.subscribeToSet(details: details, factory: factory, subscribe: true)
+        XCTAssertEqual(set.sourceId, sourceID)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1, ftn2]))
         subscribed = []
@@ -433,7 +438,8 @@ final class TestCallController: XCTestCase {
                                                                           ]))
 
         try await callController.connect()
-        try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }))
+        let set = try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }), subscribe: true)
+        XCTAssertEqual(set.sourceId, "test")
         let handlers = try callController.getSubscriptionsByEndpoint(target)
         XCTAssertEqual(handlers.count, 1)
         let retrievedFtn = FullTrackName(handlers.first!.getFullTrackName())

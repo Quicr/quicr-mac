@@ -116,6 +116,7 @@ class MoqCallController: QClientCallbacks {
         try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
             self.connectionContinuation = continuation
             let status = self.client.connect()
+            self.logger.debug("[MoqCallController] Connect => \(status)")
             switch status {
             case .clientConnecting:
                 break
@@ -125,7 +126,10 @@ class MoqCallController: QClientCallbacks {
                 self.connected = true
                 continuation.resume()
             default:
-                continuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
+                if let connectionContinuation = self.connectionContinuation {
+                    self.connected = false
+                    connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
+                }
             }
         }
     }
@@ -207,16 +211,21 @@ class MoqCallController: QClientCallbacks {
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     /// - Parameter factory: Factory to create subscription handlers from.
+    /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
+    /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory) throws {
+    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory, subscribe: Bool) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
-        for profile in details.profileSet.profiles {
-            try self.subscribe(set: set, profile: profile, factory: factory)
+        if subscribe {
+            for profile in details.profileSet.profiles {
+                try self.subscribe(set: set, profile: profile, factory: factory)
+            }
         }
         self.subscriptions[details.sourceID] = set
+        return set
     }
 
     /// Subscribe to a specific track and add it to an existing subscription set.
@@ -289,15 +298,15 @@ class MoqCallController: QClientCallbacks {
             self.connected = true
             connection.resume()
         case .notReady:
-            guard let connection = self.connectionContinuation else {
-                self.logger.error("Got notReady status when connection was nil")
+            guard let connectionContinuation = self.connectionContinuation else {
+                self.logger.error("Missing expected continuation")
                 return
             }
             self.connectionContinuation = nil
-            self.connected = true
-            connection.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
+            self.connected = false
+            connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
         case .clientConnecting:
-            assert(self.connectionContinuation != nil)
+            break
         case .clientPendingServerSetup:
             assert(self.connectionContinuation != nil)
         case .clientNotConnected:
