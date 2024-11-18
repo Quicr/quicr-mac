@@ -8,7 +8,7 @@ defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -b
 # Build tools
 brew install cmake
 brew install pkg-config
-if ["$CI_WORKFLOW" != "PR" ]
+if [ "$CI_WORKFLOW" != "PR" ]
 then
     brew install go
 fi
