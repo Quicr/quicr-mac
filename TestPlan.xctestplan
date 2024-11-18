@@ -12,9 +12,9 @@
     "codeCoverage" : {
       "targets" : [
         {
-          "containerPath" : "container:Decimus.xcodeproj",
+          "containerPath" : "container:QuicR.xcodeproj",
           "identifier" : "9BA27FC1297D7270007013B2",
-          "name" : "Decimus"
+          "name" : "QuicR"
         }
       ]
     },

@@ -58,7 +58,10 @@ class ActiveSpeakerApply {
     func setClampCount(_ count: Int?) {
         self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
         self.count = count
-        guard let lastSpeakers = self.lastSpeakers else { return }
+        guard let lastSpeakers = self.lastSpeakers else {
+            self.logger.debug("[ActiveSpeakers] No set active speakers on clamp change")
+            return
+        }
         self.onActiveSpeakersChanged(lastSpeakers)
     }
 
