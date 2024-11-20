@@ -49,6 +49,8 @@
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
 		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */; };
+		9B12457D2CEC99250058810C /* ActiveSpeakerSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B12457C2CEC991F0058810C /* ActiveSpeakerSubscriptionSet.swift */; };
+		9B12457F2CEC99320058810C /* CallbackSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B12457E2CEC992E0058810C /* CallbackSubscription.swift */; };
 		9B1246322CD8EB83004C020C /* QFullTrackName.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246312CD8EB7F004C020C /* QFullTrackName.mm */; };
 		9B1246342CD90927004C020C /* SubscriptionPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246332CD90923004C020C /* SubscriptionPopover.swift */; };
 		9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246352CD90B00004C020C /* PublicationPopover.swift */; };
@@ -232,6 +234,8 @@
 		18F7C4D72AB1C7AA005EDB88 /* JitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JitterBuffer.swift; sourceTree = "<group>"; };
 		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscriptionSet+Measurement.swift"; sourceTree = "<group>"; };
+		9B12457C2CEC991F0058810C /* ActiveSpeakerSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerSubscriptionSet.swift; sourceTree = "<group>"; };
+		9B12457E2CEC992E0058810C /* CallbackSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackSubscription.swift; sourceTree = "<group>"; };
 		9B1246312CD8EB7F004C020C /* QFullTrackName.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFullTrackName.mm; sourceTree = "<group>"; };
 		9B1246332CD90923004C020C /* SubscriptionPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionPopover.swift; sourceTree = "<group>"; };
 		9B1246352CD90B00004C020C /* PublicationPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationPopover.swift; sourceTree = "<group>"; };
@@ -659,6 +663,8 @@
 		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
 			isa = PBXGroup;
 			children = (
+				9B12457E2CEC992E0058810C /* CallbackSubscription.swift */,
+				9B12457C2CEC991F0058810C /* ActiveSpeakerSubscriptionSet.swift */,
 				9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */,
 				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
 				FF2498B62A55E95E00C6D66D /* VideoSubscriptionSet.swift */,
@@ -962,6 +968,7 @@
 				9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */,
 				9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */,
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
+				9B12457F2CEC99320058810C /* CallbackSubscription.swift in Sources */,
 				184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */,
@@ -999,6 +1006,7 @@
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
+				9B12457D2CEC99250058810C /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,

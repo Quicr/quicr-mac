@@ -137,6 +137,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let subscriptionConfig: SubscriptionConfig
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private let activeSpeakerMediaType = "activeSpeaker"
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -179,6 +180,13 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             relayId: relayId)
         }
 
+        if subscription.mediaType == self.activeSpeakerMediaType {
+            return ActiveSpeakerSubscriptionSet(engine: self.engine,
+                                                jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                                jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                                opusWindowSize: self.subscriptionConfig.opusWindowSize)
+        }
+
         if found.isSubset(of: opusCodecs) {
             return try OpusSubscription(subscription: subscription,
                                         engine: self.engine,
@@ -197,6 +205,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     }
 
     func create(set: SubscriptionSet, ftn: FullTrackName, config: CodecConfig, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+        var activeSpeaker = false
         if let videoConfig = config as? VideoCodecConfig {
             let set = set as! VideoSubscriptionSet
             return try VideoSubscription(fullTrackName: ftn,
@@ -214,6 +223,15 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 guard let set = set else { return }
                 set.receivedObject(timestamp: ts, when: when)
             }
+        } else if activeSpeaker {
+            let set = set as! ActiveSpeakerSubscriptionSet
+            let dataCallback: CallbackSubscription.SubscriptionCallback = { [weak set] headers, data, extensions in
+                set?.receivedObject(headers: headers, data: data, extensions: extensions)
+            }
+            return try CallbackSubscription(fullTrackName: ftn,
+                                            priority: 0,
+                                            groupOrder: .originalPublisherOrder,
+                                            callback: dataCallback)
         } else if config as? AudioCodecConfig != nil {
             let set = set as! OpusSubscription
             return set

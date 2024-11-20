@@ -12,6 +12,7 @@ class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey = NSNumber(integerLiteral: 3)
     static let endpointIdKey = NSNumber(integerLiteral: 4)
+    typealias ClientId = UInt16
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -25,7 +26,7 @@ class OpusPublication: Publication {
     private let windowFrames: AVAudioFrameCount
     private var currentGroupId: UInt64?
     private let bootDate: Date
-    private let endpointIndexId: UInt16
+    private let endpointIndexId: ClientId
 
     init(profile: Profile,
          metricsSubmitter: MetricsSubmitter?,
@@ -65,7 +66,7 @@ class OpusPublication: Publication {
         }
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         let fullTrackName = try profile.getFullTrackName()
-        guard let endpointIndexId = try UInt16(fullTrackName.getEndpointId()) else {
+        guard let endpointIndexId = try ClientId(fullTrackName.getEndpointId()) else {
             throw "Invalid endpoint ID"
         }
         self.endpointIndexId = endpointIndexId
@@ -136,7 +137,7 @@ class OpusPublication: Publication {
         let energyLevelValue = adjusted | mask
         loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
         var endpointId = self.endpointIndexId
-        loc.add(key: Self.endpointIdKey, value: Data(bytes: &endpointId, count: MemoryLayout<UInt16>.size))
+        loc.add(key: Self.endpointIdKey, value: Data(bytes: &endpointId, count: MemoryLayout<ClientId>.size))
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
