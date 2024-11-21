@@ -383,19 +383,21 @@ class MoqCallController: QClientCallbacks {
 }
 
 extension FullTrackName {
+
+    enum Index: Int {
+        case org = 0
+        case app = 1
+        case conference = 2
+        case mediaType = 3
+        case endpointId = 4
+    }
+
     /// Extract endpoint ID from namespace as a leading 0 padded 4 digit string.
-    func getEndpointId() throws -> Substring {
-        try self.extract(18, 21)
+    func getEndpointId() -> String? {
+        .init(data: self.nameSpace[Index.endpointId.rawValue], encoding: .utf8)
     }
 
-    func getMediaType() throws -> Substring {
-        try self.extract(16, 17)
-    }
-
-    private func extract(_ start: Int, _ end: Int) throws -> Substring {
-        let namespace = try self.getNamespace()
-        let startIndex = namespace.index(namespace.startIndex, offsetBy: start)
-        let endIndex = namespace.index(namespace.startIndex, offsetBy: end)
-        return namespace[startIndex...endIndex]
+    func getMediaType() -> String? {
+        .init(data: self.nameSpace[Index.mediaType.rawValue], encoding: .utf8)
     }
 }

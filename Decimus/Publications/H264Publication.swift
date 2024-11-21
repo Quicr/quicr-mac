@@ -42,7 +42,7 @@ class H264Publication: Publication, FrameListener {
                   device: AVCaptureDevice,
                   endpointId: String,
                   relayId: String) throws {
-        let namespace = profile.namespace
+        let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {

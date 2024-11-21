@@ -6,7 +6,7 @@ import XCTest
 
 final class TestVideoSubscription: XCTestCase {
     func testMetrics() throws {
-        let subscription = try VideoSubscription(fullTrackName: try .init(namespace: "", name: ""),
+        let subscription = try VideoSubscription(fullTrackName: try .init(namespace: [""], name: ""),
                                                  config: .init(codec: .h264,
                                                                bitrate: 0,
                                                                fps: 30,

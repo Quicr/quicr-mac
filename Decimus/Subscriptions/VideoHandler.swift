@@ -99,7 +99,7 @@ class VideoHandler: CustomStringConvertible {
         self.config = config
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: try self.fullTrackName.getNamespace())
+            let measurement = VideoHandler.VideoHandlerMeasurement(namespace: "\(self.fullTrackName)")
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil
@@ -143,11 +143,7 @@ class VideoHandler: CustomStringConvertible {
 
     deinit {
         if self.simulreceive != .enable {
-            do {
-                self.participants.removeParticipant(identifier: try self.fullTrackName.getNamespace())
-            } catch {
-                Self.logger.error("Failed to extract FTN namespace")
-            }
+            self.participants.removeParticipant(identifier: "\(self.fullTrackName)")
         }
         self.dequeueTask?.cancel()
         Self.logger.debug("Deinit")
@@ -260,15 +256,11 @@ class VideoHandler: CustomStringConvertible {
                 self.lastFps = resolvedFps
                 self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
-                    do {
-                        let namespace = try self.fullTrackName.getNamespace()
-                        self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps)
-                        guard self.simulreceive != .enable else { return }
-                        let participant = self.participants.getOrMake(identifier: namespace)
-                        participant.label = .init(describing: self)
-                    } catch {
-                        Self.logger.error("Failed to set label: \(error.localizedDescription)")
-                    }
+                    let namespace = "\(self.fullTrackName)"
+                    self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps)
+                    guard self.simulreceive != .enable else { return }
+                    let participant = self.participants.getOrMake(identifier: namespace)
+                    participant.label = .init(describing: self)
                 }
             }
         }
@@ -372,7 +364,7 @@ class VideoHandler: CustomStringConvertible {
                 ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
             }
         }
-        self.jitterBuffer = try .init(fullTrackName: self.fullTrackName,
+        self.jitterBuffer = try .init(identifier: "\(self.fullTrackName)",
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
@@ -512,7 +504,7 @@ class VideoHandler: CustomStringConvertible {
         // Enqueue the sample on the main thread.
         DispatchQueue.main.async {
             do {
-                let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
+                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)")
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
@@ -553,7 +545,7 @@ class VideoHandler: CustomStringConvertible {
     private func flushDisplayLayer() {
         DispatchQueue.main.async {
             do {
-                let participant = self.participants.getOrMake(identifier: try self.fullTrackName.getNamespace())
+                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)")
                 try participant.view.flush()
             } catch {
                 Self.logger.error("Could not flush layer: \(error)")

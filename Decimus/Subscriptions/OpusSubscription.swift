@@ -56,7 +56,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
             let quicrMeasurement = TrackMeasurement(type: .subscribe,
                                                     endpointId: endpointId,
                                                     relayId: relayId,
-                                                    namespace: profile.namespace)
+                                                    namespace: profile.namespace.joined())
             self.quicrMeasurement = .init(measurement: quicrMeasurement, submitter: submitter)
         } else {
             self.measurement = nil

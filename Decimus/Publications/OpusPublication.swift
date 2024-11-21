@@ -37,7 +37,7 @@ class OpusPublication: Publication {
          endpointId: String,
          relayId: String) throws {
         self.engine = engine
-        let namespace = profile.namespace
+        let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
                                      submitter: metricsSubmitter)
@@ -65,7 +65,8 @@ class OpusPublication: Publication {
         }
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         let fullTrackName = try profile.getFullTrackName()
-        guard let endpointIndexId = try UInt16(fullTrackName.getEndpointId()) else {
+        guard let endpointId = fullTrackName.getEndpointId(),
+              let endpointIndexId = UInt16(endpointId) else {
             throw "Invalid endpoint ID"
         }
         self.endpointIndexId = endpointIndexId

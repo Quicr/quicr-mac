@@ -85,7 +85,7 @@ final class TestVideoJitterBuffer: XCTestCase {
     }
 
     func testPlayout(sort: Bool) throws {
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 1/30 * 2.5,
                                       capacity: 4,
@@ -139,7 +139,7 @@ final class TestVideoJitterBuffer: XCTestCase {
 
     // Out of orders should go in order.
     func testOutOfOrder() throws {
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
@@ -175,7 +175,7 @@ final class TestVideoJitterBuffer: XCTestCase {
     }
 
     func testOlderFrame(_ sort: Bool) throws {
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
@@ -206,7 +206,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         let startTime: Date = .now
         var waitTime: TimeInterval?
         let minDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
@@ -221,7 +221,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         let startTime: Date = .now
         var waitTime: TimeInterval?
         let minDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
@@ -256,7 +256,7 @@ final class TestVideoJitterBuffer: XCTestCase {
     func testWaitTimeN() throws {
         let startTime: Date = .now
         let minDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 2,
@@ -326,7 +326,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Create jitter buffer.
         let capacity = 1000
         let targetDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""), metricsSubmitter: nil, minDepth: targetDepth, capacity: capacity, handlers: getHandler(sort: false))
+        let buffer = try JitterBuffer(identifier: "", metricsSubmitter: nil, minDepth: targetDepth, capacity: capacity, handlers: getHandler(sort: false))
 
         // Frame characteristics.
         let fps = 30
@@ -400,7 +400,7 @@ final class TestVideoJitterBuffer: XCTestCase {
 
     func testDepth() throws {
         let fps: UInt8 = 30
-        let buffer = try JitterBuffer(fullTrackName: .init(namespace: "", name: ""),
+        let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,

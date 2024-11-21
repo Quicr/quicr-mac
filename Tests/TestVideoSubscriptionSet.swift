@@ -29,7 +29,7 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                                decodeTimeStamp: .invalid)),
                                           fps: 30,
                                           discontinous: discontinous[0])
-        let highest = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "1", name: ""), image: highestImage)
+        let highest = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["1"], name: ""), image: highestImage)
 
         let mediumBuffer = try testImage(width: 1280, height: 960)
         let mediumImage = AvailableImage(image: try .init(imageBuffer: mediumBuffer,
@@ -39,7 +39,7 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                               decodeTimeStamp: .invalid)),
                                          fps: 30,
                                          discontinous: discontinous[1])
-        let medium = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "2", name: ""), image: mediumImage)
+        let medium = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["2"], name: ""), image: mediumImage)
 
         let lowerBuffer = try testImage(width: 1280, height: 960)
         let lowerImage = AvailableImage(image: try .init(imageBuffer: lowerBuffer,
@@ -49,7 +49,7 @@ final class TestVideoSubscriptionSet: XCTestCase {
                                                                              decodeTimeStamp: .invalid)),
                                         fps: 30,
                                         discontinous: discontinous[2])
-        let lower = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: "3", name: ""), image: lowerImage)
+        let lower = VideoSubscriptionSet.SimulreceiveItem(fullTrackName: try .init(namespace: ["3"], name: ""), image: lowerImage)
 
         return [highest, medium, lower]
     }

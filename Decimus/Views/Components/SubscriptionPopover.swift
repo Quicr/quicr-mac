@@ -30,8 +30,8 @@ struct SubscriptionPopover: View {
                     // Is this profile already subscribed to?
                     let exists: Bool = existing.contains(where: {
                         let ftn = FullTrackName($0.getFullTrackName())
-                        let namespace = try! ftn.getNamespace()
-                        return namespace == manifestSubscription.namespace
+                        let manifestFtn = try! manifestSubscription.getFullTrackName()
+                        return ftn == manifestFtn
                     })
                     let binding = Binding<Bool>(get: {
                         exists

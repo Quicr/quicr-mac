@@ -45,7 +45,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   relayId: relayId)
                 publications.append((fullTrackName, publication))
             } catch {
-                self.logger.error("[\((try? fullTrackName.getNamespace()) ?? "?")] Failed to create publication: \(error.localizedDescription)")
+                self.logger.error("[\(fullTrackName)] Failed to create publication: \(error.localizedDescription)")
             }
         }
         return publications
