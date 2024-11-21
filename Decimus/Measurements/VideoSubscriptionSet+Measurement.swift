@@ -26,7 +26,7 @@ extension VideoSubscriptionSet {
             for choice in choices {
                 let height = choice.item.image.image.formatDescription!.dimensions.height
                 let tags: [String: String] = [
-                    "namespace": try choice.item.fullTrackName.getNamespace(),
+                    "namespace": "\(choice.item.fullTrackName)",
                     "selected": String(choice.selected),
                     "timestamp": String(choice.item.image.image.presentationTimeStamp.seconds),
                     "reason": choice.reason,

@@ -32,8 +32,14 @@ final class TestActiveSpeaker: XCTestCase {
         // to reflect the list.
 
         // Prepare the manifest.
-        func makeVideoNamespace(_ endpointId: Int) -> String {
-            "0x000001010003F2A0000\(endpointId)000000000000/80"
+        func makeVideoNamespace(_ endpointId: Int) -> [String] {
+            [
+                "000001",
+                "01",
+                "0003F2",
+                "A0",
+                "000\(endpointId)"
+            ]
         }
         let manifestSubscription1 = ManifestSubscription(mediaType: "1",
                                                          sourceName: "1",
@@ -88,8 +94,14 @@ final class TestActiveSpeaker: XCTestCase {
         let initialSubscriptionSets = controller.getSubscriptionSets()
         XCTAssertEqual(initialSubscriptionSets.map { $0.sourceId }.sorted(), [manifestSubscription1, manifestSubscription2].map { $0.sourceID }.sorted())
         let handlers = initialSubscriptionSets.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
-        XCTAssertEqual(try handlers.sorted(by: {
-            try FullTrackName($0.getFullTrackName()).getNamespace() < FullTrackName($1.getFullTrackName()).getNamespace()
+        XCTAssertEqual(handlers.sorted(by: {
+            let aFtn = FullTrackName($0.getFullTrackName())
+            let bFtn = FullTrackName($1.getFullTrackName())
+            guard let a = String(data: Data(aFtn.nameSpace.joined()), encoding: .utf8),
+                  let b = String(data: Data(bFtn.nameSpace.joined()), encoding: .utf8) else {
+                return false
+            }
+            return a < b
         }), subbed)
 
         // Now, 1 and 3 are actively speaking.

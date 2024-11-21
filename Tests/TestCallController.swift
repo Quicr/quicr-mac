@@ -16,8 +16,6 @@ final class TestFullTrackName: XCTestCase {
         let swift = FullTrackName(qftn as QFullTrackName)
         XCTAssertEqual(swift.name, qftn.name)
         XCTAssertEqual(swift.nameSpace, qftn.nameSpace)
-        XCTAssertEqual(try swift.getName(), name)
-        XCTAssertEqual(try swift.getNamespace(), namespace)
     }
 }
 
@@ -173,7 +171,7 @@ final class TestCallController: XCTestCase {
                                                                 .init(qualityProfile: "something",
                                                                       expiry: nil,
                                                                       priorities: nil,
-                                                                      namespace: "namespace")]))
+                                                                      namespace: ["namespace"])]))
 
         var factoryCreated: Publication?
         let creationCallback: MockPublicationFactory.PublicationCreated = { factoryCreated = $0 }
@@ -214,7 +212,7 @@ final class TestCallController: XCTestCase {
 
     func testSubscriptionSetAlter() async throws {
         let sourceID = "TESTING"
-        let namespace = "namespace"
+        let namespace = ["namespace"]
         let details = ManifestSubscription(mediaType: "video",
                                            sourceName: "test",
                                            sourceID: sourceID,
@@ -273,8 +271,8 @@ final class TestCallController: XCTestCase {
 
     func testSubscriptionAlter() async throws {
         let sourceID = "TESTING"
-        let namespace = "namespace1"
-        let namespace2 = "namespace2"
+        let namespace = ["namespace1"]
+        let namespace2 = ["namespace2"]
 
         let profile1 = Profile(qualityProfile: "h264",
                                expiry: nil,
@@ -340,7 +338,11 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual(handlers.count, 2)
         let ftns = handlers.map { $0.key }
         let compare: (FullTrackName, FullTrackName) -> Bool = {
-            try! $0.getNamespace() < $1.getNamespace()
+            guard let a = String(data: Data($0.nameSpace.joined()), encoding: .utf8),
+                  let b = String(data: Data($1.nameSpace.joined()), encoding: .utf8) else {
+                return false
+            }
+            return a < b
         }
         XCTAssertEqual(ftns.sorted(by: compare), [ftn1, ftn2].sorted(by: compare))
 
@@ -367,8 +369,8 @@ final class TestCallController: XCTestCase {
     }
 
     func testAssertFtnEquality() throws {
-        let a: [QFullTrackName] = [try FullTrackName(namespace: "a", name: "a")]
-        let b: [QFullTrackName] = [try FullTrackName(namespace: "b", name: "b")]
+        let a: [QFullTrackName] = [try FullTrackName(namespace: ["a"], name: "a")]
+        let b: [QFullTrackName] = [try FullTrackName(namespace: ["b"], name: "b")]
         XCTAssertTrue(self.assertFtnEquality(a, rhs: a))
         XCTAssertFalse(self.assertFtnEquality(a, rhs: b))
     }
@@ -385,23 +387,23 @@ final class TestCallController: XCTestCase {
     }
 
     func testEndpointIdLookup() throws {
-        let match: Substring = "0001"
-        let exampleNamespace = "0x000001010003F2A0\(match)000000000000/80"
-        let exampleNamespaceFail = "0x000001010003F2A00002000000000000/80"
+        let match: String = "0001"
+        let exampleNamespace = ["000001", "01", "0003F2", "A0", match]
+        let exampleNamespaceFail = ["000001", "01", "0003F2", "A0", "0002"]
         let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
-        XCTAssertEqual(match, try fullTrackName.getEndpointId())
+        XCTAssertEqual(match, fullTrackName.getEndpointId())
         let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
-        XCTAssertNotEqual(match, try fullTrackNameFail.getEndpointId())
+        XCTAssertNotEqual(match, fullTrackNameFail.getEndpointId())
     }
 
     func testMediaTypeLookup() throws {
-        let match: Substring = "A0"
-        let exampleNamespace = "0x000001010003F2A00001000000000000/80"
-        let exampleNamespaceFail = "0x000001010003F2A10001000000000000/80"
+        let match: String = "A0"
+        let exampleNamespace = ["000001", "01", "0003F2", match, "0001"]
+        let exampleNamespaceFail = ["000001", "01", "0003F2", "A1", "0001"]
         let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
-        XCTAssertEqual(match, try fullTrackName.getMediaType())
+        XCTAssertEqual(match, fullTrackName.getMediaType())
         let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
-        XCTAssertNotEqual(match, try fullTrackNameFail.getMediaType())
+        XCTAssertNotEqual(match, fullTrackNameFail.getMediaType())
     }
 
     func testSubscriptionsByEndpointId() async throws {
@@ -416,9 +418,9 @@ final class TestCallController: XCTestCase {
         // Let matching.
         let target = "0001"
         let nonTarget = "0002"
-        let matching = "0x000001010003F2A0\(target)000000000000/80"
+        let matching = ["000001", "01", "0003F2", "A0", target]
         let matchingFtn = try FullTrackName(namespace: matching, name: "")
-        let nonMatching = "0x000001010003F2A0\(nonTarget)000000000000/80"
+        let nonMatching = ["000001", "01", "0003F2", "A0", nonTarget]
         let nonMatchingFtn = try FullTrackName(namespace: nonMatching, name: "")
 
         let manifestSubscription = ManifestSubscription(mediaType: "test",

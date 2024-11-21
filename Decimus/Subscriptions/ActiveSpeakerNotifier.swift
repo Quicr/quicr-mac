@@ -77,13 +77,14 @@ class ActiveSpeakerApply {
             for handler in set.getHandlers().values {
                 do {
                     let ftn = FullTrackName(handler.getFullTrackName())
-                    let endpointId = try ftn.getEndpointId()
-                    guard !speakers.contains(where: { $0 == endpointId }),
-                          let mediaType = UInt16(try ftn.getMediaType(), radix: 16),
+                    guard let endpointId = ftn.getEndpointId(),
+                          !speakers.contains(where: { $0 == endpointId }),
+                          let stringMediaType = ftn.getMediaType(),
+                          let mediaType = UInt16(stringMediaType, radix: 16),
                           mediaType & 0x80 != 0 else {
                         continue
                     }
-                    try self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn.getNamespace()) (\(endpointId))")
+                    self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(endpointId)))")
                     unsubbed = true
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {
@@ -105,12 +106,13 @@ class ActiveSpeakerApply {
                     do {
                         let ftn = try FullTrackName(namespace: subscription.namespace, name: "")
                         guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }),
-                              let mediaType = UInt16(try ftn.getMediaType(), radix: 16),
+                              let stringMediaType = ftn.getMediaType(),
+                              let mediaType = UInt16(stringMediaType, radix: 16),
                               mediaType & 0x80 != 0 else {
                             continue
                         }
-                        let endpointId = try ftn.getEndpointId()
-                        guard endpointId == speaker else { continue }
+                        guard let endpointId = ftn.getEndpointId(),
+                              endpointId == speaker else { continue }
                         self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(endpointId))")
                         // Does a set for this already exist?
                         // TODO: Clean this up.

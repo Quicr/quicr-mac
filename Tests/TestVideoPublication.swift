@@ -42,7 +42,7 @@ final class TestVideoPublication: XCTestCase {
         return try .init(profile: .init(qualityProfile: "",
                                         expiry: [1, 2],
                                         priorities: [1, 2],
-                                        namespace: ""),
+                                        namespace: [""]),
                          config: config,
                          metricsSubmitter: nil,
                          reliable: true,

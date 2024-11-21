@@ -11,7 +11,7 @@ extension OpusPublication {
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
 
-        init(namespace: QuicrNamespace) {
+        init(namespace: String) {
             tags["namespace"] = namespace
         }
 

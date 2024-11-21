@@ -60,7 +60,7 @@ struct Profile: Codable {
     /// A list of priorities for groups and/or objects in this profile.
     let priorities: [Int]?
     /// The namespace this publication/subscription is for.
-    let namespace: String
+    let namespace: [String]
 
     enum CodingKeys: String, CodingKey {
         case qualityProfile, expiry, priorities
@@ -68,7 +68,7 @@ struct Profile: Codable {
     }
 
     /// Ctreate a new quality profile from its parts.
-    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: String) {
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String]) {
         self.qualityProfile = qualityProfile
         self.expiry = expiry
         self.priorities = priorities
@@ -81,7 +81,7 @@ struct Profile: Codable {
         qualityProfile = try values.decode(String.self, forKey: .qualityProfile)
         expiry = try values.decodeIfPresent([Int].self, forKey: .expiry)
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
-        namespace = try values.decode(String.self, forKey: .namespace)
+        namespace = try values.decode([String].self, forKey: .namespace)
     }
 }
 

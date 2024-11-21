@@ -486,12 +486,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                 self.lastHighlight = fullTrackName
                 DispatchQueue.main.async {
                     for participant in self.participants.participants {
-                        do {
-                            let namespace = try fullTrackName.getNamespace()
-                            participant.value.highlight = participant.key == namespace
-                        } catch {
-                            Self.logger.error("Failed to parse FTN namespace")
-                        }
+                        participant.value.highlight = participant.key == "\(fullTrackName)"
                     }
                 }
             }

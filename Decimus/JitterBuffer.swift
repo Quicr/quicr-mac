@@ -55,19 +55,19 @@ class JitterBuffer {
     }
 
     /// Create a new video jitter buffer.
-    /// - Parameter fullTrackName: The namespace of the video this buffer is used for, for identification purposes.
+    /// - Parameter identifier: Label for this buffer.
     /// - Parameter metricsSubmitter: Optionally, an object to submit metrics through.
     /// - Parameter minDepth: Fixed initial & target delay in seconds.
     /// - Parameter capacity: Capacity in number of buffers / elements.
     /// - Parameter handlers: CMBufferQueue.Handlers implementation to use.
-    init(fullTrackName: FullTrackName,
+    init(identifier: String,
          metricsSubmitter: MetricsSubmitter?,
          minDepth: TimeInterval,
          capacity: Int,
          handlers: CMBufferQueue.Handlers) throws {
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
-            let measurement = JitterBufferMeasurement(namespace: try fullTrackName.getNamespace())
+            let measurement = JitterBufferMeasurement(namespace: identifier)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil

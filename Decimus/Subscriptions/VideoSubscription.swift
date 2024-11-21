@@ -59,7 +59,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
             let measurement = TrackMeasurement(type: .subscribe,
                                                endpointId: endpointId,
                                                relayId: relayId,
-                                               namespace: try fullTrackName.getNamespace())
+                                               namespace: "\(fullTrackName)")
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
             self.measurement = nil

@@ -26,7 +26,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
             let measurement = TrackMeasurement(type: .publish,
                                                endpointId: endpointId,
                                                relayId: relayId,
-                                               namespace: profile.namespace)
+                                               namespace: profile.namespace.joined())
             self.measurement = .init(measurement: measurement, submitter: submitter)
         } else {
             self.measurement = nil
@@ -39,7 +39,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     }
 
     internal func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        self.logger.info("[\(self.profile.namespace)] Status changed to: \(status)")
+        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
         self.currentStatus = status
         let publish = switch status {
         case .announceNotAuthorized:

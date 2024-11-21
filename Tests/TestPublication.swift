@@ -8,7 +8,7 @@ final class TestPublication: XCTestCase {
     func testManifestExtractDefault() throws {
         let expectedPriority: UInt8 = 1
         let expectedTTL: UInt16 = 2
-        let profile = Profile(qualityProfile: "", expiry: nil, priorities: nil, namespace: "namespace")
+        let profile = Profile(qualityProfile: "", expiry: nil, priorities: nil, namespace: ["namespace"])
         let publication = try Publication(profile: profile,
                                           trackMode: .datagram,
                                           defaultPriority: expectedPriority,
@@ -23,7 +23,7 @@ final class TestPublication: XCTestCase {
     func testManifestExtractIndexPresent() throws {
         let expectedPriority: UInt8 = 1
         let expectedTTL: UInt16 = 2
-        let profile = Profile(qualityProfile: "", expiry: [3, 4], priorities: [5, 6], namespace: "namespace")
+        let profile = Profile(qualityProfile: "", expiry: [3, 4], priorities: [5, 6], namespace: ["namespace"])
         let publication = try Publication(profile: profile,
                                           trackMode: .datagram,
                                           defaultPriority: expectedPriority,
