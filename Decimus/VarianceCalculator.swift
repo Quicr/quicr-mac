@@ -17,7 +17,7 @@ class VarianceCalculator {
     init(expectedOccurrences: Int,
          max: Int = 10,
          submitter: MetricsSubmitter? = nil,
-         source: String? = nil,
+         source: SourceIDType? = nil,
          stage: String? = nil) throws {
         self.expectedOccurrences = expectedOccurrences
         self.varianceMaxCount = max

@@ -8,8 +8,8 @@ extension VarianceCalculator {
         var fields: Fields = [:]
         var tags: [String: String] = [:]
 
-        init(source: String, stage: String) {
-            tags["sourceId"] = source
+        init(source: SourceIDType, stage: String) {
+            tags["sourceId"] = "\(source)"
             tags["stage"] = stage
         }
 

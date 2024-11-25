@@ -6,6 +6,7 @@ import Foundation
 /// A manifest for a given user's conference.
 struct Manifest: Codable {
     let clientID: String
+    let participantId: SourceIDType
     /// List of subscriptions this user should subscribe to.
     let subscriptions: [ManifestSubscription]
     /// List of publications this user should publish.
@@ -13,14 +14,16 @@ struct Manifest: Codable {
 
     enum CodingKeys: String, CodingKey {
         case clientID = "clientId"
-        case subscriptions, publications
+        case subscriptions, publications, participantId
     }
 }
 
 /// A set of related publication entries.
 struct ManifestPublication: Codable {
     /// Details of the publication set.
-    let mediaType, sourceName, sourceID, label: String
+    let mediaType, sourceName: String
+    let sourceID: SourceIDType
+    let label: String
     /// The different individual publications and their profiles that should be published.
     let profileSet: ProfileSet
 
@@ -34,7 +37,9 @@ struct ManifestPublication: Codable {
 /// A set of related subscription entries.
 struct ManifestSubscription: Codable {
     /// Details of the subscription set.
-    let mediaType, sourceName, sourceID, label: String
+    let mediaType, sourceName: String
+    let sourceID: SourceIDType
+    let label: String
     /// The different individual subscriptions and their profiles that should be subscribed to.
     let profileSet: ProfileSet
 
@@ -61,18 +66,20 @@ struct Profile: Codable {
     let priorities: [Int]?
     /// The namespace this publication/subscription is for.
     let namespace: [String]
+    let channel: Int?
 
     enum CodingKeys: String, CodingKey {
-        case qualityProfile, expiry, priorities
+        case qualityProfile, expiry, priorities, channel
         case namespace = "quicrNamespace"
     }
 
     /// Ctreate a new quality profile from its parts.
-    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String]) {
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], channel: Int? = nil) {
         self.qualityProfile = qualityProfile
         self.expiry = expiry
         self.priorities = priorities
         self.namespace = namespace
+        self.channel = channel
     }
 
     /// Parse a profile from it's encoded representation.
@@ -82,6 +89,7 @@ struct Profile: Codable {
         expiry = try values.decodeIfPresent([Int].self, forKey: .expiry)
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
         namespace = try values.decode([String].self, forKey: .namespace)
+        channel = try values.decodeIfPresent(Int.self, forKey: .channel)
     }
 }
 

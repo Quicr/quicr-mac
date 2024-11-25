@@ -51,7 +51,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         self.engine = engine
         self.metricsSubmitter = submitter
         if let submitter = submitter {
-            let measurement = OpusSubscriptionMeasurement(namespace: subscription.sourceID)
+            let measurement = OpusSubscriptionMeasurement(namespace: "\(subscription.sourceID)")
             self.measurement = .init(measurement: measurement, submitter: submitter)
             let quicrMeasurement = TrackMeasurement(type: .subscribe,
                                                     endpointId: endpointId,

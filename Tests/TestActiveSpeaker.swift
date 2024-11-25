@@ -43,7 +43,7 @@ final class TestActiveSpeaker: XCTestCase {
         }
         let manifestSubscription1 = ManifestSubscription(mediaType: "1",
                                                          sourceName: "1",
-                                                         sourceID: "1",
+                                                         sourceID: 1,
                                                          label: "1",
                                                          profileSet: .init(type: "1", profiles: [
                                                             .init(qualityProfile: "1",
@@ -53,7 +53,7 @@ final class TestActiveSpeaker: XCTestCase {
                                                          ]))
         let manifestSubscription2 = ManifestSubscription(mediaType: "2",
                                                          sourceName: "2",
-                                                         sourceID: "2",
+                                                         sourceID: 2,
                                                          label: "2",
                                                          profileSet: .init(type: "2", profiles: [
                                                             .init(qualityProfile: "2",
@@ -63,7 +63,7 @@ final class TestActiveSpeaker: XCTestCase {
                                                          ]))
         let manifestSubscription3 = ManifestSubscription(mediaType: "3",
                                                          sourceName: "3",
-                                                         sourceID: "3",
+                                                         sourceID: 3,
                                                          label: "3",
                                                          profileSet: .init(type: "3", profiles: [
                                                             .init(qualityProfile: "3",

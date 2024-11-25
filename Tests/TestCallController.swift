@@ -164,7 +164,7 @@ final class TestCallController: XCTestCase {
         // Example publication details.
         let details = ManifestPublication(mediaType: "video",
                                           sourceName: "test",
-                                          sourceID: "test",
+                                          sourceID: 1,
                                           label: "Label",
                                           profileSet: .init(type: "type",
                                                             profiles: [
@@ -211,7 +211,7 @@ final class TestCallController: XCTestCase {
     }
 
     func testSubscriptionSetAlter() async throws {
-        let sourceID = "TESTING"
+        let sourceID: UInt64 = 1
         let namespace = ["namespace"]
         let details = ManifestSubscription(mediaType: "video",
                                            sourceName: "test",
@@ -270,7 +270,7 @@ final class TestCallController: XCTestCase {
     }
 
     func testSubscriptionAlter() async throws {
-        let sourceID = "TESTING"
+        let sourceID: SourceIDType = 1
         let namespace = ["namespace1"]
         let namespace2 = ["namespace2"]
 
@@ -416,6 +416,7 @@ final class TestCallController: XCTestCase {
         let callController = MoqCallController(endpointUri: "1", client: mockClient, submitter: nil) {}
 
         // Let matching.
+        let sourceId: SourceIDType = 1
         let target = "0001"
         let nonTarget = "0002"
         let matching = ["000001", "01", "0003F2", "A0", target]
@@ -425,7 +426,7 @@ final class TestCallController: XCTestCase {
 
         let manifestSubscription = ManifestSubscription(mediaType: "test",
                                                         sourceName: "test",
-                                                        sourceID: "test",
+                                                        sourceID: sourceId,
                                                         label: "test",
                                                         profileSet: .init(type: "test",
                                                                           profiles: [
@@ -441,7 +442,7 @@ final class TestCallController: XCTestCase {
 
         try await callController.connect()
         let set = try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }), subscribe: true)
-        XCTAssertEqual(set.sourceId, "test")
+        XCTAssertEqual(set.sourceId, sourceId)
         let handlers = try callController.getSubscriptionsByEndpoint(target)
         XCTAssertEqual(handlers.count, 1)
         let retrievedFtn = FullTrackName(handlers.first!.getFullTrackName())
