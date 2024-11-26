@@ -3,10 +3,26 @@
 
 import Foundation
 
+struct ParticipantId: Codable, Equatable {
+    let conferenceId: UInt16
+    let participantId: UInt16
+
+    init(_ participantId: UInt32) {
+        self.conferenceId = UInt16((participantId >> 16) & 0x00FF)
+        self.participantId = UInt16(participantId & 0x00FF)
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(UInt32.self)
+        self.init(value)
+    }
+}
+
 /// A manifest for a given user's conference.
 struct Manifest: Codable {
     let clientID: String
-    let participantId: SourceIDType
+    let participantId: ParticipantId
     /// List of subscriptions this user should subscribe to.
     let subscriptions: [ManifestSubscription]
     /// List of publications this user should publish.
@@ -39,6 +55,7 @@ struct ManifestSubscription: Codable {
     /// Details of the subscription set.
     let mediaType, sourceName: String
     let sourceID: SourceIDType
+    let participantId: ParticipantId
     let label: String
     /// The different individual subscriptions and their profiles that should be subscribed to.
     let profileSet: ProfileSet
@@ -46,7 +63,7 @@ struct ManifestSubscription: Codable {
     enum CodingKeys: String, CodingKey {
         case mediaType, sourceName
         case sourceID = "sourceId"
-        case label, profileSet
+        case label, profileSet, participantId
     }
 }
 

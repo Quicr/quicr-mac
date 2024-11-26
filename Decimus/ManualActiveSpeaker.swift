@@ -6,7 +6,7 @@ class ManualActiveSpeaker: ActiveSpeakerNotifier {
     private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
     private var token = 0
 
-    func setActiveSpeakers(_ speakers: [EndpointId]) {
+    func setActiveSpeakers(_ speakers: [ParticipantId]) {
         for callback in self.callbacks.values {
             callback(speakers)
         }

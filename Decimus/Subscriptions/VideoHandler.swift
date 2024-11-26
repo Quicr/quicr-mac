@@ -69,6 +69,7 @@ class VideoHandler: CustomStringConvertible {
     private var currentCallbackToken = 0
     private let callbackLock = OSAllocatedUnfairLock()
     var description = "VideoHandler"
+    private let participantId: ParticipantId
 
     /// Create a new video handler.
     /// - Parameters:
@@ -91,7 +92,8 @@ class VideoHandler: CustomStringConvertible {
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
-         variances: VarianceCalculator) throws {
+         variances: VarianceCalculator,
+         participantId: ParticipantId) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -111,6 +113,7 @@ class VideoHandler: CustomStringConvertible {
         self.simulreceive = simulreceive
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
+        self.participantId = participantId
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -257,7 +260,7 @@ class VideoHandler: CustomStringConvertible {
                 self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
                     let namespace = "\(self.fullTrackName)"
-                    self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps)
+                    self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps, participantId: self.participantId)
                     guard self.simulreceive != .enable else { return }
                     let participant = self.participants.getOrMake(identifier: namespace)
                     participant.label = .init(describing: self)
@@ -555,9 +558,9 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
-    private func labelFromSample(namespace: String, format: CMFormatDescription, fps: UInt16) -> String {
+    private func labelFromSample(namespace: String, format: CMFormatDescription, fps: UInt16, participantId: ParticipantId) -> String {
         let size = format.dimensions
-        return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps"
+        return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps \(participantId)"
     }
 
     private func depacketize(fullTrackName: FullTrackName,

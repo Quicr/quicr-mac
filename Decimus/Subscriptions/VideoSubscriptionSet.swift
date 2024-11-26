@@ -22,6 +22,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     let sourceId: SourceIDType
+    let participantId: ParticipantId
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
@@ -66,12 +67,14 @@ class VideoSubscriptionSet: SubscriptionSet {
          pauseMissThreshold: Int,
          pauseResume: Bool,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         codecFactory: CodecFactory) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
 
         self.sourceId = subscription.sourceID
+        self.participantId = subscription.participantId
         self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
@@ -102,7 +105,7 @@ class VideoSubscriptionSet: SubscriptionSet {
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
         for profile in profiles {
-            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
+            let config = codecFactory.makeCodecConfig(from: profile.qualityProfile,
                                                       bitrateType: .average)
             guard let config = config as? VideoCodecConfig else {
                 throw "Codec mismatch"

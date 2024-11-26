@@ -32,6 +32,7 @@ enum SubscriptionSetError: Error {
 protocol SubscriptionSet {
     /// Identifier for this subscription set.
     var sourceId: SourceIDType { get }
+    var participantId: ParticipantId { get }
 
     /// Get the subscribe track handlers for this subscription set.
     /// - Returns: The (one or more) subscribe track handlers for this subscription.
@@ -164,10 +165,12 @@ class MoqCallController: QClientCallbacks {
     /// Setup a publication for a track.
     /// - Parameter details: The details for the publication from the manifest.
     /// - Parameter factory: Factory to create publication objects.
+    /// - Parameter codecFactory: Turns a quality profile into a codec configuration.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func publish(details: ManifestPublication, factory: PublicationFactory) throws {
+    public func publish(details: ManifestPublication, factory: PublicationFactory, codecFactory: CodecFactory) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
+                                         codecFactory: codecFactory,
                                          endpointId: self.endpointUri,
                                          relayId: self.serverId!)
         for (namespace, handler) in created {
@@ -217,6 +220,7 @@ class MoqCallController: QClientCallbacks {
     public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory, subscribe: Bool) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
+                                     codecFactory: CodecFactoryImpl(),
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
         if subscribe {
@@ -235,11 +239,9 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
     func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
-        let ftn = try profile.getFullTrackName()
-        let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
         let subscription = try factory.create(set: set,
-                                              ftn: ftn,
-                                              config: config,
+                                              profile: profile,
+                                              codecFactory: CodecFactoryImpl(),
                                               endpointId: self.endpointUri,
                                               relayId: self.serverId!)
         try set.addHandler(subscription)
@@ -361,43 +363,10 @@ class MoqCallController: QClientCallbacks {
         }
     }
 
-    // TODO: Do we need to worry about mismatched endpoint IDs in subscription sets?
-
-    /// Get all managed subscriptions originating from the given endpoint ID.
-    /// - Parameter endpointId: The endpoint ID to query on.
-    /// - Returns: List of subscription track handlers.
-    func getSubscriptionsByEndpoint(_ endpointId: EndpointId) throws -> [QSubscribeTrackHandlerObjC] {
-        var results: [QSubscribeTrackHandlerObjC] = []
-        for set in self.subscriptions.values {
-            for handler in set.getHandlers().values {
-                let ftn = FullTrackName(handler.getFullTrackName())
-                let thisEndpointId = try ftn.getEndpointId()
-                guard thisEndpointId == endpointId else {
-                    continue
-                }
-                results.append(handler)
-            }
-        }
-        return results
-    }
-}
-
-extension FullTrackName {
-
-    enum Index: Int {
-        case org = 0
-        case app = 1
-        case conference = 2
-        case mediaType = 3
-        case endpointId = 4
-    }
-
-    /// Extract endpoint ID from namespace as a leading 0 padded 4 digit string.
-    func getEndpointId() -> String? {
-        .init(data: self.nameSpace[Index.endpointId.rawValue], encoding: .utf8)
-    }
-
-    func getMediaType() -> String? {
-        .init(data: self.nameSpace[Index.mediaType.rawValue], encoding: .utf8)
+    /// Get all managed subscriptions originating from the given partiticpant.
+    /// - Parameter participantId: The participant ID to query on.
+    /// - Returns: List of subscription sets.
+    func getSubscriptionsByParticipant(_ participantId: ParticipantId) throws -> [SubscriptionSet] {
+        self.subscriptions.values.filter { $0.participantId == participantId }
     }
 }

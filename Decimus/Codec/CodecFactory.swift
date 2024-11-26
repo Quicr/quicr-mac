@@ -63,13 +63,17 @@ struct AudioCodecConfig: CodecConfig {
     let bitrate: UInt32
 }
 
-class CodecFactory {
+protocol CodecFactory {
+    func makeCodecConfig(from qualityProfile: String, bitrateType: BitrateType) -> CodecConfig
+}
+
+class CodecFactoryImpl: CodecFactory {
     private static let logger = DecimusLogger(CodecFactory.self)
 
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
     /// - Returns The corresponding codec config.
-    static func makeCodecConfig(from qualityProfile: String, bitrateType: BitrateType) -> CodecConfig {
+    func makeCodecConfig(from qualityProfile: String, bitrateType: BitrateType) -> CodecConfig {
         let elements = qualityProfile.components(separatedBy: ",")
 
         guard let codec = CodecType.allCases.first(where: {
@@ -85,14 +89,14 @@ class CodecFactory {
             tokens[subtokens[0]] = subtokens[1]
         }
 
-        return makeCodecConfig(codec: codec, bitrateType: bitrateType, tokens: tokens)
+        return self.makeCodecConfig(codec: codec, bitrateType: bitrateType, tokens: tokens)
     }
 
     /// Create a codec config from a dictionary of string tokens.
     /// - Parameter codec The codec type of the config.
     /// - Parameter tokens The dictionary of already parsed tokens.
     /// - Returns The corresponding codec config.
-    static func makeCodecConfig(codec: CodecType, bitrateType: BitrateType, tokens: [String: String]) -> CodecConfig {
+    func makeCodecConfig(codec: CodecType, bitrateType: BitrateType, tokens: [String: String]) -> CodecConfig {
         do {
             switch codec {
             case .h264, .hevc:

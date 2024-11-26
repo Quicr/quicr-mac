@@ -335,77 +335,49 @@ extension InCallView {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
             }
 
-            if let captureManager = self.captureManager,
-               let engine = self.engine {
-                self.publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
-                                                                 reliability: self.subscriptionConfig.value.mediaReliability,
-                                                                 engine: engine,
-                                                                 metricsSubmitter: self.submitter,
-                                                                 granularMetrics: self.influxConfig.value.granular,
-                                                                 captureManager: captureManager)
+            if let engine = self.engine {
                 self.subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                                    metricsSubmitter: self.submitter,
                                                                    subscriptionConfig: self.subscriptionConfig.value,
                                                                    granularMetrics: self.influxConfig.value.granular,
                                                                    engine: engine)
-                let connectUri: String = "moq://\(config.address):\(config.port)"
-                let endpointId: String = config.email
-                let qLogPath: URL
-                #if targetEnvironment(macCatalyst) || os(macOS)
-                qLogPath = .downloadsDirectory
-                #else
-                qLogPath = .documentsDirectory
-                #endif
+            }
 
-                let subConfig = self.subscriptionConfig.value
-                self.controller = qLogPath.path.withCString { qLogPath in
-                    let tConfig = TransportConfig(tls_cert_filename: nil,
-                                                  tls_key_filename: nil,
-                                                  time_queue_init_queue_size: 1000,
-                                                  time_queue_max_duration: 5000,
-                                                  time_queue_bucket_interval: 1,
-                                                  time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
-                                                  debug: true,
-                                                  quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
-                                                  quic_wifi_shadow_rtt_us: 0,
-                                                  pacing_decrease_threshold_Bps: 16000,
-                                                  pacing_increase_threshold_Bps: 16000,
-                                                  idle_timeout_ms: 15000,
-                                                  use_reset_wait_strategy: subConfig.useResetWaitCC,
-                                                  use_bbr: subConfig.useBBR,
-                                                  quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
-                                                  quic_priority_limit: subConfig.quicPriorityLimit)
-                    let config = ClientConfig(connectUri: connectUri,
-                                              endpointUri: endpointId,
-                                              transportConfig: tConfig,
-                                              metricsSampleMs: 0)
-                    let client = config.connectUri.withCString { connectUri in
-                        config.endpointUri.withCString { endpointId in
-                            QClientObjC(config: .init(connectUri: connectUri,
-                                                      endpointId: endpointId,
-                                                      transportConfig: config.transportConfig,
-                                                      metricsSampleMs: config.metricsSampleMs))
-                        }
-                    }
-                    return .init(endpointUri: endpointId,
-                                 client: client,
-                                 submitter: self.submitter) {
-                        DispatchQueue.main.async {
-                            onLeave()
-                        }
-                    }
-                }
-                if self.playtimeConfig.value.playtime {
-                    self.manualActiveSpeaker = .init()
-                }
+            if self.playtimeConfig.value.playtime {
+                self.manualActiveSpeaker = .init()
             }
         }
 
         func join() async -> Bool {
-            guard let controller = self.controller else {
-                Self.logger.error("Missing CallController due to previous error")
+            // Fetch the manifest from the conference server.
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                 return false
             }
+            self.currentManifest = manifest
+
+            // TODO: Doesn't need to be this defensive.
+            guard let captureManager = self.captureManager,
+                  let engine = self.engine else {
+                return false
+            }
+
+            // Create the publication factory now that we have the participant ID.
+            let publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
+                                                            reliability: self.subscriptionConfig.value.mediaReliability,
+                                                            engine: engine,
+                                                            metricsSubmitter: self.submitter,
+                                                            granularMetrics: self.influxConfig.value.granular,
+                                                            captureManager: captureManager,
+                                                            participantId: manifest.participantId)
+            self.publicationFactory = publicationFactory
+            let controller = self.makeCallController()
+            self.controller = controller
 
             // Connect to the relay/server.
             do {
@@ -424,34 +396,21 @@ extension InCallView {
                 return false
             }
 
-            // Fetch the manifest from the conference server.
-            let manifest: Manifest
-            do {
-                let mController = ManifestController.shared
-                manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                             email: self.config.email)
-            } catch {
-                Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
-                return false
-            }
-            self.currentManifest = manifest
-
             // Inject the manifest in order to create publications & subscriptions.
             do {
                 // Unwrap factory optionals.
-                guard let publicationFactory = self.publicationFactory,
-                      let subscriptionFactory = self.subscriptionFactory else {
+                guard let subscriptionFactory = self.subscriptionFactory else {
                     throw "Missing factory"
                 }
 
                 // Publish.
                 for publication in manifest.publications {
-                    try controller.publish(details: publication, factory: publicationFactory)
+                    try controller.publish(details: publication, factory: publicationFactory, codecFactory: CodecFactoryImpl())
                 }
 
                 // Subscribe.
                 for subscription in manifest.subscriptions {
-                    try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
+                    _ = try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
                 }
 
                 // Active speaker handling.
@@ -459,7 +418,8 @@ extension InCallView {
                     self.activeSpeaker = .init(notifier: self.manualActiveSpeaker!,
                                                controller: controller,
                                                subscriptions: manifest.subscriptions,
-                                               factory: subscriptionFactory)
+                                               factory: subscriptionFactory,
+                                               codecFactory: CodecFactoryImpl())
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
@@ -468,7 +428,7 @@ extension InCallView {
 
             // Start audio media.
             do {
-                try engine?.start()
+                try engine.start()
                 self.audioCapture = true
             } catch {
                 Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
@@ -476,7 +436,7 @@ extension InCallView {
 
             // Start video media.
             do {
-                try captureManager?.startCapturing()
+                try captureManager.startCapturing()
                 self.videoCapture = true
             } catch {
                 Self.logger.warning("Camera failure", alert: true)
@@ -487,11 +447,60 @@ extension InCallView {
         func setManualActiveSpeaker(_ json: String) {
             guard self.playtimeConfig.value.playtime,
                   let data = json.data(using: .ascii),
-                  let speakers = try? JSONDecoder().decode([EndpointId].self, from: data) else {
+                  let speakers = try? JSONDecoder().decode([ParticipantId].self, from: data) else {
                 Self.logger.error("Bad speaker JSON: \(json)")
                 return
             }
             self.manualActiveSpeaker!.setActiveSpeakers(speakers)
+        }
+
+        private func makeCallController() -> MoqCallController {
+            let connectUri: String = "moq://\(config.address):\(config.port)"
+            let endpointId: String = config.email
+            let qLogPath: URL
+            #if targetEnvironment(macCatalyst) || os(macOS)
+            qLogPath = .downloadsDirectory
+            #else
+            qLogPath = .documentsDirectory
+            #endif
+            let subConfig = self.subscriptionConfig.value
+            return qLogPath.path.withCString { qLogPath in
+                let tConfig = TransportConfig(tls_cert_filename: nil,
+                                              tls_key_filename: nil,
+                                              time_queue_init_queue_size: 1000,
+                                              time_queue_max_duration: 5000,
+                                              time_queue_bucket_interval: 1,
+                                              time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
+                                              debug: true,
+                                              quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
+                                              quic_wifi_shadow_rtt_us: 0,
+                                              pacing_decrease_threshold_Bps: 16000,
+                                              pacing_increase_threshold_Bps: 16000,
+                                              idle_timeout_ms: 15000,
+                                              use_reset_wait_strategy: subConfig.useResetWaitCC,
+                                              use_bbr: subConfig.useBBR,
+                                              quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
+                                              quic_priority_limit: subConfig.quicPriorityLimit)
+                let config = ClientConfig(connectUri: connectUri,
+                                          endpointUri: endpointId,
+                                          transportConfig: tConfig,
+                                          metricsSampleMs: 0)
+                let client = config.connectUri.withCString { connectUri in
+                    config.endpointUri.withCString { endpointId in
+                        QClientObjC(config: .init(connectUri: connectUri,
+                                                  endpointId: endpointId,
+                                                  transportConfig: config.transportConfig,
+                                                  metricsSampleMs: config.metricsSampleMs))
+                    }
+                }
+                return .init(endpointUri: endpointId,
+                             client: client,
+                             submitter: self.submitter) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onLeave()
+                    }
+                }
+            }
         }
 
         func leave() async {

@@ -5,7 +5,7 @@ import Foundation
 import AVFoundation
 
 protocol PublicationFactory {
-    func create(publication: ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
+    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
 }
 
 class PublicationFactoryImpl: PublicationFactory {
@@ -15,6 +15,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let engine: DecimusAudioEngine
     private let metricsSubmitter: MetricsSubmitter?
     private let captureManager: CaptureManager
+    private let participantId: ParticipantId
     private let logger = DecimusLogger(PublicationFactory.self)
 
     init(opusWindowSize: OpusWindowSize,
@@ -22,19 +23,21 @@ class PublicationFactoryImpl: PublicationFactory {
          engine: DecimusAudioEngine,
          metricsSubmitter: MetricsSubmitter?,
          granularMetrics: Bool,
-         captureManager: CaptureManager) {
+         captureManager: CaptureManager,
+         participantId: ParticipantId) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
         self.metricsSubmitter = metricsSubmitter
         self.granularMetrics = granularMetrics
         self.captureManager = captureManager
+        self.participantId = participantId
     }
 
-    func create(publication: ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
-            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+            let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
             let fullTrackName = try profile.getFullTrackName()
             do {
                 let publication = try self.create(profile,
@@ -101,6 +104,7 @@ class PublicationFactoryImpl: PublicationFactory {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
             return try OpusPublication(profile: profile,
+                                       participantId: self.participantId,
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,

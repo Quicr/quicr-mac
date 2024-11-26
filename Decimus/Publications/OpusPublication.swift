@@ -11,7 +11,7 @@ import Accelerate
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey = NSNumber(integerLiteral: 3)
-    static let endpointIdKey = NSNumber(integerLiteral: 4)
+    static let participantIdKey = NSNumber(integerLiteral: 4)
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -25,9 +25,10 @@ class OpusPublication: Publication {
     private let windowFrames: AVAudioFrameCount
     private var currentGroupId: UInt64?
     private let bootDate: Date
-    private let endpointIndexId: UInt16
+    private let participantId: ParticipantId
 
     init(profile: Profile,
+         participantId: ParticipantId,
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
          reliable: Bool,
@@ -64,12 +65,7 @@ class OpusPublication: Publication {
             throw "Missing expected profile values"
         }
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
-        let fullTrackName = try profile.getFullTrackName()
-        guard let endpointId = fullTrackName.getEndpointId(),
-              let endpointIndexId = UInt16(endpointId) else {
-            throw "Invalid endpoint ID"
-        }
-        self.endpointIndexId = endpointIndexId
+        self.participantId = participantId
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -136,8 +132,8 @@ class OpusPublication: Publication {
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
         loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
-        var endpointId = self.endpointIndexId
-        loc.add(key: Self.endpointIdKey, value: Data(bytes: &endpointId, count: MemoryLayout<UInt16>.size))
+        var endpointId = self.participantId
+        loc.add(key: Self.participantIdKey, value: Data(bytes: &endpointId, count: MemoryLayout<UInt32>.size))
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:

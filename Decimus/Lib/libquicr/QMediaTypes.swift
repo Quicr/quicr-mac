@@ -4,7 +4,7 @@
 import Foundation
 
 typealias QuicrNamespace = String
-typealias SourceIDType = UInt64
+typealias SourceIDType = String
 
 /// Protocol type mappings
 enum ProtocolType: UInt8, CaseIterable, Codable, Identifiable, Comparable {
