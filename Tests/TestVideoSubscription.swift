@@ -20,7 +20,8 @@ final class TestVideoSubscription: XCTestCase {
                                                  simulreceive: .none,
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
-                                                 relayId: "") { _, _ in }
+                                                 relayId: "",
+                                                 participantId: .init(1)) { _, _ in }
         subscription.metricsSampled(.init())
     }
 }

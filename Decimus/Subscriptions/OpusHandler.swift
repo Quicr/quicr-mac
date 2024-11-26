@@ -138,7 +138,7 @@ class OpusHandler {
                 true
             }
         }
-        let buffer = try JitterBuffer(identifier: "\(self.sourceId)",
+        let buffer = try JitterBuffer(identifier: self.sourceId,
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,
                                       capacity: Int(self.jitterMax / windowDuration.seconds),

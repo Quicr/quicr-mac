@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-/// Identifies a participant across multiple tracks or media types.
-
 /// Provides a ranked list of active speakers via callback.
 protocol ActiveSpeakerNotifier {
     typealias ActiveSpeakersChanged = ([ParticipantId]) -> Void

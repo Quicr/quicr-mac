@@ -125,7 +125,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                     if let self = self {
                         time = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.participants.removeParticipant(identifier: "\(self.subscription.sourceID)")
+                            self.participants.removeParticipant(identifier: self.subscription.sourceID)
                         }
                     } else {
                         return
@@ -143,7 +143,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     deinit {
         self.cleanupTask?.cancel()
         if self.simulreceive == .enable {
-            self.participants.removeParticipant(identifier: "\(self.subscription.sourceID)")
+            self.participants.removeParticipant(identifier: self.subscription.sourceID)
         }
         Self.logger.debug("Deinit")
     }
@@ -195,7 +195,7 @@ class VideoSubscriptionSet: SubscriptionSet {
         if self.granularMetrics,
            let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.reportTimestamp(namespace: "\(self.subscription.sourceID)",
+                await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
                                                               at: when)
             }
@@ -471,7 +471,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             }
 
             DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: "\(self.subscription.sourceID)")
+                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID)
                 if let dispatchLabel = dispatchLabel {
                     participant.label = dispatchLabel
                 }

@@ -35,8 +35,8 @@ final class TestActiveSpeaker: XCTestCase {
         let manifestSubscription1 = ManifestSubscription(mediaType: "1",
                                                          sourceName: "1",
                                                          sourceID: "1",
-                                                         participantId: .init(1),
                                                          label: "1",
+                                                         participantId: .init(1),
                                                          profileSet: .init(type: "1", profiles: [
                                                             .init(qualityProfile: "1",
                                                                   expiry: nil,
@@ -46,8 +46,8 @@ final class TestActiveSpeaker: XCTestCase {
         let manifestSubscription2 = ManifestSubscription(mediaType: "2",
                                                          sourceName: "2",
                                                          sourceID: "2",
-                                                         participantId: .init(2),
                                                          label: "2",
+                                                         participantId: .init(2),
                                                          profileSet: .init(type: "2", profiles: [
                                                             .init(qualityProfile: "2",
                                                                   expiry: nil,
@@ -57,8 +57,8 @@ final class TestActiveSpeaker: XCTestCase {
         let manifestSubscription3 = ManifestSubscription(mediaType: "3",
                                                          sourceName: "3",
                                                          sourceID: "3",
-                                                         participantId: .init(3),
                                                          label: "3",
+                                                         participantId: .init(3),
                                                          profileSet: .init(type: "3", profiles: [
                                                             .init(qualityProfile: "3",
                                                                   expiry: nil,

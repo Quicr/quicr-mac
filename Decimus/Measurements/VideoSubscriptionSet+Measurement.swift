@@ -18,7 +18,7 @@ extension VideoSubscriptionSet {
         var tags: [String: String] = [:]
 
         init(source: SourceIDType) {
-            tags["sourceId"] = "\(source)"
+            tags["sourceId"] = source
         }
 
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) throws {

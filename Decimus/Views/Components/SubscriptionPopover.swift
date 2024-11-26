@@ -23,7 +23,7 @@ struct SubscriptionPopover: View {
 
         ForEach(self.manifest.subscriptions, id: \.sourceID) { manifestSubscriptionSet in
             if let set = self.controller.getSubscriptionSet(manifestSubscriptionSet.sourceID) {
-                Text("\(manifestSubscriptionSet.sourceID)")
+                Text(manifestSubscriptionSet.sourceID)
                     .bold()
                 let existing = self.controller.getSubscriptions(set)
                 ForEach(manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
@@ -49,7 +49,7 @@ struct SubscriptionPopover: View {
                                   isOn: binding)
                 }
             } else {
-                Text("\(manifestSubscriptionSet.sourceID)").foregroundStyle(.red)
+                Text(manifestSubscriptionSet.sourceID).foregroundStyle(.red)
             }
         }
     }

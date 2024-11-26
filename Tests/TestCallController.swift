@@ -166,8 +166,7 @@ final class TestCallController: XCTestCase {
         // Example publication details.
         let details = ManifestPublication(mediaType: "video",
                                           sourceName: "test",
-                                          sourceID: "1",
-                                          participantId: .init(1),
+                                          sourceID: "test",
                                           label: "Label",
                                           profileSet: .init(type: "type",
                                                             profiles: [
@@ -214,13 +213,13 @@ final class TestCallController: XCTestCase {
     }
 
     func testSubscriptionSetAlter() async throws {
-        let sourceID: SourceIDType = "1"
+        let sourceID = "TESTING"
         let namespace = ["namespace"]
         let details = ManifestSubscription(mediaType: "video",
                                            sourceName: "test",
                                            sourceID: sourceID,
-                                           participantId: .init(1),
                                            label: "testLabel",
+                                           participantId: .init(1),
                                            profileSet: .init(type: "video",
                                                              profiles: [
                                                                 .init(qualityProfile: "h264",
@@ -274,7 +273,7 @@ final class TestCallController: XCTestCase {
     }
 
     func testSubscriptionAlter() async throws {
-        let sourceID: SourceIDType = "1"
+        let sourceID = "TESTING"
         let namespace = ["namespace1"]
         let namespace2 = ["namespace2"]
 
@@ -290,8 +289,8 @@ final class TestCallController: XCTestCase {
         let details = ManifestSubscription(mediaType: "video",
                                            sourceName: "test",
                                            sourceID: sourceID,
-                                           participantId: .init(1),
                                            label: "testLabel",
+                                           participantId: .init(1),
                                            profileSet: .init(type: "video",
                                                              profiles: [
                                                                 profile1,
@@ -405,19 +404,18 @@ final class TestCallController: XCTestCase {
         let matchingProfile = Profile(qualityProfile: "test", expiry: nil, priorities: nil, namespace: ["1"])
         let nonMatchingParticipantId: ParticipantId = .init(2)
         let nonMatchingProfile = Profile(qualityProfile: "test", expiry: nil, priorities: nil, namespace: ["2"])
-        let nonMatchingNamespace = ["1"]
         let matchingSubscription = ManifestSubscription(mediaType: "test",
                                                         sourceName: "test",
-                                                        sourceID: "1",
-                                                        participantId: matchingParticipantId,
+                                                        sourceID: "test",
                                                         label: "test",
+                                                        participantId: matchingParticipantId,
                                                         profileSet: .init(type: "test",
                                                                           profiles: [ matchingProfile ]))
         let nonMatchingSubscription = ManifestSubscription(mediaType: "test",
                                                            sourceName: "test",
                                                            sourceID: "2",
-                                                           participantId: nonMatchingParticipantId,
                                                            label: "test",
+                                                           participantId: nonMatchingParticipantId,
                                                            profileSet: .init(type: "test",
                                                                              profiles: [ nonMatchingProfile ]))
 

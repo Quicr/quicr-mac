@@ -37,9 +37,7 @@ struct Manifest: Codable {
 /// A set of related publication entries.
 struct ManifestPublication: Codable {
     /// Details of the publication set.
-    let mediaType, sourceName: String
-    let sourceID: SourceIDType
-    let label: String
+    let mediaType, sourceName, sourceID, label: String
     /// The different individual publications and their profiles that should be published.
     let profileSet: ProfileSet
 
@@ -53,10 +51,8 @@ struct ManifestPublication: Codable {
 /// A set of related subscription entries.
 struct ManifestSubscription: Codable {
     /// Details of the subscription set.
-    let mediaType, sourceName: String
-    let sourceID: SourceIDType
+    let mediaType, sourceName, sourceID, label: String
     let participantId: ParticipantId
-    let label: String
     /// The different individual subscriptions and their profiles that should be subscribed to.
     let profileSet: ProfileSet
 
