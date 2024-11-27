@@ -3,9 +3,12 @@
 
 import Foundation
 
-struct ParticipantId: Codable, Equatable {
+struct ParticipantId: Codable, Equatable, Hashable {
     let conferenceId: UInt16
     let participantId: UInt16
+    var aggregate: UInt32 {
+        (UInt32(self.conferenceId) << 16) | UInt32(self.participantId)
+    }
 
     init(_ participantId: UInt32) {
         self.conferenceId = UInt16((participantId >> 16) & 0x00FF)

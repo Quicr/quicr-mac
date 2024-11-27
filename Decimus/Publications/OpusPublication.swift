@@ -132,8 +132,8 @@ class OpusPublication: Publication {
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
         loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
-        var endpointId = self.participantId
-        loc.add(key: Self.participantIdKey, value: Data(bytes: &endpointId, count: MemoryLayout<UInt32>.size))
+        var participantId = self.participantId.aggregate
+        loc.add(key: Self.participantIdKey, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:

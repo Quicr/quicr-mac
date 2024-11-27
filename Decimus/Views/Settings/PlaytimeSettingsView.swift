@@ -5,6 +5,7 @@ import SwiftUI
 
 struct PlaytimeSettings: Codable {
     var playtime = false
+    var echo = false
 }
 
 struct PlaytimeSettingsView: View {
@@ -17,9 +18,7 @@ struct PlaytimeSettingsView: View {
         Section("Playtime") {
             LabeledToggle("Playtime", isOn: self.$playtimeConfig.value.playtime)
             if self.playtimeConfig.value.playtime {
-                Form {
-                }
-                .formStyle(.columns)
+                LabeledToggle("Echo", isOn: self.$playtimeConfig.value.echo)
             }
         }
     }

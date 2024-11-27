@@ -296,7 +296,7 @@ extension InCallView {
         private let onLeave: () -> Void
         var relayId: String?
         private(set) var publicationFactory: PublicationFactory?
-        private(set) var subscriptionFactory: SubscriptionFactory?
+        private(set) var subscriptionFactory: SubscriptionFactoryImpl?
 
         @AppStorage(SubscriptionSettingsView.showLabelsKey)
         var showLabels: Bool = true
@@ -336,18 +336,6 @@ extension InCallView {
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
             }
-
-            if let engine = self.engine {
-                self.subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
-                                                                   metricsSubmitter: self.submitter,
-                                                                   subscriptionConfig: self.subscriptionConfig.value,
-                                                                   granularMetrics: self.influxConfig.value.granular,
-                                                                   engine: engine)
-            }
-
-            if self.playtimeConfig.value.playtime {
-                self.manualActiveSpeaker = .init()
-            }
         }
 
         func join() async -> Bool {
@@ -369,7 +357,7 @@ extension InCallView {
                 return false
             }
 
-            // Create the publication factory now that we have the participant ID.
+            // Create the factories now that we have the participant ID.
             let publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
                                                             reliability: self.subscriptionConfig.value.mediaReliability,
                                                             engine: engine,
@@ -377,7 +365,15 @@ extension InCallView {
                                                             granularMetrics: self.influxConfig.value.granular,
                                                             captureManager: captureManager,
                                                             participantId: manifest.participantId)
+            let ourParticipantId = self.playtimeConfig.value.echo ? nil : manifest.participantId
+            let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
+                                                              metricsSubmitter: self.submitter,
+                                                              subscriptionConfig: self.subscriptionConfig.value,
+                                                              granularMetrics: self.influxConfig.value.granular,
+                                                              engine: engine,
+                                                              participantId: ourParticipantId)
             self.publicationFactory = publicationFactory
+            self.subscriptionFactory = subscriptionFactory
             let controller = self.makeCallController()
             self.controller = controller
 
@@ -400,11 +396,6 @@ extension InCallView {
 
             // Inject the manifest in order to create publications & subscriptions.
             do {
-                // Unwrap factory optionals.
-                guard let subscriptionFactory = self.subscriptionFactory else {
-                    throw "Missing factory"
-                }
-
                 // Publish.
                 for publication in manifest.publications {
                     try controller.publish(details: publication, factory: publicationFactory, codecFactory: CodecFactoryImpl())
@@ -416,8 +407,8 @@ extension InCallView {
                 }
 
                 // Active speaker handling.
-                if self.playtimeConfig.value.playtime {
-                    self.activeSpeaker = .init(notifier: self.manualActiveSpeaker!,
+                if let notifier = subscriptionFactory.activeSpeakerNotifier {
+                    self.activeSpeaker = .init(notifier: subscriptionFactory.activeSpeakerNotifier!,
                                                controller: controller,
                                                subscriptions: manifest.subscriptions,
                                                factory: subscriptionFactory,
@@ -497,9 +488,10 @@ extension InCallView {
                 }
                 return .init(endpointUri: endpointId,
                              client: client,
-                             submitter: self.submitter) {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.onLeave()
+                             submitter: self.submitter) { [weak self] in
+                    guard let self = self else { return }
+                    DispatchQueue.main.async {
+                        self.onLeave()
                     }
                 }
             }
