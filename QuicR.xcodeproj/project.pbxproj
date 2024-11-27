@@ -72,6 +72,9 @@
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */; };
+		9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */; };
+		9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */; };
+		9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
@@ -257,6 +260,9 @@
 		9B749B882CD8E3CD002E0FC7 /* QFullTrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFullTrackName.h; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoUtilities.swift; sourceTree = "<group>"; };
+		9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerSubscriptionSet.swift; sourceTree = "<group>"; };
+		9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackSubscription.swift; sourceTree = "<group>"; };
+		9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerNotifierSubscriptionSet.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -662,6 +668,9 @@
 		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
 			isa = PBXGroup;
 			children = (
+				9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */,
+				9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */,
+				9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */,
 				9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */,
 				184912872A3A51FC00773D39 /* OpusSubscription.swift */,
 				FF2498B62A55E95E00C6D66D /* VideoSubscriptionSet.swift */,
@@ -966,6 +975,7 @@
 				9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */,
 				9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */,
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
+				9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */,
 				184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */,
 				9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */,
 				9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */,
@@ -974,6 +984,7 @@
 				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
 				9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
+				9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */,
 				9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */,
@@ -1003,6 +1014,7 @@
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
+				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,

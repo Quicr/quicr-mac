@@ -138,20 +138,40 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let subscriptionConfig: SubscriptionConfig
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
+    private let participantId: ParticipantId?
+    var activeSpeakerNotifier: ActiveSpeakerNotifierSubscriptionSet?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          subscriptionConfig: SubscriptionConfig,
          granularMetrics: Bool,
-         engine: DecimusAudioEngine) {
+         engine: DecimusAudioEngine,
+         participantId: ParticipantId?) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
         self.granularMetrics = granularMetrics
         self.engine = engine
+        self.participantId = participantId
     }
 
     func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
+        if subscription.mediaType == "audio" && subscription.profileSet.type == "switched" {
+            // This a switched / active speaker subscription type.
+            return ActiveSpeakerSubscriptionSet(subscription: subscription,
+                                                engine: self.engine,
+                                                jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                                jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                                opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                                ourParticipantId: self.participantId)
+        }
+
+        if subscription.mediaType == "playtime-control" {
+            let notifier = try ActiveSpeakerNotifierSubscriptionSet(subscription: subscription)
+            self.activeSpeakerNotifier = notifier
+            return notifier
+        }
+
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
@@ -199,6 +219,18 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     }
 
     func create(set: SubscriptionSet, profile: Profile, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+        if let set = set as? ActiveSpeakerSubscriptionSet {
+            return try CallbackSubscription(fullTrackName: profile.getFullTrackName(),
+                                            priority: 0,
+                                            groupOrder: .originalPublisherOrder) { [weak set] in
+                set?.receivedObject(headers: $0, data: $1, extensions: $2)
+            }
+        }
+
+        if let set = set as? ActiveSpeakerNotifierSubscriptionSet {
+            return set
+        }
+
         let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
         if let videoConfig = config as? VideoCodecConfig {
             let set = set as! VideoSubscriptionSet
