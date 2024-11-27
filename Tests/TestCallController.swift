@@ -29,7 +29,7 @@ final class TestCallController: XCTestCase {
             self.callback = created
         }
 
-        func create(publication: QuicR.ManifestPublication, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+        func create(publication: QuicR.ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
             var pubs: [(FullTrackName, QPublishTrackHandlerObjC)] = []
             for profile in publication.profileSet.profiles {
                 let ftn = try FullTrackName(namespace: profile.namespace, name: "")
@@ -57,14 +57,14 @@ final class TestCallController: XCTestCase {
             self.callback = callback
         }
 
-        func create(subscription: ManifestSubscription, endpointId: String, relayId: String) throws -> any SubscriptionSet {
+        func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
             let set = MockSubscriptionSet(subscription)
             self.callback(set)
             return set
         }
 
-        func create(set: any SubscriptionSet, ftn: FullTrackName, config: any CodecConfig, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
-            MockSubscription(ftn: ftn)
+        func create(set: any SubscriptionSet, profile: Profile, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+            MockSubscription(ftn: try profile.getFullTrackName())
         }
     }
 
@@ -76,14 +76,16 @@ final class TestCallController: XCTestCase {
 
     class MockSubscriptionSet: SubscriptionSet {
         let sourceId: QuicR.SourceIDType
+        let participantId: ParticipantId
         private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
         private let subscription: ManifestSubscription
 
         init(_ subscription: ManifestSubscription) {
             self.sourceId = subscription.sourceID
+            self.participantId = subscription.participantId
             self.subscription = subscription
             for profile in self.subscription.profileSet.profiles {
-                let ftn = try! FullTrackName(namespace: profile.namespace, name: "")
+                let ftn = try! profile.getFullTrackName()
                 self.handlers[ftn] = MockSubscription(ftn: ftn)
             }
         }
@@ -192,7 +194,7 @@ final class TestCallController: XCTestCase {
         try await controller.connect()
 
         // Calling publish should result in a matching publication being created from the factory, and a publish track being issued on it.
-        try controller.publish(details: details, factory: MockPublicationFactory(creationCallback))
+        try controller.publish(details: details, factory: MockPublicationFactory(creationCallback), codecFactory: MockCodecFactory())
         XCTAssert(published)
 
         // This publication should show as tracked.
@@ -217,6 +219,7 @@ final class TestCallController: XCTestCase {
                                            sourceName: "test",
                                            sourceID: sourceID,
                                            label: "testLabel",
+                                           participantId: .init(1),
                                            profileSet: .init(type: "video",
                                                              profiles: [
                                                                 .init(qualityProfile: "h264",
@@ -287,6 +290,7 @@ final class TestCallController: XCTestCase {
                                            sourceName: "test",
                                            sourceID: sourceID,
                                            label: "testLabel",
+                                           participantId: .init(1),
                                            profileSet: .init(type: "video",
                                                              profiles: [
                                                                 profile1,
@@ -386,27 +390,7 @@ final class TestCallController: XCTestCase {
         return match
     }
 
-    func testEndpointIdLookup() throws {
-        let match: String = "0001"
-        let exampleNamespace = ["000001", "01", "0003F2", "A0", match]
-        let exampleNamespaceFail = ["000001", "01", "0003F2", "A0", "0002"]
-        let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
-        XCTAssertEqual(match, fullTrackName.getEndpointId())
-        let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
-        XCTAssertNotEqual(match, fullTrackNameFail.getEndpointId())
-    }
-
-    func testMediaTypeLookup() throws {
-        let match: String = "A0"
-        let exampleNamespace = ["000001", "01", "0003F2", match, "0001"]
-        let exampleNamespaceFail = ["000001", "01", "0003F2", "A1", "0001"]
-        let fullTrackName = try FullTrackName(namespace: exampleNamespace, name: "")
-        XCTAssertEqual(match, fullTrackName.getMediaType())
-        let fullTrackNameFail = try FullTrackName(namespace: exampleNamespaceFail, name: "")
-        XCTAssertNotEqual(match, fullTrackNameFail.getMediaType())
-    }
-
-    func testSubscriptionsByEndpointId() async throws {
+    func testSubscriptionsByParticipantId() async throws {
         let mockClient = MockClient { _ in
         } unpublish: { _ in
         } subscribe: { _ in
@@ -416,37 +400,38 @@ final class TestCallController: XCTestCase {
         let callController = MoqCallController(endpointUri: "1", client: mockClient, submitter: nil) {}
 
         // Let matching.
-        let target = "0001"
-        let nonTarget = "0002"
-        let matching = ["000001", "01", "0003F2", "A0", target]
-        let matchingFtn = try FullTrackName(namespace: matching, name: "")
-        let nonMatching = ["000001", "01", "0003F2", "A0", nonTarget]
-        let nonMatchingFtn = try FullTrackName(namespace: nonMatching, name: "")
-
-        let manifestSubscription = ManifestSubscription(mediaType: "test",
+        let matchingParticipantId: ParticipantId = .init(1)
+        let matchingProfile = Profile(qualityProfile: "test", expiry: nil, priorities: nil, namespace: ["1"])
+        let nonMatchingParticipantId: ParticipantId = .init(2)
+        let nonMatchingProfile = Profile(qualityProfile: "test", expiry: nil, priorities: nil, namespace: ["2"])
+        let matchingSubscription = ManifestSubscription(mediaType: "test",
                                                         sourceName: "test",
                                                         sourceID: "test",
                                                         label: "test",
+                                                        participantId: matchingParticipantId,
                                                         profileSet: .init(type: "test",
-                                                                          profiles: [
-                                                                            .init(qualityProfile: "",
-                                                                                  expiry: nil,
-                                                                                  priorities: nil,
-                                                                                  namespace: matching),
-                                                                            .init(qualityProfile: "",
-                                                                                  expiry: nil,
-                                                                                  priorities: nil,
-                                                                                  namespace: nonMatching)
-                                                                          ]))
+                                                                          profiles: [ matchingProfile ]))
+        let nonMatchingSubscription = ManifestSubscription(mediaType: "test",
+                                                           sourceName: "test",
+                                                           sourceID: "2",
+                                                           label: "test",
+                                                           participantId: nonMatchingParticipantId,
+                                                           profileSet: .init(type: "test",
+                                                                             profiles: [ nonMatchingProfile ]))
 
         try await callController.connect()
-        let set = try callController.subscribeToSet(details: manifestSubscription, factory: MockSubscriptionFactory({ _ in }), subscribe: true)
-        XCTAssertEqual(set.sourceId, "test")
-        let handlers = try callController.getSubscriptionsByEndpoint(target)
-        XCTAssertEqual(handlers.count, 1)
-        let retrievedFtn = FullTrackName(handlers.first!.getFullTrackName())
-        XCTAssertEqual(retrievedFtn, matchingFtn)
-        XCTAssertNotEqual(retrievedFtn, nonMatchingFtn)
+        let factory = MockSubscriptionFactory({ _ in })
+        let matchingSet = try callController.subscribeToSet(details: matchingSubscription, factory: factory, subscribe: true)
+        let nonMatchingSet = try callController.subscribeToSet(details: nonMatchingSubscription, factory: factory, subscribe: true)
+        XCTAssertEqual(matchingSet.participantId, matchingParticipantId)
+        XCTAssertEqual(nonMatchingSet.participantId, nonMatchingParticipantId)
+        XCTAssertNotEqual(matchingSet.participantId, nonMatchingSet.participantId)
+        let sets = try callController.getSubscriptionsByParticipant(matchingSet.participantId)
+        XCTAssertEqual(sets.count, 1)
+        XCTAssertEqual(sets.first?.getHandlers().count, 1)
+        let retrievedFtn = FullTrackName(sets.first!.getHandlers().first!.value.getFullTrackName())
+        XCTAssertEqual(retrievedFtn, try matchingProfile.getFullTrackName())
+        XCTAssertNotEqual(retrievedFtn, try nonMatchingProfile.getFullTrackName())
     }
 
     func testMetrics() throws {

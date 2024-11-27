@@ -29,8 +29,9 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval = 1.5
     private var lastUpdateTime = Date.now
+    private let participantId: ParticipantId
 
-    init(fullTrackName: FullTrackName,
+    init(profile: Profile,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -42,8 +43,9 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
          variances: VarianceCalculator,
          endpointId: String,
          relayId: String,
+         participantId: ParticipantId,
          callback: @escaping ObjectReceived) throws {
-        self.fullTrackName = fullTrackName
+        self.fullTrackName = try profile.getFullTrackName()
         self.config = config
         self.participants = participants
         self.metricsSubmitter = metricsSubmitter
@@ -54,6 +56,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
+        self.participantId = participantId
 
         if let metricsSubmitter = metricsSubmitter {
             let measurement = TrackMeasurement(type: .subscribe,
@@ -74,7 +77,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                        granularMetrics: granularMetrics,
                                        jitterBufferConfig: jitterBufferConfig,
                                        simulreceive: simulreceive,
-                                       variances: variances)
+                                       variances: variances,
+                                       participantId: participantId)
         self.token = handler.registerCallback(callback)
         self.handler = handler
         super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder)
@@ -152,7 +156,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                              granularMetrics: self.granularMetrics,
                                              jitterBufferConfig: self.jitterBufferConfig,
                                              simulreceive: self.simulreceive,
-                                             variances: self.variances)
+                                             variances: self.variances,
+                                             participantId: self.participantId)
             self.token = recreated.registerCallback(self.callback)
             self.handler = recreated
             handler = recreated

@@ -1,12 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-/// Identifies a participant across multiple tracks or media types.
-typealias EndpointId = String
-
 /// Provides a ranked list of active speakers via callback.
 protocol ActiveSpeakerNotifier {
-    typealias ActiveSpeakersChanged = ([EndpointId]) -> Void
+    typealias ActiveSpeakersChanged = ([ParticipantId]) -> Void
     typealias CallbackToken = Int
 
     /// Register a callback to be notified when the active speakers change.
@@ -26,8 +23,9 @@ class ActiveSpeakerApply {
     private let controller: MoqCallController
     private let manifest: [ManifestSubscription]
     private let factory: SubscriptionFactory
+    private let codecFactory: CodecFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
-    private var lastSpeakers: [EndpointId]?
+    private var lastSpeakers: [ParticipantId]?
     private var count: Int?
 
     /// Initialize the active speaker manager.
@@ -39,11 +37,13 @@ class ActiveSpeakerApply {
     init(notifier: ActiveSpeakerNotifier,
          controller: MoqCallController,
          subscriptions: [ManifestSubscription],
-         factory: SubscriptionFactory) {
+         factory: SubscriptionFactory,
+         codecFactory: CodecFactory) {
         self.notifier = notifier
         self.controller = controller
         self.manifest = subscriptions
         self.factory = factory
+        self.codecFactory = codecFactory
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -65,7 +65,7 @@ class ActiveSpeakerApply {
         self.onActiveSpeakersChanged(lastSpeakers)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: [EndpointId]) {
+    private func onActiveSpeakersChanged(_ speakers: [ParticipantId]) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
         self.lastSpeakers = speakers
         let speakers = self.count == nil ? speakers : Array(speakers.prefix(self.count!))
@@ -75,20 +75,20 @@ class ActiveSpeakerApply {
         var unsubbed = false
         for set in existing {
             for handler in set.getHandlers().values {
+                guard let handler = handler as? VideoSubscription,
+                      !speakers.contains(where: { $0 == set.participantId }) else {
+                    // Not interested in unsubscribing this.
+                    continue
+                }
+
+                // Unsubscribe.
+                unsubbed = true
+                let ftn = FullTrackName(handler.getFullTrackName())
+                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
                 do {
-                    let ftn = FullTrackName(handler.getFullTrackName())
-                    guard let endpointId = ftn.getEndpointId(),
-                          !speakers.contains(where: { $0 == endpointId }),
-                          let stringMediaType = ftn.getMediaType(),
-                          let mediaType = UInt16(stringMediaType, radix: 16),
-                          mediaType & 0x80 != 0 else {
-                        continue
-                    }
-                    self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(endpointId)))")
-                    unsubbed = true
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {
-                    self.logger.warning("Error getting endpoint ID: \(error)")
+                    self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
                 }
             }
         }
@@ -98,7 +98,6 @@ class ActiveSpeakerApply {
 
         // Now, subscribe to video from any speakers we are not already subscribed to.
         var subbed = false
-
         let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
         for speaker in speakers {
             for set in self.manifest {
@@ -106,14 +105,14 @@ class ActiveSpeakerApply {
                     do {
                         let ftn = try FullTrackName(namespace: subscription.namespace, name: "")
                         guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }),
-                              let stringMediaType = ftn.getMediaType(),
-                              let mediaType = UInt16(stringMediaType, radix: 16),
-                              mediaType & 0x80 != 0 else {
+                              let _ = self.codecFactory.makeCodecConfig(from: subscription.qualityProfile, bitrateType: .average) as? VideoCodecConfig,
+                              set.participantId == speaker else {
+                            // Not interested.
                             continue
                         }
-                        guard let endpointId = ftn.getEndpointId(),
-                              endpointId == speaker else { continue }
-                        self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(endpointId))")
+                        // Subscribe.
+                        subbed = true
+                        self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
                         // Does a set for this already exist?
                         // TODO: Clean this up.
                         let targetSet: SubscriptionSet
@@ -127,7 +126,6 @@ class ActiveSpeakerApply {
                         try self.controller.subscribe(set: targetSet,
                                                       profile: subscription,
                                                       factory: self.factory)
-                        subbed = true
                     } catch {
                         self.logger.error("Failed to subscribe: \(subscription.namespace)")
                     }

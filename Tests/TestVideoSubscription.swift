@@ -6,13 +6,11 @@ import XCTest
 
 final class TestVideoSubscription: XCTestCase {
     func testMetrics() throws {
-        let subscription = try VideoSubscription(fullTrackName: try .init(namespace: [""], name: ""),
-                                                 config: .init(codec: .h264,
-                                                               bitrate: 0,
-                                                               fps: 30,
-                                                               width: 1920,
-                                                               height: 1080,
-                                                               bitrateType: .average),
+        let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
+                                                                expiry: [1],
+                                                                priorities: [1],
+                                                                namespace: ["0"]),
+                                                 config: .init(codec: .h264, bitrate: 2000, fps: 30, width: 1920, height: 1080, bitrateType: .average),
                                                  participants: .init(),
                                                  metricsSubmitter: nil,
                                                  videoBehaviour: .freeze,
@@ -22,7 +20,8 @@ final class TestVideoSubscription: XCTestCase {
                                                  simulreceive: .none,
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
-                                                 relayId: "") { _, _ in }
+                                                 relayId: "",
+                                                 participantId: .init(1)) { _, _ in }
         subscription.metricsSampled(.init())
     }
 }

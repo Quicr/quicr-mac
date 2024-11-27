@@ -7,7 +7,7 @@ import os
 import Atomics
 
 class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeTrackHandlerCallbacks {
-
+    let participantId: ParticipantId
     let sourceId: SourceIDType
 
     private static let logger = DecimusLogger(OpusSubscription.self)
@@ -69,6 +69,7 @@ class OpusSubscription: QSubscribeTrackHandlerObjC, SubscriptionSet, QSubscribeT
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
         self.sourceId = subscription.sourceID
+        self.participantId = subscription.participantId
 
         // Create the actual audio handler upfront.
         self.handler = try .init(sourceId: self.subscription.sourceID,

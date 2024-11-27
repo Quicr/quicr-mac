@@ -9,7 +9,7 @@ final class TestActiveSpeaker: XCTestCase {
         private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
         private var token: CallbackToken = 0
 
-        func fire(_ activeSpeakers: [EndpointId]) {
+        func fire(_ activeSpeakers: [ParticipantId]) {
             for callback in self.callbacks.values {
                 callback(activeSpeakers)
             }
@@ -32,47 +32,46 @@ final class TestActiveSpeaker: XCTestCase {
         // to reflect the list.
 
         // Prepare the manifest.
-        func makeVideoNamespace(_ endpointId: Int) -> [String] {
-            [
-                "000001",
-                "01",
-                "0003F2",
-                "A0",
-                "000\(endpointId)"
-            ]
-        }
         let manifestSubscription1 = ManifestSubscription(mediaType: "1",
                                                          sourceName: "1",
                                                          sourceID: "1",
                                                          label: "1",
+                                                         participantId: .init(1),
                                                          profileSet: .init(type: "1", profiles: [
                                                             .init(qualityProfile: "1",
                                                                   expiry: nil,
                                                                   priorities: nil,
-                                                                  namespace: makeVideoNamespace(1))
+                                                                  namespace: ["1"])
                                                          ]))
         let manifestSubscription2 = ManifestSubscription(mediaType: "2",
                                                          sourceName: "2",
                                                          sourceID: "2",
                                                          label: "2",
+                                                         participantId: .init(2),
                                                          profileSet: .init(type: "2", profiles: [
                                                             .init(qualityProfile: "2",
                                                                   expiry: nil,
                                                                   priorities: nil,
-                                                                  namespace: makeVideoNamespace(2))
+                                                                  namespace: ["2"])
                                                          ]))
         let manifestSubscription3 = ManifestSubscription(mediaType: "3",
                                                          sourceName: "3",
                                                          sourceID: "3",
                                                          label: "3",
+                                                         participantId: .init(3),
                                                          profileSet: .init(type: "3", profiles: [
                                                             .init(qualityProfile: "3",
                                                                   expiry: nil,
                                                                   priorities: nil,
-                                                                  namespace: makeVideoNamespace(3))
+                                                                  namespace: ["3"])
                                                          ]))
         let manifestSubscriptions = [manifestSubscription1, manifestSubscription2, manifestSubscription3]
-
+        var ftnToParticipantId: [FullTrackName: ParticipantId] = [:]
+        for subscription in manifestSubscriptions {
+            for profile in subscription.profileSet.profiles {
+                ftnToParticipantId[try profile.getFullTrackName()] = subscription.participantId
+            }
+        }
         var subbed: [QSubscribeTrackHandlerObjC] = []
         var unsubbed: [QSubscribeTrackHandlerObjC] = []
         let sub: TestCallController.MockClient.SubscribeTrackCallback = { subbed.append($0) }
@@ -107,17 +106,18 @@ final class TestActiveSpeaker: XCTestCase {
         // Now, 1 and 3 are actively speaking.
         subbed = []
         unsubbed = []
-        let speakerOne: EndpointId = "0001"
-        let speakerTwo: EndpointId = "0002"
-        let speakerThree: EndpointId = "0003"
-        let newSpeakers: [EndpointId] = [speakerOne, speakerThree]
+        let speakerOne = ParticipantId(1)
+        let speakerTwo = ParticipantId(2)
+        let speakerThree = ParticipantId(3)
+        let newSpeakers: [ParticipantId] = [speakerOne, speakerThree]
         let notifier = MockActiveSpeakerNotifier()
         var created: [SubscriptionSet] = []
         let factory = TestCallController.MockSubscriptionFactory { created.append($0) }
         let activeSpeakerController = ActiveSpeakerApply(notifier: notifier,
                                                          controller: controller,
                                                          subscriptions: manifestSubscriptions,
-                                                         factory: factory)
+                                                         factory: factory,
+                                                         codecFactory: MockCodecFactory())
 
         // Test state clear.
         XCTAssert(created.isEmpty)
@@ -134,8 +134,8 @@ final class TestActiveSpeaker: XCTestCase {
             // Factory should have created subscription 3.
             XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
             // Controller should have subscribed to 3.
-            XCTAssert(try subbed.reduce(into: true, {
-                try $0 = $0 && FullTrackName($1.getFullTrackName()).getEndpointId() == speakerThree
+            XCTAssert(subbed.reduce(into: true, {
+                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
             }))
         } else {
             // Subscription 3 shouldn't be considered because of the clamping.
@@ -143,11 +143,11 @@ final class TestActiveSpeaker: XCTestCase {
             XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
         }
         // Should have unsubscribed from 2 regardless of clamping.
-        XCTAssert(try unsubbed.reduce(into: true, {
-            try $0 = $0 && FullTrackName($1.getFullTrackName()).getEndpointId() == speakerTwo
+        XCTAssert(unsubbed.reduce(into: true, {
+            $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
         }))
         // 1 should still be present regardless of clamping.
-        let active = try controller.getSubscriptionsByEndpoint(speakerOne)
+        let active = try controller.getSubscriptionsByParticipant(speakerOne)
         XCTAssert(active.count == 1)
     }
 

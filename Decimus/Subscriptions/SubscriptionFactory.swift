@@ -121,12 +121,13 @@ struct SubscriptionConfig: Codable {
 
 protocol SubscriptionFactory {
     func create(subscription: ManifestSubscription,
+                codecFactory: CodecFactory,
                 endpointId: String,
                 relayId: String) throws -> SubscriptionSet
 
     func create(set: SubscriptionSet,
-                ftn: FullTrackName,
-                config: CodecConfig,
+                profile: Profile,
+                codecFactory: CodecFactory,
                 endpointId: String,
                 relayId: String) throws -> QSubscribeTrackHandlerObjC
 }
@@ -150,7 +151,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
     }
 
-    func create(subscription: ManifestSubscription, endpointId: String, relayId: String) throws -> any SubscriptionSet {
+    func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
@@ -158,7 +159,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         // Resolve profile sets to config.
         var foundCodecs: [CodecType] = []
         for profile in subscription.profileSet.profiles {
-            let config = CodecFactory.makeCodecConfig(from: profile.qualityProfile,
+            let config = codecFactory.makeCodecConfig(from: profile.qualityProfile,
                                                       bitrateType: self.subscriptionConfig.bitrateType)
             foundCodecs.append(config.codec)
         }
@@ -176,7 +177,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             pauseMissThreshold: self.subscriptionConfig.pauseMissThreshold,
                                             pauseResume: self.subscriptionConfig.pauseResume,
                                             endpointId: endpointId,
-                                            relayId: relayId)
+                                            relayId: relayId,
+                                            codecFactory: CodecFactoryImpl())
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -196,10 +198,11 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         throw CodecError.unsupportedCodecSet(found)
     }
 
-    func create(set: SubscriptionSet, ftn: FullTrackName, config: CodecConfig, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+    func create(set: SubscriptionSet, profile: Profile, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+        let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
         if let videoConfig = config as? VideoCodecConfig {
             let set = set as! VideoSubscriptionSet
-            return try VideoSubscription(fullTrackName: ftn,
+            return try VideoSubscription(profile: profile,
                                          config: videoConfig,
                                          participants: self.videoParticipants,
                                          metricsSubmitter: self.metricsSubmitter,
@@ -210,7 +213,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          simulreceive: self.subscriptionConfig.simulreceive,
                                          variances: set.decodedVariances,
                                          endpointId: endpointId,
-                                         relayId: relayId) { [weak set] ts, when in
+                                         relayId: relayId,
+                                         participantId: set.participantId) { [weak set] ts, when in
                 guard let set = set else { return }
                 set.receivedObject(timestamp: ts, when: when)
             }
