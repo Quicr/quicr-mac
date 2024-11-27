@@ -82,10 +82,10 @@ class ActiveSpeakerApply {
                 }
 
                 // Unsubscribe.
+                unsubbed = true
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
                 do {
-                    unsubbed = true
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {
                     self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
@@ -111,6 +111,7 @@ class ActiveSpeakerApply {
                             continue
                         }
                         // Subscribe.
+                        subbed = true
                         self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
                         // Does a set for this already exist?
                         // TODO: Clean this up.
@@ -125,7 +126,6 @@ class ActiveSpeakerApply {
                         try self.controller.subscribe(set: targetSet,
                                                       profile: subscription,
                                                       factory: self.factory)
-                        subbed = true
                     } catch {
                         self.logger.error("Failed to subscribe: \(subscription.namespace)")
                     }

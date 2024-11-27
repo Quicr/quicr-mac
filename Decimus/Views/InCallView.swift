@@ -184,7 +184,9 @@ struct InCallView: View {
                                     HStack {
                                         TextField("Active Speakers",
                                                   text: self.$activeSpeakers)
-                                            .keyboardType(.asciiCapable)
+                                        #if !os(macOS)
+                                        .keyboardType(.asciiCapable)
+                                        #endif
                                         Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                         }
                                     }
