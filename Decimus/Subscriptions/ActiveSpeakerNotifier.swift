@@ -82,10 +82,10 @@ class ActiveSpeakerApply {
                 }
 
                 // Unsubscribe.
+                unsubbed = true
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
                 do {
-                    unsubbed = true
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {
                     self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
