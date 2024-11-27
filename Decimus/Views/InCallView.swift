@@ -184,7 +184,9 @@ struct InCallView: View {
                                     HStack {
                                         TextField("Active Speakers",
                                                   text: self.$activeSpeakers)
-                                            .keyboardType(.asciiCapable)
+                                        #if !os(macOS)
+                                        .keyboardType(.asciiCapable)
+                                        #endif
                                         Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                         }
                                     }
@@ -334,10 +336,6 @@ extension InCallView {
             } catch {
                 Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
             }
-
-            if self.playtimeConfig.value.playtime {
-                self.manualActiveSpeaker = .init()
-            }
         }
 
         func join() async -> Bool {
@@ -409,7 +407,7 @@ extension InCallView {
                 }
 
                 // Active speaker handling.
-                if self.playtimeConfig.value.playtime {
+                if let notifier = subscriptionFactory.activeSpeakerNotifier {
                     self.activeSpeaker = .init(notifier: subscriptionFactory.activeSpeakerNotifier!,
                                                controller: controller,
                                                subscriptions: manifest.subscriptions,
