@@ -80,6 +80,13 @@ struct SubscriptionSettingsView: View {
                     .labelsHidden()
                 }
 
+                LabeledContent("Encoder Key Frame Interval (s)") {
+                    TextField("Interval (s)",
+                              value: self.$subscriptionConfig.value.keyFrameInterval,
+                              format: .number)
+                        .labelsHidden()
+                }
+
                 if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
                     LabeledContent("Preferred Camera") {
                         Picker("Preferred Camera", selection: $preferredCamera) {

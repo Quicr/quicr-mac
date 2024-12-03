@@ -38,6 +38,7 @@ class VTEncoder: VideoEncoder {
     private let emitStartCodes: Bool
     private let seiData: ApplicationSeiData
     private var userData: UnsafeRawPointer?
+    private let keyFrameInterval: TimeInterval
 
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
 
@@ -52,10 +53,12 @@ class VTEncoder: VideoEncoder {
     // swiftlint:disable function_body_length
     init(config: VideoCodecConfig,
          verticalMirror: Bool,
-         emitStartCodes: Bool = false) throws {
+         emitStartCodes: Bool = false,
+         keyFrameInterval: TimeInterval) throws {
         self.verticalMirror = verticalMirror
         self.config = config
         self.emitStartCodes = emitStartCodes
+        self.keyFrameInterval = keyFrameInterval
         self.bufferAllocator = .init(1*1024*1024, hdrSize: 512)
         let allocator: CFAllocator?
         #if targetEnvironment(macCatalyst) || os(macOS)
@@ -144,13 +147,13 @@ class VTEncoder: VideoEncoder {
             NSNumber(value: eightFrameTimes * bitrateInBytes),
             NSNumber(value: eightFrameTimes)
         ]
-#if !os(tvOS)
+        #if !os(tvOS)
         try OSStatusError.checked("Set data limit") {
             VTSessionSetProperty(compressionSession,
                                  key: kVTCompressionPropertyKey_DataRateLimits,
                                  value: dataRateLimits as CFArray)
         }
-#endif
+        #endif
 
         try OSStatusError.checked("Set expected frame rate: \(self.config.fps)") {
             VTSessionSetProperty(compressionSession,
@@ -158,10 +161,10 @@ class VTEncoder: VideoEncoder {
                                  value: config.fps as CFNumber)
         }
 
-        try OSStatusError.checked("Set max key frame interval: \(self.config.fps * 5)") {
+        try OSStatusError.checked("Set max key frame interval: \(keyFrameInterval)") {
             VTSessionSetProperty(compressionSession,
-                                 key: kVTCompressionPropertyKey_MaxKeyFrameInterval,
-                                 value: config.fps * 5 as CFNumber)
+                                 key: kVTCompressionPropertyKey_MaxKeyFrameIntervalDuration,
+                                 value: keyFrameInterval as CFNumber)
         }
 
         if config.codec == .hevc {
