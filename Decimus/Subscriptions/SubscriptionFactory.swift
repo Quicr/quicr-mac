@@ -54,6 +54,8 @@ struct SubscriptionConfig: Codable {
     var opusWindowSize: OpusWindowSize
     /// Control behaviour of video rendering.
     var videoBehaviour: VideoBehaviour
+    /// Interval between key frames, or 0 for codec control.
+    var keyFrameInterval: TimeInterval
     /// Describes target media reliability states.
     var mediaReliability: MediaReliability
     /// QUIC CWIN setting for underlying transport.
@@ -98,6 +100,7 @@ struct SubscriptionConfig: Codable {
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
         videoBehaviour = .freeze
+        keyFrameInterval = 5
         mediaReliability = .init()
         quicCwinMinimumKiB = 8
         videoJitterBuffer = .init(mode: .interval, minDepth: jitterDepthTime)

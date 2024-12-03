@@ -364,7 +364,8 @@ extension InCallView {
                                                             metricsSubmitter: self.submitter,
                                                             granularMetrics: self.influxConfig.value.granular,
                                                             captureManager: captureManager,
-                                                            participantId: manifest.participantId)
+                                                            participantId: manifest.participantId,
+                                                            keyFrameInterval: self.subscriptionConfig.value.keyFrameInterval)
             let ourParticipantId = self.playtimeConfig.value.echo ? nil : manifest.participantId
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                               metricsSubmitter: self.submitter,

@@ -16,6 +16,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let metricsSubmitter: MetricsSubmitter?
     private let captureManager: CaptureManager
     private let participantId: ParticipantId
+    private let keyFrameInterval: TimeInterval
     private let logger = DecimusLogger(PublicationFactory.self)
 
     init(opusWindowSize: OpusWindowSize,
@@ -24,7 +25,8 @@ class PublicationFactoryImpl: PublicationFactory {
          metricsSubmitter: MetricsSubmitter?,
          granularMetrics: Bool,
          captureManager: CaptureManager,
-         participantId: ParticipantId) {
+         participantId: ParticipantId,
+         keyFrameInterval: TimeInterval) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -32,6 +34,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.granularMetrics = granularMetrics
         self.captureManager = captureManager
         self.participantId = participantId
+        self.keyFrameInterval = keyFrameInterval
     }
 
     func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
@@ -86,7 +89,8 @@ class PublicationFactoryImpl: PublicationFactory {
             #endif
             let encoder = try VTEncoder(config: config,
                                         verticalMirror: device.position == .front,
-                                        emitStartCodes: false)
+                                        emitStartCodes: false,
+                                        keyFrameInterval: self.keyFrameInterval)
 
             let publication = try H264Publication(profile: profile,
                                                   config: config,
