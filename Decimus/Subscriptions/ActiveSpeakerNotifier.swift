@@ -99,9 +99,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         // Now, subscribe to video from any speakers we are not already subscribed to.
         var subbed = 0
         let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().compactMap { $0.value }) }
-        print(speakers)
         for set in self.videoSubscriptions where speakers.contains(set.participantId) {
-            print(set.sourceID)
             for subscription in set.profileSet.profiles {
                 do {
                     // We're only interested in non-existing subscriptions.

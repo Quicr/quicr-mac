@@ -104,15 +104,6 @@ final class TestActiveSpeaker: XCTestCase {
             return a < b
         }), subbed)
 
-        var created: [SubscriptionSet] = []
-        let factory = TestCallController.MockSubscriptionFactory { created.append($0) }
-
-        let notifier = MockActiveSpeakerNotifier()
-        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
-                                                                                                  controller: controller,
-                                                                                                  videoSubscriptions: manifestSubscriptions,
-                                                                                                  factory: factory)
-
         // Now, 1 and 3 are actively speaking.
         subbed = []
         unsubbed = []
@@ -120,6 +111,13 @@ final class TestActiveSpeaker: XCTestCase {
         let speakerTwo = ParticipantId(2)
         let speakerThree = ParticipantId(3)
         let newSpeakers: OrderedSet<ParticipantId> = [speakerOne, speakerThree]
+        let notifier = MockActiveSpeakerNotifier()
+        var created: [SubscriptionSet] = []
+        let factory = TestCallController.MockSubscriptionFactory { created.append($0) }
+        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
+                                                                                                  controller: controller,
+                                                                                                  videoSubscriptions: manifestSubscriptions,
+                                                                                                  factory: factory)
 
         // Test state clear.
         XCTAssert(created.isEmpty)
