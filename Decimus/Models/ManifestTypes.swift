@@ -3,7 +3,15 @@
 
 import Foundation
 
-struct ParticipantId: Codable, Equatable, Hashable {
+enum ManifestMediaTypes: String {
+    case video = "video"
+    case audio = "audio"
+}
+
+struct ParticipantId: Codable, Equatable, Hashable, CustomStringConvertible {
+    var description: String {
+        "[\(self.aggregate) (C:\(self.conferenceId),ID:\(self.participantId))]"
+    }
     let conferenceId: UInt16
     let participantId: UInt16
     var aggregate: UInt32 {

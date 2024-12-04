@@ -52,7 +52,7 @@ class ActiveSpeakerNotifierSubscriptionSet: QSubscribeTrackHandlerObjC, Subscrip
             let participants = try self.decoder.decode([ParticipantId].self, from: data)
             self.logger.debug("Got active speaker participants: \(participants)")
             for callback in self.callbacks.values {
-                callback(participants)
+                callback(.init(participants))
             }
         } catch {
             self.logger.error("Failed to decode active speaker list: \(error.localizedDescription)")

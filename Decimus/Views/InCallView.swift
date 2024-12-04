@@ -54,8 +54,6 @@ struct InCallView: View {
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
-    @State private var isShowingSubscriptions = false
-    @State private var isShowingPublications = false
     @State private var debugDetail = false
     @State private var layout = VideoLayout.nByN
     @State private var activeSpeakers: String = ""
@@ -63,8 +61,6 @@ struct InCallView: View {
         self.viewModel.videoParticipants.participants.isEmpty
     }
     @State private var showControls = false
-    @AppStorage(PlaytimeSettingsView.defaultsKey)
-    private var playtime = AppStorageWrapper<PlaytimeSettings>(value: .init())
 
     /// Callback when call is left.
     private let onLeave: () -> Void
@@ -139,14 +135,6 @@ struct InCallView: View {
                                   restrictedCount: gridCount,
                                   videoParticipants: self.viewModel.videoParticipants)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-
-                        // TODO: Re-enable on reimplementation.
-                        //                            Button("Alter Subscriptions") {
-                        //                                self.isShowingSubscriptions = true
-                        //                            }
-                        //                            Button("Alter Publications") {
-                        //                                self.isShowingPublications = true
-                        //                            }
                         Button("Toggle Debug Details") {
                             self.debugDetail = true
                         }
@@ -180,14 +168,17 @@ struct InCallView: View {
                                     .labelsHidden()
                                     .pickerStyle(.segmented)
                                 }
-                                LabeledContent("Active Speakers") {
-                                    HStack {
-                                        TextField("Active Speakers",
-                                                  text: self.$activeSpeakers)
-                                        #if !os(macOS)
-                                        .keyboardType(.asciiCapable)
-                                        #endif
-                                        Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
+                                let playtime = self.viewModel.playtimeConfig.value
+                                if playtime.playtime && playtime.manualActiveSpeaker {
+                                    LabeledContent("Active Speakers") {
+                                        HStack {
+                                            TextField("Active Speakers",
+                                                      text: self.$activeSpeakers)
+                                            #if !os(macOS)
+                                            .keyboardType(.asciiCapable)
+                                            #endif
+                                            Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
+                                            }
                                         }
                                     }
                                 }
@@ -282,7 +273,7 @@ extension InCallView {
 
         let engine: DecimusAudioEngine?
         private(set) var controller: MoqCallController?
-        private(set) var activeSpeaker: ActiveSpeakerApply?
+        private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
         private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
         private(set) var videoParticipants = VideoParticipants()
@@ -308,7 +299,7 @@ extension InCallView {
         private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
         @AppStorage(PlaytimeSettingsView.defaultsKey)
-        private var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
+        private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
         init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
@@ -366,7 +357,8 @@ extension InCallView {
                                                             captureManager: captureManager,
                                                             participantId: manifest.participantId,
                                                             keyFrameInterval: self.subscriptionConfig.value.keyFrameInterval)
-            let ourParticipantId = self.playtimeConfig.value.echo ? nil : manifest.participantId
+            let playtime = self.playtimeConfig.value
+            let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                               metricsSubmitter: self.submitter,
                                                               subscriptionConfig: self.subscriptionConfig.value,
@@ -408,12 +400,22 @@ extension InCallView {
                 }
 
                 // Active speaker handling.
-                if let notifier = subscriptionFactory.activeSpeakerNotifier {
-                    self.activeSpeaker = .init(notifier: subscriptionFactory.activeSpeakerNotifier!,
-                                               controller: controller,
-                                               subscriptions: manifest.subscriptions,
-                                               factory: subscriptionFactory,
-                                               codecFactory: CodecFactoryImpl())
+                let notifier: ActiveSpeakerNotifier?
+                if playtime.playtime && playtime.manualActiveSpeaker {
+                    let manual = ManualActiveSpeaker()
+                    self.manualActiveSpeaker = manual
+                    notifier = manual
+                } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                    notifier = real
+                } else {
+                    notifier = nil
+                }
+                if let notifier = notifier {
+                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                    self.activeSpeaker = try .init(notifier: notifier,
+                                                   controller: controller,
+                                                   videoSubscriptions: videoSubscriptions,
+                                                   factory: subscriptionFactory)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
@@ -439,13 +441,13 @@ extension InCallView {
         }
 
         func setManualActiveSpeaker(_ json: String) {
-            guard self.playtimeConfig.value.playtime,
-                  let data = json.data(using: .ascii),
+            guard json.count > 0 else { return }
+            guard let data = json.data(using: .ascii),
                   let speakers = try? JSONDecoder().decode([ParticipantId].self, from: data) else {
                 Self.logger.error("Bad speaker JSON: \(json)")
                 return
             }
-            self.manualActiveSpeaker!.setActiveSpeakers(speakers)
+            self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
         }
 
         private func makeCallController() -> MoqCallController {

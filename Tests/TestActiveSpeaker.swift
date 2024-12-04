@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
+import OrderedCollections
 @testable import QuicR
 
 final class TestActiveSpeaker: XCTestCase {
@@ -9,7 +10,7 @@ final class TestActiveSpeaker: XCTestCase {
         private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
         private var token: CallbackToken = 0
 
-        func fire(_ activeSpeakers: [ParticipantId]) {
+        func fire(_ activeSpeakers: OrderedSet<ParticipantId>) {
             for callback in self.callbacks.values {
                 callback(activeSpeakers)
             }
@@ -27,12 +28,12 @@ final class TestActiveSpeaker: XCTestCase {
         }
     }
 
-    func testActiveSpeaker(clamp: Bool) async throws {
+    func testActiveSpeaker(clamp: Int?) async throws {
         // Given a list of active speakers, the controller's subscriptions should change
         // to reflect the list.
 
         // Prepare the manifest.
-        let manifestSubscription1 = ManifestSubscription(mediaType: "1",
+        let manifestSubscription1 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
                                                          sourceName: "1",
                                                          sourceID: "1",
                                                          label: "1",
@@ -43,7 +44,7 @@ final class TestActiveSpeaker: XCTestCase {
                                                                   priorities: nil,
                                                                   namespace: ["1"])
                                                          ]))
-        let manifestSubscription2 = ManifestSubscription(mediaType: "2",
+        let manifestSubscription2 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
                                                          sourceName: "2",
                                                          sourceID: "2",
                                                          label: "2",
@@ -54,7 +55,7 @@ final class TestActiveSpeaker: XCTestCase {
                                                                   priorities: nil,
                                                                   namespace: ["2"])
                                                          ]))
-        let manifestSubscription3 = ManifestSubscription(mediaType: "3",
+        let manifestSubscription3 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
                                                          sourceName: "3",
                                                          sourceID: "3",
                                                          label: "3",
@@ -109,15 +110,14 @@ final class TestActiveSpeaker: XCTestCase {
         let speakerOne = ParticipantId(1)
         let speakerTwo = ParticipantId(2)
         let speakerThree = ParticipantId(3)
-        let newSpeakers: [ParticipantId] = [speakerOne, speakerThree]
+        let newSpeakers: OrderedSet<ParticipantId> = [speakerOne, speakerThree]
         let notifier = MockActiveSpeakerNotifier()
         var created: [SubscriptionSet] = []
         let factory = TestCallController.MockSubscriptionFactory { created.append($0) }
-        let activeSpeakerController = ActiveSpeakerApply(notifier: notifier,
-                                                         controller: controller,
-                                                         subscriptions: manifestSubscriptions,
-                                                         factory: factory,
-                                                         codecFactory: MockCodecFactory())
+        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
+                                                                                                  controller: controller,
+                                                                                                  videoSubscriptions: manifestSubscriptions,
+                                                                                                  factory: factory)
 
         // Test state clear.
         XCTAssert(created.isEmpty)
@@ -125,37 +125,57 @@ final class TestActiveSpeaker: XCTestCase {
         XCTAssert(unsubbed.isEmpty)
 
         // Mock active speaker change.
-        if clamp {
-            activeSpeakerController.setClampCount(1)
+        if let clamp = clamp {
+            activeSpeakerController.setClampCount(clamp)
         }
         notifier.fire(newSpeakers)
 
-        if !clamp {
+        switch clamp {
+        case nil:
             // Factory should have created subscription 3.
             XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
             // Controller should have subscribed to 3.
             XCTAssert(subbed.reduce(into: true, {
                 $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
             }))
-        } else {
+            // Should have unsubscribed from 2 regardless of clamping.
+            XCTAssert(unsubbed.reduce(into: true, {
+                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
+            }))
+        case 1:
             // Subscription 3 shouldn't be considered because of the clamping.
             XCTAssertEqual(created.map { $0.sourceId }, [])
             XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
+            // Should have unsubscribed from 2 regardless of clamping.
+            XCTAssert(unsubbed.reduce(into: true, {
+                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
+            }))
+        case 10:
+            // Factory should have created subscription 3.
+            XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+            // Controller should have subscribed to 3.
+            XCTAssert(subbed.reduce(into: true, {
+                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
+            }))
+            // Should NOT have unsubscribed from 2 because we're expanding out to previous due to clamp > speakers.count.
+            XCTAssert(unsubbed.isEmpty)
+        default:
+            XCTFail("Unhandled case")
         }
-        // Should have unsubscribed from 2 regardless of clamping.
-        XCTAssert(unsubbed.reduce(into: true, {
-            $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
-        }))
         // 1 should still be present regardless of clamping.
         let active = try controller.getSubscriptionsByParticipant(speakerOne)
         XCTAssert(active.count == 1)
     }
 
     func testActiveSpeaker() async throws {
-        try await self.testActiveSpeaker(clamp: false)
+        try await self.testActiveSpeaker(clamp: nil)
     }
 
     func testActiveSpeakerClamped() async throws {
-        try await self.testActiveSpeaker(clamp: true)
+        try await self.testActiveSpeaker(clamp: 1)
+    }
+
+    func testActiveSpeakerExpanded() async throws {
+        try await self.testActiveSpeaker(clamp: 10)
     }
 }

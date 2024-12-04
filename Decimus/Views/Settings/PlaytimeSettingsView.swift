@@ -6,6 +6,7 @@ import SwiftUI
 struct PlaytimeSettings: Codable {
     var playtime = false
     var echo = false
+    var manualActiveSpeaker = false
 }
 
 struct PlaytimeSettingsView: View {
@@ -19,6 +20,7 @@ struct PlaytimeSettingsView: View {
             LabeledToggle("Playtime", isOn: self.$playtimeConfig.value.playtime)
             if self.playtimeConfig.value.playtime {
                 LabeledToggle("Echo", isOn: self.$playtimeConfig.value.echo)
+                LabeledToggle("Manual Active Speaker", isOn: self.$playtimeConfig.value.manualActiveSpeaker)
             }
         }
     }
