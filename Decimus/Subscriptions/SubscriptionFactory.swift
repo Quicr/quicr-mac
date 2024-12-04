@@ -159,7 +159,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     }
 
     func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
-        if subscription.mediaType == "audio" && subscription.profileSet.type == "switched" {
+        if subscription.mediaType == ManifestMediaTypes.audio.rawValue && subscription.profileSet.type == "switched" {
             // This a switched / active speaker subscription type.
             return ActiveSpeakerSubscriptionSet(subscription: subscription,
                                                 engine: self.engine,

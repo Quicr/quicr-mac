@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import OrderedCollections
+
 /// Provides a ranked list of active speakers via callback.
 protocol ActiveSpeakerNotifier {
-    typealias ActiveSpeakersChanged = ([ParticipantId]) -> Void
+    typealias ActiveSpeakersChanged = (OrderedSet<ParticipantId>) -> Void
     typealias CallbackToken = Int
 
     /// Register a callback to be notified when the active speakers change.
@@ -16,16 +18,19 @@ protocol ActiveSpeakerNotifier {
     func unregisterActiveSpeakerCallback(_ token: CallbackToken)
 }
 
+enum ActiveSpeakerApplyError: Error {
+    case videoOnly
+}
+
 /// Manages the operations associated with active speaker changes.
-class ActiveSpeakerApply {
+class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let notifier: ActiveSpeakerNotifier
     private var callbackToken: ActiveSpeakerNotifier.CallbackToken?
     private let controller: MoqCallController
-    private let manifest: [ManifestSubscription]
+    private let videoSubscriptions: [ManifestSubscription]
     private let factory: SubscriptionFactory
-    private let codecFactory: CodecFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
-    private var lastSpeakers: [ParticipantId]?
+    private var lastSpeakers: OrderedSet<ParticipantId>
     private var count: Int?
 
     /// Initialize the active speaker manager.
@@ -36,14 +41,16 @@ class ActiveSpeakerApply {
     ///  - factory: Factory for subscription handler creation.
     init(notifier: ActiveSpeakerNotifier,
          controller: MoqCallController,
-         subscriptions: [ManifestSubscription],
-         factory: SubscriptionFactory,
-         codecFactory: CodecFactory) {
+         videoSubscriptions: [ManifestSubscription],
+         factory: SubscriptionFactory) throws {
         self.notifier = notifier
         self.controller = controller
-        self.manifest = subscriptions
+        guard videoSubscriptions.allSatisfy({ $0.mediaType == ManifestMediaTypes.video.rawValue }) else {
+            throw ActiveSpeakerApplyError.videoOnly
+        }
+        self.videoSubscriptions = videoSubscriptions
         self.factory = factory
-        self.codecFactory = codecFactory
+        self.lastSpeakers = .init(videoSubscriptions.map { $0.participantId })
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -58,31 +65,22 @@ class ActiveSpeakerApply {
     func setClampCount(_ count: Int?) {
         self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
         self.count = count
-        guard let lastSpeakers = self.lastSpeakers else {
-            self.logger.debug("[ActiveSpeakers] No set active speakers on clamp change")
-            return
-        }
         self.onActiveSpeakersChanged(lastSpeakers)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: [ParticipantId]) {
+    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
-        self.lastSpeakers = speakers
-        let speakers = self.count == nil ? speakers : Array(speakers.prefix(self.count!))
+        self.lastSpeakers = speakers.union(self.lastSpeakers)
+
+        let speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, unsubscribe from video for any speakers that are no longer active.
-        var unsubbed = false
-        for set in existing {
-            for handler in set.getHandlers().values {
-                guard let handler = handler as? VideoSubscription,
-                      !speakers.contains(where: { $0 == set.participantId }) else {
-                    // Not interested in unsubscribing this.
-                    continue
-                }
-
+        var unsubbed = 0
+        for set in existing where !speakers.contains(set.participantId) {
+            for handler in set.getHandlers().values where handler is T {
                 // Unsubscribe.
-                unsubbed = true
+                unsubbed += 1
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
                 do {
@@ -92,48 +90,50 @@ class ActiveSpeakerApply {
                 }
             }
         }
-        if !unsubbed {
-            self.logger.debug("[ActiveSpeakers] No new unsubscribes needed")
+        if unsubbed == 0 {
+            self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
+        } else {
+            self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
         }
 
         // Now, subscribe to video from any speakers we are not already subscribed to.
-        var subbed = false
-        let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
-        for speaker in speakers {
-            for set in self.manifest {
-                for subscription in set.profileSet.profiles {
-                    do {
-                        let ftn = try FullTrackName(namespace: subscription.namespace, name: "")
-                        guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }),
-                              let _ = self.codecFactory.makeCodecConfig(from: subscription.qualityProfile, bitrateType: .average) as? VideoCodecConfig,
-                              set.participantId == speaker else {
-                            // Not interested.
-                            continue
-                        }
-                        // Subscribe.
-                        subbed = true
-                        self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
-                        // Does a set for this already exist?
-                        // TODO: Clean this up.
-                        let targetSet: SubscriptionSet
-                        if let found = existing.filter({$0.sourceId == set.sourceID}).first {
-                            targetSet = found
-                        } else {
-                            targetSet = try self.controller.subscribeToSet(details: set,
-                                                                           factory: self.factory,
-                                                                           subscribe: false)
-                        }
-                        try self.controller.subscribe(set: targetSet,
-                                                      profile: subscription,
-                                                      factory: self.factory)
-                    } catch {
-                        self.logger.error("Failed to subscribe: \(subscription.namespace)")
+        var subbed = 0
+        let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().compactMap { $0.value }) }
+        print(speakers)
+        for set in self.videoSubscriptions where speakers.contains(set.participantId) {
+            print(set.sourceID)
+            for subscription in set.profileSet.profiles {
+                do {
+                    // We're only interested in non-existing subscriptions.
+                    let ftn = try subscription.getFullTrackName()
+                    guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }) else {
+                        continue
                     }
+                    // Subscribe.
+                    subbed += 1
+                    self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
+                    // Does a set for this already exist?
+                    // TODO: Clean this up.
+                    let targetSet: SubscriptionSet
+                    if let found = existing.filter({$0.sourceId == set.sourceID}).first {
+                        targetSet = found
+                    } else {
+                        targetSet = try self.controller.subscribeToSet(details: set,
+                                                                       factory: self.factory,
+                                                                       subscribe: false)
+                    }
+                    try self.controller.subscribe(set: targetSet,
+                                                  profile: subscription,
+                                                  factory: self.factory)
+                } catch {
+                    self.logger.error("Failed to subscribe: \(subscription.namespace)")
                 }
             }
         }
-        if !subbed {
-            self.logger.debug("[ActiveSpeakers] No new subscribes needed")
+        if subbed == 0 {
+            self.logger.info("[ActiveSpeakers] No new subscribes needed")
+        } else {
+            self.logger.info("[ActiveSpeakers] Subscribed to \(subbed) subscriptions")
         }
     }
 }
