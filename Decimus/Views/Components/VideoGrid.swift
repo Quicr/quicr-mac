@@ -19,12 +19,22 @@ struct VideoGrid: View {
     }
 
     private func calcColumns() -> CGFloat {
-        let denom = self.restrictedCount != nil ? self.restrictedCount! : self.participants.count
+        let denom: Int
+        if let restrictedCount = self.restrictedCount {
+            denom = min(restrictedCount, self.participants.count)
+        } else {
+            denom = self.participants.count
+        }
         return .init(min(maxColumns, max(1, Int(ceil(sqrt(Double(denom)))))))
     }
 
     private func calcRows(_ columns: CGFloat) -> CGFloat {
-        let numerator = self.restrictedCount != nil ? self.restrictedCount! : self.participants.count
+        let numerator: Int
+        if let restrictedCount = self.restrictedCount {
+            numerator = min(restrictedCount, self.participants.count)
+        } else {
+            numerator = self.participants.count
+        }
         return .init(round(Float(numerator) / Float(columns)))
     }
 

@@ -1,0 +1,9 @@
+- Subscribe OK needs the HEAD
+- Define the client-facing fetch API (track, group ID, object ID range)
+- Implement the fetch retrival and output at line rate.
+- Client fetches. 
+- Fetches to relays that have no data in a cache, should go upstream  
+- Relays should cache incoming fetch data in the same way that it would cache any incoming data.
+- LRU cache. 
+- We should use the memory cache for both the cache and the memory for the queue.
+- How are the cache output priorities / transport work. 
