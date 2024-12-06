@@ -15,7 +15,7 @@ private class MockEncoder: VideoEncoder {
         self.callback = writeCallback
     }
 
-    func write(sample: CMSampleBuffer, timestamp: Date) throws {
+    func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws {
         self.callback()
     }
 

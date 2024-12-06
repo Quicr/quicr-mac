@@ -16,7 +16,7 @@ protocol VideoEncoder {
                                  _ sequence: UInt64,
                                  _ userData: UnsafeRawPointer?) -> Void
     var frameRate: Float64? { get set }
-    func write(sample: CMSampleBuffer, timestamp: Date) throws
+    func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws
     func setCallback(_ callback: @escaping EncodedCallback, userData: UnsafeRawPointer?)
 }
 
@@ -212,19 +212,27 @@ class VTEncoder: VideoEncoder {
         VTCompressionSessionInvalidate(encoder)
     }
 
-    func write(sample: CMSampleBuffer, timestamp: Date) throws {
+    func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws {
         guard let encoder = self.encoder else { throw "Missing encoder" }
         guard let imageBuffer = sample.imageBuffer else { throw "Missing image" }
         let presentation = sample.presentationTimeStamp
         let absoluteTimeCM = CMTime(seconds: timestamp.timeIntervalSince1970,
                                     preferredTimescale: 1_000_000)
         let time = Unmanaged.passRetained(NSValue(time: absoluteTimeCM)).toOpaque()
+        let properties: CFDictionary?
+        if forceKeyFrame {
+            properties = [
+                kVTEncodeFrameOptionKey_ForceKeyFrame: kCFBooleanTrue
+            ] as CFDictionary
+        } else {
+            properties = nil
+        }
         try OSStatusError.checked("Encode") {
             VTCompressionSessionEncodeFrame(encoder,
                                             imageBuffer: imageBuffer,
                                             presentationTimeStamp: presentation,
                                             duration: .invalid,
-                                            frameProperties: nil,
+                                            frameProperties: properties,
                                             sourceFrameRefcon: time,
                                             infoFlagsOut: nil)
         }

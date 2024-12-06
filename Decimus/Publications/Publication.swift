@@ -56,6 +56,8 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
             false
         case .sendingUnannounce:
             false
+        case .subscriptionUpdated:
+            true
         @unknown default:
             false
         }
