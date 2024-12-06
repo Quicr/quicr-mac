@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Atomics
 import Foundation
 import AVFoundation
 import os
@@ -32,6 +33,7 @@ class H264Publication: Publication, FrameListener {
     private var startTime: Date?
     private var currentGroupId: UInt64?
     private var currentObjectId: UInt64 = 0
+    private let generateKeyFrame = ManagedAtomic(false)
 
     required init(profile: Profile,
                   config: VideoCodecConfig,
@@ -159,6 +161,13 @@ class H264Publication: Publication, FrameListener {
         Self.logger.debug("Deinit")
     }
 
+    override func statusChanged(_ status: QPublishTrackHandlerStatus) {
+        super.statusChanged(status)
+        if status == .subscriptionUpdated {
+            self.generateKeyFrame.store(true, ordering: .releasing)
+        }
+    }
+
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
                  timestamp: Date) {
@@ -180,9 +189,17 @@ class H264Publication: Publication, FrameListener {
         let interval = timestamp.timeIntervalSince(startTime)
         guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
+        // Should we be forcing a key frame?
+        let (keyFrame, _) = self.generateKeyFrame.compareExchange(expected: true,
+                                                                  desired: false,
+                                                                  ordering: .acquiringAndReleasing)
+        if keyFrame {
+            Self.logger.debug("Forcing key frame")
+        }
+
         // Encode.
         do {
-            try encoder.write(sample: sampleBuffer, timestamp: timestamp)
+            try encoder.write(sample: sampleBuffer, timestamp: timestamp, forceKeyFrame: keyFrame)
         } catch {
             Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
