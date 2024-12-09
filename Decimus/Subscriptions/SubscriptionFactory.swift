@@ -225,7 +225,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         if let set = set as? ActiveSpeakerSubscriptionSet {
             return try CallbackSubscription(fullTrackName: profile.getFullTrackName(),
                                             priority: 0,
-                                            groupOrder: .originalPublisherOrder) { [weak set] in
+                                            groupOrder: .originalPublisherOrder,
+                                            filterType: .latestGroup) { [weak set] in
                 set?.receivedObject(headers: $0, data: $1, extensions: $2)
             }
         }

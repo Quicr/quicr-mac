@@ -13,7 +13,8 @@ class QSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 public:
     QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                            quicr::messages::ObjectPriority priority,
-                           quicr::messages::GroupOrder group_order);
+                           quicr::messages::GroupOrder group_order,
+                           quicr::messages::FilterType filter_type);
 
     // Callbacks.
     void StatusChanged(Status status) override;

@@ -10,11 +10,13 @@ class CallbackSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCa
     init(fullTrackName: FullTrackName,
          priority: UInt8,
          groupOrder: QGroupOrder,
+         filterType: QFilterType,
          callback: @escaping SubscriptionCallback) {
         self.callback = callback
         super.init(fullTrackName: fullTrackName,
                    priority: priority,
-                   groupOrder: groupOrder)
+                   groupOrder: groupOrder,
+                   filterType: filterType)
         super.setCallbacks(self)
     }
 
