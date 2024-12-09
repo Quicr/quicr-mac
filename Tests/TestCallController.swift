@@ -70,7 +70,7 @@ final class TestCallController: XCTestCase {
 
     class MockSubscription: QSubscribeTrackHandlerObjC {
         init(ftn: FullTrackName) {
-            super.init(fullTrackName: ftn, priority: 0, groupOrder: .originalPublisherOrder)
+            super.init(fullTrackName: ftn, priority: 0, groupOrder: .originalPublisherOrder, filterType: .none)
         }
     }
 
