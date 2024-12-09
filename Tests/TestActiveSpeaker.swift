@@ -28,7 +28,7 @@ final class TestActiveSpeaker: XCTestCase {
         }
     }
 
-    func testActiveSpeaker(clamp: Int?) async throws {
+    func testActiveSpeaker(clamp: Int?, ourself: ParticipantId) async throws {
         // Given a list of active speakers, the controller's subscriptions should change
         // to reflect the list.
 
@@ -66,7 +66,12 @@ final class TestActiveSpeaker: XCTestCase {
                                                                   priorities: nil,
                                                                   namespace: ["3"])
                                                          ]))
-        let manifestSubscriptions = [manifestSubscription1, manifestSubscription2, manifestSubscription3]
+        let manifestSubscriptions: [ManifestSubscription]
+        if ourself == manifestSubscription1.participantId {
+            manifestSubscriptions = [manifestSubscription2, manifestSubscription3]
+        } else {
+            manifestSubscriptions = [manifestSubscription1, manifestSubscription2, manifestSubscription3]
+        }
         var ftnToParticipantId: [FullTrackName: ParticipantId] = [:]
         for subscription in manifestSubscriptions {
             for profile in subscription.profileSet.profiles {
@@ -83,16 +88,24 @@ final class TestActiveSpeaker: XCTestCase {
         try await controller.connect()
 
         // Subscribe to 1 and 2.
-        _ = try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
-            XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
-        }), subscribe: true)
+        if ourself != manifestSubscription1.participantId {
+            _ = try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
+                XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
+            }), subscribe: true)
+        }
         _ = try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
             XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
         }), subscribe: true)
 
         // 1 and 2 should be created and subscribed to.
         let initialSubscriptionSets = controller.getSubscriptionSets()
-        XCTAssertEqual(initialSubscriptionSets.map { $0.sourceId }.sorted(), [manifestSubscription1, manifestSubscription2].map { $0.sourceID }.sorted())
+        let expected: [ManifestSubscription]
+        if ourself == manifestSubscription1.participantId {
+            expected = [manifestSubscription2]
+        } else {
+            expected = [manifestSubscription1, manifestSubscription2]
+        }
+        XCTAssertEqual(initialSubscriptionSets.map { $0.sourceId }.sorted(), expected.map { $0.sourceID }.sorted())
         let handlers = initialSubscriptionSets.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
         XCTAssertEqual(handlers.sorted(by: {
             let aFtn = FullTrackName($0.getFullTrackName())
@@ -117,7 +130,8 @@ final class TestActiveSpeaker: XCTestCase {
         let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
                                                                                                   controller: controller,
                                                                                                   videoSubscriptions: manifestSubscriptions,
-                                                                                                  factory: factory)
+                                                                                                  factory: factory,
+                                                                                                  participantId: ourself)
 
         // Test state clear.
         XCTAssert(created.isEmpty)
@@ -143,10 +157,18 @@ final class TestActiveSpeaker: XCTestCase {
                 $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
             }))
         case 1:
-            // Subscription 3 shouldn't be considered because of the clamping.
-            XCTAssertEqual(created.map { $0.sourceId }, [])
-            XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
-            // Should have unsubscribed from 2 regardless of clamping.
+            if ourself == speakerOne {
+                // In this case, 3 should be considered, because the top speaker is us (1).
+                XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+                XCTAssert(subbed.reduce(into: true, {
+                    $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
+                }))
+            } else {
+                // Subscription 3 shouldn't be considered because of the clamping, only 1.
+                XCTAssertEqual(created.map { $0.sourceId }, [])
+                XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
+            }
+            // Should have unsubscribed from 2 regardless of clamping or our identity.
             XCTAssert(unsubbed.reduce(into: true, {
                 $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
             }))
@@ -162,20 +184,28 @@ final class TestActiveSpeaker: XCTestCase {
         default:
             XCTFail("Unhandled case")
         }
-        // 1 should still be present regardless of clamping.
-        let active = try controller.getSubscriptionsByParticipant(speakerOne)
-        XCTAssert(active.count == 1)
+
+        // 1 should still be present regardless of clamping, as long as it isn't us.
+        if ourself != speakerOne {
+            let active = try controller.getSubscriptionsByParticipant(speakerOne)
+            XCTAssertEqual(active.count, 1)
+            XCTAssertEqual(active[0].participantId, speakerOne)
+        }
     }
 
     func testActiveSpeaker() async throws {
-        try await self.testActiveSpeaker(clamp: nil)
+        try await self.testActiveSpeaker(clamp: nil, ourself: .init(4))
     }
 
     func testActiveSpeakerClamped() async throws {
-        try await self.testActiveSpeaker(clamp: 1)
+        try await self.testActiveSpeaker(clamp: 1, ourself: .init(4))
     }
 
     func testActiveSpeakerExpanded() async throws {
-        try await self.testActiveSpeaker(clamp: 10)
+        try await self.testActiveSpeaker(clamp: 10, ourself: .init(4))
+    }
+
+    func testIgnoreOurselves() async throws {
+        try await self.testActiveSpeaker(clamp: 1, ourself: .init(1))
     }
 }
