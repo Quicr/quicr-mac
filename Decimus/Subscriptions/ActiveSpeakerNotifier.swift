@@ -32,6 +32,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
     private var lastSpeakers: OrderedSet<ParticipantId>
     private var count: Int?
+    private let participantId: ParticipantId
 
     /// Initialize the active speaker manager.
     /// - Parameters:
@@ -39,10 +40,12 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     ///  - controller: Call controller managing subscriptions.
     ///  - subscriptions: Manifest of all available subscriptions.
     ///  - factory: Factory for subscription handler creation.
+    ///  - participantId: Local participant ID.
     init(notifier: ActiveSpeakerNotifier,
          controller: MoqCallController,
          videoSubscriptions: [ManifestSubscription],
-         factory: SubscriptionFactory) throws {
+         factory: SubscriptionFactory,
+         participantId: ParticipantId) throws {
         self.notifier = notifier
         self.controller = controller
         guard videoSubscriptions.allSatisfy({ $0.mediaType == ManifestMediaTypes.video.rawValue }) else {
@@ -50,7 +53,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         }
         self.videoSubscriptions = videoSubscriptions
         self.factory = factory
-        self.lastSpeakers = .init(videoSubscriptions.map { $0.participantId })
+        self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId}).map({$0.participantId}))
+        self.participantId = participantId
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -70,9 +74,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
 
     private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        var speakers = speakers
+        speakers.remove(self.participantId)
         self.lastSpeakers = speakers.union(self.lastSpeakers)
-
-        let speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
+        speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, unsubscribe from video for any speakers that are no longer active.

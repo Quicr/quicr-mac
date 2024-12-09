@@ -415,7 +415,8 @@ extension InCallView {
                     self.activeSpeaker = try .init(notifier: notifier,
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
-                                                   factory: subscriptionFactory)
+                                                   factory: subscriptionFactory,
+                                                   participantId: manifest.participantId)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
