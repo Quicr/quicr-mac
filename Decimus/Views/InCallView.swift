@@ -342,19 +342,13 @@ extension InCallView {
             }
             self.currentManifest = manifest
 
-            // TODO: Doesn't need to be this defensive.
-            guard let captureManager = self.captureManager,
-                  let engine = self.engine else {
-                return false
-            }
-
             // Create the factories now that we have the participant ID.
             let publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
                                                             reliability: self.subscriptionConfig.value.mediaReliability,
-                                                            engine: engine,
+                                                            engine: self.engine,
                                                             metricsSubmitter: self.submitter,
                                                             granularMetrics: self.influxConfig.value.granular,
-                                                            captureManager: captureManager,
+                                                            captureManager: self.captureManager,
                                                             participantId: manifest.participantId,
                                                             keyFrameInterval: self.subscriptionConfig.value.keyFrameInterval)
             let playtime = self.playtimeConfig.value
@@ -363,7 +357,7 @@ extension InCallView {
                                                               metricsSubmitter: self.submitter,
                                                               subscriptionConfig: self.subscriptionConfig.value,
                                                               granularMetrics: self.influxConfig.value.granular,
-                                                              engine: engine,
+                                                              engine: self.engine,
                                                               participantId: ourParticipantId)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
@@ -388,55 +382,67 @@ extension InCallView {
             }
 
             // Inject the manifest in order to create publications & subscriptions.
-            do {
-                // Publish.
-                for publication in manifest.publications {
+
+            // Publish.
+            for publication in manifest.publications {
+                do {
                     try controller.publish(details: publication, factory: publicationFactory, codecFactory: CodecFactoryImpl())
+                } catch {
+                    Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                 }
+            }
 
-                // Subscribe.
-                for subscription in manifest.subscriptions {
+            // Subscribe.
+            for subscription in manifest.subscriptions {
+                do {
                     _ = try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
+                } catch {
+                    Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                 }
+            }
 
-                // Active speaker handling.
-                let notifier: ActiveSpeakerNotifier?
-                if playtime.playtime && playtime.manualActiveSpeaker {
-                    let manual = ManualActiveSpeaker()
-                    self.manualActiveSpeaker = manual
-                    notifier = manual
-                } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                    notifier = real
-                } else {
-                    notifier = nil
-                }
-                if let notifier = notifier {
-                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+            // Active speaker handling.
+            let notifier: ActiveSpeakerNotifier?
+            if playtime.playtime && playtime.manualActiveSpeaker {
+                let manual = ManualActiveSpeaker()
+                self.manualActiveSpeaker = manual
+                notifier = manual
+            } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                notifier = real
+            } else {
+                notifier = nil
+            }
+            if let notifier = notifier {
+                let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                do {
                     self.activeSpeaker = try .init(notifier: notifier,
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
                                                    participantId: manifest.participantId)
+                } catch {
+                    Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                 }
-            } catch {
-                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
-                return false
             }
 
             // Start audio media.
-            do {
-                try engine.start()
-                self.audioCapture = true
-            } catch {
-                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
+            if let engine = self.engine {
+                do {
+                    try engine.start()
+                    self.audioCapture = true
+                } catch {
+                    Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
+                }
             }
 
             // Start video media.
-            do {
-                try captureManager.startCapturing()
-                self.videoCapture = true
-            } catch {
-                Self.logger.warning("Camera failure", alert: true)
+            if let captureManager = self.captureManager {
+                do {
+                    try captureManager.startCapturing()
+                    self.videoCapture = true
+                } catch {
+                    Self.logger.warning("Camera failure", alert: true)
+                }
             }
             return true
         }
