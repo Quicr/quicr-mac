@@ -9,6 +9,14 @@
 #include <quicr/track_name.h>
 #endif
 
+typedef NS_ENUM(uint64_t, QFilterType) {
+    kQFilterTypeNone,
+    kQFilterTypeLatestGroup,
+    kQFilterTypeLatestObject,
+    kQFilterTypeAbsoluteStart,
+    kQFilterTypeAbsoluteRange,
+};
+
 typedef struct QMinMaxAvg {
     uint64_t min;
     uint64_t max;
