@@ -17,7 +17,7 @@ class ActiveSpeakerNotifierSubscriptionSet: QSubscribeTrackHandlerObjC, Subscrip
             throw "Expected exactly one profile"
         }
         self.fullTrackName = try subscription.profileSet.profiles.first!.getFullTrackName()
-        super.init(fullTrackName: self.fullTrackName, priority: 0, groupOrder: .originalPublisherOrder)
+        super.init(fullTrackName: self.fullTrackName, priority: 0, groupOrder: .originalPublisherOrder, filterType: .latestGroup)
         super.setCallbacks(self)
     }
 

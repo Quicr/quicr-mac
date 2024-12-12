@@ -7,11 +7,12 @@
 
 @implementation QSubscribeTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder filterType:(QFilterType)filterType
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
-    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order);
+    const auto filter = static_cast<quicr::messages::FilterType>(filterType);
+    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order, filter);
     return self;
 }
 
@@ -38,9 +39,11 @@
 
 QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                                                quicr::messages::ObjectPriority priority,
-                                               quicr::messages::GroupOrder group_order): quicr::SubscribeTrackHandler(full_track_name,
+                                               quicr::messages::GroupOrder group_order,
+                                               quicr::messages::FilterType filter_type): quicr::SubscribeTrackHandler(full_track_name,
                                                                                                                       priority,
-                                                                                                                      group_order) {}
+                                                                                                                      group_order,
+                                                                                                                      filter_type) {}
 
 void QSubscribeTrackHandler::StatusChanged(Status status)
 {

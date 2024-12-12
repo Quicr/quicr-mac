@@ -27,7 +27,7 @@ typedef NS_ENUM(uint8_t, QGroupOrder) {
 #endif
 }
 
--(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder;
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder filterType: (QFilterType) filterType;
 -(QSubscribeTrackHandlerStatus) getStatus;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
