@@ -95,6 +95,8 @@
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
+		9BC3F4E42D09DFCD00488D55 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = 9BC3F4E32D09DFCD00488D55 /* Grape */; };
+		9BC3F4E62D09DFEF00488D55 /* PubSubGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC3F4E52D09DFEC00488D55 /* PubSubGraph.swift */; };
 		9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */; };
 		9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */; };
 		9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */; };
@@ -295,6 +297,7 @@
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
+		9BC3F4E52D09DFEC00488D55 /* PubSubGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PubSubGraph.swift; sourceTree = "<group>"; };
 		9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoPublication.swift; sourceTree = "<group>"; };
 		9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarianceCalculator.swift; sourceTree = "<group>"; };
 		9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarianceCalculator+Measurement.swift"; sourceTree = "<group>"; };
@@ -400,6 +403,7 @@
 				9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
 				18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */,
+				9BC3F4E42D09DFCD00488D55 /* Grape in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -603,6 +607,7 @@
 		9BA27FF6297D7D61007013B2 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				9BC3F4E52D09DFEC00488D55 /* PubSubGraph.swift */,
 				18C89A472A14EF02005B333B /* Settings */,
 				FFBF2FB529BFE47000D769CF /* Components */,
 				9BA27FF4297D787F007013B2 /* ConfigCallView.swift */,
@@ -806,6 +811,7 @@
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
 				9B8B6F672B9B01F700FBB0D1 /* Atomics */,
+				9BC3F4E32D09DFCD00488D55 /* Grape */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -848,6 +854,7 @@
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
+				9BC3F4E22D09DFCD00488D55 /* XCRemoteSwiftPackageReference "Grape" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -930,7 +937,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1023,6 +1030,7 @@
 				9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */,
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
+				9BC3F4E62D09DFEF00488D55 /* PubSubGraph.swift in Sources */,
 				9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */,
 				9BE6288E2CE4FCDD001401D0 /* ManualActiveSpeaker.swift in Sources */,
 				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,
@@ -1084,7 +1092,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1109,7 +1117,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1275,7 +1283,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1350,7 +1358,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1483,6 +1491,14 @@
 				minimumVersion = 1.2.0;
 			};
 		};
+		9BC3F4E22D09DFCD00488D55 /* XCRemoteSwiftPackageReference "Grape" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/li3zhen1/Grape";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.7.6;
+			};
+		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -1526,6 +1542,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
 			productName = Atomics;
+		};
+		9BC3F4E32D09DFCD00488D55 /* Grape */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BC3F4E22D09DFCD00488D55 /* XCRemoteSwiftPackageReference "Grape" */;
+			productName = Grape;
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -50,6 +50,17 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
         hasher.combine(self.name)
         hasher.combine(self.nameSpace)
     }
+
+    func toUTF8() -> String? {
+        var string: [String] = []
+        for component in self.nameSpace {
+            guard let utf8 = String(data: component, encoding: .utf8) else {
+                continue
+            }
+            string.append(utf8)
+        }
+        return string.joined(separator: "/")
+    }
 }
 
 extension Profile {

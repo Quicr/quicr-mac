@@ -74,7 +74,7 @@ class MoqCallController: QClientCallbacks {
 
     // State.
     private let client: MoqClient
-    private let endpointUri: String
+    let endpointUri: String
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]

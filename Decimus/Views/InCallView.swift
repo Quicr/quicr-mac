@@ -55,6 +55,7 @@ struct InCallView: View {
     @State private var showPreview = true
     @State private var lastTap: Date = .now
     @State private var debugDetail = false
+    @State private var graph = false
     @State private var layout = VideoLayout.nByN
     @State private var activeSpeakers: String = ""
     var noParticipants: Bool {
@@ -156,8 +157,17 @@ struct InCallView: View {
                             Text("Debug Details").font(.title)
                             Form {
                                 HStack {
-                                    Text("Relay")
-                                    Text(controller.serverId ?? "Unknown").monospaced()
+                                    HStack {
+                                        Text("Relay")
+                                        Text(controller.serverId ?? "Unknown").monospaced()
+                                    }
+                                    Spacer()
+                                    HStack {
+                                        Button("View Visualisation") {
+                                            self.debugDetail = false
+                                            self.graph = true
+                                        }
+                                    }
                                 }
                                 LabeledContent("Layout") {
                                     Picker("Layout", selection: self.$layout) {
@@ -193,6 +203,19 @@ struct InCallView: View {
                     Button("Done") {
                         self.debugDetail = false
                     }.padding()
+                }
+                .sheet(isPresented: self.$graph) {
+                    let publications = self.viewModel.controller!.getPublications()
+                    let ftns = publications.compactMap { FullTrackName($0.getFullTrackName()).toUTF8() }
+                    let subs = self.viewModel.controller!.getSubscriptionSets()
+                    PubSubGraph(.init(me: self.viewModel.currentManifest!.participantId,
+                                      relay: self.viewModel.controller!.serverId!,
+                                      subscriptions: subs,
+                                      publications: ftns))
+                    Button("Done") {
+                        self.graph = false
+                        self.debugDetail = true
+                    }
                 }
 
                 // Preview / self-view.

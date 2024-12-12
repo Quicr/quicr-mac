@@ -1,5 +1,5 @@
 {
-  "originHash" : "e5d00282b90ec59408c99c73849de7d96c4d38bfbc0d6416d86320d2ff39d1db",
+  "originHash" : "398df35474ecd1f37297155177f29aa2ebfe13769e1e45cc04b5cb3fe992e372",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "5be4d8e0d9cc8aa22d9eb12ac76bc429105d7a4c",
         "version" : "2.5.0"
+      }
+    },
+    {
+      "identity" : "grape",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/li3zhen1/Grape",
+      "state" : {
+        "revision" : "d8d73ea092bc046e590643793e908fe13dd4113e",
+        "version" : "0.7.6"
       }
     },
     {
