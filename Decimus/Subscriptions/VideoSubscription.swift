@@ -8,6 +8,7 @@ import os
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
 class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
+    typealias StatusChanged = (_ status: QSubscribeTrackHandlerStatus) -> Void
     private let fullTrackName: FullTrackName
     private let config: VideoCodecConfig
     private let participants: VideoParticipants
@@ -19,6 +20,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
+    private let statusChangeCallback: StatusChanged
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
     private let measurement: MeasurementRegistration<TrackMeasurement>?
@@ -44,7 +46,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
          endpointId: String,
          relayId: String,
          participantId: ParticipantId,
-         callback: @escaping ObjectReceived) throws {
+         callback: @escaping ObjectReceived,
+         statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config
         self.participants = participants
@@ -56,6 +59,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
+        self.statusChangeCallback = statusChanged
         self.participantId = participantId
 
         if let metricsSubmitter = metricsSubmitter {
@@ -91,6 +95,22 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         self.logger.info("Subscribe Track Status Changed: \(status)")
+        switch status {
+        case .notSubscribed:
+            self.cleanup()
+        default:
+            break
+        }
+        self.statusChangeCallback(status)
+    }
+
+    private func cleanup() {
+        self.handlerLock.withLock {
+            guard let handler = self.handler else { return }
+            self.handler = nil
+            handler.unregisterCallback(self.token)
+            self.token = 0
+        }
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
@@ -101,11 +121,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                     if let self = self {
                         duration = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.handlerLock.withLock {
-                                self.handler?.unregisterCallback(self.token)
-                                self.token = 0
-                                self.handler = nil
-                            }
+                            self.cleanup()
                         }
                     } else {
                         return
