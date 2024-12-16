@@ -85,7 +85,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                        participantId: participantId)
         self.token = handler.registerCallback(callback)
         self.handler = handler
-        super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder)
+        super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder, filterType: .latestGroup)
         self.setCallbacks(self)
     }
 
