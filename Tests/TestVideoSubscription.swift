@@ -21,7 +21,9 @@ final class TestVideoSubscription: XCTestCase {
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
                                                  relayId: "",
-                                                 participantId: .init(1)) { _, _ in }
+                                                 participantId: .init(1),
+                                                 callback: ({ _, _ in }),
+                                                 statusChanged: ({_ in }))
         subscription.metricsSampled(.init())
     }
 }
