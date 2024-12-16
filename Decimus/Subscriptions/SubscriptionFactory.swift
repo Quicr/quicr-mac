@@ -238,6 +238,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
         if let videoConfig = config as? VideoCodecConfig {
             let set = set as! VideoSubscriptionSet
+            let ftn = try profile.getFullTrackName()
             return try VideoSubscription(profile: profile,
                                          config: videoConfig,
                                          participants: self.videoParticipants,
@@ -250,10 +251,15 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          variances: set.decodedVariances,
                                          endpointId: endpointId,
                                          relayId: relayId,
-                                         participantId: set.participantId) { [weak set] ts, when in
-                guard let set = set else { return }
-                set.receivedObject(timestamp: ts, when: when)
-            }
+                                         participantId: set.participantId,
+                                         callback: { [weak set] ts, when in
+                                            guard let set = set else { return }
+                                            set.receivedObject(ftn, timestamp: ts, when: when)
+                                         },
+                                         statusChanged: { [weak set] status in
+                                            guard let set = set else { return }
+                                            set.statusChanged(ftn, status: status)
+                                         })
         } else if config as? AudioCodecConfig != nil {
             let set = set as! OpusSubscription
             return set

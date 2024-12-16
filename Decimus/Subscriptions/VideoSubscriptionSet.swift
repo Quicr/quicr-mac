@@ -54,6 +54,8 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var timestampTimeDiff: TimeInterval?
     private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
     private var videoSubscriptionLock = OSAllocatedUnfairLock()
+    private var liveSubscriptions: Set<FullTrackName> = []
+    private let liveSubscriptionsLock = OSAllocatedUnfairLock()
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -168,10 +170,27 @@ class VideoSubscriptionSet: SubscriptionSet {
         }
     }
 
+    public func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus) {
+        if status == .notSubscribed {
+            self.liveSubscriptionsLock.withLock {
+                self.liveSubscriptions.remove(ftn)
+                if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
+                    Self.logger.debug("Destroying simulreceive render as no live subscriptions")
+                    self.renderTask?.cancel()
+                    self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                }
+            }
+        }
+    }
+
     /// Inform the set that a video frame from a managed subscription arrived.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
-    public func receivedObject(timestamp: TimeInterval, when: Date) {
+    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date) {
+        _ = self.liveSubscriptionsLock.withLock {
+            self.liveSubscriptions.insert(ftn)
+        }
+
         // Set the timestamp diff from the first recveived object.
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp

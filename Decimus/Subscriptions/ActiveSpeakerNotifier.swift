@@ -80,28 +80,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
         let existing = self.controller.getSubscriptionSets()
 
-        // Firstly, unsubscribe from video for any speakers that are no longer active.
-        var unsubbed = 0
-        for set in existing where !speakers.contains(set.participantId) {
-            for handler in set.getHandlers().values where handler is T {
-                // Unsubscribe.
-                unsubbed += 1
-                let ftn = FullTrackName(handler.getFullTrackName())
-                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
-                do {
-                    try self.controller.unsubscribe(set.sourceId, ftn: ftn)
-                } catch {
-                    self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
-                }
-            }
-        }
-        if unsubbed == 0 {
-            self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
-        } else {
-            self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
-        }
-
-        // Now, subscribe to video from any speakers we are not already subscribed to.
+        // Firstly, subscribe to video from any speakers we are not already subscribed to.
         var subbed = 0
         let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().compactMap { $0.value }) }
         for set in self.videoSubscriptions where speakers.contains(set.participantId) {
@@ -137,6 +116,27 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             self.logger.info("[ActiveSpeakers] No new subscribes needed")
         } else {
             self.logger.info("[ActiveSpeakers] Subscribed to \(subbed) subscriptions")
+        }
+
+        // Now, unsubscribe from video for any speakers that are no longer active.
+        var unsubbed = 0
+        for set in existing where !speakers.contains(set.participantId) {
+            for handler in set.getHandlers().values where handler is T {
+                // Unsubscribe.
+                unsubbed += 1
+                let ftn = FullTrackName(handler.getFullTrackName())
+                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
+                do {
+                    try self.controller.unsubscribe(set.sourceId, ftn: ftn)
+                } catch {
+                    self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
+                }
+            }
+        }
+        if unsubbed == 0 {
+            self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
+        } else {
+            self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
         }
     }
 }
