@@ -56,6 +56,8 @@ struct SubscriptionConfig: Codable {
     var videoBehaviour: VideoBehaviour
     /// Interval between key frames, or 0 for codec control.
     var keyFrameInterval: TimeInterval
+    /// True to stagger video publications according to their quality.
+    var stagger: Bool
     /// Describes target media reliability states.
     var mediaReliability: MediaReliability
     /// QUIC CWIN setting for underlying transport.
@@ -119,6 +121,7 @@ struct SubscriptionConfig: Codable {
         quicrLogs = false
         quicPriorityLimit = 0
         doSFrame = true
+        stagger = true
     }
 }
 

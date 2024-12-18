@@ -87,6 +87,9 @@ struct SubscriptionSettingsView: View {
                         .labelsHidden()
                 }
 
+                LabeledToggle("Stagger Video Qualities",
+                              isOn: self.$subscriptionConfig.value.stagger)
+
                 if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
                     LabeledContent("Preferred Camera") {
                         Picker("Preferred Camera", selection: $preferredCamera) {

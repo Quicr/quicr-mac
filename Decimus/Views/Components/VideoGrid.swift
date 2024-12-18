@@ -79,6 +79,16 @@ struct VideoGrid: View {
                                         .padding(.bottom)
                                 }
                             }
+                            .conditionalModifier(self.showLabels && participant.view.joinToFirstFrame != nil) {
+                                $0.overlay(alignment: .topTrailing) {
+                                    VStack(alignment: .leading) {
+                                        Text("From Join: \(participant.view.joinToFirstFrame!)s")
+                                        Text("From Subscribe: \(participant.view.subscribeToFirstFrame!)s")
+                                    }
+                                    .background()
+                                    .padding()
+                                }
+                            }
                             .border(.green, width: participant.highlight ? 3 : 0)
                             .conditionalModifier(self.blur) {
                                 $0.blur(radius: self.cornerRadius)

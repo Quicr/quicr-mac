@@ -35,6 +35,17 @@ struct VideoView: NSViewRepresentable {
     let view: VideoUIView = .init()
     var layer: AVSampleBufferDisplayLayer? { return view.layer as? AVSampleBufferDisplayLayer }
 
+    // UI based measurements.
+    private(set) var joinToFirstFrame: TimeInterval?
+    private(set) var subscribeToFirstFrame: TimeInterval?
+    private let startDate: Date
+    private let subscribeDate: Date
+
+    init(startDate: Date, subscribeDate: Date) {
+        self.startDate = startDate
+        self.subscribeDate = subscribeDate
+    }
+
     func makeNSView(context: Context) -> VideoUIView {
         do {
             try layer!.controlTimebase = .init(sourceClock: .hostTimeClock)
@@ -61,7 +72,7 @@ struct VideoView: NSViewRepresentable {
         }
     }
 
-    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+    mutating func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
         guard let layer = layer else {
             throw VideoError.invalidLayer
         }
@@ -73,6 +84,12 @@ struct VideoView: NSViewRepresentable {
 
         layer.transform = transform ?? CATransform3DIdentity
         layer.enqueue(sampleBuffer)
+
+        if self.joinToFirstFrame == nil {
+            let now = Date.now
+            self.joinToFirstFrame = now.timeIntervalSince(self.startDate)
+            self.subscribeToFirstFrame = now.timeIntervalSince(self.subscribeDate)
+        }
     }
 
     func updateNSView(_ nsView: VideoUIView, context: Context) {}
@@ -81,6 +98,17 @@ struct VideoView: NSViewRepresentable {
 struct VideoView: UIViewRepresentable {
     let view: VideoUIView = .init()
     var layer: AVSampleBufferDisplayLayer? { return view.layer as? AVSampleBufferDisplayLayer }
+
+    // UI based measurements.
+    private(set) var joinToFirstFrame: TimeInterval?
+    private(set) var subscribeToFirstFrame: TimeInterval?
+    private let startDate: Date
+    private let subscribeDate: Date
+
+    init(startDate: Date, subscribeDate: Date) {
+        self.startDate = startDate
+        self.subscribeDate = subscribeDate
+    }
 
     func flush() throws {
         guard let layer = layer else {
@@ -97,7 +125,7 @@ struct VideoView: UIViewRepresentable {
         }
     }
 
-    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+    mutating func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
         guard let layer = layer else {
             throw VideoError.invalidLayer
         }
@@ -109,6 +137,11 @@ struct VideoView: UIViewRepresentable {
 
         layer.transform = transform ?? CATransform3DIdentity
         layer.enqueue(sampleBuffer)
+        if self.joinToFirstFrame == nil {
+            let now = Date.now
+            self.joinToFirstFrame = now.timeIntervalSince(self.startDate)
+            self.subscribeToFirstFrame = now.timeIntervalSince(self.subscribeDate)
+        }
     }
 
     func makeUIView(context: Context) -> VideoUIView {
@@ -130,6 +163,6 @@ struct VideoView: UIViewRepresentable {
 
 struct VideoView_Previews: PreviewProvider {
     static var previews: some View {
-        VideoView()
+        VideoView(startDate: .now, subscribeDate: .now)
     }
 }

@@ -32,6 +32,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let cleanupTimer: TimeInterval = 1.5
     private var lastUpdateTime = Date.now
     private let participantId: ParticipantId
+    private let creationTime: Date
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -72,6 +73,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
             self.measurement = nil
         }
 
+        self.creationTime = .now
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -82,7 +84,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                        jitterBufferConfig: jitterBufferConfig,
                                        simulreceive: simulreceive,
                                        variances: variances,
-                                       participantId: participantId)
+                                       participantId: participantId,
+                                       subscribeDate: self.creationTime)
         self.token = handler.registerCallback(callback)
         self.handler = handler
         super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder, filterType: .latestGroup)
@@ -173,7 +176,8 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                              jitterBufferConfig: self.jitterBufferConfig,
                                              simulreceive: self.simulreceive,
                                              variances: self.variances,
-                                             participantId: self.participantId)
+                                             participantId: self.participantId,
+                                             subscribeDate: self.creationTime)
             self.token = recreated.registerCallback(self.callback)
             self.handler = recreated
             handler = recreated

@@ -17,6 +17,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let captureManager: CaptureManager
     private let participantId: ParticipantId
     private let keyFrameInterval: TimeInterval
+    private let stagger: Bool
     private let logger = DecimusLogger(PublicationFactory.self)
 
     init(opusWindowSize: OpusWindowSize,
@@ -26,7 +27,8 @@ class PublicationFactoryImpl: PublicationFactory {
          granularMetrics: Bool,
          captureManager: CaptureManager,
          participantId: ParticipantId,
-         keyFrameInterval: TimeInterval) {
+         keyFrameInterval: TimeInterval,
+         stagger: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -35,6 +37,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.captureManager = captureManager
         self.participantId = participantId
         self.keyFrameInterval = keyFrameInterval
+        self.stagger = stagger
     }
 
     func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
@@ -100,7 +103,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   encoder: encoder,
                                                   device: device,
                                                   endpointId: endpointId,
-                                                  relayId: relayId)
+                                                  relayId: relayId,
+                                                  stagger: self.stagger)
             try self.captureManager.addInput(publication)
             return publication
         case .opus:
