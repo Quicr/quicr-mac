@@ -50,7 +50,8 @@ final class TestVideoPublication: XCTestCase {
                          encoder: encoder,
                          device: device,
                          endpointId: "",
-                         relayId: "")
+                         relayId: "",
+                         stagger: true)
     }
 
     func testPublicationStartDelay() throws {

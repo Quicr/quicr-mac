@@ -70,6 +70,7 @@ class VideoHandler: CustomStringConvertible {
     private let callbackLock = OSAllocatedUnfairLock()
     var description = "VideoHandler"
     private let participantId: ParticipantId
+    private let subscribeDate: Date
 
     /// Create a new video handler.
     /// - Parameters:
@@ -93,7 +94,8 @@ class VideoHandler: CustomStringConvertible {
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
          variances: VarianceCalculator,
-         participantId: ParticipantId) throws {
+         participantId: ParticipantId,
+         subscribeDate: Date) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -114,6 +116,7 @@ class VideoHandler: CustomStringConvertible {
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
         self.participantId = participantId
+        self.subscribeDate = subscribeDate
 
         if jitterBufferConfig.mode != .layer {
             // Create the decoder.
@@ -262,7 +265,7 @@ class VideoHandler: CustomStringConvertible {
                     let namespace = "\(self.fullTrackName)"
                     self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps, participantId: self.participantId)
                     guard self.simulreceive != .enable else { return }
-                    let participant = self.participants.getOrMake(identifier: namespace)
+                    let participant = self.participants.getOrMake(identifier: namespace, subscribeDate: self.subscribeDate)
                     participant.label = .init(describing: self)
                 }
             }
@@ -507,7 +510,7 @@ class VideoHandler: CustomStringConvertible {
         // Enqueue the sample on the main thread.
         DispatchQueue.main.async {
             do {
-                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)")
+                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)", subscribeDate: self.subscribeDate)
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
@@ -548,7 +551,7 @@ class VideoHandler: CustomStringConvertible {
     private func flushDisplayLayer() {
         DispatchQueue.main.async {
             do {
-                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)")
+                let participant = self.participants.getOrMake(identifier: "\(self.fullTrackName)", subscribeDate: self.subscribeDate)
                 try participant.view.flush()
             } catch {
                 Self.logger.error("Could not flush layer: \(error)")

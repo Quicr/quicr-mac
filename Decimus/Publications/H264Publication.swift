@@ -34,6 +34,7 @@ class H264Publication: Publication, FrameListener {
     private var currentGroupId: UInt64?
     private var currentObjectId: UInt64 = 0
     private let generateKeyFrame = ManagedAtomic(false)
+    private let stagger: Bool
 
     required init(profile: Profile,
                   config: VideoCodecConfig,
@@ -43,7 +44,8 @@ class H264Publication: Publication, FrameListener {
                   encoder: VideoEncoder,
                   device: AVCaptureDevice,
                   endpointId: String,
-                  relayId: String) throws {
+                  relayId: String,
+                  stagger: Bool) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -58,6 +60,7 @@ class H264Publication: Publication, FrameListener {
         self.reliable = reliable
         self.encoder = encoder
         self.device = device
+        self.stagger = stagger
 
         let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
             guard let userData = userData else {
@@ -182,12 +185,14 @@ class H264Publication: Publication, FrameListener {
         }
 
         // Stagger the publication's start time by its height in ms.
-        guard let startTime = self.startTime else {
-            self.startTime = timestamp
-            return
+        if self.stagger {
+            guard let startTime = self.startTime else {
+                self.startTime = timestamp
+                return
+            }
+            let interval = timestamp.timeIntervalSince(startTime)
+            guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
         }
-        let interval = timestamp.timeIntervalSince(startTime)
-        guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
 
         // Should we be forcing a key frame?
         let (keyFrame, _) = self.generateKeyFrame.compareExchange(expected: true,

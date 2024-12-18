@@ -56,6 +56,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var videoSubscriptionLock = OSAllocatedUnfairLock()
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
+    private let subscribeDate: Date
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -118,6 +119,8 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
+
+        self.subscribeDate = Date.now
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -490,7 +493,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             }
 
             DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID)
+                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID, subscribeDate: self.subscribeDate)
                 if let dispatchLabel = dispatchLabel {
                     participant.label = dispatchLabel
                 }

@@ -14,7 +14,7 @@ class VideoParticipant: ObservableObject, Identifiable {
     /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
     var id: SourceIDType
     /// The SwiftUI view for video display.
-    var view: VideoView = .init()
+    var view: VideoView
     /// The label to display under the video.
     @Published var label: String
     /// True if this video should be highlighted.
@@ -22,10 +22,11 @@ class VideoParticipant: ObservableObject, Identifiable {
 
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
-    init(id: SourceIDType) {
+    init(id: SourceIDType, startDate: Date, subscribeDate: Date) {
         self.id = id
         self.label = id
         self.highlight = false
+        self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
     }
 }
 
@@ -36,16 +37,17 @@ class VideoParticipants: ObservableObject {
     /// All tracked participants by identifier.
     @Published var participants: [SourceIDType: VideoParticipant] = [:]
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
+    private let startDate = Date.now
 
     /// Get or create a ``VideoParticipant``.
     /// - Parameter identifier: The identifier for the target view.
     /// - Returns: The created video view.
-    func getOrMake(identifier: SourceIDType) -> VideoParticipant {
+    func getOrMake(identifier: SourceIDType, subscribeDate: Date) -> VideoParticipant {
         if let participant = participants[identifier] {
             return participant
         }
 
-        let new: VideoParticipant = .init(id: identifier)
+        let new: VideoParticipant = .init(id: identifier, startDate: self.startDate, subscribeDate: subscribeDate)
         let cancellable = new.objectWillChange.sink(receiveValue: {
             DispatchQueue.main.async {
                 self.objectWillChange.send()
