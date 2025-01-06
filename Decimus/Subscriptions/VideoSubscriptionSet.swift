@@ -158,12 +158,15 @@ class VideoSubscriptionSet: SubscriptionSet {
     }
 
     func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+        guard let handler = handler as? VideoSubscription else {
+            throw "Handler MUST be VideoSubscription"
+        }
         let ftn = FullTrackName(handler.getFullTrackName())
         try self.videoSubscriptionLock.withLock {
             guard self.videoSubscriptions[ftn] == nil else {
                 throw SubscriptionSetError.handlerExists
             }
-            self.videoSubscriptions[ftn] = (handler as! VideoSubscription)
+            self.videoSubscriptions[ftn] = handler
         }
     }
 

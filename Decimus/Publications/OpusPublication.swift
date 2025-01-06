@@ -200,7 +200,7 @@ class OpusPublication: Publication {
             vDSP_rmsqv(data[channel], 1, &channelRms, vDSP_Length(buffer.frameLength))
             rms += abs(channelRms)
         }
-        rms = rms / Float(channels)
+        rms /= Float(channels)
         let minAudioLevel: Float = -127
         let maxAudioLevel: Float = 0
         guard rms > 0 else {

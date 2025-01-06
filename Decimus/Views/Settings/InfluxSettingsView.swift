@@ -9,7 +9,7 @@ struct InfluxSettingsView: View {
     @AppStorage(Self.defaultsKey)
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
-    private static let tokenStorage = try! TokenStorage(tag: Self.defaultsKey)
+    private static let tokenStorage = TokenStorage(tag: Self.defaultsKey)
 
     @State
     private var token: String = ""

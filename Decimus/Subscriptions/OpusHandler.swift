@@ -10,7 +10,7 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-class OpusHandler {
+class OpusHandler { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(OpusHandler.self)
     private let sourceId: SourceIDType
     private var decoder: LibOpusDecoder
@@ -104,6 +104,7 @@ class OpusHandler {
 
     func createNewJitterBuffer(windowDuration: CMTime) throws -> JitterBuffer {
         guard self.useNewJitterBuffer else { throw "Configuration Issue" }
+        // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
                 let first = $0 as! AudioJitterItem
@@ -136,6 +137,7 @@ class OpusHandler {
                 true
             }
         }
+        // swiftlint:enable force_cast
         let buffer = try JitterBuffer(identifier: self.sourceId,
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,

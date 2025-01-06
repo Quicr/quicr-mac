@@ -86,7 +86,7 @@ class DecimusAudioEngine {
 
     /// Create a new app audio engine, configuring the session, formats, I/O devices, and processing.
     /// - Throws: Any of the many possible errors during setup.
-    init() throws {
+    init() throws { // swiftlint:disable:this function_body_length
         // Configure the session.
         let engine = AVAudioEngine()
         #if !os(macOS)

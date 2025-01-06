@@ -776,6 +776,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				9BC070D32D2C37AD00FE5B0E /* PBXTargetDependency */,
 				9B85952029F04521008C813C /* PBXTargetDependency */,
 			);
 			name = Tests;
@@ -796,6 +797,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				9BC070D12D2C21B600FE5B0E /* PBXTargetDependency */,
 			);
 			name = QuicR;
 			packageProductDependencies = (
@@ -1073,6 +1075,14 @@
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* QuicR */;
 			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
+		};
+		9BC070D12D2C21B600FE5B0E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 9BC070D02D2C21B600FE5B0E /* SwiftLintBuildToolPlugin */;
+		};
+		9BC070D32D2C37AD00FE5B0E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1526,6 +1536,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
 			productName = Atomics;
+		};
+		9BC070D02D2C21B600FE5B0E /* SwiftLintBuildToolPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
+			productName = "plugin:SwiftLintBuildToolPlugin";
+		};
+		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
+			productName = "plugin:SwiftLintBuildToolPlugin";
 		};
 		9BDD5B12299697DE00C01D54 /* DequeModule */ = {
 			isa = XCSwiftPackageProductDependency;
