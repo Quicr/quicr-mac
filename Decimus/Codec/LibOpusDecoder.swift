@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Opus
-import AVFoundation
-import os
+import AVFAudio
 
 /// Decodes audio using libopus.
 class LibOpusDecoder {

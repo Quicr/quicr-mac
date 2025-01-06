@@ -1,10 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import AVFoundation
-import CoreImage
 import Foundation
-import os
 
 enum CodecError: Error {
     case unsupportedCodecSet(Set<CodecType>)

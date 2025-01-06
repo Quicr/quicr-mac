@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Foundation
-
 /// Configuration for an influx server to receive metrics with.
 struct InfluxConfig: Codable {
     /// True to actually collect and submit metrics.

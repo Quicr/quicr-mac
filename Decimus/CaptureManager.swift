@@ -5,7 +5,6 @@ import AVFoundation
 #if canImport(UIKit)
 import UIKit
 #endif
-import os
 
 public extension AVCaptureDevice {
     /// An unsigned 64 bit probably unique identifier for a capture device.

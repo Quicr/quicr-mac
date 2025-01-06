@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import OrderedCollections
-import AVFoundation
 import Atomics
+import CoreMedia
 
 // swiftlint:disable force_cast
 

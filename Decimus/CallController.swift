@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import CoreMedia
-import AVFoundation
-import os
-
 /// Possible errors raised by MoqCallController.
 enum MoqCallControllerError: Error {
     /// Unexpected status during connection.

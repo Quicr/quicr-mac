@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Foundation
-
 /// Configuration for joining a call.
 struct CallConfig: Hashable {
     /// Address of the server.

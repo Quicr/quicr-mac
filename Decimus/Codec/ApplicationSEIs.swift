@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import AVFoundation
 
 enum OrientationSeiField {
     case tag

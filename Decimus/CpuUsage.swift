@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Foundation
-
 func cpuUsage() throws -> Double {
     var taskInfoCount: mach_msg_type_number_t = mach_msg_type_number_t(TASK_INFO_MAX)
     var tinfo = [integer_t](repeating: 0, count: Int(taskInfoCount))

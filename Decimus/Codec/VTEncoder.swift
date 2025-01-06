@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import VideoToolbox
-import CoreVideo
-#if canImport(UIKit)
-import UIKit
-#endif
 import AVFoundation
-import os
 
 protocol VideoEncoder {
     typealias EncodedCallback = (_ timestamp: Date,

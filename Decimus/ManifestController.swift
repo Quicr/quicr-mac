@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import os
 
 /// Configuration object for ``ManifestController``.
 struct ManifestServerConfig: Codable, Equatable {
@@ -61,7 +60,7 @@ class ManifestController {
 
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
-            URLQueryItem(name: "email", value: "\(String(describing: email))"),
+            URLQueryItem(name: "email", value: "\(String(describing: email))")
         ]
 
         let request = try makeRequest(method: "GET", components: url)
@@ -85,7 +84,7 @@ class ManifestController {
 
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
-            URLQueryItem(name: "email", value: "\(String(describing: email))"),
+            URLQueryItem(name: "email", value: "\(String(describing: email))")
         ]
 
         let request = try makeRequest(method: "GET", components: url)
@@ -105,7 +104,7 @@ class ManifestController {
         url.path = "/conferences/\(confId)/manifest"
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
-            URLQueryItem(name: "email", value: email),
+            URLQueryItem(name: "email", value: email)
         ]
 
         let request = try makeRequest(method: "GET", components: url)
@@ -117,7 +116,7 @@ class ManifestController {
 
     private func makeRequest(method: String, components: URLComponents) throws -> URLRequest {
         guard let components = components.string,
-            let url = URL(string: components)
+              let url = URL(string: components)
         else {
             throw "Invalid URL: \(components)"
         }

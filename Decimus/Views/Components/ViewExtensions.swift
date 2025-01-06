@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import SwiftUI
+import SwiftUICore
 #if canImport(UIKit)
 import UIKit
 #endif
