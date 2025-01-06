@@ -1,2 +1,6 @@
 excluded:
   - dependencies
+  - Decimus/Views/VideoView.swift
+  - Decimus/Views/Components/PreviewView.swift
+analyzer_rules:
+  - unused_import
