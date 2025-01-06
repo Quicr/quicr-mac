@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import CoreMedia
-import AVFoundation
 
 /// Utility functions for working with HEVC bitstreams.
 class HEVCUtilities: VideoUtilities {

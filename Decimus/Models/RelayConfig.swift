@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Foundation
-
 /// Default ports for each supported protocol.
 let defaultProtocolPorts: [ProtocolType: UInt16] = [
     .UDP: 33434,

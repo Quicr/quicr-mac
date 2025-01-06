@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 @testable import QuicR
-import Foundation
 import XCTest
 import CoreMedia
 

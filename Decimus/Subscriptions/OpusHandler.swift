@@ -5,8 +5,6 @@ import Foundation
 import AVFAudio
 import CoreAudio
 import Atomics
-import CTPCircularBuffer
-import Opus
 
 enum OpusSubscriptionError: Error {
     case failedDecoderCreation

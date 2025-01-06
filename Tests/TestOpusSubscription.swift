@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
-@testable import QuicR
 
 final class TestOpusSubscription: XCTestCase {
     func testMetrics() throws {

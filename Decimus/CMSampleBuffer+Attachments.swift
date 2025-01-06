@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import AVFoundation
+import CoreMedia
 
 extension CMSampleBuffer {
     /// Check if this frame is an IDR (does NOT depend on others).

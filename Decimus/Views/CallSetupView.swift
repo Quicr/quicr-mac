@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
-import os
-import AVKit
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
@@ -152,15 +150,15 @@ private struct LoginForm: View {
         }
         #if os(tvOS)
         .continuityDevicePicker(isPresented: $showContinuityDevicePicker) { device in
-            guard let device = device else {
-                Self.logger.info("No continuity device selected")
-                return
-            }
+        guard let device = device else {
+        Self.logger.info("No continuity device selected")
+        return
+        }
         }
         .task {
-            showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
-                                                                 for: .video,
-                                                                 position: .unspecified) == nil
+        showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+        for: .video,
+        position: .unspecified) == nil
         }
         #endif
     }

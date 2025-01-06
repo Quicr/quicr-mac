@@ -3,7 +3,6 @@
 
 import InfluxDBSwift
 import Foundation
-import os
 
 actor InfluxMetricsSubmitter: MetricsSubmitter {
     private class WeakMeasurement {

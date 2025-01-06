@@ -3,7 +3,6 @@
 
 @testable import QuicR
 import CoreMedia
-import AVFoundation
 import XCTest
 
 final class TestVideoUtilities: XCTestCase {

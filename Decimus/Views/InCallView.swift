@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
-import AVFoundation
 #if canImport(UIKit)
 import UIKit
 #endif
-import os
 
 /// View to show when in a call.
 /// Shows remote video, local self view and controls.

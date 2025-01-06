@@ -3,9 +3,7 @@
 
 import Foundation
 import AVFAudio
-import AVFoundation
 import CoreAudio
-import os
 import Accelerate
 
 class OpusPublication: Publication {
