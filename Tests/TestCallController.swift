@@ -57,13 +57,20 @@ final class TestCallController: XCTestCase {
             self.callback = callback
         }
 
-        func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
-            let set = MockSubscriptionSet(subscription)
+        func create(subscription: ManifestSubscription,
+                    codecFactory: CodecFactory,
+                    endpointId: String,
+                    relayId: String) throws -> any SubscriptionSet {
+            let set = try MockSubscriptionSet(subscription)
             self.callback(set)
             return set
         }
 
-        func create(set: any SubscriptionSet, profile: Profile, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+        func create(set: any SubscriptionSet,
+                    profile: Profile,
+                    codecFactory: CodecFactory,
+                    endpointId: String,
+                    relayId: String) throws -> QSubscribeTrackHandlerObjC {
             MockSubscription(ftn: try profile.getFullTrackName())
         }
     }
@@ -80,12 +87,12 @@ final class TestCallController: XCTestCase {
         private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
         private let subscription: ManifestSubscription
 
-        init(_ subscription: ManifestSubscription) {
+        init(_ subscription: ManifestSubscription) throws {
             self.sourceId = subscription.sourceID
             self.participantId = subscription.participantId
             self.subscription = subscription
             for profile in self.subscription.profileSet.profiles {
-                let ftn = try! profile.getFullTrackName()
+                let ftn = try profile.getFullTrackName()
                 self.handlers[ftn] = MockSubscription(ftn: ftn)
             }
         }
@@ -342,11 +349,11 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual(handlers.count, 2)
         let ftns = handlers.map { $0.key }
         let compare: (FullTrackName, FullTrackName) -> Bool = {
-            guard let a = String(data: Data($0.nameSpace.joined()), encoding: .utf8),
-                  let b = String(data: Data($1.nameSpace.joined()), encoding: .utf8) else {
+            guard let left = String(data: Data($0.nameSpace.joined()), encoding: .utf8),
+                  let right = String(data: Data($1.nameSpace.joined()), encoding: .utf8) else {
                 return false
             }
-            return a < b
+            return left < right
         }
         XCTAssertEqual(ftns.sorted(by: compare), [ftn1, ftn2].sorted(by: compare))
 
@@ -373,10 +380,10 @@ final class TestCallController: XCTestCase {
     }
 
     func testAssertFtnEquality() throws {
-        let a: [QFullTrackName] = [try FullTrackName(namespace: ["a"], name: "a")]
-        let b: [QFullTrackName] = [try FullTrackName(namespace: ["b"], name: "b")]
-        XCTAssertTrue(self.assertFtnEquality(a, rhs: a))
-        XCTAssertFalse(self.assertFtnEquality(a, rhs: b))
+        let lhs: [QFullTrackName] = [try FullTrackName(namespace: ["a"], name: "a")]
+        let rhs: [QFullTrackName] = [try FullTrackName(namespace: ["b"], name: "b")]
+        XCTAssertTrue(self.assertFtnEquality(lhs, rhs: lhs))
+        XCTAssertFalse(self.assertFtnEquality(lhs, rhs: rhs))
     }
 
     func assertFtnEquality(_ lhs: [QFullTrackName], rhs: [QFullTrackName]) -> Bool {
