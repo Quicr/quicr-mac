@@ -37,23 +37,20 @@ class VideoParticipants: ObservableObject {
     private var cancellables: [SourceIDType: AnyCancellable] = [:]
     private let startDate = Date.now
 
-    /// Get or create a ``VideoParticipant``.
-    /// - Parameter identifier: The identifier for the target view.
-    /// - Returns: The created video view.
-    func getOrMake(identifier: SourceIDType, subscribeDate: Date) -> VideoParticipant {
-        if let participant = participants[identifier] {
-            return participant
+    /// Add a participant.
+    /// - Parameter videoParticipant: The participant to add.
+    /// - Throws: If the participant already exists.
+    func add(_ videoParticipant: VideoParticipant) throws {
+        if self.participants[videoParticipant.id] != nil {
+            throw "Already Exists"
         }
-
-        let new: VideoParticipant = .init(id: identifier, startDate: self.startDate, subscribeDate: subscribeDate)
-        let cancellable = new.objectWillChange.sink(receiveValue: {
+        let cancellable = videoParticipant.objectWillChange.sink(receiveValue: {
             DispatchQueue.main.async {
                 self.objectWillChange.send()
             }
         })
-        cancellables[identifier] = cancellable
-        participants[identifier] = new
-        return new
+        self.cancellables[videoParticipant.id] = cancellable
+        self.participants[videoParticipant.id] = videoParticipant
     }
 
     /// Remove a participant view.

@@ -57,6 +57,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
+    private let participant: VideoParticipant?
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -71,7 +72,8 @@ class VideoSubscriptionSet: SubscriptionSet {
          pauseResume: Bool,
          endpointId: String,
          relayId: String,
-         codecFactory: CodecFactory) throws {
+         codecFactory: CodecFactory,
+         joinDate: Date) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -105,6 +107,14 @@ class VideoSubscriptionSet: SubscriptionSet {
                                           source: subscription.sourceID,
                                           stage: "Decoded")
 
+        self.subscribeDate = Date.now
+        if simulreceive == .enable {
+            self.participant = .init(id: self.sourceId, startDate: joinDate, subscribeDate: self.subscribeDate)
+            try self.participants.add(self.participant!)
+        } else {
+            self.participant = nil
+        }
+
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
         for profile in profiles {
@@ -119,8 +129,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
-
-        self.subscribeDate = Date.now
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -496,7 +504,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             }
 
             DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID, subscribeDate: self.subscribeDate)
+                guard let participant = self.participant else { fatalError() }
                 if let dispatchLabel = dispatchLabel {
                     participant.label = dispatchLabel
                 }
