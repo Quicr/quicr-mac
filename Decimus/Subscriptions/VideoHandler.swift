@@ -335,6 +335,7 @@ class VideoHandler: CustomStringConvertible {
         }
 
         // Create the video jitter buffer.
+        // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
                 if reliable {
@@ -370,6 +371,7 @@ class VideoHandler: CustomStringConvertible {
                 ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
             }
         }
+        // swiftlint:enable force_cast
         self.jitterBuffer = try .init(identifier: "\(self.fullTrackName)",
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterBufferConfig.minDepth,

@@ -14,7 +14,7 @@ class TokenStorage {
 
     /// Create a new storage API for the given tag.
     /// - Parameter tag: Identifier for this entry.
-    init(tag: String) throws {
+    init(tag: String) {
         self.tag = tag
         self.search = [
             kSecClass: kSecClassGenericPassword,
@@ -60,7 +60,7 @@ class TokenStorage {
         let found = SecItemCopyMatching(query as CFDictionary, &item)
         switch found {
         case errSecSuccess:
-            let item = item! as! CFData
+            let item = item! as! CFData // swiftlint:disable:this force_cast
             let string = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault,
                                                                   item,
                                                                   kCFStringEncodingASCII)
