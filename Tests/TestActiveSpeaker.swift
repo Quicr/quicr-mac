@@ -28,7 +28,8 @@ final class TestActiveSpeaker: XCTestCase {
         }
     }
 
-    func testActiveSpeaker(clamp: Int?, ourself: ParticipantId) async throws {
+    func testActiveSpeaker(clamp: Int?, // swiftlint:disable:this function_body_length
+                           ourself: ParticipantId) async throws {
         // Given a list of active speakers, the controller's subscriptions should change
         // to reflect the list.
 
@@ -110,11 +111,11 @@ final class TestActiveSpeaker: XCTestCase {
         XCTAssertEqual(handlers.sorted(by: {
             let aFtn = FullTrackName($0.getFullTrackName())
             let bFtn = FullTrackName($1.getFullTrackName())
-            guard let a = String(data: Data(aFtn.nameSpace.joined()), encoding: .utf8),
-                  let b = String(data: Data(bFtn.nameSpace.joined()), encoding: .utf8) else {
+            guard let lhs = String(data: Data(aFtn.nameSpace.joined()), encoding: .utf8),
+                  let rhs = String(data: Data(bFtn.nameSpace.joined()), encoding: .utf8) else {
                 return false
             }
-            return a < b
+            return lhs < rhs
         }), subbed)
 
         // Now, 1 and 3 are actively speaking.

@@ -19,6 +19,7 @@ extension DecimusVideoFrame: @retroactive Equatable {
 
 final class TestVideoJitterBuffer: XCTestCase {
 
+    // swiftlint:disable force_cast
     func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
         .init { builder in
             builder.compare {
@@ -57,6 +58,7 @@ final class TestVideoJitterBuffer: XCTestCase {
             }
         }
     }
+    // swiftlint:enable force_cast
 
     /// Nothing should be returned until the min depth has been exceeded.
     func doTestPlayout() throws {
@@ -198,7 +200,11 @@ final class TestVideoJitterBuffer: XCTestCase {
                                        sequenceNumber: 0,
                                        fps: 30)
         XCTAssertThrowsError(try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)) {
-            XCTAssertEqual($0 as! JitterBufferError, JitterBufferError.old)
+            guard let error = $0 as? JitterBufferError else {
+                XCTFail()
+                return
+            }
+            XCTAssertEqual(error, .old)
         }
     }
 
