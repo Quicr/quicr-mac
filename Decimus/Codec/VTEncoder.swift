@@ -3,6 +3,9 @@
 
 import VideoToolbox
 import AVFoundation
+#if os(iOS) && !targetEnvironment(macCatalyst)
+import UIKit
+#endif
 
 protocol VideoEncoder {
     typealias EncodedCallback = (_ timestamp: Date,

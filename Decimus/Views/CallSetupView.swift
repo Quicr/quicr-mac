@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+#if os(tvOS)
+import AVFoundation
+import AVKit
+#endif
 
 typealias ConfigCallback = (_ config: CallConfig) -> Void
 
