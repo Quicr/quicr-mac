@@ -306,6 +306,7 @@
 		9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerCallbacks.h; sourceTree = "<group>"; };
 		9BDA15D02C7FD83700494BFD /* FullTrackName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTrackName.swift; sourceTree = "<group>"; };
 		9BDA15D22C7FF3E300494BFD /* quicr.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = quicr.xcframework; path = dependencies/quicr.xcframework; sourceTree = "<group>"; };
+		9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
@@ -534,6 +535,7 @@
 		9BA27FB9297D7270007013B2 = {
 			isa = PBXGroup;
 			children = (
+				9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */,
 				FF6D6D2F2A00410400B535DA /* fonts */,
 				9B85951429F03147008C813C /* TestPlan.xctestplan */,
 				9BEFCC4F29BB89D9001A780A /* ci_scripts */,
@@ -1273,6 +1275,7 @@
 		};
 		9BA27FE7297D7271007013B2 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvos*]" = "tvOS Icons";
@@ -1327,7 +1330,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
@@ -1348,6 +1351,7 @@
 		};
 		9BA27FE8297D7271007013B2 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=appletvos*]" = "tvOS Icons";
@@ -1402,7 +1406,7 @@
 					"$(PROJECT_DIR)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 2.7.0;
+				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
