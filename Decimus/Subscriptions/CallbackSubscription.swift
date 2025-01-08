@@ -2,37 +2,29 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// A subscription that provides received objects via a callback.
-class CallbackSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
+class CallbackSubscription: Subscription {
     typealias SubscriptionCallback = (QObjectHeaders, Data, [NSNumber: Data]?) -> Void
-    private let logger = DecimusLogger(CallbackSubscription.self)
     private let callback: SubscriptionCallback
 
-    init(fullTrackName: FullTrackName,
+    init(profile: Profile,
+         endpointId: String,
+         relayId: String,
+         metricsSubmitter: MetricsSubmitter?,
          priority: UInt8,
          groupOrder: QGroupOrder,
          filterType: QFilterType,
-         callback: @escaping SubscriptionCallback) {
+         callback: @escaping SubscriptionCallback) throws {
         self.callback = callback
-        super.init(fullTrackName: fullTrackName,
-                   priority: priority,
-                   groupOrder: groupOrder,
-                   filterType: filterType)
-        super.setCallbacks(self)
+        try super.init(profile: profile,
+                       endpointId: endpointId,
+                       relayId: relayId,
+                       metricsSubmitter: metricsSubmitter,
+                       priority: priority,
+                       groupOrder: groupOrder,
+                       filterType: filterType)
     }
 
-    func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        self.logger.info("Status changed: \(status)")
-    }
-
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         self.callback(objectHeaders, data, extensions)
-    }
-
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.logger.warning("Unexpected partial object received")
-    }
-
-    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
-        // TODO: Record metrics.
     }
 }
