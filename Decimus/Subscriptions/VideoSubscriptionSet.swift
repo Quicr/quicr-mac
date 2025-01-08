@@ -18,11 +18,9 @@ struct AvailableImage {
 }
 
 // swiftlint:disable type_body_length
-class VideoSubscriptionSet: SubscriptionSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
-    let sourceId: SourceIDType
-    let participantId: ParticipantId
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
@@ -76,8 +74,6 @@ class VideoSubscriptionSet: SubscriptionSet {
             throw "Simulreceive and layer are not compatible"
         }
 
-        self.sourceId = subscription.sourceID
-        self.participantId = subscription.participantId
         self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
@@ -122,6 +118,8 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         self.subscribeDate = Date.now
 
+        super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
@@ -153,11 +151,11 @@ class VideoSubscriptionSet: SubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
+    override func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
         self.videoSubscriptions
     }
 
-    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+    override func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
         guard let handler = handler as? VideoSubscription else {
             throw "Handler MUST be VideoSubscription"
         }
@@ -170,7 +168,7 @@ class VideoSubscriptionSet: SubscriptionSet {
         }
     }
 
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
+    override func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
         self.videoSubscriptionLock.withLock {
             self.videoSubscriptions.removeValue(forKey: ftn)
         }
@@ -178,13 +176,23 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     public func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus) {
         if status == .notSubscribed {
-            self.liveSubscriptionsLock.withLock {
+            let updated = self.liveSubscriptionsLock.withLock {
                 self.liveSubscriptions.remove(ftn)
                 if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
                     Self.logger.debug("Destroying simulreceive render as no live subscriptions")
                     self.renderTask?.cancel()
                     self.participants.removeParticipant(identifier: self.subscription.sourceID)
                 }
+                return self.liveSubscriptions
+            }
+            self.dispatchUpdate(updated)
+        }
+    }
+
+    private func dispatchUpdate(_ subscriptions: Set<FullTrackName>) {
+        Task(priority: .utility) {
+            await MainActor.run {
+                self.updateObserved(subscriptions)
             }
         }
     }
@@ -193,8 +201,11 @@ class VideoSubscriptionSet: SubscriptionSet {
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date) {
-        _ = self.liveSubscriptionsLock.withLock {
-            self.liveSubscriptions.insert(ftn)
+        let updated = self.liveSubscriptionsLock.withLock {
+            (self.liveSubscriptions.insert(ftn).inserted, self.liveSubscriptions)
+        }
+        if updated.0 {
+            self.dispatchUpdate(updated.1)
         }
 
         // Set the timestamp diff from the first recveived object.

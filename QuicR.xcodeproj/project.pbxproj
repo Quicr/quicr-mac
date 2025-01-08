@@ -106,6 +106,8 @@
 		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
 		9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BDA15D22C7FF3E300494BFD /* quicr.xcframework */; };
 		9BDA15D42C7FF3E300494BFD /* quicr.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9BDA15D22C7FF3E300494BFD /* quicr.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */; };
+		9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
@@ -309,6 +311,8 @@
 		9BDA15D02C7FD83700494BFD /* FullTrackName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTrackName.swift; sourceTree = "<group>"; };
 		9BDA15D22C7FF3E300494BFD /* quicr.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = quicr.xcframework; path = dependencies/quicr.xcframework; sourceTree = "<group>"; };
 		9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSet.swift; sourceTree = "<group>"; };
+		9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSubscriptionDetails.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
@@ -672,6 +676,7 @@
 		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
 			isa = PBXGroup;
 			children = (
+				9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */,
 				9BC070D42D2D3A8700FE5B0E /* Subscription.swift */,
 				9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */,
 				9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */,
@@ -752,6 +757,7 @@
 		FFBF2FB529BFE47000D769CF /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */,
 				9B1246352CD90B00004C020C /* PublicationPopover.swift */,
 				9B1246332CD90923004C020C /* SubscriptionPopover.swift */,
 				9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */,
@@ -1017,6 +1023,7 @@
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
 				9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */,
+				9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
@@ -1038,6 +1045,7 @@
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
+				9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */,
 				9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
