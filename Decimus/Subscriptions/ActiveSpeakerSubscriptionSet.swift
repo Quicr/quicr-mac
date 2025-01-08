@@ -13,6 +13,9 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
     private let ourParticipantId: ParticipantId?
+    private let metricsSubmitter: MetricsSubmitter?
+    private let useNewJitterBuffer: Bool
+    private let granularMetrics: Bool
 
     /// Individual active speaker subscriptions.
     private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
@@ -24,7 +27,10 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
-         ourParticipantId: ParticipantId?) {
+         ourParticipantId: ParticipantId?,
+         submitter: MetricsSubmitter?,
+         useNewJitterBuffer: Bool,
+         granularMetrics: Bool) {
         self.participantId = subscription.participantId
         self.sourceId = subscription.sourceID
         self.engine = engine
@@ -32,6 +38,9 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
         self.jitterMax = jitterMax
         self.opusWindowSize = opusWindowSize
         self.ourParticipantId = ourParticipantId
+        self.metricsSubmitter = submitter
+        self.useNewJitterBuffer = useNewJitterBuffer
+        self.granularMetrics = granularMetrics
     }
 
     func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
@@ -73,16 +82,25 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
         if let existing = self.audioMediaObjects[participantId] {
             media = existing
         } else {
+            // Metrics.
+            let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
+            if let submitter = self.metricsSubmitter {
+                measurement = .init(measurement: .init(namespace: "\(participantId)"), submitter: submitter)
+            } else {
+                measurement = nil
+            }
+
+            // Create the handler.
             do {
                 media = try OpusHandler(sourceId: "\(participantId)",
                                         engine: self.engine,
-                                        measurement: nil,
+                                        measurement: measurement,
                                         jitterDepth: self.jitterDepth,
                                         jitterMax: self.jitterMax,
                                         opusWindowSize: self.opusWindowSize,
-                                        granularMetrics: false,
-                                        useNewJitterBuffer: true,
-                                        metricsSubmitter: nil)
+                                        granularMetrics: self.granularMetrics,
+                                        useNewJitterBuffer: self.useNewJitterBuffer,
+                                        metricsSubmitter: self.metricsSubmitter)
                 self.audioMediaObjects[participantId] = media
             } catch {
                 self.logger.error("Failed to create audio handler for active speaker participant: \(error.localizedDescription)")

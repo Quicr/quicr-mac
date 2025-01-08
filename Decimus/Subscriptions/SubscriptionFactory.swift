@@ -161,19 +161,31 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.participantId = participantId
     }
 
-    func create(subscription: ManifestSubscription, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> any SubscriptionSet {
+    func create(subscription: ManifestSubscription,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> any SubscriptionSet {
+        let max = self.subscriptionConfig.useNewJitterBuffer ?
+            self.subscriptionConfig.videoJitterBuffer.capacity :
+            self.subscriptionConfig.jitterMaxTime
         if subscription.mediaType == ManifestMediaTypes.audio.rawValue && subscription.profileSet.type == "switched" {
             // This a switched / active speaker subscription type.
             return ActiveSpeakerSubscriptionSet(subscription: subscription,
                                                 engine: self.engine,
                                                 jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                                jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                                jitterMax: max,
                                                 opusWindowSize: self.subscriptionConfig.opusWindowSize,
-                                                ourParticipantId: self.participantId)
+                                                ourParticipantId: self.participantId,
+                                                submitter: self.metricsSubmitter,
+                                                useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                                granularMetrics: self.granularMetrics)
         }
 
         if subscription.mediaType == "playtime-control" {
-            let notifier = try ActiveSpeakerNotifierSubscriptionSet(subscription: subscription)
+            let notifier = try ActiveSpeakerNotifierSubscriptionSet(subscription: subscription,
+                                                                    endpointId: endpointId,
+                                                                    relayId: relayId,
+                                                                    submitter: self.metricsSubmitter)
             self.activeSpeakerNotifier = notifier
             return notifier
         }
@@ -212,7 +224,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         engine: self.engine,
                                         submitter: self.metricsSubmitter,
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        jitterMax: max,
                                         opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                         reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics,
@@ -224,12 +236,19 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         throw CodecError.unsupportedCodecSet(found)
     }
 
-    func create(set: SubscriptionSet, profile: Profile, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> QSubscribeTrackHandlerObjC {
+    func create(set: SubscriptionSet,
+                profile: Profile,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> QSubscribeTrackHandlerObjC {
         if let set = set as? ActiveSpeakerSubscriptionSet {
-            return try CallbackSubscription(fullTrackName: profile.getFullTrackName(),
+            return try CallbackSubscription(profile: profile,
+                                            endpointId: endpointId,
+                                            relayId: relayId,
+                                            metricsSubmitter: self.metricsSubmitter,
                                             priority: 0,
                                             groupOrder: .originalPublisherOrder,
-                                            filterType: .latestGroup) { [weak set] in
+                                            filterType: .latestObject) { [weak set] in
                 set?.receivedObject(headers: $0, data: $1, extensions: $2)
             }
         }

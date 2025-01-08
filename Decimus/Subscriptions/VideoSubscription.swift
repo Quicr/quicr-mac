@@ -7,7 +7,7 @@ import os
 /// Holds an object for decoding & rendering.
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
-class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
+class VideoSubscription: Subscription {
     typealias StatusChanged = (_ status: QSubscribeTrackHandlerStatus) -> Void
     private let fullTrackName: FullTrackName
     private let config: VideoCodecConfig
@@ -23,7 +23,6 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
     private let statusChangeCallback: StatusChanged
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
-    private let measurement: MeasurementRegistration<TrackMeasurement>?
 
     var handler: VideoHandler?
     let handlerLock = OSAllocatedUnfairLock()
@@ -63,16 +62,6 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         self.statusChangeCallback = statusChanged
         self.participantId = participantId
 
-        if let metricsSubmitter = metricsSubmitter {
-            let measurement = TrackMeasurement(type: .subscribe,
-                                               endpointId: endpointId,
-                                               relayId: relayId,
-                                               namespace: "\(fullTrackName)")
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
-        } else {
-            self.measurement = nil
-        }
-
         self.creationTime = .now
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
@@ -88,16 +77,20 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
                                        subscribeDate: self.creationTime)
         self.token = handler.registerCallback(callback)
         self.handler = handler
-        super.init(fullTrackName: fullTrackName, priority: 0, groupOrder: .originalPublisherOrder, filterType: .latestGroup)
-        self.setCallbacks(self)
+        try super.init(profile: profile,
+                       endpointId: endpointId,
+                       relayId: relayId,
+                       metricsSubmitter: metricsSubmitter,
+                       priority: 0,
+                       groupOrder: .originalPublisherOrder,
+                       filterType: .latestGroup)
     }
 
     deinit {
         self.logger.debug("Deinit")
     }
 
-    func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        self.logger.info("Subscribe Track Status Changed: \(status)")
+    override func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         switch status {
         case .notSubscribed:
             self.cleanup()
@@ -116,7 +109,7 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         }
     }
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         if self.cleanupTask == nil {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
@@ -146,18 +139,6 @@ class VideoSubscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallb
         }
 
         handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now)
-    }
-
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.logger.warning("Partial objects not supported")
-    }
-
-    func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
-        if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
     }
 
     private func getCreateHandler() throws -> VideoHandler {
