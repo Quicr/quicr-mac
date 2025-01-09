@@ -70,7 +70,7 @@ class VideoHandler: CustomStringConvertible {
     private let callbackLock = OSAllocatedUnfairLock()
     var description = "VideoHandler"
     private let participantId: ParticipantId
-    private let participant: VideoParticipant?
+    private var participant: VideoParticipant?
 
     /// Create a new video handler.
     /// - Parameters:
@@ -118,8 +118,14 @@ class VideoHandler: CustomStringConvertible {
         self.variances = variances
         self.participantId = participantId
         if self.simulreceive != .enable {
-            self.participant = .init(id: "\(self.fullTrackName)", startDate: joinDate, subscribeDate: subscribeDate)
-            try self.participants.add(self.participant!)
+            Task {
+                self.participant = try await MainActor.run {
+                    try .init(id: "\(self.fullTrackName)",
+                              startDate: joinDate,
+                              subscribeDate: subscribeDate,
+                              videoParticipants: self.participants)
+                }
+            }
         } else {
             self.participant = nil
         }
@@ -155,9 +161,6 @@ class VideoHandler: CustomStringConvertible {
     }
 
     deinit {
-        if self.simulreceive != .enable {
-            self.participants.removeParticipant(identifier: "\(self.fullTrackName)")
-        }
         self.dequeueTask?.cancel()
         Self.logger.debug("Deinit")
     }

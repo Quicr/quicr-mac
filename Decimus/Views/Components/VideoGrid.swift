@@ -13,10 +13,8 @@ struct VideoGrid: View {
     @Binding var connecting: Bool
     @Binding var blur: Bool
     let restrictedCount: Int?
-    @StateObject var videoParticipants: VideoParticipants
-    private var participants: [VideoParticipant] {
-        return Array(videoParticipants.participants.values)
-    }
+    @State var videoParticipants: VideoParticipants
+    private var participants: [VideoParticipants.Weak<VideoParticipant>] { self.videoParticipants.participants }
 
     private func calcColumns() -> CGFloat {
         let denom: Int
@@ -60,39 +58,38 @@ struct VideoGrid: View {
             let numColumns = self.calcColumns()
             GeometryReader { geo in
                 WrappingHStack(alignment: .center) {
-                    let participants: [VideoParticipant] = self.restrictedCount != nil ?
-                        Array(self.videoParticipants.participants.values.prefix(self.restrictedCount!)) :
-                        Array(self.videoParticipants.participants.values)
-                    ForEach(participants) { participant in
-                        participant.view
-                            .scaledToFill()
-                            .frame(maxWidth: (geo.size.width / numColumns) - (2 * self.spacing),
-                                   maxHeight: abs(geo.size.height) / self.calcRows(numColumns))
-                            .cornerRadius(self.cornerRadius)
-                            .conditionalModifier(self.showLabels) {
-                                $0.overlay(alignment: .bottom) {
-                                    Text(participant.label)
-                                        .padding(5)
-                                        .foregroundColor(.black)
-                                        .background(.white)
-                                        .cornerRadius(self.cornerRadius)
-                                        .padding(.bottom)
-                                }
-                            }
-                            .conditionalModifier(self.showLabels && participant.view.joinToFirstFrame != nil) {
-                                $0.overlay(alignment: .topTrailing) {
-                                    VStack(alignment: .leading) {
-                                        Text("From Join: \(participant.view.joinToFirstFrame!)s")
-                                        Text("From Subscribe: \(participant.view.subscribeToFirstFrame!)s")
+                    ForEach(self.participants) { participant in
+                        if let participant = participant.value {
+                            participant.view
+                                .scaledToFill()
+                                .frame(maxWidth: (geo.size.width / numColumns) - (2 * self.spacing),
+                                       maxHeight: abs(geo.size.height) / self.calcRows(numColumns))
+                                .cornerRadius(self.cornerRadius)
+                                .conditionalModifier(self.showLabels) {
+                                    $0.overlay(alignment: .bottom) {
+                                        Text(participant.label)
+                                            .padding(5)
+                                            .foregroundColor(.black)
+                                            .background(.white)
+                                            .cornerRadius(self.cornerRadius)
+                                            .padding(.bottom)
                                     }
-                                    .background()
-                                    .padding()
                                 }
-                            }
-                            .border(.green, width: participant.highlight ? 3 : 0)
-                            .conditionalModifier(self.blur) {
-                                $0.blur(radius: self.cornerRadius)
-                            }
+                                .conditionalModifier(self.showLabels && participant.view.joinToFirstFrame != nil) {
+                                    $0.overlay(alignment: .topTrailing) {
+                                        VStack(alignment: .leading) {
+                                            Text("From Join: \(participant.view.joinToFirstFrame!)s")
+                                            Text("From Subscribe: \(participant.view.subscribeToFirstFrame!)s")
+                                        }
+                                        .background()
+                                        .padding()
+                                    }
+                                }
+                                .border(.green, width: participant.highlight ? 3 : 0)
+                                .conditionalModifier(self.blur) {
+                                    $0.blur(radius: self.cornerRadius)
+                                }
+                        }
                     }
                 }
                 .cornerRadius(cornerRadius)

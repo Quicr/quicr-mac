@@ -57,7 +57,8 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
-    private let participant: VideoParticipant?
+    private var participant: VideoParticipant?
+    private let joinDate: Date
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -107,13 +108,9 @@ class VideoSubscriptionSet: SubscriptionSet {
                                           source: subscription.sourceID,
                                           stage: "Decoded")
 
-        self.subscribeDate = Date.now
-        if simulreceive == .enable {
-            self.participant = .init(id: self.sourceId, startDate: joinDate, subscribeDate: self.subscribeDate)
-            try self.participants.add(self.participant!)
-        } else {
-            self.participant = nil
-        }
+        let subscribeDate = Date.now
+        self.subscribeDate = subscribeDate
+        self.joinDate = joinDate
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
@@ -138,7 +135,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                     if let self = self {
                         time = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                            self.participant = nil
                         }
                     } else {
                         return
@@ -155,9 +152,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     deinit {
         self.cleanupTask?.cancel()
-        if self.simulreceive == .enable {
-            self.participants.removeParticipant(identifier: self.subscription.sourceID)
-        }
         Self.logger.debug("Deinit")
     }
 
@@ -191,7 +185,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                 if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
                     Self.logger.debug("Destroying simulreceive render as no live subscriptions")
                     self.renderTask?.cancel()
-                    self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                    self.participant = nil
                 }
             }
         }
@@ -239,13 +233,6 @@ class VideoSubscriptionSet: SubscriptionSet {
             // Start the render task.
             if self.renderTask == nil || self.renderTask!.isCancelled {
                 self.startRenderTask()
-            }
-
-            if self.simulreceive == .enable {
-                // Ensure the participant is added.
-                if self.simulreceive == .enable {
-                    try? self.participants.add(self.participant!)
-                }
             }
         }
 
@@ -513,16 +500,29 @@ class VideoSubscriptionSet: SubscriptionSet {
                 dispatchLabel = nil
             }
 
-            DispatchQueue.main.async {
-                guard let participant = self.participant else { fatalError() }
-                if let dispatchLabel = dispatchLabel {
-                    participant.label = dispatchLabel
-                }
-                do {
-                    try participant.view.enqueue(selectedSample,
-                                                 transform: handler.orientation?.toTransform(handler.verticalMirror))
-                } catch {
-                    Self.logger.error("Could not enqueue sample: \(error)")
+            // If we don't yet have a participant, make one.
+            Task {
+                try await MainActor.run {
+                    let participant: VideoParticipant
+                    if let existing = self.participant {
+                        participant = existing
+                    } else {
+                        participant = try .init(id: self.sourceId,
+                                                startDate: self.joinDate,
+                                                subscribeDate: self.subscribeDate,
+                                                videoParticipants: self.participants)
+                        self.participant = participant
+                    }
+                    if let dispatchLabel = dispatchLabel {
+                        participant.label = dispatchLabel
+                    }
+                    do {
+                        let transform = handler.orientation?.toTransform(handler.verticalMirror)
+                        try participant.view.enqueue(selectedSample,
+                                                     transform: transform)
+                    } catch {
+                        Self.logger.error("Could not enqueue sample: \(error)")
+                    }
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
@@ -530,9 +530,12 @@ class VideoSubscriptionSet: SubscriptionSet {
             if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
-                DispatchQueue.main.async {
-                    for participant in self.participants.participants {
-                        participant.value.highlight = participant.key == "\(fullTrackName)"
+                Task {
+                    await MainActor.run {
+                        for participant in self.participants.participants {
+                            guard let participant = participant.value else { continue }
+                            participant.highlight = participant.id == "\(fullTrackName)"
+                        }
                     }
                 }
             }
