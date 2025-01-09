@@ -234,9 +234,19 @@ class VideoSubscriptionSet: SubscriptionSet {
             }
         }
 
-        // If we're responsible for rendering, start the task.
-        if self.simulreceive != .none && (self.renderTask == nil || self.renderTask!.isCancelled) {
-            startRenderTask()
+        // If we're responsible for rendering.
+        if self.simulreceive != .none {
+            // Start the render task.
+            if self.renderTask == nil || self.renderTask!.isCancelled {
+                self.startRenderTask()
+            }
+
+            if self.simulreceive == .enable {
+                // Ensure the participant is added.
+                if self.simulreceive == .enable {
+                    try? self.participants.add(self.participant!)
+                }
+            }
         }
 
         // Record the last time this updated.
