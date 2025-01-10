@@ -16,7 +16,7 @@ if [ "$CI" = TRUE ] ; then
         CMD_LINE="--platform TVOS"
     fi
 
-    CRYPTO="boringssl"
+    CRYPTO="openssl"
     if [ "$CI_WORKFLOW" == "PR" ] ; then
         CRYPTO="mbedtls"
     fi

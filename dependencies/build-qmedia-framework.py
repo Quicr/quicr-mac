@@ -13,6 +13,8 @@ import shutil
 
 build_type = "RelWithDebInfo"
 generator = "Unix Makefiles"
+openssl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "openssl")
+openssl_bundle_file = "openssl-v3.4.0.tgz"
 
 class Platform:
     def __init__(self, type, cmake_platform, build_folder):
@@ -21,7 +23,7 @@ class Platform:
         self.build_folder = build_folder
 
 class Crypto(Enum):
-    BORINGSSL = 1
+    OPENSSL = 1
     MBEDTLS = 2
 
 class PlatformType(Enum):
@@ -37,11 +39,12 @@ class PlatformType(Enum):
 def build(current_directory: str, platform: Platform, cmake_path: str, build_number: int, source: str, identifier: str, target: str, crypto: Crypto):
 
     build_dir = f"{current_directory}/{platform.build_folder}"
-    print(f"[{platform.type.name}] Building {identifier} @ {build_dir}")
+    print(f"[{platform.type.name}] Building {identifier} @ {build_dir} {target} {build_type}")
     if not os.path.exists(build_dir):
         os.makedirs(build_dir)
 
     mbedtls = "ON" if crypto == Crypto.MBEDTLS else "OFF"
+
 
     command = [
         cmake_path,
@@ -68,8 +71,12 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DBUILD_NUMBER={build_number}",
         f"-DUSE_MBEDTLS={mbedtls}",
         "-Wno-dev"]
+
+    env = os.environ.copy()
+    env["OPENSSL_ROOT_DIR"] = os.path.join(openssl_path, platform.type.name)
+
     generate = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
     output, error = generate.communicate()
     if generate.returncode != 0:
         print("Generation failed")
@@ -144,7 +151,36 @@ def patch_universal(current_directory: str, build_folder: str, target: str, targ
         print(error.decode())
         exit(1)
 
+
+def openssl_dirs_ready(platform_types: list[PlatformType]):
+    """openssl_dirs_ready function
+        Check if OPENSSL_PATH is defined with all expected subdirectories
+
+        :param: platform_types    List of PlatformType to check for
+
+        :returns: If all directories are valid, the real path of the OPENSSL_PATH. Otherwise None
+    """
+    real_path = openssl_path
+
+    if "OPENSSL_PATH" in os.environ:
+        real_path = os.path.realpath(os.environ.get("OPENSSL_PATH"))
+
+    for ptype in platform_types:
+        if not os.path.isdir(os.path.join(openssl_path, str(ptype.name))):
+            print(f'Missing {os.path.join(openssl_path, str(ptype.name))}')
+            return None
+
+    return real_path
+
 def do_build(source_folder: str, identifier: str, target: str, target_path: str):
+    global openssl_path
+
+    # Extract tarball pre-built openssl static builds if present
+    if os.path.exists(os.path.join(openssl_path, openssl_bundle_file)):
+        print(f"Extracting {os.path.join(openssl_path, openssl_bundle_file)}")
+        shutil.unpack_archive(os.path.join(openssl_path, openssl_bundle_file), openssl_path, "gztar")
+        os.rename(os.path.join(openssl_path, openssl_bundle_file), os.path.join(openssl_path, openssl_bundle_file, "orig"))
+
     # Get CMake path.
     cmake = shutil.which("cmake")
     if cmake == None:
@@ -170,7 +206,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     # Get the desired platforms from args.
     platforms = []
     build_number = 1234
-    crypto = Crypto.BORINGSSL
+    crypto = Crypto.OPENSSL
     if len(sys.argv) > 1:
         parse = argparse.ArgumentParser("Build Dependencies")
         parse.add_argument("--platform", action="append",
@@ -215,6 +251,11 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     else:
         # Default will build all supported.
         platforms = [platform for platform in PlatformType]
+
+    # Set openssl_path
+    openssl_path = openssl_dirs_ready(platforms)
+    if not openssl_path:
+        sys.exit("Missing required openssl dirs. Run `openssl/build.sh` to fix or provide your own")
 
     # CMake generate & build.
     with ThreadPoolExecutor(max_workers=len(platforms)) as pool:
