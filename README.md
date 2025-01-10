@@ -27,8 +27,8 @@ OpenSSL, compatible OpenSSL, or MBedTLS is required by libquicr and other C++ li
 specific platform builds of OpenSSL even though the architectures are the same. For this reason, we need to build
 OpenSSL for each target platfrom, such as IOS, Catalyst, TVOS, etc.  The
 [`./dependencies/openssl/build.sh`](dependencies/openssl/build.sh) script has been provided to build 
-OpenSSL for all the platforms that this project supports. If the source doesn't exist, the script by default 
-will clone the official OpenSSL github source and checkout tag v3.4.0. It will then build from source
+OpenSSL for all the platforms that this project supports. If the source doesn't exist, the script will by default 
+clone the official OpenSSL github source and checkout tag v3.4.0. It will then build from source
 each target platform. 
 
 These libraries do not change, unless the version changes. Building OpenSSL from source for every build results in
@@ -43,7 +43,7 @@ To provide a custom OpenSSL (e.g., boringSSL or other fork), you should change t
 on your needs. 
 
 You can provide your own build outside of this repo by setting the environment variable `OPENSSL_PATH`.
-Expected based directories must exist in the `OPENSSL_PATH` for each xcodebuild platform. Below are the
+Expected subdirectories directories must exist in the `OPENSSL_PATH` for each xcodebuild platform. Below are the
 expected subdirectories:
 
 ```
@@ -72,8 +72,8 @@ of this repo, then set the environment variable `OPENSSL_PATH` before calling th
 
 There are many platforms and the size gets a little large. It is more efficient to tar compress these
 when pushing to github. The [`./dependencies/build-qmedia-framework.py`](dependencies/build-qmedia-framework.py)
-will detect an expected name defined in that script to exist, which is currently `openssl-v3.4.0.tgz`. If that file
-exists, it will extract it. One extracted it will rename it to `openssl-v3.4.0.tgz.orig`. 
+will detect an expected filename in the default `OPENSSL_PATH`. If that file
+exists, it will extract it. Once extracted it will rename it to `openssl-v3.4.0.tgz.orig`. 
 
 To create the tar gz file for github, run the following at the root of `OPENSSL_PATH`:
 
