@@ -14,7 +14,13 @@ struct VideoGrid: View {
     @Binding var blur: Bool
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
-    private var participants: [VideoParticipants.Weak<VideoParticipant>] { self.videoParticipants.participants }
+    private var participants: [VideoParticipants.Weak<VideoParticipant>] {
+        if let restrictedCount = self.restrictedCount {
+            return Array(self.videoParticipants.participants.prefix(restrictedCount))
+        } else {
+            return Array(self.videoParticipants.participants)
+        }
+    }
 
     private func calcColumns() -> CGFloat {
         let denom: Int
