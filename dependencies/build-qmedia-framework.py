@@ -179,7 +179,7 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
     if os.path.exists(os.path.join(openssl_path, openssl_bundle_file)):
         print(f"Extracting {os.path.join(openssl_path, openssl_bundle_file)}")
         shutil.unpack_archive(os.path.join(openssl_path, openssl_bundle_file), openssl_path, "gztar")
-        os.rename(os.path.join(openssl_path, openssl_bundle_file), os.path.join(openssl_path, openssl_bundle_file, "orig"))
+        os.rename(os.path.join(openssl_path, openssl_bundle_file), os.path.join(openssl_path, f"{openssl_bundle_file}.orig"))
 
     # Get CMake path.
     cmake = shutil.which("cmake")
