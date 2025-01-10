@@ -71,6 +71,7 @@ class VideoHandler: CustomStringConvertible {
     var description = "VideoHandler"
     private let participantId: ParticipantId
     private var participant: VideoParticipant?
+    private var participantLock = OSAllocatedUnfairLock()
 
     /// Create a new video handler.
     /// - Parameters:
@@ -119,15 +120,21 @@ class VideoHandler: CustomStringConvertible {
         self.participantId = participantId
         if self.simulreceive != .enable {
             Task {
-                self.participant = try await MainActor.run {
-                    try .init(id: "\(self.fullTrackName)",
-                              startDate: joinDate,
-                              subscribeDate: subscribeDate,
-                              videoParticipants: self.participants)
+                let participant = try await MainActor.run {
+                    let existing = self.participantLock.withLock {
+                        self.participant
+                    }
+                    guard existing == nil else { return VideoParticipant?.none }
+                    return try VideoParticipant(id: "\(self.fullTrackName)",
+                                                startDate: joinDate,
+                                                subscribeDate: subscribeDate,
+                                                videoParticipants: self.participants)
                 }
+                guard let participant = participant else { return }
+                self.participantLock.withLock { self.participant = participant }
             }
         } else {
-            self.participant = nil
+            self.participantLock.withLock { self.participant = nil }
         }
 
         if jitterBufferConfig.mode != .layer {
@@ -144,7 +151,7 @@ class VideoHandler: CustomStringConvertible {
                                                   fps: UInt(self.config.fps),
                                                   discontinous: sample.discontinous)
                 }
-                if let participant = self.participant {
+                if let participant = self.participantLock.withLock({ self.participant }) {
                     // Enqueue for rendering.
                     do {
                         try self.enqueueSample(sample: sample,
@@ -273,8 +280,11 @@ class VideoHandler: CustomStringConvertible {
                 self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
                     let namespace = "\(self.fullTrackName)"
-                    self.description = self.labelFromSample(namespace: namespace, format: format, fps: resolvedFps, participantId: self.participantId)
-                    guard let participant = self.participant else { return }
+                    self.description = self.labelFromSample(namespace: namespace,
+                                                            format: format,
+                                                            fps: resolvedFps,
+                                                            participantId: self.participantId)
+                    guard let participant = self.participantLock.withLock({ self.participant }) else { return }
                     participant.label = .init(describing: self)
                 }
             }
@@ -481,11 +491,15 @@ class VideoHandler: CustomStringConvertible {
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
+                guard let participant = self.participantLock.withLock({ self.participant }) else {
+                    Self.logger.warning("Missing expected participant")
+                    return
+                }
                 try self.enqueueSample(sample: sampleBuffer,
                                        orientation: sample.orientation,
                                        verticalMirror: sample.verticalMirror,
                                        from: from,
-                                       participant: self.participant!)
+                                       participant: participant)
             } else {
                 if let orientation = sample.orientation {
                     self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
@@ -561,7 +575,7 @@ class VideoHandler: CustomStringConvertible {
     }
 
     private func flushDisplayLayer() {
-        guard let participant = self.participant else { return }
+        guard let participant = self.participantLock.withLock({ self.participant }) else { return }
         DispatchQueue.main.async {
             do {
                 try participant.view.flush()

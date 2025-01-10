@@ -58,6 +58,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
     private var participant: VideoParticipant?
+    private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
 
     init(subscription: ManifestSubscription,
@@ -135,7 +136,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                     if let self = self {
                         time = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.participant = nil
+                            self.participantLock.withLock { self.participant = nil }
                         }
                     } else {
                         return
@@ -185,7 +186,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                 if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
                     Self.logger.debug("Destroying simulreceive render as no live subscriptions")
                     self.renderTask?.cancel()
-                    self.participant = nil
+                    self.participantLock.withLock { self.participant = nil }
                 }
             }
         }
@@ -502,17 +503,24 @@ class VideoSubscriptionSet: SubscriptionSet {
 
             // If we don't yet have a participant, make one.
             Task {
-                try await MainActor.run {
+                await MainActor.run {
+                    self.participantLock.lock()
                     let participant: VideoParticipant
                     if let existing = self.participant {
                         participant = existing
                     } else {
-                        participant = try .init(id: self.sourceId,
-                                                startDate: self.joinDate,
-                                                subscribeDate: self.subscribeDate,
-                                                videoParticipants: self.participants)
+                        do {
+                            participant = try .init(id: self.sourceId,
+                                                    startDate: self.joinDate,
+                                                    subscribeDate: self.subscribeDate,
+                                                    videoParticipants: self.participants)
+                        } catch {
+                            self.participantLock.unlock()
+                            return
+                        }
                         self.participant = participant
                     }
+                    self.participantLock.unlock()
                     if let dispatchLabel = dispatchLabel {
                         participant.label = dispatchLabel
                     }
