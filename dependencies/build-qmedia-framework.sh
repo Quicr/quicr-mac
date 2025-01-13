@@ -17,10 +17,6 @@ if [ "$CI" = TRUE ] ; then
     fi
 
     CRYPTO="openssl"
-    #if [ "$CI_WORKFLOW" == "PR" ] ; then
-    #    CRYPTO="mbedtls"
-    #fi
-
     $DIR/build-qmedia-framework.py $CMD_LINE --build-number="$CI_BUILD_NUMBER" --crypto="$CRYPTO"
 else
     $DIR/build-qmedia-framework.py
