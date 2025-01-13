@@ -6,12 +6,10 @@
 defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
 
 # Build tools
-brew install cmake
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_ENV_HINTS=1
+brew install --formula cmake
 brew install pkg-config
-if [ "$CI_WORKFLOW" != "PR" ]
-then
-    brew install go
-fi
 
 # Patch entitilements for tests.
 if [ "$CI_WORKFLOW" == "PR" ]
