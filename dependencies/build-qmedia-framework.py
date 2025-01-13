@@ -173,14 +173,6 @@ def openssl_dirs_ready(platform_types: list[PlatformType]):
     return real_path
 
 def do_build(source_folder: str, identifier: str, target: str, target_path: str):
-    global openssl_path
-
-    # Extract tarball pre-built openssl static builds if present
-    if os.path.exists(os.path.join(openssl_path, openssl_bundle_file)):
-        print(f"Extracting {os.path.join(openssl_path, openssl_bundle_file)}")
-        shutil.unpack_archive(os.path.join(openssl_path, openssl_bundle_file), openssl_path, "gztar")
-        os.rename(os.path.join(openssl_path, openssl_bundle_file), os.path.join(openssl_path, f"{openssl_bundle_file}.orig"))
-
     # Get CMake path.
     cmake = shutil.which("cmake")
     if cmake == None:
@@ -334,5 +326,12 @@ def patch_plist(plist: str, version: str) -> bool:
     return True
 
 if __name__ == "__main__":
+    # Extract tarball pre-built openssl static builds if present
+    if os.path.exists(os.path.join(openssl_path, openssl_bundle_file)):
+        print(f"Extracting {os.path.join(openssl_path, openssl_bundle_file)}")
+        shutil.unpack_archive(os.path.join(openssl_path, openssl_bundle_file), openssl_path, "gztar")
+        shutil.copy2(os.path.join(openssl_path, openssl_bundle_file), os.path.join(openssl_path, f"{openssl_bundle_file}.orig"))
+
+    # Build frameworks.
     do_build("libquicr", "com.cisco.quicr.quicr", "quicr", "src")
     do_build("libjitter", "com.cisco.quicr.clibjitter", "clibjitter", "")
