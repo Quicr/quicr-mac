@@ -4,3 +4,4 @@ IOS*
 TVOS*
 MACOS*
 ._*
+*.orig
