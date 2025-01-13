@@ -19,6 +19,70 @@ QuicR-mac is a MacOS/iOS/tvOS proof of concept Media over QUIC application allow
 
 If you need to build for iOS devices, you will need to specify a valid team and certificate in the Project's `Signing and Capabilities` page. Your own personal certificate should work well enough for this.
 
+### OpenSSL
+> [!IMPORTANT]
+> This repository contains pre-built OpenSSL version 3.4.0 static libraries and headers for the supported xcodebuild platforms.
+
+OpenSSL, compatible OpenSSL, or MBedTLS is required by libquicr and other C++ libraries in this project. Apple requires
+specific platform builds of OpenSSL even though the architectures are the same. For this reason, we need to build
+OpenSSL for each target platfrom, such as IOS, Catalyst, TVOS, etc.  The
+[`./dependencies/openssl/build.sh`](dependencies/openssl/build.sh) script has been provided to build 
+OpenSSL for all the platforms that this project supports. If the source doesn't exist, the script will by default 
+clone the official OpenSSL github source and checkout tag v3.4.0. It will then build from source
+each target platform. 
+
+These libraries do not change, unless the version changes. Building OpenSSL from source for every build results in
+unnecessary build time delays, which can be in the several minute range. To speed this up, pre-built openssl
+target dev includes/libs have been included in this project. A build is not required unless you need to change
+OpenSSL.
+
+#### Providing custom OpenSSL
+
+To provide a custom OpenSSL (e.g., boringSSL or other fork), you should change the
+[build.sh](dependencies/openssl/build.sh) `GetSource()` and `BuildSSL()` functions to build based
+on your needs. 
+
+You can provide your own build outside of this repo by setting the environment variable `OPENSSL_PATH`.
+Expected subdirectories directories must exist in the `OPENSSL_PATH` for each xcodebuild platform. Below are the
+expected subdirectories:
+
+```
+    ${OPENSSL_PATH}/CATALYST_ARM
+    ${OPENSSL_PATH}/CATALYST_X86
+    ${OPENSSL_PATH}/IOS
+    ${OPENSSL_PATH}/IOS_SIMULATOR
+    ${OPENSSL_PATH}/TVOS
+    ${OPENSSL_PATH}/TVOS_SIMULATOR
+    ${OPENSSL_PATH}/MACOS_ARM64
+    ${OPENSSL_PATH}/MACOS_X86
+```
+
+Under each platform subdirectory, the standard openssl install directories **MUST** exist.
+
+```
+        ${OPENSSL_PATH}/<platform>/include
+        ${OPENSSL_PATH}/<platform>/lib
+```
+
+The default `OPENSSL_PATH` is `./dependencies/openssl`. If you want to change this or move it outside
+of this repo, then set the environment variable `OPENSSL_PATH` before calling the
+[`./dependencies/build-qmedia-framework py/sh](dependencies/build-qmedia-framework.py) script. 
+
+##### Tar bundle for github
+
+There are many platforms and the size gets a little large. It is more efficient to tar compress these
+when pushing to github. The [`./dependencies/build-qmedia-framework.py`](dependencies/build-qmedia-framework.py)
+will detect an expected filename in the default `OPENSSL_PATH`. If that file
+exists, it will extract it. Once extracted it will rename it to `openssl-v3.4.0.tgz.orig`. 
+
+To create the tar gz file for github, run the following at the root of `OPENSSL_PATH`:
+
+```
+cd $OPENSSL_PATH
+tar -czvf openssl-v3.4.0.tgz ./CATALYST_ARM ./CATALYST_X86 ./IOS* ./MACOS* ./TVOS*
+sha256 openssl-v3.4.0.tgz > openssl-v3.4.0.tgz.sha256
+```
+
 ## Contributing
 
 A `pre-commit` hook for `swiftlint` is provided. You can install both from Homebrew, and run `pre-commit install` to add the hook to your local repository.
