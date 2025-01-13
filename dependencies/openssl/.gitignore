@@ -1,0 +1,7 @@
+openssl-src
+CATALYST*
+IOS*
+TVOS*
+MACOS*
+._*
+*.orig
