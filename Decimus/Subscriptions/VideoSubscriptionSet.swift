@@ -127,8 +127,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
 
-        super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
-
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
