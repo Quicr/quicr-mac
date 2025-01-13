@@ -1,74 +1,89 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Combine
-
 enum ParticipantError: Error {
+    case alreadyExists
     case notFound
 }
 
 /// Represents a visible video display.
-class VideoParticipant: ObservableObject, Identifiable {
+@Observable
+@MainActor
+class VideoParticipant: Identifiable {
     /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
-    var id: SourceIDType
+    let id: SourceIDType
     /// The SwiftUI view for video display.
     var view: VideoView
     /// The label to display under the video.
-    @Published var label: String
+    var label: String
     /// True if this video should be highlighted.
-    @Published var highlight: Bool
+    var highlight: Bool
+    private let videoParticipants: VideoParticipants
+    private let logger = DecimusLogger(VideoParticipant.self)
 
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
-    init(id: SourceIDType, startDate: Date, subscribeDate: Date) {
+    /// - Parameter startDate: Join date of the call, for statistics.
+    /// - Parameter subscribeDate: Subscribe date of the call, for statistics.
+    /// - Parameter videoParticipants: The holder to register against.
+    init(id: SourceIDType, startDate: Date, subscribeDate: Date, videoParticipants: VideoParticipants) throws {
         self.id = id
         self.label = id
         self.highlight = false
         self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
+        self.videoParticipants = videoParticipants
+        try self.videoParticipants.add(self)
+    }
+
+    deinit {
+        self.logger.debug("[\(self.id)] Deinit")
+        Task { [id, videoParticipants, logger] in
+            await MainActor.run {
+                do {
+                    try videoParticipants.removeParticipant(identifier: id)
+                } catch {
+                    logger.warning("[\(id)] Failed to remove participant")
+                }
+            }
+        }
     }
 }
 
 /// Holder for all video participants.
-class VideoParticipants: ObservableObject {
+@Observable
+@MainActor
+class VideoParticipants {
+    class Weak<T: AnyObject>: Identifiable {
+        weak var value: T?
+        init(_ value: T) {
+            self.value = value
+        }
+    }
+
     private static let logger = DecimusLogger(VideoParticipants.self)
 
     /// All tracked participants by identifier.
-    @Published var participants: [SourceIDType: VideoParticipant] = [:]
-    private var cancellables: [SourceIDType: AnyCancellable] = [:]
-    private let startDate = Date.now
+    private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
+    var participants: [Weak<VideoParticipant>] { Array(self.weakParticipants.values) }
 
-    /// Get or create a ``VideoParticipant``.
-    /// - Parameter identifier: The identifier for the target view.
-    /// - Returns: The created video view.
-    func getOrMake(identifier: SourceIDType, subscribeDate: Date) -> VideoParticipant {
-        if let participant = participants[identifier] {
-            return participant
+    /// Add a participant.
+    /// - Parameter videoParticipant: The participant to add.
+    /// - Throws: ``ParticipantError.alreadyExists`` if the participant has already been added.
+    fileprivate func add(_ videoParticipant: VideoParticipant) throws {
+        if self.weakParticipants[videoParticipant.id] != nil {
+            throw ParticipantError.alreadyExists
         }
-
-        let new: VideoParticipant = .init(id: identifier, startDate: self.startDate, subscribeDate: subscribeDate)
-        let cancellable = new.objectWillChange.sink(receiveValue: {
-            DispatchQueue.main.async {
-                self.objectWillChange.send()
-            }
-        })
-        cancellables[identifier] = cancellable
-        participants[identifier] = new
-        return new
+        self.weakParticipants[videoParticipant.id] = .init(videoParticipant)
+        Self.logger.debug("[\(videoParticipant.id)] Added participant")
     }
 
     /// Remove a participant view.
     /// - Parameter identifier: The identifier for the target view to remove.
-    func removeParticipant(identifier: SourceIDType) {
-        DispatchQueue.main.async {
-            guard let removed = self.participants.removeValue(forKey: identifier) else {
-                return
-            }
-            removed.objectWillChange.send()
-            let cancellable = self.cancellables[identifier]
-            cancellable!.cancel()
-            self.cancellables.removeValue(forKey: identifier)
-            self.objectWillChange.send()
-            Self.logger.info("[\(identifier)] Removed participant")
+    /// - Throws: ``ParticipantError.notFound`` if the participant is not found.
+    fileprivate func removeParticipant(identifier: SourceIDType) throws {
+        guard self.weakParticipants.removeValue(forKey: identifier) != nil else {
+            throw ParticipantError.notFound
         }
+        Self.logger.debug("[\(identifier)] Removed participant")
     }
 }

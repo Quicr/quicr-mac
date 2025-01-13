@@ -286,6 +286,7 @@ extension InCallView {
         var relayId: String?
         private(set) var publicationFactory: PublicationFactory?
         private(set) var subscriptionFactory: SubscriptionFactoryImpl?
+        private let joinDate = Date.now
 
         @AppStorage(SubscriptionSettingsView.showLabelsKey)
         var showLabels: Bool = true
@@ -363,7 +364,8 @@ extension InCallView {
                                                               subscriptionConfig: self.subscriptionConfig.value,
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               engine: engine,
-                                                              participantId: ourParticipantId)
+                                                              participantId: ourParticipantId,
+                                                              joinDate: self.joinDate)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
             let controller = self.makeCallController()

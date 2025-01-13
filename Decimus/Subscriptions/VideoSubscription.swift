@@ -31,7 +31,8 @@ class VideoSubscription: Subscription {
     private let cleanupTimer: TimeInterval = 1.5
     private var lastUpdateTime = Date.now
     private let participantId: ParticipantId
-    private let creationTime: Date
+    private let creationDate: Date
+    private let joinDate: Date
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -46,6 +47,7 @@ class VideoSubscription: Subscription {
          endpointId: String,
          relayId: String,
          participantId: ParticipantId,
+         joinDate: Date,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -61,8 +63,8 @@ class VideoSubscription: Subscription {
         self.callback = callback
         self.statusChangeCallback = statusChanged
         self.participantId = participantId
-
-        self.creationTime = .now
+        self.creationDate = .now
+        self.joinDate = joinDate
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -74,7 +76,8 @@ class VideoSubscription: Subscription {
                                        simulreceive: simulreceive,
                                        variances: variances,
                                        participantId: participantId,
-                                       subscribeDate: self.creationTime)
+                                       subscribeDate: self.creationDate,
+                                       joinDate: joinDate)
         self.token = handler.registerCallback(callback)
         self.handler = handler
         try super.init(profile: profile,
@@ -158,7 +161,8 @@ class VideoSubscription: Subscription {
                                              simulreceive: self.simulreceive,
                                              variances: self.variances,
                                              participantId: self.participantId,
-                                             subscribeDate: self.creationTime)
+                                             subscribeDate: self.creationDate,
+                                             joinDate: self.joinDate)
             self.token = recreated.registerCallback(self.callback)
             self.handler = recreated
             handler = recreated

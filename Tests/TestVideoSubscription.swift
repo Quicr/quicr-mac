@@ -5,7 +5,8 @@ import XCTest
 @testable import QuicR
 
 final class TestVideoSubscription: XCTestCase {
-    func testMetrics() throws {
+    @MainActor
+    func testMetrics() async throws {
         let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
                                                                 expiry: [1],
                                                                 priorities: [1],
@@ -22,6 +23,7 @@ final class TestVideoSubscription: XCTestCase {
                                                  endpointId: "",
                                                  relayId: "",
                                                  participantId: .init(1),
+                                                 joinDate: .now,
                                                  callback: ({ _, _ in }),
                                                  statusChanged: ({_ in }))
         subscription.metricsSampled(.init())

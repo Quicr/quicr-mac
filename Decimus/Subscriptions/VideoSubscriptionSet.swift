@@ -57,6 +57,9 @@ class VideoSubscriptionSet: SubscriptionSet {
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
+    private var participant: VideoParticipant?
+    private let participantLock = OSAllocatedUnfairLock()
+    private let joinDate: Date
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -71,7 +74,8 @@ class VideoSubscriptionSet: SubscriptionSet {
          pauseResume: Bool,
          endpointId: String,
          relayId: String,
-         codecFactory: CodecFactory) throws {
+         codecFactory: CodecFactory,
+         joinDate: Date) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -105,6 +109,10 @@ class VideoSubscriptionSet: SubscriptionSet {
                                           source: subscription.sourceID,
                                           stage: "Decoded")
 
+        let subscribeDate = Date.now
+        self.subscribeDate = subscribeDate
+        self.joinDate = joinDate
+
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
         for profile in profiles {
@@ -120,8 +128,6 @@ class VideoSubscriptionSet: SubscriptionSet {
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
 
-        self.subscribeDate = Date.now
-
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
@@ -130,7 +136,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                     if let self = self {
                         time = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                            self.participantLock.withLock { self.participant = nil }
                         }
                     } else {
                         return
@@ -147,9 +153,6 @@ class VideoSubscriptionSet: SubscriptionSet {
 
     deinit {
         self.cleanupTask?.cancel()
-        if self.simulreceive == .enable {
-            self.participants.removeParticipant(identifier: self.subscription.sourceID)
-        }
         Self.logger.debug("Deinit")
     }
 
@@ -183,7 +186,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                 if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
                     Self.logger.debug("Destroying simulreceive render as no live subscriptions")
                     self.renderTask?.cancel()
-                    self.participants.removeParticipant(identifier: self.subscription.sourceID)
+                    self.participantLock.withLock { self.participant = nil }
                 }
             }
         }
@@ -226,9 +229,12 @@ class VideoSubscriptionSet: SubscriptionSet {
             }
         }
 
-        // If we're responsible for rendering, start the task.
-        if self.simulreceive != .none && (self.renderTask == nil || self.renderTask!.isCancelled) {
-            startRenderTask()
+        // If we're responsible for rendering.
+        if self.simulreceive != .none {
+            // Start the render task.
+            if self.renderTask == nil || self.renderTask!.isCancelled {
+                self.startRenderTask()
+            }
         }
 
         // Record the last time this updated.
@@ -495,16 +501,36 @@ class VideoSubscriptionSet: SubscriptionSet {
                 dispatchLabel = nil
             }
 
-            DispatchQueue.main.async {
-                let participant = self.participants.getOrMake(identifier: self.subscription.sourceID, subscribeDate: self.subscribeDate)
-                if let dispatchLabel = dispatchLabel {
-                    participant.label = dispatchLabel
-                }
-                do {
-                    try participant.view.enqueue(selectedSample,
-                                                 transform: handler.orientation?.toTransform(handler.verticalMirror))
-                } catch {
-                    Self.logger.error("Could not enqueue sample: \(error)")
+            // If we don't yet have a participant, make one.
+            Task {
+                await MainActor.run {
+                    self.participantLock.lock()
+                    let participant: VideoParticipant
+                    if let existing = self.participant {
+                        participant = existing
+                    } else {
+                        do {
+                            participant = try .init(id: self.sourceId,
+                                                    startDate: self.joinDate,
+                                                    subscribeDate: self.subscribeDate,
+                                                    videoParticipants: self.participants)
+                        } catch {
+                            self.participantLock.unlock()
+                            return
+                        }
+                        self.participant = participant
+                    }
+                    self.participantLock.unlock()
+                    if let dispatchLabel = dispatchLabel {
+                        participant.label = dispatchLabel
+                    }
+                    do {
+                        let transform = handler.orientation?.toTransform(handler.verticalMirror)
+                        try participant.view.enqueue(selectedSample,
+                                                     transform: transform)
+                    } catch {
+                        Self.logger.error("Could not enqueue sample: \(error)")
+                    }
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
@@ -512,9 +538,12 @@ class VideoSubscriptionSet: SubscriptionSet {
             if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
-                DispatchQueue.main.async {
-                    for participant in self.participants.participants {
-                        participant.value.highlight = participant.key == "\(fullTrackName)"
+                Task {
+                    await MainActor.run {
+                        for participant in self.participants.participants {
+                            guard let participant = participant.value else { continue }
+                            participant.highlight = participant.id == "\(fullTrackName)"
+                        }
                     }
                 }
             }

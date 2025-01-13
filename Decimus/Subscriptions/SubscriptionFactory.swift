@@ -145,6 +145,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
     private let participantId: ParticipantId?
+    private let joinDate: Date
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscriptionSet?
 
     init(videoParticipants: VideoParticipants,
@@ -152,13 +153,15 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          subscriptionConfig: SubscriptionConfig,
          granularMetrics: Bool,
          engine: DecimusAudioEngine,
-         participantId: ParticipantId?) {
+         participantId: ParticipantId?,
+         joinDate: Date) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
         self.granularMetrics = granularMetrics
         self.engine = engine
         self.participantId = participantId
+        self.joinDate = joinDate
     }
 
     func create(subscription: ManifestSubscription,
@@ -216,7 +219,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             pauseResume: self.subscriptionConfig.pauseResume,
                                             endpointId: endpointId,
                                             relayId: relayId,
-                                            codecFactory: CodecFactoryImpl())
+                                            codecFactory: CodecFactoryImpl(),
+                                            joinDate: self.joinDate)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -276,6 +280,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          endpointId: endpointId,
                                          relayId: relayId,
                                          participantId: set.participantId,
+                                         joinDate: self.joinDate,
                                          callback: { [weak set] timestamp, when in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when)
