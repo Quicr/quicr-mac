@@ -19,7 +19,6 @@ struct SubscriptionPopover: View {
             .font(.title)
 
         // Get the observable sets.
-        // TODO: At some point, probably all the sets will be observable?
         let result: [SourceIDType: ObservableSubscriptionSet] = [:]
         let observables = self.manifest.subscriptions.reduce(into: result) { partialResult, manifestSubscription in
             let set = self.controller.getSubscriptionSet(manifestSubscription.sourceID) as? ObservableSubscriptionSet
