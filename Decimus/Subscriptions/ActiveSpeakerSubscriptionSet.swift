@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Subscription set for handling active speaker audio arriving on multiple tracks.
-class ActiveSpeakerSubscriptionSet: SubscriptionSet {
-    let participantId: ParticipantId
-    let sourceId: SourceIDType
-
+class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     // Dependencies.
     private let logger = DecimusLogger(ActiveSpeakerSubscriptionSet.self)
     private let engine: DecimusAudioEngine
@@ -31,8 +28,6 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
          submitter: MetricsSubmitter?,
          useNewJitterBuffer: Bool,
          granularMetrics: Bool) {
-        self.participantId = subscription.participantId
-        self.sourceId = subscription.sourceID
         self.engine = engine
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
@@ -41,19 +36,7 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
         self.metricsSubmitter = submitter
         self.useNewJitterBuffer = useNewJitterBuffer
         self.granularMetrics = granularMetrics
-    }
-
-    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        self.handlers
-    }
-
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        self.handlers.removeValue(forKey: ftn)
-    }
-
-    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
-        let ftn = FullTrackName(handler.getFullTrackName())
-        self.handlers[ftn] = handler
+        super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
     }
 
     /// Provide encoded active speaker audio from a constituent track.
@@ -92,7 +75,7 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
 
             // Create the handler.
             do {
-                media = try OpusHandler(sourceId: "\(participantId)",
+                media = try OpusHandler(identifier: "\(participantId)",
                                         engine: self.engine,
                                         measurement: measurement,
                                         jitterDepth: self.jitterDepth,

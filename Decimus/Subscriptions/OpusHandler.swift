@@ -12,7 +12,7 @@ enum OpusSubscriptionError: Error {
 
 class OpusHandler { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(OpusHandler.self)
-    private let sourceId: SourceIDType
+    private let identifier: String
     private var decoder: LibOpusDecoder
     private let engine: DecimusAudioEngine
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
@@ -52,7 +52,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         }
     }
 
-    init(sourceId: SourceIDType,
+    init(identifier: String,
          engine: DecimusAudioEngine,
          measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
          jitterDepth: TimeInterval,
@@ -61,7 +61,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
          granularMetrics: Bool,
          useNewJitterBuffer: Bool,
          metricsSubmitter: MetricsSubmitter?) throws {
-        self.sourceId = sourceId
+        self.identifier = identifier
         self.engine = engine
         self.measurement = measurement
         self.granularMetrics = granularMetrics
@@ -85,7 +85,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             self.node = .init(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
             let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
             self.node = node
-            try self.engine.addPlayer(identifier: sourceId, node: node)
+            try self.engine.addPlayer(identifier: identifier, node: node)
             self.newJitterBuffer = nil
         }
     }
@@ -93,7 +93,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
     deinit {
         // Remove the audio playout.
         do {
-            try engine.removePlayer(identifier: sourceId)
+            try engine.removePlayer(identifier: self.identifier)
         } catch {
             Self.logger.error("Couldn't remove player: \(error.localizedDescription)")
         }
@@ -138,7 +138,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             }
         }
         // swiftlint:enable force_cast
-        let buffer = try JitterBuffer(identifier: self.sourceId,
+        let buffer = try JitterBuffer(identifier: self.identifier,
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,
                                       capacity: Int(self.jitterMax / windowDuration.seconds),
@@ -151,7 +151,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         // Create the player node.
         let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
         self.node = node
-        try self.engine.addPlayer(identifier: self.sourceId, node: node)
+        try self.engine.addPlayer(identifier: self.identifier, node: node)
         return buffer
     }
 

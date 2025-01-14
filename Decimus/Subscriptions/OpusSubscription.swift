@@ -2,14 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import os
-import Atomics
 
-class OpusSubscription: Subscription, SubscriptionSet {
-    let participantId: ParticipantId
-    let sourceId: SourceIDType
-
+class OpusSubscription: Subscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
 
+    private let profile: Profile
     private let engine: DecimusAudioEngine
     private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
@@ -23,13 +20,11 @@ class OpusSubscription: Subscription, SubscriptionSet {
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
-    private let subscription: ManifestSubscription
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
-    private var enabled = ManagedAtomic(true)
 
-    init(subscription: ManifestSubscription,
+    init(profile: Profile,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
@@ -39,16 +34,13 @@ class OpusSubscription: Subscription, SubscriptionSet {
          granularMetrics: Bool,
          endpointId: String,
          relayId: String,
-         useNewJitterBuffer: Bool) throws {
-        guard subscription.profileSet.profiles.count == 1,
-              let profile = subscription.profileSet.profiles.first else {
-            throw "OpusSubscription only supports one profile"
-        }
-        self.subscription = subscription
+         useNewJitterBuffer: Bool,
+         statusChanged: @escaping StatusCallback) throws {
+        self.profile = profile
         self.engine = engine
         self.metricsSubmitter = submitter
         if let submitter = submitter {
-            let measurement = OpusSubscriptionMeasurement(namespace: subscription.sourceID)
+            let measurement = OpusSubscriptionMeasurement(namespace: profile.namespace.joined())
             self.measurement = .init(measurement: measurement, submitter: submitter)
         } else {
             self.measurement = nil
@@ -59,11 +51,9 @@ class OpusSubscription: Subscription, SubscriptionSet {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
-        self.sourceId = subscription.sourceID
-        self.participantId = subscription.participantId
 
         // Create the actual audio handler upfront.
-        self.handler = try .init(sourceId: self.subscription.sourceID,
+        self.handler = try .init(identifier: self.profile.namespace.joined(),
                                  engine: self.engine,
                                  measurement: self.measurement,
                                  jitterDepth: self.jitterDepth,
@@ -80,7 +70,8 @@ class OpusSubscription: Subscription, SubscriptionSet {
                        metricsSubmitter: submitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup)
+                       filterType: .latestGroup,
+                       statusCallback: statusChanged)
 
         // Make task for cleaning up audio handlers.
         self.cleanupTask = .init(priority: .utility) { [weak self] in
@@ -112,21 +103,6 @@ class OpusSubscription: Subscription, SubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        let enabled = self.enabled.load(ordering: .acquiring)
-        return enabled ? [self.fullTrackName: self] : [:]
-    }
-
-    // In this case, the set is the handler.
-    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
-        self.enabled.store(true, ordering: .releasing)
-    }
-
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        self.enabled.store(false, ordering: .releasing)
-        return self
-    }
-
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         let now: Date = .now
         self.lastUpdateTime = now
@@ -155,7 +131,7 @@ class OpusSubscription: Subscription, SubscriptionSet {
         do {
             handler = try self.handlerLock.withLock {
                 guard let handler = self.handler else {
-                    let handler = try OpusHandler(sourceId: self.subscription.sourceID,
+                    let handler = try OpusHandler(identifier: self.profile.namespace.joined(),
                                                   engine: self.engine,
                                                   measurement: self.measurement,
                                                   jitterDepth: self.jitterDepth,

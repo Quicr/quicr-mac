@@ -1,32 +1,26 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-class ActiveSpeakerNotifierSubscriptionSet: Subscription,
-                                            SubscriptionSet,
-                                            ActiveSpeakerNotifier {
+class ActiveSpeakerNotifierSubscription: Subscription,
+                                         ActiveSpeakerNotifier {
     private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
     private var token: CallbackToken = 0
-    let sourceId: SourceIDType
-    let participantId: ParticipantId
-    private let fullTrackName: FullTrackName
-    private let logger = DecimusLogger(ActiveSpeakerNotifierSubscriptionSet.self)
+    private let logger = DecimusLogger(ActiveSpeakerNotifierSubscription.self)
     private let decoder = JSONDecoder()
 
-    init(subscription: ManifestSubscription, endpointId: String, relayId: String, submitter: MetricsSubmitter?) throws {
-        self.sourceId = subscription.sourceID
-        self.participantId = subscription.participantId
-        guard subscription.profileSet.profiles.count == 1 else {
-            throw "Expected exactly one profile"
-        }
-        let profile = subscription.profileSet.profiles.first!
-        self.fullTrackName = try profile.getFullTrackName()
+    init(profile: Profile,
+         endpointId: String,
+         relayId: String,
+         submitter: MetricsSubmitter?,
+         statusChanged: StatusCallback?) throws {
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: submitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup)
+                       filterType: .latestGroup,
+                       statusCallback: statusChanged)
     }
 
     func registerActiveSpeakerCallback(_ callback: @escaping ActiveSpeakersChanged) -> CallbackToken {
@@ -39,16 +33,6 @@ class ActiveSpeakerNotifierSubscriptionSet: Subscription,
     func unregisterActiveSpeakerCallback(_ token: CallbackToken) {
         self.callbacks.removeValue(forKey: token)
     }
-
-    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        [self.fullTrackName: self]
-    }
-
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        nil
-    }
-
-    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws { }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         // Parse out the active speaker list.

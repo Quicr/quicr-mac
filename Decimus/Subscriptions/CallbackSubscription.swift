@@ -13,7 +13,8 @@ class CallbackSubscription: Subscription {
          priority: UInt8,
          groupOrder: QGroupOrder,
          filterType: QFilterType,
-         callback: @escaping SubscriptionCallback) throws {
+         callback: @escaping SubscriptionCallback,
+         statusCallback: @escaping StatusCallback) throws {
         self.callback = callback
         try super.init(profile: profile,
                        endpointId: endpointId,
@@ -21,7 +22,8 @@ class CallbackSubscription: Subscription {
                        metricsSubmitter: metricsSubmitter,
                        priority: priority,
                        groupOrder: groupOrder,
-                       filterType: filterType)
+                       filterType: filterType,
+                       statusCallback: statusCallback)
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {

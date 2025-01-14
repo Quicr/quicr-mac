@@ -20,7 +20,6 @@ class VideoSubscription: Subscription {
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
     private let callback: ObjectReceived
-    private let statusChangeCallback: StatusChanged
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
 
@@ -61,7 +60,6 @@ class VideoSubscription: Subscription {
         self.simulreceive = simulreceive
         self.variances = variances
         self.callback = callback
-        self.statusChangeCallback = statusChanged
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
@@ -86,21 +84,12 @@ class VideoSubscription: Subscription {
                        metricsSubmitter: metricsSubmitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup)
+                       filterType: .latestGroup,
+                       statusCallback: statusChanged)
     }
 
     deinit {
         self.logger.debug("Deinit")
-    }
-
-    override func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        switch status {
-        case .notSubscribed:
-            self.cleanup()
-        default:
-            break
-        }
-        self.statusChangeCallback(status)
     }
 
     private func cleanup() {

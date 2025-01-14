@@ -3,8 +3,10 @@
 
 /// Base implementation for a track handler, handling generic metrics and callbacks.
 class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
+    typealias StatusCallback = (QSubscribeTrackHandlerStatus) -> Void
     private let quicrMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let logger = DecimusLogger(Subscription.self)
+    private let statusCallback: StatusCallback?
 
     /// Create a new subscription for the given profile.
     /// - Parameters:
@@ -15,13 +17,15 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     ///   - priority: Priority for the subscription.
     ///   - groupOrder: Subscription for group order.
     ///   - filterType: Filter type.
+    ///   - statusCallback: Fires when the subscription status changes (on the original callback thread).
     init(profile: Profile,
          endpointId: String,
          relayId: String,
          metricsSubmitter: MetricsSubmitter?,
          priority: UInt8,
          groupOrder: QGroupOrder,
-         filterType: QFilterType) throws {
+         filterType: QFilterType,
+         statusCallback: StatusCallback?) throws {
         if let submitter = metricsSubmitter {
             self.quicrMeasurement = .init(measurement: .init(type: .subscribe,
                                                              endpointId: endpointId,
@@ -31,6 +35,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         } else {
             self.quicrMeasurement = nil
         }
+        self.statusCallback = statusCallback
         super.init(fullTrackName: try profile.getFullTrackName(),
                    priority: priority,
                    groupOrder: groupOrder,
@@ -42,6 +47,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     /// - Parameter status: The updated status.
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         self.logger.debug("Status changed: \(status)")
+        self.statusCallback?(status)
     }
 
     /// Fires when a full object has been received.
