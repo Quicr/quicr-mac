@@ -61,7 +61,7 @@ final class TestCallController: XCTestCase {
                     codecFactory: CodecFactory,
                     endpointId: String,
                     relayId: String) throws -> any SubscriptionSet {
-            let set = try MockSubscriptionSet(subscription)
+            let set = ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
             self.callback(set)
             return set
         }
@@ -70,43 +70,21 @@ final class TestCallController: XCTestCase {
                     profile: Profile,
                     codecFactory: CodecFactory,
                     endpointId: String,
-                    relayId: String) throws -> QSubscribeTrackHandlerObjC {
-            MockSubscription(ftn: try profile.getFullTrackName())
+                    relayId: String) throws -> Subscription {
+            try MockSubscription(profile: profile)
         }
     }
 
-    class MockSubscription: QSubscribeTrackHandlerObjC {
-        init(ftn: FullTrackName) {
-            super.init(fullTrackName: ftn, priority: 0, groupOrder: .originalPublisherOrder, filterType: .none)
-        }
-    }
-
-    class MockSubscriptionSet: SubscriptionSet {
-        let sourceId: QuicR.SourceIDType
-        let participantId: ParticipantId
-        private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
-        private let subscription: ManifestSubscription
-
-        init(_ subscription: ManifestSubscription) throws {
-            self.sourceId = subscription.sourceID
-            self.participantId = subscription.participantId
-            self.subscription = subscription
-            for profile in self.subscription.profileSet.profiles {
-                let ftn = try profile.getFullTrackName()
-                self.handlers[ftn] = MockSubscription(ftn: ftn)
-            }
-        }
-
-        func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-            self.handlers
-        }
-
-        func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-            self.handlers.removeValue(forKey: ftn)
-        }
-
-        func addHandler(_ handler: QSubscribeTrackHandlerObjC) {
-            self.handlers[.init(handler.getFullTrackName())] = handler
+    class MockSubscription: Subscription {
+        init(profile: Profile) throws {
+            try super.init(profile: profile,
+                           endpointId: "1",
+                           relayId: "2",
+                           metricsSubmitter: nil,
+                           priority: 0,
+                           groupOrder: .originalPublisherOrder,
+                           filterType: .none,
+                           statusCallback: nil)
         }
     }
 
