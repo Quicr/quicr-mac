@@ -17,8 +17,6 @@ extension QSubscribeTrackHandlerStatus: CaseIterable {
 }
 
 let allStatus: [QSubscribeTrackHandlerStatus] = QSubscribeTrackHandlerStatus.allCases
-var received: [QSubscribeTrackHandlerStatus] = []
-var fired = 0
 
 /// Ensure status changes propagate to the callback correctly.
 @Test("Status Callback", arguments: QSubscribeTrackHandlerStatus.allCases)
@@ -42,9 +40,6 @@ func testStatusCallback(_ status: QSubscribeTrackHandlerStatus) throws {
 
     // Check callback fires properly.
     try test { incoming in
-        fired += 1
-        received.append(incoming)
-        #expect(received.count == fired)
         #expect(incoming == status)
     }
 
