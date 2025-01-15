@@ -96,6 +96,26 @@ static quicr::TransportConfig convert(TransportConfig config) {
     }
 }
 
+-(void)fetchTrackWithHandler:(QFetchTrackHandlerObjC *) trackHandler
+{
+    assert(qClientPtr);
+    if (trackHandler->handlerPtr)
+    {
+        auto handler = std::static_pointer_cast<quicr::FetchTrackHandler>(trackHandler->handlerPtr);
+        qClientPtr->FetchTrack(handler);
+    }
+}
+
+-(void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC *) trackHandler
+{
+    assert(qClientPtr);
+    if (trackHandler->handlerPtr)
+    {
+        auto handler = std::static_pointer_cast<quicr::FetchTrackHandler>(trackHandler->handlerPtr);
+        qClientPtr->FetchTrack(handler);
+    }
+}
+
 -(void) publishAnnounce: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);

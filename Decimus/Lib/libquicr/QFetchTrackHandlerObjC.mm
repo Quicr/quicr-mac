@@ -3,16 +3,28 @@
 
 #import <Foundation/Foundation.h>
 #import "QSubscribeTrackHandlerObjC.h"
+#import "QFetchTrackHandlerObjC.h"
 #import "QCommon.h"
 
-@implementation QSubscribeTrackHandlerObjC : NSObject
+@implementation QFetchTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder filterType:(QFilterType)filterType
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name
+                            priority: (uint8_t) priority
+                          groupOrder: (QGroupOrder) groupOrder
+                          startGroup: (uint64_t) startGroup
+                            endGroup: (uint64_t) endGroup
+                         startObject: (uint64_t) startObject
+                           endObject: (uint64_t) endObject
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
-    const auto filter = static_cast<quicr::messages::FilterType>(filterType);
-    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order, filter);
+    handlerPtr = std::make_shared<QFetchTrackHandler>(fullTrackName,
+                                                      priority,
+                                                      order,
+                                                      startGroup,
+                                                      endGroup,
+                                                      startObject,
+                                                      endObject);
     return self;
 }
 
@@ -48,19 +60,44 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
+-(uint64_t) getStartGroup {
+    assert(handlerPtr);
+    return handlerPtr->GetStartGroup();
+}
+
+-(uint64_t) getEndGroup {
+    assert(handlerPtr);
+    return handlerPtr->GetEndGroup();
+}
+
+-(uint64_t) getStartObject {
+    assert(handlerPtr);
+    return handlerPtr->GetStartObject();
+}
+
+-(uint64_t) getEndObject {
+    assert(handlerPtr);
+    return handlerPtr->GetEndObject();
+}
 @end
 
 // C++
 
-QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                                               quicr::messages::ObjectPriority priority,
-                                               quicr::messages::GroupOrder group_order,
-                                               quicr::messages::FilterType filter_type): quicr::SubscribeTrackHandler(full_track_name,
-                                                                                                                      priority,
-                                                                                                                      group_order,
-                                                                                                                      filter_type) {}
+QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
+                                       quicr::messages::ObjectPriority priority,
+                                       quicr::messages::GroupOrder group_order,
+                                       quicr::messages::GroupId start_group,
+                                       quicr::messages::GroupId end_group,
+                                       quicr::messages::ObjectId start_object,
+                                       quicr::messages::ObjectId end_object) : quicr::FetchTrackHandler(full_track_name,
+                                                                                                        priority,
+                                                                                                        group_order,
+                                                                                                        start_group,
+                                                                                                        end_group,
+                                                                                                        start_object,
+                                                                                                        end_object) {}
 
-void QSubscribeTrackHandler::StatusChanged(Status status)
+void QFetchTrackHandler::StatusChanged(Status status)
 {
     if (_callbacks)
     {
@@ -68,7 +105,7 @@ void QSubscribeTrackHandler::StatusChanged(Status status)
     }
 }
 
-void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_headers,
+void QFetchTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_headers,
                                             quicr::BytesSpan data)
 {
     if (_callbacks)
@@ -103,7 +140,7 @@ void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_h
     }
 }
 
-void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& object_headers,
+void QFetchTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& object_headers,
                                                    quicr::BytesSpan data)
 {
     if (_callbacks)
@@ -139,24 +176,15 @@ void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& o
     }
 }
 
-QSubscribeTrackMetrics QSubscribeTrackHandler::Convert(const quicr::SubscribeTrackMetrics& metrics)
-{
-    return QSubscribeTrackMetrics {
-        .lastSampleTime = metrics.last_sample_time,
-        .bytesReceived = metrics.bytes_received,
-        .objectsReceived = metrics.objects_received
-    };
-}
-
-void QSubscribeTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &metrics)
+void QFetchTrackHandler::MetricsSampled(const quicr::SubscribeTrackMetrics &metrics)
 {
     if (_callbacks) {
-        const QSubscribeTrackMetrics converted = Convert(metrics);
+        const QSubscribeTrackMetrics converted = QSubscribeTrackHandler::Convert(metrics);
         [_callbacks metricsSampled: converted];
     }
 }
 
-void QSubscribeTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
+void QFetchTrackHandler::SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;
 }

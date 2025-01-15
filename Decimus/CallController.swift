@@ -163,6 +163,16 @@ class MoqCallController: QClientCallbacks {
         self.client.unpublishTrack(withHandler: publication)
     }
 
+    public func fetch(_ fetch: Fetch) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.fetchTrack(withHandler: fetch)
+    }
+
+    public func cancelFetch(_ fetch: Fetch) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.cancelFetchTrack(withHandler: fetch)
+    }
+
     /// Get a managed subscription set for the given source ID, if any.
     /// - Parameter sourceID: SourceID to lookup on.
     /// - Returns: The matching set, if any.
