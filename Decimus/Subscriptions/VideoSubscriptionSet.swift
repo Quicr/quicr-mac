@@ -225,7 +225,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             Task(priority: .utility) {
                 await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
-                                                              at: when)
+                                                              when: when)
             }
         }
 

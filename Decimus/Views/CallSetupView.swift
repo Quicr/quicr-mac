@@ -55,7 +55,7 @@ private struct LoginForm: View {
                         #if canImport(UIKit)
                         .keyboardType(.emailAddress)
                         #endif
-                        .onChange(of: callConfig.email, perform: { value in
+                        .onChange(of: callConfig.email) { _, value in
                             email = value
                             Task {
                                 do {
@@ -64,7 +64,7 @@ private struct LoginForm: View {
                                     Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
                                 }
                             }
-                        })
+                        }
                         .onChange(of: meetings) {
                             if meetings.count > 0 {
                                 if !meetings.keys.contains(UInt32(confId)) {

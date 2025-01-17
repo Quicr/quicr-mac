@@ -54,7 +54,6 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         for pair in self.measurements {
             let weakMeasurement = pair.value
             guard let measurement = weakMeasurement.measurement else {
-                assert(false)
                 Self.logger.warning("Removing dead measurement")
                 toRemove.append(weakMeasurement.id)
                 continue

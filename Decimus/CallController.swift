@@ -213,7 +213,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
     /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory, subscribe: Bool) throws -> SubscriptionSet {
+    public func subscribeToSet(details: ManifestSubscription,
+                               factory: SubscriptionFactory,
+                               subscribe: Bool) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      codecFactory: CodecFactoryImpl(),

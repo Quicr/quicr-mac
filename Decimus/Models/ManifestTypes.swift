@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 enum ManifestMediaTypes: String {
-    case video = "video"
-    case audio = "audio"
+    case video
+    case audio
 }
 
 struct ParticipantId: Codable, Equatable, Hashable, CustomStringConvertible {

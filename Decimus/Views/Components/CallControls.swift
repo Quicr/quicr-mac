@@ -45,32 +45,33 @@ struct CallControls: View {
                 role: viewModel.audioOn ? nil : .destructive,
                 expanded: $muteModalExpanded,
                 action: { viewModel.toggleMicrophone() },
-                pickerAction: { openAudioModal() }
-            ) {
-                Text("Audio Connection")
-                    .foregroundColor(.gray)
-                ForEach(viewModel.devices(.audio), id: \.uniqueID) { microphone in
-                    ActionButton(
-                        disabled: viewModel.isAlteringMicrophone(),
-                        cornerRadius: 12,
-                        styleConfig: deviceButtonStyleConfig,
-                        action: { viewModel.toggleDevice(device: microphone) }) {
-                        HStack {
-                            Image(systemName: microphone.deviceType == .microphone ?
-                                    "mic" : "speaker.wave.2")
-                                .renderingMode(.original)
-                                .foregroundColor(.gray)
-                            Text(microphone.localizedName).tag(microphone)
-                        }
+                pickerAction: { openAudioModal() },
+                content: {
+                    Text("Audio Connection")
+                        .foregroundColor(.gray)
+                    ForEach(viewModel.devices(.audio), id: \.uniqueID) { microphone in
+                        ActionButton(
+                            disabled: viewModel.isAlteringMicrophone(),
+                            cornerRadius: 12,
+                            styleConfig: deviceButtonStyleConfig,
+                            action: { viewModel.toggleDevice(device: microphone) },
+                            title: {
+                                HStack {
+                                    Image(systemName: microphone.deviceType == .microphone ?
+                                            "mic" : "speaker.wave.2")
+                                        .renderingMode(.original)
+                                        .foregroundColor(.gray)
+                                    Text(microphone.localizedName).tag(microphone)
+                                }
+                            })
+                            .aspectRatio(contentMode: .fill)
                     }
-                    .aspectRatio(contentMode: .fill)
+                })
+                .onChange(of: viewModel.selectedMicrophone) {
+                    guard let microphone = viewModel.selectedMicrophone else { return }
+                    viewModel.toggleDevice(device: microphone)
                 }
-            }
-            .onChange(of: viewModel.selectedMicrophone) { _ in
-                guard let microphone = viewModel.selectedMicrophone else { return }
-                viewModel.toggleDevice(device: microphone)
-            }
-            .disabled(viewModel.isAlteringMicrophone())
+                .disabled(viewModel.isAlteringMicrophone())
 
             ActionPicker(
                 viewModel.videoOn ? "Stop Video" : "Start Video",
@@ -135,7 +136,7 @@ struct CallControls: View {
 extension CallControls {
     @MainActor
     class ViewModel: ObservableObject {
-        private static let logger = Logger(
+        private let logger = Logger(
             subsystem: Bundle.main.bundleIdentifier!,
             category: String(describing: CallControls.ViewModel.self)
         )
@@ -163,18 +164,18 @@ extension CallControls {
                             DispatchQueue.main.async {
                                 self.talkingWhileMuted = true
                             }
-                            Self.logger.info("Talking while muted")
+                            self.logger.info("Talking while muted")
                         case .ended:
                             DispatchQueue.main.async {
                                 self.talkingWhileMuted = false
                             }
-                            Self.logger.info("Stopped talking while muted")
+                            self.logger.info("Stopped talking while muted")
                         default:
                             break
                         }
                     }
                 } catch {
-                    Self.logger.error("Unable to set muted speech activity listener")
+                    self.logger.error("Unable to set muted speech activity listener")
                     return
                 }
             }
@@ -187,7 +188,7 @@ extension CallControls {
                 do {
                     try self.engine?.setMutedSpeechActivityEventListener(nil)
                 } catch {
-                    Self.logger.warning("Unable to unset muted speech activity listener")
+                    self.logger.warning("Unable to unset muted speech activity listener")
                 }
             }
             #endif
@@ -207,7 +208,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                Self.logger.error("Failed to query devices: \(error.localizedDescription)")
+                self.logger.error("Failed to query devices: \(error.localizedDescription)")
                 return []
             }
         }
@@ -220,7 +221,7 @@ extension CallControls {
                 }
                 return devices
             } catch {
-                Self.logger.error("Failed to query active devices: \(error.localizedDescription)")
+                self.logger.error("Failed to query active devices: \(error.localizedDescription)")
                 return []
             }
         }
@@ -247,7 +248,7 @@ extension CallControls {
                     }
                 }
             } catch {
-                Self.logger.error("Failed to toggle device: \(error.localizedDescription)")
+                self.logger.error("Failed to toggle device: \(error.localizedDescription)")
             }
         }
 

@@ -52,7 +52,8 @@ class DecimusLogger {
         )
     }
 
-    /// Log a new message. Prefer the named alternative functions where possible. This should only be used when converting between logging providers.
+    /// Log a new message. Prefer the named alternative functions where possible.
+    /// This should only be used when converting between logging providers.
     /// - Parameter level: The level this log corresponds to.
     /// - Parameter msg: The log message itself.
     /// - Parameter alert: True to display this message to the user.

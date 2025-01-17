@@ -103,7 +103,8 @@ class ActiveSpeakerSubscriptionSet: SubscriptionSet {
                                         metricsSubmitter: self.metricsSubmitter)
                 self.audioMediaObjects[participantId] = media
             } catch {
-                self.logger.error("Failed to create audio handler for active speaker participant: \(error.localizedDescription)")
+                self.logger.error(
+                    "Failed to create audio handler for active speaker participant: \(error.localizedDescription)")
                 return
             }
         }
