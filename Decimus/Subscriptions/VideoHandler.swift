@@ -542,7 +542,7 @@ class VideoHandler: CustomStringConvertible {
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
                     self.startTimeSet = true
                 }
-                try participant.view.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                try participant.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds

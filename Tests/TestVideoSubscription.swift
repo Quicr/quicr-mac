@@ -12,7 +12,7 @@ final class TestVideoSubscription: XCTestCase {
                                                                 priorities: [1],
                                                                 namespace: ["0"]),
                                                  config: .init(codec: .h264, bitrate: 2000, fps: 30, width: 1920, height: 1080, bitrateType: .average),
-                                                 participants: .init(),
+                                                 participants: .init(nil),
                                                  metricsSubmitter: nil,
                                                  videoBehaviour: .freeze,
                                                  reliable: true,

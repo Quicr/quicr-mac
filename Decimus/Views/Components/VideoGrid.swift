@@ -111,12 +111,12 @@ struct VideoGrid: View {
 }
 
 struct VideoGrid_Previews: PreviewProvider {
-    static let exampleParticipants: VideoParticipants = .init()
+    static let exampleParticipants: VideoParticipants = .init(nil)
     static var previews: some View {
         VideoGrid(showLabels: true,
                   connecting: .constant(true),
                   blur: .constant(false),
                   restrictedCount: nil,
-                  videoParticipants: .init())
+                  videoParticipants: .init(nil))
     }
 }

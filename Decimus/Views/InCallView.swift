@@ -274,7 +274,19 @@ extension InCallView {
         private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
         private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
-        private(set) var videoParticipants = VideoParticipants()
+        private let activeSpeakerStats = ActiveSpeakerStats()
+        private lazy var enqueueNotify: VideoParticipants.EnqueueNotify = { [weak self] id in
+            guard let self = self else { return }
+            let now = Date.now
+            Task(priority: .utility) {
+                do {
+                    try self.activeSpeakerStats.imageEnqueued(id, when: now)
+                } catch {
+                    Self.logger.error(error.localizedDescription)
+                }
+            }
+        }
+        private(set) lazy var videoParticipants = VideoParticipants(self.showLabels ? self.enqueueNotify : nil)
         private(set) var currentManifest: Manifest?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?

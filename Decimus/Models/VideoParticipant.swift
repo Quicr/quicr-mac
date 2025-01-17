@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import CoreMedia
+import QuartzCore
+
 enum ParticipantError: Error {
     case alreadyExists
     case notFound
@@ -10,6 +13,8 @@ enum ParticipantError: Error {
 @Observable
 @MainActor
 class VideoParticipant: Identifiable {
+    typealias EnqueueNotify = () -> Void
+
     /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
     let id: SourceIDType
     /// The SwiftUI view for video display.
@@ -20,19 +25,32 @@ class VideoParticipant: Identifiable {
     var highlight: Bool
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
+    private var enqueueNotify: EnqueueNotify?
 
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
     /// - Parameter subscribeDate: Subscribe date of the call, for statistics.
     /// - Parameter videoParticipants: The holder to register against.
-    init(id: SourceIDType, startDate: Date, subscribeDate: Date, videoParticipants: VideoParticipants) throws {
+    init(id: SourceIDType,
+         startDate: Date,
+         subscribeDate: Date,
+         videoParticipants: VideoParticipants) throws {
         self.id = id
         self.label = id
         self.highlight = false
         self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
         self.videoParticipants = videoParticipants
         try self.videoParticipants.add(self)
+    }
+
+    func registerEnqueueCallback(_ callback: @escaping EnqueueNotify) {
+        self.enqueueNotify = callback
+    }
+
+    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+        self.enqueueNotify?()
+        try self.view.enqueue(sampleBuffer, transform: transform)
     }
 
     deinit {
@@ -53,6 +71,7 @@ class VideoParticipant: Identifiable {
 @Observable
 @MainActor
 class VideoParticipants {
+    typealias EnqueueNotify = (SourceIDType) -> Void
     class Weak<T: AnyObject>: Identifiable {
         weak var value: T?
         init(_ value: T) {
@@ -60,11 +79,16 @@ class VideoParticipants {
         }
     }
 
-    private static let logger = DecimusLogger(VideoParticipants.self)
+    private let logger = DecimusLogger(VideoParticipants.self)
+    private let notify: EnqueueNotify?
 
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
     var participants: [Weak<VideoParticipant>] { Array(self.weakParticipants.values) }
+
+    init(_ notify: EnqueueNotify?) {
+        self.notify = notify
+    }
 
     /// Add a participant.
     /// - Parameter videoParticipant: The participant to add.
@@ -74,7 +98,13 @@ class VideoParticipants {
             throw ParticipantError.alreadyExists
         }
         self.weakParticipants[videoParticipant.id] = .init(videoParticipant)
-        Self.logger.debug("[\(videoParticipant.id)] Added participant")
+        self.logger.debug("[\(videoParticipant.id)] Added participant")
+        if self.notify != nil {
+            videoParticipant.registerEnqueueCallback { [weak self] in
+                guard let self = self else { return }
+                self.notify!(videoParticipant.id)
+            }
+        }
     }
 
     /// Remove a participant view.
@@ -84,6 +114,6 @@ class VideoParticipants {
         guard self.weakParticipants.removeValue(forKey: identifier) != nil else {
             throw ParticipantError.notFound
         }
-        Self.logger.debug("[\(identifier)] Removed participant")
+        self.logger.debug("[\(identifier)] Removed participant")
     }
 }
