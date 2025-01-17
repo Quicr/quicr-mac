@@ -18,11 +18,9 @@ struct AvailableImage {
 }
 
 // swiftlint:disable type_body_length
-class VideoSubscriptionSet: SubscriptionSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
-    let sourceId: SourceIDType
-    let participantId: ParticipantId
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
@@ -52,8 +50,6 @@ class VideoSubscriptionSet: SubscriptionSet {
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
     private var timestampTimeDiff: TimeInterval?
-    private var videoSubscriptions: [FullTrackName: VideoSubscription] = [:]
-    private var videoSubscriptionLock = OSAllocatedUnfairLock()
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
@@ -80,8 +76,6 @@ class VideoSubscriptionSet: SubscriptionSet {
             throw "Simulreceive and layer are not compatible"
         }
 
-        self.sourceId = subscription.sourceID
-        self.participantId = subscription.participantId
         self.subscription = subscription
         self.participants = participants
         self.submitter = metricsSubmitter
@@ -128,6 +122,9 @@ class VideoSubscriptionSet: SubscriptionSet {
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
 
+        // Base.
+        super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
@@ -156,50 +153,28 @@ class VideoSubscriptionSet: SubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    func getHandlers() -> [FullTrackName: QSubscribeTrackHandlerObjC] {
-        self.videoSubscriptions
-    }
-
-    func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
+    override func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
         guard let handler = handler as? VideoSubscription else {
             throw "Handler MUST be VideoSubscription"
         }
-        let ftn = FullTrackName(handler.getFullTrackName())
-        try self.videoSubscriptionLock.withLock {
-            guard self.videoSubscriptions[ftn] == nil else {
-                throw SubscriptionSetError.handlerExists
-            }
-            self.videoSubscriptions[ftn] = handler
-        }
+        try super.addHandler(handler)
     }
 
-    func removeHandler(_ ftn: FullTrackName) -> QSubscribeTrackHandlerObjC? {
-        self.videoSubscriptionLock.withLock {
-            self.videoSubscriptions.removeValue(forKey: ftn)
+    override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
+        let result = super.removeHandler(ftn)
+        if self.simulreceive == .enable,
+           self.getHandlers().isEmpty {
+            Self.logger.debug("Destroying simulreceive render as no live subscriptions")
+            self.renderTask?.cancel()
+            self.participantLock.withLock { self.participant = nil }
         }
-    }
-
-    public func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus) {
-        if status == .notSubscribed {
-            self.liveSubscriptionsLock.withLock {
-                self.liveSubscriptions.remove(ftn)
-                if self.liveSubscriptions.count == 0 && self.simulreceive == .enable {
-                    Self.logger.debug("Destroying simulreceive render as no live subscriptions")
-                    self.renderTask?.cancel()
-                    self.participantLock.withLock { self.participant = nil }
-                }
-            }
-        }
+        return result
     }
 
     /// Inform the set that a video frame from a managed subscription arrived.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date) {
-        _ = self.liveSubscriptionsLock.withLock {
-            self.liveSubscriptions.insert(ftn)
-        }
-
         // Set the timestamp diff from the first recveived object.
         if self.timestampTimeDiff == nil {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
@@ -207,10 +182,9 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Set this diff for all handlers, if not already.
         if let diff = self.timestampTimeDiff {
-            let subscriptions = self.videoSubscriptionLock.withLock {
-                self.videoSubscriptions
-            }
+            let subscriptions = self.getHandlers()
             for (_, sub) in subscriptions {
+                let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
                 sub.handlerLock.withLock {
                     guard let handler = sub.handler else { return }
                     handler.setTimeDiff(diff: diff)
@@ -247,17 +221,16 @@ class VideoSubscriptionSet: SubscriptionSet {
                 let duration: TimeInterval
                 if let self = self {
                     let now = Date.now
-                    duration = self.handlerLock.withLock {
-                        guard !self.videoSubscriptions.isEmpty else {
-                            self.renderTask?.cancel()
-                            return TimeInterval.nan
-                        }
+                    if self.getHandlers().isEmpty {
+                        self.renderTask?.cancel()
+                        duration = TimeInterval.nan
+                    } else {
                         do {
-                            return try self.makeSimulreceiveDecision(at: now)
+                            duration = try self.makeSimulreceiveDecision(at: now)
                         } catch {
                             Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
                             self.renderTask?.cancel()
-                            return TimeInterval.nan
+                            duration = TimeInterval.nan
                         }
                     }
                 } else {
@@ -317,9 +290,7 @@ class VideoSubscriptionSet: SubscriptionSet {
     private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
-        let subscriptions = self.videoSubscriptionLock.withLock {
-            self.videoSubscriptions
-        }
+        let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
         for subscription in subscriptions {
             guard let handler = subscription.value.handler else {
                 continue
@@ -346,11 +317,11 @@ class VideoSubscriptionSet: SubscriptionSet {
             // Wait for next.
             let duration: TimeInterval
             if let lastNamespace = self.last,
-               let handler = self.videoSubscriptions[lastNamespace]?.handler {
+               let handler = subscriptions[lastNamespace]?.handler {
                 duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
             } else {
                 var highestFps: UInt16 = 1
-                for subscription in self.videoSubscriptions {
+                for subscription in subscriptions {
                     guard let handler = subscription.value.handler else {
                         continue
                     }
@@ -363,7 +334,7 @@ class VideoSubscriptionSet: SubscriptionSet {
 
         // Consume all images from our shortlist.
         for choice in choices {
-            let handler = self.videoSubscriptions[choice.fullTrackName]!.handler!
+            let handler = subscriptions[choice.fullTrackName]!.handler!
             handler.lastDecodedImageLock.withLock {
                 let theirTime = handler.lastDecodedImage?.image.presentationTimeStamp
                 let ourTime = choice.image.image.presentationTimeStamp
@@ -421,7 +392,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             //            }
         }
 
-        guard let subscription = self.videoSubscriptions[selected.fullTrackName] else {
+        guard let subscription = subscriptions[selected.fullTrackName] else {
             throw "Missing expected subscription for namespace: \(selected.fullTrackName)"
         }
         guard let handler = subscription.handler else {
@@ -469,7 +440,7 @@ class VideoSubscriptionSet: SubscriptionSet {
                 return selectedSample.duration.seconds
             }
             var highestFps: UInt16 = 1
-            for subscription in self.videoSubscriptions {
+            for subscription in subscriptions {
                 guard let handler = subscription.value.handler else {
                     continue
                 }
@@ -557,7 +528,7 @@ class VideoSubscriptionSet: SubscriptionSet {
             return selectedSample.duration.seconds
         }
         var highestFps: UInt16 = 1
-        for subscription in self.videoSubscriptions {
+        for subscription in subscriptions {
             guard let handler = subscription.value.handler else {
                 continue
             }
