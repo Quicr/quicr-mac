@@ -160,27 +160,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         try super.addHandler(handler)
     }
 
-    private func checkSimulreceiveRemove() {
-        guard self.simulreceive == .enable,
-              self.getHandlers().isEmpty else {
-            return
-        }
-        Self.logger.debug("Destroying simulreceive render as no live subscriptions")
-        self.renderTask?.cancel()
-        self.participantLock.withLock { self.participant = nil }
-    }
-
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
         let result = super.removeHandler(ftn)
-        self.checkSimulreceiveRemove()
-        return result
-    }
-
-    override func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus) {
-        super.statusChanged(ftn, status: status)
-        if status == .notSubscribed {
-            self.checkSimulreceiveRemove()
+        if self.simulreceive == .enable,
+           self.getHandlers().isEmpty {
+            Self.logger.debug("Destroying simulreceive render as no live subscriptions")
+            self.renderTask?.cancel()
+            self.participantLock.withLock { self.participant = nil }
         }
+        return result
     }
 
     /// Inform the set that a video frame from a managed subscription arrived.
