@@ -6,8 +6,7 @@ actor ActiveSpeakerStats {
         case missing
     }
 
-    // TODO: What type should this be? ParticipantId?
-    typealias Identifier = String
+    typealias Identifier = ParticipantId
 
     private var participants: [Identifier: Date] = [:]
 
