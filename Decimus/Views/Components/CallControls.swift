@@ -79,40 +79,40 @@ struct CallControls: View {
                 role: viewModel.videoOn ? nil : .destructive,
                 expanded: $cameraModalExpanded,
                 action: { viewModel.toggleVideos() },
-                pickerAction: { openCameraModal() }
-            ) {
-                LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
-                          alignment: .leading) {
-                    Image("video-on")
-                        .renderingMode(.template)
-                        .foregroundColor(.gray)
-                    Text("Camera")
-                        .padding(.leading)
-                        .foregroundColor(.gray)
-                    ForEach(viewModel.devices(.video), id: \.self) { camera in
-                        if viewModel.alteringDevice[camera] ?? false {
-                            ProgressView()
-                        } else if viewModel.devices(.video).contains(camera) {
-                            Image(systemName: "checkmark")
-                        } else {
-                            Spacer()
-                        }
-                        ActionButton(
-                            disabled: viewModel.alteringDevice[camera] ?? false,
-                            cornerRadius: 10,
-                            styleConfig: deviceButtonStyleConfig,
-                            action: { viewModel.toggleDevice(device: camera) },
-                            title: {
-                                Text(verbatim: camera.localizedName)
-                                    .lineLimit(1)
+                pickerAction: { openCameraModal() },
+                content: {
+                    LazyVGrid(columns: [GridItem(.fixed(16)), GridItem(.flexible())],
+                              alignment: .leading) {
+                        Image("video-on")
+                            .renderingMode(.template)
+                            .foregroundColor(.gray)
+                        Text("Camera")
+                            .padding(.leading)
+                            .foregroundColor(.gray)
+                        ForEach(viewModel.devices(.video), id: \.self) { camera in
+                            if viewModel.alteringDevice[camera] ?? false {
+                                ProgressView()
+                            } else if viewModel.devices(.video).contains(camera) {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Spacer()
                             }
-                        )
+                            ActionButton(
+                                disabled: viewModel.alteringDevice[camera] ?? false,
+                                cornerRadius: 10,
+                                styleConfig: deviceButtonStyleConfig,
+                                action: { viewModel.toggleDevice(device: camera) },
+                                title: {
+                                    Text(verbatim: camera.localizedName)
+                                        .lineLimit(1)
+                                }
+                            )
+                        }
                     }
-                }
-                .frame(maxWidth: 300, alignment: .bottomTrailing)
-                .padding(.bottom)
-            }
-            .disabled(viewModel.devices(.video).allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
+                    .frame(maxWidth: 300, alignment: .bottomTrailing)
+                    .padding(.bottom)
+                })
+                .disabled(viewModel.devices(.video).allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
 
             Button(action: {
                 leaving = true
