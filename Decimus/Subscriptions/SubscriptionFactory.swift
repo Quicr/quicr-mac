@@ -135,7 +135,7 @@ protocol SubscriptionFactory {
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> QSubscribeTrackHandlerObjC
+                relayId: String) throws -> Subscription
 }
 
 class SubscriptionFactoryImpl: SubscriptionFactory {
@@ -146,7 +146,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let participantId: ParticipantId?
     private let joinDate: Date
-    var activeSpeakerNotifier: ActiveSpeakerNotifierSubscriptionSet?
+    var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -185,12 +185,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
 
         if subscription.mediaType == "playtime-control" {
-            let notifier = try ActiveSpeakerNotifierSubscriptionSet(subscription: subscription,
-                                                                    endpointId: endpointId,
-                                                                    relayId: relayId,
-                                                                    submitter: self.metricsSubmitter)
-            self.activeSpeakerNotifier = notifier
-            return notifier
+            return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
         }
 
         // Supported codec sets.
@@ -224,17 +219,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
 
         if found.isSubset(of: opusCodecs) {
-            return try OpusSubscription(subscription: subscription,
-                                        engine: self.engine,
-                                        submitter: self.metricsSubmitter,
-                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                        jitterMax: max,
-                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
-                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
-                                        granularMetrics: self.granularMetrics,
-                                        endpointId: endpointId,
-                                        relayId: relayId,
-                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer)
+            return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
         }
 
         throw CodecError.unsupportedCodecSet(found)
@@ -244,7 +229,19 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> QSubscribeTrackHandlerObjC {
+                relayId: String) throws -> Subscription {
+        let ftn = try profile.getFullTrackName()
+        // Ideally this wiring would be in CallController.
+        let unregister: Subscription.StatusCallback = { [weak set] status in
+            guard let set = set else { return }
+            switch status {
+            case .notSubscribed:
+                _ = set.removeHandler(ftn)
+            default:
+                break
+            }
+        }
+
         if let set = set as? ActiveSpeakerSubscriptionSet {
             return try CallbackSubscription(profile: profile,
                                             endpointId: endpointId,
@@ -252,13 +249,20 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             metricsSubmitter: self.metricsSubmitter,
                                             priority: 0,
                                             groupOrder: .originalPublisherOrder,
-                                            filterType: .latestObject) { [weak set] in
-                set?.receivedObject(headers: $0, data: $1, extensions: $2)
-            }
+                                            filterType: .latestObject,
+                                            callback: { [weak set] in
+                                                set?.receivedObject(headers: $0, data: $1, extensions: $2)
+                                            },
+                                            statusCallback: unregister)
         }
 
-        if let set = set as? ActiveSpeakerNotifierSubscriptionSet {
-            return set
+        if profile.qualityProfile == "playtime" {
+            self.activeSpeakerNotifier = try ActiveSpeakerNotifierSubscription(profile: profile,
+                                                                               endpointId: endpointId,
+                                                                               relayId: relayId,
+                                                                               submitter: self.metricsSubmitter,
+                                                                               statusChanged: unregister)
+            return self.activeSpeakerNotifier!
         }
 
         let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
@@ -285,15 +289,23 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when)
                                          },
-                                         statusChanged: { [weak set] status in
-                                            guard let set = set else { return }
-                                            set.statusChanged(ftn, status: status)
-                                         })
+                                         statusChanged: unregister)
         } else if config is AudioCodecConfig {
-            guard let set = set as? OpusSubscription else {
-                throw "AudioCodecConfig expects OpusSubscription"
+            guard set is ObservableSubscriptionSet else {
+                throw "AudioCodecConfig expects ObservableSubscriptionSet"
             }
-            return set
+            return try OpusSubscription(profile: profile,
+                                        engine: self.engine,
+                                        submitter: self.metricsSubmitter,
+                                        jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
+                                        granularMetrics: self.granularMetrics,
+                                        endpointId: endpointId,
+                                        relayId: relayId,
+                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                        statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)
     }

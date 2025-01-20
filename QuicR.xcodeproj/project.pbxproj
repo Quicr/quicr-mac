@@ -70,11 +70,12 @@
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
+		9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26912D367B3C00A29CFA /* TestSubscription.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */; };
 		9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */; };
 		9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */; };
-		9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */; };
+		9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscription.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
 		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
@@ -106,6 +107,8 @@
 		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
 		9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BDA15D22C7FF3E300494BFD /* quicr.xcframework */; };
 		9BDA15D42C7FF3E300494BFD /* quicr.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9BDA15D22C7FF3E300494BFD /* quicr.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */; };
+		9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */; };
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
@@ -259,11 +262,12 @@
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
 		9B749B882CD8E3CD002E0FC7 /* QFullTrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFullTrackName.h; sourceTree = "<group>"; };
+		9B7B26912D367B3C00A29CFA /* TestSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSubscription.swift; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoUtilities.swift; sourceTree = "<group>"; };
 		9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerSubscriptionSet.swift; sourceTree = "<group>"; };
 		9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackSubscription.swift; sourceTree = "<group>"; };
-		9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerNotifierSubscriptionSet.swift; sourceTree = "<group>"; };
+		9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerNotifierSubscription.swift; sourceTree = "<group>"; };
 		9B85951429F03147008C813C /* TestPlan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = TestPlan.xctestplan; sourceTree = "<group>"; };
 		9B85951B29F04521008C813C /* Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9B87FB612A03B91E00C92DD1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -309,6 +313,8 @@
 		9BDA15D02C7FD83700494BFD /* FullTrackName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTrackName.swift; sourceTree = "<group>"; };
 		9BDA15D22C7FF3E300494BFD /* quicr.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = quicr.xcframework; path = dependencies/quicr.xcframework; sourceTree = "<group>"; };
 		9BDCEA7F2D2E7E3100FE301B /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
+		9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionSet.swift; sourceTree = "<group>"; };
+		9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableSubscriptionDetails.swift; sourceTree = "<group>"; };
 		9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusDecoder.swift; sourceTree = "<group>"; };
 		9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibOpusEncoder.swift; sourceTree = "<group>"; };
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
@@ -486,6 +492,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B7B26912D367B3C00A29CFA /* TestSubscription.swift */,
 				9B8E45402CF4BFA7003C863A /* MockCodecFactory.swift */,
 				9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */,
 				9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */,
@@ -672,8 +679,9 @@
 		FF2498B52A55E8F800C6D66D /* Subscriptions */ = {
 			isa = PBXGroup;
 			children = (
+				9BDCEA802D2EA43A00FE301B /* SubscriptionSet.swift */,
 				9BC070D42D2D3A8700FE5B0E /* Subscription.swift */,
-				9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift */,
+				9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscription.swift */,
 				9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */,
 				9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */,
 				9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */,
@@ -752,6 +760,7 @@
 		FFBF2FB529BFE47000D769CF /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				9BDCEA822D2EB2AF00FE301B /* ObservableSubscriptionDetails.swift */,
 				9B1246352CD90B00004C020C /* PublicationPopover.swift */,
 				9B1246332CD90923004C020C /* SubscriptionPopover.swift */,
 				9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */,
@@ -961,6 +970,7 @@
 				187DE3712C997C7A0090FB68 /* TestVideoSubscription.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
+				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,
 				9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */,
 				9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */,
 				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
@@ -991,7 +1001,7 @@
 				18A130C02B4D7E8700F17372 /* OpusHandler.swift in Sources */,
 				9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */,
 				9BA27FF5297D787F007013B2 /* ConfigCallView.swift in Sources */,
-				9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscriptionSet.swift in Sources */,
+				9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscription.swift in Sources */,
 				9B480662297EAF170040F5D4 /* InCallView.swift in Sources */,
 				9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */,
 				9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */,
@@ -1017,6 +1027,7 @@
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
 				9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */,
+				9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
@@ -1038,6 +1049,7 @@
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
 				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
+				9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */,
 				9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
