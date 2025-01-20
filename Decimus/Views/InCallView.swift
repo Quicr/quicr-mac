@@ -274,19 +274,8 @@ extension InCallView {
         private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
         private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
-        private let activeSpeakerStats = ActiveSpeakerStats()
-        private lazy var enqueueNotify: VideoParticipants.EnqueueNotify = { [weak self] id in
-            guard let self = self else { return }
-            let now = Date.now
-            Task(priority: .utility) {
-                do {
-                    try self.activeSpeakerStats.imageEnqueued(id, when: now)
-                } catch {
-                    Self.logger.error(error.localizedDescription)
-                }
-            }
-        }
-        private(set) lazy var videoParticipants = VideoParticipants(self.showLabels ? self.enqueueNotify : nil)
+        private(set) lazy var activeSpeakerStats = self.showLabels ? ActiveSpeakerStats() : nil
+        private(set) lazy var videoParticipants = VideoParticipants()
         private(set) var currentManifest: Manifest?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
@@ -377,7 +366,8 @@ extension InCallView {
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               engine: engine,
                                                               participantId: ourParticipantId,
-                                                              joinDate: self.joinDate)
+                                                              joinDate: self.joinDate,
+                                                              activeSpeakerStats: self.activeSpeakerStats)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
             let controller = self.makeCallController()
@@ -429,7 +419,8 @@ extension InCallView {
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
-                                                   participantId: manifest.participantId)
+                                                   participantId: manifest.participantId,
+                                                   activeSpeakerStats: self.activeSpeakerStats)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")

@@ -147,6 +147,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let participantId: ParticipantId?
     private let joinDate: Date
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -154,7 +155,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          granularMetrics: Bool,
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
-         joinDate: Date) {
+         joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -162,6 +164,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
         self.participantId = participantId
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
     }
 
     func create(subscription: ManifestSubscription,
@@ -181,7 +184,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                 ourParticipantId: self.participantId,
                                                 submitter: self.metricsSubmitter,
                                                 useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
-                                                granularMetrics: self.granularMetrics)
+                                                granularMetrics: self.granularMetrics,
+                                                activeSpeakerStats: self.activeSpeakerStats)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -215,7 +219,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             endpointId: endpointId,
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
-                                            joinDate: self.joinDate)
+                                            joinDate: self.joinDate,
+                                            activeSpeakerStats: self.activeSpeakerStats)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -285,6 +290,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
+                                         activeSpeakerStats: self.activeSpeakerStats,
                                          callback: { [weak set] timestamp, when in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when)

@@ -56,6 +56,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private var participant: VideoParticipant?
     private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -71,7 +72,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          endpointId: String,
          relayId: String,
          codecFactory: CodecFactory,
-         joinDate: Date) throws {
+         joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -106,6 +108,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         let subscribeDate = Date.now
         self.subscribeDate = subscribeDate
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
@@ -484,7 +487,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                             participant = try .init(id: self.sourceId,
                                                     startDate: self.joinDate,
                                                     subscribeDate: self.subscribeDate,
-                                                    videoParticipants: self.participants)
+                                                    videoParticipants: self.participants,
+                                                    participantId: self.participantId,
+                                                    activeSpeakerStats: self.activeSpeakerStats)
                         } catch {
                             self.participantLock.unlock()
                             return
@@ -498,7 +503,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                     do {
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
-                                                transform: transform)
+                                                transform: transform,
+                                                when: at)
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }

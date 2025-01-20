@@ -13,43 +13,71 @@ enum ParticipantError: Error {
 @Observable
 @MainActor
 class VideoParticipant: Identifiable {
-    typealias EnqueueNotify = () -> Void
-
     /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
     let id: SourceIDType
+    /// The participant ID of this participant.
+    let participantId: ParticipantId
     /// The SwiftUI view for video display.
-    var view: VideoView
+    let view = VideoView()
     /// The label to display under the video.
     var label: String
     /// True if this video should be highlighted.
     var highlight: Bool
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
-    private var enqueueNotify: EnqueueNotify?
+
+    // Active speaker statistics.
+    private let activeSpeakerStats: ActiveSpeakerStats?
+    private let startDate: Date
+    private let subscribeDate: Date
+    private(set) var fromDetected: TimeInterval?
+    private(set) var fromSet: TimeInterval?
+    private(set) var joinToFirstFrame: TimeInterval?
+    private(set) var subscribeToFirstFrame: TimeInterval?
 
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
     /// - Parameter subscribeDate: Subscribe date of the call, for statistics.
     /// - Parameter videoParticipants: The holder to register against.
+    /// - Parameter participantId: The participant ID of this participant.
+    /// - Parameter activeSpeakerStats: Stats/metrics object.
     init(id: SourceIDType,
          startDate: Date,
          subscribeDate: Date,
-         videoParticipants: VideoParticipants) throws {
+         videoParticipants: VideoParticipants,
+         participantId: ParticipantId,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         self.id = id
         self.label = id
         self.highlight = false
-        self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
+        self.startDate = startDate
+        self.subscribeDate = subscribeDate
         self.videoParticipants = videoParticipants
+        self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
         try self.videoParticipants.add(self)
     }
 
-    func registerEnqueueCallback(_ callback: @escaping EnqueueNotify) {
-        self.enqueueNotify = callback
-    }
+    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?, when: Date) throws {
+        // Stats.
+        if let stats = self.activeSpeakerStats {
+            Task { @MainActor in
+                let record = try await stats.imageEnqueued(self.participantId, when: when)
+                if let detected = record.detected {
+                    self.fromDetected = record.enqueued.timeIntervalSince(detected)
+                }
+                if let set = record.set {
+                    self.fromSet = record.enqueued.timeIntervalSince(set)
+                }
+            }
+        }
+        if self.joinToFirstFrame == nil {
+            self.joinToFirstFrame = when.timeIntervalSince(self.startDate)
+            self.subscribeToFirstFrame = when.timeIntervalSince(self.subscribeDate)
+        }
 
-    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
-        self.enqueueNotify?()
+        // Enqueue the frame.
         try self.view.enqueue(sampleBuffer, transform: transform)
     }
 
@@ -71,7 +99,6 @@ class VideoParticipant: Identifiable {
 @Observable
 @MainActor
 class VideoParticipants {
-    typealias EnqueueNotify = (SourceIDType) -> Void
     class Weak<T: AnyObject>: Identifiable {
         weak var value: T?
         init(_ value: T) {
@@ -80,15 +107,10 @@ class VideoParticipants {
     }
 
     private let logger = DecimusLogger(VideoParticipants.self)
-    private let notify: EnqueueNotify?
 
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
     var participants: [Weak<VideoParticipant>] { Array(self.weakParticipants.values) }
-
-    init(_ notify: EnqueueNotify?) {
-        self.notify = notify
-    }
 
     /// Add a participant.
     /// - Parameter videoParticipant: The participant to add.
@@ -99,12 +121,6 @@ class VideoParticipants {
         }
         self.weakParticipants[videoParticipant.id] = .init(videoParticipant)
         self.logger.debug("[\(videoParticipant.id)] Added participant")
-        if self.notify != nil {
-            videoParticipant.registerEnqueueCallback { [weak self] in
-                guard let self = self else { return }
-                self.notify!(videoParticipant.id)
-            }
-        }
     }
 
     /// Remove a participant view.

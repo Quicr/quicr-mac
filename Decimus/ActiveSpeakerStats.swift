@@ -6,27 +6,47 @@ actor ActiveSpeakerStats {
         case missing
     }
 
+    private struct Record {
+        let detected: Date?
+        let set: Date?
+        let enqueued: Date?
+    }
+
+    struct Result {
+        let detected: Date?
+        let set: Date?
+        let enqueued: Date
+
+        fileprivate init(_ record: Record) {
+            self.detected = record.detected
+            self.set = record.set
+            self.enqueued = record.enqueued!
+        }
+    }
+
     typealias Identifier = ParticipantId
 
-    private var participants: [Identifier: Date] = [:]
+    private var participants: [Identifier: Record] = [:]
 
     func audioDetected(_ identifier: Identifier, when: Date) {
-        self.participants[identifier] = when
+        let existing = self.participants[identifier]
+        self.participants[identifier] = .init(detected: existing?.detected ?? when,
+                                              set: existing?.set,
+                                              enqueued: existing?.enqueued)
     }
 
-    func activeSpeakerSet(_ identifier: Identifier, when: Date) throws -> TimeInterval {
-        try self.calc(identifier, when: when)
+    func activeSpeakerSet(_ identifier: Identifier, when: Date) throws {
+        let record = self.participants[identifier]
+        self.participants[identifier] = .init(detected: record?.detected,
+                                              set: record?.set ?? when,
+                                              enqueued: record?.enqueued)
     }
 
-    func imageEnqueued(_ identifier: Identifier, when: Date) throws -> TimeInterval {
-        try self.calc(identifier, when: when)
-    }
-
-    private func calc(_ identifier: Identifier, when: Date) throws -> TimeInterval {
-        guard let insertDate = self.participants[identifier] else {
-            throw Error.missing
-        }
-        return when.timeIntervalSince(insertDate)
+    func imageEnqueued(_ identifier: Identifier, when: Date) throws -> Result {
+        let record = self.participants[identifier]
+        let updated = Record(detected: record?.detected, set: record?.set, enqueued: record?.enqueued ?? when)
+        self.participants[identifier] = updated
+        return .init(updated)
     }
 
     func remove(_ identifier: Identifier) {
