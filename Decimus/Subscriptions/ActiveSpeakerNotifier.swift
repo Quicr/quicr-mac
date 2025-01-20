@@ -80,7 +80,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             let now = Date.now
             Task(priority: .utility) {
                 for speaker in speakers {
-                    try await stats.activeSpeakerSet(speaker, when: now)
+                    await stats.activeSpeakerSet(speaker, when: now)
                 }
             }
         }

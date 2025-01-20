@@ -35,16 +35,18 @@ actor ActiveSpeakerStats {
                                               enqueued: existing?.enqueued)
     }
 
-    func activeSpeakerSet(_ identifier: Identifier, when: Date) throws {
+    func activeSpeakerSet(_ identifier: Identifier, when: Date) {
         let record = self.participants[identifier]
         self.participants[identifier] = .init(detected: record?.detected,
                                               set: record?.set ?? when,
                                               enqueued: record?.enqueued)
     }
 
-    func imageEnqueued(_ identifier: Identifier, when: Date) throws -> Result {
+    func imageEnqueued(_ identifier: Identifier, when: Date) -> Result {
         let record = self.participants[identifier]
-        let updated = Record(detected: record?.detected, set: record?.set, enqueued: record?.enqueued ?? when)
+        let updated = Record(detected: record?.detected,
+                             set: record?.set,
+                             enqueued: record?.enqueued ?? when)
         self.participants[identifier] = updated
         return .init(updated)
     }

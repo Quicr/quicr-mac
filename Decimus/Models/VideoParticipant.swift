@@ -63,7 +63,7 @@ class VideoParticipant: Identifiable {
         // Stats.
         if let stats = self.activeSpeakerStats {
             Task { @MainActor in
-                let record = try await stats.imageEnqueued(self.participantId, when: when)
+                let record = await stats.imageEnqueued(self.participantId, when: when)
                 if let detected = record.detected {
                     self.fromDetected = record.enqueued.timeIntervalSince(detected)
                 }

@@ -114,6 +114,7 @@
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
 		9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */; };
 		9BE1869E2D3A872C0005124C /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE1869D2D3A871F0005124C /* ActiveSpeakerStats.swift */; };
+		9BE4350F2D3EEF5900724674 /* TestActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE4350E2D3EEF5300724674 /* TestActiveSpeakerStats.swift */; };
 		9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */; };
 		9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */; };
 		9BE6288E2CE4FCDD001401D0 /* ManualActiveSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6288D2CE4FCD3001401D0 /* ManualActiveSpeaker.swift */; };
@@ -321,6 +322,7 @@
 		9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SwiftInterop.m; sourceTree = "<group>"; };
 		9BDE868C2B70ED0E009467A7 /* SwiftInterop.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftInterop.h; sourceTree = "<group>"; };
 		9BE1869D2D3A871F0005124C /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
+		9BE4350E2D3EEF5300724674 /* TestActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestActiveSpeakerStats.swift; sourceTree = "<group>"; };
 		9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerNotifier.swift; sourceTree = "<group>"; };
 		9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestActiveSpeaker.swift; sourceTree = "<group>"; };
 		9BE6288D2CE4FCD3001401D0 /* ManualActiveSpeaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualActiveSpeaker.swift; sourceTree = "<group>"; };
@@ -494,6 +496,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9BE4350E2D3EEF5300724674 /* TestActiveSpeakerStats.swift */,
 				9B7B26912D367B3C00A29CFA /* TestSubscription.swift */,
 				9B8E45402CF4BFA7003C863A /* MockCodecFactory.swift */,
 				9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */,
@@ -971,6 +974,7 @@
 				187DE36D2C997A180090FB68 /* TestCallController.swift in Sources */,
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				187DE3712C997C7A0090FB68 /* TestVideoSubscription.swift in Sources */,
+				9BE4350F2D3EEF5900724674 /* TestActiveSpeakerStats.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
 				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,
