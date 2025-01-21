@@ -103,7 +103,8 @@ class JitterBuffer {
 
     /// Attempt to read a frame from the front of the buffer.
     /// - Parameter from: The timestamp of this read operation.
-    /// This is an optimization to reduce the number of now() calculations, and has no bearing on jitter buffer behaviour.
+    /// This is an optimization to reduce the number of now() calculations,
+    /// and has no bearing on jitter buffer behaviour.
     /// - Returns: Either the oldest available frame, or nil.
     func read<T: JitterItem>(from: Date) -> T? {
         let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil

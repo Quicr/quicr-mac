@@ -55,7 +55,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         }
         self.videoSubscriptions = videoSubscriptions
         self.factory = factory
-        self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId}).map({$0.participantId}))
+        self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId})
+                                    .map({$0.participantId}))
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
@@ -94,7 +95,9 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
 
         // Firstly, subscribe to video from any speakers we are not already subscribed to.
         var subbed = 0
-        let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().compactMap { $0.value }) }
+        let existingHandlers = existing.reduce(into: []) {
+            $0.append(contentsOf: $1.getHandlers().compactMap { $0.value })
+        }
         for set in self.videoSubscriptions where speakers.contains(set.participantId) {
             for subscription in set.profileSet.profiles {
                 do {
@@ -105,7 +108,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                     }
                     // Subscribe.
                     subbed += 1
-                    self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
+                    self.logger.debug(
+                        "[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
                     // Does a set for this already exist?
                     // TODO: Clean this up.
                     let targetSet: SubscriptionSet

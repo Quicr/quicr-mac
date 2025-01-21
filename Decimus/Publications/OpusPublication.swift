@@ -8,8 +8,8 @@ import Accelerate
 
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
-    static let energyLevelKey = NSNumber(integerLiteral: 3)
-    static let participantIdKey = NSNumber(integerLiteral: 4)
+    static let energyLevelKey: NSNumber = 3
+    static let participantIdKey: NSNumber = 4
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -81,7 +81,7 @@ class OpusPublication: Publication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.0, timestamp: data.1, decibel: data.2)
+                            self.publish(data: data.encodedData, timestamp: data.timestamp, decibel: data.decibelLevel)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -136,7 +136,6 @@ class OpusPublication: Publication {
         switch published {
         case .ok:
             self.currentGroupId! += 1
-            break
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
@@ -154,7 +153,13 @@ class OpusPublication: Publication {
         return self.publishObject(headers, data: data, extensions: loc.extensions)
     }
 
-    private func encode() throws -> (Data, Date, Int)? {
+    struct EncodeResult {
+        let encodedData: Data
+        let timestamp: Date
+        let decibelLevel: Int
+    }
+
+    private func encode() throws -> EncodeResult? {
         guard let buffer = self.engine.microphoneBuffer else {
             #if os(macOS)
             return nil
@@ -186,7 +191,7 @@ class OpusPublication: Publication {
         let decibel = try self.getAudioLevel(self.pcm)
 
         // Encode this data.
-        return (encoded, wallClock, decibel)
+        return .init(encodedData: encoded, timestamp: wallClock, decibelLevel: decibel)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {
@@ -238,6 +243,6 @@ func getAudioDateiOS(_ hostTime: UInt64) throws -> UInt64 {
         throw "Failed to get mach time"
     }
     let factor = TimeInterval(info.numer) / TimeInterval(info.denom)
-    let ns = TimeInterval(hostTime) * factor
-    return UInt64(ns)
+    let nanoseconds = TimeInterval(hostTime) * factor
+    return UInt64(nanoseconds)
 }
