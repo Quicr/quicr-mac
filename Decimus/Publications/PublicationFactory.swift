@@ -5,7 +5,10 @@ import Foundation
 import AVFoundation
 
 protocol PublicationFactory {
-    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
+    func create(publication: ManifestPublication,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
 }
 
 class PublicationFactoryImpl: PublicationFactory {
@@ -40,7 +43,10 @@ class PublicationFactoryImpl: PublicationFactory {
         self.stagger = stagger
     }
 
-    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+    func create(publication: ManifestPublication,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)

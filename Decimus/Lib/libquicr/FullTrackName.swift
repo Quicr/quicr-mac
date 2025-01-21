@@ -28,8 +28,8 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
     /// - Throws: ``FullTrackNameError/parseError`` if strings are not UTF8.
     init(namespace: [String], name: String) throws {
         var components: [Data] = []
-        for ns in namespace {
-            guard let bytes = ns.data(using: .utf8) else {
+        for element in namespace {
+            guard let bytes = element.data(using: .utf8) else {
                 throw FullTrackNameError.parseError
             }
             components.append(bytes)

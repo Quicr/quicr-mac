@@ -182,7 +182,9 @@ struct InCallView: View {
                                 }
                             }
                             ScrollView {
-                                SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
+                                SubscriptionPopover(controller,
+                                                    manifest: manifest,
+                                                    factory: self.viewModel.subscriptionFactory!)
                                 PublicationPopover(controller)
                             }
                         }
@@ -348,20 +350,21 @@ extension InCallView {
             }
 
             // Create the factories now that we have the participant ID.
-            let publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
-                                                            reliability: self.subscriptionConfig.value.mediaReliability,
+            let subConfig = self.subscriptionConfig.value
+            let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
+                                                            reliability: subConfig.mediaReliability,
                                                             engine: engine,
                                                             metricsSubmitter: self.submitter,
                                                             granularMetrics: self.influxConfig.value.granular,
                                                             captureManager: captureManager,
                                                             participantId: manifest.participantId,
-                                                            keyFrameInterval: self.subscriptionConfig.value.keyFrameInterval,
-                                                            stagger : self.subscriptionConfig.value.stagger)
+                                                            keyFrameInterval: subConfig.keyFrameInterval,
+                                                            stagger: subConfig.stagger)
             let playtime = self.playtimeConfig.value
             let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                               metricsSubmitter: self.submitter,
-                                                              subscriptionConfig: self.subscriptionConfig.value,
+                                                              subscriptionConfig: subConfig,
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               engine: engine,
                                                               participantId: ourParticipantId,
@@ -392,12 +395,16 @@ extension InCallView {
             do {
                 // Publish.
                 for publication in manifest.publications {
-                    try controller.publish(details: publication, factory: publicationFactory, codecFactory: CodecFactoryImpl())
+                    try controller.publish(details: publication,
+                                           factory: publicationFactory,
+                                           codecFactory: CodecFactoryImpl())
                 }
 
                 // Subscribe.
                 for subscription in manifest.subscriptions {
-                    _ = try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
+                    _ = try controller.subscribeToSet(details: subscription,
+                                                      factory: subscriptionFactory,
+                                                      subscribe: true)
                 }
 
                 // Active speaker handling.
@@ -530,7 +537,7 @@ extension InCallView {
             let token: String
             do {
                 // Try and get metrics from storage.
-                let storage = try TokenStorage(tag: InfluxSettingsView.defaultsKey)
+                let storage = TokenStorage(tag: InfluxSettingsView.defaultsKey)
                 if let fetched = try storage.retrieve() {
                     token = fetched
                     Self.logger.debug("Resolved influx token from keychain")

@@ -69,6 +69,8 @@ extension QPublishTrackHandlerStatus: CustomStringConvertible {
             "pendingAnnounceResponse"
         case .sendingUnannounce:
             "sendingUnannounce"
+        case .subscriptionUpdated:
+            "subscriptionUpdated"
         @unknown default:
             "unknown default"
         }

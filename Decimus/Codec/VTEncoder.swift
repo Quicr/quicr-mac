@@ -78,11 +78,12 @@ class VTEncoder: VideoEncoder {
             throw VTEncoderError.unsupportedCodec(config.codec)
         }
 
+        let spec = try Self.makeEncoderSpecification(codec: codec) as CFDictionary
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
                                                  height: config.height,
                                                  codecType: codec,
-                                                 encoderSpecification: try Self.makeEncoderSpecification(codec: codec) as CFDictionary,
+                                                 encoderSpecification: spec,
                                                  imageBufferAttributes: nil,
                                                  compressedDataAllocator: allocator,
                                                  outputCallback: self.vtCallback,

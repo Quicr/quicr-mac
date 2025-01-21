@@ -37,13 +37,13 @@ extension VideoSubscriptionSet {
             }
         }
 
-        func reportTimestamp(namespace: QuicrNamespace, timestamp: TimeInterval, at: Date) {
+        func reportTimestamp(namespace: QuicrNamespace, timestamp: TimeInterval, when: Date) {
             let tags: [String: String] = ["namespace": namespace]
-            record(field: "timestamp", value: timestamp as AnyObject, timestamp: at, tags: tags)
+            record(field: "timestamp", value: timestamp as AnyObject, timestamp: when, tags: tags)
         }
 
-        func reportVariance(variance: TimeInterval, at: Date) {
-            record(field: "variance", value: variance as AnyObject, timestamp: at)
+        func reportVariance(variance: TimeInterval, when: Date) {
+            record(field: "variance", value: variance as AnyObject, timestamp: when)
         }
     }
 }
