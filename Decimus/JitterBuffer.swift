@@ -45,6 +45,7 @@ class JitterBuffer {
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
     private var play: Bool = false
+    private let strictSequence: Bool
     private var lastSequenceRead = ManagedAtomic<UInt64>(0)
     private var lastSequenceSet = ManagedAtomic<Bool>(false)
 
@@ -58,11 +59,13 @@ class JitterBuffer {
     /// - Parameter metricsSubmitter: Optionally, an object to submit metrics through.
     /// - Parameter minDepth: Fixed initial & target delay in seconds.
     /// - Parameter capacity: Capacity in number of buffers / elements.
+    /// - Parameter strictSequence: If true, sequence numbers must increment sequentially.
     /// - Parameter handlers: CMBufferQueue.Handlers implementation to use.
     init(identifier: String,
          metricsSubmitter: MetricsSubmitter?,
          minDepth: TimeInterval,
          capacity: Int,
+         strictSequence: Bool,
          handlers: CMBufferQueue.Handlers) throws {
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
@@ -72,6 +75,7 @@ class JitterBuffer {
             self.measurement = nil
         }
         self.minDepth = minDepth
+        self.strictSequence = strictSequence
     }
 
     /// Write a video frame into the jitter buffer.
@@ -80,7 +84,8 @@ class JitterBuffer {
     /// - Throws: Buffer is full, or video frame is older than last read.
     func write<T: JitterItem>(item: T, from: Date) throws {
         // Check expiry.
-        if self.lastSequenceSet.load(ordering: .acquiring) {
+        if self.strictSequence,
+           self.lastSequenceSet.load(ordering: .acquiring) {
             guard item.sequenceNumber > self.lastSequenceRead.load(ordering: .acquiring) else {
                 throw JitterBufferError.old
             }
@@ -126,12 +131,15 @@ class JitterBuffer {
             }
         }
         let item = oldest as! T
-        self.lastSequenceRead.store(item.sequenceNumber, ordering: .releasing)
-        self.lastSequenceSet.store(true, ordering: .releasing)
+        if self.strictSequence {
+            self.lastSequenceRead.store(item.sequenceNumber, ordering: .releasing)
+            self.lastSequenceSet.store(true, ordering: .releasing)
+        }
         return item
     }
 
     func updateLastSequenceRead(_ seq: UInt64) {
+        guard self.strictSequence else { return }
         self.lastSequenceRead.store(seq, ordering: .releasing)
     }
 

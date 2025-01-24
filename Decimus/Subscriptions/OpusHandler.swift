@@ -142,6 +142,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,
                                       capacity: Int(self.jitterMax / windowDuration.seconds),
+                                      strictSequence: true,
                                       handlers: handlers)
         self.newJitterBuffer = buffer
         let playoutLength = UInt32(48000 * 32 * self.jitterMax / 8)

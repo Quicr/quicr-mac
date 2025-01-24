@@ -56,6 +56,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private var participant: VideoParticipant?
     private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
+    private var lastWasCached = false
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -180,21 +181,20 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                                timestamp: TimeInterval,
                                when: Date,
                                cached: Bool) {
-        if !cached {
-            // Set the timestamp diff from the first recveived object.
-            if self.timestampTimeDiff == nil {
-                self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
-            }
+        // Set the timestamp diff from the first recveived object, or if the cache status changes.
+        if self.timestampTimeDiff == nil || self.lastWasCached != cached {
+            self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
+        }
+        self.lastWasCached = cached
 
-            // Set this diff for all handlers, if not already.
-            if let diff = self.timestampTimeDiff {
-                let subscriptions = self.getHandlers()
-                for (_, sub) in subscriptions {
-                    let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-                    sub.handlerLock.withLock {
-                        guard let handler = sub.handler else { return }
-                        handler.setTimeDiff(diff: diff)
-                    }
+        // Set this diff for all handlers, if not already.
+        if let diff = self.timestampTimeDiff {
+            let subscriptions = self.getHandlers()
+            for (_, sub) in subscriptions {
+                let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
+                sub.handlerLock.withLock {
+                    guard let handler = sub.handler else { return }
+                    handler.setTimeDiff(diff: diff)
                 }
             }
         }

@@ -70,7 +70,7 @@ class OpusSubscription: Subscription {
                        metricsSubmitter: submitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup,
+                       filterType: .latestObject,
                        statusCallback: statusChanged)
 
         // Make task for cleaning up audio handlers.
