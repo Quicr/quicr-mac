@@ -37,8 +37,14 @@ extension VideoSubscriptionSet {
             }
         }
 
-        func reportTimestamp(namespace: QuicrNamespace, timestamp: TimeInterval, when: Date) {
-            let tags: [String: String] = ["namespace": namespace]
+        func reportTimestamp(namespace: QuicrNamespace,
+                             timestamp: TimeInterval,
+                             when: Date,
+                             cached: Bool) {
+            let tags: [String: String] = [
+                "namespace": namespace,
+                "cached": "\(cached)"
+            ]
             record(field: "timestamp", value: timestamp as AnyObject, timestamp: when, tags: tags)
         }
 

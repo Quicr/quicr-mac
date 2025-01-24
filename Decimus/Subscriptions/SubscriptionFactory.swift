@@ -285,9 +285,12 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
-                                         callback: { [weak set] timestamp, when in
+                                         callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn, timestamp: timestamp, when: when)
+                                            set.receivedObject(ftn,
+                                                               timestamp: timestamp,
+                                                               when: when,
+                                                               cached: cached)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {

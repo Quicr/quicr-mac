@@ -18,7 +18,8 @@ struct VideoHelpers {
 }
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
-                            _ when: Date) -> Void
+                            _ when: Date,
+                            _ cached: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
@@ -70,6 +71,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let participantId: ParticipantId
     private var participant: VideoParticipant?
     private var participantLock = OSAllocatedUnfairLock()
+    private let cacheKey: NSNumber = 100
 
     /// Create a new video handler.
     /// - Parameters:
@@ -218,7 +220,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 Array(self.callbacks.values)
             }
             for callback in toCall {
-                callback(timestamp, when)
+                callback(timestamp, when, extensions[self.cacheKey] != nil)
             }
 
             // TODO: This can be inlined here.
