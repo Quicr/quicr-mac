@@ -19,6 +19,8 @@ class DecimusVideoFrame {
     let orientation: DecimusVideoRotation?
     /// If present and true, this frame is vertically mirrored.
     let verticalMirror: Bool?
+    /// If true, this frame came from the cache, and is not live.
+    let cached: Bool
 
     /// Create a new video frame from its parts.
     init(samples: [CMSampleBuffer],
@@ -27,7 +29,8 @@ class DecimusVideoFrame {
          sequenceNumber: UInt64?,
          fps: UInt8?,
          orientation: DecimusVideoRotation?,
-         verticalMirror: Bool?) {
+         verticalMirror: Bool?,
+         cached: Bool) {
         self.samples = samples
         self.groupId = groupId
         self.objectId = objectId
@@ -35,6 +38,7 @@ class DecimusVideoFrame {
         self.fps = fps
         self.orientation = orientation
         self.verticalMirror = verticalMirror
+        self.cached = cached
     }
 
     /// Create a video frame by deep copying the provided frame and its data.
@@ -67,5 +71,6 @@ class DecimusVideoFrame {
         self.fps = copy.fps
         self.orientation = copy.orientation
         self.verticalMirror = copy.verticalMirror
+        self.cached = copy.cached
     }
 }

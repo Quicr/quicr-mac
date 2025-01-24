@@ -56,6 +56,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private var participant: VideoParticipant?
     private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
+    private var lastWasCached = false
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -172,13 +173,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     }
 
     /// Inform the set that a video frame from a managed subscription arrived.
+    /// - Parameter ftn: The full track name of the subscription this object came from.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date) {
-        // Set the timestamp diff from the first recveived object.
-        if self.timestampTimeDiff == nil {
+    /// - Parameter cached: True if this object came from the cache. False if live.
+    public func receivedObject(_ ftn: FullTrackName,
+                               timestamp: TimeInterval,
+                               when: Date,
+                               cached: Bool) {
+        // Set the timestamp diff from the first recveived object, or if the cache status changes.
+        if self.timestampTimeDiff == nil || self.lastWasCached != cached {
             self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
         }
+        self.lastWasCached = cached
 
         // Set this diff for all handlers, if not already.
         if let diff = self.timestampTimeDiff {
@@ -199,7 +206,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             Task(priority: .utility) {
                 await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
-                                                              when: when)
+                                                              when: when,
+                                                              cached: cached)
             }
         }
 

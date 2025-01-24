@@ -18,7 +18,8 @@ struct VideoHelpers {
 }
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
-                            _ when: Date) -> Void
+                            _ when: Date,
+                            _ cached: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
@@ -70,6 +71,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let participantId: ParticipantId
     private var participant: VideoParticipant?
     private var participantLock = OSAllocatedUnfairLock()
+    private let cacheKey: NSNumber = 100
 
     /// Create a new video handler.
     /// - Parameters:
@@ -204,7 +206,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
                                                    sequenceNumber: loc.sequence,
-                                                   timestamp: loc.timestamp) else {
+                                                   timestamp: loc.timestamp,
+                                                   cached: extensions[self.cacheKey] != nil) else {
                 Self.logger.warning("No video data in object")
                 return
             }
@@ -218,7 +221,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 Array(self.callbacks.values)
             }
             for callback in toCall {
-                callback(timestamp, when)
+                callback(timestamp, when, frame.cached)
             }
 
             // TODO: This can be inlined here.
@@ -324,7 +327,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
         guard diffUs > 0 else {
-            assert(false)
             Self.logger.warning("Missing initial timestamp")
             return nil
         }
@@ -355,13 +357,19 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
-                if reliable {
-                    return .compareLessThan
-                }
                 let first = $0 as! DecimusVideoFrameJitterItem
                 let second = $1 as! DecimusVideoFrameJitterItem
+                if reliable && first.cached == second.cached {
+                    return .compareLessThan
+                }
+                if first.cached && !second.cached {
+                    return .compareLessThan
+                }
                 let seq1 = first.sequenceNumber
                 let seq2 = second.sequenceNumber
+                if !first.cached && second.cached {
+                    return .compareGreaterThan
+                }
                 if seq1 < seq2 {
                     return .compareLessThan
                 } else if seq1 > seq2 {
@@ -393,6 +401,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
+                                      strictSequence: false,
                                       handlers: handlers)
         self.duration = duration
     }
@@ -595,7 +604,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                              groupId: UInt64,
                              objectId: UInt64,
                              sequenceNumber: UInt64,
-                             timestamp: Date) throws -> DecimusVideoFrame? {
+                             timestamp: Date,
+                             cached: Bool) throws -> DecimusVideoFrame? {
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -658,7 +668,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                      sequenceNumber: sequenceNumber,
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
-                     verticalMirror: sei?.orientation?.verticalMirror)
+                     verticalMirror: sei?.orientation?.verticalMirror,
+                     cached: cached)
     }
 }
 
@@ -701,6 +712,7 @@ class DecimusVideoFrameJitterItem: JitterBuffer.JitterItem {
     let frame: DecimusVideoFrame
     let sequenceNumber: UInt64
     let timestamp: CMTime
+    let cached: Bool
 
     init(_ frame: DecimusVideoFrame) throws {
         guard let seq = frame.sequenceNumber,
@@ -710,5 +722,6 @@ class DecimusVideoFrameJitterItem: JitterBuffer.JitterItem {
         self.frame = frame
         self.sequenceNumber = seq
         self.timestamp = time
+        self.cached = frame.cached
     }
 }

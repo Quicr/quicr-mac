@@ -83,7 +83,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                      sequenceNumber: sequenceNumber,
                      fps: fps,
                      orientation: nil,
-                     verticalMirror: nil)
+                     verticalMirror: nil,
+                     cached: false)
     }
 
     func testPlayout(sort: Bool) throws {
@@ -91,6 +92,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 1/30 * 2.5,
                                       capacity: 4,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: sort))
 
         // Write 1, no play.
@@ -145,6 +147,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: true))
 
         // Write newer.
@@ -181,6 +184,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
+                                      strictSequence: true,
                                       handlers: getHandler(sort: sort))
 
         // Write newer.
@@ -216,6 +220,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: false))
 
         // No calculation possible with no frame available.
@@ -231,6 +236,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: false))
 
         // At first write, and otherwise on time, we should wait the min depth.
@@ -252,7 +258,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       sequenceNumber: 1,
                                       fps: 1,
                                       orientation: nil,
-                                      verticalMirror: nil)
+                                      verticalMirror: nil,
+                                      cached: false)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame), from: Date.now)
         waitTime = buffer.calculateWaitTime(from: startTime, offset: diff)
         XCTAssertNotNil(waitTime)
@@ -266,6 +273,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 2,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: false))
         let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSince1970), timescale: 1)
         var diff: TimeInterval?
@@ -291,7 +299,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           sequenceNumber: 1,
                                           fps: 1,
                                           orientation: nil,
-                                          verticalMirror: nil)
+                                          verticalMirror: nil,
+                                          cached: false)
             try buffer.write(item: DecimusVideoFrameJitterItem(frame), from: Date.now)
         }
 
@@ -332,7 +341,12 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Create jitter buffer.
         let capacity = 1000
         let targetDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(identifier: "", metricsSubmitter: nil, minDepth: targetDepth, capacity: capacity, handlers: getHandler(sort: false))
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: targetDepth,
+                                      capacity: capacity,
+                                      strictSequence: false,
+                                      handlers: getHandler(sort: false))
 
         // Frame characteristics.
         let fps = 30
@@ -371,7 +385,8 @@ final class TestVideoJitterBuffer: XCTestCase {
                                           sequenceNumber: UInt64(index),
                                           fps: UInt8(fps),
                                           orientation: .portrait,
-                                          verticalMirror: false)
+                                          verticalMirror: false,
+                                          cached: false)
             try buffer.write(item: DecimusVideoFrameJitterItem(frame), from: Date.now)
         }
 
@@ -410,6 +425,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
+                                      strictSequence: false,
                                       handlers: getHandler(sort: false))
 
         // 0 when empty.
