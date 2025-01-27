@@ -3,14 +3,21 @@
 
 import Atomics
 
+private let unset: Int16 = -1
+
 class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     internal var publish = ManagedAtomic(false)
     internal let profile: Profile
-    private let logger = DecimusLogger(Publication.self)
+    private let logger: DecimusLogger
     private let measurement: MeasurementRegistration<TrackMeasurement>?
     internal let defaultPriority: UInt8
     internal let defaultTTL: UInt16
-    internal var currentStatus: QPublishTrackHandlerStatus?
+    private var currentStatusInternal: ManagedAtomic<Int16> = .init(unset)
+    internal var currentStatus: QSubscribeTrackHandlerStatus? {
+        let raw = self.currentStatusInternal.load(ordering: .acquiring)
+        guard raw != unset else { return nil }
+        return .init(rawValue: UInt8(raw))
+    }
 
     init(profile: Profile,
          trackMode: QTrackMode,
@@ -18,10 +25,12 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
          defaultTTL: UInt16,
          submitter: MetricsSubmitter?,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         logger: DecimusLogger) throws {
         self.profile = profile
         self.defaultPriority = defaultPriority
         self.defaultTTL = defaultTTL
+        self.logger = logger
         if let submitter = submitter {
             let measurement = TrackMeasurement(type: .publish,
                                                endpointId: endpointId,
@@ -40,7 +49,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
 
     internal func statusChanged(_ status: QPublishTrackHandlerStatus) {
         self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
-        self.currentStatus = status
+        self.currentStatusInternal.store(Int16(status.rawValue), ordering: .releasing)
         let publish = switch status {
         case .announceNotAuthorized:
             false

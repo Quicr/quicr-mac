@@ -302,6 +302,9 @@ extension InCallView {
         @AppStorage(PlaytimeSettingsView.defaultsKey)
         private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
+        @AppStorage(SettingsView.verboseKey)
+        private(set) var verbose = false
+
         init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
             self.onLeave = onLeave
@@ -359,7 +362,8 @@ extension InCallView {
                                                             captureManager: captureManager,
                                                             participantId: manifest.participantId,
                                                             keyFrameInterval: subConfig.keyFrameInterval,
-                                                            stagger: subConfig.stagger)
+                                                            stagger: subConfig.stagger,
+                                                            verbose: self.verbose)
             let playtime = self.playtimeConfig.value
             let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,

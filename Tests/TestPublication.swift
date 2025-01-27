@@ -15,7 +15,8 @@ final class TestPublication: XCTestCase {
                                           defaultTTL: expectedTTL,
                                           submitter: nil,
                                           endpointId: "",
-                                          relayId: "")
+                                          relayId: "",
+                                          logger: DecimusLogger(TestPublication.self))
         XCTAssertEqual(expectedPriority, publication.getPriority(.random(in: 0..<Int.max)))
         XCTAssertEqual(expectedTTL, publication.getTTL(.random(in: 0..<Int.max)))
     }
@@ -30,7 +31,8 @@ final class TestPublication: XCTestCase {
                                           defaultTTL: expectedTTL,
                                           submitter: nil,
                                           endpointId: "",
-                                          relayId: "")
+                                          relayId: "",
+                                          logger: DecimusLogger(TestPublication.self))
         XCTAssertEqual(5, publication.getPriority(0))
         XCTAssertEqual(6, publication.getPriority(1))
         XCTAssertEqual(expectedPriority, publication.getPriority(3))
