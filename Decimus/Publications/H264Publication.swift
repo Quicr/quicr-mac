@@ -78,15 +78,19 @@ class H264Publication: Publication, FrameListener {
                 }
             }
 
-            if publication.currentGroupId == nil {
-                publication.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
-            }
-
-            if flag {
-                publication.currentGroupId! += 1
-                publication.currentObjectId = 0
+            let thisGroupId: UInt64
+            let thisObjectId: UInt64
+            if let currentGroupId = publication.currentGroupId {
+                if flag {
+                    thisGroupId = currentGroupId + 1
+                    thisObjectId = 0
+                } else {
+                    thisGroupId = currentGroupId
+                    thisObjectId = publication.currentObjectId + 1
+                }
             } else {
-                publication.currentObjectId += 1
+                thisGroupId = UInt64(Date.now.timeIntervalSince1970)
+                thisObjectId = 0
             }
 
             // Use extensions for LOC.
@@ -102,8 +106,8 @@ class H264Publication: Publication, FrameListener {
                 Self.logger.warning("Didn't publish due to status: \(String(describing: publication.currentStatus))")
                 return
             }
-            let status = publication.publish(groupId: publication.currentGroupId!,
-                                             objectId: publication.currentObjectId,
+            let status = publication.publish(groupId: thisGroupId,
+                                             objectId: thisObjectId,
                                              data: data,
                                              priority: &priority,
                                              ttl: &ttl,
@@ -113,7 +117,15 @@ class H264Publication: Publication, FrameListener {
                 break
             default:
                 Self.logger.warning("Failed to publish object: \(status)")
+                _ = self.generateKeyFrame.compareExchange(expected: false,
+                                                          desired: true,
+                                                          ordering: .acquiringAndReleasing)
+                return
             }
+
+            // Update IDs.
+            publication.currentGroupId = thisGroupId
+            publication.currentObjectId = thisObjectId
 
             // Metrics.
             guard let measurement = publication.measurement else { return }
