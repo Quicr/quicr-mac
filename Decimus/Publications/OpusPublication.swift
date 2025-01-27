@@ -71,7 +71,8 @@ class OpusPublication: Publication {
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
-                       relayId: relayId)
+                       relayId: relayId,
+                       logger: Self.logger)
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in

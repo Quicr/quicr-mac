@@ -8,6 +8,10 @@ struct SettingsView: View {
     @State private var cancelConfirmation = false
     private let logger = DecimusLogger(SettingsView.self)
 
+    static let verboseKey = "verbose"
+    @AppStorage(Self.verboseKey)
+    private var verbose: Bool = false
+
     var body: some View {
         // Reset all.
         HStack {
@@ -51,6 +55,11 @@ struct SettingsView: View {
 
             SubscriptionSettingsView()
                 .decimusTextStyle()
+
+            Section("Debug") {
+                Toggle("Verbose Logging", isOn: self.$verbose)
+            }
+            .decimusTextStyle()
 
             PlaytimeSettingsView()
                 .decimusTextStyle()
