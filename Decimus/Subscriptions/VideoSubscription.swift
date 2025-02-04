@@ -33,6 +33,11 @@ class VideoSubscription: Subscription {
     private let creationDate: Date
     private let joinDate: Date
 
+    // Fetch.
+    private let controller: MoqCallController
+    private var fetch: CallbackFetch?
+    private var fetched = false
+
     init(profile: Profile,
          config: VideoCodecConfig,
          participants: VideoParticipants,
@@ -47,6 +52,7 @@ class VideoSubscription: Subscription {
          relayId: String,
          participantId: ParticipantId,
          joinDate: Date,
+         controller: MoqCallController,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -63,6 +69,7 @@ class VideoSubscription: Subscription {
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
+        self.controller = controller
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -130,6 +137,54 @@ class VideoSubscription: Subscription {
             return
         }
 
+        // Do we need to start a fetch?
+        if objectHeaders.objectId == 0 {
+            // We don't need a fetch, or the in progress fetch can go.
+            self.logger.debug("No fetch needed")
+            self.fetched = true
+            if let fetch = self.fetch {
+                self.logger.debug("Cancelling in progress fetch")
+                do {
+                    try self.controller.cancelFetch(fetch)
+                } catch {
+                    self.logger.warning("Failed to cancel in progress fetch: \(error.localizedDescription)")
+                }
+                self.fetch = nil
+            }
+        } else if !self.fetched && self.fetch == nil {
+            self.logger.debug("Starting fetch, given I got obj:\(objectHeaders.objectId)")
+            let fetch = CallbackFetch(ftn: self.fullTrackName,
+                                      priority: 0,
+                                      groupOrder: .originalPublisherOrder,
+                                      startGroup: objectHeaders.groupId,
+                                      endGroup: objectHeaders.groupId,
+                                      startObject: 0,
+                                      endObject: objectHeaders.objectId,
+                                      statusChanged: ({_ in}),
+                                      objectReceived: ({[weak handler, weak self] headers, data, extensions in
+                                        guard let handler = handler,
+                                              let self = self else { return }
+                                        self.logger.debug("Fetch got: \(headers.objectId)")
+                                        handler.objectReceived(headers, data: data, extensions: extensions, when: .now)
+
+                                        // Are we done?
+                                        if headers.groupId == objectHeaders.groupId,
+                                           headers.objectId == objectHeaders.objectId - 1 {
+                                            self.logger.info("Video Fetch complete")
+                                            self.fetched = true
+                                            self.fetch = nil
+                                            // TODO: Cancel.
+                                        }
+                                      }))
+            do {
+                try controller.fetch(fetch)
+            } catch {
+                self.logger.error("Failed to start fetch operation: \(error.localizedDescription)")
+            }
+            self.fetch = fetch
+        }
+
+        // Handle this object.
         handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now)
     }
 

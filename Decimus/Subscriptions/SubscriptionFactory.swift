@@ -146,6 +146,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let participantId: ParticipantId?
     private let joinDate: Date
+    private let controller: MoqCallController
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
 
     init(videoParticipants: VideoParticipants,
@@ -154,7 +155,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          granularMetrics: Bool,
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
-         joinDate: Date) {
+         joinDate: Date,
+         controller: MoqCallController) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -162,6 +164,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
         self.participantId = participantId
         self.joinDate = joinDate
+        self.controller = controller
     }
 
     func create(subscription: ManifestSubscription,
@@ -285,6 +288,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
+                                         controller: self.controller,
                                          callback: { [weak set] timestamp, when in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when)
