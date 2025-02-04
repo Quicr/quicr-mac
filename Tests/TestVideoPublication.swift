@@ -96,9 +96,13 @@ class FakeH264Publication: H264Publication {
     }
 }
 
+enum TestError: Error {
+    case noCamera
+}
+
 private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Bool) throws -> H264Publication {
     guard let device = AVCaptureDevice.systemPreferredCamera else {
-        throw XCTSkip("Can't test without a camera")
+        throw TestError.noCamera
     }
 
     // Publications should be delayed by their height in ms.
@@ -136,7 +140,10 @@ final class TestVideoPublication: XCTestCase {
         }
 
         let height: Int32 = 1080
-        let publication = try makePublication(mockEncoder, height: height, stagger: true)
+        guard let publication = try? makePublication(mockEncoder, height: height, stagger: true) else {
+            _ = XCTSkip("Can't test without a camera")
+            return
+        }
 
         // Mock sample.
         let sample = try CMSampleBuffer(dataBuffer: nil,
@@ -173,7 +180,11 @@ final class TestVideoPublication: XCTestCase {
                                                        tx_queue_size: minMax,
                                                        tx_callback_ms: minMax,
                                                        tx_object_duration_us: minMax))
-        let publication = try makePublication(.init({_, _, _ in}), height: 1080, stagger: false)
+
+        guard let publication = try? makePublication(.init({_, _, _ in}), height: 1080, stagger: false) else {
+            _ = XCTSkip("Can't test without a camera")
+            return
+        }
         publication.metricsSampled(metrics)
     }
 }
@@ -192,7 +203,8 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
         try await confirmation(expectedCount: 2) { confirmation in
             let encoder = MockEncoder { _, _, _ in confirmation() }
             guard let device = AVCaptureDevice.systemPreferredCamera else {
-                throw XCTSkip("Can't test without a camera")
+                _ = XCTSkip("Can't test without a camera")
+                return
             }
             let config = VideoCodecConfig(codec: .h264,
                                           bitrate: 1_000_000,
@@ -241,7 +253,8 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                 confirmation()
             }
             guard let device = AVCaptureDevice.systemPreferredCamera else {
-                throw XCTSkip("Can't test without a camera")
+                _ = XCTSkip("Can't test without a camera")
+                return
             }
 
             // Publications should be delayed by their height in ms.
