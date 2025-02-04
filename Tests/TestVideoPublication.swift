@@ -29,6 +29,7 @@ class FakeH264Publication: H264Publication {
     typealias PublishCallback = (_ groupId: UInt64,
                                  _ objectId: UInt64) -> Void
     private let publishNotify: PublishCallback
+    private var currentStatus: QPublishTrackHandlerStatus = .notConnected
 
     required init(profile: Profile,
                   config: VideoCodecConfig,
@@ -83,6 +84,15 @@ class FakeH264Publication: H264Publication {
                              priority: priority,
                              ttl: ttl,
                              extensions: extensions)
+    }
+
+    override func statusChanged(_ status: QPublishTrackHandlerStatus) {
+        super.statusChanged(status)
+        self.currentStatus = status
+    }
+
+    override func getStatus() -> QPublishTrackHandlerStatus {
+        self.currentStatus
     }
 }
 
@@ -180,9 +190,31 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
     @Test("Only encode on valid status", arguments: badStatuses)
     func testEncodeWithStatus(_ status: QPublishTrackHandlerStatus?) async throws {
         try await confirmation(expectedCount: 2) { confirmation in
-            let publication = try makePublication(.init({ _, _, _ in confirmation() }),
-                                                  height: 1080,
-                                                  stagger: false)
+            let encoder = MockEncoder { _, _, _ in confirmation() }
+            guard let device = AVCaptureDevice.systemPreferredCamera else {
+                throw XCTSkip("Can't test without a camera")
+            }
+            let config = VideoCodecConfig(codec: .h264,
+                                          bitrate: 1_000_000,
+                                          fps: 30,
+                                          width: 1920,
+                                          height: 1920,
+                                          bitrateType: .average)
+            let publication = try FakeH264Publication(profile: .init(qualityProfile: "",
+                                                                     expiry: [1, 2],
+                                                                     priorities: [1, 2],
+                                                                     namespace: [""]),
+                                                      config: config,
+                                                      metricsSubmitter: nil,
+                                                      reliable: true,
+                                                      granularMetrics: false,
+                                                      encoder: encoder,
+                                                      device: device,
+                                                      endpointId: "",
+                                                      relayId: "",
+                                                      stagger: false,
+                                                      verbose: false,
+                                                      notify: ({_, _ in }))
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 1,

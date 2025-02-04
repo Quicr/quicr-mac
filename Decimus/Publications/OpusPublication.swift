@@ -117,8 +117,9 @@ class OpusPublication: Publication {
             }
         }
 
-        guard self.publish.load(ordering: .acquiring) else {
-            Self.logger.warning("Not published due to status")
+        let status = self.getStatus()
+        guard status == .ok || status == .subscriptionUpdated else {
+            Self.logger.warning("Not published due to status: \(status)")
             return
         }
         var priority = self.getPriority(0)

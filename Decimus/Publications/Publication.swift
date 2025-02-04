@@ -6,18 +6,11 @@ import Atomics
 private let unset: Int16 = -1
 
 class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
-    internal var publish = ManagedAtomic(false)
     internal let profile: Profile
     private let logger: DecimusLogger
     private let measurement: MeasurementRegistration<TrackMeasurement>?
     internal let defaultPriority: UInt8
     internal let defaultTTL: UInt16
-    private var currentStatusInternal: ManagedAtomic<Int16> = .init(unset)
-    internal var currentStatus: QSubscribeTrackHandlerStatus? {
-        let raw = self.currentStatusInternal.load(ordering: .acquiring)
-        guard raw != unset else { return nil }
-        return .init(rawValue: UInt8(raw))
-    }
 
     init(profile: Profile,
          trackMode: QTrackMode,
@@ -49,28 +42,6 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
 
     internal func statusChanged(_ status: QPublishTrackHandlerStatus) {
         self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
-        self.currentStatusInternal.store(Int16(status.rawValue), ordering: .releasing)
-        let publish = switch status {
-        case .announceNotAuthorized:
-            false
-        case .noSubscribers:
-            false
-        case .notAnnounced:
-            false
-        case .notConnected:
-            false
-        case .ok:
-            true
-        case .pendingAnnounceResponse:
-            false
-        case .sendingUnannounce:
-            false
-        case .subscriptionUpdated:
-            true
-        @unknown default:
-            false
-        }
-        self.publish.store(publish, ordering: .releasing)
     }
 
     /// Retrieve the priority value from this publications' priority array at
