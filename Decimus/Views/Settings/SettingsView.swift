@@ -35,6 +35,7 @@ struct SettingsView: View {
                         self.logger.warning("Failed to reset settings: \(error.localizedDescription)", alert: true)
                     }
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
