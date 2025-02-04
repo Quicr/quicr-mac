@@ -60,6 +60,7 @@ class H264Publication: Publication, FrameListener {
             }
         } else {
             // Start initial group ID using current time.
+            assert(flag)
             thisGroupId = UInt64(Date.now.timeIntervalSince1970)
             thisObjectId = 0
         }
