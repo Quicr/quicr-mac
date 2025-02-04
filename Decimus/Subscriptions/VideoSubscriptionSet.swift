@@ -160,27 +160,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         try super.addHandler(handler)
     }
 
-    private func checkSimulreceiveRemove() {
-        guard self.simulreceive == .enable,
-              self.getHandlers().isEmpty else {
-            return
-        }
-        Self.logger.debug("Destroying simulreceive render as no live subscriptions")
-        self.renderTask?.cancel()
-        self.participantLock.withLock { self.participant = nil }
-    }
-
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
         let result = super.removeHandler(ftn)
-        self.checkSimulreceiveRemove()
-        return result
-    }
-
-    override func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus) {
-        super.statusChanged(ftn, status: status)
-        if status == .notSubscribed {
-            self.checkSimulreceiveRemove()
+        if self.simulreceive == .enable,
+           self.getHandlers().isEmpty {
+            Self.logger.debug("Destroying simulreceive render as no live subscriptions")
+            self.renderTask?.cancel()
+            self.participantLock.withLock { self.participant = nil }
         }
+        return result
     }
 
     /// Inform the set that a video frame from a managed subscription arrived.
@@ -211,7 +199,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             Task(priority: .utility) {
                 await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
-                                                              at: when)
+                                                              when: when)
             }
         }
 
@@ -256,7 +244,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     }
 
     struct SimulreceiveItem: Equatable {
-        static func == (lhs: VideoSubscriptionSet.SimulreceiveItem, rhs: VideoSubscriptionSet.SimulreceiveItem) -> Bool {
+        static func == (lhs: VideoSubscriptionSet.SimulreceiveItem,
+                        rhs: VideoSubscriptionSet.SimulreceiveItem) -> Bool {
             lhs.fullTrackName == rhs.fullTrackName
         }
         let fullTrackName: FullTrackName
@@ -285,7 +274,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // We want the highest non-discontinous frame.
         // If all are non-discontinous, we'll take the highest quality.
-        let sorted = choices.sorted { $0.image.image.formatDescription!.dimensions.width > $1.image.image.formatDescription!.dimensions.width }
+        func getWidth(_ item: SimulreceiveItem) -> Int32 {
+            item.image.image.formatDescription!.dimensions.width
+        }
+        let sorted = choices.sorted { getWidth($0) > getWidth($1) }
         let pristine = sorted.filter { !$0.image.discontinous }
         if let pristine = pristine.first {
             return .highestRes(item: pristine, pristine: true)
@@ -420,13 +412,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                 case .highestRes(let item, let pristine):
                     if choice.fullTrackName == item.fullTrackName {
                         assert(choice.fullTrackName == selected.fullTrackName)
-                        report.append(.init(item: choice, selected: true, reason: "Highest \(pristine ? "Pristine" : "Discontinous")", displayed: !qualitySkip))
+                        report.append(.init(item: choice,
+                                            selected: true,
+                                            reason: "Highest \(pristine ? "Pristine" : "Discontinous")",
+                                            displayed: !qualitySkip))
                         continue
                     }
                 case .onlyChoice(let item):
                     if choice.fullTrackName == item.fullTrackName {
                         assert(choice.fullTrackName == selected.fullTrackName)
-                        report.append(.init(item: choice, selected: true, reason: "Only choice", displayed: !qualitySkip))
+                        report.append(.init(item: choice,
+                                            selected: true,
+                                            reason: "Only choice",
+                                            displayed: !qualitySkip))
                     }
                     continue
                 }

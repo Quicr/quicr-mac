@@ -30,6 +30,7 @@ extension MoqCallController {
         func record(_ metrics: QConnectionMetrics) {
             // TODO: Use the proper sampled time.
             let time = Date.now
+            // swiftlint:disable line_length
             self.record("rtt_us", values: metrics.quic.rtt_us, time: time)
             self.record(field: "tx_lost_pkts", value: metrics.quic.tx_lost_pkts as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_lost", value: metrics.quic.tx_dgram_lost as AnyObject, timestamp: time)
@@ -50,6 +51,7 @@ extension MoqCallController {
             self.record(field: "tx_dgram_ack", value: metrics.quic.tx_dgram_ack as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_spurious", value: metrics.quic.tx_dgram_spurious as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_drops", value: metrics.quic.tx_dgram_drops as AnyObject, timestamp: time)
+            // swiftlint:enable line_length
         }
     }
 }

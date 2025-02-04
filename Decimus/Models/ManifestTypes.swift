@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 enum ManifestMediaTypes: String {
-    case video = "video"
-    case audio = "audio"
+    case video
+    case audio
 }
 
 struct ParticipantId: Codable, Equatable, Hashable, CustomStringConvertible {
@@ -72,7 +72,8 @@ struct ManifestSubscription: Codable {
     }
 }
 
-/// A profile set is a set of related profile or quality levels of a ``ManifestPublication`` or ``ManifestSubscription``.
+/// A profile set is a set of related profile or quality levels of a
+/// ``ManifestPublication`` or ``ManifestSubscription``.
 struct ProfileSet: Codable {
     let type: String
     let profiles: [Profile]
@@ -146,8 +147,14 @@ struct Client: Codable {
 
 /// What can be received by a ``Client`` instance.
 struct ReceiveCapability: Codable {
-    let mediaType, qualityProfie: String // TODO: Fix this in manifest to be "qualityProfile"
+    let mediaType, qualityProfile: String
     let numStreams: Int
+
+    enum CodingKeys: String, CodingKey {
+        case mediaType
+        case numStreams
+        case qualityProfile = "qualityProfie"
+    }
 }
 
 /// What can be sent by a ``Client`` instance.

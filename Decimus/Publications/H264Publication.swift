@@ -99,7 +99,7 @@ class H264Publication: Publication, FrameListener {
             var priority = publication.getPriority(flag ? 0 : 1)
             var ttl = publication.getTTL(flag ? 0 : 1)
             guard publication.publish.load(ordering: .acquiring) else {
-                Self.logger.warning("Didn't publish due to status: \(publication.currentStatus)")
+                Self.logger.warning("Didn't publish due to status: \(String(describing: publication.currentStatus))")
                 return
             }
             let status = publication.publish(groupId: publication.currentGroupId!,
@@ -150,7 +150,12 @@ class H264Publication: Publication, FrameListener {
         self.encoder.setCallback(onEncodedData, userData: userData)
     }
 
-    private func publish(groupId: UInt64, objectId: UInt64, data: Data, priority: UnsafePointer<UInt8>?, ttl: UnsafePointer<UInt16>?, extensions: [NSNumber: Data]) -> QPublishObjectStatus {
+    private func publish(groupId: UInt64,
+                         objectId: UInt64,
+                         data: Data,
+                         priority: UnsafePointer<UInt8>?,
+                         ttl: UnsafePointer<UInt16>?,
+                         extensions: [NSNumber: Data]) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: groupId,
                                      objectId: objectId,
                                      payloadLength: UInt64(data.count),

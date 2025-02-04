@@ -11,6 +11,7 @@ protocol VideoDequeuer {
 /// Uses a PID controller to approach a target depth of the jitter buffer,
 /// by altering the dequeue rate.
 class PIDDequeuer: VideoDequeuer {
+    // swiftlint:disable identifier_name
     /// Input: The current jitter buffer depth.
     var currentDepth: TimeInterval = 0
     private let targetDepth: TimeInterval
@@ -42,6 +43,7 @@ class PIDDequeuer: VideoDequeuer {
         self.lastError = error
         return frameDuration + (self.kp * error + self.ki * self.integral + self.kd * derivative)
     }
+    // swiftlint:enable identifier_name
 }
 
 /// A VideoDequeuer that attempts to find the original dequeue interval

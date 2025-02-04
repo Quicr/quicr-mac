@@ -5,8 +5,6 @@ import AVFoundation
 import Atomics
 import os
 
-// swiftlint:disable type_body_length
-
 enum DecimusVideoRotation: UInt8 {
     case portrait = 1
     case portraitUpsideDown = 2
@@ -23,7 +21,7 @@ typealias ObjectReceived = (_ timestamp: TimeInterval,
                             _ when: Date) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: CustomStringConvertible {
+class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -387,7 +385,7 @@ class VideoHandler: CustomStringConvertible {
                 ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(0) { $0 + $1.totalSampleSize }
             }
             builder.isDataReady {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.allSatisfy { $0.dataReadiness == .ready }
             }
         }
         // swiftlint:enable force_cast
