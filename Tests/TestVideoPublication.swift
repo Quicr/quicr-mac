@@ -200,12 +200,12 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
 @Suite struct VideoPublicationTests {
     @Test("Only encode on valid status", arguments: badStatuses)
     func testEncodeWithStatus(_ status: QPublishTrackHandlerStatus?) async throws {
+        guard let device = AVCaptureDevice.systemPreferredCamera else {
+            _ = XCTSkip("Can't test without a camera")
+            return
+        }
         try await confirmation(expectedCount: 2) { confirmation in
             let encoder = MockEncoder { _, _, _ in confirmation() }
-            guard let device = AVCaptureDevice.systemPreferredCamera else {
-                _ = XCTSkip("Can't test without a camera")
-                return
-            }
             let config = VideoCodecConfig(codec: .h264,
                                           bitrate: 1_000_000,
                                           fps: 30,
@@ -246,15 +246,15 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
 
     @Test("Keyframe on subscribe update")
     func testKeyFrameOnPublishFailure() async throws {
+        guard let device = AVCaptureDevice.systemPreferredCamera else {
+            _ = XCTSkip("Can't test without a camera")
+            return
+        }
         var status: QPublishTrackHandlerStatus?
         try await confirmation(expectedCount: 3) { confirmation in
             let encoder = MockEncoder { _, _, keyFrame in
                 #expect(keyFrame == (status == .subscriptionUpdated))
                 confirmation()
-            }
-            guard let device = AVCaptureDevice.systemPreferredCamera else {
-                _ = XCTSkip("Can't test without a camera")
-                return
             }
 
             // Publications should be delayed by their height in ms.
