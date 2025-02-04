@@ -26,11 +26,11 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.logger.info("FETCH - Object received")
+        self.logger.debug("Object received")
     }
 
     func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        assert(false)
+        self.logger.debug("Partial object received")
     }
 
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {

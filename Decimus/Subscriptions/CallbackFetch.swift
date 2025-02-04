@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+/// A ``Fetch`` operation that calls back received objects.
 class CallbackFetch: Fetch {
     private let statusChanged: Subscription.StatusCallback?
     private let objectReceived: CallbackSubscription.SubscriptionCallback?

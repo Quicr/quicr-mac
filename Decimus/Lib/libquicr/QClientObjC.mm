@@ -112,7 +112,7 @@ static quicr::TransportConfig convert(TransportConfig config) {
     if (trackHandler->handlerPtr)
     {
         auto handler = std::static_pointer_cast<quicr::FetchTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->FetchTrack(handler);
+        qClientPtr->CancelFetchTrack(handler);
     }
 }
 
