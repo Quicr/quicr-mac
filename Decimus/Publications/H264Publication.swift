@@ -17,7 +17,7 @@ enum H264PublicationError: LocalizedError {
 }
 
 class H264Publication: Publication, FrameListener {
-    private static let logger = DecimusLogger(H264Publication.self)
+    private let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
@@ -34,6 +34,79 @@ class H264Publication: Publication, FrameListener {
     private var currentObjectId: UInt64 = 0
     private let generateKeyFrame = ManagedAtomic(false)
     private let stagger: Bool
+    private var publishFailure = ManagedAtomic(false)
+    private let verbose: Bool
+
+    // Encoded frames arrive in this callback.
+    private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
+        guard let userData = userData else {
+            assert(false)
+            return
+        }
+        let publication = Unmanaged<H264Publication>.fromOpaque(userData).takeUnretainedValue()
+
+        // Determine group and object IDs.
+        let thisGroupId: UInt64
+        let thisObjectId: UInt64
+        if let currentGroupId = publication.currentGroupId {
+            if flag {
+                // Start new group on key frame.
+                thisGroupId = currentGroupId + 1
+                thisObjectId = 0
+            } else {
+                // Increment object ID in current GOP.
+                thisGroupId = currentGroupId
+                thisObjectId = publication.currentObjectId + 1
+            }
+        } else {
+            // Start initial group ID using current time.
+            assert(flag)
+            thisGroupId = UInt64(Date.now.timeIntervalSince1970)
+            thisObjectId = 0
+        }
+
+        // Use extensions for LOC.
+        let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
+
+        // Publish.
+        let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
+                        count: data.count,
+                        deallocator: .none)
+        var priority = publication.getPriority(flag ? 0 : 1)
+        var ttl = publication.getTTL(flag ? 0 : 1)
+        let status = publication.publish(groupId: thisGroupId,
+                                         objectId: thisObjectId,
+                                         data: data,
+                                         priority: &priority,
+                                         ttl: &ttl,
+                                         extensions: loc.extensions)
+        switch status {
+        case .ok:
+            if publication.verbose {
+                publication.logger.debug("Published: \(thisGroupId): \(thisObjectId)")
+            }
+            publication.publishFailure.store(false, ordering: .releasing)
+        default:
+            publication.logger.warning("Failed to publish object: \(status)")
+            publication.publishFailure.store(true, ordering: .releasing)
+            return
+        }
+
+        // Update IDs on success.
+        publication.currentGroupId = thisGroupId
+        publication.currentObjectId = thisObjectId
+
+        // Metrics.
+        guard let measurement = publication.measurement else { return }
+        let bytes = data.count
+        let sent: Date? = publication.granularMetrics ? Date.now : nil
+        Task(priority: .utility) {
+            measurement.measurement.sentFrame(bytes: UInt64(bytes),
+                                              timestamp: presentationDate.timeIntervalSince1970,
+                                              age: sent?.timeIntervalSince(presentationDate) ?? nil,
+                                              metricsTimestamp: sent)
+        }
+    }
 
     required init(profile: Profile,
                   config: VideoCodecConfig,
@@ -44,7 +117,8 @@ class H264Publication: Publication, FrameListener {
                   device: AVCaptureDevice,
                   endpointId: String,
                   relayId: String,
-                  stagger: Bool) throws {
+                  stagger: Bool,
+                  verbose: Bool) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -60,79 +134,8 @@ class H264Publication: Publication, FrameListener {
         self.encoder = encoder
         self.device = device
         self.stagger = stagger
-
-        let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
-            guard let userData = userData else {
-                Self.logger.error("UserData unexpectedly was nil")
-                return
-            }
-            let publication = Unmanaged<H264Publication>.fromOpaque(userData).takeUnretainedValue()
-
-            // Encode age.
-            let now = publication.measurement != nil && granularMetrics ? Date.now : nil
-            if granularMetrics,
-               let measurement = publication.measurement {
-                let age = now!.timeIntervalSince(presentationDate)
-                Task(priority: .utility) {
-                    await measurement.measurement.encoded(age: age, timestamp: now!)
-                }
-            }
-
-            if publication.currentGroupId == nil {
-                publication.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
-            }
-
-            if flag {
-                publication.currentGroupId! += 1
-                publication.currentObjectId = 0
-            } else {
-                publication.currentObjectId += 1
-            }
-
-            // Use extensions for LOC.
-            let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
-
-            // Publish.
-            let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
-                            count: data.count,
-                            deallocator: .none)
-            var priority = publication.getPriority(flag ? 0 : 1)
-            var ttl = publication.getTTL(flag ? 0 : 1)
-            guard publication.publish.load(ordering: .acquiring) else {
-                Self.logger.warning("Didn't publish due to status: \(String(describing: publication.currentStatus))")
-                return
-            }
-            let status = publication.publish(groupId: publication.currentGroupId!,
-                                             objectId: publication.currentObjectId,
-                                             data: data,
-                                             priority: &priority,
-                                             ttl: &ttl,
-                                             extensions: loc.extensions)
-            switch status {
-            case .ok:
-                break
-            default:
-                Self.logger.warning("Failed to publish object: \(status)")
-            }
-
-            // Metrics.
-            guard let measurement = publication.measurement else { return }
-            let bytes = data.count
-            let sent: Date? = granularMetrics ? Date.now : nil
-            Task(priority: .utility) {
-                let age: TimeInterval?
-                if let sent = sent {
-                    age = sent.timeIntervalSince(presentationDate)
-                } else {
-                    age = nil
-                }
-                await measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                                        timestamp: presentationDate.timeIntervalSince1970,
-                                                        age: age,
-                                                        metricsTimestamp: sent)
-            }
-        }
-        Self.logger.info("Registered H264 publication for namespace \(namespace)")
+        self.verbose = verbose
+        self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,
               let defaultTTL = profile.expiry?.first else {
@@ -145,17 +148,18 @@ class H264Publication: Publication, FrameListener {
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
-                       relayId: relayId)
+                       relayId: relayId,
+                       logger: self.logger)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }
 
-    private func publish(groupId: UInt64,
-                         objectId: UInt64,
-                         data: Data,
-                         priority: UnsafePointer<UInt8>?,
-                         ttl: UnsafePointer<UInt16>?,
-                         extensions: [NSNumber: Data]) -> QPublishObjectStatus {
+    internal func publish(groupId: UInt64,
+                          objectId: UInt64,
+                          data: Data,
+                          priority: UnsafePointer<UInt8>?,
+                          ttl: UnsafePointer<UInt16>?,
+                          extensions: [NSNumber: Data]) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: groupId,
                                      objectId: objectId,
                                      payloadLength: UInt64(data.count),
@@ -165,7 +169,7 @@ class H264Publication: Publication, FrameListener {
     }
 
     deinit {
-        Self.logger.debug("Deinit")
+        self.logger.debug("Deinit")
     }
 
     override func statusChanged(_ status: QPublishTrackHandlerStatus) {
@@ -184,8 +188,15 @@ class H264Publication: Publication, FrameListener {
             self.encoder.frameRate = maxRate
         } else {
             if self.encoder.frameRate != maxRate {
-                Self.logger.warning("Frame rate mismatch? Had: \(String(describing: self.encoder.frameRate)), got: \(String(describing: maxRate))")
+                self.logger.warning("Frame rate mismatch? Had: \(String(describing: self.encoder.frameRate)), got: \(String(describing: maxRate))")
             }
+        }
+
+        // If we're not in a state to be publishing, don't go any further.
+        let status = self.getStatus()
+        guard status == .ok || status == .subscriptionUpdated else {
+            self.logger.debug("Didn't encode due to publication status: \(status)")
+            return
         }
 
         // Stagger the publication's start time by its height in ms.
@@ -195,22 +206,39 @@ class H264Publication: Publication, FrameListener {
                 return
             }
             let interval = timestamp.timeIntervalSince(startTime)
-            guard interval > TimeInterval(self.codec!.height) / 1000.0 else { return }
+            guard interval > TimeInterval(self.codec!.height) / 1000.0 else {
+                self.logger.debug("Dropping due to stagger")
+                return
+            }
         }
 
         // Should we be forcing a key frame?
-        let (keyFrame, _) = self.generateKeyFrame.compareExchange(expected: true,
-                                                                  desired: false,
-                                                                  ordering: .acquiringAndReleasing)
-        if keyFrame {
-            Self.logger.debug("Forcing key frame")
+        var keyFrame: Bool {
+            // If the last publish failed, we need a key frame.
+            guard !self.publishFailure.load(ordering: .acquiring) else {
+                self.logger.debug("Forcing key frame - last time didn't publish")
+                // Consume any existing request.
+                _ = self.generateKeyFrame.compareExchange(expected: true,
+                                                          desired: false,
+                                                          ordering: .acquiringAndReleasing)
+                return true
+            }
+
+            // If we asked for key frame, make one (subscribe update).
+            let (generate, _) = self.generateKeyFrame.compareExchange(expected: true,
+                                                                      desired: false,
+                                                                      ordering: .acquiringAndReleasing)
+            if generate {
+                self.logger.debug("Forcing key frame - subscribe update")
+            }
+            return generate
         }
 
         // Encode.
         do {
             try encoder.write(sample: sampleBuffer, timestamp: timestamp, forceKeyFrame: keyFrame)
         } catch {
-            Self.logger.error("Failed to encode frame: \(error.localizedDescription)")
+            self.logger.error("Failed to encode frame: \(error.localizedDescription)")
         }
 
         // Metrics.
