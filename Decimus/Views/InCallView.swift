@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+import Network
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -465,7 +466,13 @@ extension InCallView {
         }
 
         private func makeCallController() -> MoqCallController {
-            let connectUri: String = "moq://\(config.address):\(config.port)"
+            let address: String
+            if let ipv6 = IPv6Address(self.config.address) {
+                address = "[\(self.config.address)]"
+            } else {
+                address = self.config.address
+            }
+            let connectUri: String = "moq://\(address):\(config.port)"
             let endpointId: String = config.email
             let qLogPath: URL
             #if targetEnvironment(macCatalyst) || os(macOS)
