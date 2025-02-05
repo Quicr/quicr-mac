@@ -333,7 +333,7 @@ extension InCallView {
             }
         }
 
-        func join() async -> Bool {
+        func join() async -> Bool { // swiftlint:disable:this function_body_length
             // Fetch the manifest from the conference server.
             let manifest: Manifest
             do {
@@ -375,7 +375,8 @@ extension InCallView {
                                                               engine: engine,
                                                               participantId: ourParticipantId,
                                                               joinDate: self.joinDate,
-                                                              controller: controller)
+                                                              controller: controller,
+                                                              verbose: self.verbose)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
 
