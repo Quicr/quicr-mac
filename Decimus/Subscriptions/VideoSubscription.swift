@@ -27,7 +27,7 @@ class VideoSubscription: Subscription {
     let handlerLock = OSAllocatedUnfairLock()
 
     private var cleanupTask: Task<(), Never>?
-    private let cleanupTimer: TimeInterval = 1.5
+    private let cleanupTimer: TimeInterval
     private var lastUpdateTime = Date.now
     private let participantId: ParticipantId
     private let creationDate: Date
@@ -47,6 +47,7 @@ class VideoSubscription: Subscription {
          relayId: String,
          participantId: ParticipantId,
          joinDate: Date,
+         cleanupTime: TimeInterval,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -63,6 +64,7 @@ class VideoSubscription: Subscription {
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
+        self.cleanupTimer = cleanupTime
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,

@@ -24,6 +24,7 @@ final class TestVideoSubscription: XCTestCase {
                                                  relayId: "",
                                                  participantId: .init(1),
                                                  joinDate: .now,
+                                                 cleanupTime: 1.5,
                                                  callback: ({ _, _ in }),
                                                  statusChanged: ({_ in }))
         subscription.metricsSampled(.init())
