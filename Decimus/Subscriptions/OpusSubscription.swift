@@ -15,7 +15,7 @@ class OpusSubscription: Subscription {
     private let handlerLock = OSAllocatedUnfairLock()
     private var handler: OpusHandler?
     private var cleanupTask: Task<(), Never>?
-    private let cleanupTimer: TimeInterval = 1.5
+    private let cleanupTimer: TimeInterval
     private var lastUpdateTime: Date?
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
@@ -35,6 +35,7 @@ class OpusSubscription: Subscription {
          endpointId: String,
          relayId: String,
          useNewJitterBuffer: Bool,
+         cleanupTime: TimeInterval,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -51,6 +52,7 @@ class OpusSubscription: Subscription {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
+        self.cleanupTimer = cleanupTime
 
         // Create the actual audio handler upfront.
         self.handler = try .init(identifier: self.profile.namespace.joined(),

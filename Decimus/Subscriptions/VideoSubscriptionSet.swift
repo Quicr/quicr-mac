@@ -39,7 +39,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private var lastUpdateTime = Date.now
     private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [FullTrackName: VideoCodecConfig]
-    private let cleanupTimer: TimeInterval = 1.5
+    private let cleanupTimer: TimeInterval
     private var pauseMissCounts: [FullTrackName: Int] = [:]
     private let pauseMissThreshold: Int
     private let pauseResume: Bool
@@ -71,7 +71,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          endpointId: String,
          relayId: String,
          codecFactory: CodecFactory,
-         joinDate: Date) throws {
+         joinDate: Date,
+         cleanupTime: TimeInterval) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -106,6 +107,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         let subscribeDate = Date.now
         self.subscribeDate = subscribeDate
         self.joinDate = joinDate
+        self.cleanupTimer = cleanupTime
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]

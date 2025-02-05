@@ -158,6 +158,14 @@ struct SubscriptionSettingsView: View {
                                formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
                                name: "Threshold")
                 }
+
+                LabeledContent("Cleanup Time (s)") {
+                    TextField(
+                        "Cleanup Time (s)",
+                        value: self.$subscriptionConfig.value.cleanupTime,
+                        format: .number)
+                        .labelsHidden()
+                }
             }
             .formStyle(.columns)
         }
