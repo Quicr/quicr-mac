@@ -94,6 +94,8 @@ struct SubscriptionConfig: Codable {
     var quicPriorityLimit: UInt8
     /// True to enable SFrame encryption of media.
     var doSFrame: Bool
+    /// True to publish keyframe on subscribe update.
+    var keyFrameOnUpdate: Bool
 
     /// Create with default settings.
     init() {
@@ -122,6 +124,7 @@ struct SubscriptionConfig: Codable {
         quicPriorityLimit = 0
         doSFrame = true
         stagger = true
+        self.keyFrameOnUpdate = true
     }
 }
 
