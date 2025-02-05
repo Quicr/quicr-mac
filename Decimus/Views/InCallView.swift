@@ -363,7 +363,8 @@ extension InCallView {
                                                             participantId: manifest.participantId,
                                                             keyFrameInterval: subConfig.keyFrameInterval,
                                                             stagger: subConfig.stagger,
-                                                            verbose: self.verbose)
+                                                            verbose: self.verbose,
+                                                            keyFrameOnUpdate: subConfig.keyFrameOnUpdate)
             let playtime = self.playtimeConfig.value
             let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
             let controller = self.makeCallController()
