@@ -23,6 +23,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let stagger: Bool
     private let logger = DecimusLogger(PublicationFactory.self)
     private let verbose: Bool
+    private let keyFrameOnUpdate: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -33,7 +34,8 @@ class PublicationFactoryImpl: PublicationFactory {
          participantId: ParticipantId,
          keyFrameInterval: TimeInterval,
          stagger: Bool,
-         verbose: Bool) {
+         verbose: Bool,
+         keyFrameOnUpdate: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -44,6 +46,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.keyFrameInterval = keyFrameInterval
         self.stagger = stagger
         self.verbose = verbose
+        self.keyFrameOnUpdate = keyFrameOnUpdate
     }
 
     func create(publication: ManifestPublication,
@@ -114,7 +117,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   endpointId: endpointId,
                                                   relayId: relayId,
                                                   stagger: self.stagger,
-                                                  verbose: self.verbose)
+                                                  verbose: self.verbose,
+                                                  keyFrameOnUpdate: self.keyFrameOnUpdate)
             try self.captureManager.addInput(publication)
             return publication
         case .opus:

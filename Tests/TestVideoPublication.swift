@@ -42,6 +42,7 @@ class FakeH264Publication: H264Publication {
                   relayId: String,
                   stagger: Bool,
                   verbose: Bool,
+                  keyFrameOnUpdate: Bool,
                   notify: @escaping PublishCallback) throws {
         self.publishNotify = notify
         try super.init(profile: profile,
@@ -54,7 +55,8 @@ class FakeH264Publication: H264Publication {
                        endpointId: endpointId,
                        relayId: relayId,
                        stagger: stagger,
-                       verbose: verbose)
+                       verbose: verbose,
+                       keyFrameOnUpdate: keyFrameOnUpdate)
     }
 
     required init(profile: Profile,
@@ -67,8 +69,9 @@ class FakeH264Publication: H264Publication {
                   endpointId: String,
                   relayId: String,
                   stagger: Bool,
-                  verbose: Bool) throws {
-        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:) has not been implemented")
+                  verbose: Bool,
+                  keyFrameOnUpdate: Bool) throws {
+        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:) has not been implemented")
     }
 
     override func publish(groupId: UInt64,
@@ -126,7 +129,8 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                      endpointId: "",
                      relayId: "",
                      stagger: stagger,
-                     verbose: true)
+                     verbose: true,
+                     keyFrameOnUpdate: false)
 }
 
 final class TestVideoPublication: XCTestCase {
@@ -226,6 +230,7 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                                                       relayId: "",
                                                       stagger: false,
                                                       verbose: false,
+                                                      keyFrameOnUpdate: false,
                                                       notify: ({_, _ in }))
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
@@ -278,7 +283,8 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                                                       endpointId: "",
                                                       relayId: "",
                                                       stagger: false,
-                                                      verbose: true) { _, objectId in
+                                                      verbose: true,
+                                                      keyFrameOnUpdate: true) { _, objectId in
                 // When this is a key frame, object ID should be 0.
                 if status == .subscriptionUpdated {
                     #expect(lastObjectId != 0)

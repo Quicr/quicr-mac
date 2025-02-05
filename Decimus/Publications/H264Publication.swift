@@ -36,6 +36,7 @@ class H264Publication: Publication, FrameListener {
     private let stagger: Bool
     private var publishFailure = ManagedAtomic(false)
     private let verbose: Bool
+    private let keyFrameOnUpdate: Bool
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
@@ -118,7 +119,8 @@ class H264Publication: Publication, FrameListener {
                   endpointId: String,
                   relayId: String,
                   stagger: Bool,
-                  verbose: Bool) throws {
+                  verbose: Bool,
+                  keyFrameOnUpdate: Bool) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -135,6 +137,7 @@ class H264Publication: Publication, FrameListener {
         self.device = device
         self.stagger = stagger
         self.verbose = verbose
+        self.keyFrameOnUpdate = keyFrameOnUpdate
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,
@@ -174,7 +177,8 @@ class H264Publication: Publication, FrameListener {
 
     override func statusChanged(_ status: QPublishTrackHandlerStatus) {
         super.statusChanged(status)
-        if status == .subscriptionUpdated {
+        if self.keyFrameOnUpdate,
+           status == .subscriptionUpdated {
             self.generateKeyFrame.store(true, ordering: .releasing)
         }
     }
