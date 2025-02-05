@@ -96,6 +96,7 @@
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
+		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
 		9BC070D52D2D3A8B00FE5B0E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC070D42D2D3A8700FE5B0E /* Subscription.swift */; };
 		9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */; };
 		9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */; };
@@ -300,6 +301,7 @@
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
+		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
 		9BC070D42D2D3A8700FE5B0E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
 		9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoPublication.swift; sourceTree = "<group>"; };
 		9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarianceCalculator.swift; sourceTree = "<group>"; };
@@ -567,6 +569,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */,
 				9BE6288D2CE4FCD3001401D0 /* ManualActiveSpeaker.swift */,
 				9BE6B7C62C9D92890069FE9F /* TokenStorage.swift */,
 				186763532B2B69EB00339421 /* Measurements */,
@@ -989,6 +992,7 @@
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
 				9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */,
 				9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */,
+				9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */,
 				9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */,
 				9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */,
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
