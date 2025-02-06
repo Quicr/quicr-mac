@@ -441,6 +441,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
     private func decodeWithConcealment(_ item: AudioJitterItem, window: OpusWindowSize, when: Date) {
         // Deal with any discontinuity.
         if var lastUsedSequence = self.lastUsedSequence,
+           item.sequenceNumber > lastUsedSequence,
            item.sequenceNumber != lastUsedSequence + 1 {
             // There is a discontinuity.
             let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
