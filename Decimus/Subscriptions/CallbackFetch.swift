@@ -13,6 +13,7 @@ class CallbackFetch: Fetch {
          endGroup: UInt64,
          startObject: UInt64,
          endObject: UInt64,
+         verbose: Bool,
          statusChanged: Subscription.StatusCallback?,
          objectReceived: CallbackSubscription.SubscriptionCallback?) {
         self.statusChanged = statusChanged
@@ -23,7 +24,8 @@ class CallbackFetch: Fetch {
                    startGroup: startGroup,
                    endGroup: endGroup,
                    startObject: startObject,
-                   endObject: endObject)
+                   endObject: endObject,
+                   verbose: verbose)
     }
 
     override func statusChanged(_ status: QSubscribeTrackHandlerStatus) {

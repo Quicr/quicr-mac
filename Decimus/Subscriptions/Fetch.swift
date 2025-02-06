@@ -3,6 +3,7 @@
 
 class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     private let logger = DecimusLogger(Fetch.self)
+    private let verbose: Bool
 
     init(_ ftn: FullTrackName,
          priority: UInt8,
@@ -10,7 +11,9 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
          startGroup: UInt64,
          endGroup: UInt64,
          startObject: UInt64,
-         endObject: UInt64) {
+         endObject: UInt64,
+         verbose: Bool) {
+        self.verbose = verbose
         super.init(fullTrackName: ftn,
                    priority: priority,
                    groupOrder: groupOrder,
@@ -26,14 +29,16 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.logger.debug("Object received")
+        guard self.verbose else { return }
+        self.logger.debug("Object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }
 
     func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.logger.debug("Partial object received")
+        guard self.verbose else { return }
+        self.logger.debug("Partial object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }
 
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
-        self.logger.info("FETCH - Metrics")
+        self.logger.debug("Metrics")
     }
 }

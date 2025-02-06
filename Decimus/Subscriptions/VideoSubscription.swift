@@ -161,7 +161,7 @@ class VideoSubscription: Subscription {
                     }
                     self.fetch = nil
                 }
-            } else if !self.fetched && self.fetch == nil {
+            } else if self.fetch == nil {
                 do {
                     try self.fetch(currentGroup: objectHeaders.groupId,
                                    currentObject: objectHeaders.groupId)
@@ -204,7 +204,7 @@ class VideoSubscription: Subscription {
 
     private func fetch(currentGroup: UInt64, currentObject: UInt64) throws {
         // TODO: What should the priority be?
-        self.logger.debug("Starting fetch for \(currentGroup)/0->\(currentObject)")
+        self.logger.debug("Starting fetch for \(currentGroup):0->\(currentObject)")
         let fetch = CallbackFetch(ftn: self.fullTrackName,
                                   priority: 0,
                                   groupOrder: .originalPublisherOrder,
@@ -212,6 +212,7 @@ class VideoSubscription: Subscription {
                                   endGroup: currentGroup,
                                   startObject: 0,
                                   endObject: currentObject,
+                                  verbose: self.verbose,
                                   statusChanged: ({_ in}),
                                   objectReceived: ({[weak handler, weak self] headers, data, extensions in
                                     guard let handler = handler,
