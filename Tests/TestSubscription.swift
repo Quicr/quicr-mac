@@ -4,20 +4,6 @@
 @testable import QuicR
 import Testing
 
-extension QSubscribeTrackHandlerStatus: CaseIterable {
-    public static var allCases: [QSubscribeTrackHandlerStatus] = [
-        .notAuthorized,
-        .notConnected,
-        .notSubscribed,
-        .ok,
-        .pendingSubscribeResponse,
-        .sendingUnsubscribe,
-        .subscribeError
-    ]
-}
-
-let allStatus: [QSubscribeTrackHandlerStatus] = QSubscribeTrackHandlerStatus.allCases
-
 /// Ensure status changes propagate to the callback correctly.
 @Test("Status Callback", arguments: QSubscribeTrackHandlerStatus.allCases)
 func testStatusCallback(_ status: QSubscribeTrackHandlerStatus) throws {

@@ -213,17 +213,14 @@ class VideoSubscription: Subscription {
                                   priority: 0,
                                   groupOrder: .originalPublisherOrder,
                                   startGroup: currentGroup,
-                                  endGroup: currentGroup,
+                                  endGroup: currentGroup + 1,
                                   startObject: 0,
                                   endObject: currentObject,
                                   verbose: self.verbose,
                                   metricsSubmitter: self.metricsSubmitter,
                                   endpointId: self.endpointId,
                                   relayId: self.relayId,
-                                  statusChanged: {[weak self] status in
-                                    guard let self = self else { return }
-                                    self.logger.info("Fetch status changed: \(status)")
-                                  },
+                                  statusChanged: { _ in },
                                   objectReceived: {[weak self] headers, data, extensions in
                                     guard let self = self else { return }
                                     self.onFetchedObject(headers: headers,
@@ -232,8 +229,8 @@ class VideoSubscription: Subscription {
                                                          currentGroup: currentGroup,
                                                          currentObject: currentObject)
                                   })
-        try controller.fetch(fetch)
         self.fetch = fetch
+        try controller.fetch(fetch)
     }
 
     private func onFetchedObject(headers: QObjectHeaders,

@@ -57,7 +57,12 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     }
 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        self.logger.info("Status changed: \(status)")
+        let message = "Status changed: \(status)"
+        if status.isError {
+            self.logger.error(message)
+        } else {
+            self.logger.info(message)
+        }
     }
 
     func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
