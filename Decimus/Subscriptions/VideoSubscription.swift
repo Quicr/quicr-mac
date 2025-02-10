@@ -168,7 +168,7 @@ class VideoSubscription: Subscription {
             } else if self.fetch == nil {
                 do {
                     try self.fetch(currentGroup: objectHeaders.groupId,
-                                   currentObject: objectHeaders.groupId)
+                                   currentObject: objectHeaders.objectId)
                 } catch {
                     self.logger.error("Failed to fetch: \(error.localizedDescription)")
                 }
@@ -220,24 +220,41 @@ class VideoSubscription: Subscription {
                                   metricsSubmitter: self.metricsSubmitter,
                                   endpointId: self.endpointId,
                                   relayId: self.relayId,
-                                  statusChanged: ({_ in}),
-                                  objectReceived: ({[weak handler, weak self] headers, data, extensions in
-                                    guard let handler = handler,
-                                          let self = self else { return }
-                                    // Got an object from fetch.
-                                    self.logger.debug("Fetch got: \(headers.objectId)")
-                                    handler.objectReceived(headers, data: data, extensions: extensions, when: .now)
-
-                                    // Are we done?
-                                    if headers.groupId == currentGroup,
-                                       headers.objectId == currentObject - 1 {
-                                        self.logger.info("Video Fetch complete")
-                                        self.fetched = true
-                                        guard let fetch = self.fetch else { return }
-                                        try? self.controller.cancelFetch(fetch)
-                                    }
-                                  }))
+                                  statusChanged: {[weak self] status in
+                                    guard let self = self else { return }
+                                    self.logger.info("Fetch status changed: \(status)")
+                                  },
+                                  objectReceived: {[weak self] headers, data, extensions in
+                                    guard let self = self else { return }
+                                    self.onFetchedObject(headers: headers,
+                                                         data: data,
+                                                         extensions: extensions,
+                                                         currentGroup: currentGroup,
+                                                         currentObject: currentObject)
+                                  })
         try controller.fetch(fetch)
         self.fetch = fetch
+    }
+
+    private func onFetchedObject(headers: QObjectHeaders,
+                                 data: Data,
+                                 extensions: [NSNumber: Data]?,
+                                 currentGroup: UInt64,
+                                 currentObject: UInt64) {
+        // Got an object from fetch.
+        if self.verbose {
+            self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
+        }
+        guard let handler = self.handler else { return }
+        handler.objectReceived(headers, data: data, extensions: extensions, when: .now)
+
+        // Are we done?
+        if headers.groupId == currentGroup,
+           headers.objectId == currentObject - 1 {
+            self.logger.info("Video Fetch complete")
+            self.fetched = true
+            guard let fetch = self.fetch else { return }
+            try? self.controller.cancelFetch(fetch)
+        }
     }
 }

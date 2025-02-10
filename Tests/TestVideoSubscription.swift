@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import XCTest
 import Testing
 @testable import QuicR
 
@@ -23,13 +22,14 @@ extension VideoSubscription {
     }
 }
 
-final class TestVideoSubscription: XCTestCase {
+struct TestVideoSubscription {
     @MainActor
     private func makeSubscription(_ mockClient: MockClient) async throws -> VideoSubscription {
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
                                            callEnded: ({}))
+        try await controller.connect()
         return try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
                                                     expiry: [1],
                                                     priorities: [1],
@@ -58,6 +58,7 @@ final class TestVideoSubscription: XCTestCase {
                                      statusChanged: ({_ in }))
     }
 
+    @Test("Metrics")
     @MainActor
     func testMetrics() async throws {
         let mockClient = MockClient(publish: {_ in},
@@ -78,8 +79,8 @@ final class TestVideoSubscription: XCTestCase {
                                     unpublish: {_ in},
                                     subscribe: {_ in},
                                     unsubscribe: {_ in},
-                                    fetch: {_ in XCTFail("Didn't expect a fetch") },
-                                    fetchCancel: {_ in XCTFail("Didn't expect a fetch cancel") })
+                                    fetch: {_ in #expect(Bool(false)) },
+                                    fetchCancel: {_ in #expect(Bool(false)) })
         let subscription = try await self.makeSubscription(mockClient)
         subscription.mockObject(groupId: 0, objectId: 0)
     }
@@ -88,15 +89,19 @@ final class TestVideoSubscription: XCTestCase {
     @MainActor
     func testFetch() async throws {
         // We want to validate a fetch operation is kicked off when the first object is >0.
-        var fetched = false
+        var fetch: Fetch?
         let mockClient = MockClient(publish: { _ in },
                                     unpublish: { _ in },
                                     subscribe: { _ in },
                                     unsubscribe: { _ in },
-                                    fetch: { _ in fetched = true },
+                                    fetch: { fetch = $0 },
                                     fetchCancel: { _ in #expect(Bool(false)) })
         let subscription = try await self.makeSubscription(mockClient)
-        subscription.mockObject(groupId: 0, objectId: 1)
-        #expect(fetched)
+        subscription.mockObject(groupId: 0, objectId: 2)
+        #expect(fetch != nil)
+        #expect(fetch!.getStartGroup() == 0)
+        #expect(fetch!.getEndGroup() == 0)
+        #expect(fetch!.getStartObject() == 0)
+        #expect(fetch!.getEndObject() == 2)
     }
 }

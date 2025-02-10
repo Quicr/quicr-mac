@@ -3,6 +3,7 @@
 
 @testable import QuicR
 
+// swiftlint:disable force_cast
 class MockClient: MoqClient {
     typealias PublishTrackCallback = (Publication) -> Void
     typealias SubscribeTrackCallback = (Subscription) -> Void
@@ -42,7 +43,7 @@ class MockClient: MoqClient {
     }
 
     func publishTrack(withHandler handler: QPublishTrackHandlerObjC) {
-        self.publish(handler as! Publication) // swiftlint:disable:this force_cast
+        self.publish(handler as! Publication)
     }
 
     func unpublishTrack(withHandler handler: QPublishTrackHandlerObjC) {
@@ -76,3 +77,4 @@ class MockClient: MoqClient {
         .OK
     }
 }
+// swiftlint:enable force_cast
