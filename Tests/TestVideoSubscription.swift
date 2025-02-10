@@ -54,6 +54,7 @@ struct TestVideoSubscription {
                                      joinDate: .now,
                                      controller: controller,
                                      verbose: true,
+                                     cleanupTime: 1.5,
                                      callback: ({ _, _ in }),
                                      statusChanged: ({_ in }))
     }
@@ -100,7 +101,7 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: 0, objectId: 2)
         #expect(fetch != nil)
         #expect(fetch!.getStartGroup() == 0)
-        #expect(fetch!.getEndGroup() == 0)
+        #expect(fetch!.getEndGroup() == 1)
         #expect(fetch!.getStartObject() == 0)
         #expect(fetch!.getEndObject() == 2)
     }

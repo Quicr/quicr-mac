@@ -96,6 +96,8 @@ struct SubscriptionConfig: Codable {
     var doSFrame: Bool
     /// True to publish keyframe on subscribe update.
     var keyFrameOnUpdate: Bool
+    /// Time to cleanup stale subscriptions for.
+    var cleanupTime: TimeInterval
 
     /// Create with default settings.
     init() {
@@ -125,6 +127,7 @@ struct SubscriptionConfig: Codable {
         doSFrame = true
         stagger = true
         self.keyFrameOnUpdate = true
+        self.cleanupTime = 1.5
     }
 }
 
@@ -224,7 +227,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             endpointId: endpointId,
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
-                                            joinDate: self.joinDate)
+                                            joinDate: self.joinDate,
+                                            cleanupTime: self.subscriptionConfig.cleanupTime)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -296,6 +300,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          joinDate: self.joinDate,
                                          controller: self.controller,
                                          verbose: self.verbose,
+                                         cleanupTime: self.subscriptionConfig.cleanupTime,
                                          callback: { [weak set] timestamp, when in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when)
@@ -316,6 +321,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         endpointId: endpointId,
                                         relayId: relayId,
                                         useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                        cleanupTime: self.subscriptionConfig.cleanupTime,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)
