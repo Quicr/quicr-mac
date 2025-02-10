@@ -33,6 +33,8 @@ class VideoSubscription: Subscription {
     private let participantId: ParticipantId
     private let creationDate: Date
     private let joinDate: Date
+    private let endpointId: String
+    private let relayId: String
 
     // Fetch.
     private let controller: MoqCallController
@@ -73,6 +75,8 @@ class VideoSubscription: Subscription {
         self.joinDate = joinDate
         self.controller = controller
         self.verbose = verbose
+        self.relayId = relayId
+        self.endpointId = endpointId
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -213,6 +217,9 @@ class VideoSubscription: Subscription {
                                   startObject: 0,
                                   endObject: currentObject,
                                   verbose: self.verbose,
+                                  metricsSubmitter: self.metricsSubmitter,
+                                  endpointId: self.endpointId,
+                                  relayId: self.relayId,
                                   statusChanged: ({_ in}),
                                   objectReceived: ({[weak handler, weak self] headers, data, extensions in
                                     guard let handler = handler,
