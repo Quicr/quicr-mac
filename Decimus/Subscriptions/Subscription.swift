@@ -71,7 +71,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         if status.isError {
             self.logger.error(message)
         } else {
-            self.logger.info("Status changed: \(status)")
+            self.logger.info(message)
         }
         self.statusCallback?(status)
     }
