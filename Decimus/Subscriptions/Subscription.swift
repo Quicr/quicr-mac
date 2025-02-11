@@ -1,6 +1,27 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+extension QSubscribeTrackHandlerStatus: Equatable, CaseIterable {
+    public static let allCases: [QSubscribeTrackHandlerStatus] = [
+        .notAuthorized,
+        .notConnected,
+        .notSubscribed,
+        .ok,
+        .pendingSubscribeResponse,
+        .sendingUnsubscribe,
+        .subscribeError
+    ]
+
+    /// Subset of statuses that are errors.
+    public static let errors: [QSubscribeTrackHandlerStatus] = [.notConnected,
+                                                                .notAuthorized,
+                                                                .notSubscribed,
+                                                                .subscribeError]
+
+    /// True is this status is an error.
+    public var isError: Bool { Self.errors.contains(self) }
+}
+
 /// Base implementation for a track handler, handling generic metrics and callbacks.
 class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     typealias StatusCallback = (QSubscribeTrackHandlerStatus) -> Void
@@ -46,7 +67,12 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     /// Fires when the underlying subscription handler's status changes.
     /// - Parameter status: The updated status.
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
-        self.logger.debug("Status changed: \(status)")
+        let message = "Status changed: \(status)"
+        if status.isError {
+            self.logger.error(message)
+        } else {
+            self.logger.info(message)
+        }
         self.statusCallback?(status)
     }
 

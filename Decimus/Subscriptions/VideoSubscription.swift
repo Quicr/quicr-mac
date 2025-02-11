@@ -22,6 +22,7 @@ class VideoSubscription: Subscription {
     private let callback: ObjectReceived
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
+    private let verbose: Bool
 
     var handler: VideoHandler?
     let handlerLock = OSAllocatedUnfairLock()
@@ -32,6 +33,13 @@ class VideoSubscription: Subscription {
     private let participantId: ParticipantId
     private let creationDate: Date
     private let joinDate: Date
+    private let endpointId: String
+    private let relayId: String
+
+    // Fetch.
+    private let controller: MoqCallController
+    private var fetch: Fetch?
+    private var fetched = false
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -47,6 +55,8 @@ class VideoSubscription: Subscription {
          relayId: String,
          participantId: ParticipantId,
          joinDate: Date,
+         controller: MoqCallController,
+         verbose: Bool,
          cleanupTime: TimeInterval,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
@@ -64,6 +74,10 @@ class VideoSubscription: Subscription {
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
+        self.controller = controller
+        self.verbose = verbose
+        self.relayId = relayId
+        self.endpointId = endpointId
         self.cleanupTimer = cleanupTime
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
@@ -86,7 +100,7 @@ class VideoSubscription: Subscription {
                        metricsSubmitter: metricsSubmitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup,
+                       filterType: .latestObject,
                        statusCallback: statusChanged)
     }
 
@@ -104,6 +118,10 @@ class VideoSubscription: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        if self.verbose {
+            self.logger.debug("Received: \(objectHeaders.groupId) \(objectHeaders.objectId)")
+        }
+
         if self.cleanupTask == nil {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
@@ -132,7 +150,40 @@ class VideoSubscription: Subscription {
             return
         }
 
-        handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now)
+        // Do we need to start a fetch?
+        var setPlay = false
+        if !self.fetched {
+            if objectHeaders.objectId == 0 {
+                // We don't need a fetch.
+                self.logger.debug("No fetch needed")
+                self.fetched = true
+                setPlay = true
+
+                // Cancel existing, if any.
+                if let fetch = self.fetch {
+                    self.logger.debug("Cancelling in progress fetch")
+                    do {
+                        try self.controller.cancelFetch(fetch)
+                    } catch {
+                        self.logger.warning("Failed to cancel in progress fetch: \(error.localizedDescription)")
+                    }
+                    self.fetch = nil
+                }
+            } else if self.fetch == nil {
+                do {
+                    try self.fetch(currentGroup: objectHeaders.groupId,
+                                   currentObject: objectHeaders.objectId)
+                } catch {
+                    self.logger.error("Failed to fetch: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        // Handle this object.
+        handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
+        if setPlay {
+            handler.play()
+        }
     }
 
     private func getCreateHandler() throws -> VideoHandler {
@@ -160,5 +211,63 @@ class VideoSubscription: Subscription {
         }
         self.handlerLock.unlock()
         return handler
+    }
+
+    private func fetch(currentGroup: UInt64, currentObject: UInt64) throws {
+        // TODO: What should the priority be?
+        self.logger.debug("Starting fetch for \(currentGroup):0->\(currentObject)")
+        let fetch = CallbackFetch(ftn: self.fullTrackName,
+                                  priority: 0,
+                                  groupOrder: .originalPublisherOrder,
+                                  startGroup: currentGroup,
+                                  endGroup: currentGroup + 1,
+                                  startObject: 0,
+                                  endObject: currentObject,
+                                  verbose: self.verbose,
+                                  metricsSubmitter: self.metricsSubmitter,
+                                  endpointId: self.endpointId,
+                                  relayId: self.relayId,
+                                  statusChanged: { [weak self] status in
+                                    guard let self = self else { return }
+                                    let message = "Fetch status changed: \(status)"
+                                    if status.isError && !self.fetched && status == .notConnected {
+                                        self.logger.error(message)
+                                    } else {
+                                        self.logger.info(message)
+                                    }
+                                  },
+                                  objectReceived: {[weak self] headers, data, extensions in
+                                    guard let self = self else { return }
+                                    self.onFetchedObject(headers: headers,
+                                                         data: data,
+                                                         extensions: extensions,
+                                                         currentGroup: currentGroup,
+                                                         currentObject: currentObject)
+                                  })
+        self.fetch = fetch
+        try controller.fetch(fetch)
+    }
+
+    private func onFetchedObject(headers: QObjectHeaders,
+                                 data: Data,
+                                 extensions: [NSNumber: Data]?,
+                                 currentGroup: UInt64,
+                                 currentObject: UInt64) {
+        // Got an object from fetch.
+        if self.verbose {
+            self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
+        }
+        guard let handler = self.handler else { return }
+        handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true)
+
+        // Are we done?
+        if headers.groupId == currentGroup,
+           headers.objectId == currentObject - 1 {
+            self.logger.info("Video Fetch complete")
+            self.fetched = true
+            handler.play()
+            guard let fetch = self.fetch else { return }
+            try? self.controller.cancelFetch(fetch)
+        }
     }
 }

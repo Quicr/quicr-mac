@@ -16,5 +16,6 @@
 #import "libquicr/QClientObjC.h"
 #import "libquicr/QPublishTrackHandlerObjC.h"
 #import "libquicr/QSubscribeTrackHandlerObjC.h"
+#import "libquicr/QFetchTrackHandlerObjC.h"
 
 #endif

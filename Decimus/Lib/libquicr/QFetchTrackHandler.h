@@ -1,20 +1,23 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#ifndef QSubscribeTrackHandler_h
-#define QSubscribeTrackHandler_h
+#ifndef QFetchTrackHandler_h
+#define QFetchTrackHandler_h
 
-#include "quicr/subscribe_track_handler.h"
+#include "quicr/fetch_track_handler.h"
 #include "quicr/track_name.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
 
-class QSubscribeTrackHandler : public quicr::SubscribeTrackHandler
+class QFetchTrackHandler : public quicr::FetchTrackHandler
 {
 public:
-    QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                           quicr::messages::ObjectPriority priority,
-                           quicr::messages::GroupOrder group_order,
-                           quicr::messages::FilterType filter_type);
+    QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
+                       quicr::messages::ObjectPriority priority,
+                       quicr::messages::GroupOrder group_order,
+                       quicr::messages::GroupId start_group,
+                       quicr::messages::GroupId end_group,
+                       quicr::messages::ObjectId start_object,
+                       quicr::messages::ObjectId end_object);
 
     // Callbacks.
     void StatusChanged(Status status) override;
@@ -24,7 +27,7 @@ public:
 
     // Methods.
     void SetCallbacks(id<QSubscribeTrackHandlerCallbacks> callbacks);
-    static QSubscribeTrackMetrics Convert(const quicr::SubscribeTrackMetrics& metrics);
+
 
 private:
     __weak id<QSubscribeTrackHandlerCallbacks> _callbacks;

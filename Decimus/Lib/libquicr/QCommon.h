@@ -9,6 +9,12 @@
 #include <quicr/track_name.h>
 #endif
 
+typedef NS_ENUM(uint8_t, QGroupOrder) {
+    kQGroupOrderOriginalPublisherOrder,
+    kQGroupOrderAscending,
+    kQGroupOrderDescending
+};
+
 typedef NS_ENUM(uint64_t, QFilterType) {
     kQFilterTypeNone,
     kQFilterTypeLatestGroup,

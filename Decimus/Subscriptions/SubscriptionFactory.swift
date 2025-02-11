@@ -152,6 +152,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let participantId: ParticipantId?
     private let joinDate: Date
+    private let controller: MoqCallController
+    private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
 
     init(videoParticipants: VideoParticipants,
@@ -160,7 +162,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          granularMetrics: Bool,
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
-         joinDate: Date) {
+         joinDate: Date,
+         controller: MoqCallController,
+         verbose: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -168,6 +172,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
         self.participantId = participantId
         self.joinDate = joinDate
+        self.controller = controller
+        self.verbose = verbose
     }
 
     func create(subscription: ManifestSubscription,
@@ -292,10 +298,12 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
+                                         controller: self.controller,
+                                         verbose: self.verbose,
                                          cleanupTime: self.subscriptionConfig.cleanupTime,
-                                         callback: { [weak set] timestamp, when in
+                                         callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn, timestamp: timestamp, when: when)
+                                            set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {

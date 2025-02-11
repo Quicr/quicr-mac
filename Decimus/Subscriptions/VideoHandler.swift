@@ -18,7 +18,8 @@ struct VideoHelpers {
 }
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
-                            _ when: Date) -> Void
+                            _ when: Date,
+                            _ cached: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
@@ -191,7 +192,11 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     // MARK: Callbacks.
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?, when: Date) {
+    func objectReceived(_ objectHeaders: QObjectHeaders,
+                        data: Data,
+                        extensions: [NSNumber: Data]?,
+                        when: Date,
+                        cached: Bool) {
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
@@ -218,11 +223,11 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 Array(self.callbacks.values)
             }
             for callback in toCall {
-                callback(timestamp, when)
+                callback(timestamp, when, cached)
             }
 
             // TODO: This can be inlined here.
-            try self.submitEncodedData(frame, from: when)
+            try self.submitEncodedData(frame, from: when, cached: cached)
         } catch {
             Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
@@ -230,11 +235,21 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     // MARK: Implementation.
 
+    /// Allows frames to be played from the buffer.
+    func play() {
+        guard let buffer = self.jitterBuffer else {
+            Self.logger.debug("Set play with no buffer")
+            return
+        }
+        buffer.startPlaying()
+    }
+
     /// Pass an encoded video frame to this video handler.
     /// - Parameter data Encoded H264 frame data.
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
-    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date) throws {
+    /// - Parameter cached True if this object is from the cache (not live).
+    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date, cached: Bool) throws {
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -296,11 +311,11 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                    let presentationTime = frame.samples.first?.presentationTimeStamp {
                     let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
                     let age = now.timeIntervalSince(presentationDate)
-                    await measurement.measurement.age(age: age, timestamp: now)
+                    await measurement.measurement.age(age: age, timestamp: now, cached: cached)
                 }
-                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
+                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0, cached: cached)
                 let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
+                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
             }
         }
     }
@@ -355,9 +370,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
-                if reliable {
-                    return .compareLessThan
-                }
                 let first = $0 as! DecimusVideoFrameJitterItem
                 let second = $1 as! DecimusVideoFrameJitterItem
                 let seq1 = first.sequenceNumber
@@ -393,7 +405,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
-                                      handlers: handlers)
+                                      handlers: handlers,
+                                      playingFromStart: false)
         self.duration = duration
     }
 
@@ -441,8 +454,12 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                             }
                         }
 
+                        // TODO: Cleanup the need for this regen.
+                        // TODO: Thread-safety for current format.
+                        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
-                            try self.decode(sample: item.frame, from: now)
+                            let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
+                            try self.decode(sample: frame, from: now)
                         } catch {
                             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                         }
@@ -450,6 +467,25 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 }
             }
         }
+    }
+
+    /// Regenerate the frame to have the given format.
+    private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription?) throws -> DecimusVideoFrame {
+        guard let format = format else { throw "Missing expected format" }
+        let samples = try frame.samples.map { sample in
+            try CMSampleBuffer(dataBuffer: sample.dataBuffer,
+                               formatDescription: format,
+                               numSamples: sample.numSamples,
+                               sampleTimings: sample.sampleTimingInfos(),
+                               sampleSizes: sample.sampleSizes())
+        }
+        return .init(samples: samples,
+                     groupId: frame.groupId,
+                     objectId: frame.objectId,
+                     sequenceNumber: frame.sequenceNumber,
+                     fps: frame.fps,
+                     orientation: frame.orientation,
+                     verticalMirror: frame.verticalMirror)
     }
 
     /// Set the difference in time between incoming stream timestamps and wall clock.

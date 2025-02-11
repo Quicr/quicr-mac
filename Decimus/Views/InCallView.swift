@@ -334,7 +334,7 @@ extension InCallView {
             }
         }
 
-        func join() async -> Bool {
+        func join() async -> Bool { // swiftlint:disable:this function_body_length
             // Fetch the manifest from the conference server.
             let manifest: Manifest
             do {
@@ -368,17 +368,19 @@ extension InCallView {
                                                             keyFrameOnUpdate: subConfig.keyFrameOnUpdate)
             let playtime = self.playtimeConfig.value
             let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+            let controller = self.makeCallController()
+            self.controller = controller
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                               metricsSubmitter: self.submitter,
                                                               subscriptionConfig: subConfig,
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               engine: engine,
                                                               participantId: ourParticipantId,
-                                                              joinDate: self.joinDate)
+                                                              joinDate: self.joinDate,
+                                                              controller: controller,
+                                                              verbose: self.verbose)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
-            let controller = self.makeCallController()
-            self.controller = controller
 
             // Connect to the relay/server.
             do {

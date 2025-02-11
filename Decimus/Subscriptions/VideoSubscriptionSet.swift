@@ -176,20 +176,22 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     /// Inform the set that a video frame from a managed subscription arrived.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date) {
-        // Set the timestamp diff from the first recveived object.
-        if self.timestampTimeDiff == nil {
-            self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
-        }
+    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
+        // Set the timestamp diff from the first recveived live object.
+        if !cached {
+            if self.timestampTimeDiff == nil {
+                self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
+            }
 
-        // Set this diff for all handlers, if not already.
-        if let diff = self.timestampTimeDiff {
-            let subscriptions = self.getHandlers()
-            for (_, sub) in subscriptions {
-                let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-                sub.handlerLock.withLock {
-                    guard let handler = sub.handler else { return }
-                    handler.setTimeDiff(diff: diff)
+            // Set this diff for all handlers, if not already.
+            if let diff = self.timestampTimeDiff {
+                let subscriptions = self.getHandlers()
+                for (_, sub) in subscriptions {
+                    let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
+                    sub.handlerLock.withLock {
+                        guard let handler = sub.handler else { return }
+                        handler.setTimeDiff(diff: diff)
+                    }
                 }
             }
         }
@@ -201,7 +203,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             Task(priority: .utility) {
                 await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
                                                               timestamp: timestamp,
-                                                              when: when)
+                                                              when: when,
+                                                              cached: cached)
             }
         }
 
