@@ -55,7 +55,7 @@ struct TestVideoSubscription {
                                      controller: controller,
                                      verbose: true,
                                      cleanupTime: 1.5,
-                                     callback: ({ _, _ in }),
+                                     callback: ({ _, _, _ in }),
                                      statusChanged: ({_ in }))
     }
 

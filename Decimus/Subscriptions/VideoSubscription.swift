@@ -151,11 +151,13 @@ class VideoSubscription: Subscription {
         }
 
         // Do we need to start a fetch?
+        var setPlay = false
         if !self.fetched {
             if objectHeaders.objectId == 0 {
                 // We don't need a fetch.
                 self.logger.debug("No fetch needed")
                 self.fetched = true
+                setPlay = true
 
                 // Cancel existing, if any.
                 if let fetch = self.fetch {
@@ -178,7 +180,10 @@ class VideoSubscription: Subscription {
         }
 
         // Handle this object.
-        handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now)
+        handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
+        if setPlay {
+            handler.play()
+        }
     }
 
     private func getCreateHandler() throws -> VideoHandler {
@@ -222,7 +227,15 @@ class VideoSubscription: Subscription {
                                   metricsSubmitter: self.metricsSubmitter,
                                   endpointId: self.endpointId,
                                   relayId: self.relayId,
-                                  statusChanged: { _ in },
+                                  statusChanged: { [weak self] status in
+                                    guard let self = self else { return }
+                                    let message = "Fetch status changed: \(status)"
+                                    if status.isError && !self.fetched && status == .notConnected {
+                                        self.logger.error(message)
+                                    } else {
+                                        self.logger.info(message)
+                                    }
+                                  },
                                   objectReceived: {[weak self] headers, data, extensions in
                                     guard let self = self else { return }
                                     self.onFetchedObject(headers: headers,
@@ -245,13 +258,14 @@ class VideoSubscription: Subscription {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
         guard let handler = self.handler else { return }
-        handler.objectReceived(headers, data: data, extensions: extensions, when: .now)
+        handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true)
 
         // Are we done?
         if headers.groupId == currentGroup,
            headers.objectId == currentObject - 1 {
             self.logger.info("Video Fetch complete")
             self.fetched = true
+            handler.play()
             guard let fetch = self.fetch else { return }
             try? self.controller.cancelFetch(fetch)
         }
