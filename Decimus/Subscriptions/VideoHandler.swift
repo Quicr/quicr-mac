@@ -454,8 +454,12 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                             }
                         }
 
+                        // TODO: Cleanup the need for this regen.
+                        // TODO: Thread-safety for current format.
+                        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
-                            try self.decode(sample: item.frame, from: now)
+                            let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
+                            try self.decode(sample: frame, from: now)
                         } catch {
                             Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
                         }
@@ -463,6 +467,25 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 }
             }
         }
+    }
+
+    /// Regenerate the frame to have the given format.
+    private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription?) throws -> DecimusVideoFrame {
+        guard let format = format else { throw "Missing expected format" }
+        let samples = try frame.samples.map { sample in
+            try CMSampleBuffer(dataBuffer: sample.dataBuffer,
+                               formatDescription: format,
+                               numSamples: sample.numSamples,
+                               sampleTimings: sample.sampleTimingInfos(),
+                               sampleSizes: sample.sampleSizes())
+        }
+        return .init(samples: samples,
+                     groupId: frame.groupId,
+                     objectId: frame.objectId,
+                     sequenceNumber: frame.sequenceNumber,
+                     fps: frame.fps,
+                     orientation: frame.orientation,
+                     verticalMirror: frame.verticalMirror)
     }
 
     /// Set the difference in time between incoming stream timestamps and wall clock.
