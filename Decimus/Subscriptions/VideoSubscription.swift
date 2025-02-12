@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Atomics
 import os
 
 /// Represents a QuicR video subscription.
@@ -40,6 +41,7 @@ class VideoSubscription: Subscription {
     private let controller: MoqCallController
     private var fetch: Fetch?
     private var fetched = false
+    private var postCleanup = ManagedAtomic(false)
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -115,6 +117,7 @@ class VideoSubscription: Subscription {
             handler.unregisterCallback(self.token)
             self.token = 0
         }
+        self.postCleanup.store(true, ordering: .releasing)
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
@@ -181,7 +184,15 @@ class VideoSubscription: Subscription {
 
         // Handle this object.
         handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
-        if setPlay {
+
+        // Mark the video handler to start playing.
+        var cleanup: Bool {
+            self.postCleanup.compareExchange(expected: true,
+                                             desired: false,
+                                             ordering: .acquiringAndReleasing).exchanged
+        }
+        if setPlay || cleanup {
+            self.logger.debug("Starting video playout")
             handler.play()
         }
     }
