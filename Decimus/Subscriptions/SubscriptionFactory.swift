@@ -101,7 +101,7 @@ struct SubscriptionConfig: Codable {
 
     /// Create with default settings.
     init() {
-        jitterMaxTime = 0.2
+        jitterMaxTime = 1
         jitterDepthTime = 0.2
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
@@ -310,11 +310,14 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             guard set is ObservableSubscriptionSet else {
                 throw "AudioCodecConfig expects ObservableSubscriptionSet"
             }
+            let jitterMax = self.subscriptionConfig.useNewJitterBuffer ?
+                self.subscriptionConfig.videoJitterBuffer.capacity :
+                self.subscriptionConfig.jitterMaxTime
             return try OpusSubscription(profile: profile,
                                         engine: self.engine,
                                         submitter: self.metricsSubmitter,
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        jitterMax: jitterMax,
                                         opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                         reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics,
