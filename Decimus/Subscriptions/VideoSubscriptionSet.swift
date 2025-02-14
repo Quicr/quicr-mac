@@ -198,15 +198,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // Calculate switching set arrival variance.
         _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
-        if self.granularMetrics,
-           let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.reportTimestamp(namespace: self.subscription.sourceID,
-                                                              timestamp: timestamp,
-                                                              when: when,
-                                                              cached: cached)
-            }
-        }
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {
