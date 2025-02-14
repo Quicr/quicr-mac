@@ -491,7 +491,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     /// Set the difference in time between incoming stream timestamps and wall clock.
     /// - Parameter diff: Difference in time in seconds.
     func setTimeDiff(diff: TimeInterval) {
-        let diffUs = min(Int64(diff * 1_000_000), 1)
+        let diffUs = max(Int64(diff * microsecondsPerSecond), 1)
         _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
                                                      desired: diffUs,
                                                      ordering: .acquiringAndReleasing)

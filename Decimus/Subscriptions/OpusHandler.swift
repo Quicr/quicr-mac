@@ -173,7 +173,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             // Set the timestamp diff from the first recveived object.
             if !self.timestampTimeDiffSet {
                 let diff = date.timeIntervalSince1970 - timestamp.timeIntervalSince1970
-                let diffUs = min(Int64(diff * microsecondsPerSecond), 1)
+                let diffUs = max(Int64(diff * microsecondsPerSecond), 1)
                 let (exchanged, _) = self.timestampTimeDiffUs.compareExchange(expected: 0,
                                                                               desired: diffUs,
                                                                               ordering: .acquiringAndReleasing)
