@@ -219,6 +219,13 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 return
             }
 
+            if let measurement = self.measurement?.measurement,
+               self.granularMetrics {
+                Task(priority: .utility) {
+                    await measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
+                }
+            }
+
             let toCall: [ObjectReceived] = self.callbackLock.withLock {
                 Array(self.callbacks.values)
             }

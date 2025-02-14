@@ -16,6 +16,11 @@ extension VideoHandler {
             tags["namespace"] = namespace
         }
 
+        func timestamp(timestamp: TimeInterval, when: Date, cached: Bool) {
+            let tags = ["cached": "\(cached)"]
+            self.record(field: "timestamp", value: timestamp, timestamp: when, tags: tags)
+        }
+
         func receivedFrame(timestamp: Date?, idr: Bool, cached: Bool) {
             self.frames += 1
             let tags: [String: String]?
