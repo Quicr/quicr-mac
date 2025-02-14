@@ -407,17 +407,16 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.startTime.removeValue(forKey: output)
         }
 
+        // Convert relative timestamp into absolute.
+        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
+
         // Metrics.
         if let measurement = self.measurement {
-            let timestamp = sampleBuffer.presentationTimeStamp.seconds
             Task(priority: .utility) {
-                await measurement.measurement.capturedFrame(frameTimestamp: timestamp,
+                await measurement.measurement.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
                                                             metricsTimestamp: self.granularMetrics ? now : nil)
             }
         }
-
-        // Convert relative timestamp into absolute.
-        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
 
         // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
