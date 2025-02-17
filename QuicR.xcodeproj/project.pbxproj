@@ -1351,6 +1351,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "$(PROJECT_NAME) can scan the network for a local relay";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1427,6 +1428,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "$(PROJECT_NAME) can scan the network for a local relay";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

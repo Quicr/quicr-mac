@@ -22,18 +22,9 @@ struct RelaySettingsView: View {
                         ProgressView()
                     }
                 }
-                if self.relayConfig.value.usemDNS {
-                    LabeledContent("mDNS Type") {
-                        VStack {
-                            TextField("mDNS Type",
-                                      text: self.$relayConfig.value.mDNSType,
-                                      prompt: Text("_laps._udp"))
-                                .labelsHidden()
-                            if let dnsMessage = self.dnsMessage {
-                                Text(dnsMessage).foregroundStyle(.red).font(.footnote)
-                            }
-                        }
-                    }
+                if self.relayConfig.value.usemDNS,
+                   let dnsMessage = self.dnsMessage {
+                    Text(dnsMessage).foregroundStyle(.red).font(.footnote)
                 }
             }
 
