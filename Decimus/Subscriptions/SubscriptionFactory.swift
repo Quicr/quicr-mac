@@ -98,6 +98,9 @@ struct SubscriptionConfig: Codable {
     var keyFrameOnUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
+    /// When data is old, this is how fast to play through old data,
+    /// as a multiple of the item's duration.
+    var stalePlayoutFactor: Double
 
     /// Create with default settings.
     init() {
@@ -128,6 +131,7 @@ struct SubscriptionConfig: Codable {
         stagger = true
         self.keyFrameOnUpdate = true
         self.cleanupTime = 1.5
+        self.stalePlayoutFactor = 0
     }
 }
 
@@ -302,6 +306,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          controller: self.controller,
                                          verbose: self.verbose,
                                          cleanupTime: self.subscriptionConfig.cleanupTime,
+                                         stalePlayoutFactor: self.subscriptionConfig.stalePlayoutFactor,
                                          callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)

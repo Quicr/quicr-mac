@@ -24,6 +24,7 @@ class VideoSubscription: Subscription {
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
     private let verbose: Bool
+    private let stalePlayoutFactor: Double
 
     var handler: VideoHandler?
     let handlerLock = OSAllocatedUnfairLock()
@@ -60,6 +61,7 @@ class VideoSubscription: Subscription {
          controller: MoqCallController,
          verbose: Bool,
          cleanupTime: TimeInterval,
+         stalePlayoutFactor: Double,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -81,6 +83,7 @@ class VideoSubscription: Subscription {
         self.relayId = relayId
         self.endpointId = endpointId
         self.cleanupTimer = cleanupTime
+        self.stalePlayoutFactor = stalePlayoutFactor
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -93,7 +96,8 @@ class VideoSubscription: Subscription {
                                        variances: variances,
                                        participantId: participantId,
                                        subscribeDate: self.creationDate,
-                                       joinDate: joinDate)
+                                       joinDate: joinDate,
+                                       stalePlayoutFactor: stalePlayoutFactor)
         self.token = handler.registerCallback(callback)
         self.handler = handler
         try super.init(profile: profile,
@@ -215,7 +219,8 @@ class VideoSubscription: Subscription {
                                              variances: self.variances,
                                              participantId: self.participantId,
                                              subscribeDate: self.creationDate,
-                                             joinDate: self.joinDate)
+                                             joinDate: self.joinDate,
+                                             stalePlayoutFactor: self.stalePlayoutFactor)
             self.token = recreated.registerCallback(self.callback)
             self.handler = recreated
             handler = recreated

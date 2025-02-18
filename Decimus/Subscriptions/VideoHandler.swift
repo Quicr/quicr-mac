@@ -71,6 +71,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let participantId: ParticipantId
     private var participant: VideoParticipant?
     private var participantLock = OSAllocatedUnfairLock()
+    private let stalePlayoutFactor: Double
 
     /// Create a new video handler.
     /// - Parameters:
@@ -96,7 +97,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
          variances: VarianceCalculator,
          participantId: ParticipantId,
          subscribeDate: Date,
-         joinDate: Date) throws {
+         joinDate: Date,
+         stalePlayoutFactor: Double) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -117,6 +119,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
         self.participantId = participantId
+        self.stalePlayoutFactor = stalePlayoutFactor
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -423,6 +426,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
             while !Task.isCancelled {
                 let waitTime: TimeInterval
                 let now: Date
+                let staleWaitTime: Double
                 if let self = self {
                     now = Date.now
 
@@ -431,21 +435,24 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     if let pid = self.dequeueBehaviour as? PIDDequeuer {
                         pid.currentDepth = jitterBuffer.getDepth()
                         waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
+                        staleWaitTime = 0
                     } else {
                         guard let duration = self.duration else {
                             Self.logger.error("Missing duration")
                             return
                         }
                         waitTime = calculateWaitTime(from: now) ?? duration
+                        staleWaitTime = self.stalePlayoutFactor > 0 ? duration / self.stalePlayoutFactor : 0
                     }
                 } else {
                     return
                 }
 
                 // Sleep without holding a strong reference.
-                if waitTime > 0 {
-                    try? await Task.sleep(for: .seconds(waitTime),
-                                          tolerance: .seconds(waitTime / 2),
+                let sleepTime = waitTime > 0 ? waitTime : staleWaitTime
+                if sleepTime > 0 {
+                    try? await Task.sleep(for: .seconds(sleepTime),
+                                          tolerance: .seconds(sleepTime / 2),
                                           clock: .continuous)
                 }
 

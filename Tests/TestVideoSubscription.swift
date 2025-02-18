@@ -55,6 +55,7 @@ struct TestVideoSubscription {
                                      controller: controller,
                                      verbose: true,
                                      cleanupTime: 1.5,
+                                     stalePlayoutFactor: 0,
                                      callback: ({ _, _, _ in }),
                                      statusChanged: ({_ in }))
     }
