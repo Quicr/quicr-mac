@@ -12,7 +12,7 @@ class SlidingTimeWindow<T: Numeric> {
     /// Create a new sliding time window.
     /// - Parameter length: The length of the window.
     /// - Parameter reserved: Optionally, capacity to reserve in elements.
-    init(length: TimeInterval, reserved: Int?) {
+    init(length: TimeInterval, reserved: Int? = nil) {
         self.length = length
         self.values = .init(minimumCapacity: reserved ?? 0)
     }
