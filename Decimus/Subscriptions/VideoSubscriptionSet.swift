@@ -56,6 +56,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private var participant: VideoParticipant?
     private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
+    private let diffWindow: SlidingTimeWindow<TimeInterval>
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -72,7 +73,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          relayId: String,
          codecFactory: CodecFactory,
          joinDate: Date,
-         cleanupTime: TimeInterval) throws {
+         cleanupTime: TimeInterval,
+         slidingWindowTime: TimeInterval) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -123,6 +125,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // Make all the video subscriptions upfront.
         self.profiles = createdProfiles
+        let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
+        let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
+        self.diffWindow = .init(length: slidingWindowTime, reserved: Int(capacityGuess))
 
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
@@ -177,21 +182,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
-        // Set the timestamp diff from the first recveived live object.
+        // Set the timestamp diff using the min value from recent live objects.
         if !cached {
-            if self.timestampTimeDiff == nil {
-                self.timestampTimeDiff = when.timeIntervalSince1970 - timestamp
-            }
+            let diff = when.timeIntervalSince1970 - timestamp
+            self.diffWindow.add(timestamp: when, value: diff)
+            self.timestampTimeDiff = self.diffWindow.get(from: when).min()
 
-            // Set this diff for all handlers, if not already.
+            // Set this diff for all handlers.
             if let diff = self.timestampTimeDiff {
                 let subscriptions = self.getHandlers()
                 for (_, sub) in subscriptions {
                     let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-                    sub.handlerLock.withLock {
-                        guard let handler = sub.handler else { return }
-                        handler.setTimeDiff(diff: diff)
-                    }
+                    guard let handler = sub.handlerLock.withLock({ sub.handler }) else { continue }
+                    handler.setTimeDiff(diff: diff)
                 }
             }
         }

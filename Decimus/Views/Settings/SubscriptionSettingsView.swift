@@ -53,6 +53,13 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .labelsHidden()
                 }
+                LabeledContent("Jitter Sample Window (s)") {
+                    TextField(
+                        "Window (s)",
+                        value: self.$subscriptionConfig.value.videoJitterBuffer.window,
+                        format: .number)
+                        .labelsHidden()
+                }
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
                 LabeledToggle("KeyFrame on Update",
