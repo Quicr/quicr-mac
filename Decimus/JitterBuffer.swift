@@ -25,6 +25,8 @@ class JitterBuffer {
         var minDepth: TimeInterval = 0.2
         /// The maximum storage capacity of the jitter buffer.
         var capacity: TimeInterval = 5
+        /// The window over which jitter is calculated.
+        var window: TimeInterval = 5
     }
 
     /// Possible modes of jitter buffer usage.

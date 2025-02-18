@@ -228,7 +228,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
                                             joinDate: self.joinDate,
-                                            cleanupTime: self.subscriptionConfig.cleanupTime)
+                                            cleanupTime: self.subscriptionConfig.cleanupTime,
+                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
         }
 
         if found.isSubset(of: opusCodecs) {
