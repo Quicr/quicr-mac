@@ -60,6 +60,13 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .labelsHidden()
                 }
+                LabeledContent("Stale Playout Factor (x)") {
+                    TextField(
+                        "Factor (x)",
+                        value: self.$subscriptionConfig.value.stalePlayoutFactor,
+                        format: .number)
+                        .labelsHidden()
+                }
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
                 LabeledToggle("KeyFrame on Update",
