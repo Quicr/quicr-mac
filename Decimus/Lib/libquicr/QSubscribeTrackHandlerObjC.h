@@ -23,10 +23,14 @@
 
 -(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder filterType: (QFilterType) filterType;
 -(QSubscribeTrackHandlerStatus) getStatus;
+-(void) setPriority: (uint8_t) priority;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
 -(uint8_t) getPriority;
 -(QGroupOrder) getGroupOrder;
 -(QFilterType) getFilterType;
+-(NSNumber* _Nullable) getLatestGroupId;
+-(NSNumber* _Nullable) getLatestObjectId;
+-(void) requestNewGroup;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 
 @end
