@@ -52,6 +52,7 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void) setDefaultPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;
+-(void) setDefaultTrackMode: (QTrackMode) trackMode;
 -(QPublishTrackHandlerStatus) getStatus;
 
 @end
