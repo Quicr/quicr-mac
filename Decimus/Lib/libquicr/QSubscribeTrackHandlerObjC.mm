@@ -22,6 +22,11 @@
     return static_cast<QSubscribeTrackHandlerStatus>(status);
 }
 
+-(void) setPriority: (uint8_t)priority {
+    assert(handlerPtr);
+    return handlerPtr->SetPriority(priority);
+}
+
 -(id<QFullTrackName>) getFullTrackName {
     assert(handlerPtr);
     return ftnConvert(handlerPtr->GetFullTrackName());
@@ -40,6 +45,29 @@
 -(QFilterType) getFilterType {
     assert(handlerPtr);
     return static_cast<QFilterType>(handlerPtr->GetFilterType());
+}
+
+-(NSNumber* _Nullable) getLatestGroupId {
+    assert(handlerPtr);
+    auto groupId = handlerPtr->GetLatestGroupID();
+    if (groupId.has_value()) {
+        return [NSNumber numberWithUnsignedLongLong:groupId.value()];
+    }
+    return nullptr;
+}
+
+-(NSNumber* _Nullable) getLatestObjectId {
+    assert(handlerPtr);
+    auto objectId = handlerPtr->GetLatestObjectID();
+    if (objectId.has_value()) {
+        return [NSNumber numberWithUnsignedLongLong:objectId.value()];
+    }
+    return nullptr;
+}
+
+-(void) requestNewGroup {
+    assert(handlerPtr);
+    handlerPtr->RequestNewGroup();
 }
 
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
