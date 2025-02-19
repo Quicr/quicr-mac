@@ -177,8 +177,7 @@ class H264Publication: Publication, FrameListener {
 
     override func statusChanged(_ status: QPublishTrackHandlerStatus) {
         super.statusChanged(status)
-        if self.keyFrameOnUpdate,
-           status == .subscriptionUpdated {
+        if (status == .subscriptionUpdated && self.keyFrameOnUpdate) || status == .newGroupRequested {
             self.generateKeyFrame.store(true, ordering: .releasing)
         }
     }
