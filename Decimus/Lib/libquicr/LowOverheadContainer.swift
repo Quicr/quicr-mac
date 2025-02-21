@@ -75,19 +75,19 @@ class LowOverheadContainer {
         switch data.count {
         case MemoryLayout<UInt64>.size:
             data.withUnsafeBytes {
-                $0.load(as: UInt64.self)
+                $0.loadUnaligned(as: UInt64.self)
             }
         case MemoryLayout<UInt32>.size:
             data.withUnsafeBytes {
-                $0.load(as: UInt32.self)
+                $0.loadUnaligned(as: UInt32.self)
             }
         case MemoryLayout<UInt16>.size:
             data.withUnsafeBytes {
-                $0.load(as: UInt16.self)
+                $0.loadUnaligned(as: UInt16.self)
             }
         case MemoryLayout<UInt8>.size:
             data.withUnsafeBytes {
-                $0.load(as: UInt8.self)
+                $0.loadUnaligned(as: UInt8.self)
             }
         default:
             throw LowOverheadContainerError.unparsableField
