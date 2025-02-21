@@ -8,8 +8,8 @@ import Accelerate
 
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
-    static let energyLevelKey: NSNumber = 3
-    static let participantIdKey: NSNumber = 4
+    static let energyLevelKey: NSNumber = 6
+    static let participantIdKey: NSNumber = 8
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder

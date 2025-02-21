@@ -9,12 +9,14 @@ let microsecondsPerSecond: TimeInterval = 1_000_000
 enum LowOverheadContainerError: Error {
     /// The container was missing a mandatory field.
     case missingField
+    /// A field's value could not be parsed.
+    case unparsableField
 }
 
 /// Representation of https://datatracker.ietf.org/doc/draft-mzanaty-moq-loc/
 class LowOverheadContainer {
-    private let timestampKey: NSNumber = 1
-    private let sequenceKey: NSNumber = 2
+    private let timestampKey: NSNumber = 2
+    private let sequenceKey: NSNumber = 4
 
     /// Contained object's timestamp.
     let timestamp: Date
@@ -64,12 +66,31 @@ class LowOverheadContainer {
             throw LowOverheadContainerError.missingField
         }
 
-        let timestamp: UInt64 = timestampData.withUnsafeBytes {
-            return $0.load(as: UInt64.self)
-        }
+        let timestamp = try Self.parse(timestampData)
         self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / microsecondsPerSecond)
-        self.sequence = sequenceData.withUnsafeBytes {
-            return $0.load(as: UInt64.self)
+        self.sequence = UInt64(try Self.parse(sequenceData))
+    }
+
+    static func parse(_ data: Data) throws -> any BinaryInteger {
+        switch data.count {
+        case MemoryLayout<UInt64>.size:
+            data.withUnsafeBytes {
+                $0.load(as: UInt64.self)
+            }
+        case MemoryLayout<UInt32>.size:
+            data.withUnsafeBytes {
+                $0.load(as: UInt32.self)
+            }
+        case MemoryLayout<UInt16>.size:
+            data.withUnsafeBytes {
+                $0.load(as: UInt16.self)
+            }
+        case MemoryLayout<UInt8>.size:
+            data.withUnsafeBytes {
+                $0.load(as: UInt8.self)
+            }
+        default:
+            throw LowOverheadContainerError.unparsableField
         }
     }
 }
