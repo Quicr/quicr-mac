@@ -251,6 +251,15 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
 
     @Test("Keyframe on subscribe update")
     func testKeyFrameOnPublishFailure() async throws {
+        try await self.testKeyFrame(.subscriptionUpdated)
+    }
+
+    @Test("Keyframe on new group")
+    func testKeyFrameOnNewGroup() async throws {
+        try await self.testKeyFrame(.newGroupRequested)
+    }
+
+    func testKeyFrame(_ toSet: QPublishTrackHandlerStatus) async throws {
         guard let device = AVCaptureDevice.systemPreferredCamera else {
             _ = XCTSkip("Can't test without a camera")
             return
@@ -258,7 +267,7 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
         var status: QPublishTrackHandlerStatus?
         try await confirmation(expectedCount: 3) { confirmation in
             let encoder = MockEncoder { _, _, keyFrame in
-                #expect(keyFrame == (status == .subscriptionUpdated))
+                #expect(keyFrame == (status == toSet))
                 confirmation()
             }
 
@@ -286,7 +295,7 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                                                       verbose: true,
                                                       keyFrameOnUpdate: true) { _, objectId in
                 // When this is a key frame, object ID should be 0.
-                if status == .subscriptionUpdated {
+                if status == toSet {
                     #expect(lastObjectId != 0)
                     #expect(objectId == 0)
                 }
@@ -303,7 +312,7 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
             publication.onFrame(sample, timestamp: .now)
 
             // key frame.
-            status = .subscriptionUpdated
+            status = toSet
             publication.statusChanged(status!)
             publication.onFrame(sample, timestamp: .now)
 
