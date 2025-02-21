@@ -197,7 +197,7 @@ class H264Publication: Publication, FrameListener {
 
         // If we're not in a state to be publishing, don't go any further.
         let status = self.getStatus()
-        guard status == .ok || status == .subscriptionUpdated else {
+        guard status == .ok || status == .subscriptionUpdated || status == .newGroupRequested else {
             self.logger.debug("Didn't encode due to publication status: \(status)")
             return
         }
