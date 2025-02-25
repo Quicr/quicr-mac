@@ -10,6 +10,14 @@ import os
 /// Forwards data from callbacks.
 class VideoSubscription: Subscription {
     typealias StatusChanged = (_ status: QSubscribeTrackHandlerStatus) -> Void
+    struct JoinConfig<T: Codable>: Codable {
+        var fetchUpperThreshold: T
+        var newGroupUpperThreshold: T
+    }
+    struct Config {
+        let joinConfig: JoinConfig<UInt64>
+    }
+
     private let fullTrackName: FullTrackName
     private let config: VideoCodecConfig
     private let participants: VideoParticipants
@@ -24,6 +32,8 @@ class VideoSubscription: Subscription {
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
     private let verbose: Bool
+    private let subscriptionConfig: Config
+    private let joinConfig: JoinConfig<UInt64>
 
     var handler: VideoHandler?
     let handlerLock = OSAllocatedUnfairLock()
@@ -36,12 +46,62 @@ class VideoSubscription: Subscription {
     private let joinDate: Date
     private let endpointId: String
     private let relayId: String
-
-    // Fetch.
     private let controller: MoqCallController
-    private var fetch: Fetch?
-    private var fetched = false
     private var postCleanup = ManagedAtomic(false)
+
+    // State machine.
+    private var stateMachine = StateMachine()
+
+    /// Possible states the video subscription can be in.
+    private enum State: Equatable {
+        /// We're waiting to make a decision about how to join the video stream.
+        case startup
+        /// We're running as normal, passing to handler.
+        case running
+        /// We're currently fetching, processing fetched and live objects.
+        case fetching(_ inProgress: Fetch)
+        /// We're waiting for a new group to start, dropping anything else.
+        case waitingForNewGroup
+    }
+    private enum StateMachineError: Error {
+        case badTransition(_ from: State, _ to: State)
+    }
+    /// Models possible states and transitions for a video subscription.
+    private struct StateMachine {
+        var state = State.startup
+        func transition(to newState: State) throws -> Self {
+            var result = self
+            var valid: Bool {
+                switch self.state {
+                case .startup:
+                    // Start->X is valid.
+                    return true
+                case .running:
+                    // Running->X is invalid.
+                    return false
+                case .fetching:
+                    switch newState {
+                    case .running:
+                        // Fetching->Running when FETCH complete or cancelled.
+                        return true
+                    default:
+                        return false
+                    }
+                case .waitingForNewGroup:
+                    switch newState {
+                    case .running:
+                        // WaitingForNewGroup->Running when NEWGROUP received.
+                        return true
+                    default:
+                        return false
+                    }
+                }
+            }
+            guard valid else { throw StateMachineError.badTransition(self.state, newState) }
+            result.state = newState
+            return result
+        }
+    }
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -60,6 +120,7 @@ class VideoSubscription: Subscription {
          controller: MoqCallController,
          verbose: Bool,
          cleanupTime: TimeInterval,
+         subscriptionConfig: Config,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -81,6 +142,7 @@ class VideoSubscription: Subscription {
         self.relayId = relayId
         self.endpointId = endpointId
         self.cleanupTimer = cleanupTime
+        self.subscriptionConfig = subscriptionConfig
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -96,6 +158,7 @@ class VideoSubscription: Subscription {
                                        joinDate: joinDate)
         self.token = handler.registerCallback(callback)
         self.handler = handler
+        self.joinConfig = subscriptionConfig.joinConfig
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -120,11 +183,111 @@ class VideoSubscription: Subscription {
         self.postCleanup.store(true, ordering: .releasing)
     }
 
+    /// What should happen to a video object based on state.
+    enum Result {
+        /// Process this object.
+        /// ``start`` if playout should start as well.
+        case normal(_ start: Bool)
+        /// Drop this object.
+        case drop
+    }
+
+    private func determineState(objectHeaders: QObjectHeaders) -> Result {
+        // swiftlint:disable force_try
+        var getAction: Result { switch self.stateMachine.state {
+        case .running:
+            // Process.
+            return .normal(false)
+        case .fetching(let fetch):
+            if objectHeaders.objectId == 0 {
+                // The in-progress FETCH has been overrun, cancel it, play.
+                self.logger.debug("Cancelling in progress fetch")
+                do {
+                    try self.controller.cancelFetch(fetch)
+                } catch {
+                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
+                }
+                self.stateMachine = try! self.stateMachine.transition(to: .running)
+                return .normal(true)
+            }
+            // Carry on, but don't play yet.
+            return .normal(false)
+        case .startup:
+            guard objectHeaders.objectId != 0 else {
+                // We started on a group, play.
+                self.logger.debug("No fetch needed")
+                self.stateMachine = try! self.stateMachine.transition(to: .running)
+                return .normal(true)
+            }
+
+            guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
+                // Too far in, just wait.
+                self.logger.debug("Waiting for new group")
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                return .drop
+            }
+
+            guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
+                // Not close enough to the start, new group and wait.
+                self.logger.debug("Requesting new group")
+                self.requestNewGroup()
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                return .drop
+            }
+
+            // Close to the start, FETCH.
+            do {
+                let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
+                                           currentObject: objectHeaders.objectId)
+                self.stateMachine = try! self.stateMachine.transition(to: .fetching(fetch))
+                // Process, don't play.
+                return .normal(false)
+            } catch {
+                // Fallback to waiting for new group behaviour.
+                self.logger.error("Failed to start fetch: \(error.localizedDescription)")
+
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                return .drop
+            }
+        case .waitingForNewGroup:
+            guard objectHeaders.groupId == 0 else {
+                // Drop non-newgroup objects.
+                if self.verbose {
+                    self.logger.debug(
+                        "Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) while waiting for new group")
+                }
+                return .drop
+            }
+            // Start from this new group, play.
+            self.stateMachine = try! self.stateMachine.transition(to: .running)
+            return .normal(true)
+        }
+        }
+        // swiftlint:enable force_try
+
+        // Override playout to true if we cleaned up.
+        let action = getAction
+        var start: Bool {
+            switch action {
+            case .normal(let start):
+                guard !start else { return false }
+                return self.postCleanup.compareExchange(expected: true,
+                                                        desired: false,
+                                                        ordering: .acquiringAndReleasing).exchanged
+            default:
+                return false
+            }
+        }
+        return start ? .normal(true) : action
+    }
+
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        // Per-frame logging.
         if self.verbose {
             self.logger.debug("Received: \(objectHeaders.groupId) \(objectHeaders.objectId)")
         }
 
+        // Start the cleanup task, if not already.
         if self.cleanupTask == nil {
             self.cleanupTask = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
@@ -145,6 +308,7 @@ class VideoSubscription: Subscription {
         let now = Date.now
         self.lastUpdateTime = now
 
+        // Get a handler for video.
         let handler: VideoHandler
         do {
             handler = try self.getCreateHandler()
@@ -153,47 +317,16 @@ class VideoSubscription: Subscription {
             return
         }
 
-        // Do we need to start a fetch?
-        var setPlay = false
-        if !self.fetched {
-            if objectHeaders.objectId == 0 {
-                // We don't need a fetch.
-                self.logger.debug("No fetch needed")
-                self.fetched = true
-                setPlay = true
-
-                // Cancel existing, if any.
-                if let fetch = self.fetch {
-                    self.logger.debug("Cancelling in progress fetch")
-                    do {
-                        try self.controller.cancelFetch(fetch)
-                    } catch {
-                        self.logger.warning("Failed to cancel in progress fetch: \(error.localizedDescription)")
-                    }
-                    self.fetch = nil
-                }
-            } else if self.fetch == nil {
-                do {
-                    try self.fetch(currentGroup: objectHeaders.groupId,
-                                   currentObject: objectHeaders.objectId)
-                } catch {
-                    self.logger.error("Failed to fetch: \(error.localizedDescription)")
-                }
+        // Check for action & state change.
+        switch self.determineState(objectHeaders: objectHeaders) {
+        case .drop:
+            return
+        case .normal(let start):
+            handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
+            if start {
+                self.logger.debug("Starting video playout - live")
+                handler.play()
             }
-        }
-
-        // Handle this object.
-        handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
-
-        // Mark the video handler to start playing.
-        var cleanup: Bool {
-            self.postCleanup.compareExchange(expected: true,
-                                             desired: false,
-                                             ordering: .acquiringAndReleasing).exchanged
-        }
-        if setPlay || cleanup {
-            self.logger.debug("Starting video playout")
-            handler.play()
         }
     }
 
@@ -224,7 +357,7 @@ class VideoSubscription: Subscription {
         return handler
     }
 
-    private func fetch(currentGroup: UInt64, currentObject: UInt64) throws {
+    private func fetch(currentGroup: UInt64, currentObject: UInt64) throws -> Fetch {
         // TODO: What should the priority be?
         self.logger.debug("Starting fetch for \(currentGroup):0->\(currentObject)")
         let fetch = CallbackFetch(ftn: self.fullTrackName,
@@ -241,10 +374,11 @@ class VideoSubscription: Subscription {
                                   statusChanged: { [weak self] status in
                                     guard let self = self else { return }
                                     let message = "Fetch status changed: \(status)"
-                                    if status.isError && !self.fetched && status == .notConnected {
-                                        self.logger.error(message)
-                                    } else {
+                                    if !status.isError || (status == .notConnected
+                                                            && self.stateMachine.state == .running) {
                                         self.logger.info(message)
+                                    } else {
+                                        self.logger.error(message)
                                     }
                                   },
                                   objectReceived: {[weak self] headers, data, extensions in
@@ -255,8 +389,8 @@ class VideoSubscription: Subscription {
                                                          currentGroup: currentGroup,
                                                          currentObject: currentObject)
                                   })
-        self.fetch = fetch
         try controller.fetch(fetch)
+        return fetch
     }
 
     private func onFetchedObject(headers: QObjectHeaders,
@@ -275,10 +409,20 @@ class VideoSubscription: Subscription {
         if headers.groupId == currentGroup,
            headers.objectId == currentObject - 1 {
             self.logger.info("Video Fetch complete")
-            self.fetched = true
+            switch self.stateMachine.state {
+            case .fetching(let fetch):
+                do {
+                    try self.controller.cancelFetch(fetch)
+                } catch {
+                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
+                }
+            default:
+                assert(false)
+                self.logger.warning("Subscription in invalid state", alert: true)
+            }
+            self.stateMachine = try! self.stateMachine.transition(to: .running) // swiftlint:disable:this force_try
+            self.logger.debug("Starting video playout - fetch")
             handler.play()
-            guard let fetch = self.fetch else { return }
-            try? self.controller.cancelFetch(fetch)
         }
     }
 }
