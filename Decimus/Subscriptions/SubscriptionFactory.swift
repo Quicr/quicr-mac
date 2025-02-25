@@ -98,6 +98,8 @@ struct SubscriptionConfig: Codable {
     var keyFrameOnUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
+    /// Stream join time rules.
+    var joinConfig: VideoSubscription.JoinConfig<TimeInterval>
 
     /// Create with default settings.
     init() {
@@ -128,6 +130,7 @@ struct SubscriptionConfig: Codable {
         stagger = true
         self.keyFrameOnUpdate = true
         self.cleanupTime = 1.5
+        self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
     }
 }
 
@@ -285,15 +288,20 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 throw "VideoConfig expects a VideoSubscriptionSet"
             }
             let ftn = try profile.getFullTrackName()
+            let subConfig = self.subscriptionConfig
+            let fetch = subConfig.joinConfig.fetchUpperThreshold * (1.0 / TimeInterval(videoConfig.fps))
+            let newGroup = subConfig.joinConfig.newGroupUpperThreshold * (1.0 / TimeInterval(videoConfig.fps))
+            let joinConfig = VideoSubscription.JoinConfig<UInt64>(fetchUpperThreshold: UInt64(fetch),
+                                                                  newGroupUpperThreshold: UInt64(newGroup))
             return try VideoSubscription(profile: profile,
                                          config: videoConfig,
                                          participants: self.videoParticipants,
                                          metricsSubmitter: self.metricsSubmitter,
-                                         videoBehaviour: self.subscriptionConfig.videoBehaviour,
-                                         reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                         videoBehaviour: subConfig.videoBehaviour,
+                                         reliable: subConfig.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
-                                         jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
-                                         simulreceive: self.subscriptionConfig.simulreceive,
+                                         jitterBufferConfig: subConfig.videoJitterBuffer,
+                                         simulreceive: subConfig.simulreceive,
                                          variances: set.decodedVariances,
                                          endpointId: endpointId,
                                          relayId: relayId,
@@ -301,7 +309,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          joinDate: self.joinDate,
                                          controller: self.controller,
                                          verbose: self.verbose,
-                                         cleanupTime: self.subscriptionConfig.cleanupTime,
+                                         cleanupTime: subConfig.cleanupTime,
+                                         subscriptionConfig: .init(joinConfig: joinConfig),
                                          callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
