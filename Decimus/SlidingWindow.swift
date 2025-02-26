@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import DequeModule
+import os
 
 /// Container for a sliding time window of values
 /// whose validity is determined by age.
 class SlidingTimeWindow<T: Numeric> {
     private var values: Deque<(timestamp: Date, value: T)>
     private let length: TimeInterval
+    private let lock = OSAllocatedUnfairLock()
 
     /// Create a new sliding time window.
     /// - Parameter length: The length of the window.
@@ -22,21 +24,24 @@ class SlidingTimeWindow<T: Numeric> {
     ///  - timestamp: The timestamp of the value.
     ///  - value: The value to add.
     func add(timestamp: Date, value: T) {
-        // Remove values that are too old.
-        while let first = self.values.first,
-              timestamp.timeIntervalSince(first.timestamp) > self.length {
-            _ = self.values.popFirst()
+        self.lock.withLock {
+            self.values.append((timestamp, value))
         }
-
-        self.values.append((timestamp, value))
     }
 
     /// Given a point in time, return all older values within the window.
     /// - Parameter from: The time from which the window will start.
     /// - Returns: An array of values no older than the window.
     func get(from: Date) -> [T] {
-        self.values.compactMap {
-            from.timeIntervalSince($0.timestamp) <= self.length ? $0.value : nil
+        self.lock.withLock {
+            var toRemove = IndexSet()
+            for index in self.values.indices {
+                let element = self.values[index]
+                guard from.timeIntervalSince(element.timestamp) > self.length else { break }
+                toRemove.insert(index)
+            }
+            self.values.remove(atOffsets: toRemove)
+            return self.values.reduce(into: []) { $0.append($1.value) }
         }
     }
 }
