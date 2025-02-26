@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Atomics
 import os
 import CoreMedia
 
@@ -49,7 +50,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
-    private var timestampTimeDiff: TimeInterval?
+    private var timestampTimeDiff = ManagedAtomic<UInt64>(0)
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
@@ -57,6 +58,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let participantLock = OSAllocatedUnfairLock()
     private let joinDate: Date
     private let diffWindow: SlidingTimeWindow<TimeInterval>
+    private var windowMaintenance: Task<(), Never>?
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -178,25 +180,55 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         return result
     }
 
+    private func doWindowMaintenance() {
+        let calculated = self.diffWindow.get(from: .now).min()
+        guard let calculated = calculated else {
+            self.timestampTimeDiff.store(0, ordering: .releasing)
+            return
+        }
+        self.timestampTimeDiff.store(UInt64(calculated * microsecondsPerSecond), ordering: .releasing)
+        let subscriptions = self.getHandlers()
+        for (_, sub) in subscriptions {
+            let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
+            guard let handler = sub.handlerLock.withLock({ sub.handler }) else { continue }
+            handler.setTimeDiff(diff: calculated)
+        }
+    }
+
+    private func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date) {
+        // Record this diff.
+        let diff = when.timeIntervalSince1970 - timestamp
+        self.diffWindow.add(timestamp: when, value: diff)
+
+        // Kick off a task for sliding window.
+        if self.windowMaintenance == nil {
+            self.windowMaintenance = .init(priority: .utility) { [weak self] in
+                while !Task.isCancelled {
+                    if let self = self {
+                        self.doWindowMaintenance()
+                    } else {
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+            }
+        }
+
+        // If we have nothing, start with this.
+        if self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
+            let diff = self.diffWindow.get(from: when).min()
+            guard let diff = diff else { return }
+            self.timestampTimeDiff.store(UInt64(diff * microsecondsPerSecond), ordering: .releasing)
+        }
+    }
+
     /// Inform the set that a video frame from a managed subscription arrived.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
         // Set the timestamp diff using the min value from recent live objects.
         if !cached {
-            let diff = when.timeIntervalSince1970 - timestamp
-            self.diffWindow.add(timestamp: when, value: diff)
-            self.timestampTimeDiff = self.diffWindow.get(from: when).min()
-
-            // Set this diff for all handlers.
-            if let diff = self.timestampTimeDiff {
-                let subscriptions = self.getHandlers()
-                for (_, sub) in subscriptions {
-                    let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-                    guard let handler = sub.handlerLock.withLock({ sub.handler }) else { continue }
-                    handler.setTimeDiff(diff: diff)
-                }
-            }
+            self.doTimestampTimeDiff(timestamp, when: when)
         }
 
         // Calculate switching set arrival variance.
