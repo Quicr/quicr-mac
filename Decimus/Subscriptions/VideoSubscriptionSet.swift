@@ -538,8 +538,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                     }
                     do {
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                        try participant.view.enqueue(selectedSample,
-                                                     transform: transform)
+                        try participant.enqueue(selectedSample,
+                                                transform: transform)
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }
