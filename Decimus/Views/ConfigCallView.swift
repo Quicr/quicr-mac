@@ -7,13 +7,13 @@ struct ConfigCallView: View {
     @State private var config: CallConfig?
 
     var body: some View {
-        if config != nil {
-            InCallView(config: config!) { config = nil }
+        if let config = self.config {
+            InCallView(config: config) { self.config = nil }
             #if !os(tvOS) && !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
         } else {
-            CallSetupView { self.config = $0 }
+            CallSetupView(config: self.$config)
             #if !os(tvOS) && !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
