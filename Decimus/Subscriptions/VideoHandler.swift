@@ -4,6 +4,7 @@
 import AVFoundation
 import Atomics
 import os
+import Synchronization
 
 enum DecimusVideoRotation: UInt8 {
     case portrait = 1
@@ -58,7 +59,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let simulreceive: SimulreceiveMode
     var lastDecodedImage: AvailableImage?
     let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
+    private let timestampTimeDiffUs = Atomic(Int128.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -333,7 +334,10 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     func calculateWaitTime(from: Date) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else { return nil }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
+        guard diffUs != 0 else {
+            Self.logger.debug("Missing initial timestamp")
+            return nil
+        }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
@@ -345,7 +349,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
             return nil
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else {
+        guard diffUs != 0 else {
             assert(false)
             Self.logger.warning("Missing initial timestamp")
             return nil
@@ -498,10 +502,10 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     /// Set the difference in time between incoming stream timestamps and wall clock.
     /// - Parameter diff: Difference in time in seconds.
     func setTimeDiff(diff: TimeInterval) {
-        let diffUs = max(Int64(diff * microsecondsPerSecond), 1)
-        _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                     desired: diffUs,
-                                                     ordering: .acquiringAndReleasing)
+        // Get to an integer representation, in microseconds.
+        let diffUs = Int128(diff * microsecondsPerSecond)
+        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
+        self.timestampTimeDiffUs.store(diffUs != 0 ? diffUs : 1, ordering: .releasing)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
