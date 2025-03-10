@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
 import Atomics
 import os
 import CoreMedia
@@ -50,7 +51,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
-    private var timestampTimeDiff = ManagedAtomic<UInt64>(0)
+    private let timestampTimeDiff = Atomic<Int128>(0)
     private var liveSubscriptions: Set<FullTrackName> = []
     private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
@@ -180,13 +181,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         return result
     }
 
-    private func doWindowMaintenance() {
-        let calculated = self.diffWindow.get(from: .now).min()
-        guard let calculated = calculated else {
+    private func doWindowMaintenance(when: Date) {
+        let values = self.diffWindow.get(from: when)
+        guard let calculated = values.closestToZero() else {
             self.timestampTimeDiff.store(0, ordering: .releasing)
             return
         }
-        self.timestampTimeDiff.store(UInt64(calculated * microsecondsPerSecond), ordering: .releasing)
+        self.timestampTimeDiff.store(Int128(calculated * microsecondsPerSecond), ordering: .releasing)
         let subscriptions = self.getHandlers()
         for (_, sub) in subscriptions {
             let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
@@ -205,7 +206,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             self.windowMaintenance = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
                     if let self = self {
-                        self.doWindowMaintenance()
+                        self.doWindowMaintenance(when: Date.now)
                     } else {
                         return
                     }
@@ -216,9 +217,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // If we have nothing, start with this.
         if self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
-            let diff = self.diffWindow.get(from: when).min()
-            guard let diff = diff else { return }
-            self.timestampTimeDiff.store(UInt64(diff * microsecondsPerSecond), ordering: .releasing)
+            self.doWindowMaintenance(when: when)
         }
     }
 

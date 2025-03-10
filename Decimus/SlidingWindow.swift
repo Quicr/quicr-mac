@@ -45,3 +45,10 @@ class SlidingTimeWindow<T: Numeric> {
         }
     }
 }
+
+extension Collection where Element: SignedNumeric & Comparable {
+    /// Returns the element with the smallest absolute value, or nil if the collection is empty.
+    func closestToZero() -> Element? {
+        return self.min { abs($0) < abs($1) }
+    }
+}
