@@ -83,7 +83,6 @@
 		9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */; };
 		9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscription.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
-		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
 		9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */; };
 		9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */; };
@@ -417,7 +416,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */,
@@ -846,7 +844,6 @@
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
-				9B8B6F672B9B01F700FBB0D1 /* Atomics */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -887,7 +884,6 @@
 				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
-				9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
@@ -1539,14 +1535,6 @@
 				minimumVersion = 0.56.1;
 			};
 		};
-		9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-atomics.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.0;
-			};
-		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -1590,11 +1578,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
 			productName = "plugin:SwiftLintBuildToolPlugin";
-		};
-		9B8B6F672B9B01F700FBB0D1 /* Atomics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
-			productName = Atomics;
 		};
 		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;

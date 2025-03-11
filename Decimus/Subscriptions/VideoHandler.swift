@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFoundation
-import Atomics
 import os
 import Synchronization
 
@@ -51,8 +50,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     var verticalMirror: Bool {
         atomicMirror.load(ordering: .acquiring)
     }
-    private var atomicOrientation = ManagedAtomic<UInt8>(0)
-    private var atomicMirror = ManagedAtomic<Bool>(false)
+    private let atomicOrientation = Atomic<UInt8>(0)
+    private let atomicMirror = Atomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?

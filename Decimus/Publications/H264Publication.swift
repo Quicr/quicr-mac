@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Atomics
 import Foundation
 import AVFoundation
+import Synchronization
 
 enum H264PublicationError: LocalizedError {
     case noCamera(SourceIDType)
@@ -32,9 +32,9 @@ class H264Publication: Publication, FrameListener {
     private var startTime: Date?
     private var currentGroupId: UInt64?
     private var currentObjectId: UInt64 = 0
-    private let generateKeyFrame = ManagedAtomic(false)
+    private let generateKeyFrame = Atomic(false)
     private let stagger: Bool
-    private var publishFailure = ManagedAtomic(false)
+    private let publishFailure = Atomic(false)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
 

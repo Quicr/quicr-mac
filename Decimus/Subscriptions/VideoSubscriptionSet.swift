@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Synchronization
-import Atomics
 import os
 import CoreMedia
 
