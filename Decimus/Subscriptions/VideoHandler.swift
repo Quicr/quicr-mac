@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFoundation
-import os
 import Synchronization
 
 enum DecimusVideoRotation: UInt8 {
@@ -56,21 +55,23 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    var lastDecodedImage: AvailableImage?
-    let lastDecodedImageLock = OSAllocatedUnfairLock()
+    let lastDecodedImage = Mutex<AvailableImage?>(nil)
     private let timestampTimeDiffUs = Atomic(Int128.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
-    private var callbacks: [Int: ObjectReceived] = [:]
-    private var currentCallbackToken = 0
-    private let callbackLock = OSAllocatedUnfairLock()
+
+    private struct Callbacks {
+        var callbacks: [Int: ObjectReceived] = [:]
+        var currentCallbackToken = 0
+    }
+    private let callbacks = Mutex<Callbacks>(.init())
+
     var description = "VideoHandler"
     private let participantId: ParticipantId
-    private var participant: VideoParticipant?
-    private var participantLock = OSAllocatedUnfairLock()
+    private let participant = Mutex<VideoParticipant?>(nil)
 
     /// Create a new video handler.
     /// - Parameters:
@@ -120,9 +121,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
-                    let existing = self.participantLock.withLock {
-                        self.participant
-                    }
+                    let existing = self.participant.get()
                     guard existing == nil else { return VideoParticipant?.none }
                     return try VideoParticipant(id: "\(self.fullTrackName)",
                                                 startDate: joinDate,
@@ -130,10 +129,10 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                                 videoParticipants: self.participants)
                 }
                 guard let participant = participant else { return }
-                self.participantLock.withLock { self.participant = participant }
+                self.participant.withLock { $0 = participant }
             }
         } else {
-            self.participantLock.withLock { self.participant = nil }
+            self.participant.clear()
         }
 
         if jitterBufferConfig.mode != .layer {
@@ -144,13 +143,11 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 if simulreceive != .none {
                     _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                             now: now)
-                    self.lastDecodedImageLock.lock()
-                    defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample,
-                                                  fps: UInt(self.config.fps),
-                                                  discontinous: sample.discontinous)
+                    self.lastDecodedImage.withLock { $0 = .init(image: sample,
+                                                                fps: UInt(self.config.fps),
+                                                                discontinous: sample.discontinous) }
                 }
-                if let participant = self.participantLock.withLock({ self.participant }) {
+                if let participant = self.participant.get() {
                     // Enqueue for rendering.
                     do {
                         try self.enqueueSample(sample: sample,
@@ -175,19 +172,17 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     /// - Parameter callback: Callback to be called.
     /// - Returns: Token for unregister.
     func registerCallback(_ callback: @escaping ObjectReceived) -> Int {
-        self.callbackLock.withLock {
-            self.currentCallbackToken += 1
-            self.callbacks[self.currentCallbackToken] = callback
-            return self.currentCallbackToken
+        self.callbacks.withLock { callbacks in
+            callbacks.currentCallbackToken += 1
+            callbacks.callbacks[callbacks.currentCallbackToken] = callback
+            return callbacks.currentCallbackToken
         }
     }
 
     /// Unregister a previously registered callback.
     /// - Parameter token: Token from a ``registerCallback(_:)`` call.
     func unregisterCallback(_ token: Int) {
-        self.callbackLock.withLock {
-            _ = self.callbacks.removeValue(forKey: token)
-        }
+        _ = self.callbacks.withLock { $0.callbacks.removeValue(forKey: token) }
     }
 
     // MARK: Callbacks.
@@ -226,9 +221,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 }
             }
 
-            let toCall: [ObjectReceived] = self.callbackLock.withLock {
-                Array(self.callbacks.values)
-            }
+            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
                 callback(timestamp, when, cached)
             }
@@ -304,7 +297,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                                             format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
-                    guard let participant = self.participantLock.withLock({ self.participant }) else { return }
+                    guard let participant = self.participant.get() else { return }
                     participant.label = .init(describing: self)
                 }
             }
@@ -535,7 +528,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                guard let participant = self.participantLock.withLock({ self.participant }) else {
+                guard let participant = self.participant.get() else {
                     Self.logger.warning("Missing expected participant")
                     return
                 }
@@ -619,7 +612,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     }
 
     private func flushDisplayLayer() {
-        guard let participant = self.participantLock.withLock({ self.participant }) else { return }
+        guard let participant = self.participant.get() else { return }
         DispatchQueue.main.async {
             do {
                 try participant.view.flush()
