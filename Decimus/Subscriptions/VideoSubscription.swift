@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Atomics
 import os
+import Synchronization
 
 /// Represents a QuicR video subscription.
 /// Holds an object for decoding & rendering.
@@ -41,7 +41,7 @@ class VideoSubscription: Subscription {
     private let controller: MoqCallController
     private var fetch: Fetch?
     private var fetched = false
-    private var postCleanup = ManagedAtomic(false)
+    private let postCleanup = Atomic(false)
 
     init(profile: Profile,
          config: VideoCodecConfig,
