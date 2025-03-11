@@ -328,6 +328,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                    available.image.presentationTimeStamp <= lastTime {
                     // This would be backwards in time, so we'll never use it.
                     lockedImage = nil
+                    return
                 }
                 initialChoices.append(.init(fullTrackName: handler.fullTrackName, image: available))
             }
