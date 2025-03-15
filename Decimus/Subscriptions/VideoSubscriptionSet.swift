@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Synchronization
-import Atomics
-import os
 import CoreMedia
 
 enum SimulreceiveMode: Codable, CaseIterable, Identifiable {
@@ -39,7 +37,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
     private var lastUpdateTime = Date.now
-    private var handlerLock = OSAllocatedUnfairLock()
     private let profiles: [FullTrackName: VideoCodecConfig]
     private let cleanupTimer: TimeInterval
     private var pauseMissCounts: [FullTrackName: Int] = [:]
@@ -52,11 +49,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
     private let timestampTimeDiff = Atomic<Int128>(0)
-    private var liveSubscriptions: Set<FullTrackName> = []
-    private let liveSubscriptionsLock = OSAllocatedUnfairLock()
     private let subscribeDate: Date
-    private var participant: VideoParticipant?
-    private let participantLock = OSAllocatedUnfairLock()
+    private let participant = Mutex<VideoParticipant?>(nil)
     private let joinDate: Date
     private let diffWindow: SlidingTimeWindow<TimeInterval>
     private var windowMaintenance: Task<(), Never>?
@@ -143,7 +137,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                     if let self = self {
                         time = self.cleanupTimer
                         if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
-                            self.participantLock.withLock { self.participant = nil }
+                            self.participant.clear()
                         }
                     } else {
                         return
@@ -176,7 +170,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
            self.getHandlers().isEmpty {
             Self.logger.debug("Destroying simulreceive render as no live subscriptions")
             self.renderTask?.cancel()
-            self.participantLock.withLock { self.participant = nil }
+            self.participant.clear()
         }
         return result
     }
@@ -191,7 +185,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         let subscriptions = self.getHandlers()
         for (_, sub) in subscriptions {
             let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-            guard let handler = sub.handlerLock.withLock({ sub.handler }) else { continue }
+            guard let handler = sub.handler.get() else { continue }
             handler.setTimeDiff(diff: calculated)
         }
     }
@@ -318,7 +312,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         }
     }
 
-    // Caller must lock handlerLock.
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
     private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
@@ -326,17 +319,16 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         var initialChoices: [SimulreceiveItem] = []
         let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
         for subscription in subscriptions {
-            guard let handler = subscription.value.handler else {
+            guard let handler = subscription.value.handler.get() else {
                 continue
             }
-            handler.lastDecodedImageLock.lock()
-            defer { handler.lastDecodedImageLock.unlock() }
-            if let available = handler.lastDecodedImage {
+            handler.lastDecodedImage.withLock { lockedImage in
+                guard let available = lockedImage else { return }
                 if let lastTime = self.lastImage?.image.presentationTimeStamp,
                    available.image.presentationTimeStamp <= lastTime {
                     // This would be backwards in time, so we'll never use it.
-                    handler.lastDecodedImage = nil
-                    continue
+                    lockedImage = nil
+                    return
                 }
                 initialChoices.append(.init(fullTrackName: handler.fullTrackName, image: available))
             }
@@ -351,12 +343,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             // Wait for next.
             let duration: TimeInterval
             if let lastNamespace = self.last,
-               let handler = subscriptions[lastNamespace]?.handler {
+               let handler = subscriptions[lastNamespace]?.handler.get() {
                 duration = handler.calculateWaitTime(from: at) ?? (1 / Double(handler.config.fps))
             } else {
                 var highestFps: UInt16 = 1
                 for subscription in subscriptions {
-                    guard let handler = subscription.value.handler else {
+                    guard let handler = subscription.value.handler.get() else {
                         continue
                     }
                     highestFps = max(highestFps, handler.config.fps)
@@ -368,12 +360,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // Consume all images from our shortlist.
         for choice in choices {
-            let handler = subscriptions[choice.fullTrackName]!.handler!
-            handler.lastDecodedImageLock.withLock {
-                let theirTime = handler.lastDecodedImage?.image.presentationTimeStamp
+            let handler = subscriptions[choice.fullTrackName]!.handler.get()!
+            handler.lastDecodedImage.withLock { lockedImage in
+                let theirTime = lockedImage?.image.presentationTimeStamp
                 let ourTime = choice.image.image.presentationTimeStamp
                 if theirTime == ourTime {
-                    handler.lastDecodedImage = nil
+                    lockedImage = nil
                 }
             }
         }
@@ -429,7 +421,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         guard let subscription = subscriptions[selected.fullTrackName] else {
             throw "Missing expected subscription for namespace: \(selected.fullTrackName)"
         }
-        guard let handler = subscription.handler else {
+        guard let handler = subscription.handler.get() else {
             throw "Missing video hanler for namespace: \(selected.fullTrackName)"
         }
 
@@ -481,7 +473,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             }
             var highestFps: UInt16 = 1
             for subscription in subscriptions {
-                guard let handler = subscription.value.handler else {
+                guard let handler = subscription.value.handler.get() else {
                     continue
                 }
                 highestFps = max(highestFps, handler.config.fps)
@@ -515,23 +507,26 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             // If we don't yet have a participant, make one.
             Task {
                 await MainActor.run {
-                    self.participantLock.lock()
-                    let participant: VideoParticipant
-                    if let existing = self.participant {
-                        participant = existing
-                    } else {
-                        do {
-                            participant = try .init(id: self.sourceId,
-                                                    startDate: self.joinDate,
-                                                    subscribeDate: self.subscribeDate,
-                                                    videoParticipants: self.participants)
-                        } catch {
-                            self.participantLock.unlock()
-                            return
+                    let participant: VideoParticipant? = self.participant.withLock { lockedParticipant in
+                        let participant: VideoParticipant
+                        if let existing = lockedParticipant {
+                            participant = existing
+                        } else {
+                            do {
+                                participant = try .init(id: self.sourceId,
+                                                        startDate: self.joinDate,
+                                                        subscribeDate: self.subscribeDate,
+                                                        videoParticipants: self.participants)
+                                lockedParticipant = participant
+                            } catch {
+                                Self.logger.error("Failed to create participant: \(error.localizedDescription)")
+                                return nil
+                            }
                         }
-                        self.participant = participant
+                        return participant
                     }
-                    self.participantLock.unlock()
+
+                    guard let participant else { return }
                     if let dispatchLabel = dispatchLabel {
                         participant.label = dispatchLabel
                     }
@@ -569,7 +564,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         }
         var highestFps: UInt16 = 1
         for subscription in subscriptions {
-            guard let handler = subscription.value.handler else {
+            guard let handler = subscription.value.handler.get() else {
                 continue
             }
             highestFps = max(highestFps, handler.config.fps)
