@@ -9,9 +9,7 @@ import UIKit
 
 protocol VideoEncoder {
     typealias EncodedCallback = (_ timestamp: Date,
-                                 _ data: UnsafeRawBufferPointer,
-                                 _ idr: Bool,
-                                 _ sequence: UInt64,
+                                 _ sample: CMSampleBuffer,
                                  _ userData: UnsafeRawPointer?) -> Void
     var frameRate: Float64? { get set }
     func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws
@@ -281,89 +279,71 @@ class VTEncoder: VideoEncoder {
         buffer  = sample.dataBuffer!
         #endif
 
-        // Increment frame sequence number
-        // Append Timestamp SEI to buffer
-        self.sequenceNumber += 1
-        let fps = UInt8(self.frameRate ?? Float64(self.config.fps))
-        prependTimestampSEI(fps: fps,
-                            bufferAllocator: self.bufferAllocator)
-
-        // Append Orientation SEI to buffer
-        #if os(iOS) && !targetEnvironment(macCatalyst)
-        do {
-            try prependOrientationSEI(orientation: UIDevice.current.orientation.videoOrientation,
-                                      verticalMirror: verticalMirror,
-                                      bufferAllocator: bufferAllocator)
-        } catch {
-            Self.logger.error("Failed to prepend orientation SEI: \(error.localizedDescription)")
-        }
-        #endif
-
-        // Prepend format data.
-        let idr = sample.isIDR()
-        if idr {
-            // SPS + PPS.
-            guard let parameterSets = try? handleParameterSets(sample: sample) else {
-                Self.logger.error("Failed to handle parameter sets")
-                return
-            }
-
-            // append SPS/PPS to beginning of buffer
-            let totalSize = parameterSets.reduce(0) { current, set in
-                current + set.count + self.startCode.count
-            }
-            guard let parameterDestinationAddress = bufferAllocator.allocateBufferHeader(totalSize) else {
-                Self.logger.error("Couldn't allocate parameters buffer")
-                return
-            }
-            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress,
-                                                                     count: totalSize)
-
-            var offset = 0
-            for set in parameterSets {
-                // Copy either start code or UInt32 length.
-                if self.emitStartCodes {
-                    self.startCode.withUnsafeBytes {
-                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
-                                                                                          byteCount: $0.count)
-                        offset += $0.count
-                    }
-                } else {
-                    let length = UInt32(set.count).bigEndian
-                    parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
-                    offset += MemoryLayout<UInt32>.size
-                }
-
-                // Copy the parameter data.
-                let dest = parameterDestination.baseAddress!.advanced(by: offset)
-                let destBuffer = UnsafeMutableRawBufferPointer(start: dest, count: parameterDestination.count - offset)
-                destBuffer.copyMemory(from: set)
-                offset += set.count
-            }
-        }
-
-        var offset = 0
-        if self.emitStartCodes {
-            // Replace buffer data with start code.
-            while offset < buffer.dataLength - startCode.count {
-                do {
-                    try buffer.withUnsafeMutableBytes(atOffset: offset) {
-                        // Get the length.
-                        let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
-
-                        // Replace with start code.
-                        $0.copyBytes(from: self.startCode)
-
-                        // Move to next NALU.
-                        offset += startCode.count + Int(naluLength)
-                    }
-                } catch {
-                    Self.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
-                    return
-                }
-            }
-        }
-
+        //        // Prepend format data.
+        //        let idr = sample.isIDR()
+        //        if idr {
+        //            // SPS + PPS.
+        //            guard let parameterSets = try? handleParameterSets(sample: sample) else {
+        //                Self.logger.error("Failed to handle parameter sets")
+        //                return
+        //            }
+        //
+        //            // append SPS/PPS to beginning of buffer
+        //            let totalSize = parameterSets.reduce(0) { current, set in
+        //                current + set.count + self.startCode.count
+        //            }
+        //            guard let parameterDestinationAddress = bufferAllocator.allocateBufferHeader(totalSize) else {
+        //                Self.logger.error("Couldn't allocate parameters buffer")
+        //                return
+        //            }
+        //            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress,
+        //                                                                     count: totalSize)
+        //
+        //            var offset = 0
+        //            for set in parameterSets {
+        //                // Copy either start code or UInt32 length.
+        //                if self.emitStartCodes {
+        //                    self.startCode.withUnsafeBytes {
+        //                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
+        //                                                                                          byteCount: $0.count)
+        //                        offset += $0.count
+        //                    }
+        //                } else {
+        //                    let length = UInt32(set.count).bigEndian
+        //                    parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
+        //                    offset += MemoryLayout<UInt32>.size
+        //                }
+        //
+        //                // Copy the parameter data.
+        //                let dest = parameterDestination.baseAddress!.advanced(by: offset)
+        //                let destBuffer = UnsafeMutableRawBufferPointer(start: dest, count: parameterDestination.count - offset)
+        //                destBuffer.copyMemory(from: set)
+        //                offset += set.count
+        //            }
+        //        }
+        //
+        //        var offset = 0
+        //        if self.emitStartCodes {
+        //            // Replace buffer data with start code.
+        //            while offset < buffer.dataLength - startCode.count {
+        //                do {
+        //                    try buffer.withUnsafeMutableBytes(atOffset: offset) {
+        //                        // Get the length.
+        //                        let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
+        //
+        //                        // Replace with start code.
+        //                        $0.copyBytes(from: self.startCode)
+        //
+        //                        // Move to next NALU.
+        //                        offset += startCode.count + Int(naluLength)
+        //                    }
+        //                } catch {
+        //                    Self.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
+        //                    return
+        //                }
+        //            }
+        //        }
+        //
         // Rebuild absolute timestamp.
         guard let frameRefCon = frameRefCon else {
             Self.logger.error("Missing expected frameRefCon (timestamp)")
@@ -371,81 +351,22 @@ class VTEncoder: VideoEncoder {
         }
         let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
         let absoluteTimestamp = Date.init(timeIntervalSince1970: retrievedTimestamp.seconds)
-
-        // Callback the full buffer.
-        var fullEncodedRawPtr: UnsafeMutableRawPointer?
-        var fullEncodedBufferLength: Int = 0
-        bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
-        let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
-        if self.emitStartCodes {
-            assert(fullEncodedBuffer.starts(with: self.startCode))
-        }
+        //
+        //        // Callback the full buffer.
+        //        var fullEncodedRawPtr: UnsafeMutableRawPointer?
+        //        var fullEncodedBufferLength: Int = 0
+        //        bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
+        //        let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
+        //        if self.emitStartCodes {
+        //            assert(fullEncodedBuffer.starts(with: self.startCode))
+        //        }
         if let callback = self.callback {
-            callback(absoluteTimestamp, fullEncodedBuffer, idr, self.sequenceNumber, self.userData)
+            callback(absoluteTimestamp, sample, self.userData)
         } else {
             Self.logger.warning("Received encoded frame but consumer callback unset")
         }
     }
     // swiftlint:enable function_body_length
-
-    /// Returns the parameter sets contained within the sample's format, if any.
-    /// - Parameter sample The sample to extract parameter sets from.
-    /// - Returns Array of buffer pointers referencing the data. This is only safe to use during the lifetime of sample.
-    private func handleParameterSets(sample: CMSampleBuffer) throws -> [UnsafeRawBufferPointer] {
-        // Get number of parameter sets.
-        var sets: Int = 0
-        try OSStatusError.checked("Get number of SPS/PPS") {
-            switch self.config.codec {
-            case .h264:
-                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
-                                                                   parameterSetIndex: 0,
-                                                                   parameterSetPointerOut: nil,
-                                                                   parameterSetSizeOut: nil,
-                                                                   parameterSetCountOut: &sets,
-                                                                   nalUnitHeaderLengthOut: nil)
-            case .hevc:
-                CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(sample.formatDescription!,
-                                                                   parameterSetIndex: 0,
-                                                                   parameterSetPointerOut: nil,
-                                                                   parameterSetSizeOut: nil,
-                                                                   parameterSetCountOut: &sets,
-                                                                   nalUnitHeaderLengthOut: nil)
-            default:
-                1
-            }
-        }
-
-        // Get actual parameter sets.
-        var parameterSetPointers: [UnsafeRawBufferPointer] = []
-        for parameterSetIndex in 0...sets-1 {
-            var parameterSet: UnsafePointer<UInt8>?
-            var parameterSize: Int = 0
-            var naluSizeOut: Int32 = 0
-            try OSStatusError.checked("Get SPS/PPS data") {
-                switch self.config.codec {
-                case .h264:
-                    CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
-                                                                       parameterSetIndex: parameterSetIndex,
-                                                                       parameterSetPointerOut: &parameterSet,
-                                                                       parameterSetSizeOut: &parameterSize,
-                                                                       parameterSetCountOut: nil,
-                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
-                case .hevc:
-                    CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(sample.formatDescription!,
-                                                                       parameterSetIndex: parameterSetIndex,
-                                                                       parameterSetPointerOut: &parameterSet,
-                                                                       parameterSetSizeOut: &parameterSize,
-                                                                       parameterSetCountOut: nil,
-                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
-                default:
-                    1
-                }
-            }
-            guard naluSizeOut == startCode.count else { throw "Unexpected start code length?" }
-            parameterSetPointers.append(.init(start: parameterSet!, count: parameterSize))
-        }
-        return parameterSetPointers
-    }
 
     private func prependTimestampSEI(fps: UInt8,
                                      bufferAllocator: BufferAllocator) {
