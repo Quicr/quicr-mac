@@ -37,20 +37,96 @@ class H264Publication: Publication, FrameListener {
     private var publishFailure = ManagedAtomic(false)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
+    private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
+    private let emitStartCodes = false
+    private var sequence: UInt64 = 0
 
     // Encoded frames arrive in this callback.
-    private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
+    private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
         guard let userData = userData else {
             assert(false)
             return
         }
         let publication = Unmanaged<H264Publication>.fromOpaque(userData).takeUnretainedValue()
 
+        var extensions = HeaderExtensions()
+
+        // Prepend format data.
+        let idr = sample.isIDR()
+        if idr {
+            // SPS + PPS.
+            guard let parameterSets = try? publication.handleParameterSets(sample: sample) else {
+                publication.logger.error("Failed to handle parameter sets")
+                return
+            }
+
+            // append SPS/PPS to beginning of buffer
+            let totalSize = parameterSets.reduce(0) { current, set in
+                current + set.count + publication.startCode.count
+            }
+
+            var extradata = Data(count: totalSize)
+            extradata.withUnsafeMutableBytes { parameterDestination in
+                var offset = 0
+                for set in parameterSets {
+                    // Copy either start code or UInt32 length.
+                    if publication.emitStartCodes {
+                        publication.startCode.withUnsafeBytes {
+                            parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
+                                                                                              byteCount: $0.count)
+                            offset += $0.count
+                        }
+                    } else {
+                        let length = UInt32(set.count).bigEndian
+                        parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
+                        offset += MemoryLayout<UInt32>.size
+                    }
+
+                    // Copy the parameter data.
+                    let dest = parameterDestination.baseAddress!.advanced(by: offset)
+                    let destBuffer = UnsafeMutableRawBufferPointer(start: dest,
+                                                                   count: parameterDestination.count - offset)
+                    destBuffer.copyMemory(from: set)
+                    offset += set.count
+                }
+            }
+
+            // Set the parameter sets to the extradata header.
+            do {
+                try extensions.setHeader(.videoH264AVCCExtradata(extradata))
+            } catch {
+                publication.logger.error("Failed to set extradata extension: \(error.localizedDescription)")
+            }
+        }
+
+        let buffer = sample.dataBuffer!
+        var offset = 0
+        if publication.emitStartCodes {
+            // Replace buffer data with start code.
+            while offset < buffer.dataLength - publication.startCode.count {
+                do {
+                    try buffer.withUnsafeMutableBytes(atOffset: offset) {
+                        // Get the length.
+                        let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
+
+                        // Replace with start code.
+                        $0.copyBytes(from: publication.startCode)
+
+                        // Move to next NALU.
+                        offset += publication.startCode.count + Int(naluLength)
+                    }
+                } catch {
+                    publication.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
+                    return
+                }
+            }
+        }
+
         // Determine group and object IDs.
         let thisGroupId: UInt64
         let thisObjectId: UInt64
         if let currentGroupId = publication.currentGroupId {
-            if flag {
+            if idr {
                 // Start new group on key frame.
                 thisGroupId = currentGroupId + 1
                 thisObjectId = 0
@@ -61,26 +137,33 @@ class H264Publication: Publication, FrameListener {
             }
         } else {
             // Start initial group ID using current time.
-            assert(flag)
+            assert(idr)
             thisGroupId = UInt64(Date.now.timeIntervalSince1970)
             thisObjectId = 0
         }
 
-        // Use extensions for LOC.
-        let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
+        do {
+            try extensions.setHeader(.videoH264AVCCMetadata(.init(sample: sample,
+                                                                  sequence: publication.sequence,
+                                                                  date: presentationDate)))
+        } catch {
+            publication.logger.error("Failed to set header extensions: \(error.localizedDescription)")
+        }
 
         // Publish.
-        let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
-                        count: data.count,
-                        deallocator: .none)
-        var priority = publication.getPriority(flag ? 0 : 1)
-        var ttl = publication.getTTL(flag ? 0 : 1)
-        let status = publication.publish(groupId: thisGroupId,
-                                         objectId: thisObjectId,
-                                         data: data,
-                                         priority: &priority,
-                                         ttl: &ttl,
-                                         extensions: loc.extensions)
+        let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
+            let data = Data(bytesNoCopy: .init(mutating: ptr.baseAddress!),
+                            count: ptr.count,
+                            deallocator: .none)
+            var priority = publication.getPriority(idr ? 0 : 1)
+            var ttl = publication.getTTL(idr ? 0 : 1)
+            return publication.publish(groupId: thisGroupId,
+                                       objectId: thisObjectId,
+                                       data: data,
+                                       priority: &priority,
+                                       ttl: &ttl,
+                                       extensions: extensions)
+        }
         switch status {
         case .ok:
             if publication.verbose {
@@ -96,10 +179,11 @@ class H264Publication: Publication, FrameListener {
         // Update IDs on success.
         publication.currentGroupId = thisGroupId
         publication.currentObjectId = thisObjectId
+        publication.sequence += 1
 
         // Metrics.
         guard let measurement = publication.measurement else { return }
-        let bytes = data.count
+        let bytes = buffer.dataLength
         let sent: Date? = publication.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             measurement.measurement.sentFrame(bytes: UInt64(bytes),
@@ -262,5 +346,64 @@ class H264Publication: Publication, FrameListener {
                                                   metricsTimestamp: date)
             }
         }
+    }
+
+    /// Returns the parameter sets contained within the sample's format, if any.
+    /// - Parameter sample The sample to extract parameter sets from.
+    /// - Returns Array of buffer pointers referencing the data. This is only safe to use during the lifetime of sample.
+    private func handleParameterSets(sample: CMSampleBuffer) throws -> [UnsafeRawBufferPointer] {
+        // Get number of parameter sets.
+        var sets: Int = 0
+        try OSStatusError.checked("Get number of SPS/PPS") {
+            switch self.codec?.codec {
+            case .h264:
+                CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
+                                                                   parameterSetIndex: 0,
+                                                                   parameterSetPointerOut: nil,
+                                                                   parameterSetSizeOut: nil,
+                                                                   parameterSetCountOut: &sets,
+                                                                   nalUnitHeaderLengthOut: nil)
+            case .hevc:
+                CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(sample.formatDescription!,
+                                                                   parameterSetIndex: 0,
+                                                                   parameterSetPointerOut: nil,
+                                                                   parameterSetSizeOut: nil,
+                                                                   parameterSetCountOut: &sets,
+                                                                   nalUnitHeaderLengthOut: nil)
+            default:
+                1
+            }
+        }
+
+        // Get actual parameter sets.
+        var parameterSetPointers: [UnsafeRawBufferPointer] = []
+        for parameterSetIndex in 0...sets-1 {
+            var parameterSet: UnsafePointer<UInt8>?
+            var parameterSize: Int = 0
+            var naluSizeOut: Int32 = 0
+            try OSStatusError.checked("Get SPS/PPS data") {
+                switch self.codec?.codec {
+                case .h264:
+                    CMVideoFormatDescriptionGetH264ParameterSetAtIndex(sample.formatDescription!,
+                                                                       parameterSetIndex: parameterSetIndex,
+                                                                       parameterSetPointerOut: &parameterSet,
+                                                                       parameterSetSizeOut: &parameterSize,
+                                                                       parameterSetCountOut: nil,
+                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
+                case .hevc:
+                    CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(sample.formatDescription!,
+                                                                       parameterSetIndex: parameterSetIndex,
+                                                                       parameterSetPointerOut: &parameterSet,
+                                                                       parameterSetSizeOut: &parameterSize,
+                                                                       parameterSetCountOut: nil,
+                                                                       nalUnitHeaderLengthOut: &naluSizeOut)
+                default:
+                    1
+                }
+            }
+            guard naluSizeOut == self.startCode.count else { throw "Unexpected start code length?" }
+            parameterSetPointers.append(.init(start: parameterSet!, count: parameterSize))
+        }
+        return parameterSetPointers
     }
 }
