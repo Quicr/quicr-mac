@@ -155,14 +155,23 @@ struct AudioBitstreamData: WireEncodable {
         self.duration = try .init(wireFormat: data, bytesRead: &offset)
         self.wallClock = try .init(wireFormat: data, bytesRead: &offset)
     }
-    
-    init(sequence: UInt64, timestamp: Date, sampleFreq: UInt64, numChannels: UInt64) throws {
-        self.seqId = .init(sequence)
-        self.numChannels = .init(numChannels)
+
+    init(seqId: UInt64,
+         ptsTimestamp: UInt64,
+         timebase: UInt64,
+         sampleFreq: UInt64,
+         numChannels: UInt64,
+         duration: UInt64,
+         wallClock: UInt64) {
+        self.seqId = .init(seqId)
+        self.ptsTimestamp = .init(ptsTimestamp)
+        self.timebase = .init(timebase)
         self.sampleFreq = .init(sampleFreq)
-        self.wallClock = .init(UInt64(timestamp.timeIntervalSince1970 * 1000))
+        self.numChannels = .init(numChannels)
+        self.duration = .init(duration)
+        self.wallClock = .init(wallClock)
     }
-    
+
     ///
     func toWireFormat() throws -> Data {
         // TODO(rich): Optimize allocation.

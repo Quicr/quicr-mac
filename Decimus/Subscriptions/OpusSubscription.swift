@@ -150,16 +150,30 @@ class OpusSubscription: Subscription {
             return
         }
 
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
+        guard let extensions = extensions else {
+            Self.logger.warning("Missing expected extensions")
             return
         }
+
+        let metadata: AudioBitstreamData
+        do {
+            metadata = switch try extensions.getHeader(.audioOpusBitstreamData) {
+            case .audioOpusBitstreamData(let metadata):
+                metadata
+            default:
+                throw "Missing expected interop extension"
+            }
+        } catch {
+            Self.logger.error("Couldn't parse metadata")
+            return
+        }
+
+        let timestamp = Date(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
         do {
             try handler.submitEncodedAudio(data: data,
                                            sequence: objectHeaders.groupId,
                                            date: now,
-                                           timestamp: loc.timestamp)
+                                           timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }

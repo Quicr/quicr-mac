@@ -8,8 +8,8 @@ import Accelerate
 
 class OpusPublication: Publication {
     private static let logger = DecimusLogger(OpusPublication.self)
-    static let energyLevelKey: NSNumber = 6
-    static let participantIdKey: NSNumber = 8
+    static let energyLevelKey: NSNumber = 66
+    static let participantIdKey: NSNumber = 88
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -82,7 +82,7 @@ class OpusPublication: Publication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.encodedData, timestamp: data.timestamp, decibel: data.decibelLevel)
+                            self.publish(data: data.encodedData, metadata: data.metadata, decibel: data.decibelLevel)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -109,7 +109,7 @@ class OpusPublication: Publication {
         Self.logger.debug("Deinit")
     }
 
-    private func publish(data: Data, timestamp: Date, decibel: Int) {
+    private func publish(data: Data, metadata: AudioBitstreamData, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -122,7 +122,6 @@ class OpusPublication: Publication {
             Self.logger.warning("Not published due to status: \(status)")
             return
         }
-        
         var extensions = HeaderExtensions()
         /*
          let seqId: VarInt
@@ -132,28 +131,24 @@ class OpusPublication: Publication {
          let numChannels: VarInt
          let duration: VarInt
          let wallClock: VarInt
-
          */
-        
+
         do {
-            try extensions.setHeader(.audioOpusBitstreamData(.init(sequence: self.currentGroupId!, timestamp:timestamp, sampleFreq:48000, numChannels:2)))
+            try extensions.setHeader(.audioOpusBitstreamData(metadata))
         } catch {
             OpusPublication.logger.error("Failed to set opusBitstream header extensions: \(error.localizedDescription)")
         }
 
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
-        if self.currentGroupId == nil {
-            self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
-        }
-        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
+        // let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
-        loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
+        extensions[Self.energyLevelKey] = Data([energyLevelValue])
         var participantId = self.participantId.aggregate
-        loc.add(key: Self.participantIdKey, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
-        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
+        extensions[Self.participantIdKey] = Data(bytes: &participantId, count: MemoryLayout<UInt32>.size)
+        let published = self.publish(data: data, priority: &priority, ttl: &ttl, extensions: extensions)
         switch published {
         case .ok:
             self.currentGroupId! += 1
@@ -165,20 +160,19 @@ class OpusPublication: Publication {
     private func publish(data: Data,
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
-                         loc: LowOverheadContainer) -> QPublishObjectStatus {
+                         extensions: HeaderExtensions) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId!,
                                      objectId: 0,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: loc.extensions)
+        return self.publishObject(headers, data: data, extensions: extensions)
     }
 
     struct EncodeResult {
         let encodedData: Data
-        let timestamp: Date
         let decibelLevel: Int
-        let sampleTime: Float64
+        let metadata: AudioBitstreamData
     }
 
     private func encode() throws -> EncodeResult? {
@@ -205,15 +199,23 @@ class OpusPublication: Publication {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
-        dequeued.timestamp.mSampleTime
         // Get absolute time.
-        let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
-
+        let nano = try getAudioNano(dequeued.timestamp.mHostTime)
+        // Get wall clock time.
+        let wallClock = self.bootDate.addingTimeInterval(TimeInterval(nano) / 1_000_000_000)
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
-        // Encode this data.
-        return .init(encodedData: encoded, timestamp: wallClock, decibelLevel: decibel)
+        if self.currentGroupId == nil {
+            self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
+        }
+        let metadata = AudioBitstreamData(seqId: self.currentGroupId!,
+                                          ptsTimestamp: nano,
+                                          timebase: 1_000_000_000, sampleFreq: UInt64(self.pcm.format.sampleRate),
+                                          numChannels: UInt64(self.pcm.format.channelCount),
+                                          duration: UInt64(self.opusWindowSize.rawValue * 1_000_000_000.0),
+                                          wallClock: UInt64(wallClock.timeIntervalSince1970 * 1000))
+        return .init(encodedData: encoded, decibelLevel: decibel, metadata: metadata)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {
@@ -240,15 +242,14 @@ class OpusPublication: Publication {
     }
 }
 
-func getAudioDate(_ hostTime: UInt64, bootDate: Date) throws -> Date {
+func getAudioNano(_ hostTime: UInt64) throws -> UInt64 {
     let nano: UInt64
     #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
     nano = getAudioDateMac(hostTime)
     #else
     nano = try getAudioDateiOS(hostTime)
     #endif
-    let nanoInterval = TimeInterval(nano) / 1_000_000_000
-    return bootDate.addingTimeInterval(nanoInterval)
+    return nano
 }
 
 #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
