@@ -279,71 +279,6 @@ class VTEncoder: VideoEncoder {
         buffer  = sample.dataBuffer!
         #endif
 
-        //        // Prepend format data.
-        //        let idr = sample.isIDR()
-        //        if idr {
-        //            // SPS + PPS.
-        //            guard let parameterSets = try? handleParameterSets(sample: sample) else {
-        //                Self.logger.error("Failed to handle parameter sets")
-        //                return
-        //            }
-        //
-        //            // append SPS/PPS to beginning of buffer
-        //            let totalSize = parameterSets.reduce(0) { current, set in
-        //                current + set.count + self.startCode.count
-        //            }
-        //            guard let parameterDestinationAddress = bufferAllocator.allocateBufferHeader(totalSize) else {
-        //                Self.logger.error("Couldn't allocate parameters buffer")
-        //                return
-        //            }
-        //            let parameterDestination = UnsafeMutableRawBufferPointer(start: parameterDestinationAddress,
-        //                                                                     count: totalSize)
-        //
-        //            var offset = 0
-        //            for set in parameterSets {
-        //                // Copy either start code or UInt32 length.
-        //                if self.emitStartCodes {
-        //                    self.startCode.withUnsafeBytes {
-        //                        parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
-        //                                                                                          byteCount: $0.count)
-        //                        offset += $0.count
-        //                    }
-        //                } else {
-        //                    let length = UInt32(set.count).bigEndian
-        //                    parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
-        //                    offset += MemoryLayout<UInt32>.size
-        //                }
-        //
-        //                // Copy the parameter data.
-        //                let dest = parameterDestination.baseAddress!.advanced(by: offset)
-        //                let destBuffer = UnsafeMutableRawBufferPointer(start: dest, count: parameterDestination.count - offset)
-        //                destBuffer.copyMemory(from: set)
-        //                offset += set.count
-        //            }
-        //        }
-        //
-        //        var offset = 0
-        //        if self.emitStartCodes {
-        //            // Replace buffer data with start code.
-        //            while offset < buffer.dataLength - startCode.count {
-        //                do {
-        //                    try buffer.withUnsafeMutableBytes(atOffset: offset) {
-        //                        // Get the length.
-        //                        let naluLength = $0.loadUnaligned(as: UInt32.self).byteSwapped
-        //
-        //                        // Replace with start code.
-        //                        $0.copyBytes(from: self.startCode)
-        //
-        //                        // Move to next NALU.
-        //                        offset += startCode.count + Int(naluLength)
-        //                    }
-        //                } catch {
-        //                    Self.logger.error("Failed to get byte pointer: \(error.localizedDescription)")
-        //                    return
-        //                }
-        //            }
-        //        }
-        //
         // Rebuild absolute timestamp.
         guard let frameRefCon = frameRefCon else {
             Self.logger.error("Missing expected frameRefCon (timestamp)")
@@ -351,15 +286,6 @@ class VTEncoder: VideoEncoder {
         }
         let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
         let absoluteTimestamp = Date.init(timeIntervalSince1970: retrievedTimestamp.seconds)
-        //
-        //        // Callback the full buffer.
-        //        var fullEncodedRawPtr: UnsafeMutableRawPointer?
-        //        var fullEncodedBufferLength: Int = 0
-        //        bufferAllocator.retrieveFullBufferPointer(&fullEncodedRawPtr, len: &fullEncodedBufferLength)
-        //        let fullEncodedBuffer = UnsafeRawBufferPointer(start: fullEncodedRawPtr, count: fullEncodedBufferLength)
-        //        if self.emitStartCodes {
-        //            assert(fullEncodedBuffer.starts(with: self.startCode))
-        //        }
         if let callback = self.callback {
             callback(absoluteTimestamp, sample, self.userData)
         } else {
