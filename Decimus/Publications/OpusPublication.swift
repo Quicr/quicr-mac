@@ -122,6 +122,25 @@ class OpusPublication: Publication {
             Self.logger.warning("Not published due to status: \(status)")
             return
         }
+        
+        var extensions = HeaderExtensions()
+        /*
+         let seqId: VarInt
+         let ptsTimestamp: VarInt
+         let timebase: VarInt
+         let sampleFreq: VarInt
+         let numChannels: VarInt
+         let duration: VarInt
+         let wallClock: VarInt
+
+         */
+        
+        do {
+            try extensions.setHeader(.audioOpusBitstreamData(.init(sequence: self.currentGroupId!, timestamp:timestamp, sampleFreq:48000, numChannels:2)))
+        } catch {
+            OpusPublication.logger.error("Failed to set opusBitstream header extensions: \(error.localizedDescription)")
+        }
+
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
         if self.currentGroupId == nil {
@@ -159,6 +178,7 @@ class OpusPublication: Publication {
         let encodedData: Data
         let timestamp: Date
         let decibelLevel: Int
+        let sampleTime: Float64
     }
 
     private func encode() throws -> EncodeResult? {
@@ -185,7 +205,7 @@ class OpusPublication: Publication {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
-
+        dequeued.timestamp.mSampleTime
         // Get absolute time.
         let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
 
