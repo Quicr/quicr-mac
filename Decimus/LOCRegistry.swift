@@ -4,6 +4,7 @@
 import CoreMedia
 import Foundation
 
+// Dictionary of header extension keys to values
 typealias HeaderExtensions = [NSNumber: Data]
 
 extension HeaderExtensions {
@@ -80,6 +81,7 @@ struct VideoMetadata: WireEncodable {
     /// EPOCH time in ms when this frame started being captured. It will be 0 if not set.
     let wallClock: VarInt
 
+    /// Initialize Metadata from Data
     init(_ data: Data) throws {
         var offset = 0
         self.seqId = try .init(wireFormat: data, bytesRead: &offset)
@@ -90,6 +92,7 @@ struct VideoMetadata: WireEncodable {
         self.wallClock = try .init(wireFormat: data, bytesRead: &offset)
     }
 
+    /// Initialize Metadata from video sample input
     init(sample: CMSampleBuffer, sequence: UInt64, date: Date) throws {
         // Validate we can represent this sample.
         guard sample.presentationTimeStamp.value >= 0,
@@ -106,7 +109,7 @@ struct VideoMetadata: WireEncodable {
         let timescale = sample.presentationTimeStamp.timescale
         if let duration {
             guard duration.timescale == pts.timescale else {
-                throw "Timescale mismatch"
+                throw "Timescale mismatch in the CSampleBuffer"
             }
         }
 
@@ -118,8 +121,9 @@ struct VideoMetadata: WireEncodable {
         self.wallClock = .init(UInt64(date.timeIntervalSince1970 * 1000))
     }
 
+    /// Serialize Metadata to varint encodded byte array
     func toWireFormat() throws -> Data {
-        // TODO: Optimize allocation.
+        // TODO:rich Optimize allocation.
         var data = Data()
         self.seqId.toWireFormat(&data)
         self.ptsTimestamp.toWireFormat(&data)
@@ -140,12 +144,30 @@ struct AudioBitstreamData: WireEncodable {
     let duration: VarInt
     let wallClock: VarInt
 
+    /// Initialize Audio Metadata from ByteArray
     init(_ data: Data) throws {
-        fatalError()
+        var offset = 0
+        self.seqId = try .init(wireFormat: data, bytesRead: &offset)
+        self.ptsTimestamp = try .init(wireFormat: data, bytesRead: &offset)
+        self.timebase = try .init(wireFormat: data, bytesRead: &offset)
+        self.sampleFreq = try .init(wireFormat: data, bytesRead: &offset)
+        self.numChannels = try .init(wireFormat: data, bytesRead: &offset)
+        self.duration = try .init(wireFormat: data, bytesRead: &offset)
+        self.wallClock = try .init(wireFormat: data, bytesRead: &offset)
     }
-
+    
+    ///
     func toWireFormat() throws -> Data {
-        fatalError()
+        // TODO(rich): Optimize allocation.
+        var data = Data()
+        self.seqId.toWireFormat(&data)
+        self.ptsTimestamp.toWireFormat(&data)
+        self.timebase.toWireFormat(&data)
+        self.sampleFreq.toWireFormat(&data)
+        self.numChannels.toWireFormat(&data)
+        self.duration.toWireFormat(&data)
+        self.wallClock.toWireFormat(&data)
+        return data
     }
 }
 
