@@ -23,8 +23,8 @@ struct PushToTalkButton: View {
                 .font(.title)
         }
         .gesture(DragGesture(minimumDistance: 0)
-            .onChanged { _ in self.start() }
-            .onEnded { _ in self.end() })
+                    .onChanged { _ in self.start() }
+                    .onEnded { _ in self.end() })
     }
 }
 
