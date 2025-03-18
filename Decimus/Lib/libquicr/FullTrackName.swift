@@ -21,6 +21,10 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
     let nameSpace: [Data]
     /// The name portion of the full track name.
     let name: Data
+    
+    let trackNamespace: [String] = []
+    let trackName : String = ""
+    
 
     /// Construct a full track name from UTF8 string components.
     /// - Parameter namespace: UTF8 string namespace array.
@@ -54,6 +58,6 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
 
 extension Profile {
     func getFullTrackName() throws -> FullTrackName {
-        try .init(namespace: self.namespace, name: "")
+        try .init(namespace: self.trackNamespace, name: self.trackName)
     }
 }

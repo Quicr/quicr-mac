@@ -56,6 +56,7 @@ class PublicationFactoryImpl: PublicationFactory {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+            // TODO: This will not work for all the confis
             let fullTrackName = try profile.getFullTrackName()
             do {
                 let publication = try self.create(profile,
