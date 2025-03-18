@@ -54,6 +54,6 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
 
 extension Profile {
     func getFullTrackName() throws -> FullTrackName {
-        try .init(namespace: self.namespace, name: "")
+        try .init(namespace: self.namespace, name: self.name)
     }
 }
