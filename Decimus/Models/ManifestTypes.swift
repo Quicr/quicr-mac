@@ -89,19 +89,23 @@ struct Profile: Codable {
     let priorities: [Int]?
     /// The namespace this publication/subscription is for.
     let namespace: [String]
+    /// The name this publication is for.
+    let name: String
     let channel: Int?
 
     enum CodingKeys: String, CodingKey {
         case qualityProfile, expiry, priorities, channel
-        case namespace = "quicrNamespace"
+        case namespace = "trackNamespace"
+        case name = "trackName"
     }
 
     /// Ctreate a new quality profile from its parts.
-    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], channel: Int? = nil) {
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], name: String, channel: Int? = nil) {
         self.qualityProfile = qualityProfile
         self.expiry = expiry
         self.priorities = priorities
         self.namespace = namespace
+        self.name = name
         self.channel = channel
     }
 
@@ -112,6 +116,7 @@ struct Profile: Codable {
         expiry = try values.decodeIfPresent([Int].self, forKey: .expiry)
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
         namespace = try values.decode([String].self, forKey: .namespace)
+        name = try values.decode(String.self, forKey: .name)
         channel = try values.decodeIfPresent(Int.self, forKey: .channel)
     }
 }
