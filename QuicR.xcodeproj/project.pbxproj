@@ -67,12 +67,16 @@
 		9B3726932D8065B400498550 /* Mutex+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3726922D8065A900498550 /* Mutex+Convenience.swift */; };
 		9B3726952D806F5800498550 /* TestMutex+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3726942D806F5000498550 /* TestMutex+Convenience.swift */; };
 		9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3E44162C8F1FD60000B98D /* Publication.swift */; };
+		9B3EDCB12D80880900B4B17A /* PTTConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3EDCB02D80880700B4B17A /* PTTConfig.swift */; };
+		9B3EDCB32D80883F00B4B17A /* PushToTalkChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3EDCB22D80883800B4B17A /* PushToTalkChannel.swift */; };
+		9B3EDCB52D80B59700B4B17A /* PushToTalkManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3EDCB42D80B59300B4B17A /* PushToTalkManager.swift */; };
 		9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */; };
 		9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */; };
 		9B480662297EAF170040F5D4 /* InCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B480661297EAF170040F5D4 /* InCallView.swift */; };
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
+		9B53CF682D88B59C00209584 /* AudioPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B53CF672D88B59600209584 /* AudioPublication.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
@@ -111,6 +115,8 @@
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
 		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
 		9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCA87022C3423F500DA4F41 /* NumberView.swift */; };
+		9BCFBC072D883FDC00FF5E5D /* PushToTalkCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCFBC062D883FD900FF5E5D /* PushToTalkCall.swift */; };
+		9BCFBC0A2D88443200FF5E5D /* PushToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCFBC092D88443000FF5E5D /* PushToTalkButton.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
 		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
 		9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BDA15D22C7FF3E300494BFD /* quicr.xcframework */; };
@@ -266,12 +272,16 @@
 		9B3726922D8065A900498550 /* Mutex+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mutex+Convenience.swift"; sourceTree = "<group>"; };
 		9B3726942D806F5000498550 /* TestMutex+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestMutex+Convenience.swift"; sourceTree = "<group>"; };
 		9B3E44162C8F1FD60000B98D /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
+		9B3EDCB02D80880700B4B17A /* PTTConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTTConfig.swift; sourceTree = "<group>"; };
+		9B3EDCB22D80883800B4B17A /* PushToTalkChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkChannel.swift; sourceTree = "<group>"; };
+		9B3EDCB42D80B59300B4B17A /* PushToTalkManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkManager.swift; sourceTree = "<group>"; };
 		9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularBuffer.swift; sourceTree = "<group>"; };
 		9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoSubscriptionSet.swift; sourceTree = "<group>"; };
 		9B480661297EAF170040F5D4 /* InCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InCallView.swift; sourceTree = "<group>"; };
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
+		9B53CF672D88B59600209584 /* AudioPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPublication.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
@@ -327,6 +337,8 @@
 		9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BCA87022C3423F500DA4F41 /* NumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberView.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
+		9BCFBC062D883FD900FF5E5D /* PushToTalkCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkCall.swift; sourceTree = "<group>"; };
+		9BCFBC092D88443000FF5E5D /* PushToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkButton.swift; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
 		9BDA15CF2C7F429D00494BFD /* QSubscribeTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerCallbacks.h; sourceTree = "<group>"; };
 		9BDA15D02C7FD83700494BFD /* FullTrackName.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullTrackName.swift; sourceTree = "<group>"; };
@@ -479,6 +491,17 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		9B3EDCAF2D80880000B4B17A /* PushToTalk */ = {
+			isa = PBXGroup;
+			children = (
+				9BCFBC082D88442D00FF5E5D /* Views */,
+				9B3EDCB42D80B59300B4B17A /* PushToTalkManager.swift */,
+				9B3EDCB22D80883800B4B17A /* PushToTalkChannel.swift */,
+				9B3EDCB02D80880700B4B17A /* PTTConfig.swift */,
+			);
+			path = PushToTalk;
+			sourceTree = "<group>";
+		};
 		9B48067F298016FD0040F5D4 /* Codec */ = {
 			isa = PBXGroup;
 			children = (
@@ -591,6 +614,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B3EDCAF2D80880000B4B17A /* PushToTalk */,
 				9B3726922D8065A900498550 /* Mutex+Convenience.swift */,
 				9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */,
 				9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */,
@@ -665,6 +689,15 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		9BCFBC082D88442D00FF5E5D /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				9BCFBC062D883FD900FF5E5D /* PushToTalkCall.swift */,
+				9BCFBC092D88443000FF5E5D /* PushToTalkButton.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		9BDE86892B70ECAD009467A7 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -699,6 +732,7 @@
 				FF2498AF2A534E8E00C6D66D /* H264Publication.swift */,
 				FF2498B12A53575D00C6D66D /* PublicationFactory.swift */,
 				9B3E44162C8F1FD60000B98D /* Publication.swift */,
+				9B53CF672D88B59600209584 /* AudioPublication.swift */,
 			);
 			path = Publications;
 			sourceTree = "<group>";
@@ -973,7 +1007,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1014,6 +1048,8 @@
 				FF1C5C2F29DD110600887833 /* VideoGrid.swift in Sources */,
 				1848B86F2ABAE51A00275F71 /* OSStatusError.swift in Sources */,
 				18BF45722B0CD632006E8E24 /* HEVCUtilities.swift in Sources */,
+				9BCFBC0A2D88443200FF5E5D /* PushToTalkButton.swift in Sources */,
+				9B3EDCB52D80B59700B4B17A /* PushToTalkManager.swift in Sources */,
 				1867950B2AD58E54008F99C6 /* PreviewView.swift in Sources */,
 				9B1246342CD90927004C020C /* SubscriptionPopover.swift in Sources */,
 				9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */,
@@ -1021,6 +1057,7 @@
 				9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */,
 				9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */,
 				9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */,
+				9BCFBC072D883FDC00FF5E5D /* PushToTalkCall.swift in Sources */,
 				9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */,
 				FFFF72D72A27D47D00D4D5EE /* ErrorView.swift in Sources */,
 				9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */,
@@ -1049,14 +1086,17 @@
 				9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */,
 				9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */,
 				9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */,
+				9B3EDCB12D80880900B4B17A /* PTTConfig.swift in Sources */,
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
+				9B3EDCB32D80883F00B4B17A /* PushToTalkChannel.swift in Sources */,
 				FFFF72DB2A280A8000D4D5EE /* RelaySettingsView.swift in Sources */,
 				9B3726932D8065B400498550 /* Mutex+Convenience.swift in Sources */,
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
+				9B53CF682D88B59C00209584 /* AudioPublication.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
@@ -1148,7 +1188,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1173,7 +1213,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1340,7 +1380,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1417,7 +1457,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

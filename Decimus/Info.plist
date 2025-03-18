@@ -20,6 +20,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>push-to-talk</string>
 	</array>
 </dict>
 </plist>

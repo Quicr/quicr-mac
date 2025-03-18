@@ -134,7 +134,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        granularMetrics: self.granularMetrics,
                                        config: config,
                                        endpointId: endpointId,
-                                       relayId: relayId)
+                                       relayId: relayId,
+                                       startActive: profile.channel != nil)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

@@ -5,8 +5,9 @@ import Foundation
 import AVFAudio
 import CoreAudio
 import Accelerate
+import Synchronization
 
-class OpusPublication: Publication {
+class OpusPublication: Publication, AudioPublication {
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey: NSNumber = 6
     static let participantIdKey: NSNumber = 8
@@ -24,6 +25,7 @@ class OpusPublication: Publication {
     private var currentGroupId: UInt64?
     private let bootDate: Date
     private let participantId: ParticipantId
+    private let publish: Atomic<Bool>
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -34,7 +36,8 @@ class OpusPublication: Publication {
          granularMetrics: Bool,
          config: AudioCodecConfig,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         startActive: Bool) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
@@ -64,6 +67,7 @@ class OpusPublication: Publication {
         }
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
+        self.publish = .init(startActive)
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -77,7 +81,8 @@ class OpusPublication: Publication {
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
             while !Task.isCancelled {
-                if let self = self {
+                if let self = self,
+                   self.publish.load(ordering: .acquiring) {
                     do {
                         var encodePassCount = 0
                         while let data = try self.encode() {
@@ -107,6 +112,10 @@ class OpusPublication: Publication {
     deinit {
         self.encodeTask?.cancel()
         Self.logger.debug("Deinit")
+    }
+
+    func togglePublishing(active: Bool) {
+        self.publish.store(active, ordering: .releasing)
     }
 
     private func publish(data: Data, timestamp: Date, decibel: Int) {
