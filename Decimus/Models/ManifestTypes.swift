@@ -90,25 +90,19 @@ struct Profile: Codable {
     /// The namespace this publication/subscription is for.
     let namespace: [String]
     let channel: Int?
-    let trackNamespace: [String]
-    let trackName: String
-    
+
     enum CodingKeys: String, CodingKey {
         case qualityProfile, expiry, priorities, channel
         case namespace = "quicrNamespace"
-        case trackNamespace = "trackNamespace"
-        case trackName = "trackName"
     }
 
     /// Ctreate a new quality profile from its parts.
-    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], channel: Int? = nil, trackNamespace: [String], trackName: String) {
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], channel: Int? = nil) {
         self.qualityProfile = qualityProfile
         self.expiry = expiry
         self.priorities = priorities
         self.namespace = namespace
         self.channel = channel
-        self.trackNamespace = trackNamespace
-        self.trackName = trackName
     }
 
     /// Parse a profile from it's encoded representation.
@@ -119,8 +113,6 @@ struct Profile: Codable {
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
         namespace = try values.decode([String].self, forKey: .namespace)
         channel = try values.decodeIfPresent(Int.self, forKey: .channel)
-        trackNamespace = try values.decode([String].self, forKey: .trackNamespace)
-        trackName = try values.decode(String.self, forKey: .trackName)
     }
 }
 
