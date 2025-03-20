@@ -59,6 +59,7 @@
 		9B156EFE2D649F0200E91D0F /* SlidingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */; };
 		9B156F002D64AB1100E91D0F /* TestSlidingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B156EFF2D64AB0E00E91D0F /* TestSlidingWindow.swift */; };
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
+		9B1D03962D89CA87007C560E /* CallState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1D03952D89CA83007C560E /* CallState.swift */; };
 		9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */; };
 		9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */; };
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
@@ -264,6 +265,7 @@
 		9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlidingWindow.swift; sourceTree = "<group>"; };
 		9B156EFF2D64AB0E00E91D0F /* TestSlidingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSlidingWindow.swift; sourceTree = "<group>"; };
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
+		9B1D03952D89CA83007C560E /* CallState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallState.swift; sourceTree = "<group>"; };
 		9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CallController+Measurement.swift"; sourceTree = "<group>"; };
 		9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMeasurement.swift; sourceTree = "<group>"; };
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
@@ -614,6 +616,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B1D03952D89CA83007C560E /* CallState.swift */,
 				9B3EDCAF2D80880000B4B17A /* PushToTalk */,
 				9B3726922D8065A900498550 /* Mutex+Convenience.swift */,
 				9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */,
@@ -1102,6 +1105,7 @@
 				9B131C672B7E467500B29D77 /* ApplicationH264SEIs.swift in Sources */,
 				9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */,
 				9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */,
+				9B1D03962D89CA87007C560E /* CallState.swift in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,

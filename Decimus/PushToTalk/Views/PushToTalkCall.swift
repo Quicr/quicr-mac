@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+import CryptoKit
 
 private enum Destination {
     case ai // swiftlint:disable:this identifier_name
@@ -11,15 +12,26 @@ private enum Destination {
 struct PushToTalkCall: View {
     private let manager: PushToTalkManager
     private let logger = DecimusLogger(PushToTalkCall.self)
-    private let channels: [Destination: UUID]
+    private let channels: [Destination: FullTrackName]
+    private let pubFactory: PublicationFactory
+    private let subFactory: SubscriptionFactory
+    private let moqCallController: MoqCallController
     @State private var ready = false
 
-    init(manager: PushToTalkManager, aiChannel: UUID, channel: UUID) {
+    init(manager: PushToTalkManager,
+         aiChannel: FullTrackName,
+         channel: FullTrackName,
+         moqCallController: MoqCallController,
+         publicationFactory: PublicationFactory,
+         subscriptionFactory: SubscriptionFactory) {
         self.manager = manager
         self.channels = [
             .ai: aiChannel,
             .channel: channel
         ]
+        self.moqCallController = moqCallController
+        self.pubFactory = publicationFactory
+        self.subFactory = subscriptionFactory
     }
 
     var body: some View {
@@ -42,12 +54,11 @@ struct PushToTalkCall: View {
         .task {
             for channel in self.channels {
                 do {
-                    let channel = PushToTalkChannel(uuid: channel.value,
-                                                    sendTo: <#T##FullTrackName#>,
-                                                    receiveFrom: <#T##FullTrackName#>,
-                                                    publicationFactory: <#T##any PublicationFactory#>,
-                                                    subscriptionFactory: <#T##any SubscriptionFactory#>)
-                    try await self.manager.registerChannel(.init(uuid: channel.value))
+                    let channel = try PushToTalkChannel(moq: channel.value,
+                                                        publicationFactory: self.pubFactory,
+                                                        subscriptionFactory: self.subFactory,
+                                                        callController: self.moqCallController)
+                    try await self.manager.registerChannel(channel)
                 } catch {
                     self.logger.error("Failed to register channel: \(error.localizedDescription)")
                 }
@@ -58,7 +69,7 @@ struct PushToTalkCall: View {
 
     private func talk(_ destination: Destination) {
         do {
-            try self.manager.startTransmitting(self.channels[destination]!)
+            try self.manager.startTransmitting(self.channels[destination]!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
@@ -66,14 +77,19 @@ struct PushToTalkCall: View {
 
     private func stopTalking(_ destination: Destination) {
         do {
-            try self.manager.stopTransmitting(self.channels[destination]!)
+            try self.manager.stopTransmitting(self.channels[destination]!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
     }
 }
 
-#Preview {
-    let manager = MockPushToTalkManager(api: PushToTalkServer(url: .init(string: "http://127.0.0.1:8080")!, name: "hi"))
-    PushToTalkCall(manager: manager, aiChannel: UUID(), channel: UUID())
+extension FullTrackName {
+    var uuid: UUID {
+        let bytes = Data(self.nameSpace.joined()) + self.name
+        let hash = SHA256.hash(data: bytes)
+        let uuidBytes: [UInt8] = [UInt8](hash.suffix(16)) // 128 bits.
+        let tuple = uuidBytes.withUnsafeBytes { $0.bindMemory(to: uuid_t.self)[0] }
+        return UUID(uuid: tuple)
+    }
 }

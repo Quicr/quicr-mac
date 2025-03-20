@@ -16,53 +16,59 @@ class PushToTalkChannel {
     #endif
     private let publication: AudioPublication
     private let subscription: Subscription
+    private let callController: MoqCallController
     let createdFrom: CreatedFrom
     var joined = false
 
-    init(uuid: UUID,
-         sendTo: FullTrackName,
-         receiveFrom: FullTrackName,
+    init(moq: FullTrackName,
          publicationFactory: PublicationFactory,
          subscriptionFactory: SubscriptionFactory,
+         callController: MoqCallController,
          createdFrom: CreatedFrom = .request) throws {
         let image = UIImage(systemName: "waveform.circle.fill")
-        self.uuid = uuid
+        self.uuid = moq.uuid
         #if os(iOS) && !targetEnvironment(macCatalyst)
-        self.description = PTChannelDescriptor(name: uuid.uuidString, image: image)
+        self.description = PTChannelDescriptor(name: self.uuid.uuidString, image: image)
         #endif
+        self.callController = callController
         self.createdFrom = createdFrom
 
-        // Make the audio publication.
         func profile(_ namespace: FullTrackName) -> ProfileSet {
             let tuple: [String] = namespace.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
-            let profile = Profile(qualityProfile: "opus,br=24", expiry: nil, priorities: nil, namespace: tuple, channel: nil)
+            let profile = Profile(qualityProfile: "opus,br=24",
+                                  expiry: [120],
+                                  priorities: [1],
+                                  namespace: tuple,
+                                  channel: nil)
             return .init(type: "simulcast", profiles: [profile])
         }
 
+        // Make the publication.
         let manifestPublication = ManifestPublication(mediaType: "audio",
                                                       sourceName: "source",
-                                                      sourceID: uuid.uuidString,
-                                                      label: uuid.uuidString,
-                                                      profileSet: profile(sendTo))
-        let createdPublication = try publicationFactory.create(publication: manifestPublication,
-                                                               codecFactory: CodecFactoryImpl(),
-                                                               endpointId: "endpoint",
-                                                               relayId: "relay")
-        guard let audioPublication = createdPublication[0].1 as? AudioPublication else {
-            throw "Expected Audio Publication"
+                                                      sourceID: self.uuid.uuidString,
+                                                      label: self.uuid.uuidString,
+                                                      profileSet: profile(moq))
+        try self.callController.publish(details: manifestPublication,
+                                        factory: publicationFactory,
+                                        codecFactory: CodecFactoryImpl())
+
+        guard let audioPublication = self.callController.getPublications().first as? AudioPublication else {
+            throw "Failed to create audio publication"
         }
         self.publication = audioPublication
 
+        // Make the subscription.
         let manifestSubscription = ManifestSubscription(mediaType: "audio",
-                                                        sourceName: uuid.uuidString,
-                                                        sourceID: uuid.uuidString,
-                                                        label: uuid.uuidString,
+                                                        sourceName: self.uuid.uuidString,
+                                                        sourceID: self.uuid.uuidString,
+                                                        label: self.uuid.uuidString,
                                                         participantId: .init(1),
-                                                        profileSet: profile(receiveFrom))
-        self.subscription = try subscriptionFactory.create(subscription: manifestSubscription,
-                                                           codecFactory: CodecFactoryImpl(),
-                                                           endpointId: "endpoint",
-                                                           relayId: "relay").getHandlers().first!.value
+                                                        profileSet: profile(moq))
+        let set = try self.callController.subscribeToSet(details: manifestSubscription,
+                                                         factory: subscriptionFactory,
+                                                         subscribe: true)
+        self.subscription = set.getHandlers().first!.value
     }
 
     func startTransmitting() {
