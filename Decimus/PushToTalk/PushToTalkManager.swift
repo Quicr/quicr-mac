@@ -23,6 +23,7 @@ class PushToTalkServer {
     private let session = URLSession(configuration: .default)
     private var ourself: PTTUser?
     private let name: String
+    private let channels = "channels"
 
     init(url: URL, name: String) {
         self.url = url
@@ -30,7 +31,7 @@ class PushToTalkServer {
     }
 
     func join(channel: UUID, token: Data) async throws {
-        let url = self.url.appending(path: "/channel/\(channel.uuidString)/\(self.name)")
+        let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(self.name)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         let body = ["token": token.base64EncodedString()]
@@ -43,7 +44,7 @@ class PushToTalkServer {
 
     func sentAudio(channel: UUID) async throws {
         guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
-        let url = self.url.appending(path: "/channel/\(channel.uuidString)/audio/\(ourself.id)")
+        let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -53,7 +54,7 @@ class PushToTalkServer {
 
     func stopAudio(channel: UUID) async throws {
         guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
-        let url = self.url.appending(path: "/channel/\(channel.uuidString)/audio/\(ourself.id)")
+        let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         _ = try await self.session.data(for: request)
@@ -61,7 +62,7 @@ class PushToTalkServer {
 
     func leave(channel: UUID) async throws {
         guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
-        let url = self.url.appending(path: "/channel/\(channel.uuidString)/\(ourself.id)")
+        let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         _ = try await self.session.data(for: request)

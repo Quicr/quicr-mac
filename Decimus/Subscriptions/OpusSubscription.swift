@@ -111,19 +111,19 @@ class OpusSubscription: Subscription {
         let date: Date? = self.granularMetrics ? now : nil
 
         // TODO: Handle sequence rollover.
-        if objectHeaders.groupId > self.seq {
-            let missing = objectHeaders.groupId - self.seq - 1
+        if objectHeaders.objectId > self.seq {
+            let missing = objectHeaders.objectId - self.seq - 1
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
                     await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
                     if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
+                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.objectId)")
                         await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                     }
                 }
             }
-            self.seq = objectHeaders.groupId
+            self.seq = objectHeaders.objectId
         }
 
         // Do we need to create the handler?
@@ -157,7 +157,7 @@ class OpusSubscription: Subscription {
         }
         do {
             try handler.submitEncodedAudio(data: data,
-                                           sequence: objectHeaders.groupId,
+                                           sequence: objectHeaders.objectId,
                                            date: now,
                                            timestamp: loc.timestamp)
         } catch {

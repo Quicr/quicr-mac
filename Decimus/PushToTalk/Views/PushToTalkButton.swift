@@ -7,6 +7,7 @@ struct PushToTalkButton: View {
     let title: String
     let start: () -> Void
     let end: () -> Void
+    @State private var started = false
 
     init(_ title: String, start: @escaping () -> Void, end: @escaping () -> Void) {
         self.title = title
@@ -16,15 +17,28 @@ struct PushToTalkButton: View {
 
     var body: some View {
         ZStack {
-            Circle()
-                .foregroundStyle(.background)
+            if self.started {
+                Circle()
+                    .foregroundStyle(.foreground)
+            } else {
+                Circle()
+                    .foregroundStyle(.background)
+            }
             Text(self.title)
                 .foregroundStyle(.primary)
                 .font(.title)
         }
         .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { _ in self.start() }
-                    .onEnded { _ in self.end() })
+                    .onChanged { _ in
+                        guard !self.started else { return }
+                        self.started = true
+                        self.start()
+                    }
+                    .onEnded { _ in
+                        assert(self.started)
+                        self.started = false
+                        self.end()
+                    })
     }
 }
 

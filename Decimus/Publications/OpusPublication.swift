@@ -22,7 +22,8 @@ class OpusPublication: Publication, AudioPublication {
     private var encodeTask: Task<(), Never>?
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
-    private var currentGroupId: UInt64?
+    private let groupId: UInt64
+    private var currentObjectId: UInt64 = 0
     private let bootDate: Date
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
@@ -37,7 +38,8 @@ class OpusPublication: Publication, AudioPublication {
          config: AudioCodecConfig,
          endpointId: String,
          relayId: String,
-         startActive: Bool) throws {
+         startActive: Bool,
+         groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
@@ -68,6 +70,7 @@ class OpusPublication: Publication, AudioPublication {
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
         self.publish = .init(startActive)
+        self.groupId = groupId
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -133,10 +136,7 @@ class OpusPublication: Publication, AudioPublication {
         }
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
-        if self.currentGroupId == nil {
-            self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
-        }
-        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
+        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
@@ -146,7 +146,7 @@ class OpusPublication: Publication, AudioPublication {
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
-            self.currentGroupId! += 1
+            self.currentObjectId += 1
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
@@ -156,8 +156,8 @@ class OpusPublication: Publication, AudioPublication {
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
                          loc: LowOverheadContainer) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: self.currentGroupId!,
-                                     objectId: 0,
+        let headers = QObjectHeaders(groupId: self.groupId,
+                                     objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
