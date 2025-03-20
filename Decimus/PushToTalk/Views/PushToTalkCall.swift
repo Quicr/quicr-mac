@@ -16,14 +16,15 @@ struct PushToTalkCall: View {
     private let pubFactory: PublicationFactory
     private let subFactory: SubscriptionFactory
     private let moqCallController: MoqCallController
+    private let engine: DecimusAudioEngine
     @State private var ready = false
-
     init(manager: PushToTalkManager,
          aiChannel: FullTrackName,
          channel: FullTrackName,
          moqCallController: MoqCallController,
          publicationFactory: PublicationFactory,
-         subscriptionFactory: SubscriptionFactory) {
+         subscriptionFactory: SubscriptionFactory,
+         engine: DecimusAudioEngine) {
         self.manager = manager
         self.channels = [
             .ai: aiChannel,
@@ -32,6 +33,8 @@ struct PushToTalkCall: View {
         self.moqCallController = moqCallController
         self.pubFactory = publicationFactory
         self.subFactory = subscriptionFactory
+        self.engine = engine
+        engine.setMicrophoneCapture(false)
     }
 
     var body: some View {
@@ -68,6 +71,7 @@ struct PushToTalkCall: View {
     }
 
     private func talk(_ destination: Destination) {
+        self.engine.setMicrophoneCapture(true)
         do {
             try self.manager.startTransmitting(self.channels[destination]!.uuid)
         } catch {
@@ -81,6 +85,7 @@ struct PushToTalkCall: View {
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
+        self.engine.setMicrophoneCapture(false)
     }
 }
 

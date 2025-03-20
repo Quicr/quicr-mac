@@ -52,7 +52,8 @@ struct ConfigCallView: View {
                                        channel: channel,
                                        moqCallController: state.controller!,
                                        publicationFactory: state.publicationFactory!,
-                                       subscriptionFactory: state.subscriptionFactory!)
+                                       subscriptionFactory: state.subscriptionFactory!,
+                                       engine: state.engine!)
                     }
                 }
             }.task {
