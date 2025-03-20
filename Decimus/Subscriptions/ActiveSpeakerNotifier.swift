@@ -23,6 +23,7 @@ enum ActiveSpeakerApplyError: Error {
 }
 
 /// Manages the operations associated with active speaker changes.
+@Observable
 class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let notifier: ActiveSpeakerNotifier
     private var callbackToken: ActiveSpeakerNotifier.CallbackToken?
@@ -31,6 +32,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let factory: SubscriptionFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
     private var lastSpeakers: OrderedSet<ParticipantId>
+    private(set) var lastRenderedSpeakers: OrderedSet<ParticipantId> = []
+    private(set) var lastReceived: OrderedSet<ParticipantId> = []
     private var count: Int?
     private let participantId: ParticipantId
 
@@ -70,15 +73,19 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     func setClampCount(_ count: Int?) {
         self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
         self.count = count
-        self.onActiveSpeakersChanged(lastSpeakers)
+        self.onActiveSpeakersChanged(self.lastSpeakers, real: false)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>) {
+    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        if real {
+            self.lastReceived = speakers
+        }
         var speakers = speakers
         speakers.remove(self.participantId)
         self.lastSpeakers = speakers.union(self.lastSpeakers)
         speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
+        self.lastRenderedSpeakers = speakers
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, subscribe to video from any speakers we are not already subscribed to.

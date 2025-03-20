@@ -167,6 +167,26 @@ struct InCallView: View {
                                     .labelsHidden()
                                     .pickerStyle(.segmented)
                                 }
+                                if let speakers = self.viewModel.activeSpeaker {
+                                    let ids = speakers.lastRenderedSpeakers.map { $0.participantId }
+                                    if let json = try? JSONEncoder().encode(ids) {
+                                        LabeledContent("Currently Active Speakers") {
+                                            Text(String(data: json, encoding: .utf8) ?? "Unknown")
+                                        }
+                                    } else {
+                                        Text("Failed to parse list")
+                                            .foregroundStyle(.red)
+                                    }
+                                    let received = speakers.lastReceived.map { $0.participantId }
+                                    if let json = try? JSONEncoder().encode(received) {
+                                        LabeledContent("Last Received Speakers") {
+                                            Text(String(data: json, encoding: .utf8) ?? "Unknown")
+                                        }
+                                    } else {
+                                        Text("Failed to parse list")
+                                            .foregroundStyle(.red)
+                                    }
+                                }
                                 let playtime = self.viewModel.playtimeConfig.value
                                 if playtime.playtime && playtime.manualActiveSpeaker {
                                     LabeledContent("Active Speakers") {
