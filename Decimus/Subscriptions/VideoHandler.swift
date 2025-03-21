@@ -464,7 +464,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
