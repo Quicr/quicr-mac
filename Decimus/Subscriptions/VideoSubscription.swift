@@ -157,7 +157,7 @@ class VideoSubscription: Subscription {
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate)
         self.token = handler.registerCallback(callback)
-        self.handler = .init(handler)handler
+        self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         try super.init(profile: profile,
                        endpointId: endpointId,
