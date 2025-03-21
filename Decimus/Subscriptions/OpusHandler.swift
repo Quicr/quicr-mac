@@ -4,7 +4,7 @@
 import Foundation
 import AVFAudio
 import CoreAudio
-import Atomics
+import Synchronization
 
 enum OpusSubscriptionError: Error {
     case failedDecoderCreation
@@ -22,19 +22,19 @@ class OpusHandler { // swiftlint:disable:this type_body_length
     private let useNewJitterBuffer: Bool
     private var playoutBuffer: CircularBuffer?
     private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
-    private var underrun = ManagedAtomic<UInt64>(0)
-    private var callbacks = ManagedAtomic<UInt64>(0)
+    private let underrun = Atomic<UInt64>(0)
+    private let callbacks = Atomic<UInt64>(0)
     private let granularMetrics: Bool
     private var dequeueTask: Task<Void, Never>?
-    private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
+    private let timestampTimeDiffUs = Atomic(Int64.zero)
     private var lastUsedSequence: UInt64?
     private var timestampTimeDiffSet = false
-    private var windowSizeUs = ManagedAtomic<UInt32>(0)
+    private let windowSizeUs = Atomic<UInt32>(0)
     private var windowSize: OpusWindowSize?
     private let metricsSubmitter: MetricsSubmitter?
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
-    private var playing: ManagedAtomic<Bool> = .init(false)
+    private let playing: Atomic<Bool> = .init(false)
 
     /// Audio data to be emplaced into the jitter buffer.
     private class AudioJitterItem: JitterBuffer.JitterItem {
@@ -229,14 +229,11 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         }
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [jitterBuffer, playoutBuffer, asbd, weak underrun, weak callbacks, weak playing] silence, _, numFrames, data in
-        if let playing = playing {
-            playing.store(true, ordering: .releasing)
-        }
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [weak self] silence, _, numFrames, data in
+        guard let self = self else { return .zero }
+        self.playing.store(true, ordering: .releasing)
         // Fill the buffers as best we can.
-        if let callbacks = callbacks {
-            callbacks.wrappingIncrement(by: UInt64(numFrames), ordering: .relaxed)
-        }
+        self.callbacks.wrappingAdd(UInt64(numFrames), ordering: .relaxed)
         guard data.pointee.mNumberBuffers == 1 else {
             // Unexpected.
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
@@ -247,19 +244,19 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             return 1
         }
 
-        guard data.pointee.mBuffers.mNumberChannels == asbd.pointee.mChannelsPerFrame else {
-            Self.logger.error("Unexpected render block channels. Got \(data.pointee.mBuffers.mNumberChannels). Expected \(asbd.pointee.mChannelsPerFrame)")
+        guard data.pointee.mBuffers.mNumberChannels == self.asbd.pointee.mChannelsPerFrame else {
+            Self.logger.error("Unexpected render block channels. Got \(data.pointee.mBuffers.mNumberChannels). Expected \(self.asbd.pointee.mChannelsPerFrame)")
             return 1
         }
 
         let buffer: AudioBuffer = data.pointee.mBuffers
-        assert(buffer.mDataByteSize == numFrames * asbd.pointee.mBytesPerFrame)
+        assert(buffer.mDataByteSize == numFrames * self.asbd.pointee.mBytesPerFrame)
 
         let copiedFrames: Int
-        if let playoutBuffer = playoutBuffer {
+        if let playoutBuffer = self.playoutBuffer {
             let result = playoutBuffer.dequeue(frames: numFrames, buffer: &data.pointee)
             copiedFrames = Int(result.frames)
-        } else if let jitterBuffer = jitterBuffer {
+        } else if let jitterBuffer = self.jitterBuffer {
             copiedFrames = jitterBuffer.dequeue(buffer.mData,
                                                 destinationLength: Int(buffer.mDataByteSize),
                                                 elements: Int(numFrames))
@@ -270,15 +267,13 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             // Ensure any incomplete data is pure silence.
             let framesUnderan = UInt64(numFrames) - UInt64(copiedFrames)
             silence.pointee = .init(framesUnderan == numFrames)
-            if let underrun = underrun {
-                underrun.wrappingIncrement(by: framesUnderan, ordering: .relaxed)
-            }
+            self.underrun.wrappingAdd(framesUnderan, ordering: .relaxed)
             let buffers: UnsafeMutableAudioBufferListPointer = .init(data)
             for buffer in buffers {
                 guard let dataPointer = buffer.mData else {
                     break
                 }
-                let bytesPerFrame = Int(asbd.pointee.mBytesPerFrame)
+                let bytesPerFrame = Int(self.asbd.pointee.mBytesPerFrame)
                 let discontinuityStartOffset = copiedFrames * bytesPerFrame
                 let numberOfSilenceBytes = Int(framesUnderan) * bytesPerFrame
                 guard discontinuityStartOffset + numberOfSilenceBytes == buffer.mDataByteSize else {

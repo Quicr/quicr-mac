@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import Atomics
 import CoreMedia
+import Synchronization
 
 // swiftlint:disable force_cast
 
@@ -47,9 +47,9 @@ class JitterBuffer {
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
     private let playingFromStart: Bool
-    private var play: ManagedAtomic<Bool>
-    private var lastSequenceRead = ManagedAtomic<UInt64>(0)
-    private var lastSequenceSet = ManagedAtomic<Bool>(false)
+    private let play: Atomic<Bool>
+    private let lastSequenceRead = Atomic<UInt64>(0)
+    private let lastSequenceSet = Atomic<Bool>(false)
 
     protocol JitterItem: AnyObject {
         var sequenceNumber: UInt64 { get }

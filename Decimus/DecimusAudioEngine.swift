@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFAudio
-import os
+import Synchronization
 
 /// Wrapper for app specific `AVAudioEngine` functionality.
 class DecimusAudioEngine {
@@ -22,10 +22,9 @@ class DecimusAudioEngine {
     private var notificationObservers: [NSObjectProtocol] = []
     private let sink: AVAudioSinkNode?
     private var stopped: Bool = false
-    private var elements: [SourceIDType: AVAudioSourceNode] = [:]
+    private let elements = Mutex<[SourceIDType: AVAudioSourceNode]>([:])
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
-    private var lock = OSAllocatedUnfairLock()
 
     #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
@@ -243,9 +242,9 @@ class DecimusAudioEngine {
         assert(node.numberOfOutputs == 1)
         assert(node.outputFormat(forBus: 0) == Self.format)
         Self.logger.info("(\(identifier)) Attached node")
-        try self.lock.withLock {
-            guard self.elements[identifier] == nil else { throw "Add called for existing entry" }
-            self.elements[identifier] = node
+        try self.elements.withLock { elements in
+            guard elements[identifier] == nil else { throw "Add called for existing entry" }
+            elements[identifier] = node
         }
     }
 
@@ -253,7 +252,7 @@ class DecimusAudioEngine {
     /// - Parameter identifier: Identifier of the source node to remove.
     /// - Throws: Error if the source node has not beed added,
     func removePlayer(identifier: SourceIDType) throws {
-        try self.lock.withLock {
+        try self.elements.withLock { elements in
             guard let element = elements.removeValue(forKey: identifier) else {
                 throw "Remove called for non existent entry"
             }
@@ -344,8 +343,8 @@ class DecimusAudioEngine {
 
         // We shouldn't need to reconnect source nodes to the mixer,
         // as the format should not have changed.
-        self.lock.withLock {
-            for element in self.elements {
+        self.elements.withLock { elements in
+            for element in elements {
                 assert(element.value.numberOfOutputs == 1)
                 let sourceOutputFormat = element.value.outputFormat(forBus: 0)
                 assert(sourceOutputFormat == Self.format)

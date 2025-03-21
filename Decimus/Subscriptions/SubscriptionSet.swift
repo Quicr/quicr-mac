@@ -28,15 +28,14 @@ protocol SubscriptionSet: AnyObject {
     func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus)
 }
 
-import os
+import Synchronization
 
 @Observable
 class ObservableSubscriptionSet: SubscriptionSet {
     let sourceId: SourceIDType
     let participantId: ParticipantId
     private(set) var observedLiveSubscriptions: Set<FullTrackName> = []
-    private var handlers: [FullTrackName: Subscription] = [:]
-    private let handlersLock = OSAllocatedUnfairLock()
+    private let handlers = Mutex<[FullTrackName: Subscription]>([:])
 
     init(sourceId: SourceIDType, participantId: ParticipantId) {
         self.sourceId = sourceId
@@ -65,15 +64,11 @@ class ObservableSubscriptionSet: SubscriptionSet {
     }
 
     func getHandlers() -> [FullTrackName: Subscription] {
-        self.handlersLock.withLock {
-            self.handlers
-        }
+        self.handlers.get()
     }
 
     func removeHandler(_ ftn: FullTrackName) -> Subscription? {
-        let removed = self.handlersLock.withLock {
-            self.handlers.removeValue(forKey: ftn)
-        }
+        let removed = self.handlers.withLock { $0.removeValue(forKey: ftn) }
         if removed != nil {
             self.dispatchRemove(for: ftn)
         }
@@ -82,11 +77,11 @@ class ObservableSubscriptionSet: SubscriptionSet {
 
     func addHandler(_ handler: Subscription) throws {
         let ftn = FullTrackName(handler.getFullTrackName())
-        try self.handlersLock.withLock {
-            guard self.handlers[ftn] == nil else {
+        try self.handlers.withLock { handlers in
+            guard handlers[ftn] == nil else {
                 throw SubscriptionSetError.handlerExists
             }
-            self.handlers[.init(handler.getFullTrackName())] = handler
+            handlers[.init(handler.getFullTrackName())] = handler
         }
         self.dispatchAdd(for: ftn)
     }

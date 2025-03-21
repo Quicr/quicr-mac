@@ -1,10 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Atomics
-
-private let unset: Int16 = -1
-
 class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     internal let profile: Profile
     private let logger: DecimusLogger

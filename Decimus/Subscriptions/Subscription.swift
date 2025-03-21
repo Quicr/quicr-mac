@@ -69,7 +69,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         let message = "Status changed: \(status)"
         if status.isError {
-            self.logger.error(message)
+            self.logger.warning(message)
         } else {
             self.logger.info(message)
         }

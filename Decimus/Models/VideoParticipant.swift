@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import QuartzCore
+import CoreMedia
+
 enum ParticipantError: Error {
     case alreadyExists
     case notFound
@@ -18,6 +21,8 @@ class VideoParticipant: Identifiable {
     var label: String
     /// True if this video should be highlighted.
     var highlight: Bool
+    /// True if this video should be displayed.
+    var display = false
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
 
@@ -33,6 +38,14 @@ class VideoParticipant: Identifiable {
         self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
         self.videoParticipants = videoParticipants
         try self.videoParticipants.add(self)
+    }
+
+    /// Enqueue a video frame for display.
+    /// - Parameter sampleBuffer: The video frame to display.
+    /// - Parameter transform: The transform to apply to the video, if any.
+    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+        self.display = true
+        try self.view.enqueue(sampleBuffer, transform: transform)
     }
 
     deinit {

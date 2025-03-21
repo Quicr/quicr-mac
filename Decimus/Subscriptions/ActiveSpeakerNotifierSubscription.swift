@@ -36,14 +36,16 @@ class ActiveSpeakerNotifierSubscription: Subscription,
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         // Parse out the active speaker list.
+        let participants: [ParticipantId]
         do {
-            let participants = try self.decoder.decode([ParticipantId].self, from: data)
-            self.logger.debug("Got active speaker participants: \(participants)")
-            for callback in self.callbacks.values {
-                callback(.init(participants))
-            }
+            participants = try self.decoder.decode([ParticipantId].self, from: data)
         } catch {
             self.logger.error("Failed to decode active speaker list: \(error.localizedDescription)")
+            return
+        }
+        self.logger.debug("Got active speaker participants: \(participants)")
+        for callback in self.callbacks.values {
+            callback(.init(participants))
         }
     }
 }

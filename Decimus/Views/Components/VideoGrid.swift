@@ -15,10 +15,11 @@ struct VideoGrid: View {
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
     private var participants: [VideoParticipants.Weak<VideoParticipant>] {
+        let toDisplay = self.videoParticipants.participants.filter { $0.value != nil && $0.value!.display }
         if let restrictedCount = self.restrictedCount {
-            return Array(self.videoParticipants.participants.prefix(restrictedCount))
+            return Array(toDisplay.prefix(restrictedCount))
         } else {
-            return Array(self.videoParticipants.participants)
+            return Array(toDisplay)
         }
     }
 

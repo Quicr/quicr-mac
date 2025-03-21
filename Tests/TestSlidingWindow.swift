@@ -14,3 +14,14 @@ func testSlidingWindow() {
     window.add(timestamp: start, value: 3)
     #expect(window.get(from: start) == [2, 3])
 }
+
+private let vectors: [[TimeInterval]] = [
+    [0.1, -0.11, 1, -1, -2],
+    [-0.1, 0.11, 1, -1, -2],
+    [0, 0.5, 1, -1, -2]
+]
+
+@Test("Closest to zero", arguments: vectors)
+func testClosestToZero(values: [TimeInterval]) {
+    #expect(values.closestToZero() == values[0])
+}
