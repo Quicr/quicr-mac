@@ -50,8 +50,10 @@ class VideoParticipant: Identifiable {
 
     deinit {
         self.logger.debug("[\(self.id)] Deinit")
-        Task { [id, videoParticipants, logger] in
-            await MainActor.run {
+        Task { [id, weak videoParticipants, logger] in
+            guard let videoParticipants = videoParticipants else { return }
+            await MainActor.run { [weak videoParticipants] in
+                guard let videoParticipants = videoParticipants else { return }
                 do {
                     try videoParticipants.removeParticipant(identifier: id)
                 } catch {

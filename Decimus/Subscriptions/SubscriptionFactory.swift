@@ -289,8 +289,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             }
             let ftn = try profile.getFullTrackName()
             let subConfig = self.subscriptionConfig
-            let fetch = subConfig.joinConfig.fetchUpperThreshold * (1.0 / TimeInterval(videoConfig.fps))
-            let newGroup = subConfig.joinConfig.newGroupUpperThreshold * (1.0 / TimeInterval(videoConfig.fps))
+            let fetch = subConfig.joinConfig.fetchUpperThreshold * TimeInterval(videoConfig.fps)
+            let newGroup = subConfig.joinConfig.newGroupUpperThreshold * TimeInterval(videoConfig.fps)
             let joinConfig = VideoSubscription.JoinConfig<UInt64>(fetchUpperThreshold: UInt64(fetch),
                                                                   newGroupUpperThreshold: UInt64(newGroup))
             return try VideoSubscription(profile: profile,

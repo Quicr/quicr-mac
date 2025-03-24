@@ -364,7 +364,7 @@ class VideoSubscription: Subscription {
                                   priority: 0,
                                   groupOrder: .originalPublisherOrder,
                                   startGroup: currentGroup,
-                                  endGroup: currentGroup + 1,
+                                  endGroup: currentGroup,
                                   startObject: 0,
                                   endObject: currentObject,
                                   verbose: self.verbose,
@@ -412,6 +412,7 @@ class VideoSubscription: Subscription {
             switch self.stateMachine.state {
             case .fetching(let fetch):
                 do {
+                    self.stateMachine = try self.stateMachine.transition(to: .running)
                     try self.controller.cancelFetch(fetch)
                 } catch {
                     self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
@@ -420,7 +421,6 @@ class VideoSubscription: Subscription {
                 assert(false)
                 self.logger.warning("Subscription in invalid state", alert: true)
             }
-            self.stateMachine = try! self.stateMachine.transition(to: .running) // swiftlint:disable:this force_try
             self.logger.debug("Starting video playout - fetch")
             handler.play()
         }
