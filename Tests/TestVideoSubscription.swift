@@ -142,7 +142,7 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: arrivedGroup, objectId: arrivedObject)
         #expect(fetch != nil)
         #expect(fetch!.getStartGroup() == arrivedGroup)
-        #expect(fetch!.getEndGroup() == arrivedGroup + 1)
+        #expect(fetch!.getEndGroup() == arrivedGroup)
         #expect(fetch!.getStartObject() == 0)
         #expect(fetch!.getEndObject() == arrivedObject)
         #expect(newGroup == false)
