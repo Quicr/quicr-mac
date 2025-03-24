@@ -71,6 +71,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     var description = "VideoHandler"
     private let participantId: ParticipantId
+    private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
 
     /// Create a new video handler.
@@ -97,7 +98,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
          variances: VarianceCalculator,
          participantId: ParticipantId,
          subscribeDate: Date,
-         joinDate: Date) throws {
+         joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -118,6 +120,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
         self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -126,7 +129,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     return try VideoParticipant(id: "\(self.fullTrackName)",
                                                 startDate: joinDate,
                                                 subscribeDate: subscribeDate,
-                                                videoParticipants: self.participants)
+                                                videoParticipants: self.participants,
+                                                participantId: self.participantId,
+                                                activeSpeakerStats: self.activeSpeakerStats)
                 }
                 guard let participant = participant else { return }
                 self.participant.withLock { $0 = participant }
@@ -237,8 +242,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     /// Allows frames to be played from the buffer.
     func play() {
+        guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
-            Self.logger.debug("Set play with no buffer")
+            Self.logger.error("Set play with no buffer")
             return
         }
         buffer.startPlaying()
@@ -464,7 +470,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -579,7 +585,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
                     self.startTimeSet = true
                 }
-                try participant.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                try participant.enqueue(sample,
+                                        transform: orientation?.toTransform(verticalMirror!),
+                                        when: from)
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds

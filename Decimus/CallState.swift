@@ -17,6 +17,7 @@ class CallState: ObservableObject, Equatable {
     private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
     private(set) var manualActiveSpeaker: ManualActiveSpeaker?
     private(set) var captureManager: CaptureManager?
+    private(set) lazy var activeSpeakerStats = self.showLabels ? ActiveSpeakerStats() : nil
     private(set) var videoParticipants = VideoParticipants()
     private(set) var currentManifest: Manifest?
     private let config: CallConfig
@@ -117,6 +118,7 @@ class CallState: ObservableObject, Equatable {
                                                           engine: engine,
                                                           participantId: ourParticipantId,
                                                           joinDate: self.joinDate,
+                                                          activeSpeakerStats: self.activeSpeakerStats,
                                                           controller: controller,
                                                           verbose: self.verbose)
         self.publicationFactory = publicationFactory
@@ -173,7 +175,8 @@ class CallState: ObservableObject, Equatable {
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
-                                                   participantId: manifest.participantId)
+                                                   participantId: manifest.participantId,
+                                                   activeSpeakerStats: self.activeSpeakerStats)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")

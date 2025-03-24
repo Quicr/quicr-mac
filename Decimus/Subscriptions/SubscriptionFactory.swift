@@ -98,6 +98,8 @@ struct SubscriptionConfig: Codable {
     var keyFrameOnUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
+    /// Stream join time rules.
+    var joinConfig: VideoSubscription.JoinConfig<TimeInterval>
 
     /// Create with default settings.
     init() {
@@ -128,6 +130,7 @@ struct SubscriptionConfig: Codable {
         stagger = true
         self.keyFrameOnUpdate = true
         self.cleanupTime = 1.5
+        self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
     }
 }
 
@@ -155,6 +158,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let controller: MoqCallController
     private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -163,6 +167,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
          joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool) {
         self.videoParticipants = videoParticipants
@@ -172,6 +177,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
         self.participantId = participantId
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
         self.controller = controller
         self.verbose = verbose
     }
@@ -193,7 +199,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                 ourParticipantId: self.participantId,
                                                 submitter: self.metricsSubmitter,
                                                 useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
-                                                granularMetrics: self.granularMetrics)
+                                                granularMetrics: self.granularMetrics,
+                                                activeSpeakerStats: self.activeSpeakerStats)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -228,6 +235,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
                                             joinDate: self.joinDate,
+                                            activeSpeakerStats: self.activeSpeakerStats,
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
         }
@@ -239,7 +247,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         throw CodecError.unsupportedCodecSet(found)
     }
 
-    func create(set: SubscriptionSet,
+    func create(set: SubscriptionSet, // swiftlint:disable:this function_body_length
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
@@ -285,23 +293,30 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 throw "VideoConfig expects a VideoSubscriptionSet"
             }
             let ftn = try profile.getFullTrackName()
+            let subConfig = self.subscriptionConfig
+            let fetch = subConfig.joinConfig.fetchUpperThreshold * TimeInterval(videoConfig.fps)
+            let newGroup = subConfig.joinConfig.newGroupUpperThreshold * TimeInterval(videoConfig.fps)
+            let joinConfig = VideoSubscription.JoinConfig<UInt64>(fetchUpperThreshold: UInt64(fetch),
+                                                                  newGroupUpperThreshold: UInt64(newGroup))
             return try VideoSubscription(profile: profile,
                                          config: videoConfig,
                                          participants: self.videoParticipants,
                                          metricsSubmitter: self.metricsSubmitter,
-                                         videoBehaviour: self.subscriptionConfig.videoBehaviour,
-                                         reliable: self.subscriptionConfig.mediaReliability.video.subscription,
+                                         videoBehaviour: subConfig.videoBehaviour,
+                                         reliable: subConfig.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
-                                         jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
-                                         simulreceive: self.subscriptionConfig.simulreceive,
+                                         jitterBufferConfig: subConfig.videoJitterBuffer,
+                                         simulreceive: subConfig.simulreceive,
                                          variances: set.decodedVariances,
                                          endpointId: endpointId,
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
+                                         activeSpeakerStats: self.activeSpeakerStats,
                                          controller: self.controller,
                                          verbose: self.verbose,
-                                         cleanupTime: self.subscriptionConfig.cleanupTime,
+                                         cleanupTime: subConfig.cleanupTime,
+                                         subscriptionConfig: .init(joinConfig: joinConfig),
                                          callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)

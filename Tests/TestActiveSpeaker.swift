@@ -137,7 +137,8 @@ final class TestActiveSpeaker: XCTestCase {
                                                                                                   controller: controller,
                                                                                                   videoSubscriptions: manifestSubscriptions,
                                                                                                   factory: factory,
-                                                                                                  participantId: ourself)
+                                                                                                  participantId: ourself,
+                                                                                                  activeSpeakerStats: nil)
 
         // Test state clear.
         XCTAssert(created.isEmpty)

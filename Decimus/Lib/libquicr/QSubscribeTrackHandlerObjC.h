@@ -32,6 +32,10 @@
 -(NSNumber* _Nullable) getLatestObjectId;
 -(void) requestNewGroup;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
+typedef void (*NewGroupCallback)(void* _Nonnull);
+#if DEBUG
+-(void) setNewGroupCallback: (NewGroupCallback _Nonnull) callback context: (void* _Nonnull) context;
+#endif
 
 @end
 

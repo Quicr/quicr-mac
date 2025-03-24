@@ -77,11 +77,17 @@ struct VideoGrid: View {
                                             .padding(.bottom)
                                     }
                                 }
-                                .conditionalModifier(self.showLabels && participant.view.joinToFirstFrame != nil) {
+                                .conditionalModifier(self.showLabels && participant.joinToFirstFrame != nil) {
                                     $0.overlay(alignment: .topTrailing) {
                                         VStack(alignment: .leading) {
-                                            Text("From Join: \(participant.view.joinToFirstFrame!)s")
-                                            Text("From Subscribe: \(participant.view.subscribeToFirstFrame!)s")
+                                            Text("From Join: \(participant.joinToFirstFrame!)s")
+                                            Text("From Subscribe: \(participant.subscribeToFirstFrame!)s")
+                                            if let detect = participant.fromDetected {
+                                                Text("Audio First Detected: \(detect)s")
+                                            }
+                                            if let set = participant.fromSet {
+                                                Text("Switched: \(set)s")
+                                            }
                                         }
                                         .background()
                                         .padding()
@@ -107,7 +113,6 @@ struct VideoGrid: View {
 }
 
 struct VideoGrid_Previews: PreviewProvider {
-    static let exampleParticipants: VideoParticipants = .init()
     static var previews: some View {
         VideoGrid(showLabels: true,
                   blur: .constant(false),
