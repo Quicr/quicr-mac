@@ -6,57 +6,71 @@ import AVFAudio
 
 class PCMConverter: AudioDecoder {
     let decodedFormat: AVAudioFormat
-    let originalFormat: AVAudioFormat
+    let encodedFormat: AVAudioFormat
     private let logger = DecimusLogger(PCMConverter.self)
     private let converter: AVAudioConverter
     private let outputBuffer: AVAudioPCMBuffer
+    private let inputData: CircularBuffer
+    private let windowSize: OpusWindowSize
 
-    init(decodedFormat: AVAudioFormat, originalFormat: AVAudioFormat) throws {
+    init(decodedFormat: AVAudioFormat, originalFormat: AVAudioFormat, windowSize: OpusWindowSize) throws {
         self.decodedFormat = decodedFormat
-        self.originalFormat = originalFormat
-        // TODO: Maybe take window size.
+        self.encodedFormat = originalFormat
+        self.windowSize = windowSize
         guard let converter = AVAudioConverter(from: originalFormat, to: decodedFormat),
-              let outputBuffer = AVAudioPCMBuffer(pcmFormat: decodedFormat, frameCapacity: 960) else {
+              let outputBuffer = AVAudioPCMBuffer(pcmFormat: decodedFormat,
+                                                  frameCapacity: AVAudioFrameCount(decodedFormat.sampleRate * windowSize.rawValue)) else {
             throw "Unsupported"
         }
         self.converter = converter
         self.outputBuffer = outputBuffer
+        self.inputData = try .init(length: 320 * 3, format: originalFormat.streamDescription.pointee)
     }
 
     func write(data: Data) throws -> AVAudioPCMBuffer {
-        var data = data
-        return data.withUnsafeMutableBytes { bytes in
+        try data.withUnsafeBytes { bytes in
             var bufferList = AudioBufferList(mNumberBuffers: 1,
                                              mBuffers: .init(mNumberChannels: 1,
                                                              mDataByteSize: UInt32(bytes.count),
-                                                             mData: bytes.baseAddress))
-            let inputBuffer = AVAudioPCMBuffer(pcmFormat: self.originalFormat,
-                                               bufferListNoCopy: &bufferList,
-                                               deallocator: .none)
+                                                             mData: .init(mutating: bytes.baseAddress!)))
+            var timestamp = AudioTimeStamp()
+            try self.inputData.enqueue(buffer: &bufferList, timestamp: &timestamp, frames: UInt32(bytes.count))
+
             var nsError: NSError?
             self.converter.convert(to: self.outputBuffer,
                                    error: &nsError) { packets, status in
-                guard inputBuffer?.frameLength == packets else {
-                    self.logger.error("mismatch")
+                let peek = self.inputData.peek()
+                guard peek.frames >= packets else {
+                    // Not enough, try again later.
                     status.pointee = .noDataNow
-                    return inputBuffer
+                    return .init()
                 }
+                let inputBuffer = AVAudioPCMBuffer(pcmFormat: self.encodedFormat, frameCapacity: packets)!
+                inputBuffer.frameLength = packets
+                let dequeued = self.inputData.dequeue(frames: packets,
+                                                      buffer: &inputBuffer.mutableAudioBufferList.pointee)
+                guard dequeued.frames == packets else {
+                    // TODO: what to do here.
+                    self.logger.error("Peek lied to us")
+                    return .init()
+                }
+                inputBuffer.frameLength = packets
                 status.pointee = .haveData
                 return inputBuffer
             }
-            if let nsError {
-                self.logger.error("ALaw PCM Conversion Failed: \(nsError.localizedDescription)")
-            }
-            return self.outputBuffer
         }
+        return self.outputBuffer
     }
 
     func frames(data: Data) throws -> AVAudioFrameCount {
-        fatalError()
+        assert(data.count == 320)
+        return AVAudioFrameCount(data.count)
     }
 
     func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer {
-        fatalError()
+        let silence = AVAudioPCMBuffer(pcmFormat: self.decodedFormat, frameCapacity: frames)!
+        silence.frameLength = frames
+        return silence
     }
 }
 
@@ -68,7 +82,6 @@ class PCMSubscription: Subscription {
     // private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
     private let granularMetrics: Bool
-    private var seq: UInt64 = 0
     private let handler: Mutex<AudioHandler?>
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
@@ -121,7 +134,8 @@ class PCMSubscription: Subscription {
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
                                        decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
-                                                             originalFormat: self.originalFormat),
+                                                             originalFormat: self.originalFormat,
+                                                             windowSize: opusWindowSize),
                                        measurement: nil,
                                        jitterDepth: self.jitterDepth,
                                        jitterMax: self.jitterMax,
@@ -173,16 +187,6 @@ class PCMSubscription: Subscription {
         let now: Date = .now
         self.lastUpdateTime.withLock { $0 = now }
 
-        // Metrics.
-        let date: Date? = self.granularMetrics ? now : nil
-
-        // TODO: Handle sequence rollover.
-        if objectHeaders.objectId > self.seq {
-            let missing = objectHeaders.objectId - self.seq - 1
-            let currentSeq = self.seq
-            self.seq = objectHeaders.objectId
-        }
-
         // Do we need to create the handler?
         let handler: AudioHandler
         do {
@@ -191,7 +195,8 @@ class PCMSubscription: Subscription {
                     let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
                                                    engine: self.engine,
                                                    decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
-                                                                         originalFormat: self.originalFormat),
+                                                                         originalFormat: self.originalFormat,
+                                                                         windowSize: self.opusWindowSize),
                                                    measurement: nil,
                                                    jitterDepth: self.jitterDepth,
                                                    jitterMax: self.jitterMax,

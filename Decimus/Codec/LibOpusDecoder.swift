@@ -10,11 +10,13 @@ class LibOpusDecoder: AudioDecoder {
 
     private let decoder: Opus.Decoder
     let decodedFormat: AVAudioFormat
+    let encodedFormat: AVAudioFormat
 
     /// Create an opus decoder.
     /// - Parameter format: Format to decode into.
     init(format: AVAudioFormat) throws {
         self.decodedFormat = format
+        self.encodedFormat = format
         decoder = try .init(format: format, application: .voip)
     }
 

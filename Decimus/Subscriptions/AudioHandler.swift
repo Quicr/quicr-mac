@@ -12,6 +12,7 @@ enum OpusSubscriptionError: Error {
 
 protocol AudioDecoder {
     var decodedFormat: AVAudioFormat { get }
+    var encodedFormat: AVAudioFormat { get }
     func write(data: Data) throws -> AVAudioPCMBuffer
     func frames(data: Data) throws -> AVAudioFrameCount
     func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer
@@ -171,7 +172,7 @@ class AudioHandler { // swiftlint:disable:this type_body_length
             } else {
                 // What's the duration of this packet?
                 let frames = try self.decoder.frames(data: data)
-                let duration = TimeInterval(frames) / 48000.0 // TODO: Sample rate?
+                let duration = TimeInterval(frames) / self.decoder.encodedFormat.sampleRate
                 let durationUs = duration * microsecondsPerSecond
                 let cmDuration = CMTime(value: CMTimeValue(durationUs), timescale: CMTimeScale(microsecondsPerSecond))
                 // Create jitter buffer.
@@ -451,7 +452,7 @@ class AudioHandler { // swiftlint:disable:this type_body_length
             Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
             for _ in 0..<packetsToGenerate {
                 do {
-                    let frames = AVAudioFrameCount(window.rawValue * 48000) // TODO: Sample rate??
+                    let frames = AVAudioFrameCount(window.rawValue * self.decoder.encodedFormat.sampleRate)
                     let plc = try self.decoder.plc(frames: frames)
                     lastUsedSequence += 1
                     self.newJitterBuffer!.updateLastSequenceRead(lastUsedSequence)
@@ -479,7 +480,7 @@ class AudioHandler { // swiftlint:disable:this type_body_length
         if self.windowSizeUs.load(ordering: .acquiring) == 0 {
             do {
                 let frames = try self.decoder.frames(data: item.data)
-                let windowSize: TimeInterval = TimeInterval(frames) / 48000 // TODO: sample rate comes from??
+                let windowSize: TimeInterval = TimeInterval(frames) / self.decoder.encodedFormat.sampleRate
                 self.windowSizeUs.store(.init(windowSize * microsecondsPerSecond), ordering: .releasing)
             } catch {
                 Self.logger.error("Failed to extract frame count from Opus")
