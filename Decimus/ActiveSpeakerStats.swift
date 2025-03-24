@@ -6,7 +6,7 @@ actor ActiveSpeakerStats {
         case missing
     }
 
-    private struct Record {
+    struct Record {
         let detected: Date?
         let set: Date?
         let enqueued: Date?
@@ -17,7 +17,7 @@ actor ActiveSpeakerStats {
         let set: Date?
         let enqueued: Date
 
-        fileprivate init(_ record: Record) {
+        init(_ record: Record) {
             self.detected = record.detected
             self.set = record.set
             self.enqueued = record.enqueued!
