@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Atomics
-import os
+import Synchronization
 
 /// Represents a QuicR video subscription.
 /// Holds an object for decoding & rendering.
@@ -35,8 +34,7 @@ class VideoSubscription: Subscription {
     private let subscriptionConfig: Config
     private let joinConfig: JoinConfig<UInt64>
 
-    var handler: VideoHandler?
-    let handlerLock = OSAllocatedUnfairLock()
+    let handler: Mutex<VideoHandler?>
 
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
@@ -47,7 +45,9 @@ class VideoSubscription: Subscription {
     private let endpointId: String
     private let relayId: String
     private let controller: MoqCallController
-    private var postCleanup = ManagedAtomic(false)
+    private var fetch: Fetch?
+    private var fetched = false
+    private let postCleanup = Atomic(false)
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -157,7 +157,7 @@ class VideoSubscription: Subscription {
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate)
         self.token = handler.registerCallback(callback)
-        self.handler = handler
+        self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         try super.init(profile: profile,
                        endpointId: endpointId,
@@ -174,9 +174,9 @@ class VideoSubscription: Subscription {
     }
 
     private func cleanup() {
-        self.handlerLock.withLock {
-            guard let handler = self.handler else { return }
-            self.handler = nil
+        self.handler.withLock { lockedHandler in
+            guard let handler = lockedHandler else { return }
+            lockedHandler = nil
             handler.unregisterCallback(self.token)
             self.token = 0
         }
@@ -331,30 +331,30 @@ class VideoSubscription: Subscription {
     }
 
     private func getCreateHandler() throws -> VideoHandler {
-        self.handlerLock.lock()
-        let handler: VideoHandler
-        if let unwrapped = self.handler {
-            handler = unwrapped
-        } else {
-            let recreated = try VideoHandler(fullTrackName: self.fullTrackName,
-                                             config: self.config,
-                                             participants: self.participants,
-                                             metricsSubmitter: self.metricsSubmitter,
-                                             videoBehaviour: self.videoBehaviour,
-                                             reliable: self.reliable,
-                                             granularMetrics: self.granularMetrics,
-                                             jitterBufferConfig: self.jitterBufferConfig,
-                                             simulreceive: self.simulreceive,
-                                             variances: self.variances,
-                                             participantId: self.participantId,
-                                             subscribeDate: self.creationDate,
-                                             joinDate: self.joinDate)
-            self.token = recreated.registerCallback(self.callback)
-            self.handler = recreated
-            handler = recreated
+        try self.handler.withLock { lockedHandler in
+            let handler: VideoHandler
+            if let unwrapped = lockedHandler {
+                handler = unwrapped
+            } else {
+                let recreated = try VideoHandler(fullTrackName: self.fullTrackName,
+                                                 config: self.config,
+                                                 participants: self.participants,
+                                                 metricsSubmitter: self.metricsSubmitter,
+                                                 videoBehaviour: self.videoBehaviour,
+                                                 reliable: self.reliable,
+                                                 granularMetrics: self.granularMetrics,
+                                                 jitterBufferConfig: self.jitterBufferConfig,
+                                                 simulreceive: self.simulreceive,
+                                                 variances: self.variances,
+                                                 participantId: self.participantId,
+                                                 subscribeDate: self.creationDate,
+                                                 joinDate: self.joinDate)
+                self.token = recreated.registerCallback(self.callback)
+                lockedHandler = recreated
+                handler = recreated
+            }
+            return handler
         }
-        self.handlerLock.unlock()
-        return handler
     }
 
     private func fetch(currentGroup: UInt64, currentObject: UInt64) throws -> Fetch {
@@ -402,7 +402,7 @@ class VideoSubscription: Subscription {
         if self.verbose {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
-        guard let handler = self.handler else { return }
+        guard let handler = self.handler.get() else { return }
         handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true)
 
         // Are we done?

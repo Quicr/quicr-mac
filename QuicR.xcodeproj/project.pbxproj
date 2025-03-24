@@ -64,6 +64,8 @@
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
 		9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
+		9B3726932D8065B400498550 /* Mutex+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3726922D8065A900498550 /* Mutex+Convenience.swift */; };
+		9B3726952D806F5800498550 /* TestMutex+Convenience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3726942D806F5000498550 /* TestMutex+Convenience.swift */; };
 		9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3E44162C8F1FD60000B98D /* Publication.swift */; };
 		9B3F86852C58F4B800B5B8BA /* CircularBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */; };
 		9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */; };
@@ -83,7 +85,6 @@
 		9B807A682CF5FFD1007C7E6E /* CallbackSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A672CF5FFCD007C7E6E /* CallbackSubscription.swift */; };
 		9B807A6A2CF60160007C7E6E /* ActiveSpeakerNotifierSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A692CF6015B007C7E6E /* ActiveSpeakerNotifierSubscription.swift */; };
 		9B87FB622A03B91E00C92DD1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B87FB612A03B91E00C92DD1 /* SettingsView.swift */; };
-		9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B8B6F672B9B01F700FBB0D1 /* Atomics */; };
 		9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D502BF37CC400F7AE34 /* VideoUtilities.swift */; };
 		9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */; };
 		9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */; };
@@ -262,6 +263,8 @@
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
 		9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackFetch.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
+		9B3726922D8065A900498550 /* Mutex+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Mutex+Convenience.swift"; sourceTree = "<group>"; };
+		9B3726942D806F5000498550 /* TestMutex+Convenience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TestMutex+Convenience.swift"; sourceTree = "<group>"; };
 		9B3E44162C8F1FD60000B98D /* Publication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Publication.swift; sourceTree = "<group>"; };
 		9B3F86842C58F4B800B5B8BA /* CircularBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircularBuffer.swift; sourceTree = "<group>"; };
 		9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoSubscriptionSet.swift; sourceTree = "<group>"; };
@@ -417,7 +420,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9B8B6F682B9B01F700FBB0D1 /* Atomics in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */,
@@ -508,6 +510,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B3726942D806F5000498550 /* TestMutex+Convenience.swift */,
 				9B156EFF2D64AB0E00E91D0F /* TestSlidingWindow.swift */,
 				9B7325EE2D558C3900729DFB /* MockClient.swift */,
 				9B7B26912D367B3C00A29CFA /* TestSubscription.swift */,
@@ -588,6 +591,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B3726922D8065A900498550 /* Mutex+Convenience.swift */,
 				9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */,
 				9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */,
 				9BE6288D2CE4FCD3001401D0 /* ManualActiveSpeaker.swift */,
@@ -846,7 +850,6 @@
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
-				9B8B6F672B9B01F700FBB0D1 /* Atomics */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -887,7 +890,6 @@
 				FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */,
 				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
-				9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
@@ -983,6 +985,7 @@
 				9B7325EF2D558C3B00729DFB /* MockClient.swift in Sources */,
 				9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */,
 				187DE36F2C997AFE0090FB68 /* TestOpusPublication.swift in Sources */,
+				9B3726952D806F5800498550 /* TestMutex+Convenience.swift in Sources */,
 				9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */,
 				187DE3732C997D2F0090FB68 /* TestOpusSubscription.swift in Sources */,
 				9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */,
@@ -1052,6 +1055,7 @@
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
 				FFFF72DB2A280A8000D4D5EE /* RelaySettingsView.swift in Sources */,
+				9B3726932D8065B400498550 /* Mutex+Convenience.swift in Sources */,
 				FF01709629C10013000E23A6 /* FormInput.swift in Sources */,
 				FF6D6D792A0422CE00B535DA /* CodecFactory.swift in Sources */,
 				9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */,
@@ -1147,7 +1151,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
@@ -1172,7 +1176,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
@@ -1368,7 +1372,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1378,7 +1382,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
@@ -1393,7 +1397,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
-				TVOS_DEPLOYMENT_TARGET = 17.6;
+				TVOS_DEPLOYMENT_TARGET = 18.0;
 				USE_HEADERMAP = NO;
 			};
 			name = Debug;
@@ -1445,7 +1449,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1455,7 +1459,7 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
@@ -1469,7 +1473,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Decimus/Lib/Decimus-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,3";
-				TVOS_DEPLOYMENT_TARGET = 17.6;
+				TVOS_DEPLOYMENT_TARGET = 18.0;
 				USE_HEADERMAP = NO;
 			};
 			name = Release;
@@ -1539,14 +1543,6 @@
 				minimumVersion = 0.56.1;
 			};
 		};
-		9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-atomics.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.2.0;
-			};
-		};
 		9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-collections.git";
@@ -1590,11 +1586,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
 			productName = "plugin:SwiftLintBuildToolPlugin";
-		};
-		9B8B6F672B9B01F700FBB0D1 /* Atomics */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9B8B6F662B9B01F700FBB0D1 /* XCRemoteSwiftPackageReference "swift-atomics" */;
-			productName = Atomics;
 		};
 		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
