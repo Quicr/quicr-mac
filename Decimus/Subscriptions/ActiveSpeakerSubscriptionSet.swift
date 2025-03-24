@@ -17,7 +17,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     /// Individual active speaker subscriptions.
     private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
     /// Per-client audio media objects.
-    private var audioMediaObjects: [ParticipantId: OpusHandler] = [:]
+    private var audioMediaObjects: [ParticipantId: AudioHandler] = [:]
 
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
@@ -67,7 +67,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Look up the media object for this client, or create one.
-        let media: OpusHandler
+        let media: AudioHandler
         if let existing = self.audioMediaObjects[participantId] {
             media = existing
         } else {
@@ -81,15 +81,16 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
 
             // Create the handler.
             do {
-                media = try OpusHandler(identifier: "\(participantId)",
-                                        engine: self.engine,
-                                        measurement: measurement,
-                                        jitterDepth: self.jitterDepth,
-                                        jitterMax: self.jitterMax,
-                                        opusWindowSize: self.opusWindowSize,
-                                        granularMetrics: self.granularMetrics,
-                                        useNewJitterBuffer: self.useNewJitterBuffer,
-                                        metricsSubmitter: self.metricsSubmitter)
+                media = try AudioHandler(identifier: "\(participantId)",
+                                         engine: self.engine,
+                                         decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
+                                         measurement: measurement,
+                                         jitterDepth: self.jitterDepth,
+                                         jitterMax: self.jitterMax,
+                                         opusWindowSize: self.opusWindowSize,
+                                         granularMetrics: self.granularMetrics,
+                                         useNewJitterBuffer: self.useNewJitterBuffer,
+                                         metricsSubmitter: self.metricsSubmitter)
                 self.audioMediaObjects[participantId] = media
             } catch {
                 self.logger.error(

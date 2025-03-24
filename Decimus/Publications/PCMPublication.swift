@@ -86,7 +86,7 @@ class PCMPublication: Publication, AudioPublication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.encodedData, timestamp: data.timestamp, decibel: data.decibelLevel)
+                            self.publish(data: data.encodedData, timestamp: data.timestamp)
                         }
                     } catch {
                         self.logger.error("Failed encode: \(error)")
@@ -110,28 +110,22 @@ class PCMPublication: Publication, AudioPublication {
         self.publish.store(active, ordering: .releasing)
     }
 
-    private func publish(data: Data, timestamp: Date, decibel: Int) {
-        //        let status = self.getStatus()
-        //        guard status == .ok || status == .subscriptionUpdated else {
-        //            Self.logger.warning("Not published due to status: \(status)")
-        //            return
-        //        }
-        //        var priority = self.getPriority(0)
-        //        var ttl = self.getTTL(0)
-        //        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
-        //        let adjusted = UInt8(abs(decibel))
-        //        let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
-        //        let energyLevelValue = adjusted | mask
-        //        loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
-        //        var participantId = self.participantId.aggregate
-        //        loc.add(key: Self.participantIdKey, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
-        //        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
-        //        switch published {
-        //        case .ok:
-        //            self.currentObjectId += 1
-        //        default:
-        //            Self.logger.warning("Failed to publish: \(published)")
-        //        }
+    private func publish(data: Data, timestamp: Date) {
+        let status = self.getStatus()
+        guard status == .ok || status == .subscriptionUpdated else {
+            self.logger.warning("Not published due to status: \(status)")
+            return
+        }
+        var priority = self.getPriority(0)
+        var ttl = self.getTTL(0)
+        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
+        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
+        switch published {
+        case .ok:
+            self.currentObjectId += 1
+        default:
+            self.logger.warning("Failed to publish: \(published)")
+        }
     }
 
     private func publish(data: Data,
@@ -149,7 +143,6 @@ class PCMPublication: Publication, AudioPublication {
     struct EncodeResult {
         let encodedData: Data
         let timestamp: Date
-        let decibelLevel: Int
     }
 
     private func encode() throws -> EncodeResult? {
@@ -169,15 +162,16 @@ class PCMPublication: Publication, AudioPublication {
         let requiredConvertedSamples = self.opusWindowSize.rawValue * self.desiredFormat.sampleRate
         guard let destination = AVAudioPCMBuffer(pcmFormat: self.desiredFormat,
                                                  frameCapacity: AVAudioFrameCount(requiredConvertedSamples)) else {
-            throw "!?"
+            throw "ALaw PCM conversion unsupported"
         }
-        print("Pre conversion size: \(destination.frameLength)")
-        var nsErorr: NSError?
-        self.converter.convert(to: destination, error: &nsErorr) { packets, status in
+        var nsError: NSError?
+        var timestamp: AudioTimeStamp?
+        self.converter.convert(to: destination, error: &nsError) { packets, status in
             let microphoneAudio = AVAudioPCMBuffer(pcmFormat: DecimusAudioEngine.format,
                                                    frameCapacity: .init(packets))!
             microphoneAudio.frameLength = AVAudioFrameCount(packets)
             let sourceData = buffer.dequeue(frames: packets, buffer: &microphoneAudio.mutableAudioBufferList.pointee)
+            timestamp = sourceData.timestamp
             guard sourceData.frames == packets else {
                 self.logger.warning("Only had \(sourceData.frames)/\(packets)")
                 status.pointee = .noDataNow
@@ -186,19 +180,26 @@ class PCMPublication: Publication, AudioPublication {
             status.pointee = .haveData
             return microphoneAudio
         }
-        if let nsErorr {
-            self.logger.error("CONVERSION ERROR")
-            self.logger.error(nsErorr.localizedDescription)
+        if let nsError {
+            self.logger.error("ALaw PCM Conversion Failed: \(nsError.localizedDescription)")
         }
-        self.logger.info("Post conversion we got: \(destination.frameLength)")
 
         // Get the data.
         let ptr: UnsafeMutableRawPointer? = destination.audioBufferList.pointee.mBuffers.mData
         let len = destination.audioBufferList.pointee.mBuffers.mDataByteSize
         let data = Data(bytesNoCopy: ptr!, count: Int(len), deallocator: .none)
 
+        // Timestamp.
+        let wallClock: Date
+        if let timestamp {
+            wallClock = try getAudioDate(timestamp.mHostTime, bootDate: self.bootDate)
+        } else {
+            assert(false)
+            wallClock = Date.now
+        }
+
         // Encode this data.
-        return .init(encodedData: data, timestamp: Date(), decibelLevel: 0)
+        return .init(encodedData: data, timestamp: wallClock)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

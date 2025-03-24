@@ -5,7 +5,7 @@ import Opus
 import AVFAudio
 
 /// Decodes audio using libopus.
-class LibOpusDecoder {
+class LibOpusDecoder: AudioDecoder {
     private static let logger = DecimusLogger(LibOpusDecoder.self)
 
     private let decoder: Opus.Decoder

@@ -2,6 +2,63 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Synchronization
+import AVFAudio
+
+class PCMConverter: AudioDecoder {
+    let decodedFormat: AVAudioFormat
+    let originalFormat: AVAudioFormat
+    private let logger = DecimusLogger(PCMConverter.self)
+    private let converter: AVAudioConverter
+    private let outputBuffer: AVAudioPCMBuffer
+
+    init(decodedFormat: AVAudioFormat, originalFormat: AVAudioFormat) throws {
+        self.decodedFormat = decodedFormat
+        self.originalFormat = originalFormat
+        // TODO: Maybe take window size.
+        guard let converter = AVAudioConverter(from: originalFormat, to: decodedFormat),
+              let outputBuffer = AVAudioPCMBuffer(pcmFormat: decodedFormat, frameCapacity: 960) else {
+            throw "Unsupported"
+        }
+        self.converter = converter
+        self.outputBuffer = outputBuffer
+    }
+
+    func write(data: Data) throws -> AVAudioPCMBuffer {
+        var data = data
+        return data.withUnsafeMutableBytes { bytes in
+            var bufferList = AudioBufferList(mNumberBuffers: 1,
+                                             mBuffers: .init(mNumberChannels: 1,
+                                                             mDataByteSize: UInt32(bytes.count),
+                                                             mData: bytes.baseAddress))
+            let inputBuffer = AVAudioPCMBuffer(pcmFormat: self.originalFormat,
+                                               bufferListNoCopy: &bufferList,
+                                               deallocator: .none)
+            var nsError: NSError?
+            self.converter.convert(to: self.outputBuffer,
+                                   error: &nsError) { packets, status in
+                guard inputBuffer?.frameLength == packets else {
+                    self.logger.error("mismatch")
+                    status.pointee = .noDataNow
+                    return inputBuffer
+                }
+                status.pointee = .haveData
+                return inputBuffer
+            }
+            if let nsError {
+                self.logger.error("ALaw PCM Conversion Failed: \(nsError.localizedDescription)")
+            }
+            return self.outputBuffer
+        }
+    }
+
+    func frames(data: Data) throws -> AVAudioFrameCount {
+        fatalError()
+    }
+
+    func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer {
+        fatalError()
+    }
+}
 
 class PCMSubscription: Subscription {
     private static let logger = DecimusLogger(PCMSubscription.self)
@@ -12,7 +69,7 @@ class PCMSubscription: Subscription {
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
-    private let handler: Mutex<OpusHandler?>
+    private let handler: Mutex<AudioHandler?>
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Mutex<Date?>(nil)
@@ -22,6 +79,7 @@ class PCMSubscription: Subscription {
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
+    private let originalFormat: AVAudioFormat
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -47,9 +105,23 @@ class PCMSubscription: Subscription {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
 
+        // Original PCM format.
+        var asbd = AudioStreamBasicDescription(mSampleRate: 16000,
+                                               mFormatID: kAudioFormatALaw,
+                                               mFormatFlags: 0,
+                                               mBytesPerPacket: 1,
+                                               mFramesPerPacket: 1,
+                                               mBytesPerFrame: 1,
+                                               mChannelsPerFrame: 1,
+                                               mBitsPerChannel: 8,
+                                               mReserved: 0)
+        self.originalFormat = AVAudioFormat(streamDescription: &asbd)!
+
         // Create the actual audio handler upfront.
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
+                                       decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
+                                                             originalFormat: self.originalFormat),
                                        measurement: nil,
                                        jitterDepth: self.jitterDepth,
                                        jitterMax: self.jitterMax,
@@ -112,19 +184,21 @@ class PCMSubscription: Subscription {
         }
 
         // Do we need to create the handler?
-        let handler: OpusHandler
+        let handler: AudioHandler
         do {
             handler = try self.handler.withLock { lockedHandler in
                 guard let handler = lockedHandler else {
-                    let handler = try OpusHandler(identifier: self.profile.namespace.joined(),
-                                                  engine: self.engine,
-                                                  measurement: nil,
-                                                  jitterDepth: self.jitterDepth,
-                                                  jitterMax: self.jitterMax,
-                                                  opusWindowSize: self.opusWindowSize,
-                                                  granularMetrics: self.granularMetrics,
-                                                  useNewJitterBuffer: self.useNewJitterBuffer,
-                                                  metricsSubmitter: self.metricsSubmitter)
+                    let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
+                                                   engine: self.engine,
+                                                   decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
+                                                                         originalFormat: self.originalFormat),
+                                                   measurement: nil,
+                                                   jitterDepth: self.jitterDepth,
+                                                   jitterMax: self.jitterMax,
+                                                   opusWindowSize: self.opusWindowSize,
+                                                   granularMetrics: self.granularMetrics,
+                                                   useNewJitterBuffer: self.useNewJitterBuffer,
+                                                   metricsSubmitter: self.metricsSubmitter)
                     lockedHandler = handler
                     return handler
                 }

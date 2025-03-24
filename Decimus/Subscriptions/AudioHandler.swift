@@ -10,10 +10,17 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-class OpusHandler { // swiftlint:disable:this type_body_length
-    private static let logger = DecimusLogger(OpusHandler.self)
+protocol AudioDecoder {
+    var decodedFormat: AVAudioFormat { get }
+    func write(data: Data) throws -> AVAudioPCMBuffer
+    func frames(data: Data) throws -> AVAudioFrameCount
+    func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer
+}
+
+class AudioHandler { // swiftlint:disable:this type_body_length
+    private static let logger = DecimusLogger(AudioHandler.self)
     private let identifier: String
-    private var decoder: LibOpusDecoder
+    private var decoder: AudioDecoder
     private let engine: DecimusAudioEngine
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
@@ -54,6 +61,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
 
     init(identifier: String,
          engine: DecimusAudioEngine,
+         decoder: AudioDecoder,
          measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
@@ -65,7 +73,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         self.engine = engine
         self.measurement = measurement
         self.granularMetrics = granularMetrics
-        self.decoder = try .init(format: DecimusAudioEngine.format)
+        self.decoder = decoder
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
         self.useNewJitterBuffer = useNewJitterBuffer
         self.metricsSubmitter = metricsSubmitter
@@ -79,7 +87,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                                               clockRate: UInt(asbd.pointee.mSampleRate),
                                               maxLengthMs: UInt(jitterMax * 1000),
                                               minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
-                OpusHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+                AudioHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
             }
             // Create the player node.
             self.node = .init(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
@@ -289,10 +297,10 @@ class OpusHandler { // swiftlint:disable:this type_body_length
 
     private let plcCallback: PacketCallback = { packets, count, userData in
         guard let userData = userData else {
-            OpusHandler.logger.error("Expected self in userData")
+            AudioHandler.logger.error("Expected self in userData")
             return
         }
-        let handler: OpusHandler = Unmanaged<OpusHandler>.fromOpaque(userData).takeUnretainedValue()
+        let handler: AudioHandler = Unmanaged<AudioHandler>.fromOpaque(userData).takeUnretainedValue()
         var concealed: UInt64 = 0
         for index in 0..<count {
             // Make PLC packets.
@@ -314,7 +322,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                 memcpy(packet.pointee.data, data, packet.pointee.length)
                 concealed += UInt64(packet.pointee.elements)
             } catch {
-                OpusHandler.logger.error("\(error.localizedDescription)")
+                AudioHandler.logger.error("\(error.localizedDescription)")
             }
         }
         if let measurement = handler.measurement {

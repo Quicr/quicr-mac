@@ -314,6 +314,24 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             let jitterMax = self.subscriptionConfig.useNewJitterBuffer ?
                 self.subscriptionConfig.videoJitterBuffer.capacity :
                 self.subscriptionConfig.jitterMaxTime
+
+            // TODO: Clean this up.
+            if true {
+                return try PCMSubscription(profile: profile,
+                                           engine: self.engine,
+                                           submitter: nil,
+                                           jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                           jitterMax: jitterMax,
+                                           opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                           reliable: false,
+                                           granularMetrics: false,
+                                           endpointId: "",
+                                           relayId: "",
+                                           useNewJitterBuffer: true,
+                                           cleanupTime: self.subscriptionConfig.cleanupTime,
+                                           statusChanged: unregister)
+            }
+
             return try OpusSubscription(profile: profile,
                                         engine: self.engine,
                                         submitter: self.metricsSubmitter,
