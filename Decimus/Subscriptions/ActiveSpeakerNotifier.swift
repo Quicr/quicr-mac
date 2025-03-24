@@ -36,6 +36,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private(set) var lastReceived: OrderedSet<ParticipantId> = []
     private var count: Int?
     private let participantId: ParticipantId
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     /// Initialize the active speaker manager.
     /// - Parameters:
@@ -48,7 +49,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
          controller: MoqCallController,
          videoSubscriptions: [ManifestSubscription],
          factory: SubscriptionFactory,
-         participantId: ParticipantId) throws {
+         participantId: ParticipantId,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         self.notifier = notifier
         self.controller = controller
         guard videoSubscriptions.allSatisfy({ $0.mediaType == ManifestMediaTypes.video.rawValue }) else {
@@ -59,6 +61,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId})
                                     .map({$0.participantId}))
         self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -81,6 +84,16 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         if real {
             self.lastReceived = speakers
         }
+
+        if let stats = self.activeSpeakerStats {
+            let now = Date.now
+            Task(priority: .utility) {
+                for speaker in speakers {
+                    await stats.activeSpeakerSet(speaker, when: now)
+                }
+            }
+        }
+
         var speakers = speakers
         speakers.remove(self.participantId)
         self.lastSpeakers = speakers.union(self.lastSpeakers)
@@ -137,6 +150,11 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 unsubbed += 1
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
+                if let stats = self.activeSpeakerStats {
+                    Task(priority: .utility) {
+                        await stats.remove(set.participantId)
+                    }
+                }
                 do {
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {

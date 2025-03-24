@@ -297,7 +297,8 @@ extension InCallView {
         private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
         private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
-        private(set) var videoParticipants = VideoParticipants()
+        private(set) lazy var activeSpeakerStats = self.showLabels ? ActiveSpeakerStats() : nil
+        private(set) lazy var videoParticipants = VideoParticipants()
         private(set) var currentManifest: Manifest?
         private let config: CallConfig
         private var appMetricTimer: Task<(), Error>?
@@ -397,6 +398,7 @@ extension InCallView {
                                                               engine: engine,
                                                               participantId: ourParticipantId,
                                                               joinDate: self.joinDate,
+                                                              activeSpeakerStats: self.activeSpeakerStats,
                                                               controller: controller,
                                                               verbose: self.verbose)
             self.publicationFactory = publicationFactory
@@ -452,7 +454,8 @@ extension InCallView {
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
-                                                   participantId: manifest.participantId)
+                                                   participantId: manifest.participantId,
+                                                   activeSpeakerStats: self.activeSpeakerStats)
                 }
             } catch {
                 Self.logger.error("Failed to set manifest: \(error.localizedDescription)")

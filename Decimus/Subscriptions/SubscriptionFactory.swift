@@ -158,6 +158,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let controller: MoqCallController
     private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -166,6 +167,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
          joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool) {
         self.videoParticipants = videoParticipants
@@ -175,6 +177,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.engine = engine
         self.participantId = participantId
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
         self.controller = controller
         self.verbose = verbose
     }
@@ -196,7 +199,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                 ourParticipantId: self.participantId,
                                                 submitter: self.metricsSubmitter,
                                                 useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
-                                                granularMetrics: self.granularMetrics)
+                                                granularMetrics: self.granularMetrics,
+                                                activeSpeakerStats: self.activeSpeakerStats)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -231,6 +235,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
                                             joinDate: self.joinDate,
+                                            activeSpeakerStats: self.activeSpeakerStats,
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
         }
@@ -307,6 +312,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          relayId: relayId,
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
+                                         activeSpeakerStats: self.activeSpeakerStats,
                                          controller: self.controller,
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,

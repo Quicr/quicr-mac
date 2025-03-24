@@ -42,6 +42,7 @@ class VideoSubscription: Subscription {
     private let participantId: ParticipantId
     private let creationDate: Date
     private let joinDate: Date
+    private let activeSpeakerStats: ActiveSpeakerStats?
     private let endpointId: String
     private let relayId: String
     private let controller: MoqCallController
@@ -117,6 +118,7 @@ class VideoSubscription: Subscription {
          relayId: String,
          participantId: ParticipantId,
          joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool,
          cleanupTime: TimeInterval,
@@ -137,6 +139,7 @@ class VideoSubscription: Subscription {
         self.participantId = participantId
         self.creationDate = .now
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
         self.controller = controller
         self.verbose = verbose
         self.relayId = relayId
@@ -155,7 +158,8 @@ class VideoSubscription: Subscription {
                                        variances: variances,
                                        participantId: participantId,
                                        subscribeDate: self.creationDate,
-                                       joinDate: joinDate)
+                                       joinDate: joinDate,
+                                       activeSpeakerStats: self.activeSpeakerStats)
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
@@ -348,7 +352,8 @@ class VideoSubscription: Subscription {
                                                  variances: self.variances,
                                                  participantId: self.participantId,
                                                  subscribeDate: self.creationDate,
-                                                 joinDate: self.joinDate)
+                                                 joinDate: self.joinDate,
+                                                 activeSpeakerStats: self.activeSpeakerStats)
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated
                 handler = recreated

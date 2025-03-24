@@ -15,8 +15,10 @@ enum ParticipantError: Error {
 class VideoParticipant: Identifiable {
     /// The identifier for this participant (either a namespace, or a source ID for an aggregate).
     let id: SourceIDType
+    /// The participant ID of this participant.
+    let participantId: ParticipantId
     /// The SwiftUI view for video display.
-    var view: VideoView
+    let view = VideoView()
     /// The label to display under the video.
     var label: String
     /// True if this video should be highlighted.
@@ -26,24 +28,58 @@ class VideoParticipant: Identifiable {
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
 
+    // Active speaker statistics.
+    private let activeSpeakerStats: ActiveSpeakerStats?
+    private let startDate: Date
+    private let subscribeDate: Date
+    private(set) var fromDetected: TimeInterval?
+    private(set) var fromSet: TimeInterval?
+    private(set) var joinToFirstFrame: TimeInterval?
+    private(set) var subscribeToFirstFrame: TimeInterval?
+
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
     /// - Parameter subscribeDate: Subscribe date of the call, for statistics.
     /// - Parameter videoParticipants: The holder to register against.
-    init(id: SourceIDType, startDate: Date, subscribeDate: Date, videoParticipants: VideoParticipants) throws {
+    /// - Parameter participantId: The participant ID of this participant.
+    /// - Parameter activeSpeakerStats: Stats/metrics object.
+    init(id: SourceIDType,
+         startDate: Date,
+         subscribeDate: Date,
+         videoParticipants: VideoParticipants,
+         participantId: ParticipantId,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         self.id = id
         self.label = id
         self.highlight = false
-        self.view = VideoView(startDate: startDate, subscribeDate: subscribeDate)
+        self.startDate = startDate
+        self.subscribeDate = subscribeDate
         self.videoParticipants = videoParticipants
+        self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
         try self.videoParticipants.add(self)
     }
 
-    /// Enqueue a video frame for display.
-    /// - Parameter sampleBuffer: The video frame to display.
-    /// - Parameter transform: The transform to apply to the video, if any.
-    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?, when: Date) throws {
+        // Stats.
+        if let stats = self.activeSpeakerStats {
+            Task { @MainActor in
+                let record = await stats.imageEnqueued(self.participantId, when: when)
+                if let detected = record.detected {
+                    self.fromDetected = record.enqueued.timeIntervalSince(detected)
+                }
+                if let set = record.set {
+                    self.fromSet = record.enqueued.timeIntervalSince(set)
+                }
+            }
+        }
+        if self.joinToFirstFrame == nil {
+            self.joinToFirstFrame = when.timeIntervalSince(self.startDate)
+            self.subscribeToFirstFrame = when.timeIntervalSince(self.subscribeDate)
+        }
+
+        // Enqueue the frame.
         self.display = true
         try self.view.enqueue(sampleBuffer, transform: transform)
     }
@@ -75,7 +111,7 @@ class VideoParticipants {
         }
     }
 
-    private static let logger = DecimusLogger(VideoParticipants.self)
+    private let logger = DecimusLogger(VideoParticipants.self)
 
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
@@ -89,7 +125,7 @@ class VideoParticipants {
             throw ParticipantError.alreadyExists
         }
         self.weakParticipants[videoParticipant.id] = .init(videoParticipant)
-        Self.logger.debug("[\(videoParticipant.id)] Added participant")
+        self.logger.debug("[\(videoParticipant.id)] Added participant")
     }
 
     /// Remove a participant view.
@@ -99,6 +135,6 @@ class VideoParticipants {
         guard self.weakParticipants.removeValue(forKey: identifier) != nil else {
             throw ParticipantError.notFound
         }
-        Self.logger.debug("[\(identifier)] Removed participant")
+        self.logger.debug("[\(identifier)] Removed participant")
     }
 }

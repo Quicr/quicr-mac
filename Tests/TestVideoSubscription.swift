@@ -54,6 +54,7 @@ struct TestVideoSubscription {
                                      relayId: "",
                                      participantId: .init(1),
                                      joinDate: .now,
+                                     activeSpeakerStats: nil,
                                      controller: controller,
                                      verbose: true,
                                      cleanupTime: 1.5,

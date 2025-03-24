@@ -52,6 +52,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipant?>(nil)
     private let joinDate: Date
+    private let activeSpeakerStats: ActiveSpeakerStats?
     private let diffWindow: SlidingTimeWindow<TimeInterval>
     private var windowMaintenance: Task<(), Never>?
 
@@ -70,6 +71,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          relayId: String,
          codecFactory: CodecFactory,
          joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?,
          cleanupTime: TimeInterval,
          slidingWindowTime: TimeInterval) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
@@ -106,6 +108,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         let subscribeDate = Date.now
         self.subscribeDate = subscribeDate
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
         self.cleanupTimer = cleanupTime
 
         // Adjust and store expected quality profiles.
@@ -518,7 +521,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                             let created = try VideoParticipant(id: self.sourceId,
                                                                startDate: self.joinDate,
                                                                subscribeDate: self.subscribeDate,
-                                                               videoParticipants: self.participants)
+                                                               videoParticipants: self.participants,
+                                                               participantId: self.participantId,
+                                                               activeSpeakerStats: self.activeSpeakerStats)
                             lockedParticipant = created
                             return created
                         }
@@ -533,7 +538,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                     do {
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
-                                                transform: transform)
+                                                transform: transform,
+                                                when: at)
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }
