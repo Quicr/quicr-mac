@@ -41,9 +41,9 @@ struct SubscriptionSettingsView: View {
                         value: $subscriptionConfig.value.jitterDepthTime,
                         format: .number)
                         .labelsHidden()
-                        .onChange(of: subscriptionConfig.value.jitterDepthTime) {
-                            subscriptionConfig.value.videoJitterBuffer.minDepth = $0
-                            subscriptionConfig.value.jitterMaxTime = $0
+                        .onChange(of: subscriptionConfig.value.jitterDepthTime) { _, new in
+                            subscriptionConfig.value.videoJitterBuffer.minDepth = new
+                            subscriptionConfig.value.jitterMaxTime = new
                         }
                 }
                 LabeledContent("Video Jitter Capacity (s)") {
@@ -53,8 +53,17 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .labelsHidden()
                 }
+                LabeledContent("Jitter Sample Window (s)") {
+                    TextField(
+                        "Window (s)",
+                        value: self.$subscriptionConfig.value.videoJitterBuffer.window,
+                        format: .number)
+                        .labelsHidden()
+                }
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
+                LabeledToggle("KeyFrame on Update",
+                              isOn: self.$subscriptionConfig.value.keyFrameOnUpdate)
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {
                         Text(String(describing: $0))
@@ -129,13 +138,14 @@ struct SubscriptionSettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .onChange(of: subscriptionConfig.value.videoJitterBuffer.mode) {
-                        if $0 == .layer && subscriptionConfig.value.simulreceive != .none {
+                    .onChange(of: subscriptionConfig.value.videoJitterBuffer.mode) { _, new in
+                        if new == .layer && subscriptionConfig.value.simulreceive != .none {
                             subscriptionConfig.value.simulreceive = .none
                         }
                     }
                     .onAppear {
-                        if subscriptionConfig.value.videoJitterBuffer.mode == .layer && subscriptionConfig.value.simulreceive != .none {
+                        if subscriptionConfig.value.videoJitterBuffer.mode == .layer,
+                           subscriptionConfig.value.simulreceive != .none {
                             subscriptionConfig.value.simulreceive = .none
                         }
                     }
@@ -154,6 +164,14 @@ struct SubscriptionSettingsView: View {
                     NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
                                formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
                                name: "Threshold")
+                }
+
+                LabeledContent("Cleanup Time (s)") {
+                    TextField(
+                        "Cleanup Time (s)",
+                        value: self.$subscriptionConfig.value.cleanupTime,
+                        format: .number)
+                        .labelsHidden()
                 }
             }
             .formStyle(.columns)

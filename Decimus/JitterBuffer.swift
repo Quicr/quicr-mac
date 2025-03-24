@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import Atomics
 import CoreMedia
+import Synchronization
 
 // swiftlint:disable force_cast
 
@@ -14,7 +14,7 @@ enum JitterBufferError: Error {
     case old
 }
 
-/// A very simplified jitter buffer designed to contain compressed video frames in order.
+/// A very simplified jitter buffer designed to contain compressed frames in order.
 class JitterBuffer {
 
     /// Jiitter buffer configuration.
@@ -24,7 +24,9 @@ class JitterBuffer {
         /// The initial target & minimum depth frames will be delayed for.
         var minDepth: TimeInterval = 0.2
         /// The maximum storage capacity of the jitter buffer.
-        var capacity: TimeInterval = 2
+        var capacity: TimeInterval = 5
+        /// The window over which jitter is calculated.
+        var window: TimeInterval = 5
     }
 
     /// Possible modes of jitter buffer usage.
@@ -44,9 +46,10 @@ class JitterBuffer {
     private let minDepth: TimeInterval
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
-    private var play: Bool = false
-    private var lastSequenceRead = ManagedAtomic<UInt64>(0)
-    private var lastSequenceSet = ManagedAtomic<Bool>(false)
+    private let playingFromStart: Bool
+    private let play: Atomic<Bool>
+    private let lastSequenceRead = Atomic<UInt64>(0)
+    private let lastSequenceSet = Atomic<Bool>(false)
 
     protocol JitterItem: AnyObject {
         var sequenceNumber: UInt64 { get }
@@ -63,7 +66,8 @@ class JitterBuffer {
          metricsSubmitter: MetricsSubmitter?,
          minDepth: TimeInterval,
          capacity: Int,
-         handlers: CMBufferQueue.Handlers) throws {
+         handlers: CMBufferQueue.Handlers,
+         playingFromStart: Bool = true) throws {
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
             let measurement = JitterBufferMeasurement(namespace: identifier)
@@ -72,6 +76,15 @@ class JitterBuffer {
             self.measurement = nil
         }
         self.minDepth = minDepth
+        self.playingFromStart = playingFromStart
+        self.play = .init(playingFromStart)
+    }
+
+    /// Allow frames to be dequeued from the buffer.
+    /// You should only call this if ``self.playingFromStart`` was set to false.
+    func startPlaying() {
+        assert(!self.playingFromStart)
+        self.play.store(true, ordering: .releasing)
     }
 
     /// Write a video frame into the jitter buffer.
@@ -103,9 +116,15 @@ class JitterBuffer {
 
     /// Attempt to read a frame from the front of the buffer.
     /// - Parameter from: The timestamp of this read operation.
-    /// This is an optimization to reduce the number of now() calculations, and has no bearing on jitter buffer behaviour.
+    /// This is an optimization to reduce the number of now() calculations,
+    /// and has no bearing on jitter buffer behaviour.
     /// - Returns: Either the oldest available frame, or nil.
     func read<T: JitterItem>(from: Date) -> T? {
+        // If we're not playing, do nothing.
+        if !self.playingFromStart {
+            guard self.play.load(ordering: .acquiring) else { return nil }
+        }
+
         let depth: TimeInterval? = self.measurement != nil ? self.buffer.duration.seconds : nil
 
         // Ensure there's something to get.

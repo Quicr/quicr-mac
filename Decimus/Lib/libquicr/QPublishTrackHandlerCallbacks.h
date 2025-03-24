@@ -11,7 +11,8 @@ typedef NS_ENUM(uint8_t, QPublishTrackHandlerStatus) {
     kQPublishTrackHandlerStatusAnnounceNotAuthorized,
     kQPublishTrackHandlerStatusNoSubscribers,
     kQPublishTrackHandlerStatusSendingUnannounce,
-    kQPublishTrackHandlerStatusSubscriptionUpdated
+    kQPublishTrackHandlerStatusSubscriptionUpdated,
+    kQPublishTrackHandlerStatusNewGroupRequested,
 };
 
 typedef struct QPublishTrackMetricsQuic {

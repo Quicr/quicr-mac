@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import os
+import Synchronization
 
 class OpusSubscription: Subscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
@@ -12,11 +12,10 @@ class OpusSubscription: Subscription {
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
-    private let handlerLock = OSAllocatedUnfairLock()
-    private var handler: OpusHandler?
+    private let handler: Mutex<OpusHandler?>
     private var cleanupTask: Task<(), Never>?
-    private let cleanupTimer: TimeInterval = 1.5
-    private var lastUpdateTime: Date?
+    private let cleanupTimer: TimeInterval
+    private let lastUpdateTime = Mutex<Date?>(nil)
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
@@ -35,6 +34,7 @@ class OpusSubscription: Subscription {
          endpointId: String,
          relayId: String,
          useNewJitterBuffer: Bool,
+         cleanupTime: TimeInterval,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -51,17 +51,18 @@ class OpusSubscription: Subscription {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
+        self.cleanupTimer = cleanupTime
 
         // Create the actual audio handler upfront.
-        self.handler = try .init(identifier: self.profile.namespace.joined(),
-                                 engine: self.engine,
-                                 measurement: self.measurement,
-                                 jitterDepth: self.jitterDepth,
-                                 jitterMax: self.jitterMax,
-                                 opusWindowSize: self.opusWindowSize,
-                                 granularMetrics: self.granularMetrics,
-                                 useNewJitterBuffer: self.useNewJitterBuffer,
-                                 metricsSubmitter: self.metricsSubmitter)
+        self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
+                                       engine: self.engine,
+                                       measurement: self.measurement,
+                                       jitterDepth: self.jitterDepth,
+                                       jitterMax: self.jitterMax,
+                                       opusWindowSize: self.opusWindowSize,
+                                       granularMetrics: self.granularMetrics,
+                                       useNewJitterBuffer: self.useNewJitterBuffer,
+                                       metricsSubmitter: self.metricsSubmitter))
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         try super.init(profile: profile,
@@ -70,7 +71,7 @@ class OpusSubscription: Subscription {
                        metricsSubmitter: submitter,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
-                       filterType: .latestGroup,
+                       filterType: .latestObject,
                        statusCallback: statusChanged)
 
         // Make task for cleaning up audio handlers.
@@ -79,12 +80,11 @@ class OpusSubscription: Subscription {
                 let sleepTimer: TimeInterval
                 if let self = self {
                     sleepTimer = self.cleanupTimer
-                    self.handlerLock.withLock {
-                        // Remove the audio handler if expired.
-                        guard let lastUpdateTime = self.lastUpdateTime else { return }
+                    self.lastUpdateTime.withLock { lockedUpdateTime in
+                        guard let lastUpdateTime = lockedUpdateTime else { return }
                         if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
-                            self.lastUpdateTime = nil
-                            self.handler = nil
+                            lockedUpdateTime = nil
+                            self.handler.clear()
                         }
                     }
                 } else {
@@ -105,7 +105,7 @@ class OpusSubscription: Subscription {
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         let now: Date = .now
-        self.lastUpdateTime = now
+        self.lastUpdateTime.withLock { $0 = now }
 
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
@@ -129,8 +129,8 @@ class OpusSubscription: Subscription {
         // Do we need to create the handler?
         let handler: OpusHandler
         do {
-            handler = try self.handlerLock.withLock {
-                guard let handler = self.handler else {
+            handler = try self.handler.withLock { lockedHandler in
+                guard let handler = lockedHandler else {
                     let handler = try OpusHandler(identifier: self.profile.namespace.joined(),
                                                   engine: self.engine,
                                                   measurement: self.measurement,
@@ -140,7 +140,7 @@ class OpusSubscription: Subscription {
                                                   granularMetrics: self.granularMetrics,
                                                   useNewJitterBuffer: self.useNewJitterBuffer,
                                                   metricsSubmitter: self.metricsSubmitter)
-                    self.handler = handler
+                    lockedHandler = handler
                     return handler
                 }
                 return handler

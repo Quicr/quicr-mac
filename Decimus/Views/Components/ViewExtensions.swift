@@ -64,7 +64,8 @@ extension View {
     }
     #endif
 
-    @ViewBuilder func conditionalModifier<ModifiedView: View>(_ condition: Bool, modifier: (Self) -> ModifiedView) -> some View {
+    @ViewBuilder func conditionalModifier<ModifiedView: View>(_ condition: Bool,
+                                                              modifier: (Self) -> ModifiedView) -> some View {
         if condition {
             modifier(self)
         } else {

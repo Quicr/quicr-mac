@@ -55,8 +55,14 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Parse.
-        let extracted = participantIdextension.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-        let participantId = ParticipantId(extracted)
+        let participantId: ParticipantId
+        do {
+            let extracted = try LowOverheadContainer.parse(participantIdextension)
+            participantId = ParticipantId(UInt32(extracted))
+        } catch {
+            self.logger.error("Failed to extract participant ID: \(error.localizedDescription)")
+            return
+        }
         if let ourParticipantId = self.ourParticipantId,
            participantId == ourParticipantId {
             // Ignoring our own audio.
@@ -98,7 +104,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
                                         metricsSubmitter: self.metricsSubmitter)
                 self.audioMediaObjects[participantId] = media
             } catch {
-                self.logger.error("Failed to create audio handler for active speaker participant: \(error.localizedDescription)")
+                self.logger.error(
+                    "Failed to create audio handler for active speaker participant: \(error.localizedDescription)")
                 return
             }
         }

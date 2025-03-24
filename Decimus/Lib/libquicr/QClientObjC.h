@@ -11,6 +11,7 @@
 
 #import "QPublishTrackHandlerObjC.h"
 #import "QSubscribeTrackHandlerObjC.h"
+#import "QFetchTrackHandlerObjC.h"
 #import "QClientCallbacks.h"
 #import "TransportConfig.h"
 
@@ -32,6 +33,8 @@ typedef struct QClientConfig {
 - (void)publishUnannounce:(NSData * _Nonnull)trackNamespace;
 - (void)subscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
 - (void)unsubscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
+- (void)fetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
+- (void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
 - (QPublishAnnounceStatus)getAnnounceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
 @end

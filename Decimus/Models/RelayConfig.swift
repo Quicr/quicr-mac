@@ -15,4 +15,8 @@ struct RelayConfig: Codable {
     var connectionProtocol: ProtocolType = .QUIC
     /// Port to connect on.
     var port: UInt16 = defaultProtocolPorts[.QUIC]!
+    /// mDNS Type for lookup.
+    var mDNSType: String = "_laps._udp"
+    /// True if we should use mDNS to fill relay info.
+    var usemDNS = true
 }

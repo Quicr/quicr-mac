@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import CoreMedia
 import QuartzCore
+import CoreMedia
 
 enum ParticipantError: Error {
     case alreadyExists
@@ -23,6 +23,8 @@ class VideoParticipant: Identifiable {
     var label: String
     /// True if this video should be highlighted.
     var highlight: Bool
+    /// True if this video should be displayed.
+    var display = false
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
 
@@ -78,6 +80,7 @@ class VideoParticipant: Identifiable {
         }
 
         // Enqueue the frame.
+        self.display = true
         try self.view.enqueue(sampleBuffer, transform: transform)
     }
 

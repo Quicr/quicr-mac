@@ -39,7 +39,8 @@ final class TestCallController: XCTestCase {
                                                       defaultTTL: 0,
                                                       submitter: nil,
                                                       endpointId: "",
-                                                      relayId: "")
+                                                      relayId: "",
+                                                      logger: DecimusLogger(TestPublication.self))
                 self.callback(publication)
                 pubs.append((ftn, publication))
             }
@@ -88,65 +89,6 @@ final class TestCallController: XCTestCase {
         }
     }
 
-    class MockClient: MoqClient {
-        typealias PublishTrackCallback = (QPublishTrackHandlerObjC) -> Void
-        typealias SubscribeTrackCallback = (QSubscribeTrackHandlerObjC) -> Void
-        private let publish: PublishTrackCallback
-        private let unpublish: PublishTrackCallback
-        private let subscribe: SubscribeTrackCallback
-        private let unsubscribe: SubscribeTrackCallback
-        private var callbacks: QClientCallbacks?
-
-        init(publish: @escaping PublishTrackCallback,
-             unpublish: @escaping PublishTrackCallback,
-             subscribe: @escaping SubscribeTrackCallback,
-             unsubscribe: @escaping SubscribeTrackCallback) {
-            self.publish = publish
-            self.unpublish = unpublish
-            self.subscribe = subscribe
-            self.unsubscribe = unsubscribe
-        }
-
-        func connect() -> QClientStatus {
-            let serverId = "test"
-            serverId.withCString {
-                self.callbacks!.serverSetupReceived(.init(moqt_version: 1, server_id: $0))
-            }
-            return .ready
-        }
-
-        func disconnect() -> QClientStatus {
-            .disconnecting
-        }
-
-        func publishTrack(withHandler handler: QPublishTrackHandlerObjC) {
-            self.publish(handler)
-        }
-
-        func unpublishTrack(withHandler handler: QPublishTrackHandlerObjC) {
-            self.unpublish(handler)
-        }
-
-        func publishAnnounce(_ trackNamespace: Data) { }
-        func publishUnannounce(_ trackNamespace: Data) {}
-
-        func setCallbacks(_ callbacks: any QClientCallbacks) {
-            self.callbacks = callbacks
-        }
-
-        func subscribeTrack(withHandler handler: QSubscribeTrackHandlerObjC) {
-            self.subscribe(handler)
-        }
-
-        func unsubscribeTrack(withHandler handler: QSubscribeTrackHandlerObjC) {
-            self.unsubscribe(handler)
-        }
-
-        func getAnnounceStatus(_ trackNamespace: Data) -> QPublishAnnounceStatus {
-            .OK
-        }
-    }
-
     func testPublicationAlter() async throws {
         // Example publication details.
         let details = ManifestPublication(mediaType: "video",
@@ -174,7 +116,14 @@ final class TestCallController: XCTestCase {
         }
         let subscribe: MockClient.SubscribeTrackCallback = { _ in }
         let unsubscribe: MockClient.SubscribeTrackCallback = { _ in }
-        let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
+        let fetch: MockClient.FetchTrackCallback = { _ in }
+        let fetchCancel: MockClient.FetchTrackCallback = { _ in }
+        let client = MockClient(publish: publish,
+                                unpublish: unpublish,
+                                subscribe: subscribe,
+                                unsubscribe: unsubscribe,
+                                fetch: fetch,
+                                fetchCancel: fetchCancel)
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
         try await controller.connect()
 
@@ -231,7 +180,13 @@ final class TestCallController: XCTestCase {
         let unsubscribe: MockClient.SubscribeTrackCallback = {
             unsubscribed.append($0.getFullTrackName())
         }
-        let client = MockClient(publish: publish, unpublish: unpublish, subscribe: subscribe, unsubscribe: unsubscribe)
+        let fetch: MockClient.FetchTrackCallback = { _ in }
+        let client = MockClient(publish: publish,
+                                unpublish: unpublish,
+                                subscribe: subscribe,
+                                unsubscribe: unsubscribe,
+                                fetch: fetch,
+                                fetchCancel: fetch)
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
         try await controller.connect()
 
@@ -305,10 +260,13 @@ final class TestCallController: XCTestCase {
         let unsubscribe: MockClient.SubscribeTrackCallback = {
             unsubscribed.append($0.getFullTrackName())
         }
+        let fetch: MockClient.FetchTrackCallback = { _ in }
         let client = MockClient(publish: publish,
                                 unpublish: unpublish,
                                 subscribe: subscribe,
-                                unsubscribe: unsubscribe)
+                                unsubscribe: unsubscribe,
+                                fetch: fetch,
+                                fetchCancel: fetch)
         let controller = MoqCallController(endpointUri: "1",
                                            client: client,
                                            submitter: nil) { }
@@ -380,6 +338,8 @@ final class TestCallController: XCTestCase {
         } unpublish: { _ in
         } subscribe: { _ in
         } unsubscribe: { _ in
+        } fetch: { _ in
+        } fetchCancel: { _ in
         }
 
         let callController = MoqCallController(endpointUri: "1", client: mockClient, submitter: nil) {}

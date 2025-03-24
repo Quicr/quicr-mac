@@ -97,6 +97,11 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
     handlerPtr->SetDefaultTTL(ttl);
 }
 
+-(void) setDefaultTrackMode: (QTrackMode)trackMode {
+    assert(handlerPtr);
+    handlerPtr->SetDefaultTrackMode((quicr::TrackMode)trackMode);
+}
+
 -(QPublishTrackHandlerStatus) getStatus {
     assert(handlerPtr);
     auto status = handlerPtr->GetStatus();

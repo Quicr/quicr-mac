@@ -39,6 +39,7 @@ static QName nameConvert(const std::vector<std::uint8_t> name) {
     return [[NSData alloc] initWithBytes:(void*)name.data() length:name.size()];
 }
 
+[[maybe_unused]]
 static id<QFullTrackName> _Nonnull ftnConvert(const quicr::FullTrackName& ftn) {
     return [[QFullTrackNameImpl alloc] initWithNamespace:nsConvert(ftn.name_space) name:nameConvert(ftn.name)];
 }
@@ -57,6 +58,7 @@ static std::vector<std::uint8_t> nameConvert(QName qName) {
     return { nameBytes, nameBytes + qName.length };
 }
 
+[[maybe_unused]]
 static quicr::FullTrackName ftnConvert(id<QFullTrackName> _Nonnull qFtn) {
     return {
         .name_space = nsConvert(qFtn.nameSpace),

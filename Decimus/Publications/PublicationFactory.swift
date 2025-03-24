@@ -5,7 +5,10 @@ import Foundation
 import AVFoundation
 
 protocol PublicationFactory {
-    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
+    func create(publication: ManifestPublication,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
 }
 
 class PublicationFactoryImpl: PublicationFactory {
@@ -19,6 +22,8 @@ class PublicationFactoryImpl: PublicationFactory {
     private let keyFrameInterval: TimeInterval
     private let stagger: Bool
     private let logger = DecimusLogger(PublicationFactory.self)
+    private let verbose: Bool
+    private let keyFrameOnUpdate: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -28,7 +33,9 @@ class PublicationFactoryImpl: PublicationFactory {
          captureManager: CaptureManager,
          participantId: ParticipantId,
          keyFrameInterval: TimeInterval,
-         stagger: Bool) {
+         stagger: Bool,
+         verbose: Bool,
+         keyFrameOnUpdate: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -38,9 +45,14 @@ class PublicationFactoryImpl: PublicationFactory {
         self.participantId = participantId
         self.keyFrameInterval = keyFrameInterval
         self.stagger = stagger
+        self.verbose = verbose
+        self.keyFrameOnUpdate = keyFrameOnUpdate
     }
 
-    func create(publication: ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+    func create(publication: ManifestPublication,
+                codecFactory: CodecFactory,
+                endpointId: String,
+                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
         for profile in publication.profileSet.profiles {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
@@ -104,7 +116,9 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   device: device,
                                                   endpointId: endpointId,
                                                   relayId: relayId,
-                                                  stagger: self.stagger)
+                                                  stagger: self.stagger,
+                                                  verbose: self.verbose,
+                                                  keyFrameOnUpdate: self.keyFrameOnUpdate)
             try self.captureManager.addInput(publication)
             return publication
         case .opus:

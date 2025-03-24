@@ -5,6 +5,7 @@ actor TrackMeasurement: Measurement {
     enum PubSub {
         case publish
         case subscribe
+        case fetch
     }
     let id = UUID()
     var name: String = "quic-dataFlow"
@@ -17,6 +18,8 @@ actor TrackMeasurement: Measurement {
             "publish"
         case .subscribe:
             "subscribe"
+        case .fetch:
+            "fetch"
         }
         self.tags["endpoint_id"] = endpointId
         self.tags["relay_id"] = relayId

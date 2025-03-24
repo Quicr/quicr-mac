@@ -81,10 +81,15 @@ final class TestActiveSpeaker: XCTestCase {
         }
         var subbed: [QSubscribeTrackHandlerObjC] = []
         var unsubbed: [QSubscribeTrackHandlerObjC] = []
-        let sub: TestCallController.MockClient.SubscribeTrackCallback = { subbed.append($0) }
-        let unsub: TestCallController.MockClient.SubscribeTrackCallback = { unsubbed.append($0) }
+        let sub: MockClient.SubscribeTrackCallback = { subbed.append($0) }
+        let unsub: MockClient.SubscribeTrackCallback = { unsubbed.append($0) }
 
-        let client = TestCallController.MockClient(publish: { _ in }, unpublish: { _ in }, subscribe: sub, unsubscribe: unsub)
+        let client = MockClient(publish: { _ in },
+                                unpublish: { _ in },
+                                subscribe: sub,
+                                unsubscribe: unsub,
+                                fetch: { _ in },
+                                fetchCancel: { _ in })
         let controller = MoqCallController(endpointUri: "4", client: client, submitter: nil) { }
         try await controller.connect()
 

@@ -16,16 +16,28 @@ extension VideoHandler {
             tags["namespace"] = namespace
         }
 
-        func receivedFrame(timestamp: Date?, idr: Bool) {
+        func timestamp(timestamp: TimeInterval, when: Date, cached: Bool) {
+            let tags = ["cached": "\(cached)"]
+            self.record(field: "timestamp", value: timestamp, timestamp: when, tags: tags)
+        }
+
+        func receivedFrame(timestamp: Date?, idr: Bool, cached: Bool) {
             self.frames += 1
+            let tags: [String: String]?
+            if timestamp != nil {
+                tags = ["idr": "\(idr)", "cached": "\(cached)"]
+            } else {
+                tags = nil
+            }
             record(field: "receivedFrames",
                    value: self.frames as AnyObject,
                    timestamp: timestamp,
-                   tags: ["idr": "\(idr)"])
+                   tags: tags)
         }
 
-        func age(age: TimeInterval, timestamp: Date) {
-            record(field: "age", value: age as AnyObject, timestamp: timestamp)
+        func age(age: TimeInterval, timestamp: Date, cached: Bool) {
+            let tags = ["cached": "\(cached)"]
+            record(field: "age", value: age as AnyObject, timestamp: timestamp, tags: tags)
         }
 
         func decodedFrame(timestamp: Date?) {
@@ -33,9 +45,15 @@ extension VideoHandler {
             record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)
         }
 
-        func receivedBytes(received: Int, timestamp: Date?) {
+        func receivedBytes(received: Int, timestamp: Date?, cached: Bool) {
             self.bytes += UInt64(received)
-            record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+            let tags: [String: String]?
+            if timestamp != nil {
+                tags = ["cached": "\(cached)"]
+            } else {
+                tags = nil
+            }
+            record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp, tags: tags)
         }
 
         func enqueuedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date) {

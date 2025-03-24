@@ -163,6 +163,16 @@ class MoqCallController: QClientCallbacks {
         self.client.unpublishTrack(withHandler: publication)
     }
 
+    public func fetch(_ fetch: Fetch) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.fetchTrack(withHandler: fetch)
+    }
+
+    public func cancelFetch(_ fetch: Fetch) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.cancelFetchTrack(withHandler: fetch)
+    }
+
     /// Get a managed subscription set for the given source ID, if any.
     /// - Parameter sourceID: SourceID to lookup on.
     /// - Returns: The matching set, if any.
@@ -189,7 +199,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
     /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func subscribeToSet(details: ManifestSubscription, factory: SubscriptionFactory, subscribe: Bool) throws -> SubscriptionSet {
+    public func subscribeToSet(details: ManifestSubscription,
+                               factory: SubscriptionFactory,
+                               subscribe: Bool) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      codecFactory: CodecFactoryImpl(),

@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFoundation
-import Atomics
-import os
-
-// swiftlint:disable type_body_length
+import Synchronization
 
 enum DecimusVideoRotation: UInt8 {
     case portrait = 1
@@ -20,10 +17,11 @@ struct VideoHelpers {
 }
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
-                            _ when: Date) -> Void
+                            _ when: Date,
+                            _ cached: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: CustomStringConvertible {
+class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -51,28 +49,30 @@ class VideoHandler: CustomStringConvertible {
     var verticalMirror: Bool {
         atomicMirror.load(ordering: .acquiring)
     }
-    private var atomicOrientation = ManagedAtomic<UInt8>(0)
-    private var atomicMirror = ManagedAtomic<Bool>(false)
+    private let atomicOrientation = Atomic<UInt8>(0)
+    private let atomicMirror = Atomic<Bool>(false)
     private var currentFormat: CMFormatDescription?
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
-    var lastDecodedImage: AvailableImage?
-    let lastDecodedImageLock = OSAllocatedUnfairLock()
-    private var timestampTimeDiffUs = ManagedAtomic(Int64.zero)
+    let lastDecodedImage = Mutex<AvailableImage?>(nil)
+    private let timestampTimeDiffUs = Atomic(Int128.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
     private var duration: TimeInterval? = 0
     private let variances: VarianceCalculator
-    private var callbacks: [Int: ObjectReceived] = [:]
-    private var currentCallbackToken = 0
-    private let callbackLock = OSAllocatedUnfairLock()
+
+    private struct Callbacks {
+        var callbacks: [Int: ObjectReceived] = [:]
+        var currentCallbackToken = 0
+    }
+    private let callbacks = Mutex<Callbacks>(.init())
+
     var description = "VideoHandler"
     private let participantId: ParticipantId
-    private var participant: VideoParticipant?
-    private var participantLock = OSAllocatedUnfairLock()
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let participant = Mutex<VideoParticipant?>(nil)
 
     /// Create a new video handler.
     /// - Parameters:
@@ -124,9 +124,7 @@ class VideoHandler: CustomStringConvertible {
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
-                    let existing = self.participantLock.withLock {
-                        self.participant
-                    }
+                    let existing = self.participant.get()
                     guard existing == nil else { return VideoParticipant?.none }
                     return try VideoParticipant(id: "\(self.fullTrackName)",
                                                 startDate: joinDate,
@@ -136,10 +134,10 @@ class VideoHandler: CustomStringConvertible {
                                                 activeSpeakerStats: self.activeSpeakerStats)
                 }
                 guard let participant = participant else { return }
-                self.participantLock.withLock { self.participant = participant }
+                self.participant.withLock { $0 = participant }
             }
         } else {
-            self.participantLock.withLock { self.participant = nil }
+            self.participant.clear()
         }
 
         if jitterBufferConfig.mode != .layer {
@@ -150,13 +148,11 @@ class VideoHandler: CustomStringConvertible {
                 if simulreceive != .none {
                     _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                             now: now)
-                    self.lastDecodedImageLock.lock()
-                    defer { self.lastDecodedImageLock.unlock() }
-                    self.lastDecodedImage = .init(image: sample,
-                                                  fps: UInt(self.config.fps),
-                                                  discontinous: sample.discontinous)
+                    self.lastDecodedImage.withLock { $0 = .init(image: sample,
+                                                                fps: UInt(self.config.fps),
+                                                                discontinous: sample.discontinous) }
                 }
-                if let participant = self.participantLock.withLock({ self.participant }) {
+                if let participant = self.participant.get() {
                     // Enqueue for rendering.
                     do {
                         try self.enqueueSample(sample: sample,
@@ -181,24 +177,26 @@ class VideoHandler: CustomStringConvertible {
     /// - Parameter callback: Callback to be called.
     /// - Returns: Token for unregister.
     func registerCallback(_ callback: @escaping ObjectReceived) -> Int {
-        self.callbackLock.withLock {
-            self.currentCallbackToken += 1
-            self.callbacks[self.currentCallbackToken] = callback
-            return self.currentCallbackToken
+        self.callbacks.withLock { callbacks in
+            callbacks.currentCallbackToken += 1
+            callbacks.callbacks[callbacks.currentCallbackToken] = callback
+            return callbacks.currentCallbackToken
         }
     }
 
     /// Unregister a previously registered callback.
     /// - Parameter token: Token from a ``registerCallback(_:)`` call.
     func unregisterCallback(_ token: Int) {
-        self.callbackLock.withLock {
-            _ = self.callbacks.removeValue(forKey: token)
-        }
+        _ = self.callbacks.withLock { $0.callbacks.removeValue(forKey: token) }
     }
 
     // MARK: Callbacks.
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?, when: Date) {
+    func objectReceived(_ objectHeaders: QObjectHeaders,
+                        data: Data,
+                        extensions: [NSNumber: Data]?,
+                        when: Date,
+                        cached: Bool) {
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
@@ -221,15 +219,20 @@ class VideoHandler: CustomStringConvertible {
                 return
             }
 
-            let toCall: [ObjectReceived] = self.callbackLock.withLock {
-                Array(self.callbacks.values)
+            if let measurement = self.measurement?.measurement,
+               self.granularMetrics {
+                Task(priority: .utility) {
+                    await measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
+                }
             }
+
+            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
-                callback(timestamp, when)
+                callback(timestamp, when, cached)
             }
 
             // TODO: This can be inlined here.
-            try self.submitEncodedData(frame, from: when)
+            try self.submitEncodedData(frame, from: when, cached: cached)
         } catch {
             Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
@@ -237,11 +240,21 @@ class VideoHandler: CustomStringConvertible {
 
     // MARK: Implementation.
 
+    /// Allows frames to be played from the buffer.
+    func play() {
+        guard let buffer = self.jitterBuffer else {
+            Self.logger.debug("Set play with no buffer")
+            return
+        }
+        buffer.startPlaying()
+    }
+
     /// Pass an encoded video frame to this video handler.
     /// - Parameter data Encoded H264 frame data.
     /// - Parameter groupId The group.
     /// - Parameter objectId The object in the group.
-    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date) throws {
+    /// - Parameter cached True if this object is from the cache (not live).
+    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date, cached: Bool) throws {
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -289,7 +302,7 @@ class VideoHandler: CustomStringConvertible {
                                                             format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
-                    guard let participant = self.participantLock.withLock({ self.participant }) else { return }
+                    guard let participant = self.participant.get() else { return }
                     participant.label = .init(describing: self)
                 }
             }
@@ -303,11 +316,11 @@ class VideoHandler: CustomStringConvertible {
                    let presentationTime = frame.samples.first?.presentationTimeStamp {
                     let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
                     let age = now.timeIntervalSince(presentationDate)
-                    await measurement.measurement.age(age: age, timestamp: now)
+                    await measurement.measurement.age(age: age, timestamp: now, cached: cached)
                 }
-                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0)
+                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0, cached: cached)
                 let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now)
+                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
             }
         }
     }
@@ -318,7 +331,10 @@ class VideoHandler: CustomStringConvertible {
     func calculateWaitTime(from: Date) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else { return nil }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
+        guard diffUs != 0 else {
+            Self.logger.debug("Missing initial timestamp")
+            return nil
+        }
         let diff = TimeInterval(diffUs) / 1_000_000.0
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
@@ -330,7 +346,7 @@ class VideoHandler: CustomStringConvertible {
             return nil
         }
         let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else {
+        guard diffUs != 0 else {
             assert(false)
             Self.logger.warning("Missing initial timestamp")
             return nil
@@ -362,9 +378,6 @@ class VideoHandler: CustomStringConvertible {
         // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
-                if reliable {
-                    return .compareLessThan
-                }
                 let first = $0 as! DecimusVideoFrameJitterItem
                 let second = $1 as! DecimusVideoFrameJitterItem
                 let seq1 = first.sequenceNumber
@@ -392,7 +405,7 @@ class VideoHandler: CustomStringConvertible {
                 ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(0) { $0 + $1.totalSampleSize }
             }
             builder.isDataReady {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
+                ($0 as! DecimusVideoFrameJitterItem).frame.samples.allSatisfy { $0.dataReadiness == .ready }
             }
         }
         // swiftlint:enable force_cast
@@ -400,7 +413,8 @@ class VideoHandler: CustomStringConvertible {
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterBufferConfig.minDepth,
                                       capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
-                                      handlers: handlers)
+                                      handlers: handlers,
+                                      playingFromStart: false)
         self.duration = duration
     }
 
@@ -448,10 +462,14 @@ class VideoHandler: CustomStringConvertible {
                             }
                         }
 
+                        // TODO: Cleanup the need for this regen.
+                        // TODO: Thread-safety for current format.
+                        let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
-                            try self.decode(sample: item.frame, from: now)
+                            let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
+                            try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -459,13 +477,32 @@ class VideoHandler: CustomStringConvertible {
         }
     }
 
+    /// Regenerate the frame to have the given format.
+    private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription?) throws -> DecimusVideoFrame {
+        guard let format = format else { throw "Missing expected format" }
+        let samples = try frame.samples.map { sample in
+            try CMSampleBuffer(dataBuffer: sample.dataBuffer,
+                               formatDescription: format,
+                               numSamples: sample.numSamples,
+                               sampleTimings: sample.sampleTimingInfos(),
+                               sampleSizes: sample.sampleSizes())
+        }
+        return .init(samples: samples,
+                     groupId: frame.groupId,
+                     objectId: frame.objectId,
+                     sequenceNumber: frame.sequenceNumber,
+                     fps: frame.fps,
+                     orientation: frame.orientation,
+                     verticalMirror: frame.verticalMirror)
+    }
+
     /// Set the difference in time between incoming stream timestamps and wall clock.
     /// - Parameter diff: Difference in time in seconds.
     func setTimeDiff(diff: TimeInterval) {
-        let diffUs = min(Int64(diff * 1_000_000), 1)
-        _ = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                     desired: diffUs,
-                                                     ordering: .acquiringAndReleasing)
+        // Get to an integer representation, in microseconds.
+        let diffUs = Int128(diff * microsecondsPerSecond)
+        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
+        self.timestampTimeDiffUs.store(diffUs != 0 ? diffUs : 1, ordering: .releasing)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
@@ -496,7 +533,7 @@ class VideoHandler: CustomStringConvertible {
         // Decode.
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
-                guard let participant = self.participantLock.withLock({ self.participant }) else {
+                guard let participant = self.participant.get() else {
                     Self.logger.warning("Missing expected participant")
                     return
                 }
@@ -582,7 +619,7 @@ class VideoHandler: CustomStringConvertible {
     }
 
     private func flushDisplayLayer() {
-        guard let participant = self.participantLock.withLock({ self.participant }) else { return }
+        guard let participant = self.participant.get() else { return }
         DispatchQueue.main.async {
             do {
                 try participant.view.flush()

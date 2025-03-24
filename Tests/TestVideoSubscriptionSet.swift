@@ -4,6 +4,7 @@
 @testable import QuicR
 import XCTest
 import CoreMedia
+import Testing
 
 final class TestVideoSubscriptionSet: XCTestCase {
     private func testImage(width: Int, height: Int) throws -> CVPixelBuffer {
@@ -140,6 +141,47 @@ final class TestVideoSubscriptionSet: XCTestCase {
         default:
             XCTFail()
         }
+    }
+}
+
+struct VideoSubscriptionSetTests {
+    static let now = Date.now
+    static let pastTimestamp = Self.now.addingTimeInterval(-10).timeIntervalSince1970
+    static let futureTimestamp = Self.now.addingTimeInterval(10).timeIntervalSince1970
+
+    @MainActor
+    @Test("Test Timestamp Diff", arguments: [Self.now.timeIntervalSince1970,
+                                             Self.pastTimestamp,
+                                             Self.futureTimestamp])
+    func testTimestampDiff(timestamp: TimeInterval) throws {
+        let set = try VideoSubscriptionSet(subscription: .init(mediaType: "",
+                                                               sourceName: "",
+                                                               sourceID: "",
+                                                               label: "",
+                                                               participantId: .init(1),
+                                                               profileSet: .init(type: "",
+                                                                                 profiles: [.init(qualityProfile: "",
+                                                                                                  expiry: nil,
+                                                                                                  priorities: nil,
+                                                                                                  namespace: [])])),
+                                           participants: .init(),
+                                           metricsSubmitter: nil,
+                                           videoBehaviour: .freeze,
+                                           reliable: true,
+                                           granularMetrics: true,
+                                           jitterBufferConfig: .init(),
+                                           simulreceive: .visualizeOnly,
+                                           qualityMissThreshold: 1,
+                                           pauseMissThreshold: 1,
+                                           pauseResume: false,
+                                           endpointId: "",
+                                           relayId: "",
+                                           codecFactory: MockCodecFactory(),
+                                           joinDate: .now,
+                                           activeSpeakerStats: nil,
+                                           cleanupTime: 10,
+                                           slidingWindowTime: 10)
+        try set.receivedObject(.init(namespace: [], name: ""), timestamp: timestamp, when: Self.now, cached: false)
     }
 }
 

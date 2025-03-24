@@ -46,5 +46,5 @@ extension CMSampleBuffer {
 
 extension CMSampleBuffer.PerSampleAttachmentsDictionary.Key {
     /// Set if a preceeding dependent of this frame is missing.
-    public static let discontinous: CMSampleBuffer.PerSampleAttachmentsDictionary.Key = .init(rawValue: "decimus_discontinous" as CFString)
+    public static let discontinous = Self(rawValue: "decimus_discontinous" as CFString)
 }

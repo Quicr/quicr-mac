@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+import Network
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -166,6 +167,26 @@ struct InCallView: View {
                                     .labelsHidden()
                                     .pickerStyle(.segmented)
                                 }
+                                if let speakers = self.viewModel.activeSpeaker {
+                                    let ids = speakers.lastRenderedSpeakers.map { $0.participantId }
+                                    if let json = try? JSONEncoder().encode(ids) {
+                                        LabeledContent("Currently Active Speakers") {
+                                            Text(String(data: json, encoding: .utf8) ?? "Unknown")
+                                        }
+                                    } else {
+                                        Text("Failed to parse list")
+                                            .foregroundStyle(.red)
+                                    }
+                                    let received = speakers.lastReceived.map { $0.participantId }
+                                    if let json = try? JSONEncoder().encode(received) {
+                                        LabeledContent("Last Received Speakers") {
+                                            Text(String(data: json, encoding: .utf8) ?? "Unknown")
+                                        }
+                                    } else {
+                                        Text("Failed to parse list")
+                                            .foregroundStyle(.red)
+                                    }
+                                }
                                 let playtime = self.viewModel.playtimeConfig.value
                                 if playtime.playtime && playtime.manualActiveSpeaker {
                                     LabeledContent("Active Speakers") {
@@ -182,7 +203,9 @@ struct InCallView: View {
                                 }
                             }
                             ScrollView {
-                                SubscriptionPopover(controller, manifest: manifest, factory: self.viewModel.subscriptionFactory!)
+                                SubscriptionPopover(controller,
+                                                    manifest: manifest,
+                                                    factory: self.viewModel.subscriptionFactory!)
                                 PublicationPopover(controller)
                             }
                         }
@@ -301,6 +324,9 @@ extension InCallView {
         @AppStorage(PlaytimeSettingsView.defaultsKey)
         private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
 
+        @AppStorage(SettingsView.verboseKey)
+        private(set) var verbose = false
+
         init(config: CallConfig, onLeave: @escaping () -> Void) {
             self.config = config
             self.onLeave = onLeave
@@ -329,7 +355,7 @@ extension InCallView {
             }
         }
 
-        func join() async -> Bool {
+        func join() async -> Bool { // swiftlint:disable:this function_body_length
             // Fetch the manifest from the conference server.
             let manifest: Manifest
             do {
@@ -349,29 +375,34 @@ extension InCallView {
             }
 
             // Create the factories now that we have the participant ID.
-            let publicationFactory = PublicationFactoryImpl(opusWindowSize: self.subscriptionConfig.value.opusWindowSize,
-                                                            reliability: self.subscriptionConfig.value.mediaReliability,
+            let subConfig = self.subscriptionConfig.value
+            let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
+                                                            reliability: subConfig.mediaReliability,
                                                             engine: engine,
                                                             metricsSubmitter: self.submitter,
                                                             granularMetrics: self.influxConfig.value.granular,
                                                             captureManager: captureManager,
                                                             participantId: manifest.participantId,
-                                                            keyFrameInterval: self.subscriptionConfig.value.keyFrameInterval,
-                                                            stagger : self.subscriptionConfig.value.stagger)
+                                                            keyFrameInterval: subConfig.keyFrameInterval,
+                                                            stagger: subConfig.stagger,
+                                                            verbose: self.verbose,
+                                                            keyFrameOnUpdate: subConfig.keyFrameOnUpdate)
             let playtime = self.playtimeConfig.value
             let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+            let controller = self.makeCallController()
+            self.controller = controller
             let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                               metricsSubmitter: self.submitter,
-                                                              subscriptionConfig: self.subscriptionConfig.value,
+                                                              subscriptionConfig: subConfig,
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               engine: engine,
                                                               participantId: ourParticipantId,
                                                               joinDate: self.joinDate,
-                                                              activeSpeakerStats: self.activeSpeakerStats)
+                                                              activeSpeakerStats: self.activeSpeakerStats,
+                                                              controller: controller,
+                                                              verbose: self.verbose)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
-            let controller = self.makeCallController()
-            self.controller = controller
 
             // Connect to the relay/server.
             do {
@@ -394,12 +425,16 @@ extension InCallView {
             do {
                 // Publish.
                 for publication in manifest.publications {
-                    try controller.publish(details: publication, factory: publicationFactory, codecFactory: CodecFactoryImpl())
+                    try controller.publish(details: publication,
+                                           factory: publicationFactory,
+                                           codecFactory: CodecFactoryImpl())
                 }
 
                 // Subscribe.
                 for subscription in manifest.subscriptions {
-                    _ = try controller.subscribeToSet(details: subscription, factory: subscriptionFactory, subscribe: true)
+                    _ = try controller.subscribeToSet(details: subscription,
+                                                      factory: subscriptionFactory,
+                                                      subscribe: true)
                 }
 
                 // Active speaker handling.
@@ -456,7 +491,13 @@ extension InCallView {
         }
 
         private func makeCallController() -> MoqCallController {
-            let connectUri: String = "moq://\(config.address):\(config.port)"
+            let address: String
+            if let ipv6 = IPv6Address(self.config.address) {
+                address = "[\(self.config.address)]"
+            } else {
+                address = self.config.address
+            }
+            let connectUri: String = "moq://\(address):\(config.port)"
             let endpointId: String = config.email
             let qLogPath: URL
             #if targetEnvironment(macCatalyst) || os(macOS)
@@ -533,7 +574,7 @@ extension InCallView {
             let token: String
             do {
                 // Try and get metrics from storage.
-                let storage = try TokenStorage(tag: InfluxSettingsView.defaultsKey)
+                let storage = TokenStorage(tag: InfluxSettingsView.defaultsKey)
                 if let fetched = try storage.retrieve() {
                     token = fetched
                     Self.logger.debug("Resolved influx token from keychain")

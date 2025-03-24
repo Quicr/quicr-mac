@@ -17,73 +17,73 @@ extension DecimusVideoFrame: @retroactive Equatable {
     }
 }
 
-final class TestVideoJitterBuffer: XCTestCase {
-
-    // swiftlint:disable force_cast
-    func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
-        .init { builder in
-            builder.compare {
-                if !sort {
-                    return .compareLessThan
-                }
-                let first = $0 as! DecimusVideoFrameJitterItem
-                let second = $1 as! DecimusVideoFrameJitterItem
-                let seq1 = first.sequenceNumber
-                let seq2 = second.sequenceNumber
-                if seq1 < seq2 {
-                    return .compareLessThan
-                } else if seq1 > seq2 {
-                    return .compareGreaterThan
-                } else if seq1 == seq2 {
-                    return .compareEqualTo
-                }
-                assert(false)
+// swiftlint:disable force_cast
+private func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
+    .init { builder in
+        builder.compare {
+            if !sort {
                 return .compareLessThan
             }
-            builder.getDecodeTimeStamp {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.decodeTimeStamp ?? .invalid
+            let first = $0 as! DecimusVideoFrameJitterItem
+            let second = $1 as! DecimusVideoFrameJitterItem
+            let seq1 = first.sequenceNumber
+            let seq2 = second.sequenceNumber
+            if seq1 < seq2 {
+                return .compareLessThan
+            } else if seq1 > seq2 {
+                return .compareGreaterThan
+            } else if seq1 == seq2 {
+                return .compareEqualTo
             }
-            builder.getDuration {
-                let duration = ($0 as! DecimusVideoFrameJitterItem).frame.samples.first!.duration
-                return duration
-            }
-            builder.getPresentationTimeStamp {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.presentationTimeStamp ?? .invalid
-            }
-            builder.getSize {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(0) { $0 + $1.totalSampleSize }
-            }
-            builder.isDataReady {
-                ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
-            }
+            assert(false)
+            return .compareLessThan
+        }
+        builder.getDecodeTimeStamp {
+            ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.decodeTimeStamp ?? .invalid
+        }
+        builder.getDuration {
+            let duration = ($0 as! DecimusVideoFrameJitterItem).frame.samples.first!.duration
+            return duration
+        }
+        builder.getPresentationTimeStamp {
+            ($0 as! DecimusVideoFrameJitterItem).frame.samples.first?.presentationTimeStamp ?? .invalid
+        }
+        builder.getSize {
+            ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(0) { $0 + $1.totalSampleSize }
+        }
+        builder.isDataReady {
+            ($0 as! DecimusVideoFrameJitterItem).frame.samples.reduce(true) { $0 && $1.dataReadiness == .ready }
         }
     }
-    // swiftlint:enable force_cast
+}
+// swiftlint:enable force_cast
+
+private func exampleSample(groupId: UInt64,
+                           objectId: UInt64,
+                           sequenceNumber: UInt64,
+                           fps: UInt8) throws -> DecimusVideoFrame {
+    let sample = try CMSampleBuffer(dataBuffer: nil,
+                                    formatDescription: nil,
+                                    numSamples: 1,
+                                    sampleTimings: [.init(duration: .init(value: 1, timescale: CMTimeScale(fps)),
+                                                          presentationTimeStamp: .init(seconds: Date.now.timeIntervalSince1970, preferredTimescale: 1),
+                                                          decodeTimeStamp: .invalid)],
+                                    sampleSizes: [])
+    return .init(samples: [sample],
+                 groupId: groupId,
+                 objectId: objectId,
+                 sequenceNumber: sequenceNumber,
+                 fps: fps,
+                 orientation: nil,
+                 verticalMirror: nil)
+}
+
+final class TestVideoJitterBuffer: XCTestCase {
 
     /// Nothing should be returned until the min depth has been exceeded.
     func doTestPlayout() throws {
         try testPlayout(sort: true)
         try testPlayout(sort: false)
-    }
-
-    func exampleSample(groupId: UInt64,
-                       objectId: UInt64,
-                       sequenceNumber: UInt64,
-                       fps: UInt8) throws -> DecimusVideoFrame {
-        let sample = try CMSampleBuffer(dataBuffer: nil,
-                                        formatDescription: nil,
-                                        numSamples: 1,
-                                        sampleTimings: [.init(duration: .init(value: 1, timescale: CMTimeScale(fps)),
-                                                              presentationTimeStamp: .init(seconds: Date.now.timeIntervalSince1970, preferredTimescale: 1),
-                                                              decodeTimeStamp: .invalid)],
-                                        sampleSizes: [])
-        return .init(samples: [sample],
-                     groupId: groupId,
-                     objectId: objectId,
-                     sequenceNumber: sequenceNumber,
-                     fps: fps,
-                     orientation: nil,
-                     verticalMirror: nil)
     }
 
     func testPlayout(sort: Bool) throws {
@@ -424,5 +424,42 @@ final class TestVideoJitterBuffer: XCTestCase {
         let frame2 = try exampleSample(groupId: 0, objectId: 2, sequenceNumber: 2, fps: fps)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
         XCTAssertEqual(buffer.getDepth(), (1 / (TimeInterval(fps)) * 2))
+    }
+}
+
+import Testing
+
+struct JitterBufferTests {
+    @Test("Not playing from start")
+    func testNoPlayout() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: false),
+                                      playingFromStart: false)
+        let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
+        let item = try DecimusVideoFrameJitterItem(sample)
+        try buffer.write(item: item, from: .now)
+        var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(read == nil)
+        buffer.startPlaying()
+        read = buffer.read(from: .now)
+        #expect(read!.frame == sample)
+    }
+
+    @Test("Playing from start")
+    func testPlayout() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: false),
+                                      playingFromStart: true)
+        let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
+        let item = try DecimusVideoFrameJitterItem(sample)
+        try buffer.write(item: item, from: .now)
+        var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(read!.frame == sample)
     }
 }

@@ -1,12 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import os
+import Synchronization
 
 /// Calculate the variance between a set of timestamped events and their time of occurance.
 class VarianceCalculator {
-    private var variances: [TimeInterval: [Date]] = [:]
-    private var lock = OSAllocatedUnfairLock()
+    private let variances: Mutex<[TimeInterval: [Date]]> = .init([:])
     private let varianceMaxCount: Int
     private let expectedOccurrences: Int
     private let measurement: MeasurementRegistration<VarianceCalculatorMeasurement>?
@@ -35,30 +34,30 @@ class VarianceCalculator {
 
     /// Record a variance.
     func calculateSetVariance(timestamp: TimeInterval, now: Date) -> TimeInterval? {
-        let variances = self.lock.withLock {
+        let variances = self.variances.withLock { varianceMap in
             // Cleanup.
-            if self.variances.count > self.varianceMaxCount {
+            if varianceMap.count > self.varianceMaxCount {
                 for index in 0...self.varianceMaxCount / 2 {
-                    let variance = self.variances.remove(at: self.variances.index(self.variances.startIndex,
-                                                                                  offsetBy: index))
+                    let variance = varianceMap.remove(at: varianceMap.index(varianceMap.startIndex,
+                                                                            offsetBy: index))
                     _ = calculateSetVariance(times: variance.value, now: now)
                 }
             }
 
-            guard var variances = self.variances[timestamp] else {
-                self.variances[timestamp] = [now]
+            guard var variances = varianceMap[timestamp] else {
+                varianceMap[timestamp] = [now]
                 return [Date]?.none
             }
 
             variances.append(now)
             guard variances.count == self.expectedOccurrences else {
                 // If we're not done, just store for next time.
-                self.variances[timestamp] = variances
+                varianceMap[timestamp] = variances
                 return [Date]?.none
             }
 
             // We're done, remove and report.
-            self.variances.removeValue(forKey: timestamp)
+            varianceMap.removeValue(forKey: timestamp)
             return variances
         }
         guard let variances = variances else { return nil }

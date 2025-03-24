@@ -23,6 +23,7 @@ enum ActiveSpeakerApplyError: Error {
 }
 
 /// Manages the operations associated with active speaker changes.
+@Observable
 class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let notifier: ActiveSpeakerNotifier
     private var callbackToken: ActiveSpeakerNotifier.CallbackToken?
@@ -31,6 +32,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let factory: SubscriptionFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
     private var lastSpeakers: OrderedSet<ParticipantId>
+    private(set) var lastRenderedSpeakers: OrderedSet<ParticipantId> = []
+    private(set) var lastReceived: OrderedSet<ParticipantId> = []
     private var count: Int?
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
@@ -55,7 +58,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         }
         self.videoSubscriptions = videoSubscriptions
         self.factory = factory
-        self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId}).map({$0.participantId}))
+        self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId})
+                                    .map({$0.participantId}))
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
@@ -72,10 +76,15 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     func setClampCount(_ count: Int?) {
         self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
         self.count = count
-        self.onActiveSpeakersChanged(lastSpeakers)
+        self.onActiveSpeakersChanged(self.lastSpeakers, real: false)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>) {
+    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
+        self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        if real {
+            self.lastReceived = speakers
+        }
+
         if let stats = self.activeSpeakerStats {
             let now = Date.now
             Task(priority: .utility) {
@@ -85,16 +94,18 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             }
         }
 
-        self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
         var speakers = speakers
         speakers.remove(self.participantId)
         self.lastSpeakers = speakers.union(self.lastSpeakers)
         speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
+        self.lastRenderedSpeakers = speakers
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, subscribe to video from any speakers we are not already subscribed to.
         var subbed = 0
-        let existingHandlers = existing.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().compactMap { $0.value }) }
+        let existingHandlers = existing.reduce(into: []) {
+            $0.append(contentsOf: $1.getHandlers().compactMap { $0.value })
+        }
         for set in self.videoSubscriptions where speakers.contains(set.participantId) {
             for subscription in set.profileSet.profiles {
                 do {
@@ -105,7 +116,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                     }
                     // Subscribe.
                     subbed += 1
-                    self.logger.debug("[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
+                    self.logger.debug(
+                        "[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
                     // Does a set for this already exist?
                     // TODO: Clean this up.
                     let targetSet: SubscriptionSet

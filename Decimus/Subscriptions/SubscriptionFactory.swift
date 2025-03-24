@@ -94,10 +94,14 @@ struct SubscriptionConfig: Codable {
     var quicPriorityLimit: UInt8
     /// True to enable SFrame encryption of media.
     var doSFrame: Bool
+    /// True to publish keyframe on subscribe update.
+    var keyFrameOnUpdate: Bool
+    /// Time to cleanup stale subscriptions for.
+    var cleanupTime: TimeInterval
 
     /// Create with default settings.
     init() {
-        jitterMaxTime = 0.2
+        jitterMaxTime = 1
         jitterDepthTime = 0.2
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
@@ -122,6 +126,8 @@ struct SubscriptionConfig: Codable {
         quicPriorityLimit = 0
         doSFrame = true
         stagger = true
+        self.keyFrameOnUpdate = true
+        self.cleanupTime = 1.5
     }
 }
 
@@ -146,6 +152,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let engine: DecimusAudioEngine
     private let participantId: ParticipantId?
     private let joinDate: Date
+    private let controller: MoqCallController
+    private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
     private let activeSpeakerStats: ActiveSpeakerStats?
 
@@ -156,7 +164,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          engine: DecimusAudioEngine,
          participantId: ParticipantId?,
          joinDate: Date,
-         activeSpeakerStats: ActiveSpeakerStats?) {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         controller: MoqCallController,
+         verbose: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -165,6 +175,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.participantId = participantId
         self.joinDate = joinDate
         self.activeSpeakerStats = activeSpeakerStats
+        self.controller = controller
+        self.verbose = verbose
     }
 
     func create(subscription: ManifestSubscription,
@@ -220,7 +232,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             relayId: relayId,
                                             codecFactory: CodecFactoryImpl(),
                                             joinDate: self.joinDate,
-                                            activeSpeakerStats: self.activeSpeakerStats)
+                                            activeSpeakerStats: self.activeSpeakerStats,
+                                            cleanupTime: self.subscriptionConfig.cleanupTime,
+                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -291,26 +305,33 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          participantId: set.participantId,
                                          joinDate: self.joinDate,
                                          activeSpeakerStats: self.activeSpeakerStats,
-                                         callback: { [weak set] timestamp, when in
+                                         controller: self.controller,
+                                         verbose: self.verbose,
+                                         cleanupTime: self.subscriptionConfig.cleanupTime,
+                                         callback: { [weak set] timestamp, when, cached in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn, timestamp: timestamp, when: when)
+                                            set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {
             guard set is ObservableSubscriptionSet else {
                 throw "AudioCodecConfig expects ObservableSubscriptionSet"
             }
+            let jitterMax = self.subscriptionConfig.useNewJitterBuffer ?
+                self.subscriptionConfig.videoJitterBuffer.capacity :
+                self.subscriptionConfig.jitterMaxTime
             return try OpusSubscription(profile: profile,
                                         engine: self.engine,
                                         submitter: self.metricsSubmitter,
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                        jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                        jitterMax: jitterMax,
                                         opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                         reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics,
                                         endpointId: endpointId,
                                         relayId: relayId,
                                         useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                        cleanupTime: self.subscriptionConfig.cleanupTime,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)

@@ -86,7 +86,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Create a new ``CaptureManager``.
     /// - Parameter metricsSubmitter: Optionally, a submitter to collect/submit metrics through.
-    /// - Parameter granularMetrics: Collect granular metrics when a submitter is present, at a potential performance penalty.
+    /// - Parameter granularMetrics: Collect granular metrics when a submitter is present,
+    /// at a potential performance penalty.
     init(metricsSubmitter: MetricsSubmitter?, granularMetrics: Bool) throws {
         #if !os(macOS)
         guard AVCaptureMultiCamSession.isMultiCamSupported else {
@@ -131,7 +132,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     /// Start capturing video from all target devices.
-    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread. ``CaptureManagerError/badSessionState`` if already running.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
+    /// ``CaptureManagerError/badSessionState`` if already running.
     func startCapturing() throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard !session.isRunning else {
@@ -160,7 +162,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
 
     /// Stop capturing media.
-    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread. ``CaptureManagerError/badSessionState`` if already stopped.
+    /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
+    /// ``CaptureManagerError/badSessionState`` if already stopped.
     func stopCapturing() throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard session.isRunning else {
@@ -307,7 +310,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
         #if !os(tvOS)
-        if listener.device.deviceType == .builtInMicrophone {
+        if listener.device.deviceType == .microphone {
             throw CaptureManagerError.noAudio
         }
         #endif
@@ -315,9 +318,11 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         try addCamera(listener: listener)
     }
 
-    /// Remove a listener for frame callbacks, removing the target device if no other listeners targetting that device are left.
+    /// Remove a listener for frame callbacks,
+    /// removing the target device if no other listeners targetting that device are left.
     /// - Parameter listener: Receiver of video frames.
-    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main. ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
+    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main.
+    /// ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
     func removeInput(listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
 
@@ -358,7 +363,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Query the mute state of the target device.
     /// - Parameter device: The device to query.
     /// - Returns: True if currently muted.
-    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main. ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
+    /// - Throws: ``CaptureManagerError/mainThread`` if called on a thread other than Main.
+    /// ``CaptureManagerError/missingInput(_:)`` if the device is not already tracked.
     func isMuted(device: AVCaptureDevice) throws -> Bool {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
         guard let connection = connections[device] else {
@@ -401,17 +407,16 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             self.startTime.removeValue(forKey: output)
         }
 
+        // Convert relative timestamp into absolute.
+        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
+
         // Metrics.
         if let measurement = self.measurement {
-            let timestamp = sampleBuffer.presentationTimeStamp.seconds
             Task(priority: .utility) {
-                await measurement.measurement.capturedFrame(frameTimestamp: timestamp,
+                await measurement.measurement.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
                                                             metricsTimestamp: self.granularMetrics ? now : nil)
             }
         }
-
-        // Convert relative timestamp into absolute.
-        let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
 
         // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
