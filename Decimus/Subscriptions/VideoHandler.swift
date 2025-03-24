@@ -242,8 +242,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     /// Allows frames to be played from the buffer.
     func play() {
+        guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
-            Self.logger.debug("Set play with no buffer")
+            Self.logger.error("Set play with no buffer")
             return
         }
         buffer.startPlaying()

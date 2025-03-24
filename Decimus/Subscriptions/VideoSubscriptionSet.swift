@@ -508,30 +508,30 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             }
 
             // If we don't yet have a participant, make one.
-            Task {
-                await MainActor.run {
-                    let participant: VideoParticipant? = self.participant.withLock { lockedParticipant in
-                        let participant: VideoParticipant
-                        if let existing = lockedParticipant {
-                            participant = existing
-                        } else {
-                            do {
-                                participant = try .init(id: self.sourceId,
-                                                        startDate: self.joinDate,
-                                                        subscribeDate: self.subscribeDate,
-                                                        videoParticipants: self.participants,
-                                                        participantId: self.participantId,
-                                                        activeSpeakerStats: self.activeSpeakerStats)
-                                lockedParticipant = participant
-                            } catch {
-                                Self.logger.error("Failed to create participant: \(error.localizedDescription)")
-                                return nil
+            Task { [weak self] in
+                guard let self = self else { return }
+                await MainActor.run { [weak self] in
+                    guard let self = self else { return }
+                    let participant: VideoParticipant
+                    do {
+                        participant = try self.participant.withLock { lockedParticipant in
+                            if let existing = lockedParticipant {
+                                return existing
                             }
+                            let created = try VideoParticipant(id: self.sourceId,
+                                                               startDate: self.joinDate,
+                                                               subscribeDate: self.subscribeDate,
+                                                               videoParticipants: self.participants,
+                                                               participantId: self.participantId,
+                                                               activeSpeakerStats: self.activeSpeakerStats)
+                            lockedParticipant = created
+                            return created
                         }
-                        return participant
+                    } catch {
+                        Self.logger.warning("Failed to create participant: \(error.localizedDescription)")
+                        return
                     }
 
-                    guard let participant else { return }
                     if let dispatchLabel = dispatchLabel {
                         participant.label = dispatchLabel
                     }
@@ -550,8 +550,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
-                Task {
-                    await MainActor.run {
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self = self else { return }
                         for participant in self.participants.participants {
                             guard let participant = participant.value else { continue }
                             participant.highlight = participant.id == "\(fullTrackName)"
