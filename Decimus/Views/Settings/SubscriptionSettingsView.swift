@@ -64,6 +64,22 @@ struct SubscriptionSettingsView: View {
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
                 LabeledToggle("KeyFrame on Update",
                               isOn: self.$subscriptionConfig.value.keyFrameOnUpdate)
+
+                LabeledContent("Fetch before (s)") {
+                    TextField(
+                        "Fetch (s)",
+                        value: self.$subscriptionConfig.value.joinConfig.fetchUpperThreshold,
+                        format: .number)
+                        .labelsHidden()
+                }
+                LabeledContent("Wait after (s)") {
+                    TextField(
+                        "Wait (s)",
+                        value: self.$subscriptionConfig.value.joinConfig.newGroupUpperThreshold,
+                        format: .number)
+                        .labelsHidden()
+                }
+
                 Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
                     ForEach(OpusWindowSize.allCases) {
                         Text(String(describing: $0))
