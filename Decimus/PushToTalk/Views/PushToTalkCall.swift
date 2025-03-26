@@ -25,6 +25,7 @@ struct PushToTalkCall: View {
          publicationFactory: PublicationFactory,
          subscriptionFactory: SubscriptionFactory,
          engine: DecimusAudioEngine) {
+        assert(aiChannel != channel)
         self.manager = manager
         self.channels = [
             .ai: aiChannel,
@@ -71,12 +72,12 @@ struct PushToTalkCall: View {
     }
 
     private func talk(_ destination: Destination) {
-        self.engine.setMicrophoneCapture(true)
         do {
             try self.manager.startTransmitting(self.channels[destination]!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
+        self.engine.setMicrophoneCapture(true)
     }
 
     private func stopTalking(_ destination: Destination) {

@@ -330,19 +330,18 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 self.subscriptionConfig.videoJitterBuffer.capacity :
                 self.subscriptionConfig.jitterMaxTime
 
-            // TODO: Clean this up.
-            if true {
+            if profile.channel == nil {
                 return try PCMSubscription(profile: profile,
                                            engine: self.engine,
-                                           submitter: nil,
+                                           submitter: self.metricsSubmitter,
                                            jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                           jitterMax: jitterMax,
+                                           jitterMax: self.subscriptionConfig.videoJitterBuffer.capacity,
                                            opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                            reliable: false,
                                            granularMetrics: false,
-                                           endpointId: "",
-                                           relayId: "",
-                                           useNewJitterBuffer: false,
+                                           endpointId: endpointId,
+                                           relayId: relayId,
+                                           useNewJitterBuffer: true,
                                            cleanupTime: self.subscriptionConfig.cleanupTime,
                                            statusChanged: unregister)
             }

@@ -35,6 +35,11 @@ class CircularBuffer {
         self.format = format
     }
 
+    /// Clear the buffer.
+    func clear() {
+        TPCircularBufferClear(&self.buffer)
+    }
+
     /// Dequeue the given number of frames into the provided buffer.
     /// - Parameter frames Attempt to dequeue up to this many frames.
     /// - Parameter buffer The buffer to dequeue audio into.

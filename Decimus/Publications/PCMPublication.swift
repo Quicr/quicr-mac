@@ -7,8 +7,18 @@ import CoreAudio
 import Accelerate
 import Synchronization
 
+let pcmFormat = AudioStreamBasicDescription(mSampleRate: 8000,
+                                            mFormatID: kAudioFormatALaw,
+                                            mFormatFlags: 0,
+                                            mBytesPerPacket: 1,
+                                            mFramesPerPacket: 1,
+                                            mBytesPerFrame: 1,
+                                            mChannelsPerFrame: 1,
+                                            mBitsPerChannel: 8,
+                                            mReserved: 0)
+
 class PCMPublication: Publication, AudioPublication {
-    private let logger = DecimusLogger(PCMPublication.self)
+    private let logger: DecimusLogger
     private let opusWindowSize: OpusWindowSize
     private let engine: DecimusAudioEngine
     private var encodeTask: Task<(), Never>?
@@ -34,12 +44,13 @@ class PCMPublication: Publication, AudioPublication {
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
+        self.logger = .init(PCMPublication.self, prefix: namespace)
         self.opusWindowSize = opusWindowSize
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
         self.windowFrames = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
-        guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: self.windowFrames) else {
+        guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: self.windowFrames * 2) else {
             throw "Failed to allocate PCM buffer"
         }
         self.pcm = pcm
@@ -52,15 +63,7 @@ class PCMPublication: Publication, AudioPublication {
         self.participantId = participantId
         self.publish = .init(startActive)
         self.groupId = groupId
-        var asbd = AudioStreamBasicDescription(mSampleRate: 16000,
-                                               mFormatID: kAudioFormatALaw,
-                                               mFormatFlags: 0,
-                                               mBytesPerPacket: 1,
-                                               mFramesPerPacket: 1,
-                                               mBytesPerFrame: 1,
-                                               mChannelsPerFrame: 1,
-                                               mBitsPerChannel: 8,
-                                               mReserved: 0)
+        var asbd = pcmFormat
         guard let desired = AVAudioFormat(streamDescription: &asbd),
               let converter = AVAudioConverter(from: format, to: desired) else {
             throw "Unsupported conversion"
@@ -154,7 +157,7 @@ class PCMPublication: Publication, AudioPublication {
             #endif
         }
 
-        // Are there enough frames available to fill a window?
+        // If there are not enough frames to fill a window we might as well bail.
         let available = buffer.peek()
         guard available.frames >= self.windowFrames else { return nil }
 
@@ -167,90 +170,47 @@ class PCMPublication: Publication, AudioPublication {
         var nsError: NSError?
         var timestamp: AudioTimeStamp?
         self.converter.convert(to: destination, error: &nsError) { packets, status in
-            let microphoneAudio = AVAudioPCMBuffer(pcmFormat: DecimusAudioEngine.format,
-                                                   frameCapacity: .init(packets))!
-            microphoneAudio.frameLength = AVAudioFrameCount(packets)
-            let sourceData = buffer.dequeue(frames: packets, buffer: &microphoneAudio.mutableAudioBufferList.pointee)
-            timestamp = sourceData.timestamp
-            guard sourceData.frames == packets else {
-                self.logger.warning("Only had \(sourceData.frames)/\(packets)")
+            let peek = buffer.peek()
+            guard peek.frames >= packets else {
                 status.pointee = .noDataNow
-                return microphoneAudio
+                return nil
             }
+
+            guard packets < self.pcm.frameCapacity else {
+                self.logger.error("PCM conversion asked for too much: \(packets)/\(self.pcm.frameCapacity)")
+                status.pointee = .noDataNow
+                return nil
+            }
+            self.pcm.frameLength = AVAudioFrameCount(packets)
+            let sourceData = buffer.dequeue(frames: packets, buffer: &self.pcm.mutableAudioBufferList.pointee)
+            assert(peek.frames >= sourceData.frames)
+            assert(sourceData.frames == packets)
+            self.pcm.frameLength = sourceData.frames
+            timestamp = sourceData.timestamp
             status.pointee = .haveData
-            return microphoneAudio
+            return self.pcm
         }
         if let nsError {
             self.logger.error("ALaw PCM Conversion Failed: \(nsError.localizedDescription)")
         }
+        guard destination.frameLength > 0 else {
+            return nil
+        }
+        assert(destination.frameLength == AVAudioFrameCount(self.opusWindowSize.rawValue * self.desiredFormat.sampleRate))
 
         // Get the data.
-        let ptr: UnsafeMutableRawPointer? = destination.audioBufferList.pointee.mBuffers.mData
+        let ptr = destination.audioBufferList.pointee.mBuffers.mData
         let len = destination.audioBufferList.pointee.mBuffers.mDataByteSize
         let data = Data(bytesNoCopy: ptr!, count: Int(len), deallocator: .none)
 
         // Timestamp.
-        let wallClock: Date
-        if let timestamp {
-            wallClock = try getAudioDate(timestamp.mHostTime, bootDate: self.bootDate)
-        } else {
+        guard let timestamp else {
             assert(false)
-            wallClock = Date.now
+            return nil
         }
+        let wallClock = try getAudioDate(timestamp.mHostTime, bootDate: self.bootDate)
 
         // Encode this data.
         return .init(encodedData: data, timestamp: wallClock)
     }
-
-    private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {
-        guard let data = buffer.floatChannelData else {
-            throw "Missing float data"
-        }
-        let channels = Int(buffer.format.channelCount)
-        var rms: Float = 0.0
-        for channel in 0..<channels {
-            var channelRms: Float = 0.0
-            vDSP_rmsqv(data[channel], 1, &channelRms, vDSP_Length(buffer.frameLength))
-            rms += abs(channelRms)
-        }
-        rms /= Float(channels)
-        let minAudioLevel: Float = -127
-        let maxAudioLevel: Float = 0
-        guard rms > 0 else {
-            return Int(minAudioLevel)
-        }
-        var decibel = 20 * log10(rms)
-        decibel = min(decibel, maxAudioLevel)
-        decibel = max(decibel, minAudioLevel)
-        return Int(decibel.rounded())
-    }
 }
-
-// func getAudioDate(_ hostTime: UInt64, bootDate: Date) throws -> Date {
-//    let nano: UInt64
-//    #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-//    nano = getAudioDateMac(hostTime)
-//    #else
-//    nano = try getAudioDateiOS(hostTime)
-//    #endif
-//    let nanoInterval = TimeInterval(nano) / 1_000_000_000
-//    return bootDate.addingTimeInterval(nanoInterval)
-// }
-//
-// #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-// func getAudioDateMac(_ hostTime: UInt64) -> UInt64 {
-//    AudioConvertHostTimeToNanos(hostTime)
-// }
-// #endif
-//
-// func getAudioDateiOS(_ hostTime: UInt64) throws -> UInt64 {
-//    // Get absolute time.
-//    var info = mach_timebase_info_data_t()
-//    let result = mach_timebase_info(&info)
-//    guard result == KERN_SUCCESS else {
-//        throw "Failed to get mach time"
-//    }
-//    let factor = TimeInterval(info.numer) / TimeInterval(info.denom)
-//    let nanoseconds = TimeInterval(hostTime) * factor
-//    return UInt64(nanoseconds)
-// }

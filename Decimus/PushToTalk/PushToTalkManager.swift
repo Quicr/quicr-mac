@@ -107,7 +107,6 @@ class MockPushToTalkManager: PushToTalkManager {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
-        print("Start Transmitting")
         channel.startTransmitting()
     }
 
@@ -115,7 +114,6 @@ class MockPushToTalkManager: PushToTalkManager {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
-        print("Stop transmitting")
         channel.stopTransmitting()
     }
 

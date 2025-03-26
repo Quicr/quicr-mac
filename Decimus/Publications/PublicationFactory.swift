@@ -125,17 +125,17 @@ class PublicationFactoryImpl: PublicationFactory {
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            // TODO: Clean this up.
-            if true {
+
+            if profile.channel == nil {
                 return try PCMPublication(profile: profile,
                                           participantId: self.participantId,
-                                          metricsSubmitter: nil,
+                                          metricsSubmitter: metricsSubmitter,
                                           opusWindowSize: self.opusWindowSize,
                                           engine: self.engine,
                                           config: config,
                                           endpointId: endpointId,
                                           relayId: relayId,
-                                          startActive: profile.channel != nil)
+                                          startActive: false)
             }
 
             return try OpusPublication(profile: profile,

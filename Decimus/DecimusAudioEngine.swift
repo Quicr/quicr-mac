@@ -217,6 +217,9 @@ class DecimusAudioEngine {
     }
 
     func setMicrophoneCapture(_ enabled: Bool) {
+        if enabled {
+            self.microphoneBuffer?.clear()
+        }
         self.captureAudio.store(enabled, ordering: .releasing)
     }
 

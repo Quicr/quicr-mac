@@ -77,8 +77,8 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
-		9B53CF682D88B59C00209584 /* AudioPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B53CF672D88B59600209584 /* AudioPublication.swift */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
+		9B53CF682D88B59C00209584 /* AudioPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B53CF672D88B59600209584 /* AudioPublication.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
@@ -119,6 +119,7 @@
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
 		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
 		9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCA87022C3423F500DA4F41 /* NumberView.swift */; };
+		9BCC307C2D9405C600878517 /* PCMConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCC307B2D9405C600878517 /* PCMConverter.swift */; };
 		9BCFBC072D883FDC00FF5E5D /* PushToTalkCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCFBC062D883FD900FF5E5D /* PushToTalkCall.swift */; };
 		9BCFBC0A2D88443200FF5E5D /* PushToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCFBC092D88443000FF5E5D /* PushToTalkButton.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
@@ -286,8 +287,8 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
-		9B53CF672D88B59600209584 /* AudioPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPublication.swift; sourceTree = "<group>"; };
 		9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
+		9B53CF672D88B59600209584 /* AudioPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPublication.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
@@ -345,6 +346,7 @@
 		9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BCA87022C3423F500DA4F41 /* NumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberView.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
+		9BCC307B2D9405C600878517 /* PCMConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMConverter.swift; sourceTree = "<group>"; };
 		9BCFBC062D883FD900FF5E5D /* PushToTalkCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkCall.swift; sourceTree = "<group>"; };
 		9BCFBC092D88443000FF5E5D /* PushToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkButton.swift; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
@@ -513,6 +515,7 @@
 		9B48067F298016FD0040F5D4 /* Codec */ = {
 			isa = PBXGroup;
 			children = (
+				9BCC307B2D9405C600878517 /* PCMConverter.swift */,
 				18BF456F2B0CD632006E8E24 /* HEVCUtilities.swift */,
 				18BF456D2B0CD632006E8E24 /* VTDecoder.swift */,
 				18BF456E2B0CD632006E8E24 /* VTEncoder.swift */,
@@ -1019,7 +1022,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1128,6 +1131,7 @@
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
 				9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */,
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */,
+				9BCC307C2D9405C600878517 /* PCMConverter.swift in Sources */,
 				9B7D9ECB2D8D8A9E00CFCDE1 /* PCMSubscription.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */,
@@ -1204,7 +1208,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1229,7 +1233,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1396,7 +1400,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1473,7 +1477,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

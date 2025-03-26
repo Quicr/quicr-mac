@@ -17,6 +17,7 @@ class PushToTalkChannel {
     private let publication: AudioPublication
     private let subscription: Subscription
     private let callController: MoqCallController
+    private let logger: DecimusLogger
     let createdFrom: CreatedFrom
     var joined = false
 
@@ -32,6 +33,7 @@ class PushToTalkChannel {
         #endif
         self.callController = callController
         self.createdFrom = createdFrom
+        self.logger = .init(PushToTalkCall.self, prefix: moq.description)
 
         func profile(_ namespace: FullTrackName) -> ProfileSet {
             let tuple: [String] = namespace.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
@@ -72,10 +74,12 @@ class PushToTalkChannel {
     }
 
     func startTransmitting() {
+        self.logger.debug("Start transmitting")
         self.publication.togglePublishing(active: true)
     }
 
     func stopTransmitting() {
+        self.logger.debug("Stop transmitting")
         self.publication.togglePublishing(active: false)
     }
 }

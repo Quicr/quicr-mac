@@ -41,15 +41,17 @@ class DecimusLogger {
 
     /// Shared app-wide log holder.
     static let shared = ObservableLogs()
+    private let prefix: String?
 
     /// Create a new logger for the given type.
     /// - Parameter loggee: The object this logger us for.
-    init<T>(_ loggee: T.Type) {
+    init<T>(_ loggee: T.Type, prefix: String? = nil) {
         self.category = String(describing: loggee)
         self.logger = Logger(
             subsystem: Bundle.main.bundleIdentifier!,
             category: self.category
         )
+        self.prefix = prefix
     }
 
     /// Log a new message. Prefer the named alternative functions where possible.
@@ -58,7 +60,13 @@ class DecimusLogger {
     /// - Parameter msg: The log message itself.
     /// - Parameter alert: True to display this message to the user.
     func log(level: LogLevel, _ msg: String, alert: Bool) {
-        self.logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
+        let message: String
+        if let prefix = self.prefix {
+            message = "[\(prefix)] \(msg)"
+        } else {
+            message = msg
+        }
+        self.logger.log(level: OSLogType(level), "\(message, privacy: .public)")
         guard alert else { return }
         let now = Date.now
         DispatchQueue.main.async { [weak self] in
