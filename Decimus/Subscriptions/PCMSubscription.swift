@@ -141,8 +141,14 @@ class PCMSubscription: Subscription {
             Self.logger.warning("Missing expected LOC headers")
             return
         }
+
+        guard let chunk = try? ChunkMessage(from: data) else {
+            Self.logger.warning("Failed to decode chunk message")
+            return
+        }
+
         do {
-            try handler.submitEncodedAudio(data: data,
+            try handler.submitEncodedAudio(data: chunk.data,
                                            sequence: objectHeaders.objectId,
                                            date: now,
                                            timestamp: loc.timestamp)

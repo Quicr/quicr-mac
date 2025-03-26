@@ -38,8 +38,8 @@ class PushToTalkChannel {
         func profile(_ namespace: FullTrackName) -> ProfileSet {
             let tuple: [String] = namespace.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
             let profile = Profile(qualityProfile: "opus,br=24",
-                                  expiry: [120],
-                                  priorities: [1],
+                                  expiry: [5000],
+                                  priorities: [3],
                                   namespace: tuple,
                                   channel: nil)
             return .init(type: "simulcast", profiles: [profile])

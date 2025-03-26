@@ -122,7 +122,11 @@ class PCMPublication: Publication, AudioPublication {
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
-        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
+        // TODO: Work out how to know the last chunk.
+        let chunk = ChunkMessage(type: .audio, isLastChunk: false, data: data)
+        var chunkData = Data(capacity: chunk.size)
+        chunk.encode(into: &chunkData)
+        let published = self.publish(data: chunkData, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
             self.currentObjectId += 1
