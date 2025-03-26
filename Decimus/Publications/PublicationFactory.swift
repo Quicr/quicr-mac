@@ -3,6 +3,8 @@
 
 import Foundation
 import AVFoundation
+import UIKit
+import CryptoKit
 
 protocol PublicationFactory {
     func create(publication: ManifestPublication,
@@ -127,6 +129,19 @@ class PublicationFactoryImpl: PublicationFactory {
             }
 
             if profile.channel == nil {
+                // PTT uses 62 bit identifier group ID.
+                guard let id = UIDevice.current.identifierForVendor else {
+                    throw "Failed to get device identifier"
+                }
+                let ptr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 16)
+                defer { ptr.deallocate() }
+                (id as NSUUID).getBytes(ptr.baseAddress!)
+                var sha1 = Insecure.SHA1()
+                sha1.update(bufferPointer: .init(UnsafeMutableRawBufferPointer(ptr)))
+                let digest = sha1.finalize()
+                let startingGroup = digest.suffix(8).withUnsafeBytes { ptr in
+                    ptr.loadUnaligned(as: UInt64.self).bigEndian & 0x3F_FF_FF_FF_FF_FF_FF_FF
+                }
                 return try PCMPublication(profile: profile,
                                           participantId: self.participantId,
                                           metricsSubmitter: metricsSubmitter,
@@ -135,7 +150,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                           config: config,
                                           endpointId: endpointId,
                                           relayId: relayId,
-                                          startActive: false)
+                                          startActive: false,
+                                          groupId: startingGroup)
             }
 
             return try OpusPublication(profile: profile,
