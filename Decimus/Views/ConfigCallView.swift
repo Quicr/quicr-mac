@@ -54,10 +54,7 @@ struct ConfigCallView: View {
                         PushToTalkCall(manager: manager,
                                        aiChannel: ai,
                                        channel: channel,
-                                       moqCallController: state.controller!,
-                                       publicationFactory: state.publicationFactory!,
-                                       subscriptionFactory: state.subscriptionFactory!,
-                                       engine: state.engine!)
+                                       callState: state)
                     }
                 }
             }.task {

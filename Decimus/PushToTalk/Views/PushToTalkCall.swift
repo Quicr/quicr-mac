@@ -13,29 +13,24 @@ struct PushToTalkCall: View {
     private let manager: PushToTalkManager
     private let logger = DecimusLogger(PushToTalkCall.self)
     private let channels: [Destination: FullTrackName]
-    private let pubFactory: PublicationFactory
-    private let subFactory: SubscriptionFactory
-    private let moqCallController: MoqCallController
-    private let engine: DecimusAudioEngine
+    private let callState: CallState
     @State private var ready = false
     init(manager: PushToTalkManager,
          aiChannel: FullTrackName,
          channel: FullTrackName,
-         moqCallController: MoqCallController,
-         publicationFactory: PublicationFactory,
-         subscriptionFactory: SubscriptionFactory,
-         engine: DecimusAudioEngine) {
+         callState: CallState) {
         assert(aiChannel != channel)
+        assert(callState.controller != nil)
+        assert(callState.publicationFactory != nil)
+        assert(callState.subscriptionFactory != nil)
+        assert(callState.engine != nil)
         self.manager = manager
         self.channels = [
             .ai: aiChannel,
             .channel: channel
         ]
-        self.moqCallController = moqCallController
-        self.pubFactory = publicationFactory
-        self.subFactory = subscriptionFactory
-        self.engine = engine
-        engine.setMicrophoneCapture(false)
+        self.callState = callState
+        callState.engine!.setMicrophoneCapture(false)
     }
 
     var body: some View {
@@ -47,6 +42,13 @@ struct PushToTalkCall: View {
                 PushToTalkButton("Channel",
                                  start: { self.talk(.channel) },
                                  end: { self.stopTalking(.channel) })
+                Spacer()
+                Button("Leave") {
+                    Task {
+                        await self.callState.leave()
+                        self.callState.onLeave()
+                    }
+                }
             }
             .padding()
             .disabled(!self.ready)
@@ -59,9 +61,9 @@ struct PushToTalkCall: View {
             for channel in self.channels {
                 do {
                     let channel = try PushToTalkChannel(moq: channel.value,
-                                                        publicationFactory: self.pubFactory,
-                                                        subscriptionFactory: self.subFactory,
-                                                        callController: self.moqCallController)
+                                                        publicationFactory: self.callState.publicationFactory!,
+                                                        subscriptionFactory: self.callState.subscriptionFactory!,
+                                                        callController: self.callState.controller!)
                     try await self.manager.registerChannel(channel)
                 } catch {
                     self.logger.error("Failed to register channel: \(error.localizedDescription)")
@@ -77,7 +79,7 @@ struct PushToTalkCall: View {
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
-        self.engine.setMicrophoneCapture(true)
+        self.callState.engine!.setMicrophoneCapture(true)
     }
 
     private func stopTalking(_ destination: Destination) {
@@ -86,7 +88,7 @@ struct PushToTalkCall: View {
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
-        self.engine.setMicrophoneCapture(false)
+        self.callState.engine!.setMicrophoneCapture(false)
     }
 }
 
