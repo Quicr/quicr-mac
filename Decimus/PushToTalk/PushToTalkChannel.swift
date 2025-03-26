@@ -41,7 +41,8 @@ class PushToTalkChannel {
                                   expiry: [5000],
                                   priorities: [3],
                                   namespace: tuple,
-                                  channel: nil)
+                                  channel: nil,
+                                  name: String(data: namespace.name, encoding: .utf8)!)
             return .init(type: "simulcast", profiles: [profile])
         }
 

@@ -44,8 +44,12 @@ struct ConfigCallView: View {
                         // swiftlint:disable force_try
                         let ai = try! FullTrackName(namespace: ["ai"],
                                                     name: "ai")
-                        let channel = try! FullTrackName(namespace: ["channel"],
-                                                         name: "channel")
+                        let channel = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
+                                                                     "org/acme",
+                                                                     "store/1234",
+                                                                     "channel/gardening",
+                                                                     "ptt"],
+                                                         name: "pcm_en_16khz_mono_i16")
                         // swiftlint:enable force_try
                         PushToTalkCall(manager: manager,
                                        aiChannel: ai,
