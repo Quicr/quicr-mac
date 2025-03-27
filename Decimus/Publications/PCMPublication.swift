@@ -31,6 +31,7 @@ class PCMPublication: Publication, AudioPublication {
     private let publish: Atomic<Bool>
     private let converter: AVAudioConverter
     private let desiredFormat: AVAudioFormat
+    private var didOneMorePublish = true
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -83,16 +84,37 @@ class PCMPublication: Publication, AudioPublication {
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
             while !Task.isCancelled {
-                if let self = self,
-                   self.publish.load(ordering: .acquiring) {
-                    do {
-                        var encodePassCount = 0
-                        while let data = try self.encode() {
-                            encodePassCount += 1
-                            self.publish(data: data.encodedData, timestamp: data.timestamp)
+                if let self = self {
+                    // Determine what to do.
+                    let shouldPublish: Bool
+                    let last: Bool
+                    if self.publish.load(ordering: .acquiring) {
+                        shouldPublish = true
+                        last = false
+                    } else if !self.didOneMorePublish {
+                        shouldPublish = true
+                        self.didOneMorePublish = true
+                        last = true
+                    } else {
+                        shouldPublish = false
+                        last = false
+                    }
+
+                    if shouldPublish {
+                        do {
+                            let encodedChunks = try self.flushEncode()
+                            if encodedChunks.count > 0 {
+                                for index in 0..<encodedChunks.count {
+                                    let last = last && index == encodedChunks.count - 1
+                                    let data = encodedChunks[index]
+                                    self.publish(data: data.encodedData, timestamp: data.timestamp, final: last)
+                                }
+                            } else if last {
+                                self.publish(data: Data(), timestamp: Date.now, final: true)
+                            }
+                        } catch {
+                            self.logger.error("Failed encode: \(error)")
                         }
-                    } catch {
-                        self.logger.error("Failed encode: \(error)")
                     }
                 }
                 try? await Task.sleep(for: .seconds(opusWindowSize.rawValue),
@@ -111,9 +133,12 @@ class PCMPublication: Publication, AudioPublication {
 
     func togglePublishing(active: Bool) {
         self.publish.store(active, ordering: .releasing)
+        if !active {
+            self.didOneMorePublish = false
+        }
     }
 
-    private func publish(data: Data, timestamp: Date) {
+    private func publish(data: Data, timestamp: Date, final: Bool) {
         let status = self.getStatus()
         guard status == .ok || status == .subscriptionUpdated else {
             self.logger.warning("Not published due to status: \(status)")
@@ -122,8 +147,7 @@ class PCMPublication: Publication, AudioPublication {
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
-        // TODO: Work out how to know the last chunk.
-        let chunk = ChunkMessage(type: .audio, isLastChunk: false, data: data)
+        let chunk = ChunkMessage(type: .audio, isLastChunk: final, data: data)
         var chunkData = Data(capacity: chunk.size)
         chunk.encode(into: &chunkData)
         let published = self.publish(data: chunkData, priority: &priority, ttl: &ttl, loc: loc)
@@ -150,6 +174,14 @@ class PCMPublication: Publication, AudioPublication {
     struct EncodeResult {
         let encodedData: Data
         let timestamp: Date
+    }
+
+    private func flushEncode() throws -> [EncodeResult] {
+        var results: [EncodeResult] = []
+        while let encoded = try self.encode() {
+            results.append(encoded)
+        }
+        return results
     }
 
     private func encode() throws -> EncodeResult? {
