@@ -5,11 +5,12 @@ import SwiftUI
 
 struct PushToTalkButton: View {
     let title: String
-    let start: () -> Void
-    let end: () -> Void
+    typealias Action = () async -> Void
+    let start: Action
+    let end: Action
     @State private var started = false
 
-    init(_ title: String, start: @escaping () -> Void, end: @escaping () -> Void) {
+    init(_ title: String, start: @escaping Action, end: @escaping Action) {
         self.title = title
         self.start = start
         self.end = end
@@ -32,12 +33,12 @@ struct PushToTalkButton: View {
                     .onChanged { _ in
                         guard !self.started else { return }
                         self.started = true
-                        self.start()
+                        Task { await self.start() }
                     }
                     .onEnded { _ in
                         assert(self.started)
                         self.started = false
-                        self.end()
+                        Task { await self.end() }
                     })
     }
 }

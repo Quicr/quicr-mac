@@ -37,11 +37,11 @@ struct PushToTalkCall: View {
         ZStack {
             VStack {
                 PushToTalkButton("AI",
-                                 start: { self.talk(.ai) },
-                                 end: { self.stopTalking(.ai) })
+                                 start: { await self.talk(.ai) },
+                                 end: { await self.stopTalking(.ai) })
                 PushToTalkButton("Channel",
-                                 start: { self.talk(.channel) },
-                                 end: { self.stopTalking(.channel) })
+                                 start: { await self.talk(.channel) },
+                                 end: { await self.stopTalking(.channel) })
                 Spacer()
                 Button("Leave") {
                     Task {
@@ -73,18 +73,18 @@ struct PushToTalkCall: View {
         }
     }
 
-    private func talk(_ destination: Destination) {
+    private func talk(_ destination: Destination) async {
         do {
-            try self.manager.startTransmitting(self.channels[destination]!.uuid)
+            try await self.manager.startTransmitting(self.channels[destination]!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
         self.callState.engine!.setMicrophoneCapture(true)
     }
 
-    private func stopTalking(_ destination: Destination) {
+    private func stopTalking(_ destination: Destination) async {
         do {
-            try self.manager.stopTransmitting(self.channels[destination]!.uuid)
+            try await self.manager.stopTransmitting(self.channels[destination]!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }

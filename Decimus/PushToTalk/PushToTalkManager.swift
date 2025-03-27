@@ -72,8 +72,8 @@ class PushToTalkServer {
 protocol PushToTalkManager {
     func start() async throws
     func shutdown() throws
-    func startTransmitting(_ uuid: UUID) throws
-    func stopTransmitting(_ uuid: UUID) throws
+    func startTransmitting(_ uuid: UUID) async throws
+    func stopTransmitting(_ uuid: UUID) async throws
     func registerChannel(_ channel: PushToTalkChannel) async throws
     func unregisterChannel(_ channel: PushToTalkChannel) throws
     func getChannel(uuid: UUID) -> PushToTalkChannel?
@@ -103,18 +103,20 @@ class MockPushToTalkManager: PushToTalkManager {
         self.channels.removeAll()
     }
 
-    func startTransmitting(_ uuid: UUID) throws {
+    func startTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
         channel.startTransmitting()
+        try await self.api.sentAudio(channel: uuid)
     }
 
-    func stopTransmitting(_ uuid: UUID) throws {
+    func stopTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
         channel.stopTransmitting()
+        try await self.api.stopAudio(channel: uuid)
     }
 
     func registerChannel(_ channel: PushToTalkChannel) async throws {
