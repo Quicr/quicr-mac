@@ -19,7 +19,7 @@ func cpuUsage() throws -> Double {
         if let threadList = threadList {
             vm_deallocate(mach_task_self_,
                           vm_address_t(bitPattern: threadList),
-                          vm_size_t(threadCount))
+                          vm_size_t(size))
         }
     }
 
