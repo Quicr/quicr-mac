@@ -232,6 +232,11 @@ class MoqCallController: QClientCallbacks {
         self.client.subscribeTrack(withHandler: subscription)
     }
 
+    func subscribe(_ handler: Subscription) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.subscribeTrack(withHandler: handler)
+    }
+
     /// Unsubscribe to an entire subscription set.
     /// - Parameter sourceID: The identifier of the subscription set.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.

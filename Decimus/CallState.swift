@@ -31,6 +31,7 @@ class CallState: ObservableObject, Equatable {
     private(set) var publicationFactory: PublicationFactory?
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
+    let audioStartingGroup: UInt64
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -47,8 +48,9 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, audioStartingGroup: UInt64, onLeave: @escaping () -> Void) {
         self.config = config
+        self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
         do {
             self.engine = try .init()
@@ -106,7 +108,8 @@ class CallState: ObservableObject, Equatable {
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
-                                                        keyFrameOnUpdate: subConfig.keyFrameOnUpdate)
+                                                        keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
+                                                        startingGroup: self.audioStartingGroup)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
