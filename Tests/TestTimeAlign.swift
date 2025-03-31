@@ -22,8 +22,7 @@ struct TestTimeDiff {
 
 private let minDepth: TimeInterval = 0.2
 struct TestTimeAlignable {
-    private class TimeAlignableImpl: TimeAlignable, TimeAlignerSet {
-        var alignables: [TimeAlignable] { [self] }
+    private class TimeAlignableImpl: TimeAlignable {
         override init() {
             let handlers = CMBufferQueue.Handlers { builder in
                 builder.compare { _, _ in
@@ -69,7 +68,8 @@ struct TestTimeAlignable {
         let alignable = TimeAlignableImpl()
         let now = Date.now
         let item = JitterItemImpl(sequenceNumber: 0, timestamp: now)
-        let aligner = TimeAligner(windowLength: 5, capacity: 5, set: alignable)
+        let aligner = TimeAligner(windowLength: 5,
+                                  capacity: 5) { [alignable] }
         aligner.doTimestampTimeDiff(item.timestamp.seconds, when: now, force: true)
         try alignable.jitterBuffer!.write(item: item, from: now)
 

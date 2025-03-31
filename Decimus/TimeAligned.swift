@@ -3,10 +3,6 @@
 
 import Synchronization
 
-protocol TimeAlignerSet {
-    var alignables: [TimeAlignable] { get }
-}
-
 class TimeAlignable {
     var jitterBuffer: JitterBuffer?
     let timeDiff = TimeDiff()
@@ -55,11 +51,12 @@ final class TimeAligner {
     private let timestampTimeDiff = Atomic<Int128>(0)
     private let diffWindow: SlidingTimeWindow<TimeInterval>
     private var windowMaintenance: Task<(), Never>?
-    private let set: TimeAlignerSet
+    typealias GetAlignables = () -> [TimeAlignable]
+    private let getAlignables: GetAlignables
 
-    init(windowLength: TimeInterval, capacity: Int, set: TimeAlignerSet) {
+    init(windowLength: TimeInterval, capacity: Int, alignables: @escaping GetAlignables) {
         self.diffWindow = .init(length: windowLength, reserved: capacity)
-        self.set = set
+        self.getAlignables = alignables
     }
 
     private func doWindowMaintenance(when: Date) -> TimeInterval? {
@@ -99,7 +96,7 @@ final class TimeAligner {
 
     private func set(_ date: Date) {
         guard let value = self.doWindowMaintenance(when: date) else { return }
-        for alignable in set.alignables {
+        for alignable in self.getAlignables() {
             alignable.timeDiff.setTimeDiff(diff: value)
         }
     }
