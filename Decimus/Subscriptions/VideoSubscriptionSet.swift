@@ -17,7 +17,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-class VideoSubscriptionSet: ObservableSubscriptionSet, TimeAlignerSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription
@@ -52,13 +52,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, TimeAlignerSet {
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
-
-    var alignables: [TimeAlignable] {
-        self.getHandlers().compactMap { sub in
-            let sub = sub.value as! VideoSubscription // swiftlint:disable:this force_cast
-            return sub.handler.get()
-        }
-    }
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -135,8 +128,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, TimeAlignerSet {
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
         self.timeAligner = .init(windowLength: slidingWindowTime,
-                                 capacity: Int(capacityGuess),
-                                 set: self)
+                                 capacity: Int(capacityGuess)) { [weak self] in
+            guard let self = self else { return [] }
+            return self.getHandlers().compactMap { sub in
+                let sub = sub.value as! VideoSubscription // swiftlint:disable:this force_cast
+                return sub.handler.get()
+            }
+        }
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {

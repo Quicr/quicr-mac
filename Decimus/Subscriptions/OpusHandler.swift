@@ -10,7 +10,7 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-class OpusHandler: TimeAlignable, TimeAlignerSet {
+class OpusHandler: TimeAlignable {
     // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(OpusHandler.self)
     private let identifier: String
@@ -36,7 +36,6 @@ class OpusHandler: TimeAlignable, TimeAlignerSet {
 
     // Time based buffer.
     private var timeAligner: TimeAligner?
-    var alignables: [TimeAlignable] { [self] }
 
     /// Audio data to be emplaced into the jitter buffer.
     private class AudioJitterItem: JitterBuffer.JitterItem {
@@ -156,7 +155,11 @@ class OpusHandler: TimeAlignable, TimeAlignerSet {
                                        format: self.asbd.pointee)
         let slidingWindowLength: TimeInterval = 5.0
         let capacity = Int(slidingWindowLength * (1.0/0.02)) // TODO: Window Size.
-        self.timeAligner = .init(windowLength: slidingWindowLength, capacity: capacity, set: self)
+        self.timeAligner = .init(windowLength: slidingWindowLength,
+                                 capacity: capacity) { [weak self] in
+            guard let self = self else { return [] }
+            return [self]
+        }
         self.createDequeueTask()
         // Create the player node.
         let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
