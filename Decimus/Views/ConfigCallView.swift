@@ -47,7 +47,7 @@ struct ConfigCallView: View {
                                                                        "org/acme",
                                                                        "store/1234",
                                                                        "ai/audio"],
-                                                           name: "pcm_en_16khz_mono_i16")
+                                                           name: "pcm_en_8khz_mono_i16")
                         let aiAudioReceive = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
                                                                             "org/acme",
                                                                             "store/1234",
@@ -63,7 +63,7 @@ struct ConfigCallView: View {
                                                                      "store/1234",
                                                                      "channel/gardening",
                                                                      "ptt"],
-                                                         name: "pcm_en_16khz_mono_i16")
+                                                         name: "pcm_en_8khz_mono_i16")
                         // swiftlint:enable force_try
                         PushToTalkCall(manager: manager,
                                        aiPublish: aiPublish,
