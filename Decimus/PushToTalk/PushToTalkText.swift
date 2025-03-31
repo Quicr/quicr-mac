@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 class PushToTalkText: Subscription {
+    private let logger = DecimusLogger(PushToTalkText.self)
+
     init(_ ftn: FullTrackName) throws {
         let tuple: [String] = ftn.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
         let profile = Profile(qualityProfile: "",
@@ -21,6 +23,6 @@ class PushToTalkText: Subscription {
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         guard let chunk = try? ChunkMessage(from: data) else { print("FAILED TO PARSE"); return }
-        print(chunk)
+        self.logger.notice("\(chunk)")
     }
 }
