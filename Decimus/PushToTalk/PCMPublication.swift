@@ -32,6 +32,7 @@ class PCMPublication: Publication, AudioPublication {
     private let converter: AVAudioConverter
     private let desiredFormat: AVAudioFormat
     private var didOneMorePublish = true
+    private var currentRequestId: UInt32?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -42,11 +43,13 @@ class PCMPublication: Publication, AudioPublication {
          endpointId: String,
          relayId: String,
          startActive: Bool,
-         groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
+         groupId: UInt64,
+         markRequest: Bool) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
         self.logger = .init(PCMPublication.self, prefix: namespace)
         self.opusWindowSize = opusWindowSize
+        self.currentRequestId = markRequest ? 0 : nil
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -147,7 +150,14 @@ class PCMPublication: Publication, AudioPublication {
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
-        let chunk = ChunkMessage(type: .audio, isLastChunk: final, data: data)
+        let chunk = ChunkMessage(type: self.currentRequestId != nil ? .aiAudio : .audio,
+                                 isLastChunk: final,
+                                 data: data,
+                                 requestId: self.currentRequestId)
+        if final,
+           let currentRequestId = self.currentRequestId {
+            self.currentRequestId = currentRequestId + 1
+        }
         var chunkData = Data(capacity: chunk.size)
         chunk.encode(into: &chunkData)
         let published = self.publish(data: chunkData, priority: &priority, ttl: &ttl, loc: loc)

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import CryptoKit
 import SwiftUI
 
 struct ConfigCallView: View {
@@ -42,8 +43,21 @@ struct ConfigCallView: View {
                         let manager = MockPushToTalkManager(api: .init(url: url,
                                                                        name: "Rich"))
                         // swiftlint:disable force_try
-                        let ai = try! FullTrackName(namespace: ["ai"],
-                                                    name: "ai")
+                        let aiPublish = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
+                                                                       "org/acme",
+                                                                       "store/1234",
+                                                                       "ai/audio"],
+                                                           name: "pcm_en_16khz_mono_i16")
+                        let aiAudioReceive = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
+                                                                            "org/acme",
+                                                                            "store/1234",
+                                                                            "ai/audio"],
+                                                                name: "\(state.audioStartingGroup)")
+                        let aiTextReceive = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
+                                                                           "org/acme",
+                                                                           "store/1234",
+                                                                           "ai/text"],
+                                                               name: "\(state.audioStartingGroup)")
                         let channel = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
                                                                      "org/acme",
                                                                      "store/1234",
@@ -52,7 +66,9 @@ struct ConfigCallView: View {
                                                          name: "pcm_en_16khz_mono_i16")
                         // swiftlint:enable force_try
                         PushToTalkCall(manager: manager,
-                                       aiChannel: ai,
+                                       aiPublish: aiPublish,
+                                       aiAudioReceive: aiAudioReceive,
+                                       aiTextReceive: aiTextReceive,
                                        channel: channel,
                                        callState: state)
                     }
@@ -60,7 +76,17 @@ struct ConfigCallView: View {
             }.task {
                 guard self.state == .notConnected else { return }
                 self.state = .connecting
-                let state = CallState(config: config) {
+                let id = UIDevice.current.identifierForVendor!
+                let ptr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 16)
+                defer { ptr.deallocate() }
+                (id as NSUUID).getBytes(ptr.baseAddress!)
+                var sha1 = Insecure.SHA1()
+                sha1.update(bufferPointer: .init(UnsafeMutableRawBufferPointer(ptr)))
+                let digest = sha1.finalize()
+                let startingGroup = digest.suffix(8).withUnsafeBytes { ptr in
+                    ptr.loadUnaligned(as: UInt64.self).bigEndian & 0x3F_FF_FF_FF_FF_FF_FF_FF
+                }
+                let state = CallState(config: config, audioStartingGroup: startingGroup) {
                     self.state = .notConnected
                     self.config = nil
                 }

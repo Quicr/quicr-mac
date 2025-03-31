@@ -20,8 +20,10 @@ class PushToTalkChannel {
     private let logger: DecimusLogger
     let createdFrom: CreatedFrom
     var joined = false
+    static let aiFlagChannel = 9
 
     init(moq: FullTrackName,
+         subscribe: FullTrackName?,
          publicationFactory: PublicationFactory,
          subscriptionFactory: SubscriptionFactory,
          callController: MoqCallController,
@@ -35,13 +37,13 @@ class PushToTalkChannel {
         self.createdFrom = createdFrom
         self.logger = .init(PushToTalkCall.self, prefix: moq.description)
 
-        func profile(_ namespace: FullTrackName) -> ProfileSet {
+        func profile(_ namespace: FullTrackName, ai: Bool) -> ProfileSet {
             let tuple: [String] = namespace.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
             let profile = Profile(qualityProfile: "opus,br=24",
                                   expiry: [5000],
                                   priorities: [3],
                                   namespace: tuple,
-                                  channel: nil,
+                                  channel: ai ? Self.aiFlagChannel : nil,
                                   name: String(data: namespace.name, encoding: .utf8)!)
             return .init(type: "simulcast", profiles: [profile])
         }
@@ -51,7 +53,7 @@ class PushToTalkChannel {
                                                       sourceName: "source",
                                                       sourceID: self.uuid.uuidString,
                                                       label: self.uuid.uuidString,
-                                                      profileSet: profile(moq))
+                                                      profileSet: profile(moq, ai: subscribe != nil))
         try self.callController.publish(details: manifestPublication,
                                         factory: publicationFactory,
                                         codecFactory: CodecFactoryImpl())
@@ -62,12 +64,13 @@ class PushToTalkChannel {
         self.publication = audioPublication
 
         // Make the subscription.
+        let subFTN = subscribe ?? moq
         let manifestSubscription = ManifestSubscription(mediaType: "audio",
                                                         sourceName: self.uuid.uuidString,
                                                         sourceID: self.uuid.uuidString,
                                                         label: self.uuid.uuidString,
                                                         participantId: .init(1),
-                                                        profileSet: profile(moq))
+                                                        profileSet: profile(subFTN, ai: false))
         let set = try self.callController.subscribeToSet(details: manifestSubscription,
                                                          factory: subscriptionFactory,
                                                          subscribe: true)

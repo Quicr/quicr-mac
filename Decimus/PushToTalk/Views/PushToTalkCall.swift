@@ -12,23 +12,34 @@ private enum Destination {
 struct PushToTalkCall: View {
     private let manager: PushToTalkManager
     private let logger = DecimusLogger(PushToTalkCall.self)
-    private let channels: [Destination: FullTrackName]
+    private let channels: [Destination: [FullTrackName]]
+    private let textSubscription: Subscription
     private let callState: CallState
     @State private var ready = false
     init(manager: PushToTalkManager,
-         aiChannel: FullTrackName,
+         aiPublish: FullTrackName,
+         aiAudioReceive: FullTrackName,
+         aiTextReceive: FullTrackName,
          channel: FullTrackName,
          callState: CallState) {
-        assert(aiChannel != channel)
+        assert(aiPublish != channel)
+        assert(aiAudioReceive != channel)
+        assert(aiTextReceive != channel)
+        assert(aiPublish != aiAudioReceive)
+        assert(aiPublish != aiTextReceive)
         assert(callState.controller != nil)
         assert(callState.publicationFactory != nil)
         assert(callState.subscriptionFactory != nil)
         assert(callState.engine != nil)
         self.manager = manager
         self.channels = [
-            .ai: aiChannel,
-            .channel: channel
+            .ai: [aiPublish, aiAudioReceive, aiTextReceive],
+            .channel: [channel]
         ]
+        // swiftlint:disable force_try
+        self.textSubscription = try! PushToTalkText(aiTextReceive)
+        try! callState.controller!.subscribe(self.textSubscription)
+        // swiftlint:enable force_try
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
     }
@@ -60,11 +71,13 @@ struct PushToTalkCall: View {
         .task {
             for channel in self.channels {
                 do {
-                    let channel = try PushToTalkChannel(moq: channel.value,
-                                                        publicationFactory: self.callState.publicationFactory!,
-                                                        subscriptionFactory: self.callState.subscriptionFactory!,
-                                                        callController: self.callState.controller!)
-                    try await self.manager.registerChannel(channel)
+                    let subscribe = channel.value.indices.contains(1) ? channel.value[1] : nil
+                    let pttChannel = try PushToTalkChannel(moq: channel.value.first!,
+                                                           subscribe: subscribe,
+                                                           publicationFactory: self.callState.publicationFactory!,
+                                                           subscriptionFactory: self.callState.subscriptionFactory!,
+                                                           callController: self.callState.controller!)
+                    try await self.manager.registerChannel(pttChannel)
                 } catch {
                     self.logger.error("Failed to register channel: \(error.localizedDescription)")
                 }
@@ -75,7 +88,7 @@ struct PushToTalkCall: View {
 
     private func talk(_ destination: Destination) async {
         do {
-            try await self.manager.startTransmitting(self.channels[destination]!.uuid)
+            try await self.manager.startTransmitting(self.channels[destination]!.first!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
@@ -84,7 +97,7 @@ struct PushToTalkCall: View {
 
     private func stopTalking(_ destination: Destination) async {
         do {
-            try await self.manager.stopTransmitting(self.channels[destination]!.uuid)
+            try await self.manager.stopTransmitting(self.channels[destination]!.first!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }

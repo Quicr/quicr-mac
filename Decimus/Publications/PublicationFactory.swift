@@ -3,8 +3,6 @@
 
 import Foundation
 import AVFoundation
-import UIKit
-import CryptoKit
 
 protocol PublicationFactory {
     func create(publication: ManifestPublication,
@@ -26,6 +24,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let logger = DecimusLogger(PublicationFactory.self)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
+    private let startingGroup: UInt64
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -37,7 +36,8 @@ class PublicationFactoryImpl: PublicationFactory {
          keyFrameInterval: TimeInterval,
          stagger: Bool,
          verbose: Bool,
-         keyFrameOnUpdate: Bool) {
+         keyFrameOnUpdate: Bool,
+         startingGroup: UInt64) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -49,6 +49,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.stagger = stagger
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
+        self.startingGroup = startingGroup
     }
 
     func create(publication: ManifestPublication,
@@ -128,20 +129,9 @@ class PublicationFactoryImpl: PublicationFactory {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
 
-            if profile.channel == nil {
-                // PTT uses 62 bit identifier group ID.
-                guard let id = UIDevice.current.identifierForVendor else {
-                    throw "Failed to get device identifier"
-                }
-                let ptr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 16)
-                defer { ptr.deallocate() }
-                (id as NSUUID).getBytes(ptr.baseAddress!)
-                var sha1 = Insecure.SHA1()
-                sha1.update(bufferPointer: .init(UnsafeMutableRawBufferPointer(ptr)))
-                let digest = sha1.finalize()
-                let startingGroup = digest.suffix(8).withUnsafeBytes { ptr in
-                    ptr.loadUnaligned(as: UInt64.self).bigEndian & 0x3F_FF_FF_FF_FF_FF_FF_FF
-                }
+            let pcm = profile.channel == nil || profile.channel == PushToTalkChannel.aiFlagChannel
+            let aiFlag = profile.channel == PushToTalkChannel.aiFlagChannel
+            if pcm {
                 return try PCMPublication(profile: profile,
                                           participantId: self.participantId,
                                           metricsSubmitter: metricsSubmitter,
@@ -151,7 +141,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                           endpointId: endpointId,
                                           relayId: relayId,
                                           startActive: false,
-                                          groupId: startingGroup)
+                                          groupId: self.startingGroup,
+                                          markRequest: aiFlag)
             }
 
             return try OpusPublication(profile: profile,
