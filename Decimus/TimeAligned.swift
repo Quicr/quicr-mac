@@ -69,24 +69,20 @@ final class TimeAligner {
             return nil
         }
         self.timestampTimeDiff.store(Int128(calculated * microsecondsPerSecond), ordering: .releasing)
-        print(calculated)
         return calculated
     }
 
-    func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date) {
+    func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date, force: Bool = false) {
         // Record this diff.
         let diff = when.timeIntervalSince1970 - timestamp
         self.diffWindow.add(timestamp: when, value: diff)
 
         // Kick off a task for sliding window.
-        if self.windowMaintenance == nil {
+        if !force && self.windowMaintenance == nil {
             self.windowMaintenance = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
-                    if let self = self,
-                       let value = self.doWindowMaintenance(when: Date.now) {
-                        for alignable in self.set.alignables {
-                            alignable.timeDiff.setTimeDiff(diff: value)
-                        }
+                    if let self = self {
+                        self.set(.now)
                     } else {
                         return
                     }
@@ -96,12 +92,15 @@ final class TimeAligner {
         }
 
         // If we have nothing, start with this.
-        if self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
-            if let value = self.doWindowMaintenance(when: when) {
-                for alignable in set.alignables {
-                    alignable.timeDiff.setTimeDiff(diff: value)
-                }
-            }
+        if force || self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
+            self.set(when)
+        }
+    }
+
+    private func set(_ date: Date) {
+        guard let value = self.doWindowMaintenance(when: date) else { return }
+        for alignable in set.alignables {
+            alignable.timeDiff.setTimeDiff(diff: value)
         }
     }
 }

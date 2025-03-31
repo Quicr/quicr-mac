@@ -61,6 +61,8 @@
 		9B165A1529840B610017079F /* CallController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B165A1429840B610017079F /* CallController.swift */; };
 		9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */; };
 		9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */; };
+		9B25D2112D9AA0B500FE8AB7 /* TestTimeAlign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B25D2102D9AA0B200FE8AB7 /* TestTimeAlign.swift */; };
+		9B25D2142D9AAB9800FE8AB7 /* Numerics in Frameworks */ = {isa = PBXBuildFile; productRef = 9B25D2132D9AAB9800FE8AB7 /* Numerics */; };
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
 		9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
@@ -262,6 +264,7 @@
 		9B165A1429840B610017079F /* CallController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallController.swift; sourceTree = "<group>"; };
 		9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CallController+Measurement.swift"; sourceTree = "<group>"; };
 		9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMeasurement.swift; sourceTree = "<group>"; };
+		9B25D2102D9AA0B200FE8AB7 /* TestTimeAlign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTimeAlign.swift; sourceTree = "<group>"; };
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
 		9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackFetch.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
@@ -417,6 +420,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B25D2142D9AAB9800FE8AB7 /* Numerics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -514,6 +518,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B25D2102D9AA0B200FE8AB7 /* TestTimeAlign.swift */,
 				9B3726942D806F5000498550 /* TestMutex+Convenience.swift */,
 				9B156EFF2D64AB0E00E91D0F /* TestSlidingWindow.swift */,
 				9B7325EE2D558C3900729DFB /* MockClient.swift */,
@@ -897,6 +902,7 @@
 				188ABB542A792E9C00B31A6E /* XCRemoteSwiftPackageReference "swift-opus" */,
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
+				9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -1007,6 +1013,7 @@
 				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
 				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,
+				9B25D2112D9AA0B500FE8AB7 /* TestTimeAlign.swift in Sources */,
 				9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */,
 				9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */,
 				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
@@ -1543,6 +1550,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-numerics.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.3;
+			};
+		};
 		9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SimplyDanny/SwiftLintPlugins";
@@ -1589,6 +1604,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
+		};
+		9B25D2132D9AAB9800FE8AB7 /* Numerics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */;
+			productName = Numerics;
 		};
 		9B2B281B2D37CEF000A80593 /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
