@@ -17,8 +17,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-// swiftlint:disable type_body_length
-class VideoSubscriptionSet: ObservableSubscriptionSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet, TimeAlignerSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription
@@ -48,13 +47,18 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
-    private let timestampTimeDiff = Atomic<Int128>(0)
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipant?>(nil)
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private let diffWindow: SlidingTimeWindow<TimeInterval>
-    private var windowMaintenance: Task<(), Never>?
+    private var timeAligner: TimeAligner?
+
+    var alignables: [TimeAlignable] {
+        self.getHandlers().compactMap { sub in
+            let sub = sub.value as! VideoSubscription // swiftlint:disable:this force_cast
+            return sub.handler.get()
+        }
+    }
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -127,10 +131,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         self.profiles = createdProfiles
         let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
         let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
-        self.diffWindow = .init(length: slidingWindowTime, reserved: Int(capacityGuess))
 
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        self.timeAligner = .init(windowLength: slidingWindowTime,
+                                 capacity: Int(capacityGuess),
+                                 set: self)
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -178,53 +184,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         return result
     }
 
-    private func doWindowMaintenance(when: Date) {
-        let values = self.diffWindow.get(from: when)
-        guard let calculated = values.closestToZero() else {
-            self.timestampTimeDiff.store(0, ordering: .releasing)
-            return
-        }
-        self.timestampTimeDiff.store(Int128(calculated * microsecondsPerSecond), ordering: .releasing)
-        let subscriptions = self.getHandlers()
-        for (_, sub) in subscriptions {
-            let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-            guard let handler = sub.handler.get() else { continue }
-            handler.setTimeDiff(diff: calculated)
-        }
-    }
-
-    private func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date) {
-        // Record this diff.
-        let diff = when.timeIntervalSince1970 - timestamp
-        self.diffWindow.add(timestamp: when, value: diff)
-
-        // Kick off a task for sliding window.
-        if self.windowMaintenance == nil {
-            self.windowMaintenance = .init(priority: .utility) { [weak self] in
-                while !Task.isCancelled {
-                    if let self = self {
-                        self.doWindowMaintenance(when: Date.now)
-                    } else {
-                        return
-                    }
-                    try? await Task.sleep(for: .milliseconds(250))
-                }
-            }
-        }
-
-        // If we have nothing, start with this.
-        if self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
-            self.doWindowMaintenance(when: when)
-        }
-    }
-
     /// Inform the set that a video frame from a managed subscription arrived.
     /// - Parameter timestamp: Media timestamp of the arrived frame.
     /// - Parameter when: The local datetime this happened.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
         // Set the timestamp diff using the min value from recent live objects.
         if !cached {
-            self.doTimestampTimeDiff(timestamp, when: when)
+            self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
         }
 
         // Calculate switching set arrival variance.
@@ -582,4 +548,3 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
 }
-// swiftlint:enable type_body_length
