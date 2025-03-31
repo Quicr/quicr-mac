@@ -11,14 +11,15 @@ func cpuUsage() throws -> Double {
                                                &taskInfoCount)
     guard getTaskInfo == KERN_SUCCESS else { throw getTaskInfo }
 
-    var threadList: thread_act_array_t? = UnsafeMutablePointer(mutating: [thread_act_t]())
+    var threadList: thread_act_array_t?
     var threadCount: mach_msg_type_number_t = 0
     defer {
         // Ensure we dealloc the thread list.
+        let size = MemoryLayout<thread_act_t>.stride * Int(threadCount)
         if let threadList = threadList {
             vm_deallocate(mach_task_self_,
-                          vm_address_t(UnsafePointer(threadList).pointee),
-                          vm_size_t(threadCount))
+                          vm_address_t(bitPattern: threadList),
+                          vm_size_t(size))
         }
     }
 
