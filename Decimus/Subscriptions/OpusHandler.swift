@@ -10,15 +10,15 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-class OpusHandler { // swiftlint:disable:this type_body_length
+class OpusHandler: TimeAlignable, TimeAlignerSet {
+    // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(OpusHandler.self)
     private let identifier: String
     private var decoder: LibOpusDecoder
     private let engine: DecimusAudioEngine
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
-    private var jitterBuffer: QJitterBuffer?
-    private var newJitterBuffer: JitterBuffer?
+    private var oldJitterBuffer: QJitterBuffer?
     private let useNewJitterBuffer: Bool
     private var playoutBuffer: CircularBuffer?
     private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
@@ -26,15 +26,17 @@ class OpusHandler { // swiftlint:disable:this type_body_length
     private let callbacks = Atomic<UInt64>(0)
     private let granularMetrics: Bool
     private var dequeueTask: Task<Void, Never>?
-    private let timestampTimeDiffUs = Atomic(Int64.zero)
     private var lastUsedSequence: UInt64?
-    private var timestampTimeDiffSet = false
     private let windowSizeUs = Atomic<UInt32>(0)
     private var windowSize: OpusWindowSize?
     private let metricsSubmitter: MetricsSubmitter?
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let playing: Atomic<Bool> = .init(false)
+
+    // Time based buffer.
+    private var timeAligner: TimeAligner?
+    var alignables: [TimeAlignable] { [self] }
 
     /// Audio data to be emplaced into the jitter buffer.
     private class AudioJitterItem: JitterBuffer.JitterItem {
@@ -71,14 +73,15 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         self.metricsSubmitter = metricsSubmitter
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
+        super.init()
         if !self.useNewJitterBuffer {
             // Create the jitter buffer.
             let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
-            self.jitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
-                                              packetElements: Int(opusPacketSize),
-                                              clockRate: UInt(asbd.pointee.mSampleRate),
-                                              maxLengthMs: UInt(jitterMax * 1000),
-                                              minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
+            self.oldJitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
+                                                 packetElements: Int(opusPacketSize),
+                                                 clockRate: UInt(asbd.pointee.mSampleRate),
+                                                 maxLengthMs: UInt(jitterMax * 1000),
+                                                 minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
                 OpusHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
             }
             // Create the player node.
@@ -86,7 +89,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
             self.node = node
             try self.engine.addPlayer(identifier: identifier, node: node)
-            self.newJitterBuffer = nil
+            self.jitterBuffer = nil
         }
     }
 
@@ -143,10 +146,17 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                                       minDepth: self.jitterDepth,
                                       capacity: Int(self.jitterMax / windowDuration.seconds),
                                       handlers: handlers)
-        self.newJitterBuffer = buffer
-        let playoutLength = UInt32(48000 * 32 * self.jitterMax / 8)
+        self.jitterBuffer = buffer
+
+        // TODO: Config for these constants.
+        let format = DecimusAudioEngine.format
+        let playoutLengthTime: TimeInterval = 0.05
+        let playoutLength = UInt32(format.sampleRate * Double(format.streamDescription.pointee.mBytesPerFrame) * playoutLengthTime)
         self.playoutBuffer = try .init(length: playoutLength,
                                        format: self.asbd.pointee)
+        let slidingWindowLength: TimeInterval = 5.0
+        let capacity = Int(slidingWindowLength * (1.0/0.02)) // TODO: Window Size.
+        self.timeAligner = .init(windowLength: slidingWindowLength, capacity: capacity, set: self)
         self.createDequeueTask()
         // Create the player node.
         let node = AVAudioSourceNode(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
@@ -158,7 +168,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
     func submitEncodedAudio(data: Data, sequence: UInt64, date: Date, timestamp: Date) throws {
         if self.useNewJitterBuffer {
             let jitterBuffer: JitterBuffer
-            if let existing = self.newJitterBuffer {
+            if let existing = self.jitterBuffer {
                 jitterBuffer = existing
             } else {
                 // What's the duration of this packet?
@@ -171,16 +181,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
             }
 
             // Set the timestamp diff from the first recveived object.
-            if !self.timestampTimeDiffSet {
-                let diff = date.timeIntervalSince1970 - timestamp.timeIntervalSince1970
-                let diffUs = max(Int64(diff * microsecondsPerSecond), 1)
-                let (exchanged, _) = self.timestampTimeDiffUs.compareExchange(expected: 0,
-                                                                              desired: diffUs,
-                                                                              ordering: .acquiringAndReleasing)
-                if exchanged {
-                    self.timestampTimeDiffSet = true
-                }
-            }
+            self.timeAligner!.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: date)
 
             // TODO: Is this right?
             // We don't want to emplace this if we're not playing out yet.
@@ -201,7 +202,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         }
 
         // Generate PLC prior to real decode.
-        guard let jitterBuffer = self.jitterBuffer else {
+        guard let jitterBuffer = self.oldJitterBuffer else {
             throw "Invalid Jitter Buffer State"
         }
         let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
@@ -256,7 +257,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
         if let playoutBuffer = self.playoutBuffer {
             let result = playoutBuffer.dequeue(frames: numFrames, buffer: &data.pointee)
             copiedFrames = Int(result.frames)
-        } else if let jitterBuffer = self.jitterBuffer {
+        } else if let jitterBuffer = self.oldJitterBuffer {
             copiedFrames = jitterBuffer.dequeue(buffer.mData,
                                                 destinationLength: Int(buffer.mDataByteSize),
                                                 elements: Int(numFrames))
@@ -347,7 +348,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                                    elements: Int(buffer.frameLength))
 
         let selfPtr: UnsafeMutableRawPointer = Unmanaged.passUnretained(self).toOpaque()
-        guard let jitterBuffer = self.jitterBuffer else {
+        guard let jitterBuffer = self.oldJitterBuffer else {
             fatalError()
         }
         // Copy in.
@@ -412,14 +413,14 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    guard let item: AudioJitterItem  = self.newJitterBuffer!.read(from: now) else { continue }
+                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now) else { continue }
 
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
                     if self.granularMetrics,
                        let measurement = self.measurement?.measurement {
                         let now = Date.now
-                        if let time = self.calculateWaitTime(packet: item, from: now) {
+                        if let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
                                 await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
@@ -446,7 +447,7 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                     let frames = AVAudioFrameCount(window.rawValue * 48000) // TODO: Sample rate??
                     let plc = try self.decoder.plc(frames: frames)
                     lastUsedSequence += 1
-                    self.newJitterBuffer!.updateLastSequenceRead(lastUsedSequence)
+                    self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
                     var timestamp = AudioTimeStamp()
                     do {
                         try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
@@ -510,33 +511,5 @@ class OpusHandler { // swiftlint:disable:this type_body_length
                 }
             }
         }
-    }
-
-    /// Calculates the time until the next packet would be expected, or nil if there is no next packet.
-    /// - Parameter from: The time to calculate from.
-    /// - Returns Time to wait in seconds, if any.
-    func calculateWaitTime(from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.newJitterBuffer else { return nil }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else { return nil }
-        let diff = TimeInterval(diffUs) / microsecondsPerSecond
-        let waitTime = jitterBuffer.calculateWaitTime(from: from, offset: diff)
-        return waitTime
-    }
-
-    private func calculateWaitTime(packet: AudioJitterItem, from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.newJitterBuffer else {
-            assert(false)
-            Self.logger.error("App misconfiguration, please report this")
-            return nil
-        }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs > 0 else {
-            assert(false)
-            Self.logger.warning("Missing initial timestamp")
-            return nil
-        }
-        let diff = TimeInterval(diffUs) / microsecondsPerSecond
-        return jitterBuffer.calculateWaitTime(item: packet, from: from, offset: diff)
     }
 }

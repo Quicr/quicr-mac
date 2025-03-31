@@ -74,6 +74,7 @@
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
+		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
@@ -274,6 +275,7 @@
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
 		9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
+		9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAligned.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
@@ -593,6 +595,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */,
 				9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */,
 				9B3726922D8065A900498550 /* Mutex+Convenience.swift */,
 				9B156EFD2D649EFE00E91D0F /* SlidingWindow.swift */,
@@ -1120,6 +1123,7 @@
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
 				9B156EFE2D649F0200E91D0F /* SlidingWindow.swift in Sources */,
 				180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */,
+				9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */,
 				9BE6B7C72C9D92940069FE9F /* TokenStorage.swift in Sources */,
 				9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */,
 				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
