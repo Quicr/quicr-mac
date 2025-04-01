@@ -4,34 +4,38 @@
 import SwiftUI
 import CryptoKit
 
+struct Channel: Equatable {
+    let tracks: [FullTrackName]
+    let name: String
+}
+
 private enum Destination {
     case ai // swiftlint:disable:this identifier_name
     case channel
 }
 
 struct PushToTalkCall: View {
-    private let manager: PushToTalkManager
+    @State private var manager: PushToTalkManager?
     private let logger = DecimusLogger(PushToTalkCall.self)
     @State private var textSubscription: PushToTalkText
     private let callState: CallState
     @State private var ready = false
     @State private var availableChannels: [String]
     @State private var selectedChannel: String
-    @State private var channels: [Destination: [FullTrackName]]
+    @State private var channels: [Destination: Channel]
+    @State private var aiChannel: PushToTalkChannel?
 
     private let manifest: PTTManifest
     private let aiPublish: FullTrackName
     private let aiAudioReceive: FullTrackName
     private let aiTextReceive: FullTrackName
 
-    init(manager: PushToTalkManager,
-         manifest: PTTManifest,
+    init(manifest: PTTManifest,
          callState: CallState) {
         assert(callState.controller != nil)
         assert(callState.publicationFactory != nil)
         assert(callState.subscriptionFactory != nil)
         assert(callState.engine != nil)
-        self.manager = manager
         self.manifest = manifest
 
         // Channels.
@@ -72,8 +76,8 @@ struct PushToTalkCall: View {
         let channel = try! FullTrackName(namespace: first.tracknamespace, name: first.trackname)
 
         self.channels = [
-            .ai: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive],
-            .channel: [channel]
+            .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
+            .channel: .init(tracks: [channel], name: first.channelName.capitalized)
         ]
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
@@ -81,6 +85,22 @@ struct PushToTalkCall: View {
         try! callState.controller!.subscribe(self.textSubscription)
         self.textSubscription = textSubscription
         // swiftlint:enable force_try
+    }
+
+    private func makeManager() async throws -> PushToTalkManager {
+        let url: URL = .init(string: "http://192.168.1.35:80")!
+        let server = PushToTalkServer(url: url, name: "Rich")
+        let manager: PushToTalkManager
+        #if os(iOS)
+        manager = PushToTalkManagerImpl(api: server)
+        #else
+        manager = MockPushToTalkManager(api: server)
+        #endif
+        try await manager.start { _ in
+            // TODO: Get channel from UUID.
+            return nil
+        }
+        return manager
     }
 
     var body: some View {
@@ -97,6 +117,7 @@ struct PushToTalkCall: View {
                         .labelsHidden()
                     }
                 }
+                Text("Speaker: \(self.manager?.activeSpeaker ?? "None")")
                 PushToTalkButton("AI",
                                  start: { await self.talk(.ai) },
                                  end: { await self.stopTalking(.ai) })
@@ -121,6 +142,7 @@ struct PushToTalkCall: View {
         }
         .task {
             do {
+                self.manager = try await self.makeManager()
                 try await self.doChannels()
             } catch {
                 self.logger.error(error.localizedDescription)
@@ -129,7 +151,7 @@ struct PushToTalkCall: View {
         .onDisappear {
             self.ready = false
             do {
-                try self.manager.shutdown()
+                try self.manager?.shutdown()
             } catch {
                 self.logger.error("Failed to shutdown: \(error.localizedDescription)")
             }
@@ -141,8 +163,8 @@ struct PushToTalkCall: View {
                 return
             }
             self.channels = [
-                .ai: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive],
-                .channel: [ftn]
+                .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
+                .channel: .init(tracks: [ftn], name: channel.channelName.capitalized)
             ]
         }
         .onChange(of: self.channels) {
@@ -159,26 +181,39 @@ struct PushToTalkCall: View {
 
     private func doChannels() async throws {
         self.ready = false
-        try self.manager.shutdown()
-        for channel in self.channels {
-            do {
-                let subscribe = channel.value.indices.contains(1) ? channel.value[1] : nil
-                let pttChannel = try PushToTalkChannel(moq: channel.value.first!,
-                                                       subscribe: subscribe,
-                                                       publicationFactory: self.callState.publicationFactory!,
-                                                       subscriptionFactory: self.callState.subscriptionFactory!,
-                                                       callController: self.callState.controller!)
-                try await self.manager.registerChannel(pttChannel)
-            } catch {
-                self.logger.error("Failed to register channel: \(error.localizedDescription)")
-            }
+        try self.manager?.shutdown()
+
+        let channel = self.channels[.channel]!
+        do {
+            let pttChannel = try PushToTalkChannel(name: channel.name,
+                                                   moq: channel.tracks.first!,
+                                                   subscribe: nil,
+                                                   publicationFactory: self.callState.publicationFactory!,
+                                                   subscriptionFactory: self.callState.subscriptionFactory!,
+                                                   callController: self.callState.controller!)
+            try await self.manager?.registerChannel(pttChannel)
+        } catch {
+            self.logger.error("Failed to register normal PTT channel: \(error.localizedDescription)")
         }
+
+        let ai = self.channels[.ai]!
+        do {
+            self.aiChannel = try PushToTalkChannel(name: ai.name,
+                                                   moq: ai.tracks.first!,
+                                                   subscribe: ai.tracks[1],
+                                                   publicationFactory: self.callState.publicationFactory!,
+                                                   subscriptionFactory: self.callState.subscriptionFactory!,
+                                                   callController: self.callState.controller!)
+        } catch {
+            self.logger.error("Failed to create AI channel: \(error.localizedDescription)")
+        }
+
         self.ready = true
     }
 
     private func talk(_ destination: Destination) async {
         do {
-            try await self.manager.startTransmitting(self.channels[destination]!.first!.uuid)
+            try await self.manager?.startTransmitting(self.channels[destination]!.tracks.first!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
@@ -187,7 +222,7 @@ struct PushToTalkCall: View {
 
     private func stopTalking(_ destination: Destination) async {
         do {
-            try await self.manager.stopTransmitting(self.channels[destination]!.first!.uuid)
+            try await self.manager?.stopTransmitting(self.channels[destination]!.tracks.first!.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }

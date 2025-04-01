@@ -4,6 +4,7 @@
 import UIKit
 import PushToTalk
 import AVFAudio
+import Observation
 
 enum PushToTalkError: Error {
     case notStarted
@@ -21,7 +22,7 @@ struct PTTUser: Decodable {
 class PushToTalkServer {
     private let url: URL
     private let session = URLSession(configuration: .default)
-    private var ourself: PTTUser?
+    private var ourself: [UUID: PTTUser] = [:]
     private let name: String
     private let channels = "channels"
 
@@ -31,7 +32,6 @@ class PushToTalkServer {
     }
 
     func join(channel: UUID, token: Data) async throws {
-        return
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(self.name)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -40,12 +40,11 @@ class PushToTalkServer {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("application/json", forHTTPHeaderField: "Accept")
         let (data, _) = try await self.session.data(for: request)
-        self.ourself = try JSONDecoder().decode(PTTUser.self, from: data)
+        self.ourself[channel] = try JSONDecoder().decode(PTTUser.self, from: data)
     }
 
     func sentAudio(channel: UUID) async throws {
-        return
-        guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
+        guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -55,8 +54,7 @@ class PushToTalkServer {
     }
 
     func stopAudio(channel: UUID) async throws {
-        return
-        guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
+        guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -64,8 +62,7 @@ class PushToTalkServer {
     }
 
     func leave(channel: UUID) async throws {
-        return
-        guard let ourself = self.ourself else { throw PushToTalkError.unjoined }
+        guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(ourself.id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -73,14 +70,18 @@ class PushToTalkServer {
     }
 }
 
-protocol PushToTalkManager {
-    func start() async throws
-    func shutdown() throws
-    func startTransmitting(_ uuid: UUID) async throws
-    func stopTransmitting(_ uuid: UUID) async throws
-    func registerChannel(_ channel: PushToTalkChannel) async throws
-    func unregisterChannel(_ channel: PushToTalkChannel) throws
-    func getChannel(uuid: UUID) -> PushToTalkChannel?
+@Observable
+class PushToTalkManager: NSObject {
+    var activeSpeaker: String?
+    typealias Lookup = (UUID) -> PushToTalkChannel?
+    private(set) var lookup: Lookup?
+    func start(lookup: @escaping Lookup) async throws { self.lookup = lookup }
+    func shutdown() throws { }
+    func startTransmitting(_ uuid: UUID) async throws { }
+    func stopTransmitting(_ uuid: UUID) async throws { }
+    func registerChannel(_ channel: PushToTalkChannel) async throws { }
+    func unregisterChannel(_ channel: PushToTalkChannel) throws { }
+    func getChannel(uuid: UUID) -> PushToTalkChannel? { nil }
 }
 
 class MockPushToTalkManager: PushToTalkManager {
@@ -92,9 +93,7 @@ class MockPushToTalkManager: PushToTalkManager {
         self.api = api
     }
 
-    func start() async throws { }
-
-    func shutdown() {
+    override func shutdown() {
         for (uuid, channel) in self.channels where channel.joined {
             Task(priority: .utility) {
                 do {
@@ -107,7 +106,7 @@ class MockPushToTalkManager: PushToTalkManager {
         self.channels.removeAll()
     }
 
-    func startTransmitting(_ uuid: UUID) async throws {
+    override func startTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
@@ -115,7 +114,7 @@ class MockPushToTalkManager: PushToTalkManager {
         try await self.api.sentAudio(channel: uuid)
     }
 
-    func stopTransmitting(_ uuid: UUID) async throws {
+    override func stopTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
@@ -123,7 +122,7 @@ class MockPushToTalkManager: PushToTalkManager {
         try await self.api.stopAudio(channel: uuid)
     }
 
-    func registerChannel(_ channel: PushToTalkChannel) async throws {
+    override func registerChannel(_ channel: PushToTalkChannel) async throws {
         guard self.channels[channel.uuid] == nil else {
             throw PushToTalkError.channelExists
         }
@@ -133,17 +132,17 @@ class MockPushToTalkManager: PushToTalkManager {
         self.logger.info("[PTT] (\(channel.uuid)) Channel Registered")
     }
 
-    func unregisterChannel(_ channel: PushToTalkChannel) throws {
+    override func unregisterChannel(_ channel: PushToTalkChannel) throws {
         self.channels.removeValue(forKey: channel.uuid)
     }
 
-    func getChannel(uuid: UUID) -> PushToTalkChannel? {
+    override func getChannel(uuid: UUID) -> PushToTalkChannel? {
         self.channels[uuid]
     }
 }
 
 #if os(iOS) && !targetEnvironment(macCatalyst)
-class PushToTalkManagerImpl: NSObject, PushToTalkManager {
+class PushToTalkManagerImpl: PushToTalkManager {
     private let logger = DecimusLogger(PushToTalkManager.self)
     private var token: Data?
     private var channels: [UUID: PushToTalkChannel] = [:]
@@ -156,7 +155,8 @@ class PushToTalkManagerImpl: NSObject, PushToTalkManager {
         self.api = api
     }
 
-    func start() async throws {
+    override func start(lookup: @escaping PushToTalkManager.Lookup) async throws {
+        try await super.start(lookup: lookup)
         self.manager = try await .channelManager(delegate: self, restorationDelegate: self)
         self.logger.info("[PTT] Started")
         if let uuid = self.manager?.activeChannelUUID {
@@ -166,7 +166,7 @@ class PushToTalkManagerImpl: NSObject, PushToTalkManager {
         }
     }
 
-    func shutdown() throws {
+    override func shutdown() throws {
         guard let manager = self.manager else {
             throw PushToTalkError.notStarted
         }
@@ -177,21 +177,21 @@ class PushToTalkManagerImpl: NSObject, PushToTalkManager {
         }
     }
 
-    func startTransmitting(_ uuid: UUID) throws {
+    override func startTransmitting(_ uuid: UUID) async throws {
         guard let manager = self.manager else {
             throw PushToTalkError.notStarted
         }
         manager.requestBeginTransmitting(channelUUID: uuid)
     }
 
-    func stopTransmitting(_ uuid: UUID) throws {
+    override func stopTransmitting(_ uuid: UUID) async throws {
         guard let manager = self.manager else {
             throw PushToTalkError.notStarted
         }
         manager.stopTransmitting(channelUUID: uuid)
     }
 
-    func registerChannel(_ channel: PushToTalkChannel) async throws {
+    override func registerChannel(_ channel: PushToTalkChannel) async throws {
         guard self.channels[channel.uuid] == nil else {
             throw PushToTalkError.channelExists
         }
@@ -205,7 +205,7 @@ class PushToTalkManagerImpl: NSObject, PushToTalkManager {
         self.logger.info("[PTT] (\(channel.uuid)) Channel Registered")
     }
 
-    func unregisterChannel(_ channel: PushToTalkChannel) throws {
+    override func unregisterChannel(_ channel: PushToTalkChannel) throws {
         guard let manager = self.manager else {
             throw PushToTalkError.notStarted
         }
@@ -215,7 +215,7 @@ class PushToTalkManagerImpl: NSObject, PushToTalkManager {
         manager.leaveChannel(channelUUID: channel.uuid)
     }
 
-    func getChannel(uuid: UUID) -> PushToTalkChannel? {
+    override func getChannel(uuid: UUID) -> PushToTalkChannel? {
         self.channels[uuid]
     }
 }
@@ -235,7 +235,7 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
 
         // If we haven't got our token yet, cache this join request for when we do.
         guard let token = self.token else {
-            self.logger.warning("[PTT] Missing token on join")
+            self.logger.debug("[PTT] Missing token on join, caching...")
             self.pendingJoinRequests.append(channelUUID)
             return
         }
@@ -263,7 +263,7 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
                 try await self.api.leave(channel: channelUUID)
                 self.logger.info("[PTT] (\(channelUUID)) Notified server of leave")
             } catch {
-                self.logger.error("[PTT] (\(channelUUID) Failed to leave channel on PTT server: \(error.localizedDescription)")
+                self.logger.warning("[PTT] (\(channelUUID)) Failed to leave channel on PTT server: \(error.localizedDescription)")
             }
         }
     }
@@ -272,22 +272,13 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
     func channelManager(_ channelManager: PTChannelManager,
                         channelUUID: UUID,
                         didBeginTransmittingFrom source: PTChannelTransmitRequestSource) {
-        guard let channel = self.channels[channelUUID] else {
-            self.logger.error("[PTT] (\(channelUUID)) Missing channel for beginTransmitting event")
-            return
-        }
-        guard let publication = channel.publication else {
-            self.logger.error("[PTT] (\(channelUUID)) Missing publication for channel on beginTransmitting event")
-            return
-        }
-
         // Send notification audio is transmitting to others.
         Task(priority: .medium) {
             do {
                 try await self.api.sentAudio(channel: channelUUID)
                 self.logger.info("[PTT] (\(channelUUID)) Notified server of transmission")
             } catch {
-                self.logger.error("[PTT]  (\(channelUUID)) Failed to send audio notification for PTT: \(error.localizedDescription)")
+                self.logger.error("[PTT] (\(channelUUID)) Failed to send audio notification for PTT: \(error.localizedDescription)")
             }
         }
 
@@ -299,16 +290,6 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
     func channelManager(_ channelManager: PTChannelManager,
                         channelUUID: UUID,
                         didEndTransmittingFrom source: PTChannelTransmitRequestSource) {
-
-        guard let channel = self.channels[channelUUID] else {
-            self.logger.error("[PTT] (\(channelUUID)) Missing channel for endTransmitting event")
-            return
-        }
-        guard let publication = channel.publication else {
-            self.logger.error("[PTT] (\(channelUUID)) Missing publication for channel on endTransmitting event")
-            return
-        }
-
         // TODO: This might be more correct to handle in the session deactivate? Check this.
         self.logger.info("[PTT] (\(channelUUID)) Stopped transmitting")
         let notify = UIApplication.shared.beginBackgroundTask(withName: "StopTransmitting")
@@ -331,10 +312,11 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
             Task(priority: .medium) {
                 guard let manager = self.manager else { fatalError() }
                 do {
+                    self.logger.debug("[PTT] (\(request)) Flushing pending join request")
                     try await self.api.join(channel: request, token: pushToken)
                     try await manager.setServiceStatus(.ready, channelUUID: request)
                 } catch {
-                    self.logger.error("Failed to join channel on PTT server: \(error.localizedDescription)")
+                    self.logger.error("[PTT] (\(request)) Failed to join channel on PTT server: \(error.localizedDescription)")
                     try await manager.setServiceStatus(.unavailable, channelUUID: request)
                 }
             }
@@ -345,16 +327,14 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
     func incomingPushResult(channelManager: PTChannelManager,
                             channelUUID: UUID,
                             pushPayload: [String: Any]) -> PTPushResult {
-        guard let activeSpeaker = pushPayload["activeSpeaker"] else {
+        guard let activeSpeakerStructure = pushPayload["payload"] as? [String: String],
+              let activeSpeaker = activeSpeakerStructure["activeSpeaker"] else {
             self.logger.error("[PTT] Unknown PTT notification received: \(pushPayload)")
             return .leaveChannel
         }
-        guard let name = activeSpeaker as? String else {
-            self.logger.info("No active speaker? Apple suggest leaving the channel here. I'm not sure why...")
-            return .leaveChannel
-        }
         self.logger.info("[PTT] Active Speaker Updated: \(activeSpeaker)")
-        return .activeRemoteParticipant(PTParticipant(name: name, image: nil))
+        self.activeSpeaker = activeSpeaker
+        return .activeRemoteParticipant(PTParticipant(name: activeSpeaker, image: nil))
     }
 
     func channelManager(_ channelManager: PTChannelManager, didActivate audioSession: AVAudioSession) {
@@ -370,9 +350,11 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
         if let channel = self.channels[channelUUID] {
             return channel.description
         } else {
-            let channel = PushToTalkChannel(uuid: channelUUID, createdFrom: .restore)
+            self.logger.notice("[PTT] (\(channelUUID)) Restoration not supported")
+            return .init(name: "Unsupported", image: nil)
+            let channel = self.lookup!(channelUUID)
             self.channels[channelUUID] = channel
-            return channel.description
+            return channel!.description
         }
     }
 

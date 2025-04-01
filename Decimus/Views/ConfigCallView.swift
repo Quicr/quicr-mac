@@ -39,18 +39,13 @@ struct ConfigCallView: View {
                         InCallView(callState: state)
                     } else {
                         // PTT server.
-                        let url: URL = .init(string: "http://127.0.0.1:8080")!
-                        let manager = MockPushToTalkManager(api: .init(url: url,
-                                                                       name: "Rich"))
-
                         // Load manifest from resource file.
-                        let manifestFile = Bundle.main.url(forResource: "sample_channel_config", withExtension: "json")
+                        let manifestFile = Bundle.main.url(forResource: "sample_channel_config",
+                                                           withExtension: "json")
                         if let data = try? Data(contentsOf: manifestFile!),
                            let manifest = try? JSONDecoder().decode(PTTManifest.self, from: data) {
-                            PushToTalkCall(manager: manager,
-                                           manifest: manifest,
+                            PushToTalkCall(manifest: manifest,
                                            callState: state)
-
                         } else {
                             Text("Failed to load PTT manifest")
                                 .foregroundStyle(.red)

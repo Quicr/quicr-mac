@@ -22,7 +22,8 @@ class PushToTalkChannel {
     var joined = false
     static let aiFlagChannel = 9
 
-    init(moq: FullTrackName,
+    init(name: String,
+         moq: FullTrackName,
          subscribe: FullTrackName?,
          publicationFactory: PublicationFactory,
          subscriptionFactory: SubscriptionFactory,
@@ -31,7 +32,7 @@ class PushToTalkChannel {
         let image = UIImage(systemName: "waveform.circle.fill")
         self.uuid = moq.uuid
         #if os(iOS) && !targetEnvironment(macCatalyst)
-        self.description = PTChannelDescriptor(name: self.uuid.uuidString, image: image)
+        self.description = PTChannelDescriptor(name: name, image: image)
         #endif
         self.callController = callController
         self.createdFrom = createdFrom
