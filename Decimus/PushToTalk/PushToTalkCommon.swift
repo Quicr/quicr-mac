@@ -94,3 +94,11 @@ struct ChunkMessage {
         into.append(self.data)
     }
 }
+
+struct ChangeChannelMessage: Decodable {
+    let channelName: String
+
+    enum CodingKeys: String, CodingKey {
+        case channelName = "channel_name"
+    }
+}

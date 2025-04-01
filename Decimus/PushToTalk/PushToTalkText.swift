@@ -1,39 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-struct ChannelMessage: Decodable {
-    let channel: String
-    let ftn: FullTrackName
-    let codec: String
-    let sampleRate: Int
-    let channelConfig: Int
-    let bitrate: Int
+import Observation
 
-    enum CodingKeys: String, CodingKey {
-        case channel = "channel_name"
-        case namespace = "tracknamespace"
-        case name = "trackname"
-        case codec
-        case sampleRate = "samplerate"
-        case channelConfig = "channelConfig"
-        case bitrate
-    }
-
-    init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.channel = try container.decode(String.self, forKey: .channel)
-        let namespace = try container.decode([String].self, forKey: .namespace)
-        let name = try container.decode(String.self, forKey: .name)
-        self.ftn = try .init(namespace: namespace, name: name)
-        self.codec = try container.decode(String.self, forKey: .codec)
-        self.sampleRate = try container.decode(Int.self, forKey: .sampleRate)
-        self.channelConfig = try container.decode(Int.self, forKey: .channelConfig)
-        self.bitrate = try container.decode(Int.self, forKey: .bitrate)
-    }
-}
-
+@Observable
 class PushToTalkText: Subscription {
     private let logger = DecimusLogger(PushToTalkText.self)
+    var currentChannel: String?
 
     init(_ ftn: FullTrackName) throws {
         let tuple: [String] = ftn.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
@@ -57,12 +30,11 @@ class PushToTalkText: Subscription {
             self.logger.error("Failed to parse chunk")
             return
         }
-        guard let channel = try?JSONDecoder().decode(ChannelMessage.self, from: chunk.data) else {
-            self.logger.error("Failed to parse chunk JSON")
+        if let changeChannel = try? JSONDecoder().decode(ChangeChannelMessage.self, from: chunk.data) {
+            self.logger.info("Received change channel to: \(changeChannel.channelName)")
+            self.currentChannel = changeChannel.channelName
             return
         }
-
         self.logger.notice("\(chunk)")
-        self.logger.notice("\(channel)")
     }
 }

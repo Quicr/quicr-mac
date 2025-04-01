@@ -12,7 +12,7 @@ private enum Destination {
 struct PushToTalkCall: View {
     private let manager: PushToTalkManager
     private let logger = DecimusLogger(PushToTalkCall.self)
-    private let textSubscription: Subscription
+    @State private var textSubscription: PushToTalkText
     private let callState: CallState
     @State private var ready = false
     @State private var availableChannels: [String]
@@ -75,10 +75,11 @@ struct PushToTalkCall: View {
             .ai: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive],
             .channel: [channel]
         ]
-        self.textSubscription = try! PushToTalkText(aiTextReceive!)
-        try! callState.controller!.subscribe(self.textSubscription)
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
+        self.textSubscription = try! PushToTalkText(aiTextReceive!)
+        try! callState.controller!.subscribe(self.textSubscription)
+        self.textSubscription = textSubscription
         // swiftlint:enable force_try
     }
 
@@ -90,7 +91,7 @@ struct PushToTalkCall: View {
                     LabeledContent("Channel") {
                         Picker("Channel", selection: self.$selectedChannel) {
                             ForEach(self.availableChannels, id: \.self) { channel in
-                                Text(channel).tag(channel)
+                                Text(channel.capitalized).tag(channel)
                             }
                         }
                         .labelsHidden()
@@ -103,12 +104,14 @@ struct PushToTalkCall: View {
                                  start: { await self.talk(.channel) },
                                  end: { await self.stopTalking(.channel) })
                 Spacer()
-                Button("Leave") {
+                Button("Leave", role: .destructive) {
                     Task {
                         await self.callState.leave()
                         self.callState.onLeave()
                     }
                 }
+                .buttonStyle(.bordered)
+                .padding()
             }
             .padding()
             .disabled(!self.ready)
@@ -146,6 +149,11 @@ struct PushToTalkCall: View {
             Task {
                 try await self.doChannels()
             }
+        }
+        .onChange(of: self.textSubscription.currentChannel) {
+            guard let newChannel = self.textSubscription.currentChannel else { return }
+            self.selectedChannel = newChannel
+            self.textSubscription.currentChannel = nil
         }
     }
 
