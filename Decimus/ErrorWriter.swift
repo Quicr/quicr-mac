@@ -59,14 +59,14 @@ class DecimusLogger {
     /// - Parameter level: The level this log corresponds to.
     /// - Parameter msg: The log message itself.
     /// - Parameter alert: True to display this message to the user.
-    func log(level: LogLevel, _ msg: String, alert: Bool) {
-        let message: String
+    func log(level: LogLevel, _ message: String, alert: Bool) {
+        let msg: String
         if let prefix = self.prefix {
-            message = "[\(prefix)] \(msg)"
+            msg = "[\(prefix)] \(message)"
         } else {
-            message = msg
+            msg = message
         }
-        self.logger.log(level: OSLogType(level), "\(message, privacy: .public)")
+        self.logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         guard alert else { return }
         let now = Date.now
         DispatchQueue.main.async { [weak self] in

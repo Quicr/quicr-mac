@@ -54,11 +54,11 @@ class PushToTalkChannel {
                                                       sourceID: self.uuid.uuidString,
                                                       label: self.uuid.uuidString,
                                                       profileSet: profile(moq, ai: subscribe != nil))
-        try self.callController.publish(details: manifestPublication,
-                                        factory: publicationFactory,
-                                        codecFactory: CodecFactoryImpl())
-
-        guard let audioPublication = self.callController.getPublications().first as? AudioPublication else {
+        let created = try self.callController.publish(details: manifestPublication,
+                                                      factory: publicationFactory,
+                                                      codecFactory: CodecFactoryImpl())
+        assert(created.count == 1)
+        guard let audioPublication = created.first?.1 as? AudioPublication else {
             throw "Failed to create audio publication"
         }
         self.publication = audioPublication

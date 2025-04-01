@@ -139,7 +139,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter factory: Factory to create publication objects.
     /// - Parameter codecFactory: Turns a quality profile into a codec configuration.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func publish(details: ManifestPublication, factory: PublicationFactory, codecFactory: CodecFactory) throws {
+    public func publish(details: ManifestPublication,
+                        factory: PublicationFactory,
+                        codecFactory: CodecFactory) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
                                          codecFactory: codecFactory,
@@ -149,6 +151,7 @@ class MoqCallController: QClientCallbacks {
             self.publications[namespace] = handler
             self.client.publishTrack(withHandler: handler)
         }
+        return created
     }
 
     /// Stop publishing to a track.
