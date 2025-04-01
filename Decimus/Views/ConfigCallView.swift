@@ -38,39 +38,23 @@ struct ConfigCallView: View {
                         // Video.
                         InCallView(callState: state)
                     } else {
-                        // PTT.
+                        // PTT server.
                         let url: URL = .init(string: "http://127.0.0.1:8080")!
                         let manager = MockPushToTalkManager(api: .init(url: url,
                                                                        name: "Rich"))
-                        // swiftlint:disable force_try
-                        let aiPublish = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
-                                                                       "org/acme",
-                                                                       "store/1234",
-                                                                       "ai/audio"],
-                                                           name: "pcm_en_8khz_mono_i16")
-                        let aiAudioReceive = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
-                                                                            "org/acme",
-                                                                            "store/1234",
-                                                                            "ai/audio"],
-                                                                name: "\(state.audioStartingGroup)")
-                        let aiTextReceive = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
-                                                                           "org/acme",
-                                                                           "store/1234",
-                                                                           "ai/text"],
-                                                               name: "\(state.audioStartingGroup)")
-                        let channel = try! FullTrackName(namespace: ["moq://moq.ptt.arpa/v1",
-                                                                     "org/acme",
-                                                                     "store/1234",
-                                                                     "channel/gardening",
-                                                                     "ptt"],
-                                                         name: "pcm_en_8khz_mono_i16")
-                        // swiftlint:enable force_try
-                        PushToTalkCall(manager: manager,
-                                       aiPublish: aiPublish,
-                                       aiAudioReceive: aiAudioReceive,
-                                       aiTextReceive: aiTextReceive,
-                                       channel: channel,
-                                       callState: state)
+
+                        // Load manifest from resource file.
+                        let manifestFile = Bundle.main.url(forResource: "sample_channel_config", withExtension: "json")
+                        if let data = try? Data(contentsOf: manifestFile!),
+                           let manifest = try? JSONDecoder().decode(PTTManifest.self, from: data) {
+                            PushToTalkCall(manager: manager,
+                                           manifest: manifest,
+                                           callState: state)
+
+                        } else {
+                            Text("Failed to load PTT manifest")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }.task {

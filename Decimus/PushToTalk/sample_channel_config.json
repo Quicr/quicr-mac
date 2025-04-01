@@ -1,0 +1,108 @@
+{
+    "endpoint_info": {
+        "id": "c637ae2a-b3d7-4574-bac7-8c7b5ee44f3e",
+        "owner": "alice@acme.com",
+        "lang-preference": "es-US"
+    },
+    "publications": [
+        {
+            "channel_name": "gardening",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/gardening", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "plumbing",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/plumbing", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "appliances",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/appliances", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "electrical",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/electrical", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1",
+            "bitrate": 32000
+        },
+        {
+            "channel_name": "ai_audio",
+            "language" : "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "ai/audio"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec": "pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        }
+    ],
+    "subscriptions": [
+        {
+            "channel_name": "gardening",
+            "language" : "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1234", "channel/gardening", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec": "pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "plumbing",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/plumbing", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "appliances",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/appliances", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "electrical",
+            "language": "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1235", "channel/electrical", "ptt"],
+            "trackname": "pcm_en_8khz_mono_i16",
+            "codec":"pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "self_ai_audio",
+            "language" : "es-US",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1234", "ai/audio"],
+            "trackname": "",
+            "codec": "pcm",
+            "samplerate":8000,
+            "channelConfig":"1"
+        },
+        {
+            "channel_name": "self_ai_text",
+            "tracknamespace": ["moq://moq.ptt.arpa/v1", "org/acme", "store/1234", "ai/text"],
+            "trackname": "",
+            "codec": "ai_cmd_response:json"
+        }
+    ]
+}

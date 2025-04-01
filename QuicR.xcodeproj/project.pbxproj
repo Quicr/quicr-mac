@@ -63,6 +63,8 @@
 		9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */; };
 		9B1F2C122C948ECE007548D1 /* TrackMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */; };
 		9B25D2162D9ACDBF00FE8AB7 /* PushToTalkText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B25D2152D9ACDB900FE8AB7 /* PushToTalkText.swift */; };
+		9B25D2182D9BE33300FE8AB7 /* sample_channel_config.json in Resources */ = {isa = PBXBuildFile; fileRef = 9B25D2172D9BE32B00FE8AB7 /* sample_channel_config.json */; };
+		9B25D21A2D9BE37500FE8AB7 /* PTTManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B25D2192D9BE37100FE8AB7 /* PTTManifest.swift */; };
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
 		9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
@@ -275,6 +277,8 @@
 		9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CallController+Measurement.swift"; sourceTree = "<group>"; };
 		9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackMeasurement.swift; sourceTree = "<group>"; };
 		9B25D2152D9ACDB900FE8AB7 /* PushToTalkText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkText.swift; sourceTree = "<group>"; };
+		9B25D2172D9BE32B00FE8AB7 /* sample_channel_config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sample_channel_config.json; sourceTree = "<group>"; };
+		9B25D2192D9BE37100FE8AB7 /* PTTManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTTManifest.swift; sourceTree = "<group>"; };
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
 		9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackFetch.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
@@ -508,6 +512,8 @@
 		9B3EDCAF2D80880000B4B17A /* PushToTalk */ = {
 			isa = PBXGroup;
 			children = (
+				9B25D2192D9BE37100FE8AB7 /* PTTManifest.swift */,
+				9B25D2172D9BE32B00FE8AB7 /* sample_channel_config.json */,
 				9B25D2152D9ACDB900FE8AB7 /* PushToTalkText.swift */,
 				9B7D9EC72D8D715D00CFCDE1 /* PCMPublication.swift */,
 				9BCC307E2D941D6E00878517 /* PushToTalkCommon.swift */,
@@ -970,6 +976,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				FF6D6D612A00415300B535DA /* CiscoSansTTBoldOblique.woff2 in Resources */,
+				9B25D2182D9BE33300FE8AB7 /* sample_channel_config.json in Resources */,
 				FF6D6D592A00415300B535DA /* CiscoSansTTHeavyOblique.woff2 in Resources */,
 				FF6D6D712A00415300B535DA /* CiscoSansTTThin.woff in Resources */,
 				FF6D6D632A00415300B535DA /* CiscoSansTTCondRegular.woff2 in Resources */,
@@ -1097,6 +1104,7 @@
 				18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */,
 				9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
+				9B25D21A2D9BE37500FE8AB7 /* PTTManifest.swift in Sources */,
 				9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */,
 				9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */,
 				18F7C4D82AB1C7AA005EDB88 /* JitterBuffer.swift in Sources */,
