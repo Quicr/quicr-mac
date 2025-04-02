@@ -101,7 +101,8 @@ class PCMSubscription: Subscription {
         do {
             handler = try self.handlers.withLock { lockedHandlers in
                 guard let handler = lockedHandlers[objectHeaders.groupId] else {
-                    let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
+                    let id = "\(self.fullTrackName.description):\(objectHeaders.groupId)"
+                    let handler = try AudioHandler(identifier: id,
                                                    engine: self.engine,
                                                    decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
                                                                          originalFormat: self.originalFormat,
