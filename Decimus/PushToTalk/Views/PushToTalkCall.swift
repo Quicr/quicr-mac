@@ -23,7 +23,6 @@ struct PushToTalkCall: View {
     @State private var availableChannels: [String]
     @State private var selectedChannel: String
     @State private var channels: [Destination: Channel]
-    @State private var aiChannel: PushToTalkChannel?
 
     private let manifest: PTTManifest
     private let aiPublish: FullTrackName
@@ -198,12 +197,13 @@ struct PushToTalkCall: View {
 
         let ai = self.channels[.ai]!
         do {
-            self.aiChannel = try PushToTalkChannel(name: ai.name,
-                                                   moq: ai.tracks.first!,
-                                                   subscribe: ai.tracks[1],
-                                                   publicationFactory: self.callState.publicationFactory!,
-                                                   subscriptionFactory: self.callState.subscriptionFactory!,
-                                                   callController: self.callState.controller!)
+            let aiChannel = try PushToTalkChannel(name: ai.name,
+                                                  moq: ai.tracks.first!,
+                                                  subscribe: ai.tracks[1],
+                                                  publicationFactory: self.callState.publicationFactory!,
+                                                  subscriptionFactory: self.callState.subscriptionFactory!,
+                                                  callController: self.callState.controller!)
+            try await self.manager?.registerChannel(aiChannel)
         } catch {
             self.logger.error("Failed to create AI channel: \(error.localizedDescription)")
         }
@@ -215,7 +215,7 @@ struct PushToTalkCall: View {
         do {
             try await self.manager?.startTransmitting(self.channels[destination]!.tracks.first!.uuid)
         } catch {
-            self.logger.error("Failed to stop talking: \(error.localizedDescription)")
+            self.logger.error("Failed to start talking: \(error.localizedDescription)")
         }
         self.callState.engine!.setMicrophoneCapture(true)
     }

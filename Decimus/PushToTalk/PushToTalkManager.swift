@@ -6,11 +6,24 @@ import PushToTalk
 import AVFAudio
 import Observation
 
-enum PushToTalkError: Error {
+enum PushToTalkError: LocalizedError {
     case notStarted
     case channelExists
     case channelDoesntExist
     case unjoined
+
+    public var errorDescription: String? {
+        switch self {
+        case .notStarted:
+            "Push to Talk Manager not started"
+        case .channelExists:
+            "Channel already exists"
+        case .channelDoesntExist:
+            "Channel does not exist"
+        case .unjoined:
+            "Channel not joined"
+        }
+    }
 }
 
 struct PTTUser: Decodable {
@@ -99,7 +112,7 @@ class MockPushToTalkManager: PushToTalkManager {
                 do {
                     try await self.api.leave(channel: uuid)
                 } catch {
-                    self.logger.error("[PTT] (\(uuid) Failed to leave channel: \(error.localizedDescription)")
+                    self.logger.warning("[PTT] (\(uuid) Failed to leave channel on server: \(error.localizedDescription)")
                 }
             }
         }
@@ -111,7 +124,11 @@ class MockPushToTalkManager: PushToTalkManager {
             throw PushToTalkError.channelDoesntExist
         }
         channel.startTransmitting()
-        try await self.api.sentAudio(channel: uuid)
+        do {
+            try await self.api.sentAudio(channel: uuid)
+        } catch {
+            self.logger.warning("[PTT] (\(uuid)) Failed to notify server of start talking")
+        }
     }
 
     override func stopTransmitting(_ uuid: UUID) async throws {
@@ -119,7 +136,11 @@ class MockPushToTalkManager: PushToTalkManager {
             throw PushToTalkError.channelDoesntExist
         }
         channel.stopTransmitting()
-        try await self.api.stopAudio(channel: uuid)
+        do {
+            try await self.api.stopAudio(channel: uuid)
+        } catch {
+            self.logger.warning("[PTT] (\(uuid)) Failed to notify server of stop talking")
+        }
     }
 
     override func registerChannel(_ channel: PushToTalkChannel) async throws {
@@ -127,7 +148,11 @@ class MockPushToTalkManager: PushToTalkManager {
             throw PushToTalkError.channelExists
         }
         self.channels[channel.uuid] = channel
-        try await self.api.join(channel: channel.uuid, token: Data(repeating: 0, count: 4))
+        do {
+            try await self.api.join(channel: channel.uuid, token: Data(repeating: 0, count: 4))
+        } catch {
+            self.logger.warning("[PTT] (\(channel.uuid)) Failed to join channel on PTT server: \(error.localizedDescription)")
+        }
         channel.joined = true
         self.logger.info("[PTT] (\(channel.uuid)) Channel Registered")
     }
