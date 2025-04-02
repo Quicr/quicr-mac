@@ -105,7 +105,7 @@ class PCMPublication: Publication, AudioPublication {
 
                     if shouldPublish {
                         do {
-                            let encodedChunks = try self.flushEncode()
+                            let encodedChunks = try self.flushEncode(last: last)
                             if encodedChunks.count > 0 {
                                 for index in 0..<encodedChunks.count {
                                     let last = last && index == encodedChunks.count - 1
@@ -186,15 +186,19 @@ class PCMPublication: Publication, AudioPublication {
         let timestamp: Date
     }
 
-    private func flushEncode() throws -> [EncodeResult] {
+    private func flushEncode(last: Bool) throws -> [EncodeResult] {
         var results: [EncodeResult] = []
-        while let encoded = try self.encode() {
+        while let encoded = try self.encode(last: false) {
             results.append(encoded)
+        }
+        if last,
+           let oneMore = try self.encode(last: true) {
+            results.append(oneMore)
         }
         return results
     }
 
-    private func encode() throws -> EncodeResult? {
+    private func encode(last: Bool) throws -> EncodeResult? {
         guard let buffer = self.engine.microphoneBuffer else {
             #if os(macOS)
             return nil
@@ -204,8 +208,10 @@ class PCMPublication: Publication, AudioPublication {
         }
 
         // If there are not enough frames to fill a window we might as well bail.
-        let available = buffer.peek()
-        guard available.frames >= self.windowFrames else { return nil }
+        if !last {
+            let available = buffer.peek()
+            guard available.frames >= self.windowFrames else { return nil }
+        }
 
         // Convert this data to ALAW 16KHz 16 bit mono.
         let requiredConvertedSamples = self.opusWindowSize.rawValue * self.desiredFormat.sampleRate
@@ -217,9 +223,9 @@ class PCMPublication: Publication, AudioPublication {
         var timestamp: AudioTimeStamp?
         self.converter.convert(to: destination, error: &nsError) { packets, status in
             let peek = buffer.peek()
-            guard peek.frames >= packets else {
+            if !last && peek.frames < packets {
                 status.pointee = .noDataNow
-                return nil
+                return .none
             }
 
             guard packets < self.pcm.frameCapacity else {
@@ -227,11 +233,20 @@ class PCMPublication: Publication, AudioPublication {
                 status.pointee = .noDataNow
                 return nil
             }
+
             self.pcm.frameLength = AVAudioFrameCount(packets)
-            let sourceData = buffer.dequeue(frames: packets, buffer: &self.pcm.mutableAudioBufferList.pointee)
-            assert(peek.frames >= sourceData.frames)
-            assert(sourceData.frames == packets)
-            self.pcm.frameLength = sourceData.frames
+            let sourceData = buffer.dequeue(frames: min(peek.frames, packets),
+                                            buffer: &self.pcm.mutableAudioBufferList.pointee)
+            let silenceFrames = packets - sourceData.frames
+            if silenceFrames > 0 {
+                let bytes = DecimusAudioEngine.format.streamDescription.pointee.mBytesPerFrame
+                let silenceFramesStart = sourceData.frames * bytes
+                let silenceFramesBytes = silenceFrames * bytes
+                memset(self.pcm.mutableAudioBufferList.pointee.mBuffers.mData?.advanced(by: Int(silenceFramesStart)),
+                       0,
+                       Int(silenceFramesBytes))
+            }
+            self.pcm.frameLength = packets
             timestamp = sourceData.timestamp
             status.pointee = .haveData
             return self.pcm

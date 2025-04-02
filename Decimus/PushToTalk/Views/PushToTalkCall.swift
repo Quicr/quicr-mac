@@ -91,7 +91,7 @@ struct PushToTalkCall: View {
         let url: URL = .init(string: "http://192.168.1.35:80")!
         let server = PushToTalkServer(url: url, name: "Rich")
         let manager: PushToTalkManager
-        #if os(iOS)
+        #if os(iOS) && !targetEnvironment(macCatalyst)
         manager = PushToTalkManagerImpl(api: server)
         #else
         manager = MockPushToTalkManager(api: server)
