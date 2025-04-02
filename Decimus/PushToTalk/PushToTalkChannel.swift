@@ -24,10 +24,11 @@ class PushToTalkChannel {
 
     init(name: String,
          moq: FullTrackName,
-         subscribe: FullTrackName?,
+         subscribe: FullTrackName,
          publicationFactory: PublicationFactory,
          subscriptionFactory: SubscriptionFactory,
          callController: MoqCallController,
+         ai: Bool,
          createdFrom: CreatedFrom = .request) throws {
         let image = UIImage(systemName: "waveform.circle.fill")
         self.uuid = moq.uuid
@@ -54,7 +55,7 @@ class PushToTalkChannel {
                                                       sourceName: "source",
                                                       sourceID: self.uuid.uuidString,
                                                       label: self.uuid.uuidString,
-                                                      profileSet: profile(moq, ai: subscribe != nil))
+                                                      profileSet: profile(moq, ai: ai))
         let created = try self.callController.publish(details: manifestPublication,
                                                       factory: publicationFactory,
                                                       codecFactory: CodecFactoryImpl())
@@ -65,13 +66,12 @@ class PushToTalkChannel {
         self.publication = audioPublication
 
         // Make the subscription.
-        let subFTN = subscribe ?? moq
         let manifestSubscription = ManifestSubscription(mediaType: "audio",
                                                         sourceName: self.uuid.uuidString,
                                                         sourceID: self.uuid.uuidString,
                                                         label: self.uuid.uuidString,
                                                         participantId: .init(1),
-                                                        profileSet: profile(subFTN, ai: false))
+                                                        profileSet: profile(subscribe, ai: false))
         let set = try self.callController.subscribeToSet(details: manifestSubscription,
                                                          factory: subscriptionFactory,
                                                          subscribe: true)

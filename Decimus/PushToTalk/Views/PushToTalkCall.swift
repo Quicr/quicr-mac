@@ -73,10 +73,15 @@ struct PushToTalkCall: View {
 
         let first = manifest.publications.first!
         let channel = try! FullTrackName(namespace: first.tracknamespace, name: first.trackname)
+        let firstSub = manifest.subscriptions.first!
+        if first.channelName != firstSub.channelName {
+            self.logger.error("I'm assuming first publication and subscription are for the same channel and they're not. Complain to me or reorder manifest.")
+        }
+        let channelSub = try! FullTrackName(namespace: firstSub.tracknamespace, name: firstSub.trackname)
 
         self.channels = [
             .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
-            .channel: .init(tracks: [channel], name: first.channelName.capitalized)
+            .channel: .init(tracks: [channel, channelSub], name: first.channelName.capitalized)
         ]
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
@@ -186,10 +191,11 @@ struct PushToTalkCall: View {
         do {
             let pttChannel = try PushToTalkChannel(name: channel.name,
                                                    moq: channel.tracks.first!,
-                                                   subscribe: nil,
+                                                   subscribe: channel.tracks[1],
                                                    publicationFactory: self.callState.publicationFactory!,
                                                    subscriptionFactory: self.callState.subscriptionFactory!,
-                                                   callController: self.callState.controller!)
+                                                   callController: self.callState.controller!,
+                                                   ai: false)
             try await self.manager?.registerChannel(pttChannel)
         } catch {
             self.logger.error("Failed to register normal PTT channel: \(error.localizedDescription)")
@@ -202,7 +208,8 @@ struct PushToTalkCall: View {
                                                   subscribe: ai.tracks[1],
                                                   publicationFactory: self.callState.publicationFactory!,
                                                   subscriptionFactory: self.callState.subscriptionFactory!,
-                                                  callController: self.callState.controller!)
+                                                  callController: self.callState.controller!,
+                                                  ai: true)
             try await self.manager?.registerChannel(aiChannel)
         } catch {
             self.logger.error("Failed to create AI channel: \(error.localizedDescription)")
