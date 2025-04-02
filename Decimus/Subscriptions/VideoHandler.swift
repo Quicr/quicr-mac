@@ -204,11 +204,15 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 return
             }
             let loc = try LowOverheadContainer(from: extensions)
+            guard let sequence = loc.sequence else {
+                Self.logger.error("Video needs LOC sequence number set")
+                return
+            }
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: data,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
-                                                   sequenceNumber: loc.sequence,
+                                                   sequenceNumber: sequence,
                                                    timestamp: loc.timestamp) else {
                 Self.logger.warning("No video data in object")
                 return

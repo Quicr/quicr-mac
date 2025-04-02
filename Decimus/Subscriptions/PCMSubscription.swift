@@ -15,7 +15,7 @@ class PCMSubscription: Subscription {
     private let handlers = Mutex<[UInt64: AudioHandler]>([:])
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
-    private let lastUpdateTime = Mutex<Date?>(nil)
+    private let lastUpdateTime = Mutex<[UInt64: Date?]>([:])
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let opusWindowSize: OpusWindowSize
@@ -63,27 +63,32 @@ class PCMSubscription: Subscription {
                        filterType: .latestObject,
                        statusCallback: statusChanged)
 
-        //        // Make task for cleaning up audio handlers.
-        //        self.cleanupTask = .init(priority: .utility) { [weak self] in
-        //            while !Task.isCancelled {
-        //                let sleepTimer: TimeInterval
-        //                if let self = self {
-        //                    sleepTimer = self.cleanupTimer
-        //                    self.lastUpdateTime.withLock { lockedUpdateTime in
-        //                        guard let lastUpdateTime = lockedUpdateTime else { return }
-        //                        if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
-        //                            lockedUpdateTime = nil
-        //                            // self.handler.clear()
-        //                        }
-        //                    }
-        //                } else {
-        //                    return
-        //                }
-        //                try? await Task.sleep(for: .seconds(sleepTimer),
-        //                                      tolerance: .seconds(sleepTimer),
-        //                                      clock: .continuous)
-        //            }
-        //        }
+        // Make task for cleaning up audio handlers.
+        self.cleanupTask = .init(priority: .utility) { [weak self] in
+            while !Task.isCancelled {
+                let sleepTimer: TimeInterval
+                if let self = self {
+                    sleepTimer = self.cleanupTimer
+                    self.handlers.withLock { lockedHandlers in
+                        self.lastUpdateTime.withLock { lockedUpdateTimes in
+                            let now = Date.now
+                            for time in lockedUpdateTimes {
+                                guard let lastUpdateTime = time.value else { continue }
+                                if now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
+                                    lockedUpdateTimes[time.key] = nil
+                                    lockedHandlers.removeValue(forKey: time.key)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    return
+                }
+                try? await Task.sleep(for: .seconds(sleepTimer),
+                                      tolerance: .seconds(sleepTimer),
+                                      clock: .continuous)
+            }
+        }
 
         Self.logger.info("Subscribed to PCM stream")
     }
@@ -93,8 +98,9 @@ class PCMSubscription: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        print("Received object \(objectHeaders.groupId):\(objectHeaders.objectId)")
         let now: Date = .now
-        self.lastUpdateTime.withLock { $0 = now }
+        self.lastUpdateTime.withLock { $0[objectHeaders.groupId] = now }
 
         // Do we need to create the handler?
         let handler: AudioHandler

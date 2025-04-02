@@ -114,7 +114,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         // Decode the LOC here.
         do {
             let loc = try LowOverheadContainer(from: extensions)
-            try media.submitEncodedAudio(data: data, sequence: loc.sequence, date: now, timestamp: loc.timestamp)
+            try media.submitEncodedAudio(data: data, sequence: headers.objectId, date: now, timestamp: loc.timestamp)
         } catch {
             self.logger.error("Failed to decode LOC: \(error.localizedDescription)")
         }
