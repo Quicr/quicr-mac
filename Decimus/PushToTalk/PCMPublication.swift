@@ -234,11 +234,12 @@ class PCMPublication: Publication, AudioPublication {
                 return nil
             }
 
-            self.pcm.frameLength = AVAudioFrameCount(packets)
+            self.pcm.frameLength = packets
             let sourceData = buffer.dequeue(frames: min(peek.frames, packets),
                                             buffer: &self.pcm.mutableAudioBufferList.pointee)
             let silenceFrames = packets - sourceData.frames
             if silenceFrames > 0 {
+                // Pad with silence.
                 let bytes = DecimusAudioEngine.format.streamDescription.pointee.mBytesPerFrame
                 let silenceFramesStart = sourceData.frames * bytes
                 let silenceFramesBytes = silenceFrames * bytes
@@ -246,7 +247,6 @@ class PCMPublication: Publication, AudioPublication {
                        0,
                        Int(silenceFramesBytes))
             }
-            self.pcm.frameLength = packets
             timestamp = sourceData.timestamp
             status.pointee = .haveData
             return self.pcm
