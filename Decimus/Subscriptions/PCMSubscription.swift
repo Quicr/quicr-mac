@@ -12,7 +12,7 @@ class PCMSubscription: Subscription {
     // private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
     private let granularMetrics: Bool
-    private let handler: Mutex<AudioHandler?>
+    private let handlers = Mutex<[UInt64: AudioHandler]>([:])
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Mutex<Date?>(nil)
@@ -52,19 +52,6 @@ class PCMSubscription: Subscription {
         var asbd = pcmFormat
         self.originalFormat = AVAudioFormat(streamDescription: &asbd)!
 
-        // Create the actual audio handler upfront.
-        self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
-                                       engine: self.engine,
-                                       decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
-                                                             originalFormat: self.originalFormat,
-                                                             windowSize: opusWindowSize),
-                                       measurement: nil,
-                                       jitterDepth: self.jitterDepth,
-                                       jitterMax: self.jitterMax,
-                                       opusWindowSize: self.opusWindowSize,
-                                       granularMetrics: self.granularMetrics,
-                                       useNewJitterBuffer: self.useNewJitterBuffer,
-                                       metricsSubmitter: self.metricsSubmitter))
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         try super.init(profile: profile,
@@ -76,27 +63,27 @@ class PCMSubscription: Subscription {
                        filterType: .latestObject,
                        statusCallback: statusChanged)
 
-        // Make task for cleaning up audio handlers.
-        self.cleanupTask = .init(priority: .utility) { [weak self] in
-            while !Task.isCancelled {
-                let sleepTimer: TimeInterval
-                if let self = self {
-                    sleepTimer = self.cleanupTimer
-                    self.lastUpdateTime.withLock { lockedUpdateTime in
-                        guard let lastUpdateTime = lockedUpdateTime else { return }
-                        if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
-                            lockedUpdateTime = nil
-                            self.handler.clear()
-                        }
-                    }
-                } else {
-                    return
-                }
-                try? await Task.sleep(for: .seconds(sleepTimer),
-                                      tolerance: .seconds(sleepTimer),
-                                      clock: .continuous)
-            }
-        }
+        //        // Make task for cleaning up audio handlers.
+        //        self.cleanupTask = .init(priority: .utility) { [weak self] in
+        //            while !Task.isCancelled {
+        //                let sleepTimer: TimeInterval
+        //                if let self = self {
+        //                    sleepTimer = self.cleanupTimer
+        //                    self.lastUpdateTime.withLock { lockedUpdateTime in
+        //                        guard let lastUpdateTime = lockedUpdateTime else { return }
+        //                        if Date.now.timeIntervalSince(lastUpdateTime) >= self.cleanupTimer {
+        //                            lockedUpdateTime = nil
+        //                            // self.handler.clear()
+        //                        }
+        //                    }
+        //                } else {
+        //                    return
+        //                }
+        //                try? await Task.sleep(for: .seconds(sleepTimer),
+        //                                      tolerance: .seconds(sleepTimer),
+        //                                      clock: .continuous)
+        //            }
+        //        }
 
         Self.logger.info("Subscribed to PCM stream")
     }
@@ -112,8 +99,8 @@ class PCMSubscription: Subscription {
         // Do we need to create the handler?
         let handler: AudioHandler
         do {
-            handler = try self.handler.withLock { lockedHandler in
-                guard let handler = lockedHandler else {
+            handler = try self.handlers.withLock { lockedHandlers in
+                guard let handler = lockedHandlers[objectHeaders.groupId] else {
                     let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
                                                    engine: self.engine,
                                                    decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
@@ -126,7 +113,7 @@ class PCMSubscription: Subscription {
                                                    granularMetrics: self.granularMetrics,
                                                    useNewJitterBuffer: self.useNewJitterBuffer,
                                                    metricsSubmitter: self.metricsSubmitter)
-                    lockedHandler = handler
+                    lockedHandlers[objectHeaders.groupId] = handler
                     return handler
                 }
                 return handler
