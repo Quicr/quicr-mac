@@ -166,9 +166,14 @@ struct PushToTalkCall: View {
                 self.logger.error("Couldn't get selected channel out of manifest")
                 return
             }
+            guard let subChannel = self.manifest.subscriptions.filter({$0.channelName == self.selectedChannel}).first,
+                  let subFtn = try? FullTrackName(namespace: subChannel.tracknamespace, name: subChannel.trackname) else {
+                self.logger.error("Couldn't get selected channel out of manifest")
+                return
+            }
             self.channels = [
                 .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
-                .channel: .init(tracks: [ftn], name: channel.channelName.capitalized)
+                .channel: .init(tracks: [ftn, subFtn], name: channel.channelName.capitalized)
             ]
         }
         .onChange(of: self.channels) {
