@@ -33,6 +33,7 @@ class PCMPublication: Publication, AudioPublication {
     private let desiredFormat: AVAudioFormat
     private var didOneMorePublish = true
     private var currentRequestId: UInt32?
+    private let verbose: Bool
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -44,10 +45,12 @@ class PCMPublication: Publication, AudioPublication {
          relayId: String,
          startActive: Bool,
          groupId: UInt64,
-         markRequest: Bool) throws {
+         markRequest: Bool,
+         verbose: Bool) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
-        self.logger = .init(PCMPublication.self, prefix: namespace)
+        let ftn = try FullTrackName(namespace: profile.namespace, name: profile.name!)
+        self.logger = .init(PCMPublication.self, prefix: ftn.description)
         self.opusWindowSize = opusWindowSize
         self.currentRequestId = markRequest ? 0 : nil
 
@@ -74,6 +77,7 @@ class PCMPublication: Publication, AudioPublication {
         }
         self.desiredFormat = desired
         self.converter = converter
+        self.verbose = verbose
 
         try super.init(profile: profile,
                        trackMode: .datagram,
@@ -160,21 +164,31 @@ class PCMPublication: Publication, AudioPublication {
         }
         var chunkData = Data(capacity: chunk.size)
         chunk.encode(into: &chunkData)
-        let published = self.publish(data: chunkData, priority: &priority, ttl: &ttl, loc: loc)
+        let published = self.publish(groupId: self.groupId,
+                                     objectId: self.currentObjectId,
+                                     data: chunkData,
+                                     priority: &priority,
+                                     ttl: &ttl,
+                                     loc: loc)
         switch published {
         case .ok:
             self.currentObjectId += 1
+            if self.verbose {
+                self.logger.debug("Published object \(self.groupId):\(self.currentObjectId)")
+            }
         default:
             self.logger.warning("Failed to publish: \(published)")
         }
     }
 
-    private func publish(data: Data,
+    private func publish(groupId: UInt64,
+                         objectId: UInt64,
+                         data: Data,
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
                          loc: LowOverheadContainer) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: self.groupId,
-                                     objectId: self.currentObjectId,
+        let headers = QObjectHeaders(groupId: groupId,
+                                     objectId: objectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)

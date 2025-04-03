@@ -343,6 +343,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                            relayId: relayId,
                                            useNewJitterBuffer: true,
                                            cleanupTime: self.subscriptionConfig.cleanupTime,
+                                           verbose: self.verbose,
                                            statusChanged: unregister)
             }
 

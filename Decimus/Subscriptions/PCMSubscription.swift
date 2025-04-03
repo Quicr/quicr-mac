@@ -5,7 +5,7 @@ import Synchronization
 import AVFAudio
 
 class PCMSubscription: Subscription {
-    private static let logger = DecimusLogger(PCMSubscription.self)
+    private let logger: DecimusLogger
 
     private let profile: Profile
     private let engine: DecimusAudioEngine
@@ -23,6 +23,7 @@ class PCMSubscription: Subscription {
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let originalFormat: AVAudioFormat
+    private let verbose: Bool
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -36,6 +37,7 @@ class PCMSubscription: Subscription {
          relayId: String,
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
+         verbose: Bool,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -47,6 +49,7 @@ class PCMSubscription: Subscription {
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
+        self.verbose = verbose
 
         // Original PCM format.
         var asbd = pcmFormat
@@ -54,6 +57,7 @@ class PCMSubscription: Subscription {
 
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
+        self.logger = DecimusLogger(PCMSubscription.self, prefix: self.fullTrackName.description)
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -90,15 +94,17 @@ class PCMSubscription: Subscription {
             }
         }
 
-        Self.logger.info("Subscribed to PCM stream")
+        self.logger.info("Subscribed to PCM stream")
     }
 
     deinit {
-        Self.logger.debug("Deinit")
+        self.logger.debug("Deinit")
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        print("Received object \(objectHeaders.groupId):\(objectHeaders.objectId)")
+        if self.verbose {
+            self.logger.debug("Recv audio: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+        }
         let now: Date = .now
         self.lastUpdateTime.withLock { $0[objectHeaders.groupId] = now }
 
@@ -126,18 +132,21 @@ class PCMSubscription: Subscription {
                 return handler
             }
         } catch {
-            Self.logger.error("Failed to recreate audio handler")
+            self.logger.error("Failed to recreate audio handler")
             return
         }
 
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
-            return
+        let loc: LowOverheadContainer
+        if let extensions,
+           let parsed = try? LowOverheadContainer(from: extensions) {
+            loc = parsed
+        } else {
+            self.logger.warning("Missing expected LOC headers")
+            loc = .init(timestamp: now, sequence: nil)
         }
 
         guard let chunk = try? ChunkMessage(from: data) else {
-            Self.logger.warning("Failed to decode chunk message")
+            self.logger.warning("Failed to decode chunk message")
             return
         }
 
@@ -147,7 +156,7 @@ class PCMSubscription: Subscription {
                                            date: now,
                                            timestamp: loc.timestamp)
         } catch {
-            Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
+            self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
     }
 }
