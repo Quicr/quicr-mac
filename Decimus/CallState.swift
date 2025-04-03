@@ -114,6 +114,7 @@ class CallState: ObservableObject, Equatable {
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
         self.controller = controller
+        let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
         let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
                                                           metricsSubmitter: self.submitter,
                                                           subscriptionConfig: subConfig,
@@ -123,7 +124,8 @@ class CallState: ObservableObject, Equatable {
                                                           joinDate: self.joinDate,
                                                           activeSpeakerStats: self.activeSpeakerStats,
                                                           controller: controller,
-                                                          verbose: self.verbose)
+                                                          verbose: self.verbose,
+                                                          startingGroup: startingGroupId)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 

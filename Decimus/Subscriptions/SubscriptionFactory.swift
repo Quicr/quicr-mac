@@ -159,6 +159,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let startingGroup: UInt64?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -169,7 +170,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
-         verbose: Bool) {
+         verbose: Bool,
+         startingGroup: UInt64?) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -180,6 +182,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.activeSpeakerStats = activeSpeakerStats
         self.controller = controller
         self.verbose = verbose
+        self.startingGroup = startingGroup
     }
 
     func create(subscription: ManifestSubscription,
@@ -344,6 +347,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                            useNewJitterBuffer: true,
                                            cleanupTime: self.subscriptionConfig.cleanupTime,
                                            verbose: self.verbose,
+                                           ourGroupId: self.startingGroup,
                                            statusChanged: unregister)
             }
 

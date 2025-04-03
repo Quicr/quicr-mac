@@ -118,8 +118,6 @@ class PCMPublication: Publication, AudioPublication {
                                 }
                             } else if last {
                                 self.publish(data: Data(), timestamp: Date.now, final: true)
-                            } else {
-                                self.logger.debug("No data to publish")
                             }
                         } catch {
                             self.logger.error("Failed encode: \(error)")

@@ -24,6 +24,7 @@ class PCMSubscription: Subscription {
     private let fullTrackName: FullTrackName
     private let originalFormat: AVAudioFormat
     private let verbose: Bool
+    private let ourGroupId: UInt64?
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -38,6 +39,7 @@ class PCMSubscription: Subscription {
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          verbose: Bool,
+         ourGroupId: UInt64?,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -50,6 +52,7 @@ class PCMSubscription: Subscription {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
         self.verbose = verbose
+        self.ourGroupId = ourGroupId
 
         // Original PCM format.
         var asbd = pcmFormat
@@ -102,6 +105,15 @@ class PCMSubscription: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        if let startingGroupId = self.ourGroupId,
+           objectHeaders.groupId == startingGroupId {
+            // Dont listen to ourself.
+            if self.verbose {
+                self.logger.debug("Recv own audio: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+            }
+            return
+        }
+
         if self.verbose {
             self.logger.debug("Recv audio: \(objectHeaders.groupId):\(objectHeaders.objectId)")
         }
