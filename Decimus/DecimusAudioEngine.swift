@@ -81,6 +81,13 @@ class DecimusAudioEngine {
             return
         }
         Self.logger.debug("Route change: \(reason)")
+        if reason == .routeConfigurationChange {
+            do {
+                try self.reconfigureAndRestart()
+            } catch {
+                Self.logger.error("Failed to restart audio: \(error.localizedDescription)")
+            }
+        }
     }
     #endif
 

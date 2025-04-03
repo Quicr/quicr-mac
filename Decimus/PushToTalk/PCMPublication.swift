@@ -54,7 +54,7 @@ class PCMPublication: Publication, AudioPublication {
         self.opusWindowSize = opusWindowSize
         self.currentRequestId = markRequest ? 0 : nil
 
-        // Create a buffer to hold raw data waiting for encode.
+        // Create a buffer to hold raw data waiting fosr encode.
         let format = DecimusAudioEngine.format
         self.windowFrames = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
         guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: self.windowFrames * 2) else {
@@ -118,6 +118,8 @@ class PCMPublication: Publication, AudioPublication {
                                 }
                             } else if last {
                                 self.publish(data: Data(), timestamp: Date.now, final: true)
+                            } else {
+                                self.logger.debug("No data to publish")
                             }
                         } catch {
                             self.logger.error("Failed encode: \(error)")

@@ -7,6 +7,7 @@ import PushToTalk
 enum CreatedFrom {
     case request
     case restore
+    case mock
 }
 
 class PushToTalkChannel {
@@ -21,6 +22,8 @@ class PushToTalkChannel {
     let createdFrom: CreatedFrom
     var joined = false
     static let aiFlagChannel = 9
+    let name: String
+    private let engine: DecimusAudioEngine
 
     init(name: String,
          moq: FullTrackName,
@@ -29,15 +32,18 @@ class PushToTalkChannel {
          subscriptionFactory: SubscriptionFactory,
          callController: MoqCallController,
          ai: Bool,
-         createdFrom: CreatedFrom = .request) throws {
+         engine: DecimusAudioEngine,
+         createdFrom: CreatedFrom = .mock) throws {
         let image = UIImage(systemName: "waveform.circle.fill")
         self.uuid = moq.uuid
+        self.name = name
         #if os(iOS) && !targetEnvironment(macCatalyst)
         self.description = PTChannelDescriptor(name: name, image: image)
         #endif
         self.callController = callController
         self.createdFrom = createdFrom
-        self.logger = .init(PushToTalkCall.self, prefix: moq.description)
+        self.logger = .init(PushToTalkChannel.self, prefix: moq.description)
+        self.engine = engine
 
         func profile(_ namespace: FullTrackName, ai: Bool) -> ProfileSet {
             let tuple: [String] = namespace.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
@@ -80,11 +86,13 @@ class PushToTalkChannel {
 
     func startTransmitting() {
         self.logger.debug("Start transmitting")
+        self.engine.setMicrophoneCapture(true)
         self.publication.togglePublishing(active: true)
     }
 
     func stopTransmitting() {
         self.logger.debug("Stop transmitting")
         self.publication.togglePublishing(active: false)
+        self.engine.setMicrophoneCapture(false)
     }
 }

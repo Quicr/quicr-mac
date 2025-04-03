@@ -191,6 +191,7 @@ struct PushToTalkCall: View {
     private func doChannels() async throws {
         self.ready = false
         try self.manager?.shutdown()
+        try await self.manager?.start { _ in nil }
 
         let channel = self.channels[.channel]!
         do {
@@ -200,8 +201,9 @@ struct PushToTalkCall: View {
                                                    publicationFactory: self.callState.publicationFactory!,
                                                    subscriptionFactory: self.callState.subscriptionFactory!,
                                                    callController: self.callState.controller!,
-                                                   ai: false)
-            try await self.manager?.registerChannel(pttChannel)
+                                                   ai: false,
+                                                   engine: self.callState.engine!)
+            try await self.manager?.registerChannel(pttChannel, native: true)
         } catch {
             self.logger.error("Failed to register normal PTT channel: \(error.localizedDescription)")
         }
@@ -214,8 +216,9 @@ struct PushToTalkCall: View {
                                                   publicationFactory: self.callState.publicationFactory!,
                                                   subscriptionFactory: self.callState.subscriptionFactory!,
                                                   callController: self.callState.controller!,
-                                                  ai: true)
-            try await self.manager?.registerChannel(aiChannel)
+                                                  ai: true,
+                                                  engine: self.callState.engine!)
+            try await self.manager?.registerChannel(aiChannel, native: false)
         } catch {
             self.logger.error("Failed to create AI channel: \(error.localizedDescription)")
         }
@@ -229,7 +232,6 @@ struct PushToTalkCall: View {
         } catch {
             self.logger.error("Failed to start talking: \(error.localizedDescription)")
         }
-        self.callState.engine!.setMicrophoneCapture(true)
     }
 
     private func stopTalking(_ destination: Destination) async {
@@ -238,7 +240,6 @@ struct PushToTalkCall: View {
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }
-        self.callState.engine!.setMicrophoneCapture(false)
     }
 }
 
