@@ -5,10 +5,11 @@ import Observation
 
 @Observable
 class PushToTalkText: Subscription {
-    private let logger = DecimusLogger(PushToTalkText.self)
+    private let logger: DecimusLogger
     var currentChannel: String?
 
     init(_ ftn: FullTrackName) throws {
+        self.logger = DecimusLogger(PushToTalkText.self, prefix: ftn.description)
         let tuple: [String] = ftn.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
         let profile = Profile(qualityProfile: "",
                               expiry: nil,
@@ -26,6 +27,7 @@ class PushToTalkText: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        self.logger.info("Received object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
         guard let chunk = try? ChunkMessage(from: data) else {
             self.logger.error("Failed to parse chunk")
             return
@@ -35,6 +37,12 @@ class PushToTalkText: Subscription {
             self.currentChannel = changeChannel.channelName
             return
         }
-        self.logger.notice("\(chunk)")
+
+        if let string = String(data: chunk.data, encoding: .utf8) {
+            self.logger.info("Received message: \(string)")
+            return
+        }
+
+        self.logger.notice("Gateway message: \(chunk)")
     }
 }

@@ -25,6 +25,8 @@ struct PushToTalkCall: View {
     private let audioChannels: [String: PushToTalkChannel]
     private let aiAudioChannel: PushToTalkChannel
     private let manifest: PTTManifest
+    @State private var listenToAll = true
+    @AppStorage("Native PTT") private var nativePTT: Bool = false
 
     init(manifest: PTTManifest,
          callState: CallState) {
@@ -120,7 +122,11 @@ struct PushToTalkCall: View {
         let server = PushToTalkServer(url: url, name: "Rich")
         let manager: PushToTalkManager
         #if os(iOS) && !targetEnvironment(macCatalyst)
-        manager = PushToTalkManager(api: server)
+        if self.nativePTT {
+            manager = PushToTalkManagerImpl(api: server)
+        } else {
+            manager = PushToTalkManager(api: server)
+        }
         #else
         manager = PushToTalkManager(api: server)
         #endif
@@ -133,14 +139,17 @@ struct PushToTalkCall: View {
             VStack {
                 HStack {
                     Spacer()
-                    LabeledContent("Channel") {
-                        Picker("Channel", selection: self.$selectedChannel) {
-                            ForEach(self.availableChannels, id: \.self) { channel in
-                                Text(channel.capitalized).tag(channel)
+                    Form {
+                        LabeledContent("Channel") {
+                            Picker("Channel", selection: self.$selectedChannel) {
+                                ForEach(self.availableChannels, id: \.self) { channel in
+                                    Text(channel.capitalized).tag(channel)
+                                }
                             }
+                            .labelsHidden()
                         }
-                        .labelsHidden()
-                    }
+                        LabeledToggle("Listen To All", isOn: self.$listenToAll)
+                    }.formStyle(.columns)
                 }
                 Text("Speaker: \(self.manager?.activeSpeaker ?? "None")")
                 PushToTalkButton("AI",
@@ -185,6 +194,31 @@ struct PushToTalkCall: View {
             guard let newChannel = self.textSubscription.currentChannel else { return }
             self.selectedChannel = newChannel
             self.textSubscription.currentChannel = nil
+        }
+        .onChange(of: self.listenToAll) {
+            if self.listenToAll {
+                for channel in self.audioChannels {
+                    channel.value.startListening()
+                }
+                return
+            }
+            for channel in self.audioChannels {
+                guard channel.key == self.selectedChannel else {
+                    channel.value.stopListening()
+                    continue
+                }
+                channel.value.startListening()
+            }
+        }
+        .onChange(of: self.selectedChannel) { old, new in
+            guard !self.listenToAll else { return }
+            guard let old = self.audioChannels[old],
+                  let new = self.audioChannels[new] else {
+                self.logger.error("Failed to find channel")
+                return
+            }
+            old.stopListening()
+            new.startListening()
         }
     }
 

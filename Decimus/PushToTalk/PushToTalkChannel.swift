@@ -16,7 +16,7 @@ class PushToTalkChannel {
     let description: PTChannelDescriptor
     #endif
     private let publication: AudioPublication
-    private let subscription: Subscription
+    private let subscription: AudioSubscription
     private let callController: MoqCallController
     private let logger: DecimusLogger
     let createdFrom: CreatedFrom
@@ -80,7 +80,17 @@ class PushToTalkChannel {
         let set = try self.callController.subscribeToSet(details: manifestSubscription,
                                                          factory: callState.subscriptionFactory!,
                                                          subscribe: true)
-        self.subscription = set.getHandlers().first!.value
+        self.subscription = set.getHandlers().first!.value as! AudioSubscription // swiftlint:disable:this force_cast
+    }
+
+    func startListening() {
+        self.logger.debug("Start listening")
+        self.subscription.startListening()
+    }
+
+    func stopListening() {
+        self.logger.debug("Stop listening")
+        self.subscription.stopListening()
     }
 
     func startTransmitting() {

@@ -4,7 +4,12 @@
 import Synchronization
 import AVFAudio
 
-class PCMSubscription: Subscription {
+protocol AudioSubscription: Subscription {
+    func startListening()
+    func stopListening()
+}
+
+class PCMSubscription: Subscription, AudioSubscription {
     private let logger: DecimusLogger
 
     private let profile: Profile
@@ -25,6 +30,7 @@ class PCMSubscription: Subscription {
     private let originalFormat: AVAudioFormat
     private let verbose: Bool
     private let ourGroupId: UInt64?
+    private let listen: Atomic<Bool> = .init(true)
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -104,19 +110,31 @@ class PCMSubscription: Subscription {
         self.logger.debug("Deinit")
     }
 
+    func startListening() {
+        self.listen.store(true, ordering: .releasing)
+    }
+
+    func stopListening() {
+        self.listen.store(false, ordering: .releasing)
+    }
+
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        let listen = self.listen.load(ordering: .acquiring)
         if let startingGroupId = self.ourGroupId,
            objectHeaders.groupId == startingGroupId {
             // Dont listen to ourself.
             if self.verbose {
-                self.logger.debug("Recv own audio: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+                self.logger.debug("Recv own audio: \(objectHeaders.groupId):\(objectHeaders.objectId). Listening: \(listen)")
             }
             return
         }
 
         if self.verbose {
-            self.logger.debug("Recv audio: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+            self.logger.debug("Recv audio: \(objectHeaders.groupId):\(objectHeaders.objectId). Listening: \(listen)")
         }
+
+        guard listen else { return }
+
         let now: Date = .now
         self.lastUpdateTime.withLock { $0[objectHeaders.groupId] = now }
 

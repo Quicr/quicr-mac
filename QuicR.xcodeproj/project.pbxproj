@@ -1436,7 +1436,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
+				INFOPLIST_KEY_CFBundleDisplayName = PTT;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
@@ -1514,7 +1514,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
+				INFOPLIST_KEY_CFBundleDisplayName = PTT;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";

@@ -8,6 +8,9 @@ struct SettingsView: View {
     @State private var cancelConfirmation = false
     private let logger = DecimusLogger(SettingsView.self)
 
+    @AppStorage("Native PTT")
+    private var nativePTT: Bool = false
+
     static let verboseKey = "verbose"
     @AppStorage(Self.verboseKey)
     private var verbose: Bool = false
@@ -64,6 +67,9 @@ struct SettingsView: View {
 
             PlaytimeSettingsView()
                 .decimusTextStyle()
+
+            LabeledToggle("Native PTT",
+                          isOn: self.$nativePTT)
         }
     }
 }
@@ -77,8 +83,8 @@ struct SettingsView_Previews: PreviewProvider {
 struct DecimusTextFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-        #if os(tvOS)
-        .textFieldStyle(.plain)
+            #if os(tvOS)
+            .textFieldStyle(.plain)
         #else
         .textFieldStyle(.roundedBorder)
         #endif
