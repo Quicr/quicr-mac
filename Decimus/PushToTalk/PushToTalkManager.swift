@@ -90,18 +90,6 @@ class PushToTalkServer {
 @Observable
 class PushToTalkManager: NSObject {
     var activeSpeaker: String?
-    typealias Lookup = (UUID) -> PushToTalkChannel?
-    private(set) var lookup: Lookup?
-    func start(lookup: @escaping Lookup) async throws { self.lookup = lookup }
-    func shutdown() throws { }
-    func startTransmitting(_ uuid: UUID) async throws { }
-    func stopTransmitting(_ uuid: UUID) async throws { }
-    func registerChannel(_ channel: PushToTalkChannel, native: Bool) async throws { }
-    func unregisterChannel(_ channel: PushToTalkChannel) throws { }
-    func getChannel(uuid: UUID) -> PushToTalkChannel? { nil }
-}
-
-class MockPushToTalkManager: PushToTalkManager {
     private let logger = DecimusLogger(PushToTalkManager.self)
     var channels: [UUID: PushToTalkChannel] = [:]
     let api: PushToTalkServer
@@ -110,7 +98,9 @@ class MockPushToTalkManager: PushToTalkManager {
         self.api = api
     }
 
-    override func shutdown() throws {
+    func start() async throws { }
+
+    func shutdown() throws {
         for (uuid, channel) in self.channels where channel.joined {
             Task(priority: .utility) {
                 do {
@@ -123,7 +113,7 @@ class MockPushToTalkManager: PushToTalkManager {
         self.channels.removeAll()
     }
 
-    override func startTransmitting(_ uuid: UUID) async throws {
+    func startTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
@@ -135,7 +125,7 @@ class MockPushToTalkManager: PushToTalkManager {
         }
     }
 
-    override func stopTransmitting(_ uuid: UUID) async throws {
+    func stopTransmitting(_ uuid: UUID) async throws {
         guard let channel = self.channels[uuid] else {
             throw PushToTalkError.channelDoesntExist
         }
@@ -147,7 +137,7 @@ class MockPushToTalkManager: PushToTalkManager {
         }
     }
 
-    override func registerChannel(_ channel: PushToTalkChannel, native: Bool) async throws {
+    func registerChannel(_ channel: PushToTalkChannel, native: Bool) async throws {
         guard self.channels[channel.uuid] == nil else {
             throw PushToTalkError.channelExists
         }
@@ -161,11 +151,11 @@ class MockPushToTalkManager: PushToTalkManager {
         self.logger.info("[PTT] (\(channel.name)) Channel Registered")
     }
 
-    override func unregisterChannel(_ channel: PushToTalkChannel) throws {
+    func unregisterChannel(_ channel: PushToTalkChannel) throws {
         self.channels.removeValue(forKey: channel.uuid)
     }
 
-    override func getChannel(uuid: UUID) -> PushToTalkChannel? {
+    func getChannel(uuid: UUID) -> PushToTalkChannel? {
         self.channels[uuid]
     }
 }

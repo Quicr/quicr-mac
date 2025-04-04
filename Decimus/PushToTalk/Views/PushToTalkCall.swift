@@ -120,14 +120,11 @@ struct PushToTalkCall: View {
         let server = PushToTalkServer(url: url, name: "Rich")
         let manager: PushToTalkManager
         #if os(iOS) && !targetEnvironment(macCatalyst)
-        manager = MockPushToTalkManager(api: server)
+        manager = PushToTalkManager(api: server)
         #else
-        manager = MockPushToTalkManager(api: server)
+        manager = PushToTalkManager(api: server)
         #endif
-        try await manager.start { _ in
-            // TODO: Get channel from UUID.
-            return nil
-        }
+        try await manager.start()
         return manager
     }
 
@@ -194,7 +191,7 @@ struct PushToTalkCall: View {
     private func doChannels() async throws {
         self.ready = false
         try self.manager?.shutdown()
-        try await self.manager?.start { _ in nil }
+        try await self.manager?.start()
         for channel in self.audioChannels {
             try await self.manager?.registerChannel(channel.value, native: true)
         }
