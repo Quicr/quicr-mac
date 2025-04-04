@@ -161,24 +161,19 @@ class PushToTalkManager: NSObject {
 }
 
 #if os(iOS) && !targetEnvironment(macCatalyst)
-class PushToTalkManagerImpl: MockPushToTalkManager {
+class PushToTalkManagerImpl: PushToTalkManager {
     private let logger = DecimusLogger(PushToTalkManager.self)
     private var token: Data?
     private var manager: PTChannelManager?
     private let mode: PTTransmissionMode = .fullDuplex
     private var pendingJoinRequests: [UUID] = []
 
-    override func start(lookup: @escaping PushToTalkManager.Lookup) async throws {
-        try await super.start(lookup: lookup)
+    override func start() async throws {
         let manager = try await PTChannelManager.channelManager(delegate: self, restorationDelegate: self)
         self.logger.info("[PTT] Started")
+        // TODO: What should we do when this happens
         assert(manager.activeChannelUUID == nil)
         self.manager = manager
-        //        if let uuid = self.manager?.activeChannelUUID {
-        //            // TODO: What should we do when this happens?
-        //            self.logger.notice("[PTT] (\(uuid)) Existing channel on startup")
-        //            // try self.stopTransmitting(uuid)
-        //        }
     }
 
     override func shutdown() throws {
@@ -397,9 +392,6 @@ extension PushToTalkManagerImpl: PTChannelManagerDelegate, PTChannelRestorationD
         } else {
             self.logger.notice("[PTT] (\(channelUUID)) Restoration not supported")
             return .init(name: "Unsupported", image: nil)
-            let channel = self.lookup!(channelUUID)
-            self.channels[channelUUID] = channel
-            return channel!.description
         }
     }
 
