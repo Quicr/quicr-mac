@@ -20,14 +20,11 @@ struct PushToTalkCall: View {
     @State private var textSubscription: PushToTalkText
     private let callState: CallState
     @State private var ready = false
-    @State private var availableChannels: [String]
+    private let availableChannels: [String]
     @State private var selectedChannel: String
-    @State private var channels: [Destination: Channel]
-
+    private let audioChannels: [String: PushToTalkChannel]
+    private let aiAudioChannel: PushToTalkChannel
     private let manifest: PTTManifest
-    private let aiPublish: FullTrackName
-    private let aiAudioReceive: FullTrackName
-    private let aiTextReceive: FullTrackName
 
     init(manifest: PTTManifest,
          callState: CallState) {
@@ -41,18 +38,56 @@ struct PushToTalkCall: View {
         let aiPublishName = "ai_audio"
         let aiAudioReceiveName = "self_ai_audio"
         let aiTextReceiveName = "self_ai_text"
-        var aiPublish: FullTrackName?
-        var aiAudioReceive: FullTrackName?
-        var aiTextReceive: FullTrackName?
+
+        // Get available channels, order matters.
         var availableChannels: [String] = []
-        // swiftlint:disable force_try
         for publication in manifest.publications {
-            guard publication.channelName != aiPublishName else {
-                aiPublish = try! FullTrackName(namespace: publication.tracknamespace, name: publication.trackname)
+            guard publication.channelName != aiPublishName else { continue }
+            guard !availableChannels.contains(publication.channelName) else {
+                self.logger.error("Duplicate channel: \(publication.channelName)")
                 continue
             }
             availableChannels.append(publication.channelName)
         }
+        self.availableChannels = availableChannels
+
+        // swiftlint:disable force_try
+        // Create all the regular audio channels upfront.
+        let publicationsByName = Dictionary(uniqueKeysWithValues: manifest.publications.map { ($0.channelName, $0) })
+        let subscriptionsByName = Dictionary(uniqueKeysWithValues: manifest.subscriptions.map { ($0.channelName, $0) })
+        var audioChannels: [String: PushToTalkChannel] = [:]
+        var aiPublish: FullTrackName?
+        for channel in publicationsByName {
+            guard channel.key != aiPublishName else {
+                aiPublish = try! FullTrackName(namespace: channel.value.tracknamespace, name: channel.value.trackname)
+                continue
+            }
+            let publicationFtn = try! FullTrackName(namespace: channel.value.tracknamespace,
+                                                    name: channel.value.trackname)
+            guard let subscription = subscriptionsByName[channel.key] else {
+                self.logger.error("Couldn't find subscription for channel \(channel.key)")
+                continue
+            }
+            let subscriptionFtn = try! FullTrackName(namespace: subscription.tracknamespace,
+                                                     name: subscription.trackname)
+            do {
+                let created = try PushToTalkChannel(name: channel.key,
+                                                    moq: publicationFtn,
+                                                    subscribe: subscriptionFtn,
+                                                    callState: callState,
+                                                    ai: false,
+                                                    engine: callState.engine!)
+                audioChannels[channel.key] = created
+            } catch {
+                self.logger.error("Failed to create channel \(channel.key): \(error.localizedDescription)")
+                continue
+            }
+        }
+        self.audioChannels = audioChannels
+
+        // Create the AI channel.
+        var aiAudioReceive: FullTrackName?
+        var aiTextReceive: FullTrackName?
         for subscription in manifest.subscriptions {
             switch subscription.channelName {
             case aiAudioReceiveName:
@@ -65,29 +100,18 @@ struct PushToTalkCall: View {
                 break
             }
         }
-        self.aiPublish = aiPublish!
-        self.aiAudioReceive = aiAudioReceive!
-        self.aiTextReceive = aiTextReceive!
-        self.availableChannels = availableChannels
+        self.aiAudioChannel = try! PushToTalkChannel(name: "AI",
+                                                     moq: aiPublish!,
+                                                     subscribe: aiAudioReceive!,
+                                                     callState: callState,
+                                                     ai: true,
+                                                     engine: callState.engine!)
+
         self.selectedChannel = availableChannels.first!
-
-        let first = manifest.publications.first!
-        let channel = try! FullTrackName(namespace: first.tracknamespace, name: first.trackname)
-        let firstSub = manifest.subscriptions.first!
-        if first.channelName != firstSub.channelName {
-            self.logger.error("I'm assuming first publication and subscription are for the same channel and they're not. Complain to me or reorder manifest.")
-        }
-        let channelSub = try! FullTrackName(namespace: firstSub.tracknamespace, name: firstSub.trackname)
-
-        self.channels = [
-            .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
-            .channel: .init(tracks: [channel, channelSub], name: first.channelName.capitalized)
-        ]
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
         self.textSubscription = try! PushToTalkText(aiTextReceive!)
         try! callState.controller!.subscribe(self.textSubscription)
-        self.textSubscription = textSubscription
         // swiftlint:enable force_try
     }
 
@@ -96,7 +120,7 @@ struct PushToTalkCall: View {
         let server = PushToTalkServer(url: url, name: "Rich")
         let manager: PushToTalkManager
         #if os(iOS) && !targetEnvironment(macCatalyst)
-        manager = PushToTalkManagerImpl(api: server)
+        manager = MockPushToTalkManager(api: server)
         #else
         manager = MockPushToTalkManager(api: server)
         #endif
@@ -160,27 +184,6 @@ struct PushToTalkCall: View {
                 self.logger.error("Failed to shutdown: \(error.localizedDescription)")
             }
         }
-        .onChange(of: self.selectedChannel) {
-            guard let channel = self.manifest.publications.filter({ $0.channelName == self.selectedChannel }).first,
-                  let ftn = try? FullTrackName(namespace: channel.tracknamespace, name: channel.trackname) else {
-                self.logger.error("Couldn't get selected channel out of manifest")
-                return
-            }
-            guard let subChannel = self.manifest.subscriptions.filter({$0.channelName == self.selectedChannel}).first,
-                  let subFtn = try? FullTrackName(namespace: subChannel.tracknamespace, name: subChannel.trackname) else {
-                self.logger.error("Couldn't get selected channel out of manifest")
-                return
-            }
-            self.channels = [
-                .ai: .init(tracks: [self.aiPublish, self.aiAudioReceive, self.aiTextReceive], name: "AI"),
-                .channel: .init(tracks: [ftn, subFtn], name: channel.channelName.capitalized)
-            ]
-        }
-        .onChange(of: self.channels) {
-            Task {
-                try await self.doChannels()
-            }
-        }
         .onChange(of: self.textSubscription.currentChannel) {
             guard let newChannel = self.textSubscription.currentChannel else { return }
             self.selectedChannel = newChannel
@@ -192,51 +195,36 @@ struct PushToTalkCall: View {
         self.ready = false
         try self.manager?.shutdown()
         try await self.manager?.start { _ in nil }
-
-        let channel = self.channels[.channel]!
-        do {
-            let pttChannel = try PushToTalkChannel(name: channel.name,
-                                                   moq: channel.tracks.first!,
-                                                   subscribe: channel.tracks[1],
-                                                   publicationFactory: self.callState.publicationFactory!,
-                                                   subscriptionFactory: self.callState.subscriptionFactory!,
-                                                   callController: self.callState.controller!,
-                                                   ai: false,
-                                                   engine: self.callState.engine!)
-            try await self.manager?.registerChannel(pttChannel, native: true)
-        } catch {
-            self.logger.error("Failed to register normal PTT channel: \(error.localizedDescription)")
+        for channel in self.audioChannels {
+            try await self.manager?.registerChannel(channel.value, native: true)
         }
-
-        let ai = self.channels[.ai]!
-        do {
-            let aiChannel = try PushToTalkChannel(name: ai.name,
-                                                  moq: ai.tracks.first!,
-                                                  subscribe: ai.tracks[1],
-                                                  publicationFactory: self.callState.publicationFactory!,
-                                                  subscriptionFactory: self.callState.subscriptionFactory!,
-                                                  callController: self.callState.controller!,
-                                                  ai: true,
-                                                  engine: self.callState.engine!)
-            try await self.manager?.registerChannel(aiChannel, native: false)
-        } catch {
-            self.logger.error("Failed to create AI channel: \(error.localizedDescription)")
-        }
-
+        try await self.manager?.registerChannel(self.aiAudioChannel, native: false)
         self.ready = true
     }
 
     private func talk(_ destination: Destination) async {
+        let channel = switch destination {
+        case .ai:
+            self.aiAudioChannel
+        case .channel:
+            self.audioChannels[self.selectedChannel]!
+        }
         do {
-            try await self.manager?.startTransmitting(self.channels[destination]!.tracks.first!.uuid)
+            try await self.manager?.startTransmitting(channel.uuid)
         } catch {
             self.logger.error("Failed to start talking: \(error.localizedDescription)")
         }
     }
 
     private func stopTalking(_ destination: Destination) async {
+        let channel = switch destination {
+        case .ai:
+            self.aiAudioChannel
+        case .channel:
+            self.audioChannels[self.selectedChannel]!
+        }
         do {
-            try await self.manager?.stopTransmitting(self.channels[destination]!.tracks.first!.uuid)
+            try await self.manager?.stopTransmitting(channel.uuid)
         } catch {
             self.logger.error("Failed to stop talking: \(error.localizedDescription)")
         }

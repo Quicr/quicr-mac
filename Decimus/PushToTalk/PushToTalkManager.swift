@@ -45,6 +45,7 @@ class PushToTalkServer {
     }
 
     func join(channel: UUID, token: Data) async throws {
+        return
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(self.name)")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -57,6 +58,7 @@ class PushToTalkServer {
     }
 
     func sentAudio(channel: UUID) async throws {
+        return
         guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
@@ -67,6 +69,7 @@ class PushToTalkServer {
     }
 
     func stopAudio(channel: UUID) async throws {
+        return
         guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/audio/\(ourself.id)")
         var request = URLRequest(url: url)
@@ -75,6 +78,7 @@ class PushToTalkServer {
     }
 
     func leave(channel: UUID) async throws {
+        return
         guard let ourself = self.ourself[channel] else { throw PushToTalkError.unjoined }
         let url = self.url.appending(path: "/\(self.channels)/\(channel.uuidString)/\(ourself.id)")
         var request = URLRequest(url: url)

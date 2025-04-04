@@ -25,12 +25,11 @@ class PushToTalkChannel {
     let name: String
     private let engine: DecimusAudioEngine
 
+    @MainActor
     init(name: String,
          moq: FullTrackName,
          subscribe: FullTrackName,
-         publicationFactory: PublicationFactory,
-         subscriptionFactory: SubscriptionFactory,
-         callController: MoqCallController,
+         callState: CallState,
          ai: Bool,
          engine: DecimusAudioEngine,
          createdFrom: CreatedFrom = .mock) throws {
@@ -40,7 +39,7 @@ class PushToTalkChannel {
         #if os(iOS) && !targetEnvironment(macCatalyst)
         self.description = PTChannelDescriptor(name: name, image: image)
         #endif
-        self.callController = callController
+        self.callController = callState.controller!
         self.createdFrom = createdFrom
         self.logger = .init(PushToTalkChannel.self, prefix: moq.description)
         self.engine = engine
@@ -63,7 +62,7 @@ class PushToTalkChannel {
                                                       label: self.uuid.uuidString,
                                                       profileSet: profile(moq, ai: ai))
         let created = try self.callController.publish(details: manifestPublication,
-                                                      factory: publicationFactory,
+                                                      factory: callState.publicationFactory!,
                                                       codecFactory: CodecFactoryImpl())
         assert(created.count == 1)
         guard let audioPublication = created.first?.1 as? AudioPublication else {
@@ -79,7 +78,7 @@ class PushToTalkChannel {
                                                         participantId: .init(1),
                                                         profileSet: profile(subscribe, ai: false))
         let set = try self.callController.subscribeToSet(details: manifestSubscription,
-                                                         factory: subscriptionFactory,
+                                                         factory: callState.subscriptionFactory!,
                                                          subscribe: true)
         self.subscription = set.getHandlers().first!.value
     }
