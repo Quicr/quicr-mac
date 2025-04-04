@@ -143,7 +143,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                           startActive: false,
                                           groupId: self.startingGroup,
                                           markRequest: aiFlag,
-                                          verbose: self.verbose)
+                                          verbose: self.verbose,
+                                          record: false)
             }
 
             return try OpusPublication(profile: profile,

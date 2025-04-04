@@ -147,6 +147,7 @@ class AudioHandler { // swiftlint:disable:this type_body_length
             }
         }
         // swiftlint:enable force_cast
+        guard windowDuration.seconds > 0 else { throw "Bad window size" }
         let buffer = try JitterBuffer(identifier: self.identifier,
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,

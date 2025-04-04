@@ -34,6 +34,7 @@ class PCMPublication: Publication, AudioPublication {
     private var didOneMorePublish = true
     private var currentRequestId: UInt32?
     private let verbose: Bool
+    private var file: AVAudioFile?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -46,15 +47,15 @@ class PCMPublication: Publication, AudioPublication {
          startActive: Bool,
          groupId: UInt64,
          markRequest: Bool,
-         verbose: Bool) throws {
+         verbose: Bool,
+         record: Bool) throws {
         self.engine = engine
-        let namespace = profile.namespace.joined()
         let ftn = try FullTrackName(namespace: profile.namespace, name: profile.name!)
         self.logger = .init(PCMPublication.self, prefix: ftn.description)
         self.opusWindowSize = opusWindowSize
         self.currentRequestId = markRequest ? 0 : nil
 
-        // Create a buffer to hold raw data waiting fosr encode.
+        // Create a buffer to hold raw data waiting for convert.
         let format = DecimusAudioEngine.format
         self.windowFrames = AVAudioFrameCount(format.sampleRate * self.opusWindowSize.rawValue)
         guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: self.windowFrames * 2) else {
@@ -87,6 +88,11 @@ class PCMPublication: Publication, AudioPublication {
                        endpointId: endpointId,
                        relayId: relayId,
                        logger: self.logger)
+
+        if record {
+            self.file = try self.createAudioFile(name: "\(ftn.uuid.uuidString).wav",
+                                                 format: DecimusAudioEngine.format)
+        }
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
@@ -124,17 +130,18 @@ class PCMPublication: Publication, AudioPublication {
                         }
                     }
                 }
-                try? await Task.sleep(for: .seconds(opusWindowSize.rawValue),
-                                      tolerance: .seconds(opusWindowSize.rawValue / 2),
+                try? await Task.sleep(for: .seconds(opusWindowSize.rawValue / 2),
+                                      tolerance: .seconds(opusWindowSize.rawValue / 4),
                                       clock: .continuous)
             }
         }
 
-        self.logger.info("Registered PCM publication for namespace \(namespace)")
+        self.logger.info("Registered PCM publication")
     }
 
     deinit {
         self.encodeTask?.cancel()
+        self.file?.close()
         self.logger.debug("Deinit")
     }
 
@@ -263,6 +270,13 @@ class PCMPublication: Publication, AudioPublication {
             }
             timestamp = sourceData.timestamp
             status.pointee = .haveData
+            if let file = self.file {
+                do {
+                    try self.writeBufferToFile(buffer: self.pcm, file: file)
+                } catch {
+                    self.logger.error("Failed to write to file: \(error)")
+                }
+            }
             return self.pcm
         }
         if let nsError {
@@ -287,5 +301,20 @@ class PCMPublication: Publication, AudioPublication {
 
         // Encode this data.
         return .init(encodedData: data, timestamp: wallClock)
+    }
+}
+
+extension PCMPublication {
+    func createAudioFile(name: String, format: AVAudioFormat) throws -> AVAudioFile {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let audioFileURL = documentsPath.appendingPathComponent(name)
+        return try AVAudioFile(forWriting: audioFileURL,
+                               settings: format.settings,
+                               commonFormat: format.commonFormat,
+                               interleaved: format.isInterleaved)
+    }
+
+    func writeBufferToFile(buffer: AVAudioPCMBuffer, file: AVAudioFile) throws {
+        try file.write(from: buffer)
     }
 }

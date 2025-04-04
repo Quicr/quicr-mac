@@ -86,8 +86,8 @@ class PushToTalkChannel {
 
     func startTransmitting() {
         self.logger.debug("Start transmitting")
-        self.engine.setMicrophoneCapture(true)
         self.publication.togglePublishing(active: true)
+        self.engine.setMicrophoneCapture(true)
     }
 
     func stopTransmitting() {
