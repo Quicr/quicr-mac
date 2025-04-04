@@ -361,7 +361,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         granularMetrics: self.granularMetrics,
                                         endpointId: endpointId,
                                         relayId: relayId,
-                                        useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                        useNewJitterBuffer: true,
                                         cleanupTime: self.subscriptionConfig.cleanupTime,
                                         statusChanged: unregister)
         }
