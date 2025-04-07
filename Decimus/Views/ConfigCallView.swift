@@ -13,7 +13,10 @@ struct ConfigCallView: View {
 
     @State private var state: _State = .notConnected
     @State private var config: CallConfig?
+    @AppStorage(SettingsView.pttManifestKey)
+    private var pttManifest: String = ""
     private let ptt = true
+    private let logger = DecimusLogger(ConfigCallView.self)
 
     var body: some View {
         if let config = self.config {
@@ -28,8 +31,8 @@ struct ConfigCallView: View {
                                    alignment: .center)
                             .cornerRadius(12)
                             .padding([.horizontal, .bottom])
-                        #if os(tvOS)
-                        .ignoresSafeArea()
+                            #if os(tvOS)
+                            .ignoresSafeArea()
                         #endif
                         ProgressView()
                     }
@@ -39,16 +42,20 @@ struct ConfigCallView: View {
                         InCallView(callState: state)
                     } else {
                         // PTT server.
-                        // Load manifest from resource file.
-                        let manifestFile = Bundle.main.url(forResource: "sample_channel_config",
-                                                           withExtension: "json")
-                        if let data = try? Data(contentsOf: manifestFile!),
-                           let manifest = try? JSONDecoder().decode(PTTManifest.self, from: data) {
-                            PushToTalkCall(manifest: manifest,
-                                           callState: state)
+                        let parse = try! JSONDecoder().decode(PTTManifest.self, from: Data(self.pttManifest.utf8)) // swiftlint:disable:this force_try
+                        if let pttManifest = try? JSONDecoder().decode(PTTManifest.self,
+                                                                       from: Data(self.pttManifest.utf8)) {
+                            PushToTalkCall(manifest: pttManifest, callState: state)
                         } else {
-                            Text("Failed to load PTT manifest")
-                                .foregroundStyle(.red)
+                            let manifestFile = Bundle.main.url(forResource: "sample_channel_config",
+                                                               withExtension: "json")
+                            if let data = try? Data(contentsOf: manifestFile!),
+                               let pttManifest = try? JSONDecoder().decode(PTTManifest.self, from: data) {
+                                PushToTalkCall(manifest: pttManifest, callState: state)
+                            } else {
+                                Text("Failed to load PTT manifest")
+                                    .foregroundStyle(.red)
+                            }
                         }
                     }
                 }
@@ -82,8 +89,8 @@ struct ConfigCallView: View {
             #endif
         } else {
             CallSetupView(config: self.$config)
-            #if !os(tvOS) && !os(macOS)
-            .navigationBarTitleDisplayMode(.inline)
+                #if !os(tvOS) && !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
             #endif
         }
     }

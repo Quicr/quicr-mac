@@ -11,6 +11,13 @@ struct SettingsView: View {
     @AppStorage("Native PTT")
     private var nativePTT: Bool = false
 
+    // swiftlint:disable all
+    static let pttManifestKey = "pttManifest"
+    @AppStorage(Self.pttManifestKey)
+    private var pttManifest: String = try! .init(data: .init(contentsOf: Bundle.main.url(forResource: "sample_channel_config",
+                                                                                         withExtension: "json")!), encoding: .utf8)!
+    // swiftlint:enable all
+
     static let verboseKey = "verbose"
     @AppStorage(Self.verboseKey)
     private var verbose: Bool = false
@@ -39,6 +46,7 @@ struct SettingsView: View {
                     }
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.pttManifestKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -68,8 +76,12 @@ struct SettingsView: View {
             PlaytimeSettingsView()
                 .decimusTextStyle()
 
-            LabeledToggle("Native PTT",
-                          isOn: self.$nativePTT)
+            Section("PTT") {
+                LabeledToggle("Native PTT",
+                              isOn: self.$nativePTT)
+                TextEditor(text: self.$pttManifest)
+                    .font(.body.monospaced())
+            }
         }
     }
 }
