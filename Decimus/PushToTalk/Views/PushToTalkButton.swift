@@ -40,6 +40,7 @@ struct PushToTalkButton: View {
                         self.started = false
                         Task { await self.end() }
                     })
+        .sensoryFeedback(.selection, trigger: self.started)
     }
 }
 
