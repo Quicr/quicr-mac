@@ -194,7 +194,7 @@ class CallState: ObservableObject, Equatable {
             try engine.start()
             self.audioCapture = true
         } catch {
-            Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
+            Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
         }
 
         // Start video media.
