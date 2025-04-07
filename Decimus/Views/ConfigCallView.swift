@@ -42,7 +42,6 @@ struct ConfigCallView: View {
                         InCallView(callState: state)
                     } else {
                         // PTT server.
-                        let parse = try! JSONDecoder().decode(PTTManifest.self, from: Data(self.pttManifest.utf8)) // swiftlint:disable:this force_try
                         if let pttManifest = try? JSONDecoder().decode(PTTManifest.self,
                                                                        from: Data(self.pttManifest.utf8)) {
                             PushToTalkCall(manifest: pttManifest, callState: state)
