@@ -11,14 +11,9 @@ extension VideoSubscriptionSet {
         let displayed: Bool
     }
 
-    actor VideoSubscriptionMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoSubscription"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class VideoSubscriptionMeasurement: Measurement {
         init(source: SourceIDType) {
-            tags["sourceId"] = source
+            super.init(name: "VideoSubscription", tags: ["sourceId": source])
         }
 
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) throws {

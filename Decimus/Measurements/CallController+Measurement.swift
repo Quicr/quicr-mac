@@ -10,16 +10,15 @@ extension Measurement {
 }
 
 extension MoqCallController {
-    actor MoqCallControllerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "quic-connection"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+    class MoqCallControllerMeasurement: Measurement {
         var setup = false
 
         init(endpointId: String) {
-            self.tags["endpoint_id"] = endpointId
-            self.tags["source"] = "client"
+            let tags = [
+                "endpoint_id": endpointId,
+                "source": "client"
+            ]
+            super.init(name: "quic-connection", tags: tags)
         }
 
         func setRelayId(_ relayId: String) {

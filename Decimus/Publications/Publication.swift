@@ -70,9 +70,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
 
     func metricsSampled(_ metrics: QPublishTrackMetrics) {
         if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
+            measurement.record(metrics)
         }
     }
 }

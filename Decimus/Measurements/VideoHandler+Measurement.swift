@@ -2,18 +2,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension VideoHandler {
-    actor VideoHandlerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoHandler"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class VideoHandlerMeasurement: Measurement {
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
         private var decoded: UInt64 = 0
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "VideoHandler", tags: ["namespace": namespace])
         }
 
         func timestamp(timestamp: TimeInterval, when: Date, cached: Bool) {

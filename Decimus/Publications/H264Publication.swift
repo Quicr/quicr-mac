@@ -101,12 +101,10 @@ class H264Publication: Publication, FrameListener {
         guard let measurement = publication.measurement else { return }
         let bytes = data.count
         let sent: Date? = publication.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                                    timestamp: presentationDate.timeIntervalSince1970,
-                                                    age: sent?.timeIntervalSince(presentationDate) ?? nil,
-                                                    metricsTimestamp: sent)
-        }
+        measurement.measurement.sentFrame(bytes: UInt64(bytes),
+                                          timestamp: presentationDate.timeIntervalSince1970,
+                                          age: sent?.timeIntervalSince(presentationDate) ?? nil,
+                                          metricsTimestamp: sent)
     }
 
     required init(profile: Profile,
@@ -252,15 +250,13 @@ class H264Publication: Publication, FrameListener {
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
-        Task(priority: .utility) {
-            await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
-            if let date = date {
-                // TODO: This age is probably useless.
-                let age = now.timeIntervalSince(timestamp)
-                await measurement.measurement.age(age: age,
-                                                  presentationTimestamp: timestamp.timeIntervalSince1970,
-                                                  metricsTimestamp: date)
-            }
+        measurement.measurement.sentPixels(sent: pixels, timestamp: date)
+        if let date = date {
+            // TODO: This age is probably useless.
+            let age = now.timeIntervalSince(timestamp)
+            measurement.measurement.age(age: age,
+                                        presentationTimestamp: timestamp.timeIntervalSince1970,
+                                        metricsTimestamp: date)
         }
     }
 }

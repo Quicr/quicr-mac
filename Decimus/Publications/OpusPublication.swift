@@ -87,9 +87,7 @@ class OpusPublication: Publication {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
                             let now = Date.now
-                            Task(priority: .utility) {
-                                await measurement.encode(encodePassCount, timestamp: now)
-                            }
+                            measurement.encode(encodePassCount, timestamp: now)
                         }
                     } catch {
                         Self.logger.error("Failed encode: \(error)")
@@ -112,9 +110,7 @@ class OpusPublication: Publication {
     private func publish(data: Data, timestamp: Date, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
-            Task(priority: .utility) {
-                await measurement.measurement.publishedBytes(sentBytes: data.count, timestamp: now)
-            }
+            measurement.measurement.publishedBytes(sentBytes: data.count, timestamp: now)
         }
 
         let status = self.getStatus()

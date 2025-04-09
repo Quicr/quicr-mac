@@ -72,9 +72,7 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
 
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
         if let measurement = self.quicrMeasurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
+            measurement.record(metrics)
         }
     }
 }

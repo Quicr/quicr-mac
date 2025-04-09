@@ -420,13 +420,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                 report.append(.init(item: choice, selected: false, reason: "", displayed: false))
             }
             let completedReport = report
-            Task(priority: .utility) {
-                do {
-                    try await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
-                                                                               timestamp: decisionTime!)
-                } catch {
-                    Self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
-                }
+            do {
+                try measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
+                                                                     timestamp: decisionTime!)
+            } catch {
+                Self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
             }
         }
 

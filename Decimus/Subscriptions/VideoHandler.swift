@@ -220,9 +220,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
             if let measurement = self.measurement?.measurement,
                self.granularMetrics {
-                Task(priority: .utility) {
-                    await measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
-                }
+                measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
             }
 
             let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
@@ -311,17 +309,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? from : nil
-            Task(priority: .utility) {
-                if let now = now,
-                   let presentationTime = frame.samples.first?.presentationTimeStamp {
-                    let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
-                    let age = now.timeIntervalSince(presentationDate)
-                    await measurement.measurement.age(age: age, timestamp: now, cached: cached)
-                }
-                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0, cached: cached)
-                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
+            if let now = now,
+               let presentationTime = frame.samples.first?.presentationTimeStamp {
+                let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                let age = now.timeIntervalSince(presentationDate)
+                measurement.measurement.age(age: age, timestamp: now, cached: cached)
             }
+            measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0, cached: cached)
+            let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
+            measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
         }
     }
 
@@ -427,9 +423,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
                            let time = self.calculateWaitTime(item: item) {
-                            Task(priority: .utility) {
-                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
-                            }
+                            measurement.frameDelay(delay: time, metricsTimestamp: now)
                         }
 
                         // TODO: Cleanup the need for this regen.
@@ -523,9 +517,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? from : nil
-            Task(priority: .utility) {
-                await measurement.measurement.decodedFrame(timestamp: now)
-            }
+            measurement.measurement.decodedFrame(timestamp: now)
         }
 
         if self.jitterBufferConfig.mode != .layer {
@@ -551,9 +543,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
-                    Task(priority: .background) {
-                        await measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
-                    }
+                    measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
                 }
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")

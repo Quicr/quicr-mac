@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension CaptureManager {
-    actor CaptureManagerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "CaptureManager"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class CaptureManagerMeasurement: Measurement {
         private var capturedFrames: UInt64 = 0
         private var dropped: UInt64 = 0
+
+        init() {
+            super.init(name: "CaptureManager")
+        }
 
         func droppedFrame(timestamp: Date?) {
             self.dropped += 1

@@ -95,9 +95,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     /// - Parameter metrics: The produced track metrics.
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
         if let quicrMeasurement = self.quicrMeasurement {
-            Task(priority: .utility) {
-                await quicrMeasurement.measurement.record(metrics)
-            }
+            quicrMeasurement.measurement.record(metrics)
         }
     }
 }

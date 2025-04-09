@@ -2,18 +2,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension H264Publication {
-    actor VideoPublicationMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoPublication"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class VideoPublicationMeasurement: Measurement {
         private var bytes: UInt64 = 0
         private var pixels: UInt64 = 0
         private var publishedFrames: UInt64 = 0
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "VideoPublication", tags: ["namespace": namespace])
         }
 
         func sentFrame(bytes: UInt64, timestamp: TimeInterval, age: TimeInterval?, metricsTimestamp: Date?) {

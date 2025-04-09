@@ -1,19 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-actor TrackMeasurement: Measurement {
+class TrackMeasurement: Measurement {
     enum PubSub {
         case publish
         case subscribe
         case fetch
     }
-    let id = UUID()
-    var name: String = "quic-dataFlow"
-    var fields: Fields = [:]
-    var tags: [String: String] = [:]
 
     init(type: PubSub, endpointId: String, relayId: String, namespace: String) {
-        self.tags["type"] = switch type {
+        var tags: [String: String] = [:]
+        tags["type"] = switch type {
         case .publish:
             "publish"
         case .subscribe:
@@ -21,10 +18,11 @@ actor TrackMeasurement: Measurement {
         case .fetch:
             "fetch"
         }
-        self.tags["endpoint_id"] = endpointId
-        self.tags["relay_id"] = relayId
-        self.tags["source"] = "client"
-        self.tags["namespace"] = namespace
+        tags["endpoint_id"] = endpointId
+        tags["relay_id"] = relayId
+        tags["source"] = "client"
+        tags["namespace"] = namespace
+        super.init(name: "quic-dataFlow", tags: tags)
     }
 
     func record(_ metrics: QPublishTrackMetrics) {

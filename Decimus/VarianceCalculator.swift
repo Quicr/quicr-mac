@@ -73,9 +73,7 @@ class VarianceCalculator {
         }
         let variance = newest.timeIntervalSince(oldest)
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.reportVariance(variance: variance, timestamp: now, count: times.count)
-            }
+            measurement.measurement.reportVariance(variance: variance, timestamp: now, count: times.count)
         }
         return variance
     }

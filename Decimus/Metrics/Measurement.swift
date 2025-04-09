@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
+
 struct Point {
     let fieldName: String
     let value: AnyObject
@@ -9,20 +11,26 @@ struct Point {
 
 typealias Fields = [Date?: [Point]]
 
-protocol Measurement: AnyObject, Actor {
-    nonisolated var id: UUID { get }
-    var name: String { get }
-    var fields: Fields { get set }
-    var tags: [String: String] { get }
-    func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]?)
-}
+class Measurement {
+    let id = UUID()
+    let name: String
+    private let fields = Mutex<Fields>([:])
+    var tags: [String: String] = [:]
 
-extension Measurement {
+    init(name: String, tags: [String: String] = [:]) {
+        self.name = name
+        self.tags = tags
+    }
+
+    func getFields() -> Fields { self.fields.get() }
+
     func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]? = nil) {
-        if fields[timestamp] == nil {
-            fields[timestamp] = []
+        self.fields.withLock { fields in
+            if fields[timestamp] == nil {
+                fields[timestamp] = []
+            }
+            fields[timestamp]!.append(.init(fieldName: field, value: value, tags: tags))
         }
-        fields[timestamp]!.append(.init(fieldName: field, value: value, tags: tags))
     }
 
     func record(field: String, value: Double, timestamp: Date?, tags: [String: String]? = nil) {
@@ -36,6 +44,6 @@ extension Measurement {
     }
 
     func clear() {
-        fields.removeAll(keepingCapacity: true)
+        self.fields.withLock { $0.removeAll(keepingCapacity: true) }
     }
 }

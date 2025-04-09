@@ -220,15 +220,13 @@ class OpusHandler: TimeAlignable {
         // Metrics.
         let metricsDate = self.granularMetrics ? date : nil
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
-                                                             timestamp: metricsDate)
-                await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
-                                                        timestamp: metricsDate)
-                if let metricsDate = metricsDate {
-                    await measurement.measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
-                                                        timestamp: metricsDate)
-                }
+            measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                                   timestamp: metricsDate)
+            measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                              timestamp: metricsDate)
+            if let metricsDate = metricsDate {
+                measurement.measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
+                                              timestamp: metricsDate)
             }
         }
     }
@@ -324,10 +322,8 @@ class OpusHandler: TimeAlignable {
         if let measurement = handler.measurement {
             let constConcealed = concealed
             let timestamp: Date? = handler.granularMetrics ? .now : nil
-            Task(priority: .utility) {
-                await measurement.measurement.concealmentFrames(concealed: constConcealed,
-                                                                timestamp: timestamp)
-            }
+            measurement.measurement.concealmentFrames(concealed: constConcealed,
+                                                      timestamp: timestamp)
         }
     }
 
@@ -361,14 +357,12 @@ class OpusHandler: TimeAlignable {
 
         let missing = copied < buffer.frameLength ? Int(buffer.frameLength) - copied : 0
         if let measurement = measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.receivedFrames(received: buffer.frameLength,
-                                                             timestamp: timestamp)
-                await measurement.measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
-                                                                     timestamp: timestamp)
-                await measurement.measurement.droppedFrames(dropped: missing,
-                                                            timestamp: timestamp)
-            }
+            measurement.measurement.receivedFrames(received: buffer.frameLength,
+                                                   timestamp: timestamp)
+            measurement.measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
+                                                           timestamp: timestamp)
+            measurement.measurement.droppedFrames(dropped: missing,
+                                                  timestamp: timestamp)
         }
     }
 
@@ -424,9 +418,7 @@ class OpusHandler: TimeAlignable {
                        let measurement = self.measurement?.measurement {
                         let now = Date.now
                         if let time = self.calculateWaitTime(item: item, from: now) {
-                            Task(priority: .utility) {
-                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
-                            }
+                            measurement.frameDelay(delay: time, metricsTimestamp: now)
                         }
                     }
 
@@ -459,9 +451,7 @@ class OpusHandler: TimeAlignable {
                     } catch {
                         Self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
                         if let measurement = self.measurement?.measurement {
-                            Task(priority: .utility) {
-                                await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
-                            }
+                            measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
                         }
                     }
                 } catch {
@@ -498,10 +488,8 @@ class OpusHandler: TimeAlignable {
             let depth = playoutBuffer.peek().frames
             if self.granularMetrics,
                let measurement = self.measurement?.measurement {
-                Task(priority: .utility) {
-                    let depthMs = TimeInterval(depth) / 48000 * 1000
-                    await measurement.depth(depthMs: Int(depthMs), timestamp: when)
-                }
+                let depthMs = TimeInterval(depth) / 48000 * 1000
+                measurement.depth(depthMs: Int(depthMs), timestamp: when)
             }
             try playoutBuffer.enqueue(buffer: &decoded.mutableAudioBufferList.pointee,
                                       timestamp: &timestamp,
@@ -509,9 +497,7 @@ class OpusHandler: TimeAlignable {
         } catch {
             Self.logger.warning("Failed to enqueue decoded audio to playout buffer: \(error.localizedDescription)")
             if let measurement = self.measurement?.measurement {
-                Task(priority: .utility) {
-                    await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
-                }
+                measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
             }
         }
     }

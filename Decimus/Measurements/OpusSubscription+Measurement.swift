@@ -4,12 +4,7 @@
 import AVFAudio
 
 extension OpusSubscription {
-    actor OpusSubscriptionMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "OpusSubscription"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class OpusSubscriptionMeasurement: Measurement {
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
         private var missing: UInt64 = 0
@@ -18,7 +13,7 @@ extension OpusSubscription {
         private var playoutFull: UInt64 = 0
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "OpusSubscription", tags: ["namespace": namespace])
         }
 
         func receivedFrames(received: AVAudioFrameCount, timestamp: Date?) {

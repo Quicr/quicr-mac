@@ -315,9 +315,7 @@ class MoqCallController: QClientCallbacks {
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
         let serverId = String(cString: setup.server_id)
         if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.setRelayId(serverId)
-            }
+            measurement.setRelayId(serverId)
         }
         self.logger.debug("Got server setup received message from: \(serverId)")
         self.serverId = serverId
@@ -341,9 +339,7 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter metrics: Object containing all metrics.
     func metricsSampled(_ metrics: QConnectionMetrics) {
         if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
+            measurement.record(metrics)
         }
     }
 

@@ -604,7 +604,7 @@ extension InCallView {
                         if let self = self {
                             duration = TimeInterval(self.influxConfig.value.intervalSecs)
                             let usage = try cpuUsage()
-                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                            self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
                             await self.submitter?.submit()
                         } else {
                             return
@@ -619,11 +619,10 @@ extension InCallView {
 
 // Metrics.
 extension InCallView.ViewModel {
-    private actor _Measurement: Measurement {
-        let id = UUID()
-        var name: String = "ApplicationMetrics"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+    private class _Measurement: Measurement {
+        init() {
+            super.init(name: "ApplicationMetrics")
+        }
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)

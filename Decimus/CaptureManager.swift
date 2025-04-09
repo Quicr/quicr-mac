@@ -412,10 +412,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
         // Metrics.
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
-                                                            metricsTimestamp: self.granularMetrics ? now : nil)
-            }
+            measurement.measurement.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
+                                                  metricsTimestamp: self.granularMetrics ? now : nil)
         }
 
         // Pass on frame to listeners.
@@ -438,9 +436,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         Self.logger.warning("\(String(describing: reason))")
         guard let measurement = self.measurement else { return }
         let now: Date? = self.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.measurement.droppedFrame(timestamp: now)
-        }
+        measurement.measurement.droppedFrame(timestamp: now)
     }
 
     private func recordPressureState(_ device: AVCaptureDevice) {
@@ -486,9 +482,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         // Record pressure state as a metric.
         if let measurement = measurement?.measurement {
             let now = Date.now
-            Task(priority: .utility) {
-                await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
-            }
+            measurement.pressureStateChanged(level: level, metricsTimestamp: now)
         }
         #endif
     }

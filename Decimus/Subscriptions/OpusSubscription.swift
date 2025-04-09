@@ -115,12 +115,10 @@ class OpusSubscription: Subscription {
             let missing = objectHeaders.groupId - self.seq - 1
             let currentSeq = self.seq
             if let measurement = measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
-                    if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
-                        await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
-                    }
+                measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+                if missing > 0 {
+                    Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
+                    measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                 }
             }
             self.seq = objectHeaders.groupId

@@ -2,12 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension JitterBuffer {
-    actor JitterBufferMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoJitterBuffer"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class JitterBufferMeasurement: Measurement {
         private var underruns: UInt64 = 0
         private var reads: UInt64 = 0
         private var writes: UInt64 = 0
@@ -15,7 +10,7 @@ extension JitterBuffer {
         private var pausedWaitTime = false
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "VideoJitterBuffer", tags: ["namespace": namespace])
         }
 
         func currentDepth(depth: TimeInterval, timestamp: Date?) {

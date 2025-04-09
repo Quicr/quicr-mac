@@ -2,17 +2,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension OpusPublication {
-    actor OpusPublicationMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "OpusPublication"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class OpusPublicationMeasurement: Measurement {
         private var frames: UInt64 = 0
         private var bytes: UInt64 = 0
 
         init(namespace: String) {
-            tags["namespace"] = namespace
+            super.init(name: "OpusPublication", tags: ["namespace": namespace])
         }
 
         func publishedBytes(sentBytes: Int, timestamp: Date?) {

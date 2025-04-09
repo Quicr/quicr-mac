@@ -2,15 +2,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension VarianceCalculator {
-    actor VarianceCalculatorMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VarianceCalculator"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
+    class VarianceCalculatorMeasurement: Measurement {
         init(source: String, stage: String) {
+            var tags: [String: String] = [:]
             tags["sourceId"] = source
             tags["stage"] = stage
+            super.init(name: "VarianceCalculator", tags: tags)
         }
 
         func reportVariance(variance: TimeInterval, timestamp: Date, count: Int) {

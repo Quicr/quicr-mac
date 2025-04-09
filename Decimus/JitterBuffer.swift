@@ -108,9 +108,7 @@ class JitterBuffer {
 
         // Metrics.
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.write(timestamp: from)
-            }
+            measurement.measurement.write(timestamp: from)
         }
     }
 
@@ -130,18 +128,14 @@ class JitterBuffer {
         // Ensure there's something to get.
         guard let oldest = self.buffer.dequeue() else {
             if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
-                    await measurement.measurement.underrun(timestamp: from)
-                }
+                measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+                measurement.measurement.underrun(timestamp: from)
             }
             return nil
         }
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
-                await measurement.measurement.read(timestamp: from)
-            }
+            measurement.measurement.currentDepth(depth: depth!, timestamp: from)
+            measurement.measurement.read(timestamp: from)
         }
         let item = oldest as! T
         self.lastSequenceRead.store(item.sequenceNumber, ordering: .releasing)
@@ -178,9 +172,7 @@ class JitterBuffer {
         let targetDate = Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since)
         let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.waitTime(value: waitTime, timestamp: from)
-            }
+            measurement.measurement.waitTime(value: waitTime, timestamp: from)
         }
         return waitTime
     }
