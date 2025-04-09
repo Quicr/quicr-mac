@@ -193,8 +193,8 @@ struct InCallView: View {
                                         HStack {
                                             TextField("Active Speakers",
                                                       text: self.$activeSpeakers)
-                                            #if !os(macOS)
-                                            .keyboardType(.asciiCapable)
+                                                #if !os(macOS)
+                                                .keyboardType(.asciiCapable)
                                             #endif
                                             Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                             }
@@ -400,7 +400,8 @@ extension InCallView {
                                                               joinDate: self.joinDate,
                                                               activeSpeakerStats: self.activeSpeakerStats,
                                                               controller: controller,
-                                                              verbose: self.verbose)
+                                                              verbose: self.verbose,
+                                                              manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
 
