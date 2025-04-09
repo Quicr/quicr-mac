@@ -83,13 +83,12 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
         if real {
             self.lastReceived = speakers
-        }
-
-        if let stats = self.activeSpeakerStats {
-            let now = Date.now
-            Task(priority: .utility) {
-                for speaker in speakers {
-                    await stats.activeSpeakerSet(speaker, when: now)
+            if let stats = self.activeSpeakerStats {
+                let now = Date.now
+                Task(priority: .utility) {
+                    for speaker in speakers {
+                        await stats.activeSpeakerSet(speaker, when: now)
+                    }
                 }
             }
         }

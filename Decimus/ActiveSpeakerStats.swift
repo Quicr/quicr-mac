@@ -28,6 +28,9 @@ actor ActiveSpeakerStats {
 
     private var participants: [Identifier: Record] = [:]
 
+    /// Audio from this participant was just detected.
+    /// - Parameter identifier: The participant.
+    /// - Parameter when: The point in time the audio was detected.
     func audioDetected(_ identifier: Identifier, when: Date) {
         let existing = self.participants[identifier]
         self.participants[identifier] = .init(detected: existing?.detected ?? when,
@@ -35,6 +38,9 @@ actor ActiveSpeakerStats {
                                               enqueued: existing?.enqueued)
     }
 
+    /// This speaker was just set to active.
+    /// - Parameter identifier: The participant.
+    /// - Parameter when: The point in time the speaker was set to active.
     func activeSpeakerSet(_ identifier: Identifier, when: Date) {
         let record = self.participants[identifier]
         self.participants[identifier] = .init(detected: record?.detected,
@@ -42,6 +48,9 @@ actor ActiveSpeakerStats {
                                               enqueued: record?.enqueued)
     }
 
+    /// This speaker's video was enqueued/displayed.
+    /// - Parameter identifier: The participant.
+    /// - Parameter when: The point in time the video was enqueued/displayed.
     func imageEnqueued(_ identifier: Identifier, when: Date) -> Result {
         let record = self.participants[identifier]
         let updated = Record(detected: record?.detected,
@@ -51,6 +60,8 @@ actor ActiveSpeakerStats {
         return .init(updated)
     }
 
+    /// This participant was set inactive.
+    /// - Parameter identifier: The participant.
     func remove(_ identifier: Identifier) {
         self.participants.removeValue(forKey: identifier)
     }
