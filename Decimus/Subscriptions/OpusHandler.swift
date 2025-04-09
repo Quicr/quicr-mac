@@ -325,8 +325,8 @@ class OpusHandler: TimeAlignable {
             let constConcealed = concealed
             let timestamp: Date? = handler.granularMetrics ? .now : nil
             Task(priority: .utility) {
-                measurement.measurement.concealmentFrames(concealed: constConcealed,
-                                                          timestamp: timestamp)
+                await measurement.measurement.concealmentFrames(concealed: constConcealed,
+                                                                timestamp: timestamp)
             }
         }
     }
