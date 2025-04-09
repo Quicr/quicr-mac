@@ -81,13 +81,14 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
 
     private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        var now: Date?
         if real {
             self.lastReceived = speakers
             if let stats = self.activeSpeakerStats {
-                let now = Date.now
+                now = Date.now
                 Task(priority: .utility) {
                     for speaker in speakers {
-                        await stats.activeSpeakerSet(speaker, when: now)
+                        await stats.activeSpeakerSet(speaker, when: now!)
                     }
                 }
             }
@@ -151,7 +152,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
                 if let stats = self.activeSpeakerStats {
                     Task(priority: .utility) {
-                        await stats.remove(set.participantId)
+                        await stats.remove(set.participantId, when: now!)
                     }
                 }
                 do {
