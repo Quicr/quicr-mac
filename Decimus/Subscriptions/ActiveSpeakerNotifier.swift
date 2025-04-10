@@ -150,7 +150,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 unsubbed += 1
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
-                if let stats = self.activeSpeakerStats {
+                if real,
+                   let stats = self.activeSpeakerStats {
                     Task(priority: .utility) {
                         await stats.remove(set.participantId, when: now!)
                     }
