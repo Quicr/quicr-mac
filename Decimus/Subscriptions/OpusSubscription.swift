@@ -22,6 +22,7 @@ class OpusSubscription: Subscription {
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -35,6 +36,7 @@ class OpusSubscription: Subscription {
          relayId: String,
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
+         activeSpeakerStats: ActiveSpeakerStats?,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -52,6 +54,7 @@ class OpusSubscription: Subscription {
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
+        self.activeSpeakerStats = activeSpeakerStats
 
         // Create the actual audio handler upfront.
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
@@ -155,6 +158,15 @@ class OpusSubscription: Subscription {
             Self.logger.warning("Missing expected LOC headers")
             return
         }
+
+        if let activeSpeakerStats = self.activeSpeakerStats,
+           let participantId = loc.get(key: OpusPublication.participantIdKey) {
+            Task(priority: .utility) {
+                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+            }
+        }
+
         do {
             try handler.submitEncodedAudio(data: data,
                                            sequence: objectHeaders.groupId,

@@ -193,8 +193,8 @@ struct InCallView: View {
                                         HStack {
                                             TextField("Active Speakers",
                                                       text: self.$activeSpeakers)
-                                            #if !os(macOS)
-                                            .keyboardType(.asciiCapable)
+                                                #if !os(macOS)
+                                                .keyboardType(.asciiCapable)
                                             #endif
                                             Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                             }
@@ -297,7 +297,7 @@ extension InCallView {
         private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
         private(set) var manualActiveSpeaker: ManualActiveSpeaker?
         private(set) var captureManager: CaptureManager?
-        private(set) lazy var activeSpeakerStats = self.showLabels ? ActiveSpeakerStats() : nil
+        private(set) var activeSpeakerStats: ActiveSpeakerStats?
         private(set) lazy var videoParticipants = VideoParticipants()
         private(set) var currentManifest: Manifest?
         private let config: CallConfig
@@ -400,7 +400,8 @@ extension InCallView {
                                                               joinDate: self.joinDate,
                                                               activeSpeakerStats: self.activeSpeakerStats,
                                                               controller: controller,
-                                                              verbose: self.verbose)
+                                                              verbose: self.verbose,
+                                                              manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
             self.publicationFactory = publicationFactory
             self.subscriptionFactory = subscriptionFactory
 
@@ -594,6 +595,9 @@ extension InCallView {
                                                 config: influxConfig.value,
                                                 tags: tags)
             submitter = influx
+            if self.showLabels {
+                self.activeSpeakerStats = .init(influx)
+            }
             let measurement = _Measurement()
             self.measurement = .init(measurement: measurement, submitter: influx)
             if influxConfig.value.realtime {

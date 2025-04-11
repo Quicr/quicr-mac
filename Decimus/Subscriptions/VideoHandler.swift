@@ -18,7 +18,8 @@ struct VideoHelpers {
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
                             _ when: Date,
-                            _ cached: Bool) -> Void
+                            _ cached: Bool,
+                            _ headers: QObjectHeaders) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
@@ -227,7 +228,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
             let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
-                callback(timestamp, when, cached)
+                callback(timestamp, when, cached, objectHeaders)
             }
 
             // TODO: This can be inlined here.
@@ -603,6 +604,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                              objectId: UInt64,
                              sequenceNumber: UInt64,
                              timestamp: Date) throws -> DecimusVideoFrame? {
+        #if DEBUG
+        guard self.config.codec != .mock else {
+            return try self.mockedFrame(data: data, timestamp: timestamp, groupId: groupId, objectId: objectId)
+        }
+        #endif
+
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -667,6 +674,30 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror)
     }
+
+    #if DEBUG
+    private func mockedFrame(data: Data, timestamp: Date, groupId: UInt64, objectId: UInt64) throws -> DecimusVideoFrame {
+        var copy = data
+        let sample = try copy.withUnsafeMutableBytes { bytes in
+            let timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                              presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
+                                                                           timescale: 1_000_000),
+                                              decodeTimeStamp: .invalid)
+            return try CMSampleBuffer(dataBuffer: try .init(buffer: bytes) { _, _ in },
+                                      formatDescription: nil,
+                                      numSamples: 1,
+                                      sampleTimings: [timeInfo],
+                                      sampleSizes: [data.count])
+        }
+        return DecimusVideoFrame(samples: [sample],
+                                 groupId: groupId,
+                                 objectId: objectId,
+                                 sequenceNumber: 0,
+                                 fps: 30,
+                                 orientation: nil,
+                                 verticalMirror: nil)
+    }
+    #endif
 }
 
 extension DecimusVideoRotation {

@@ -83,6 +83,8 @@
 		9B7325EF2D558C3B00729DFB /* MockClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7325EE2D558C3900729DFB /* MockClient.swift */; };
 		9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26912D367B3C00A29CFA /* TestSubscription.swift */; };
 		9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */; };
+		9B7C91DD2DA67060008F1DDB /* TestActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */; };
+		9B7C91E02DA6A94F008F1DDB /* ActiveSpeakerStats+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7C91DF2DA6A947008F1DDB /* ActiveSpeakerStats+Measurement.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
 		9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */; };
 		9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */; };
@@ -288,6 +290,8 @@
 		9B7B26942D36AE0C00A29CFA /* QFetchTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFetchTrackHandler.h; sourceTree = "<group>"; };
 		9B7B26972D36B14F00A29CFA /* QFetchTrackHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFetchTrackHandlerObjC.h; sourceTree = "<group>"; };
 		9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFetchTrackHandlerObjC.mm; sourceTree = "<group>"; };
+		9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestActiveSpeakerStats.swift; sourceTree = "<group>"; };
+		9B7C91DF2DA6A947008F1DDB /* ActiveSpeakerStats+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActiveSpeakerStats+Measurement.swift"; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
 		9B7F40032ACB5808003333C3 /* TestVideoUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoUtilities.swift; sourceTree = "<group>"; };
 		9B807A652CF5FF6D007C7E6E /* ActiveSpeakerSubscriptionSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerSubscriptionSet.swift; sourceTree = "<group>"; };
@@ -445,6 +449,7 @@
 		186763532B2B69EB00339421 /* Measurements */ = {
 			isa = PBXGroup;
 			children = (
+				9B7C91DF2DA6A947008F1DDB /* ActiveSpeakerStats+Measurement.swift */,
 				9B1F2C112C948ECB007548D1 /* TrackMeasurement.swift */,
 				9B1F2C0F2C94606C007548D1 /* CallController+Measurement.swift */,
 				186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */,
@@ -518,6 +523,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */,
 				9B25D2102D9AA0B200FE8AB7 /* TestTimeAlign.swift */,
 				9B3726942D806F5000498550 /* TestMutex+Convenience.swift */,
 				9B156EFF2D64AB0E00E91D0F /* TestSlidingWindow.swift */,
@@ -1015,6 +1021,7 @@
 				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,
 				9B25D2112D9AA0B500FE8AB7 /* TestTimeAlign.swift in Sources */,
 				9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */,
+				9B7C91DD2DA67060008F1DDB /* TestActiveSpeakerStats.swift in Sources */,
 				9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */,
 				9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */,
 			);
@@ -1117,6 +1124,7 @@
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
+				9B7C91E02DA6A94F008F1DDB /* ActiveSpeakerStats+Measurement.swift in Sources */,
 				9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
