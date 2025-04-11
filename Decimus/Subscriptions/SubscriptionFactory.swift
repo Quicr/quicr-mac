@@ -320,7 +320,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig),
-                                         callback: { [weak set] timestamp, when, cached in
+                                         callback: { [weak set] timestamp, when, cached, _ in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
                                          },

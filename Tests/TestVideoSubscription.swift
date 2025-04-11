@@ -5,7 +5,7 @@ import Testing
 @testable import QuicR
 
 extension VideoSubscription {
-    func mockObject(groupId: UInt64, objectId: UInt64) {
+    func mockObject(groupId: UInt64, objectId: UInt64, extensions: [NSNumber: Data]? = nil) {
         let priority: UInt8 = 0
         let ttl: UInt16 = 0
         withUnsafePointer(to: priority) { priorityPtr in
@@ -15,8 +15,8 @@ extension VideoSubscription {
                                           payloadLength: 0,
                                           priority: priorityPtr,
                                           ttl: ttlPtr),
-                                    data: .init(),
-                                    extensions: nil)
+                                    data: Data([0x01]),
+                                    extensions: extensions)
             }
         }
     }
@@ -26,7 +26,8 @@ struct TestVideoSubscription {
     @MainActor
     private func makeSubscription(_ mockClient: MockClient,
                                   fetchThreshold: UInt64,
-                                  ngThreshold: UInt64) async throws -> VideoSubscription {
+                                  ngThreshold: UInt64,
+                                  callback: ObjectReceived? = nil) async throws -> VideoSubscription {
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -36,7 +37,7 @@ struct TestVideoSubscription {
                                                     expiry: [1],
                                                     priorities: [1],
                                                     namespace: ["0"]),
-                                     config: .init(codec: .h264,
+                                     config: .init(codec: .mock,
                                                    bitrate: 2000,
                                                    fps: 30,
                                                    width: 1920,
@@ -60,7 +61,7 @@ struct TestVideoSubscription {
                                      cleanupTime: 1.5,
                                      subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                  newGroupUpperThreshold: ngThreshold)),
-                                     callback: ({ _, _, _ in }),
+                                     callback: { callback?($0, $1, $2, $3) },
                                      statusChanged: ({_ in }))
     }
 
@@ -201,5 +202,55 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: 0, objectId: ngThreshold)
         #expect(fetch == nil)
         #expect(newGroup == false)
+    }
+
+    @Test("Test New Group State")
+    @MainActor
+    func testNewGroupResult() async throws {
+        var gotGroupId: UInt64?
+        var gotObjectId: UInt64?
+        let callback: ObjectReceived = { _, _, _, headers in
+            gotGroupId = headers.groupId
+            gotObjectId = headers.objectId
+        }
+
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in },
+                                    fetchCancel: { _ in  })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           callback: callback)
+
+        var sentGroupId: UInt64 = 0
+        var sendObjectId = ngThreshold
+
+        var sequence: UInt64 = 0
+        func loc() -> [NSNumber: Data] {
+            sequence += 1
+            return LowOverheadContainer(timestamp: .now, sequence: sequence).extensions
+        }
+
+        // Get into waiting for new group state.
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        #expect(gotGroupId == nil)
+        #expect(gotObjectId == nil)
+
+        // We want to validate that when we're waiting for a new group,
+        // we drop middle of group objects.
+        sendObjectId += 1
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        #expect(gotGroupId == nil)
+        #expect(gotObjectId == nil)
+
+        // When a new group does arrive, we use it.
+        sentGroupId += 1
+        sendObjectId = 0
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        #expect(gotGroupId == sentGroupId)
+        #expect(gotObjectId == sendObjectId)
     }
 }

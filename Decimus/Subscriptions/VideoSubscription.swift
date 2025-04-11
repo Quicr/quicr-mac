@@ -254,7 +254,7 @@ class VideoSubscription: Subscription {
                 return .drop
             }
         case .waitingForNewGroup:
-            guard objectHeaders.groupId == 0 else {
+            guard objectHeaders.objectId == 0 else {
                 // Drop non-newgroup objects.
                 if self.verbose {
                     self.logger.debug(
