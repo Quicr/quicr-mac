@@ -91,7 +91,9 @@ actor ActiveSpeakerStats {
     /// - Parameter when: The point in time the audio was detected.
     func audioDetected(_ identifier: Identifier, when: Date) async {
         let existing = self.participants[identifier]
-        let state = await self.stateTransition(identifier: identifier, from: existing?.currentState, to: .audioDetected, when: when)
+        let state = await self.stateTransition(identifier: identifier,
+                                               from: existing?.currentState,
+                                               to: .audioDetected, when: when)
         self.participants[identifier] = .init(currentState: state,
                                               detected: existing?.detected ?? when,
                                               set: existing?.set,
@@ -103,7 +105,9 @@ actor ActiveSpeakerStats {
     /// - Parameter when: The point in time the speaker was set to active.
     func activeSpeakerSet(_ identifier: Identifier, when: Date) async {
         let record = self.participants[identifier]
-        let state = await self.stateTransition(identifier: identifier, from: record?.currentState, to: .activeSpeakerSet, when: when)
+        let state = await self.stateTransition(identifier: identifier,
+                                               from: record?.currentState,
+                                               to: .activeSpeakerSet, when: when)
         self.participants[identifier] = .init(currentState: state,
                                               detected: record?.detected,
                                               set: record?.set ?? when,
@@ -116,7 +120,9 @@ actor ActiveSpeakerStats {
     /// - Parameter when: The point in time the video was enqueued/displayed.
     func imageEnqueued(_ identifier: Identifier, when: Date) async -> Result {
         let record = self.participants[identifier]
-        let state = await self.stateTransition(identifier: identifier, from: record?.currentState, to: .imageEnqueued, when: when)
+        let state = await self.stateTransition(identifier: identifier,
+                                               from: record?.currentState,
+                                               to: .imageEnqueued, when: when)
         let updated = Record(currentState: state,
                              detected: record?.detected,
                              set: record?.set,
@@ -133,7 +139,10 @@ actor ActiveSpeakerStats {
         self.participants.removeValue(forKey: identifier)
     }
 
-    private func stateTransition(identifier: Identifier, from: CurrentState?, to: CurrentState, when: Date) async -> CurrentState {
+    private func stateTransition(identifier: Identifier,
+                                 from: CurrentState?,
+                                 to: CurrentState,
+                                 when: Date) async -> CurrentState {
         guard let from else { return to }
         let result = switch from {
         case .inactive:
