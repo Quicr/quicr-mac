@@ -1,5 +1,5 @@
 {
-  "originHash" : "c58a777c81c3249a778bb0ccbb86dfc6a8ef76b52541c5fb16d9de9828b8ffd5",
+  "originHash" : "f7967ae7479aed7a414b7e2ca1de82287f794a5f906e5d885693b6078be1ed87",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
         "version" : "1.6.1"
+      }
+    },
+    {
+      "identity" : "swift-numerics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-numerics.git",
+      "state" : {
+        "revision" : "e0ec0f5f3af6f3e4d5e7a19d2af26b481acb6ba8",
+        "version" : "1.0.3"
       }
     },
     {

@@ -18,10 +18,11 @@ struct VideoHelpers {
 
 typealias ObjectReceived = (_ timestamp: TimeInterval,
                             _ when: Date,
-                            _ cached: Bool) -> Void
+                            _ cached: Bool,
+                            _ headers: QObjectHeaders) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
+class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -37,7 +38,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
-    private var jitterBuffer: JitterBuffer?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
@@ -56,7 +56,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     let lastDecodedImage = Mutex<AvailableImage?>(nil)
-    private let timestampTimeDiffUs = Atomic(Int128.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -121,6 +120,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         self.variances = variances
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        super.init()
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -232,7 +232,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
             let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
-                callback(timestamp, when, cached)
+                callback(timestamp, when, cached, objectHeaders)
             }
 
             // TODO: This can be inlined here.
@@ -328,36 +328,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
             }
         }
-    }
-
-    /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
-    /// - Parameter from: The time to calculate from.
-    /// - Returns Time to wait in seconds, if any.
-    func calculateWaitTime(from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else { return nil }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs != 0 else {
-            Self.logger.debug("Missing initial timestamp")
-            return nil
-        }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(from: from, offset: diff)
-    }
-
-    private func calculateWaitTime(frame: DecimusVideoFrameJitterItem, from: Date = .now) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else {
-            assert(false)
-            Self.logger.error("App misconfiguration, please report this")
-            return nil
-        }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs != 0 else {
-            assert(false)
-            Self.logger.warning("Missing initial timestamp")
-            return nil
-        }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(item: frame, from: from, offset: diff)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
@@ -461,7 +431,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now) {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(frame: item) {
+                           let time = self.calculateWaitTime(item: item) {
                             Task(priority: .utility) {
                                 await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
@@ -499,15 +469,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                      fps: frame.fps,
                      orientation: frame.orientation,
                      verticalMirror: frame.verticalMirror)
-    }
-
-    /// Set the difference in time between incoming stream timestamps and wall clock.
-    /// - Parameter diff: Difference in time in seconds.
-    func setTimeDiff(diff: TimeInterval) {
-        // Get to an integer representation, in microseconds.
-        let diffUs = Int128(diff * microsecondsPerSecond)
-        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
-        self.timestampTimeDiffUs.store(diffUs != 0 ? diffUs : 1, ordering: .releasing)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
@@ -647,6 +608,12 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                              objectId: UInt64,
                              sequenceNumber: UInt64,
                              timestamp: Date) throws -> DecimusVideoFrame? {
+        #if DEBUG
+        guard self.config.codec != .mock else {
+            return try self.mockedFrame(data: data, timestamp: timestamp, groupId: groupId, objectId: objectId)
+        }
+        #endif
+
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -711,6 +678,30 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror)
     }
+
+    #if DEBUG
+    private func mockedFrame(data: Data, timestamp: Date, groupId: UInt64, objectId: UInt64) throws -> DecimusVideoFrame {
+        var copy = data
+        let sample = try copy.withUnsafeMutableBytes { bytes in
+            let timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                              presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
+                                                                           timescale: 1_000_000),
+                                              decodeTimeStamp: .invalid)
+            return try CMSampleBuffer(dataBuffer: try .init(buffer: bytes) { _, _ in },
+                                      formatDescription: nil,
+                                      numSamples: 1,
+                                      sampleTimings: [timeInfo],
+                                      sampleSizes: [data.count])
+        }
+        return DecimusVideoFrame(samples: [sample],
+                                 groupId: groupId,
+                                 objectId: objectId,
+                                 sequenceNumber: 0,
+                                 fps: 30,
+                                 orientation: nil,
+                                 verticalMirror: nil)
+    }
+    #endif
 }
 
 extension DecimusVideoRotation {

@@ -160,6 +160,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let startingGroup: UInt64?
+    private let manualActiveSpeaker: Bool
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -171,7 +172,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool,
-         startingGroup: UInt64?) {
+         startingGroup: UInt64?,
+         manualActiveSpeaker: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -183,6 +185,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.controller = controller
         self.verbose = verbose
         self.startingGroup = startingGroup
+        self.manualActiveSpeaker = manualActiveSpeaker
     }
 
     func create(subscription: ManifestSubscription,
@@ -320,7 +323,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig),
-                                         callback: { [weak set] timestamp, when, cached in
+                                         callback: { [weak set] timestamp, when, cached, _ in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
                                          },
@@ -363,6 +366,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         relayId: relayId,
                                         useNewJitterBuffer: true,
                                         cleanupTime: self.subscriptionConfig.cleanupTime,
+                                        activeSpeakerStats: self.manualActiveSpeaker ? self.activeSpeakerStats : nil,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)

@@ -83,10 +83,10 @@ struct VideoGrid: View {
                                             Text("From Join: \(participant.joinToFirstFrame!)s")
                                             Text("From Subscribe: \(participant.subscribeToFirstFrame!)s")
                                             if let detect = participant.fromDetected {
-                                                Text("Audio First Detected: \(detect)s")
+                                                Text("Display - Audio Heard: \(detect)s")
                                             }
                                             if let set = participant.fromSet {
-                                                Text("Switched: \(set)s")
+                                                Text("Display - Speaker Active: \(set)s")
                                             }
                                         }
                                         .background()

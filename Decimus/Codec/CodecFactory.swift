@@ -24,6 +24,9 @@ enum CodecType: UInt8, CaseIterable {
     case xcodec
 
     case hevc
+
+    // Mock.
+    case mock
 }
 
 /// Abstract configuration for initialising codecs.

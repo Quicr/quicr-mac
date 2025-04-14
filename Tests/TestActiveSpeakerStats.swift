@@ -6,7 +6,7 @@ import Testing
 
 @Test("Active Speaker Stats")
 func testActiveSpeakerStats() async {
-    let stats = ActiveSpeakerStats()
+    let stats = ActiveSpeakerStats(nil)
     let id = ParticipantId(0)
     let detect = Date.now
     await stats.audioDetected(id, when: detect)
