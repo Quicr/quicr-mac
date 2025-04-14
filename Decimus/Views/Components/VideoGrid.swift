@@ -10,7 +10,6 @@ struct VideoGrid: View {
     private let spacing: CGFloat = 10
     private let cornerRadius: CGFloat = 12
     let showLabels: Bool
-    @Binding var connecting: Bool
     @Binding var blur: Bool
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
@@ -45,7 +44,7 @@ struct VideoGrid: View {
 
     var body: some View {
         if self.participants.isEmpty {
-            // Waiting for other participants / connecting.
+            // Waiting for other participants.
             ZStack {
                 Image("RTMC-Background")
                     .resizable()
@@ -53,13 +52,9 @@ struct VideoGrid: View {
                            alignment: .center)
                     .cornerRadius(self.cornerRadius)
                     .padding([.horizontal, .bottom])
-                    #if os(tvOS)
-                    .ignoresSafeArea()
+                #if os(tvOS)
+                .ignoresSafeArea()
                 #endif
-                if self.connecting {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                }
             }
         } else {
             let numColumns = self.calcColumns()
@@ -120,7 +115,6 @@ struct VideoGrid: View {
 struct VideoGrid_Previews: PreviewProvider {
     static var previews: some View {
         VideoGrid(showLabels: true,
-                  connecting: .constant(true),
                   blur: .constant(false),
                   restrictedCount: nil,
                   videoParticipants: .init())

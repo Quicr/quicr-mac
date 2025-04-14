@@ -5,8 +5,14 @@ import Foundation
 import AVFAudio
 import CoreAudio
 import Accelerate
+import Synchronization
 
-class OpusPublication: Publication {
+class OpusPublication: Publication, AudioPublication {
+    enum Incrementing {
+        case group
+        case object
+    }
+
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey: NSNumber = 6
     static let participantIdKey: NSNumber = 8
@@ -21,9 +27,13 @@ class OpusPublication: Publication {
     private var encodeTask: Task<(), Never>?
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
-    private var currentGroupId: UInt64?
+    private let startingGroupId: UInt64
+    private var currentGroupId: UInt64
+    private var currentObjectId: UInt64 = 0
     private let bootDate: Date
     private let participantId: ParticipantId
+    private let publish: Atomic<Bool>
+    private let incrementing: Incrementing
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -34,7 +44,10 @@ class OpusPublication: Publication {
          granularMetrics: Bool,
          config: AudioCodecConfig,
          endpointId: String,
-         relayId: String) throws {
+         relayId: String,
+         startActive: Bool,
+         incrementing: Incrementing,
+         groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
@@ -46,6 +59,7 @@ class OpusPublication: Publication {
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
+        self.incrementing = incrementing
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -64,6 +78,9 @@ class OpusPublication: Publication {
         }
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
+        self.publish = .init(startActive)
+        self.startingGroupId = groupId
+        self.currentGroupId = groupId
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -77,7 +94,8 @@ class OpusPublication: Publication {
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
             while !Task.isCancelled {
-                if let self = self {
+                if let self = self,
+                   self.publish.load(ordering: .acquiring) {
                     do {
                         var encodePassCount = 0
                         while let data = try self.encode() {
@@ -109,6 +127,10 @@ class OpusPublication: Publication {
         Self.logger.debug("Deinit")
     }
 
+    func togglePublishing(active: Bool) {
+        self.publish.store(active, ordering: .releasing)
+    }
+
     private func publish(data: Data, timestamp: Date, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
@@ -124,10 +146,13 @@ class OpusPublication: Publication {
         }
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
-        if self.currentGroupId == nil {
-            self.currentGroupId = UInt64(Date.now.timeIntervalSince1970)
+        let sequence = switch incrementing {
+        case .group:
+            self.currentGroupId - self.startingGroupId
+        case .object:
+            self.currentObjectId
         }
-        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentGroupId!)
+        let loc = LowOverheadContainer(timestamp: timestamp, sequence: sequence)
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
@@ -137,7 +162,12 @@ class OpusPublication: Publication {
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
-            self.currentGroupId! += 1
+            switch self.incrementing {
+            case .group:
+                self.currentGroupId += 1
+            case .object:
+                self.currentObjectId += 1
+            }
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
@@ -147,8 +177,8 @@ class OpusPublication: Publication {
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
                          loc: LowOverheadContainer) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: self.currentGroupId!,
-                                     objectId: 0,
+        let headers = QObjectHeaders(groupId: self.currentGroupId,
+                                     objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
