@@ -47,9 +47,8 @@ struct InCallView: View {
         }
     }
 
-    @StateObject var viewModel: ViewModel
+    private let viewModel: CallState
     @State private var leaving: Bool = false
-    @State private var connecting: Bool = false
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
@@ -62,7 +61,6 @@ struct InCallView: View {
     @State private var showControls = false
 
     /// Callback when call is left.
-    private let onLeave: () -> Void
     #if !os(tvOS) && !os(macOS)
     private let orientationChanged = NotificationCenter
         .default
@@ -71,12 +69,11 @@ struct InCallView: View {
         .autoconnect()
     #endif
 
-    init(config: CallConfig, onLeave: @escaping () -> Void) {
+    init(callState: CallState) {
         #if canImport(UIKit)
         UIApplication.shared.isIdleTimerDisabled = true
         #endif
-        self.onLeave = onLeave
-        _viewModel = .init(wrappedValue: .init(config: config, onLeave: onLeave))
+        self.viewModel = callState
     }
 
     var body: some View {
@@ -95,7 +92,6 @@ struct InCallView: View {
                     ZStack {
                         // Incoming videos.
                         VideoGrid(showLabels: self.viewModel.showLabels,
-                                  connecting: self.$connecting,
                                   blur: self.$showControls,
                                   restrictedCount: gridCount,
                                   videoParticipants: self.viewModel.videoParticipants)
@@ -129,7 +125,6 @@ struct InCallView: View {
                     #else
                     VStack {
                         VideoGrid(showLabels: self.viewModel.showLabels,
-                                  connecting: self.$connecting,
                                   blur: .constant(false),
                                   restrictedCount: gridCount,
                                   videoParticipants: self.viewModel.videoParticipants)
@@ -193,8 +188,8 @@ struct InCallView: View {
                                         HStack {
                                             TextField("Active Speakers",
                                                       text: self.$activeSpeakers)
-                                                #if !os(macOS)
-                                                .keyboardType(.asciiCapable)
+                                            #if !os(macOS)
+                                            .keyboardType(.asciiCapable)
                                             #endif
                                             Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                             }
@@ -238,7 +233,7 @@ struct InCallView: View {
             if leaving {
                 LeaveModal(leaveAction: {
                     await viewModel.leave()
-                    onLeave()
+                    self.viewModel.onLeave()
                 }, cancelAction: leaving = false)
                 .frame(maxWidth: 400, alignment: .center)
             }
@@ -252,14 +247,7 @@ struct InCallView: View {
                 activeSpeaker.setClampCount(self.layout.count)
             }
         }
-        .task {
-            connecting = true
-            guard await viewModel.join() else {
-                await viewModel.leave()
-                return onLeave()
-            }
-            connecting = false
-        }.onTapGesture {
+        .onTapGesture {
             // Show the preview when we tap.
             self.lastTap = .now
             withAnimation {
@@ -284,361 +272,5 @@ struct InCallView: View {
                 }
             }
         }
-    }
-}
-
-extension InCallView {
-    @MainActor
-    class ViewModel: ObservableObject {
-        private static let logger = DecimusLogger(InCallView.ViewModel.self)
-
-        let engine: DecimusAudioEngine?
-        private(set) var controller: MoqCallController?
-        private(set) var activeSpeaker: ActiveSpeakerApply<VideoSubscription>?
-        private(set) var manualActiveSpeaker: ManualActiveSpeaker?
-        private(set) var captureManager: CaptureManager?
-        private(set) var activeSpeakerStats: ActiveSpeakerStats?
-        private(set) lazy var videoParticipants = VideoParticipants()
-        private(set) var currentManifest: Manifest?
-        private let config: CallConfig
-        private var appMetricTimer: Task<(), Error>?
-        private var measurement: MeasurementRegistration<_Measurement>?
-        private var submitter: MetricsSubmitter?
-        private var audioCapture = false
-        private var videoCapture = false
-        private let onLeave: () -> Void
-        var relayId: String?
-        private(set) var publicationFactory: PublicationFactory?
-        private(set) var subscriptionFactory: SubscriptionFactoryImpl?
-        private let joinDate = Date.now
-
-        @AppStorage(SubscriptionSettingsView.showLabelsKey)
-        var showLabels: Bool = true
-
-        @AppStorage("influxConfig")
-        private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
-
-        @AppStorage("subscriptionConfig")
-        private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
-
-        @AppStorage(PlaytimeSettingsView.defaultsKey)
-        private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
-
-        @AppStorage(SettingsView.verboseKey)
-        private(set) var verbose = false
-
-        init(config: CallConfig, onLeave: @escaping () -> Void) {
-            self.config = config
-            self.onLeave = onLeave
-            do {
-                self.engine = try .init()
-            } catch {
-                Self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
-                self.engine = nil
-            }
-
-            if influxConfig.value.submit {
-                let tags: [String: String] = [
-                    "relay": "\(config.address):\(config.port)",
-                    "email": config.email,
-                    "conference": "\(config.conferenceID)",
-                    "protocol": "\(config.connectionProtocol)"
-                ]
-                self.doMetrics(tags)
-            }
-
-            do {
-                self.captureManager = try .init(metricsSubmitter: submitter,
-                                                granularMetrics: influxConfig.value.granular)
-            } catch {
-                Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
-            }
-        }
-
-        func join() async -> Bool { // swiftlint:disable:this function_body_length
-            // Fetch the manifest from the conference server.
-            let manifest: Manifest
-            do {
-                let mController = ManifestController.shared
-                manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                             email: self.config.email)
-            } catch {
-                Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
-                return false
-            }
-            self.currentManifest = manifest
-
-            // TODO: Doesn't need to be this defensive.
-            guard let captureManager = self.captureManager,
-                  let engine = self.engine else {
-                return false
-            }
-
-            // Create the factories now that we have the participant ID.
-            let subConfig = self.subscriptionConfig.value
-            let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
-                                                            reliability: subConfig.mediaReliability,
-                                                            engine: engine,
-                                                            metricsSubmitter: self.submitter,
-                                                            granularMetrics: self.influxConfig.value.granular,
-                                                            captureManager: captureManager,
-                                                            participantId: manifest.participantId,
-                                                            keyFrameInterval: subConfig.keyFrameInterval,
-                                                            stagger: subConfig.stagger,
-                                                            verbose: self.verbose,
-                                                            keyFrameOnUpdate: subConfig.keyFrameOnUpdate)
-            let playtime = self.playtimeConfig.value
-            let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
-            let controller = self.makeCallController()
-            self.controller = controller
-            let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
-                                                              metricsSubmitter: self.submitter,
-                                                              subscriptionConfig: subConfig,
-                                                              granularMetrics: self.influxConfig.value.granular,
-                                                              engine: engine,
-                                                              participantId: ourParticipantId,
-                                                              joinDate: self.joinDate,
-                                                              activeSpeakerStats: self.activeSpeakerStats,
-                                                              controller: controller,
-                                                              verbose: self.verbose,
-                                                              manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
-            self.publicationFactory = publicationFactory
-            self.subscriptionFactory = subscriptionFactory
-
-            // Connect to the relay/server.
-            do {
-                try await controller.connect()
-                self.relayId = controller.serverId
-            } catch let error as MoqCallControllerError {
-                switch error {
-                case .connectionFailure(let status):
-                    Self.logger.error("Failed to connect relay: \(status)")
-                default:
-                    Self.logger.error("Unhandled MoqCallControllerError")
-                }
-                return false
-            } catch {
-                Self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
-                return false
-            }
-
-            // Inject the manifest in order to create publications & subscriptions.
-            do {
-                // Publish.
-                for publication in manifest.publications {
-                    try controller.publish(details: publication,
-                                           factory: publicationFactory,
-                                           codecFactory: CodecFactoryImpl())
-                }
-
-                // Subscribe.
-                for subscription in manifest.subscriptions {
-                    _ = try controller.subscribeToSet(details: subscription,
-                                                      factory: subscriptionFactory,
-                                                      subscribe: true)
-                }
-
-                // Active speaker handling.
-                let notifier: ActiveSpeakerNotifier?
-                if playtime.playtime && playtime.manualActiveSpeaker {
-                    let manual = ManualActiveSpeaker()
-                    self.manualActiveSpeaker = manual
-                    notifier = manual
-                } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                    notifier = real
-                } else {
-                    notifier = nil
-                }
-                if let notifier = notifier {
-                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
-                    self.activeSpeaker = try .init(notifier: notifier,
-                                                   controller: controller,
-                                                   videoSubscriptions: videoSubscriptions,
-                                                   factory: subscriptionFactory,
-                                                   participantId: manifest.participantId,
-                                                   activeSpeakerStats: self.activeSpeakerStats)
-                }
-            } catch {
-                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
-                return false
-            }
-
-            // Start audio media.
-            do {
-                try engine.start()
-                self.audioCapture = true
-            } catch {
-                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device", alert: true)
-            }
-
-            // Start video media.
-            do {
-                try captureManager.startCapturing()
-                self.videoCapture = true
-            } catch {
-                Self.logger.warning("Camera failure", alert: true)
-            }
-            return true
-        }
-
-        func setManualActiveSpeaker(_ json: String) {
-            guard json.count > 0 else { return }
-            guard let data = json.data(using: .ascii),
-                  let speakers = try? JSONDecoder().decode([ParticipantId].self, from: data) else {
-                Self.logger.error("Bad speaker JSON: \(json)")
-                return
-            }
-            self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
-        }
-
-        private func makeCallController() -> MoqCallController {
-            let address: String
-            if let ipv6 = IPv6Address(self.config.address) {
-                address = "[\(self.config.address)]"
-            } else {
-                address = self.config.address
-            }
-            let connectUri: String = "moq://\(address):\(config.port)"
-            let endpointId: String = config.email
-            let qLogPath: URL
-            #if targetEnvironment(macCatalyst) || os(macOS)
-            qLogPath = .downloadsDirectory
-            #else
-            qLogPath = .documentsDirectory
-            #endif
-            let subConfig = self.subscriptionConfig.value
-            return qLogPath.path.withCString { qLogPath in
-                let tConfig = TransportConfig(tls_cert_filename: nil,
-                                              tls_key_filename: nil,
-                                              time_queue_init_queue_size: 1000,
-                                              time_queue_max_duration: 5000,
-                                              time_queue_bucket_interval: 1,
-                                              time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
-                                              debug: true,
-                                              quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
-                                              quic_wifi_shadow_rtt_us: 0,
-                                              pacing_decrease_threshold_Bps: 16000,
-                                              pacing_increase_threshold_Bps: 16000,
-                                              idle_timeout_ms: 15000,
-                                              use_reset_wait_strategy: subConfig.useResetWaitCC,
-                                              use_bbr: subConfig.useBBR,
-                                              quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
-                                              quic_priority_limit: subConfig.quicPriorityLimit)
-                let config = ClientConfig(connectUri: connectUri,
-                                          endpointUri: endpointId,
-                                          transportConfig: tConfig,
-                                          metricsSampleMs: 0)
-                let client = config.connectUri.withCString { connectUri in
-                    config.endpointUri.withCString { endpointId in
-                        QClientObjC(config: .init(connectUri: connectUri,
-                                                  endpointId: endpointId,
-                                                  transportConfig: config.transportConfig,
-                                                  metricsSampleMs: config.metricsSampleMs))
-                    }
-                }
-                return .init(endpointUri: endpointId,
-                             client: client,
-                             submitter: self.submitter) { [weak self] in
-                    guard let self = self else { return }
-                    DispatchQueue.main.async {
-                        self.onLeave()
-                    }
-                }
-            }
-        }
-
-        func leave() async {
-            // Submit all pending metrics.
-            await submitter?.submit()
-
-            do {
-                if self.videoCapture {
-                    try captureManager?.stopCapturing()
-                    self.videoCapture = false
-                }
-                if self.audioCapture {
-                    try engine?.stop()
-                    self.audioCapture = false
-                }
-            } catch {
-                Self.logger.error("Error while stopping media: \(error)")
-            }
-
-            do {
-                try controller?.disconnect()
-            } catch {
-                Self.logger.error("Error while leaving call: \(error)")
-            }
-        }
-
-        private func doMetrics(_ tags: [String: String]) {
-            let token: String
-            do {
-                // Try and get metrics from storage.
-                let storage = TokenStorage(tag: InfluxSettingsView.defaultsKey)
-                if let fetched = try storage.retrieve() {
-                    token = fetched
-                    Self.logger.debug("Resolved influx token from keychain")
-                } else {
-                    // Fetch from plist in this case.
-                    let defaultValue = try InfluxSettingsView.tokenFromPlist()
-                    try storage.store(defaultValue)
-                    token = defaultValue
-                    Self.logger.debug("Resolved influx token from default")
-                }
-            } catch {
-                Self.logger.warning("Failed to fetch metrics credentials", alert: true)
-                return
-            }
-
-            let influx = InfluxMetricsSubmitter(token: token,
-                                                config: influxConfig.value,
-                                                tags: tags)
-            submitter = influx
-            if self.showLabels {
-                self.activeSpeakerStats = .init(influx)
-            }
-            let measurement = _Measurement()
-            self.measurement = .init(measurement: measurement, submitter: influx)
-            if influxConfig.value.realtime {
-                // Application metrics timer.
-                self.appMetricTimer = .init(priority: .utility) { [weak self] in
-                    while !Task.isCancelled {
-                        let duration: TimeInterval
-                        if let self = self {
-                            duration = TimeInterval(self.influxConfig.value.intervalSecs)
-                            let usage = try cpuUsage()
-                            await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-                            await self.submitter?.submit()
-                        } else {
-                            return
-                        }
-                        try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Metrics.
-extension InCallView.ViewModel {
-    private actor _Measurement: Measurement {
-        let id = UUID()
-        var name: String = "ApplicationMetrics"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
-        func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
-            record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)
-        }
-    }
-}
-
-struct InCallView_Previews: PreviewProvider {
-    static var previews: some View {
-        InCallView(config: .init(address: "127.0.0.1",
-                                 port: 5001,
-                                 connectionProtocol: .QUIC)) { }
     }
 }

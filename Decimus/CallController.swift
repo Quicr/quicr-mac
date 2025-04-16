@@ -138,8 +138,11 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter details: The details for the publication from the manifest.
     /// - Parameter factory: Factory to create publication objects.
     /// - Parameter codecFactory: Turns a quality profile into a codec configuration.
+    /// - Returns: List of created ``(FullTrackName, QPublishTrackHandlerObjC)``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    public func publish(details: ManifestPublication, factory: PublicationFactory, codecFactory: CodecFactory) throws {
+    public func publish(details: ManifestPublication,
+                        factory: PublicationFactory,
+                        codecFactory: CodecFactory) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
                                          codecFactory: codecFactory,
@@ -149,6 +152,7 @@ class MoqCallController: QClientCallbacks {
             self.publications[namespace] = handler
             self.client.publishTrack(withHandler: handler)
         }
+        return created
     }
 
     /// Stop publishing to a track.
@@ -230,6 +234,14 @@ class MoqCallController: QClientCallbacks {
                                               relayId: self.serverId!)
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
+    }
+
+    /// Directly subscribe to a handler.
+    /// - Parameter: The handler to subscribe.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
+    func subscribe(_ handler: Subscription) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.subscribeTrack(withHandler: handler)
     }
 
     /// Unsubscribe to an entire subscription set.

@@ -10,11 +10,18 @@ enum OpusSubscriptionError: Error {
     case failedDecoderCreation
 }
 
-class OpusHandler: TimeAlignable {
-    // swiftlint:disable:this type_body_length
-    private static let logger = DecimusLogger(OpusHandler.self)
+protocol AudioDecoder {
+    var decodedFormat: AVAudioFormat { get }
+    var encodedFormat: AVAudioFormat { get }
+    func write(data: Data) throws -> AVAudioPCMBuffer
+    func frames(data: Data) throws -> AVAudioFrameCount
+    func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer
+}
+
+class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
+    private static let logger = DecimusLogger(AudioHandler.self)
     private let identifier: String
-    private var decoder: LibOpusDecoder
+    private var decoder: AudioDecoder
     private let engine: DecimusAudioEngine
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
@@ -55,6 +62,7 @@ class OpusHandler: TimeAlignable {
 
     init(identifier: String,
          engine: DecimusAudioEngine,
+         decoder: AudioDecoder,
          measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
@@ -66,7 +74,7 @@ class OpusHandler: TimeAlignable {
         self.engine = engine
         self.measurement = measurement
         self.granularMetrics = granularMetrics
-        self.decoder = try .init(format: DecimusAudioEngine.format)
+        self.decoder = decoder
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
         self.useNewJitterBuffer = useNewJitterBuffer
         self.metricsSubmitter = metricsSubmitter
@@ -81,7 +89,7 @@ class OpusHandler: TimeAlignable {
                                                  clockRate: UInt(asbd.pointee.mSampleRate),
                                                  maxLengthMs: UInt(jitterMax * 1000),
                                                  minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
-                OpusHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+                AudioHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
             }
             // Create the player node.
             self.node = .init(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
@@ -97,7 +105,7 @@ class OpusHandler: TimeAlignable {
         do {
             try engine.removePlayer(identifier: self.identifier)
         } catch {
-            Self.logger.error("Couldn't remove player: \(error.localizedDescription)")
+            Self.logger.warning("Couldn't remove player: \(error.localizedDescription)")
         }
 
         // Reset the node.
@@ -140,6 +148,7 @@ class OpusHandler: TimeAlignable {
             }
         }
         // swiftlint:enable force_cast
+        guard windowDuration.seconds > 0 else { throw "Bad window size" }
         let buffer = try JitterBuffer(identifier: self.identifier,
                                       metricsSubmitter: self.metricsSubmitter,
                                       minDepth: self.jitterDepth,
@@ -176,7 +185,7 @@ class OpusHandler: TimeAlignable {
             } else {
                 // What's the duration of this packet?
                 let frames = try self.decoder.frames(data: data)
-                let duration = TimeInterval(frames) / 48000.0 // TODO: Sample rate?
+                let duration = TimeInterval(frames) / self.decoder.encodedFormat.sampleRate
                 let durationUs = duration * microsecondsPerSecond
                 let cmDuration = CMTime(value: CMTimeValue(durationUs), timescale: CMTimeScale(microsecondsPerSecond))
                 // Create jitter buffer.
@@ -293,10 +302,10 @@ class OpusHandler: TimeAlignable {
 
     private let plcCallback: PacketCallback = { packets, count, userData in
         guard let userData = userData else {
-            OpusHandler.logger.error("Expected self in userData")
+            AudioHandler.logger.error("Expected self in userData")
             return
         }
-        let handler: OpusHandler = Unmanaged<OpusHandler>.fromOpaque(userData).takeUnretainedValue()
+        let handler: AudioHandler = Unmanaged<AudioHandler>.fromOpaque(userData).takeUnretainedValue()
         var concealed: UInt64 = 0
         for index in 0..<count {
             // Make PLC packets.
@@ -318,7 +327,7 @@ class OpusHandler: TimeAlignable {
                 memcpy(packet.pointee.data, data, packet.pointee.length)
                 concealed += UInt64(packet.pointee.elements)
             } catch {
-                OpusHandler.logger.error("\(error.localizedDescription)")
+                AudioHandler.logger.error("\(error.localizedDescription)")
             }
         }
         if let measurement = handler.measurement {
@@ -447,7 +456,7 @@ class OpusHandler: TimeAlignable {
             Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
             for _ in 0..<packetsToGenerate {
                 do {
-                    let frames = AVAudioFrameCount(window.rawValue * 48000) // TODO: Sample rate??
+                    let frames = AVAudioFrameCount(window.rawValue * self.decoder.encodedFormat.sampleRate)
                     let plc = try self.decoder.plc(frames: frames)
                     lastUsedSequence += 1
                     self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
@@ -475,7 +484,7 @@ class OpusHandler: TimeAlignable {
         if self.windowSizeUs.load(ordering: .acquiring) == 0 {
             do {
                 let frames = try self.decoder.frames(data: item.data)
-                let windowSize: TimeInterval = TimeInterval(frames) / 48000 // TODO: sample rate comes from??
+                let windowSize: TimeInterval = TimeInterval(frames) / self.decoder.encodedFormat.sampleRate
                 self.windowSizeUs.store(.init(windowSize * microsecondsPerSecond), ordering: .releasing)
             } catch {
                 Self.logger.error("Failed to extract frame count from Opus")

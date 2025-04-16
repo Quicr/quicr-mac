@@ -159,6 +159,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let verbose: Bool
     var activeSpeakerNotifier: ActiveSpeakerNotifierSubscription?
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let startingGroup: UInt64?
     private let manualActiveSpeaker: Bool
 
     init(videoParticipants: VideoParticipants,
@@ -171,6 +172,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool,
+         startingGroup: UInt64?,
          manualActiveSpeaker: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
@@ -182,6 +184,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.activeSpeakerStats = activeSpeakerStats
         self.controller = controller
         self.verbose = verbose
+        self.startingGroup = startingGroup
         self.manualActiveSpeaker = manualActiveSpeaker
     }
 

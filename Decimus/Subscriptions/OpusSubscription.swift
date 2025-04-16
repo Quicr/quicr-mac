@@ -12,7 +12,7 @@ class OpusSubscription: Subscription {
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
-    private let handler: Mutex<OpusHandler?>
+    private let handler: Mutex<AudioHandler?>
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Mutex<Date?>(nil)
@@ -59,6 +59,7 @@ class OpusSubscription: Subscription {
         // Create the actual audio handler upfront.
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
+                                       decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                        measurement: self.measurement,
                                        jitterDepth: self.jitterDepth,
                                        jitterMax: self.jitterMax,
@@ -113,36 +114,44 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
 
+        guard let extensions = extensions,
+              let loc = try? LowOverheadContainer(from: extensions) else {
+            Self.logger.warning("Missing expected LOC headers")
+            return
+        }
+
         // TODO: Handle sequence rollover.
-        if objectHeaders.groupId > self.seq {
-            let missing = objectHeaders.groupId - self.seq - 1
+        let sequence = loc.sequence ?? objectHeaders.objectId
+        if sequence > self.seq {
+            let missing = sequence - self.seq - 1
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
                     await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
                     if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
+                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
                         await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                     }
                 }
             }
-            self.seq = objectHeaders.groupId
+            self.seq = sequence
         }
 
         // Do we need to create the handler?
-        let handler: OpusHandler
+        let handler: AudioHandler
         do {
             handler = try self.handler.withLock { lockedHandler in
                 guard let handler = lockedHandler else {
-                    let handler = try OpusHandler(identifier: self.profile.namespace.joined(),
-                                                  engine: self.engine,
-                                                  measurement: self.measurement,
-                                                  jitterDepth: self.jitterDepth,
-                                                  jitterMax: self.jitterMax,
-                                                  opusWindowSize: self.opusWindowSize,
-                                                  granularMetrics: self.granularMetrics,
-                                                  useNewJitterBuffer: self.useNewJitterBuffer,
-                                                  metricsSubmitter: self.metricsSubmitter)
+                    let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
+                                                   engine: self.engine,
+                                                   decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
+                                                   measurement: self.measurement,
+                                                   jitterDepth: self.jitterDepth,
+                                                   jitterMax: self.jitterMax,
+                                                   opusWindowSize: self.opusWindowSize,
+                                                   granularMetrics: self.granularMetrics,
+                                                   useNewJitterBuffer: self.useNewJitterBuffer,
+                                                   metricsSubmitter: self.metricsSubmitter)
                     lockedHandler = handler
                     return handler
                 }
@@ -150,12 +159,6 @@ class OpusSubscription: Subscription {
             }
         } catch {
             Self.logger.error("Failed to recreate audio handler")
-            return
-        }
-
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
             return
         }
 
@@ -169,7 +172,7 @@ class OpusSubscription: Subscription {
 
         do {
             try handler.submitEncodedAudio(data: data,
-                                           sequence: objectHeaders.groupId,
+                                           sequence: sequence,
                                            date: now,
                                            timestamp: loc.timestamp)
         } catch {
