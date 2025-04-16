@@ -105,7 +105,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
         do {
             try engine.removePlayer(identifier: self.identifier)
         } catch {
-            // Self.logger.error("Couldn't remove player: \(error.localizedDescription)")
+            Self.logger.warning("Couldn't remove player: \(error.localizedDescription)")
         }
 
         // Reset the node.

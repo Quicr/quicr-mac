@@ -192,6 +192,9 @@ class CallState: ObservableObject, Equatable {
 
         // Start audio media.
         do {
+            if make {
+                engine.setMicrophoneCapture(true)
+            }
             try engine.start()
             self.audioCapture = true
         } catch {
