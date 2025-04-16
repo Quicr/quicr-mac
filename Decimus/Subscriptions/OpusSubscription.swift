@@ -114,20 +114,27 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
 
+        guard let extensions = extensions,
+              let loc = try? LowOverheadContainer(from: extensions) else {
+            Self.logger.warning("Missing expected LOC headers")
+            return
+        }
+
         // TODO: Handle sequence rollover.
-        if objectHeaders.objectId > self.seq {
-            let missing = objectHeaders.objectId - self.seq - 1
+        let sequence = loc.sequence ?? objectHeaders.objectId
+        if sequence > self.seq {
+            let missing = sequence - self.seq - 1
             let currentSeq = self.seq
             if let measurement = measurement {
                 Task(priority: .utility) {
                     await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
                     if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.objectId)")
+                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
                         await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
                     }
                 }
             }
-            self.seq = objectHeaders.objectId
+            self.seq = sequence
         }
 
         // Do we need to create the handler?
@@ -155,12 +162,6 @@ class OpusSubscription: Subscription {
             return
         }
 
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
-            return
-        }
-
         if let activeSpeakerStats = self.activeSpeakerStats,
            let participantId = loc.get(key: OpusPublication.participantIdKey) {
             Task(priority: .utility) {
@@ -171,7 +172,7 @@ class OpusSubscription: Subscription {
 
         do {
             try handler.submitEncodedAudio(data: data,
-                                           sequence: objectHeaders.objectId,
+                                           sequence: sequence,
                                            date: now,
                                            timestamp: loc.timestamp)
         } catch {

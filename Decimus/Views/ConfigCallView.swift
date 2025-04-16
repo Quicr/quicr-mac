@@ -16,6 +16,7 @@ struct ConfigCallView: View {
     @AppStorage(SettingsView.pttManifestKey)
     private var pttManifest: String = ""
     private let ptt = true
+
     private let logger = DecimusLogger(ConfigCallView.self)
 
     var body: some View {
@@ -61,15 +62,20 @@ struct ConfigCallView: View {
             }.task {
                 guard self.state == .notConnected else { return }
                 self.state = .connecting
-                let id = UIDevice.current.identifierForVendor!
-                let ptr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 16)
-                defer { ptr.deallocate() }
-                (id as NSUUID).getBytes(ptr.baseAddress!)
-                var sha1 = Insecure.SHA1()
-                sha1.update(bufferPointer: .init(UnsafeMutableRawBufferPointer(ptr)))
-                let digest = sha1.finalize()
-                let startingGroup = digest.suffix(8).withUnsafeBytes { ptr in
-                    ptr.loadUnaligned(as: UInt64.self).bigEndian & 0x3F_FF_FF_FF_FF_FF_FF_FF
+                let startingGroup: UInt64?
+                if self.ptt {
+                    let id = UIDevice.current.identifierForVendor!
+                    let ptr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 16)
+                    defer { ptr.deallocate() }
+                    (id as NSUUID).getBytes(ptr.baseAddress!)
+                    var sha1 = Insecure.SHA1()
+                    sha1.update(bufferPointer: .init(UnsafeMutableRawBufferPointer(ptr)))
+                    let digest = sha1.finalize()
+                    startingGroup = digest.suffix(8).withUnsafeBytes { ptr in
+                        ptr.loadUnaligned(as: UInt64.self).bigEndian & 0x3F_FF_FF_FF_FF_FF_FF_FF
+                    }
+                } else {
+                    startingGroup = nil
                 }
                 let state = CallState(config: config, audioStartingGroup: startingGroup) {
                     self.state = .notConnected

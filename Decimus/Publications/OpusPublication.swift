@@ -8,6 +8,11 @@ import Accelerate
 import Synchronization
 
 class OpusPublication: Publication, AudioPublication {
+    enum Incrementing {
+        case group
+        case object
+    }
+
     private static let logger = DecimusLogger(OpusPublication.self)
     static let energyLevelKey: NSNumber = 6
     static let participantIdKey: NSNumber = 8
@@ -22,11 +27,13 @@ class OpusPublication: Publication, AudioPublication {
     private var encodeTask: Task<(), Never>?
     private let pcm: AVAudioPCMBuffer
     private let windowFrames: AVAudioFrameCount
-    private let groupId: UInt64
+    private let startingGroupId: UInt64
+    private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
     private let bootDate: Date
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
+    private let incrementing: Incrementing
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -39,6 +46,7 @@ class OpusPublication: Publication, AudioPublication {
          endpointId: String,
          relayId: String,
          startActive: Bool,
+         incrementing: Incrementing,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -51,6 +59,7 @@ class OpusPublication: Publication, AudioPublication {
         self.opusWindowSize = opusWindowSize
         self.reliable = reliable
         self.granularMetrics = granularMetrics
+        self.incrementing = incrementing
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -70,7 +79,8 @@ class OpusPublication: Publication, AudioPublication {
         self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
         self.publish = .init(startActive)
-        self.groupId = groupId
+        self.startingGroupId = groupId
+        self.currentGroupId = groupId
 
         try super.init(profile: profile,
                        trackMode: reliable ? .streamPerTrack : .datagram,
@@ -136,7 +146,13 @@ class OpusPublication: Publication, AudioPublication {
         }
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
-        let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
+        let sequence = switch incrementing {
+        case .group:
+            self.currentGroupId - self.startingGroupId
+        case .object:
+            self.currentObjectId
+        }
+        let loc = LowOverheadContainer(timestamp: timestamp, sequence: sequence)
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
@@ -146,7 +162,12 @@ class OpusPublication: Publication, AudioPublication {
         let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
-            self.currentObjectId += 1
+            switch self.incrementing {
+            case .group:
+                self.currentGroupId += 1
+            case .object:
+                self.currentObjectId += 1
+            }
         default:
             Self.logger.warning("Failed to publish: \(published)")
         }
@@ -156,7 +177,7 @@ class OpusPublication: Publication, AudioPublication {
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
                          loc: LowOverheadContainer) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: self.groupId,
+        let headers = QObjectHeaders(groupId: self.currentGroupId,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,

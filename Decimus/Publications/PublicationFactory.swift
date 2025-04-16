@@ -24,7 +24,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let logger = DecimusLogger(PublicationFactory.self)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
-    private let startingGroup: UInt64
+    private let startingGroup: UInt64?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -37,7 +37,7 @@ class PublicationFactoryImpl: PublicationFactory {
          stagger: Bool,
          verbose: Bool,
          keyFrameOnUpdate: Bool,
-         startingGroup: UInt64) {
+         startingGroup: UInt64?) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -141,7 +141,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                           endpointId: endpointId,
                                           relayId: relayId,
                                           startActive: false,
-                                          groupId: self.startingGroup,
+                                          groupId: self.startingGroup!,
                                           markRequest: aiFlag,
                                           verbose: self.verbose,
                                           record: false)
@@ -157,7 +157,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        config: config,
                                        endpointId: endpointId,
                                        relayId: relayId,
-                                       startActive: profile.channel != nil)
+                                       startActive: profile.channel != nil,
+                                       incrementing: .group)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

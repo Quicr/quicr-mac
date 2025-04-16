@@ -31,7 +31,7 @@ class CallState: ObservableObject, Equatable {
     private(set) var publicationFactory: PublicationFactory?
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
-    let audioStartingGroup: UInt64
+    let audioStartingGroup: UInt64?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -48,7 +48,7 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
-    init(config: CallConfig, audioStartingGroup: UInt64, onLeave: @escaping () -> Void) {
+    init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
@@ -192,6 +192,9 @@ class CallState: ObservableObject, Equatable {
 
         // Start audio media.
         do {
+            if make {
+                engine.setMicrophoneCapture(true)
+            }
             try engine.start()
             self.audioCapture = true
         } catch {

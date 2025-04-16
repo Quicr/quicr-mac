@@ -25,7 +25,7 @@ class DecimusAudioEngine {
     private let elements = Mutex<[SourceIDType: AVAudioSourceNode]>([:])
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
-    private let captureAudio = Atomic(true)
+    private let captureAudio = Atomic(false)
 
     #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
