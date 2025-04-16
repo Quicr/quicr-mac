@@ -137,6 +137,20 @@ struct PushToTalkCall: View {
     var body: some View {
         ZStack {
             VStack {
+
+                //                Grid {
+                //                    let channels = self.availableChannels.split(2)
+                //                    ForEach(channels, id: \.self) { pair in
+                //                        GridRow {
+                //                            ForEach(pair, id: \.self) { channel in
+                //                                let rept
+                //                                ChannelBlock(channel: channel)
+                //                                    .padding()
+                //                            }
+                //                        }
+                //                    }
+                //                }
+
                 HStack {
                     Spacer()
                     Form {
@@ -269,5 +283,13 @@ extension FullTrackName {
         let uuidBytes: [UInt8] = [UInt8](hash.suffix(16)) // 128 bits.
         let tuple = uuidBytes.withUnsafeBytes { $0.bindMemory(to: uuid_t.self)[0] }
         return UUID(uuid: tuple)
+    }
+}
+
+extension Array {
+    func split(_ size: Int) -> [[Element]] {
+        stride(from: 0, to: count, by: size).map {
+            Array(self[$0..<Swift.min($0 + size, count)])
+        }
     }
 }

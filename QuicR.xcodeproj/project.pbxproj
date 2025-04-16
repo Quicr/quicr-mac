@@ -121,6 +121,7 @@
 		9BAAFF592DAFB50300CBDA98 /* sample_channel_config.json in Resources */ = {isa = PBXBuildFile; fileRef = 9BAAFF4D2DAFB50300CBDA98 /* sample_channel_config.json */; };
 		9BAAFF5B2DAFB52700CBDA98 /* PCMSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF5A2DAFB52700CBDA98 /* PCMSubscription.swift */; };
 		9BAAFF5D2DAFB54300CBDA98 /* PCMConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF5C2DAFB54300CBDA98 /* PCMConverter.swift */; };
+		9BAAFF5F2DAFBCA700CBDA98 /* ChannelBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF5E2DAFBC9700CBDA98 /* ChannelBlock.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
@@ -356,6 +357,7 @@
 		9BAAFF4D2DAFB50300CBDA98 /* sample_channel_config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = sample_channel_config.json; sourceTree = "<group>"; };
 		9BAAFF5A2DAFB52700CBDA98 /* PCMSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMSubscription.swift; sourceTree = "<group>"; };
 		9BAAFF5C2DAFB54300CBDA98 /* PCMConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMConverter.swift; sourceTree = "<group>"; };
+		9BAAFF5E2DAFBC9700CBDA98 /* ChannelBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelBlock.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
@@ -718,6 +720,7 @@
 		9BAAFF442DAFB50300CBDA98 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				9BAAFF5E2DAFBC9700CBDA98 /* ChannelBlock.swift */,
 				9BAAFF422DAFB50300CBDA98 /* PushToTalkButton.swift */,
 				9BAAFF432DAFB50300CBDA98 /* PushToTalkCall.swift */,
 			);
@@ -1053,7 +1056,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1213,6 +1216,7 @@
 				18C89A4B2A14EF1F005B333B /* InfluxSettingsView.swift in Sources */,
 				18BF45712B0CD632006E8E24 /* VTEncoder.swift in Sources */,
 				9B156EFE2D649F0200E91D0F /* SlidingWindow.swift in Sources */,
+				9BAAFF5F2DAFBCA700CBDA98 /* ChannelBlock.swift in Sources */,
 				180E74642B0E4F5E0045B9D6 /* VideoHandler.swift in Sources */,
 				9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */,
 				9BE6B7C72C9D92940069FE9F /* TokenStorage.swift in Sources */,
@@ -1247,7 +1251,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1272,7 +1276,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1439,7 +1443,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1516,7 +1520,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
