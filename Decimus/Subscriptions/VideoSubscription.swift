@@ -7,7 +7,7 @@ import Synchronization
 /// Holds an object for decoding & rendering.
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
-class VideoSubscription: Subscription {
+class VideoSubscription: Subscription, DisplayNotification {
     typealias StatusChanged = (_ status: QSubscribeTrackHandlerStatus) -> Void
     struct JoinConfig<T: Codable>: Codable {
         var fetchUpperThreshold: T
@@ -49,6 +49,8 @@ class VideoSubscription: Subscription {
     private var fetch: Fetch?
     private var fetched = false
     private let postCleanup = Atomic(false)
+    private let displayCallbacks = Mutex<DisplayCallbacks>(.init())
+    private var displayCallbackMapping: [Int: Int] = [:]
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -103,6 +105,8 @@ class VideoSubscription: Subscription {
             return result
         }
     }
+    private var mediaState = MediaState.subscribed
+    private var stateChangeToken: Int?
 
     init(profile: Profile,
          config: VideoCodecConfig,
@@ -171,10 +175,36 @@ class VideoSubscription: Subscription {
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
                        statusCallback: statusChanged)
+        self.stateChangeToken = handler.registerDisplayCallback { [weak self] in
+            guard let self = self else { return }
+            self.transitionMediaState(.rendered)
+        }
     }
 
     deinit {
         self.logger.debug("Deinit")
+    }
+
+    func getMediaState() -> MediaState {
+        self.mediaState
+    }
+
+    func registerDisplayCallback(_ callback: @escaping DisplayNotification.DisplayCallback) -> Int {
+        let token = self.displayCallbacks.store(callback)
+        if let handler = self.handler.get() {
+            let handlerToken = handler.registerDisplayCallback(callback)
+            self.displayCallbackMapping[token] = handlerToken
+        }
+        return token
+    }
+
+    func unregisterDisplayCallback(_ token: Int) {
+        if let mapping = self.displayCallbackMapping.removeValue(forKey: token) {
+            if let handler = self.handler.get() {
+                handler.unregisterDisplayCallback(mapping)
+            }
+        }
+        self.displayCallbacks.remove(token)
     }
 
     private func cleanup() {
@@ -182,9 +212,16 @@ class VideoSubscription: Subscription {
             guard let handler = lockedHandler else { return }
             lockedHandler = nil
             handler.unregisterCallback(self.token)
+            if let stateChangeToken = self.stateChangeToken {
+                handler.unregisterDisplayCallback(stateChangeToken)
+            }
+            for mapping in self.displayCallbackMapping {
+                handler.unregisterDisplayCallback(mapping.value)
+            }
             self.token = 0
         }
         self.postCleanup.store(true, ordering: .releasing)
+        self.transitionMediaState(.subscribed)
     }
 
     /// What should happen to a video object based on state.
@@ -286,6 +323,8 @@ class VideoSubscription: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        self.transitionMediaState(.received)
+
         // Per-frame logging.
         if self.verbose {
             self.logger.debug("Received: \(objectHeaders.groupId) \(objectHeaders.objectId)")
@@ -355,6 +394,14 @@ class VideoSubscription: Subscription {
                                                  joinDate: self.joinDate,
                                                  activeSpeakerStats: self.activeSpeakerStats)
                 self.token = recreated.registerCallback(self.callback)
+                self.stateChangeToken = recreated.registerDisplayCallback { [weak self] in
+                    guard let self = self else { return }
+                    self.transitionMediaState(.rendered)
+                }
+                for callback in self.displayCallbacks.get().callbacks {
+                    let token = recreated.registerDisplayCallback(callback.value)
+                    self.displayCallbackMapping[callback.key] = token
+                }
                 lockedHandler = recreated
                 handler = recreated
             }
@@ -429,5 +476,11 @@ class VideoSubscription: Subscription {
             self.logger.debug("Starting video playout - fetch")
             handler.play()
         }
+    }
+
+    private func transitionMediaState(_ newState: MediaState) {
+        assert(self.mediaState != .subscribed || newState == .received)
+        assert(self.mediaState != .rendered || newState == .subscribed)
+        self.mediaState = newState
     }
 }

@@ -22,7 +22,13 @@ typealias ObjectReceived = (_ timestamp: TimeInterval,
                             _ headers: QObjectHeaders) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
+class VideoHandler: TimeAlignable, CustomStringConvertible, DisplayNotification {
+    func getMediaState() -> MediaState {
+        fatalError()
+        return .received
+    }
+
+    // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -72,6 +78,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
+    typealias EnqueueCallback = () -> Void
+    private let enqueueCallbacks: Mutex<DisplayCallbacks> = .init(.init())
 
     /// Create a new video handler.
     /// - Parameters:
@@ -252,6 +260,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             return
         }
         buffer.startPlaying()
+    }
+
+    func registerDisplayCallback(_ callback: @escaping DisplayNotification.DisplayCallback) -> Int {
+        self.enqueueCallbacks.store(callback)
+    }
+
+    func unregisterDisplayCallback(_ token: Int) {
+        self.enqueueCallbacks.remove(token)
     }
 
     /// Pass an encoded video frame to this video handler.
@@ -559,6 +575,11 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     Task(priority: .background) {
                         await measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
                     }
+                }
+
+                // Enqueue callback.
+                for callback in self.enqueueCallbacks.get().callbacks {
+                    callback.value()
                 }
             } catch {
                 Self.logger.error("Could not enqueue sample: \(error)")

@@ -123,6 +123,14 @@ final class TestActiveSpeaker: XCTestCase {
             return lhs < rhs
         }), subbed)
 
+        // Mark 1 and 2 as in displaying state.
+        for handler in handlers {
+            guard let handler = handler as? TestCallController.MockSubscription else {
+                fatalError("Type contract mismatch")
+            }
+            handler.mediaState = .rendered
+        }
+
         // Now, 1 and 3 are actively speaking.
         subbed = []
         unsubbed = []
@@ -153,40 +161,64 @@ final class TestActiveSpeaker: XCTestCase {
 
         switch clamp {
         case nil:
+            // In this case, there is no clamping. Our response should
+            // match the received active speaker list exactly.
+            // 1 and 2 were speaking, now 1 and 3 are.
+            // Excpect a subscribe to 3, and a unsubscribe to 2.
+
             // Factory should have created subscription 3.
+            XCTAssertEqual(created.count, 1)
             XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
             // Controller should have subscribed to 3.
-            XCTAssert(subbed.reduce(into: true, {
-                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
-            }))
-            // Should have unsubscribed from 2 regardless of clamping.
-            XCTAssert(unsubbed.reduce(into: true, {
-                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
-            }))
+            XCTAssertEqual(subbed.count, 1)
+            XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+
+            // We won't yet have unsubscribed from non-active speaker 2, until we have a frame to display from new speaker 3.
+            XCTAssertEqual(unsubbed.count, 0)
+
+            // Mock a frame arriving from 3.
+            (subbed[0] as! TestCallController.MockSubscription).mockDisplayCallback() // swiftlint:disable:this force_cast
+
+            // Should now have unsubscribed from 2.
+            XCTAssertEqual(unsubbed.count, 1)
+            XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
         case 1:
+            // We're only showing one participant. 1 and 2 were speaking, now 1 and 3.
             if ourself == speakerOne {
-                // In this case, 3 should be considered, because the top speaker is us (1).
+                // In this case, the top active speaker is us, so the next (3) should be subscribed.
                 XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
-                XCTAssert(subbed.reduce(into: true, {
-                    $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
-                }))
+                XCTAssertEqual(subbed.count, 1)
+                XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+
+                // 2 should not yet be unsubscribed until we get a frame from 3.
+                XCTAssertEqual(unsubbed.count, 0)
+
+                // Mock a frame arriving from 3.
+                // swiftlint:disable force_cast
+                (subbed[0] as! TestCallController.MockSubscription).mockDisplayCallback()
+                // swiftlint:enable force_cast
+
+                // Now 2 should have gone away.
+                XCTAssertEqual(unsubbed.count, 1)
+                XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
             } else {
-                // Subscription 3 shouldn't be considered because of the clamping, only 1.
+                // Subscription 3 shouldn't be subscribed because of the clamping, only 1 (which already exists).
                 XCTAssertEqual(created.map { $0.sourceId }, [])
                 XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
+
+                // In this case, 1 is already displaying, so 2 should immediately be unsubscribed.
+                XCTAssertEqual(unsubbed.count, 1)
+                XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
             }
-            // Should have unsubscribed from 2 regardless of clamping or our identity.
-            XCTAssert(unsubbed.reduce(into: true, {
-                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerTwo
-            }))
         case 10:
-            // Factory should have created subscription 3.
+            // Factory should have created subscription for new speaker 3.
+            XCTAssertEqual(created.count, 1)
             XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
-            // Controller should have subscribed to 3.
-            XCTAssert(subbed.reduce(into: true, {
-                $0 = $0 && ftnToParticipantId[.init($1.getFullTrackName())] == speakerThree
-            }))
-            // Should NOT have unsubscribed from 2 because we're expanding out to previous due to clamp > speakers.count.
+            // Controller should have subscribed to new speaker 3.
+            XCTAssertEqual(subbed.count, 1)
+            XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+            // Should NOT have unsubscribed from 2 because we're
+            // expanding out to previous due to clamp > speakers.count.
             XCTAssert(unsubbed.isEmpty)
         default:
             XCTFail("Unhandled case")

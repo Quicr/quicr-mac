@@ -79,7 +79,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.onActiveSpeakersChanged(self.lastSpeakers, real: false)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
+    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) { // swiftlint:disable:this function_body_length
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
         var now: Date?
         if real {
@@ -101,18 +101,86 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.lastRenderedSpeakers = speakers
         let existing = self.controller.getSubscriptionSets()
 
+        func unsubscribe() -> Int {
+            // Unsubscribe from video for any speakers that are no longer active.
+            var unsubbed = 0
+            for set in existing where !speakers.contains(set.participantId) {
+                for handler in set.getHandlers().values where handler is T {
+                    // Unsubscribe.
+                    unsubbed += 1
+                    let ftn = FullTrackName(handler.getFullTrackName())
+                    self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
+                    if real,
+                       let stats = self.activeSpeakerStats {
+                        Task(priority: .utility) {
+                            await stats.remove(set.participantId, when: now!)
+                        }
+                    }
+                    do {
+                        try self.controller.unsubscribe(set.sourceId, ftn: ftn)
+                    } catch {
+                        self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
+                    }
+                }
+
+                // TODO: ??
+                break
+            }
+            if unsubbed == 0 {
+                self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
+            } else {
+                self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
+            }
+            return unsubbed
+        }
+
+        // Slots for display.
+        let desiredSlots = speakers.count
+        var currentSlots = 0
+        for set in existing {
+            let handlers = set.getHandlers()
+            for handler in handlers {
+                guard let mediaState = handler.value as? DisplayNotification else {
+                    fatalError("Type contract mismatch")
+                }
+                if mediaState.getMediaState() == .rendered {
+                    currentSlots += 1
+                    continue
+                }
+            }
+        }
+
         // Firstly, subscribe to video from any speakers we are not already subscribed to.
         var subbed = 0
         let existingHandlers = existing.reduce(into: []) {
             $0.append(contentsOf: $1.getHandlers().compactMap { $0.value })
         }
         for set in self.videoSubscriptions where speakers.contains(set.participantId) {
-            for subscription in set.profileSet.profiles {
+            sets: for subscription in set.profileSet.profiles {
                 do {
                     // We're only interested in non-existing subscriptions.
                     let ftn = try subscription.getFullTrackName()
                     guard !existingHandlers.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }) else {
-                        continue
+                        // Here we landed on an interested but already subscribed subscription.
+                        // What state are these in?
+                        for handler in existingHandlers {
+                            guard let video = handler as? DisplayNotification else {
+                                fatalError("Type contract mismatch")
+                            }
+                            guard video.getMediaState() == .rendered else {
+                                var token: Int?
+                                token = video.registerDisplayCallback {
+                                    print("Existing subscription just started displaying")
+                                    currentSlots += 1
+                                    if currentSlots > desiredSlots {
+                                        currentSlots -= unsubscribe()
+                                    }
+                                    video.unregisterDisplayCallback(token!)
+                                }
+                                continue sets // We only care about 1/N displays.
+                            }
+                        }
+                        continue sets // Nothing else to do.
                     }
                     // Subscribe.
                     subbed += 1
@@ -128,9 +196,22 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                                                                        factory: self.factory,
                                                                        subscribe: false)
                     }
-                    try self.controller.subscribe(set: targetSet,
-                                                  profile: subscription,
-                                                  factory: self.factory)
+                    let subscribed = try self.controller.subscribe(set: targetSet,
+                                                                   profile: subscription,
+                                                                   factory: self.factory)
+                    guard let video = subscribed as? DisplayNotification else {
+                        fatalError("Type contract mismatch")
+                    }
+                    var token: Int?
+                    token = video.registerDisplayCallback { [weak self] in
+                        self?.logger.debug("[ActiveSpeakers] Got display callback for: \(set.participantId)")
+                        currentSlots += 1
+                        if currentSlots > desiredSlots {
+                            currentSlots -= unsubscribe()
+                        }
+                        video.unregisterDisplayCallback(token!)
+                        self?.logger.error("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
+                    }
                 } catch {
                     self.logger.error("Failed to subscribe: \(subscription.namespace)")
                 }
@@ -142,31 +223,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             self.logger.info("[ActiveSpeakers] Subscribed to \(subbed) subscriptions")
         }
 
-        // Now, unsubscribe from video for any speakers that are no longer active.
-        var unsubbed = 0
-        for set in existing where !speakers.contains(set.participantId) {
-            for handler in set.getHandlers().values where handler is T {
-                // Unsubscribe.
-                unsubbed += 1
-                let ftn = FullTrackName(handler.getFullTrackName())
-                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
-                if real,
-                   let stats = self.activeSpeakerStats {
-                    Task(priority: .utility) {
-                        await stats.remove(set.participantId, when: now!)
-                    }
-                }
-                do {
-                    try self.controller.unsubscribe(set.sourceId, ftn: ftn)
-                } catch {
-                    self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
-                }
-            }
+        // If we have too many, unsubscribe until we don't.
+        while currentSlots > desiredSlots {
+            currentSlots -= unsubscribe()
         }
-        if unsubbed == 0 {
-            self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
-        } else {
-            self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
-        }
+        self.logger.error("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
     }
 }

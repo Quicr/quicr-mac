@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
+import Synchronization
 @testable import QuicR
 
 final class TestFullTrackName: XCTestCase {
@@ -76,7 +77,9 @@ final class TestCallController: XCTestCase {
         }
     }
 
-    class MockSubscription: Subscription {
+    class MockSubscription: Subscription, DisplayNotification {
+        var mediaState = MediaState.subscribed
+
         init(profile: Profile) throws {
             try super.init(profile: profile,
                            endpointId: "1",
@@ -86,6 +89,23 @@ final class TestCallController: XCTestCase {
                            groupOrder: .originalPublisherOrder,
                            filterType: .none,
                            statusCallback: nil)
+        }
+
+        // Display notification.
+        private let callbacks = Mutex<DisplayCallbacks>(.init())
+        func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
+            self.callbacks.store(callback)
+        }
+        func unregisterDisplayCallback(_ token: Int) {
+            self.callbacks.remove(token)
+        }
+        func mockDisplayCallback() {
+            for callback in self.callbacks.get().callbacks {
+                callback.value()
+            }
+        }
+        func getMediaState() -> MediaState {
+            self.mediaState
         }
     }
 
