@@ -16,10 +16,18 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
-typealias ObjectReceived = (_ timestamp: TimeInterval,
+/// Callback type for an object.
+/// - Parameters:
+///    - timestamp: The timestamp of the object, if available.
+///    - when: The date when the object was received.
+///    - cached: True if the object is from the cache.
+///    - headers: The object headers.
+///    - usable: True if the object is usable, false if it should be dropped.
+typealias ObjectReceived = (_ timestamp: TimeInterval?,
                             _ when: Date,
                             _ cached: Bool,
-                            _ headers: QObjectHeaders) -> Void
+                            _ headers: QObjectHeaders,
+                            _ usable: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: TimeAlignable, CustomStringConvertible, DisplayNotification {
@@ -200,11 +208,33 @@ class VideoHandler: TimeAlignable, CustomStringConvertible, DisplayNotification 
 
     // MARK: Callbacks.
 
+    /// Pass an encoded video frame to this handler.
+    /// - Parameter objectHeaders: The object headers.
+    /// - Parameter data: Encoded frame data.
+    /// - Parameter extensions: Optional extensions.
+    /// - Parameter when: Date when the object was received.
+    /// - Parameter cached: True if this object is from the cache (not live).
+    /// - Parameter drop: True if this object should be dropped.
     func objectReceived(_ objectHeaders: QObjectHeaders,
                         data: Data,
                         extensions: [NSNumber: Data]?,
                         when: Date,
-                        cached: Bool) {
+                        cached: Bool,
+                        drop: Bool) {
+        guard !drop else {
+            // Not usable, but notify receipt.
+            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
+            for callback in toCall {
+                callback(nil, when, cached, objectHeaders, false)
+            }
+            guard self.simulreceive != .enable else { return }
+            DispatchQueue.main.async {
+                guard let participant = self.participant.get() else { return }
+                participant.received(when: when, usable: false)
+            }
+            return
+        }
+
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
@@ -238,9 +268,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible, DisplayNotification 
                 }
             }
 
+            // Notify interested parties of this object.
             let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
-                callback(timestamp, when, cached, objectHeaders)
+                callback(timestamp, when, cached, objectHeaders, true)
             }
 
             // TODO: This can be inlined here.
@@ -324,6 +355,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible, DisplayNotification 
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
+                    participant.received(when: from, usable: true)
                     participant.label = .init(describing: self)
                 }
             }
