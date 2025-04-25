@@ -105,7 +105,7 @@ class VideoSubscription: Subscription, DisplayNotification {
             return result
         }
     }
-    private var mediaState = MediaState.subscribed
+    private let mediaState = Mutex<MediaState>(.subscribed)
     private var stateChangeToken: Int?
 
     init(profile: Profile,
@@ -186,7 +186,7 @@ class VideoSubscription: Subscription, DisplayNotification {
     }
 
     func getMediaState() -> MediaState {
-        self.mediaState
+        self.mediaState.get()
     }
 
     func registerDisplayCallback(_ callback: @escaping DisplayNotification.DisplayCallback) -> Int {
@@ -488,8 +488,12 @@ class VideoSubscription: Subscription, DisplayNotification {
     }
 
     private func transitionMediaState(_ newState: MediaState) {
-        assert(self.mediaState != .subscribed || newState == .received)
-        assert(self.mediaState != .rendered || newState == .subscribed)
-        self.mediaState = newState
+        self.mediaState.withLock { currentState in
+            guard newState != currentState else { return }
+            assert(currentState != .subscribed || newState == .received)
+            assert(currentState != .rendered || newState == .subscribed)
+            self.logger.notice("Changed state from \(currentState) -> \(newState)")
+            currentState = newState
+        }
     }
 }
