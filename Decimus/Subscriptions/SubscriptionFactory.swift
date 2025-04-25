@@ -323,9 +323,13 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig),
-                                         callback: { [weak set] timestamp, when, cached, _ in
+                                         callback: { [weak set] timestamp, when, cached, _, usable in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn, timestamp: timestamp, when: when, cached: cached)
+                                            set.receivedObject(ftn,
+                                                               timestamp: timestamp,
+                                                               when: when,
+                                                               cached: cached,
+                                                               usable: usable)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {

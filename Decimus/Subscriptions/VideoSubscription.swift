@@ -286,6 +286,10 @@ class VideoSubscription: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        // Record the time this arrived.
+        let now = Date.now
+        self.lastUpdateTime = now
+
         // Per-frame logging.
         if self.verbose {
             self.logger.debug("Received: \(objectHeaders.groupId) \(objectHeaders.objectId)")
@@ -309,9 +313,6 @@ class VideoSubscription: Subscription {
             }
         }
 
-        let now = Date.now
-        self.lastUpdateTime = now
-
         // Get a handler for video.
         let handler: VideoHandler
         do {
@@ -322,11 +323,20 @@ class VideoSubscription: Subscription {
         }
 
         // Check for action & state change.
+        func notify(drop: Bool) {
+            handler.objectReceived(objectHeaders,
+                                   data: data,
+                                   extensions: extensions,
+                                   when: now,
+                                   cached: false,
+                                   drop: drop)
+        }
         switch self.determineState(objectHeaders: objectHeaders) {
         case .drop:
+            notify(drop: true)
             return
         case .normal(let start):
-            handler.objectReceived(objectHeaders, data: data, extensions: extensions, when: now, cached: false)
+            notify(drop: false)
             if start {
                 self.logger.debug("Starting video playout - live")
                 handler.play()
@@ -408,7 +418,7 @@ class VideoSubscription: Subscription {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
         guard let handler = self.handler.get() else { return }
-        handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true)
+        handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true, drop: false)
 
         // Are we done?
         if headers.groupId == currentGroup,

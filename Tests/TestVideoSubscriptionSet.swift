@@ -181,7 +181,11 @@ struct VideoSubscriptionSetTests {
                                            activeSpeakerStats: nil,
                                            cleanupTime: 10,
                                            slidingWindowTime: 10)
-        try set.receivedObject(.init(namespace: [], name: ""), timestamp: timestamp, when: Self.now, cached: false)
+        try set.receivedObject(.init(namespace: [], name: ""),
+                               timestamp: timestamp,
+                               when: Self.now,
+                               cached: false,
+                               usable: true)
     }
 }
 
