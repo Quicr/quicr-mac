@@ -18,7 +18,7 @@ class VideoParticipant: Identifiable {
     /// The participant ID of this participant.
     let participantId: ParticipantId
     /// The SwiftUI view for video display.
-    let view = VideoView()
+    var view = VideoView()
     /// The label to display under the video.
     var label: String
     /// True if this video should be highlighted.
