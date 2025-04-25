@@ -61,6 +61,17 @@ class VideoParticipant: Identifiable {
         try self.videoParticipants.add(self)
     }
 
+    func received(when: Date, usable: Bool) {
+        guard let stats = self.activeSpeakerStats else { return }
+        Task { @MainActor in
+            if usable {
+                await stats.dataReceived(self.participantId, when: when)
+            } else {
+                await stats.dataDropped(self.participantId, when: when)
+            }
+        }
+    }
+
     func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?, when: Date) throws {
         // Stats.
         if let stats = self.activeSpeakerStats {

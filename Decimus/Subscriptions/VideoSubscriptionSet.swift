@@ -183,16 +183,43 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     }
 
     /// Inform the set that a video frame from a managed subscription arrived.
-    /// - Parameter timestamp: Media timestamp of the arrived frame.
+    /// - Parameter ftn: The full track name of the subscription this object came from.
+    /// - Parameter timestamp: Media timestamp of the arrived frame, if usable.
     /// - Parameter when: The local datetime this happened.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
-        // Set the timestamp diff using the min value from recent live objects.
-        if !cached {
-            self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
+    /// - Parameter cached: True if this object is cached.
+    /// - Parameter usable: True if this object should be used.
+    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
+        // Notify receipt for stats.
+        if self.simulreceive == .enable && self.activeSpeakerStats != nil {
+            Task {
+                try await MainActor.run {
+                    let participant = try self.participant.withLock { locked in
+                        guard let existing = locked else {
+                            let created = try VideoParticipant(id: self.sourceId,
+                                                               startDate: self.joinDate,
+                                                               subscribeDate: self.subscribeDate,
+                                                               videoParticipants: self.participants,
+                                                               participantId: self.participantId,
+                                                               activeSpeakerStats: self.activeSpeakerStats)
+                            locked = created
+                            return created
+                        }
+                        return existing
+                    }
+                    participant.received(when: when, usable: usable)
+                }
+            }
         }
 
-        // Calculate switching set arrival variance.
-        _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
+        if let timestamp = timestamp {
+            // Set the timestamp diff using the min value from recent live objects.
+            if !cached {
+                self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
+            }
+
+            // Calculate switching set arrival variance.
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
+        }
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {

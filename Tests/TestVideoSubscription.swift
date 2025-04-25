@@ -61,7 +61,7 @@ struct TestVideoSubscription {
                                      cleanupTime: 1.5,
                                      subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                  newGroupUpperThreshold: ngThreshold)),
-                                     callback: { callback?($0, $1, $2, $3) },
+                                     callback: { callback?($0, $1, $2, $3, $4) },
                                      statusChanged: ({_ in }))
     }
 
@@ -209,7 +209,9 @@ struct TestVideoSubscription {
     func testNewGroupResult() async throws {
         var gotGroupId: UInt64?
         var gotObjectId: UInt64?
-        let callback: ObjectReceived = { _, _, _, headers in
+        var shouldDrop: Bool?
+        let callback: ObjectReceived = { _, _, _, headers, usable in
+            shouldDrop = !usable
             gotGroupId = headers.groupId
             gotObjectId = headers.objectId
         }
@@ -236,20 +238,23 @@ struct TestVideoSubscription {
 
         // Get into waiting for new group state.
         subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
-        #expect(gotGroupId == nil)
-        #expect(gotObjectId == nil)
+        #expect(shouldDrop == true)
+        #expect(gotGroupId == sentGroupId)
+        #expect(gotObjectId == sendObjectId)
 
         // We want to validate that when we're waiting for a new group,
         // we drop middle of group objects.
         sendObjectId += 1
         subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
-        #expect(gotGroupId == nil)
-        #expect(gotObjectId == nil)
+        #expect(shouldDrop == true)
+        #expect(gotGroupId == sentGroupId)
+        #expect(gotObjectId == sendObjectId)
 
         // When a new group does arrive, we use it.
         sentGroupId += 1
         sendObjectId = 0
         subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        #expect(shouldDrop == false)
         #expect(gotGroupId == sentGroupId)
         #expect(gotObjectId == sendObjectId)
     }
