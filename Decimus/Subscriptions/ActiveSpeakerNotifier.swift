@@ -82,7 +82,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     }
 
     private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
-        self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        self.logger.debug("[ActiveSpeakers] Changed: \(speakers). Real: \(real)")
 
         // Report last received real active speaker list.
         if real {
@@ -112,125 +112,91 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.recheck(real: real, desiredSlots: speakers.count)
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
-    private func recheck(real: Bool, desiredSlots: Int) { // swiftlint:disable:this function_body_length
+    private func recheck(real: Bool, desiredSlots: Int) {
         var currentSlots = 0
 
-        // How many current subscriptions are rendering?
-        let existingSets = self.controller.getSubscriptionSets().filter { $0 is VideoSubscriptionSet }
-        for set in existingSets {
-            // swiftlint:disable:next line_length
-            for case let handler as DisplayNotification in set.getHandlers().values where handler.getMediaState() == .rendered {
-                currentSlots += 1
-                break // 1 display per set is enough.
+        // Get the sets we're interested in.
+        let existingSets: [SourceIDType: VideoSubscriptionSet] = self.controller.getSubscriptionSets()
+            .reduce(into: [:]) { dict, set in
+                guard let set = set as? VideoSubscriptionSet else { return }
+                dict[set.sourceId] = set
             }
-        }
 
         // Firstly, subscribe to video from any speakers we are not already subscribed to.
-        var subbed = 0
-        let existingSubscriptions = existingSets.reduce(into: []) {
-            $0.append(contentsOf: $1.getHandlers().compactMap { $0.value })
-        }
-        for set in self.videoSubscriptions where self.lastRenderedSpeakers.contains(set.participantId) {
-            sets: for subscription in set.profileSet.profiles {
-                do {
-                    // We're only interested in non-existing subscriptions.
-                    let ftn = try subscription.getFullTrackName()
-                    guard !existingSubscriptions.contains(where: { FullTrackName($0.getFullTrackName()) == ftn }) else {
-                        // Here we landed on an interested but already subscribed subscription.
-                        // If they haven't rendered yet, they will fill a slot soon, recheck then.
-                        for case let handler as DisplayNotification in existingSubscriptions {
-                            guard handler.getMediaState() == .rendered else {
-                                // Register to recheck when this goes live.
-                                var token: Int?
-                                token = handler.registerDisplayCallback { [weak self] in
-                                    defer { handler.unregisterDisplayCallback(token!) }
-                                    guard let self = self else { return }
-                                    self.logger.info("Existing subscription just started displaying")
-                                    self.recheck(real: real, desiredSlots: desiredSlots)
-                                }
-                                continue sets // We only care about 1/N displays.
-                            }
-                        }
-                        continue sets // Nothing else to do.
-                    }
-                    // Subscribe.
-                    subbed += 1
-                    self.logger.debug(
-                        "[ActiveSpeakers] Subscribing to: \(subscription.namespace) (\(set.participantId))")
-                    // Does a set for this already exist?
-                    // TODO: Clean this up.
-                    let targetSet: SubscriptionSet
-                    if let found = existingSets.filter({$0.sourceId == set.sourceID}).first {
-                        targetSet = found
-                    } else {
-                        targetSet = try self.controller.subscribeToSet(details: set,
-                                                                       factory: self.factory,
-                                                                       subscribe: false)
-                    }
-                    let subscribed = try self.controller.subscribe(set: targetSet,
-                                                                   profile: subscription,
-                                                                   factory: self.factory)
-                    guard let video = subscribed as? DisplayNotification else {
-                        fatalError("Type contract mismatch")
-                    }
-                    var token: Int?
-                    token = video.registerDisplayCallback { [weak self] in
-                        defer { video.unregisterDisplayCallback(token!) }
-                        guard let self = self else { return }
-                        self.logger.debug("[ActiveSpeakers] Got display callback for: \(set.participantId)")
-                        self.recheck(real: real, desiredSlots: desiredSlots)
-                        self.logger.error("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
-                    }
-                } catch {
-                    self.logger.error("Failed to subscribe: \(subscription.namespace)")
+        for manifestSet in self.videoSubscriptions where self.lastRenderedSpeakers.contains(manifestSet.participantId) {
+            // This set may already exist.
+            let id = manifestSet.participantId
+            guard existingSets[manifestSet.sourceID] == nil else {
+                // We already have this set, what state is it in?
+                let existingSet = existingSets[manifestSet.sourceID]!
+                guard existingSet.getMediaState() != .rendered else {
+                    // Already displaying, count it.
+                    self.logger.debug("[ActiveSpeakers] Already displaying: \(id)")
+                    currentSlots += 1
+                    continue
                 }
+
+                // Otherwise, register a callback for when it does go live.
+                var token: Int?
+                self.logger.debug("[ActiveSpeakers] Register display callback for existing: \(id)")
+                token = existingSet.registerDisplayCallback { [weak self] in
+                    defer { existingSet.unregisterDisplayCallback(token!) }
+                    guard let self = self else { return }
+                    self.logger.debug("[ActiveSpeakers] Existing set just started displaying: \(id)")
+                    self.recheck(real: real, desiredSlots: desiredSlots)
+                }
+
+                // Done with this set.
+                continue
+            }
+
+            // This set doesn't exist.
+            // We need to subscribe to all of its subscriptions and watch for display events.
+            self.logger.debug("[ActiveSpeakers] Subscribing to: \(id)")
+            guard let set = try? self.controller.subscribeToSet(details: manifestSet,
+                                                                factory: self.factory,
+                                                                subscribe: true) else {
+                self.logger.error("Couldn't subscribe to set")
+                continue
+            }
+
+            guard let videoSet = set as? DisplayNotification else {
+                fatalError("Type contract mismatch")
+            }
+
+            // Register interest in this set displaying.
+            self.logger.debug("[ActiveSpeakers] Register display callback for new subscription: \(id)")
+            var token: Int?
+            token = videoSet.registerDisplayCallback { [weak self] in
+                defer { videoSet.unregisterDisplayCallback(token!) }
+                guard let self = self else { return }
+                self.logger.debug("[ActiveSpeakers] Got display callback for: \(id)")
+                self.recheck(real: real, desiredSlots: desiredSlots)
             }
         }
-        if subbed == 0 {
-            self.logger.info("[ActiveSpeakers] No new subscribes needed")
-        } else {
-            self.logger.info("[ActiveSpeakers] Subscribed to \(subbed) subscriptions")
+
+        // Everything new is now setup. At this point, we should be rechecking our subscriptions from scratch.
+        // If there are more active subscriptions than live subscriptions, we need to unsubscribe from them.
+        if existingSets.count > desiredSlots {
+            // Remove one.
+            self.unsubscribe(real: real)
+            self.recheck(real: real, desiredSlots: desiredSlots)
+            return
         }
 
-        // If we have too many, unsubscribe until we don't.
-        while currentSlots > desiredSlots {
-            currentSlots -= self.unsubscribe(real: real)
-        }
-        self.logger.error("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
+        self.logger.debug("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
     }
 
-    private func unsubscribe(real: Bool) -> Int {
-        // Unsubscribe from video for any speakers that are no longer active.
+    private func unsubscribe(real: Bool) {
+        // Unsubscribe 1 video for any speakers that are no longer active.
         let existing = self.controller.getSubscriptionSets()
-        var unsubbed = 0
-        for set in existing where !self.lastRenderedSpeakers.contains(set.participantId) {
-            for handler in set.getHandlers().values where handler is T {
-                // Unsubscribe.
-                unsubbed += 1
-                let ftn = FullTrackName(handler.getFullTrackName())
-                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
-                if real,
-                   let stats = self.activeSpeakerStats {
-                    Task(priority: .utility) {
-                        await stats.remove(set.participantId, when: Date.now)
-                    }
-                }
-                do {
-                    try self.controller.unsubscribe(set.sourceId, ftn: ftn)
-                } catch {
-                    self.logger.warning("Error unsubscribing: \(error.localizedDescription)")
-                }
+        if let toUnsub = existing.filter({ !self.lastRenderedSpeakers.contains($0.participantId) }).first {
+            do {
+                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(toUnsub.participantId)")
+                try self.controller.unsubscribeToSet(toUnsub.sourceId)
+            } catch {
+                self.logger.error("Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
             }
-
-            // TODO: Should we break here?
-            break
         }
-        if unsubbed == 0 {
-            self.logger.info("[ActiveSpeakers] No new unsubscribes needed")
-        } else {
-            self.logger.info("[ActiveSpeakers] Unsubscribed from \(unsubbed) subscriptions")
-        }
-        return unsubbed
     }
 }

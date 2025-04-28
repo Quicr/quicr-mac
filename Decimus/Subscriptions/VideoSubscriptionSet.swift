@@ -17,7 +17,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-class VideoSubscriptionSet: ObservableSubscriptionSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription
@@ -120,13 +120,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             createdProfiles[fullTrackName] = config
         }
 
-        // Make all the video subscriptions upfront.
+        // Store all the containing profiles.
         self.profiles = createdProfiles
         let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
         let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
 
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+
+        // Prepare for aligning contained subscriptions to the same time line.
         self.timeAligner = .init(windowLength: slidingWindowTime,
                                  capacity: Int(capacityGuess)) { [weak self] in
             guard let self = self else { return [] }
@@ -162,13 +164,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     deinit {
         self.cleanupTask?.cancel()
         Self.logger.debug("Deinit")
-    }
-
-    override func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
-        guard let handler = handler as? VideoSubscription else {
-            throw "Handler MUST be VideoSubscription"
-        }
-        try super.addHandler(handler)
     }
 
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
@@ -231,6 +226,12 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
 
         // Record the last time this updated.
         self.lastUpdateTime = when
+
+        // Update our state.
+        self.mediaState.withLock { existing in
+            guard existing == .subscribed else { return }
+            existing = .received
+        }
     }
 
     private func startRenderTask() {
@@ -531,6 +532,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                         try participant.enqueue(selectedSample,
                                                 transform: transform,
                                                 when: at)
+                        self.mediaState.withLock { existing in
+                            assert(existing != .subscribed)
+                            existing = .rendered
+                        }
+                        self.displayCallbacks.fire()
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }
@@ -572,4 +578,30 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
+
+    // MARK: DisplayNotification implementation.
+
+    private let displayCallbacks = Mutex<DisplayCallbacks>(.init())
+    private let mediaState = Mutex<MediaState>(.subscribed)
+
+    func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
+        return self.displayCallbacks.store(callback)
+    }
+
+    func unregisterDisplayCallback(_ token: Int) {
+        self.displayCallbacks.remove(token)
+    }
+
+    func getMediaState() -> MediaState {
+        self.mediaState.get()
+    }
+
+    func fireDisplayCallbacks() {
+        #if DEBUG
+        self.mediaState.withLock { $0 = .rendered }
+        #else
+        assert(self.mediaState.get() == .rendered)
+        #endif
+        self.displayCallbacks.fire()
+    }
 }

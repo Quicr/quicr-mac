@@ -23,6 +23,9 @@ protocol DisplayNotification {
 
     // Get the current state of the media.
     func getMediaState() -> MediaState
+
+    /// Fire all display callbacks.
+    func fireDisplayCallbacks()
 }
 
 struct DisplayCallbacks {
@@ -42,5 +45,11 @@ extension Mutex<DisplayCallbacks> {
 
     func remove(_ token: Int) {
         self.withLock { _ = $0.callbacks.removeValue(forKey: token) }
+    }
+
+    func fire() {
+        for callback in self.get().callbacks {
+            callback.value()
+        }
     }
 }

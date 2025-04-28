@@ -6,6 +6,48 @@ import OrderedCollections
 @testable import QuicR
 
 final class TestActiveSpeaker: XCTestCase {
+    class MockVideoSubscriptionFactory: TestCallController.GenericMockSubscriptionFactory<VideoSubscriptionSet, TestCallController.MockSubscription> {
+        var participants: VideoParticipants?
+        override init(_ callback: @escaping SubscriptionCreated) {
+            super.init(callback)
+            DispatchQueue.main.sync {
+                self.participants = .init()
+            }
+        }
+
+        override func make(subscription: ManifestSubscription,
+                           codecFactory: any CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> VideoSubscriptionSet {
+            return try .init(subscription: subscription,
+                             participants: self.participants!,
+                             metricsSubmitter: nil,
+                             videoBehaviour: .freeze,
+                             reliable: true,
+                             granularMetrics: true,
+                             jitterBufferConfig: .init(),
+                             simulreceive: .enable,
+                             qualityMissThreshold: 30,
+                             pauseMissThreshold: 30,
+                             pauseResume: false,
+                             endpointId: endpointId,
+                             relayId: relayId,
+                             codecFactory: MockCodecFactory(),
+                             joinDate: .now,
+                             activeSpeakerStats: nil,
+                             cleanupTime: 30,
+                             slidingWindowTime: 30)
+        }
+
+        override func make(set: VideoSubscriptionSet,
+                           profile: Profile,
+                           codecFactory: any CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> TestCallController.MockSubscription {
+            try TestCallController.MockSubscription(profile: profile)
+        }
+    }
+
     class MockActiveSpeakerNotifier: ActiveSpeakerNotifier {
         private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
         private var token: CallbackToken = 0
@@ -94,14 +136,17 @@ final class TestActiveSpeaker: XCTestCase {
         try await controller.connect()
 
         // Subscribe to 1 and 2.
+        var setOne: VideoSubscriptionSet?
         if ourself != manifestSubscription1.participantId {
-            _ = try controller.subscribeToSet(details: manifestSubscription1, factory: TestCallController.MockSubscriptionFactory({
-                XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
-            }), subscribe: true)
+            setOne = try controller.subscribeToSet(details: manifestSubscription1,
+                                                   factory: MockVideoSubscriptionFactory({
+                                                    XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
+                                                   }), subscribe: true) as! VideoSubscriptionSet? // swiftlint:disable:this force_cast
         }
-        _ = try controller.subscribeToSet(details: manifestSubscription2, factory: TestCallController.MockSubscriptionFactory({
-            XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
-        }), subscribe: true)
+        let setTwo = try controller.subscribeToSet(details: manifestSubscription2,
+                                                   factory: MockVideoSubscriptionFactory({
+                                                    XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
+                                                   }), subscribe: true) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
 
         // 1 and 2 should be created and subscribed to.
         let initialSubscriptionSets = controller.getSubscriptionSets()
@@ -124,12 +169,10 @@ final class TestActiveSpeaker: XCTestCase {
         }), subbed)
 
         // Mark 1 and 2 as in displaying state.
-        for handler in handlers {
-            guard let handler = handler as? TestCallController.MockSubscription else {
-                fatalError("Type contract mismatch")
-            }
-            handler.mediaState = .rendered
+        if let setOne {
+            setOne.fireDisplayCallbacks()
         }
+        setTwo.fireDisplayCallbacks()
 
         // Now, 1 and 3 are actively speaking.
         subbed = []
@@ -140,7 +183,7 @@ final class TestActiveSpeaker: XCTestCase {
         let newSpeakers: OrderedSet<ParticipantId> = [speakerOne, speakerThree]
         let notifier = MockActiveSpeakerNotifier()
         var created: [SubscriptionSet] = []
-        let factory = TestCallController.MockSubscriptionFactory { created.append($0) }
+        let factory = MockVideoSubscriptionFactory { created.append($0) }
         let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
                                                                                                   controller: controller,
                                                                                                   videoSubscriptions: manifestSubscriptions,
@@ -173,11 +216,13 @@ final class TestActiveSpeaker: XCTestCase {
             XCTAssertEqual(subbed.count, 1)
             XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
 
-            // We won't yet have unsubscribed from non-active speaker 2, until we have a frame to display from new speaker 3.
+            // We won't yet have unsubscribed from non-active speaker 2,
+            // until we have a frame to display from new speaker 3.
             XCTAssertEqual(unsubbed.count, 0)
 
-            // Mock a frame arriving from 3.
-            (subbed[0] as! TestCallController.MockSubscription).mockDisplayCallback() // swiftlint:disable:this force_cast
+            // Mock a frame displaying from 3.
+            let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+            three.fireDisplayCallbacks()
 
             // Should now have unsubscribed from 2.
             XCTAssertEqual(unsubbed.count, 1)
@@ -186,17 +231,17 @@ final class TestActiveSpeaker: XCTestCase {
             // We're only showing one participant. 1 and 2 were speaking, now 1 and 3.
             if ourself == speakerOne {
                 // In this case, the top active speaker is us, so the next (3) should be subscribed.
-                XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+                XCTAssertEqual(created.map { $0.sourceId }.sorted(),
+                               [manifestSubscription3].map { $0.sourceID }.sorted())
                 XCTAssertEqual(subbed.count, 1)
                 XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
 
                 // 2 should not yet be unsubscribed until we get a frame from 3.
                 XCTAssertEqual(unsubbed.count, 0)
 
-                // Mock a frame arriving from 3.
-                // swiftlint:disable force_cast
-                (subbed[0] as! TestCallController.MockSubscription).mockDisplayCallback()
-                // swiftlint:enable force_cast
+                // Mock a frame displaying from 3.
+                let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+                three.fireDisplayCallbacks()
 
                 // Now 2 should have gone away.
                 XCTAssertEqual(unsubbed.count, 1)
@@ -219,6 +264,11 @@ final class TestActiveSpeaker: XCTestCase {
             XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
             // Should NOT have unsubscribed from 2 because we're
             // expanding out to previous due to clamp > speakers.count.
+            XCTAssert(unsubbed.isEmpty)
+
+            // Even if a frame arrives from 3.
+            let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+            three.fireDisplayCallbacks()
             XCTAssert(unsubbed.isEmpty)
         default:
             XCTFail("Unhandled case")
