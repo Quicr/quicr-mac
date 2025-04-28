@@ -90,7 +90,7 @@ struct Profile: Codable {
     /// The namespace this publication/subscription is for.
     let namespace: [String]
     /// The name this publication is for.
-    let name: String
+    let name: String?
     let channel: Int?
 
     enum CodingKeys: String, CodingKey {
@@ -100,13 +100,13 @@ struct Profile: Codable {
     }
 
     /// Ctreate a new quality profile from its parts.
-    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], name: String, channel: Int? = nil) {
+    init(qualityProfile: String, expiry: [Int]?, priorities: [Int]?, namespace: [String], channel: Int? = nil, name: String? = nil) {
         self.qualityProfile = qualityProfile
         self.expiry = expiry
         self.priorities = priorities
         self.namespace = namespace
-        self.name = name
         self.channel = channel
+        self.name = name
     }
 
     /// Parse a profile from it's encoded representation.
@@ -116,8 +116,8 @@ struct Profile: Codable {
         expiry = try values.decodeIfPresent([Int].self, forKey: .expiry)
         priorities = try values.decodeIfPresent([Int].self, forKey: .priorities)
         namespace = try values.decode([String].self, forKey: .namespace)
-        name = try values.decode(String.self, forKey: .name)
         channel = try values.decodeIfPresent(Int.self, forKey: .channel)
+        name = try values.decodeIfPresent(String.self, forKey: .name)
     }
 }
 

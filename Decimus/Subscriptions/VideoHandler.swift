@@ -16,12 +16,21 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
-typealias ObjectReceived = (_ timestamp: TimeInterval,
+/// Callback type for an object.
+/// - Parameters:
+///    - timestamp: The timestamp of the object, if available.
+///    - when: The date when the object was received.
+///    - cached: True if the object is from the cache.
+///    - headers: The object headers.
+///    - usable: True if the object is usable, false if it should be dropped.
+typealias ObjectReceived = (_ timestamp: TimeInterval?,
                             _ when: Date,
-                            _ cached: Bool) -> Void
+                            _ cached: Bool,
+                            _ headers: QObjectHeaders,
+                            _ usable: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_body_length
+class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -37,7 +46,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let reliable: Bool
-    private var jitterBuffer: JitterBuffer?
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
@@ -56,7 +64,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     let lastDecodedImage = Mutex<AvailableImage?>(nil)
-    private let timestampTimeDiffUs = Atomic(Int128.zero)
     private var lastFps: UInt16?
     private var lastDimensions: CMVideoDimensions?
 
@@ -71,6 +78,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     var description = "VideoHandler"
     private let participantId: ParticipantId
+    private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
 
     /// Create a new video handler.
@@ -97,7 +105,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
          variances: VarianceCalculator,
          participantId: ParticipantId,
          subscribeDate: Date,
-         joinDate: Date) throws {
+         joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -118,6 +127,8 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
         self.metricsSubmitter = metricsSubmitter
         self.variances = variances
         self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
+        super.init()
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -126,7 +137,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     return try VideoParticipant(id: "\(self.fullTrackName)",
                                                 startDate: joinDate,
                                                 subscribeDate: subscribeDate,
-                                                videoParticipants: self.participants)
+                                                videoParticipants: self.participants,
+                                                participantId: self.participantId,
+                                                activeSpeakerStats: self.activeSpeakerStats)
                 }
                 guard let participant = participant else { return }
                 self.participant.withLock { $0 = participant }
@@ -187,11 +200,33 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     // MARK: Callbacks.
 
+    /// Pass an encoded video frame to this handler.
+    /// - Parameter objectHeaders: The object headers.
+    /// - Parameter data: Encoded frame data.
+    /// - Parameter extensions: Optional extensions.
+    /// - Parameter when: Date when the object was received.
+    /// - Parameter cached: True if this object is from the cache (not live).
+    /// - Parameter drop: True if this object should be dropped.
     func objectReceived(_ objectHeaders: QObjectHeaders,
                         data: Data,
                         extensions: [NSNumber: Data]?,
                         when: Date,
-                        cached: Bool) {
+                        cached: Bool,
+                        drop: Bool) {
+        guard !drop else {
+            // Not usable, but notify receipt.
+            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
+            for callback in toCall {
+                callback(nil, when, cached, objectHeaders, false)
+            }
+            guard self.simulreceive != .enable else { return }
+            DispatchQueue.main.async {
+                guard let participant = self.participant.get() else { return }
+                participant.received(when: when, usable: false)
+            }
+            return
+        }
+
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
@@ -227,6 +262,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
             let presentation = CMTime(value: CMTimeValue(metadata.ptsTimestamp.value),
                                       timescale: CMTimeScale(metadata.timebase.value))
+
+
+
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: encoded,
                                                    groupId: objectHeaders.groupId,
@@ -249,9 +287,10 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 }
             }
 
+            // Notify interested parties of this object.
             let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
             for callback in toCall {
-                callback(timestamp, when, cached)
+                callback(timestamp, when, cached, objectHeaders, true)
             }
 
             // TODO: This can be inlined here.
@@ -265,8 +304,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
 
     /// Allows frames to be played from the buffer.
     func play() {
+        guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
-            Self.logger.debug("Set play with no buffer")
+            Self.logger.error("Set play with no buffer")
             return
         }
         buffer.startPlaying()
@@ -326,6 +366,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
+                    participant.received(when: from, usable: true)
                     participant.label = .init(describing: self)
                 }
             }
@@ -346,36 +387,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                 await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
             }
         }
-    }
-
-    /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
-    /// - Parameter from: The time to calculate from.
-    /// - Returns Time to wait in seconds, if any.
-    func calculateWaitTime(from: Date) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else { return nil }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs != 0 else {
-            Self.logger.debug("Missing initial timestamp")
-            return nil
-        }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(from: from, offset: diff)
-    }
-
-    private func calculateWaitTime(frame: DecimusVideoFrameJitterItem, from: Date = .now) -> TimeInterval? {
-        guard let jitterBuffer = self.jitterBuffer else {
-            assert(false)
-            Self.logger.error("App misconfiguration, please report this")
-            return nil
-        }
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs != 0 else {
-            assert(false)
-            Self.logger.warning("Missing initial timestamp")
-            return nil
-        }
-        let diff = TimeInterval(diffUs) / 1_000_000.0
-        return jitterBuffer.calculateWaitTime(item: frame, from: from, offset: diff)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
@@ -479,7 +490,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now) {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(frame: item) {
+                           let time = self.calculateWaitTime(item: item) {
                             Task(priority: .utility) {
                                 await measurement.frameDelay(delay: time, metricsTimestamp: now)
                             }
@@ -492,7 +503,7 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.error("Failed to write to decoder: \(error.localizedDescription)")
+                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -517,15 +528,6 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                      fps: frame.fps,
                      orientation: frame.orientation,
                      verticalMirror: frame.verticalMirror)
-    }
-
-    /// Set the difference in time between incoming stream timestamps and wall clock.
-    /// - Parameter diff: Difference in time in seconds.
-    func setTimeDiff(diff: TimeInterval) {
-        // Get to an integer representation, in microseconds.
-        let diffUs = Int128(diff * microsecondsPerSecond)
-        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
-        self.timestampTimeDiffUs.store(diffUs != 0 ? diffUs : 1, ordering: .releasing)
     }
 
     private func decode(sample: DecimusVideoFrame, from: Date) throws {
@@ -607,7 +609,9 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
                     self.startTimeSet = true
                 }
-                try participant.enqueue(sample, transform: orientation?.toTransform(verticalMirror!))
+                try participant.enqueue(sample,
+                                        transform: orientation?.toTransform(verticalMirror!),
+                                        when: from)
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
@@ -726,6 +730,30 @@ class VideoHandler: CustomStringConvertible { // swiftlint:disable:this type_bod
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror)
     }
+
+    #if DEBUG
+    private func mockedFrame(data: Data, timestamp: Date, groupId: UInt64, objectId: UInt64) throws -> DecimusVideoFrame {
+        var copy = data
+        let sample = try copy.withUnsafeMutableBytes { bytes in
+            let timeInfo = CMSampleTimingInfo(duration: .invalid,
+                                              presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
+                                                                           timescale: 1_000_000),
+                                              decodeTimeStamp: .invalid)
+            return try CMSampleBuffer(dataBuffer: try .init(buffer: bytes) { _, _ in },
+                                      formatDescription: nil,
+                                      numSamples: 1,
+                                      sampleTimings: [timeInfo],
+                                      sampleSizes: [data.count])
+        }
+        return DecimusVideoFrame(samples: [sample],
+                                 groupId: groupId,
+                                 objectId: objectId,
+                                 sequenceNumber: 0,
+                                 fps: 30,
+                                 orientation: nil,
+                                 verticalMirror: nil)
+    }
+    #endif
 }
 
 extension DecimusVideoRotation {

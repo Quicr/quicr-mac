@@ -21,26 +21,28 @@ class LowOverheadContainer {
     /// Contained object's timestamp.
     let timestamp: Date
     /// Contained object's sequence number.
-    let sequence: UInt64
+    let sequence: UInt64?
     /// Wire encoded LOC as MoQ object header extension dictionary.
     private(set) var extensions: [NSNumber: Data]
 
     /// Encode a new LOC from its constituent parts.
     /// - Parameter timestamp: Timestamp of this media.
     /// - Parameter sequence: Sequence number of this media.
-    init(timestamp: Date, sequence: UInt64) {
+    init(timestamp: Date, sequence: UInt64?) {
         self.timestamp = timestamp
         self.sequence = sequence
+        var extensions: [NSNumber: Data] = [:]
         var timestamp = UInt64(timestamp.timeIntervalSince1970 * microsecondsPerSecond)
         let timestampData = Data(bytes: &timestamp,
                                  count: MemoryLayout.size(ofValue: timestamp))
-        var sequence = sequence
-        let sequenceData = Data(bytes: &sequence,
-                                count: MemoryLayout.size(ofValue: sequence))
-        self.extensions = [
-            self.timestampKey: timestampData,
-            self.sequenceKey: sequenceData
-        ]
+        extensions[self.timestampKey] = timestampData
+        if let sequence {
+            var sequence = sequence
+            let sequenceData = Data(bytes: &sequence,
+                                    count: MemoryLayout.size(ofValue: sequence))
+            extensions[self.sequenceKey] = sequenceData
+        }
+        self.extensions = extensions
     }
 
     /// Add a new key-value pair to the container.
@@ -61,14 +63,17 @@ class LowOverheadContainer {
     /// - Throws: ``LowOverheadContainerError/missingField`` if a mandatory field is missing.
     init(from extensions: [NSNumber: Data]) throws {
         self.extensions = extensions
-        guard let timestampData = extensions[self.timestampKey],
-              let sequenceData = extensions[self.sequenceKey] else {
+        guard let timestampData = extensions[self.timestampKey] else {
             throw LowOverheadContainerError.missingField
         }
 
         let timestamp = try Self.parse(timestampData)
         self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / microsecondsPerSecond)
-        self.sequence = UInt64(try Self.parse(sequenceData))
+        if let sequenceData = extensions[self.sequenceKey] {
+            self.sequence = UInt64(try Self.parse(sequenceData))
+        } else {
+            self.sequence = nil
+        }
     }
 
     static func parse(_ data: Data) throws -> any BinaryInteger {

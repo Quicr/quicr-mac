@@ -10,7 +10,6 @@ struct VideoGrid: View {
     private let spacing: CGFloat = 10
     private let cornerRadius: CGFloat = 12
     let showLabels: Bool
-    @Binding var connecting: Bool
     @Binding var blur: Bool
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
@@ -45,7 +44,7 @@ struct VideoGrid: View {
 
     var body: some View {
         if self.participants.isEmpty {
-            // Waiting for other participants / connecting.
+            // Waiting for other participants.
             ZStack {
                 Image("RTMC-Background")
                     .resizable()
@@ -56,10 +55,6 @@ struct VideoGrid: View {
                 #if os(tvOS)
                 .ignoresSafeArea()
                 #endif
-                if self.connecting {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                }
             }
         } else {
             let numColumns = self.calcColumns()
@@ -82,11 +77,17 @@ struct VideoGrid: View {
                                             .padding(.bottom)
                                     }
                                 }
-                                .conditionalModifier(self.showLabels && participant.view.joinToFirstFrame != nil) {
+                                .conditionalModifier(self.showLabels && participant.joinToFirstFrame != nil) {
                                     $0.overlay(alignment: .topTrailing) {
                                         VStack(alignment: .leading) {
-                                            Text("From Join: \(participant.view.joinToFirstFrame!)s")
-                                            Text("From Subscribe: \(participant.view.subscribeToFirstFrame!)s")
+                                            Text("From Join: \(participant.joinToFirstFrame!)s")
+                                            Text("From Subscribe: \(participant.subscribeToFirstFrame!)s")
+                                            if let detect = participant.fromDetected {
+                                                Text("Display - Audio Heard: \(detect)s")
+                                            }
+                                            if let set = participant.fromSet {
+                                                Text("Display - Speaker Active: \(set)s")
+                                            }
                                         }
                                         .background()
                                         .padding()
@@ -112,10 +113,8 @@ struct VideoGrid: View {
 }
 
 struct VideoGrid_Previews: PreviewProvider {
-    static let exampleParticipants: VideoParticipants = .init()
     static var previews: some View {
         VideoGrid(showLabels: true,
-                  connecting: .constant(true),
                   blur: .constant(false),
                   restrictedCount: nil,
                   videoParticipants: .init())

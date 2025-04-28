@@ -23,6 +23,7 @@ enum ActiveSpeakerApplyError: Error {
 }
 
 /// Manages the operations associated with active speaker changes.
+@Observable
 class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let notifier: ActiveSpeakerNotifier
     private var callbackToken: ActiveSpeakerNotifier.CallbackToken?
@@ -31,8 +32,11 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let factory: SubscriptionFactory
     private let logger = DecimusLogger(ActiveSpeakerApply.self)
     private var lastSpeakers: OrderedSet<ParticipantId>
+    private(set) var lastRenderedSpeakers: OrderedSet<ParticipantId> = []
+    private(set) var lastReceived: OrderedSet<ParticipantId> = []
     private var count: Int?
     private let participantId: ParticipantId
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     /// Initialize the active speaker manager.
     /// - Parameters:
@@ -45,7 +49,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
          controller: MoqCallController,
          videoSubscriptions: [ManifestSubscription],
          factory: SubscriptionFactory,
-         participantId: ParticipantId) throws {
+         participantId: ParticipantId,
+         activeSpeakerStats: ActiveSpeakerStats?) throws {
         self.notifier = notifier
         self.controller = controller
         guard videoSubscriptions.allSatisfy({ $0.mediaType == ManifestMediaTypes.video.rawValue }) else {
@@ -56,6 +61,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.lastSpeakers = .init(videoSubscriptions.filter({$0.participantId != participantId})
                                     .map({$0.participantId}))
         self.participantId = participantId
+        self.activeSpeakerStats = activeSpeakerStats
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -70,15 +76,29 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     func setClampCount(_ count: Int?) {
         self.logger.debug("[ActiveSpeakers] Set clamp count to: \(String(describing: count))")
         self.count = count
-        self.onActiveSpeakersChanged(lastSpeakers)
+        self.onActiveSpeakersChanged(self.lastSpeakers, real: false)
     }
 
-    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>) {
+    private func onActiveSpeakersChanged(_ speakers: OrderedSet<ParticipantId>, real: Bool = true) {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers)")
+        var now: Date?
+        if real {
+            self.lastReceived = speakers
+            if let stats = self.activeSpeakerStats {
+                now = Date.now
+                Task(priority: .utility) {
+                    for speaker in speakers {
+                        await stats.activeSpeakerSet(speaker, when: now!)
+                    }
+                }
+            }
+        }
+
         var speakers = speakers
         speakers.remove(self.participantId)
         self.lastSpeakers = speakers.union(self.lastSpeakers)
         speakers = self.count == nil ? speakers : OrderedSet(self.lastSpeakers.prefix(self.count!))
+        self.lastRenderedSpeakers = speakers
         let existing = self.controller.getSubscriptionSets()
 
         // Firstly, subscribe to video from any speakers we are not already subscribed to.
@@ -130,6 +150,12 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 unsubbed += 1
                 let ftn = FullTrackName(handler.getFullTrackName())
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(ftn) (\(set.participantId)))")
+                if real,
+                   let stats = self.activeSpeakerStats {
+                    Task(priority: .utility) {
+                        await stats.remove(set.participantId, when: now!)
+                    }
+                }
                 do {
                     try self.controller.unsubscribe(set.sourceId, ftn: ftn)
                 } catch {

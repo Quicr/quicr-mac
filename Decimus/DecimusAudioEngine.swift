@@ -20,11 +20,12 @@ class DecimusAudioEngine {
     // The AVAudioEngine instance this AudioEngine wraps.
     private let engine: AVAudioEngine
     private var notificationObservers: [NSObjectProtocol] = []
-    private let sink: AVAudioSinkNode?
+    private var sink: AVAudioSinkNode?
     private var stopped: Bool = false
     private let elements = Mutex<[SourceIDType: AVAudioSourceNode]>([:])
     private let inputNodePresent: Bool
     private let outputNodePresent: Bool
+    private let captureAudio = Atomic(false)
 
     #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
@@ -73,13 +74,21 @@ class DecimusAudioEngine {
         Self.logger.warning("Media services reset. Report this.")
     }
 
-    private lazy var routeChange: (Notification) -> Void = { notification in
-        guard let userInfo = notification.userInfo,
+    private lazy var routeChange: (Notification) -> Void = { [weak self] notification in
+        guard let self = self,
+              let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
             return
         }
         Self.logger.debug("Route change: \(reason)")
+        if reason == .routeConfigurationChange {
+            do {
+                try self.reconfigureAndRestart()
+            } catch {
+                Self.logger.error("Failed to restart audio: \(error.localizedDescription)")
+            }
+        }
     }
     #endif
 
@@ -158,9 +167,12 @@ class DecimusAudioEngine {
 
             // Capture microphone audio.
             let inputFormat = Self.format.streamDescription.pointee
+
             self.microphoneBuffer = try .init(length: 1, format: inputFormat)
-            let sink = AVAudioSinkNode { [weak microphoneBuffer] timestamp, frames, data in
-                guard let microphoneBuffer = microphoneBuffer else { return 1 }
+            let sink = AVAudioSinkNode { [weak self] timestamp, frames, data in
+                guard let self = self,
+                      let microphoneBuffer = self.microphoneBuffer,
+                      self.captureAudio.load(ordering: .acquiring) else { return 1 }
                 let example = UnsafeMutablePointer(mutating: data)
                 let timestamp = UnsafeMutablePointer(mutating: timestamp)
                 do {
@@ -210,6 +222,13 @@ class DecimusAudioEngine {
         for observer in notificationObservers {
             NotificationCenter.default.removeObserver(observer)
         }
+    }
+
+    func setMicrophoneCapture(_ enabled: Bool) {
+        if enabled {
+            self.microphoneBuffer?.clear()
+        }
+        self.captureAudio.store(enabled, ordering: .releasing)
     }
 
     /// Run the audio engine. It is an error to call this when already running.

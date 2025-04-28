@@ -186,10 +186,10 @@ class H264Publication: Publication, FrameListener {
         let bytes = buffer.dataLength
         let sent: Date? = publication.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
-            measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                              timestamp: presentationDate.timeIntervalSince1970,
-                                              age: sent?.timeIntervalSince(presentationDate) ?? nil,
-                                              metricsTimestamp: sent)
+            await measurement.measurement.sentFrame(bytes: UInt64(bytes),
+                                                    timestamp: presentationDate.timeIntervalSince1970,
+                                                    age: sent?.timeIntervalSince(presentationDate) ?? nil,
+                                                    metricsTimestamp: sent)
         }
     }
 

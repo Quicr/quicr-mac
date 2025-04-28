@@ -12,7 +12,7 @@ class OpusSubscription: Subscription {
     private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
-    private let handler: Mutex<OpusHandler?>
+    private let handler: Mutex<AudioHandler?>
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Mutex<Date?>(nil)
@@ -22,6 +22,7 @@ class OpusSubscription: Subscription {
     private let metricsSubmitter: MetricsSubmitter?
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
+    private let activeSpeakerStats: ActiveSpeakerStats?
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -35,6 +36,7 @@ class OpusSubscription: Subscription {
          relayId: String,
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
+         activeSpeakerStats: ActiveSpeakerStats?,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -52,10 +54,12 @@ class OpusSubscription: Subscription {
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
+        self.activeSpeakerStats = activeSpeakerStats
 
         // Create the actual audio handler upfront.
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
+                                       decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                        measurement: self.measurement,
                                        jitterDepth: self.jitterDepth,
                                        jitterMax: self.jitterMax,
@@ -110,45 +114,11 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
 
-        // TODO: Handle sequence rollover.
-        if objectHeaders.groupId > self.seq {
-            let missing = objectHeaders.groupId - self.seq - 1
-            let currentSeq = self.seq
-            if let measurement = measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
-                    if missing > 0 {
-                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(objectHeaders.groupId)")
-                        await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
-                    }
-                }
-            }
-            self.seq = objectHeaders.groupId
-        }
-
-        // Do we need to create the handler?
-        let handler: OpusHandler
-        do {
-            handler = try self.handler.withLock { lockedHandler in
-                guard let handler = lockedHandler else {
-                    let handler = try OpusHandler(identifier: self.profile.namespace.joined(),
-                                                  engine: self.engine,
-                                                  measurement: self.measurement,
-                                                  jitterDepth: self.jitterDepth,
-                                                  jitterMax: self.jitterMax,
-                                                  opusWindowSize: self.opusWindowSize,
-                                                  granularMetrics: self.granularMetrics,
-                                                  useNewJitterBuffer: self.useNewJitterBuffer,
-                                                  metricsSubmitter: self.metricsSubmitter)
-                    lockedHandler = handler
-                    return handler
-                }
-                return handler
-            }
-        } catch {
-            Self.logger.error("Failed to recreate audio handler")
-            return
-        }
+        //        guard let extensions = extensions,
+        //              let loc = try? LowOverheadContainer(from: extensions) else {
+        //            Self.logger.warning("Missing expected LOC headers")
+        //            return
+        //        }
 
         guard let extensions = extensions else {
             Self.logger.warning("Missing expected extensions")
@@ -168,10 +138,61 @@ class OpusSubscription: Subscription {
             return
         }
 
+        // TODO: Handle sequence rollover.
+        let sequence = metadata.seqId.value
+        if sequence > self.seq {
+            let missing = sequence - self.seq - 1
+            let currentSeq = self.seq
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
+                    if missing > 0 {
+                        Self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
+                        await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
+                    }
+                }
+            }
+            self.seq = sequence
+        }
+
+        // Do we need to create the handler?
+        let handler: AudioHandler
+        do {
+            handler = try self.handler.withLock { lockedHandler in
+                guard let handler = lockedHandler else {
+                    let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
+                                                   engine: self.engine,
+                                                   decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
+                                                   measurement: self.measurement,
+                                                   jitterDepth: self.jitterDepth,
+                                                   jitterMax: self.jitterMax,
+                                                   opusWindowSize: self.opusWindowSize,
+                                                   granularMetrics: self.granularMetrics,
+                                                   useNewJitterBuffer: self.useNewJitterBuffer,
+                                                   metricsSubmitter: self.metricsSubmitter)
+                    lockedHandler = handler
+                    return handler
+                }
+                return handler
+            }
+        } catch {
+            Self.logger.error("Failed to recreate audio handler")
+            return
+        }
+
+        //        if let activeSpeakerStats = self.activeSpeakerStats,
+        //           let participantId = loc.get(key: OpusPublication.participantIdKey) {
+        //            Task(priority: .utility) {
+        //                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+        //                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+        //            }
+        //        }
+
         let timestamp = Date(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+
         do {
             try handler.submitEncodedAudio(data: data,
-                                           sequence: objectHeaders.groupId,
+                                           sequence: sequence,
                                            date: now,
                                            timestamp: timestamp)
         } catch {

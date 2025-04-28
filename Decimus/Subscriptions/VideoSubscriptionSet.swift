@@ -17,7 +17,6 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-// swiftlint:disable type_body_length
 class VideoSubscriptionSet: ObservableSubscriptionSet {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
@@ -48,12 +47,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
-    private let timestampTimeDiff = Atomic<Int128>(0)
     private let subscribeDate: Date
     private let participant = Mutex<VideoParticipant?>(nil)
     private let joinDate: Date
-    private let diffWindow: SlidingTimeWindow<TimeInterval>
-    private var windowMaintenance: Task<(), Never>?
+    private let activeSpeakerStats: ActiveSpeakerStats?
+    private var timeAligner: TimeAligner?
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -70,6 +68,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          relayId: String,
          codecFactory: CodecFactory,
          joinDate: Date,
+         activeSpeakerStats: ActiveSpeakerStats?,
          cleanupTime: TimeInterval,
          slidingWindowTime: TimeInterval) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
@@ -106,6 +105,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         let subscribeDate = Date.now
         self.subscribeDate = subscribeDate
         self.joinDate = joinDate
+        self.activeSpeakerStats = activeSpeakerStats
         self.cleanupTimer = cleanupTime
 
         // Adjust and store expected quality profiles.
@@ -124,10 +124,17 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         self.profiles = createdProfiles
         let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
         let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
-        self.diffWindow = .init(length: slidingWindowTime, reserved: Int(capacityGuess))
 
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        self.timeAligner = .init(windowLength: slidingWindowTime,
+                                 capacity: Int(capacityGuess)) { [weak self] in
+            guard let self = self else { return [] }
+            return self.getHandlers().compactMap { sub in
+                let sub = sub.value as! VideoSubscription // swiftlint:disable:this force_cast
+                return sub.handler.get()
+            }
+        }
 
         // Make task for cleaning up simulreceive rendering.
         if simulreceive == .enable {
@@ -175,57 +182,44 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         return result
     }
 
-    private func doWindowMaintenance(when: Date) {
-        let values = self.diffWindow.get(from: when)
-        guard let calculated = values.closestToZero() else {
-            self.timestampTimeDiff.store(0, ordering: .releasing)
-            return
-        }
-        self.timestampTimeDiff.store(Int128(calculated * microsecondsPerSecond), ordering: .releasing)
-        let subscriptions = self.getHandlers()
-        for (_, sub) in subscriptions {
-            let sub = sub as! VideoSubscription // swiftlint:disable:this force_cast
-            guard let handler = sub.handler.get() else { continue }
-            handler.setTimeDiff(diff: calculated)
-        }
-    }
-
-    private func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date) {
-        // Record this diff.
-        let diff = when.timeIntervalSince1970 - timestamp
-        self.diffWindow.add(timestamp: when, value: diff)
-
-        // Kick off a task for sliding window.
-        if self.windowMaintenance == nil {
-            self.windowMaintenance = .init(priority: .utility) { [weak self] in
-                while !Task.isCancelled {
-                    if let self = self {
-                        self.doWindowMaintenance(when: Date.now)
-                    } else {
-                        return
+    /// Inform the set that a video frame from a managed subscription arrived.
+    /// - Parameter ftn: The full track name of the subscription this object came from.
+    /// - Parameter timestamp: Media timestamp of the arrived frame, if usable.
+    /// - Parameter when: The local datetime this happened.
+    /// - Parameter cached: True if this object is cached.
+    /// - Parameter usable: True if this object should be used.
+    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
+        // Notify receipt for stats.
+        if self.simulreceive == .enable && self.activeSpeakerStats != nil {
+            Task {
+                try await MainActor.run {
+                    let participant = try self.participant.withLock { locked in
+                        guard let existing = locked else {
+                            let created = try VideoParticipant(id: self.sourceId,
+                                                               startDate: self.joinDate,
+                                                               subscribeDate: self.subscribeDate,
+                                                               videoParticipants: self.participants,
+                                                               participantId: self.participantId,
+                                                               activeSpeakerStats: self.activeSpeakerStats)
+                            locked = created
+                            return created
+                        }
+                        return existing
                     }
-                    try? await Task.sleep(for: .milliseconds(250))
+                    participant.received(when: when, usable: usable)
                 }
             }
         }
 
-        // If we have nothing, start with this.
-        if self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
-            self.doWindowMaintenance(when: when)
-        }
-    }
+        if let timestamp = timestamp {
+            // Set the timestamp diff using the min value from recent live objects.
+            if !cached {
+                self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
+            }
 
-    /// Inform the set that a video frame from a managed subscription arrived.
-    /// - Parameter timestamp: Media timestamp of the arrived frame.
-    /// - Parameter when: The local datetime this happened.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval, when: Date, cached: Bool) {
-        // Set the timestamp diff using the min value from recent live objects.
-        if !cached {
-            self.doTimestampTimeDiff(timestamp, when: when)
+            // Calculate switching set arrival variance.
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
         }
-
-        // Calculate switching set arrival variance.
-        _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
 
         // If we're responsible for rendering.
         if self.simulreceive != .none {
@@ -505,35 +499,38 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             }
 
             // If we don't yet have a participant, make one.
-            Task {
-                await MainActor.run {
-                    let participant: VideoParticipant? = self.participant.withLock { lockedParticipant in
-                        let participant: VideoParticipant
-                        if let existing = lockedParticipant {
-                            participant = existing
-                        } else {
-                            do {
-                                participant = try .init(id: self.sourceId,
-                                                        startDate: self.joinDate,
-                                                        subscribeDate: self.subscribeDate,
-                                                        videoParticipants: self.participants)
-                                lockedParticipant = participant
-                            } catch {
-                                Self.logger.error("Failed to create participant: \(error.localizedDescription)")
-                                return nil
+            Task { [weak self] in
+                guard let self = self else { return }
+                await MainActor.run { [weak self] in
+                    guard let self = self else { return }
+                    let participant: VideoParticipant
+                    do {
+                        participant = try self.participant.withLock { lockedParticipant in
+                            if let existing = lockedParticipant {
+                                return existing
                             }
+                            let created = try VideoParticipant(id: self.sourceId,
+                                                               startDate: self.joinDate,
+                                                               subscribeDate: self.subscribeDate,
+                                                               videoParticipants: self.participants,
+                                                               participantId: self.participantId,
+                                                               activeSpeakerStats: self.activeSpeakerStats)
+                            lockedParticipant = created
+                            return created
                         }
-                        return participant
+                    } catch {
+                        Self.logger.warning("Failed to create participant: \(error.localizedDescription)")
+                        return
                     }
 
-                    guard let participant else { return }
                     if let dispatchLabel = dispatchLabel {
                         participant.label = dispatchLabel
                     }
                     do {
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
-                                                transform: transform)
+                                                transform: transform,
+                                                when: at)
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }
@@ -544,8 +541,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
-                Task {
-                    await MainActor.run {
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self = self else { return }
                         for participant in self.participants.participants {
                             guard let participant = participant.value else { continue }
                             participant.highlight = participant.id == "\(fullTrackName)"
@@ -574,4 +573,3 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
 }
-// swiftlint:enable type_body_length
