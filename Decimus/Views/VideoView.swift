@@ -61,7 +61,7 @@ struct VideoView: NSViewRepresentable {
         }
     }
 
-    mutating func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
+    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?) throws {
         guard let layer = layer else {
             throw VideoError.invalidLayer
         }
