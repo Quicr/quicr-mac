@@ -230,20 +230,47 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
-                Self.logger.warning("Missing expected LOC headers")
+                Self.logger.error("Missing expected header extensions")
                 return
             }
-            let loc = try LowOverheadContainer(from: extensions)
-            guard let sequence = loc.sequence else {
-                Self.logger.error("Video needs LOC sequence number set")
-                return
+
+            // Metadata should exist for every frame.
+            let metadata = switch try extensions.getHeader(.videoH264AVCCMetadata) {
+            case .videoH264AVCCMetadata(let metadata):
+                metadata
+            default:
+                throw "Bad header extension"
             }
+
+            // Extradata may exist.
+            let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
+            case .videoH264AVCCExtradata(let data):
+                data
+            case nil:
+                nil
+            default:
+                throw "Bad header extension"
+            }
+
+            // TODO: Optimize this.
+            let encoded: Data
+            if let extradata = extradata {
+                encoded = extradata + data
+            } else {
+                encoded = data
+            }
+
+            let presentation = CMTime(value: CMTimeValue(metadata.ptsTimestamp.value),
+                                      timescale: CMTimeScale(metadata.timebase.value))
+
+
+
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
-                                                   data: data,
+                                                   data: encoded,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
-                                                   sequenceNumber: sequence,
-                                                   timestamp: loc.timestamp) else {
+                                                   sequenceNumber: metadata.seqId.value,
+                                                   presentation: presentation) else {
                 Self.logger.warning("No video data in object")
                 return
             }
@@ -639,13 +666,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                              groupId: UInt64,
                              objectId: UInt64,
                              sequenceNumber: UInt64,
-                             timestamp: Date) throws -> DecimusVideoFrame? {
-        #if DEBUG
-        guard self.config.codec != .mock else {
-            return try self.mockedFrame(data: data, timestamp: timestamp, groupId: groupId, objectId: objectId)
-        }
-        #endif
-
+                             presentation: CMTime) throws -> DecimusVideoFrame? {
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -689,8 +710,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
         guard let buffers = buffers else { return nil }
         let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
-                                                                       timescale: 1_000_000),
+                                          presentationTimeStamp: presentation,
                                           decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
