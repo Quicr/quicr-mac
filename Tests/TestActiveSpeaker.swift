@@ -48,6 +48,23 @@ final class TestActiveSpeaker: XCTestCase {
         }
     }
 
+    class MockOtherSubscriptionFactory: TestCallController.GenericMockSubscriptionFactory<ObservableSubscriptionSet, TestCallController.MockSubscription> {
+        override func make(subscription: ManifestSubscription,
+                           codecFactory: any CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> ObservableSubscriptionSet {
+            .init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        }
+
+        override func make(set: ObservableSubscriptionSet,
+                           profile: Profile,
+                           codecFactory: any CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> TestCallController.MockSubscription {
+            try TestCallController.MockSubscription(profile: profile)
+        }
+    }
+
     class MockActiveSpeakerNotifier: ActiveSpeakerNotifier {
         private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
         private var token: CallbackToken = 0
@@ -135,6 +152,23 @@ final class TestActiveSpeaker: XCTestCase {
         let controller = MoqCallController(endpointUri: "4", client: client, submitter: nil) { }
         try await controller.connect()
 
+        // Subscribe to something that isn't a video subscription, to ensure we don't
+        // alter the behaviour of non-video subscriptions.
+        let manifestSubscriptionOther = ManifestSubscription(mediaType: "",
+                                                             sourceName: "",
+                                                             sourceID: "nonvideo",
+                                                             label: "",
+                                                             participantId: .init(0),
+                                                             profileSet: .init(type: "other", profiles: [
+                                                                .init(qualityProfile: "",
+                                                                      expiry: nil,
+                                                                      priorities: nil,
+                                                                      namespace: ["not", "video"])
+                                                             ]))
+        var nonVideoSet = try controller.subscribeToSet(details: manifestSubscriptionOther,
+                                                        factory: MockOtherSubscriptionFactory({ _ in}),
+                                                        subscribe: true)
+
         // Subscribe to 1 and 2.
         var setOne: VideoSubscriptionSet?
         if ourself != manifestSubscription1.participantId {
@@ -152,13 +186,13 @@ final class TestActiveSpeaker: XCTestCase {
         let initialSubscriptionSets = controller.getSubscriptionSets()
         let expected: [ManifestSubscription]
         if ourself == manifestSubscription1.participantId {
-            expected = [manifestSubscription2]
+            expected = [manifestSubscriptionOther, manifestSubscription2]
         } else {
-            expected = [manifestSubscription1, manifestSubscription2]
+            expected = [manifestSubscriptionOther, manifestSubscription1, manifestSubscription2]
         }
         XCTAssertEqual(initialSubscriptionSets.map { $0.sourceId }.sorted(), expected.map { $0.sourceID }.sorted())
         let handlers = initialSubscriptionSets.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
-        XCTAssertEqual(handlers.sorted(by: {
+        let sortedHandlers = handlers.sorted(by: {
             let aFtn = FullTrackName($0.getFullTrackName())
             let bFtn = FullTrackName($1.getFullTrackName())
             guard let lhs = String(data: Data(aFtn.nameSpace.joined()), encoding: .utf8),
@@ -166,7 +200,8 @@ final class TestActiveSpeaker: XCTestCase {
                 return false
             }
             return lhs < rhs
-        }), subbed)
+        })
+        XCTAssertEqual(Set(handlers), Set(subbed))
 
         // Mark 1 and 2 as in displaying state.
         if let setOne {

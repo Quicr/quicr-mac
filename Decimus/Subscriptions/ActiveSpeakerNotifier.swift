@@ -190,7 +190,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private func unsubscribe(real: Bool) {
         // Unsubscribe 1 video for any speakers that are no longer active.
         let existing = self.controller.getSubscriptionSets()
-        if let toUnsub = existing.filter({ !self.lastRenderedSpeakers.contains($0.participantId) }).first {
+        if let toUnsub = existing
+            .filter({ $0 is VideoSubscriptionSet && !self.lastRenderedSpeakers.contains($0.participantId) })
+            .sorted(by: { $0.participantId < $1.participantId })
+            .first {
             do {
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(toUnsub.participantId)")
                 try self.controller.unsubscribeToSet(toUnsub.sourceId)
@@ -198,5 +201,11 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 self.logger.error("Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
             }
         }
+    }
+}
+
+extension ParticipantId: Comparable {
+    static func < (lhs: ParticipantId, rhs: ParticipantId) -> Bool {
+        lhs.aggregate < rhs.aggregate
     }
 }
