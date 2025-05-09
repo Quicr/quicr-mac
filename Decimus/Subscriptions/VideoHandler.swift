@@ -30,7 +30,8 @@ typealias ObjectReceived = (_ timestamp: TimeInterval?,
                             _ usable: Bool) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
+class VideoHandler: TimeAlignable, CustomStringConvertible {
+    // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
