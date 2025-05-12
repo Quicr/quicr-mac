@@ -37,6 +37,7 @@ class H264Publication: Publication, FrameListener {
     private let publishFailure = Atomic(false)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
+    private let sframeContext: SFrameContext?
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
@@ -70,9 +71,19 @@ class H264Publication: Publication, FrameListener {
         let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
 
         // Publish.
-        let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
+        var data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                         count: data.count,
                         deallocator: .none)
+        if let sframeContext = publication.sframeContext {
+            do {
+                data = try sframeContext.mls.protect(epochId: sframeContext.currentEpoch,
+                                                     senderId: sframeContext.senderId,
+                                                     plaintext: data)
+            } catch {
+                publication.logger.error("Failed to protect data: \(error.localizedDescription)")
+                return
+            }
+        }
         var priority = publication.getPriority(flag ? 0 : 1)
         var ttl = publication.getTTL(flag ? 0 : 1)
         let status = publication.publish(groupId: thisGroupId,
@@ -120,7 +131,8 @@ class H264Publication: Publication, FrameListener {
                   relayId: String,
                   stagger: Bool,
                   verbose: Bool,
-                  keyFrameOnUpdate: Bool) throws {
+                  keyFrameOnUpdate: Bool,
+                  sframeContext: SFrameContext?) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -138,6 +150,7 @@ class H264Publication: Publication, FrameListener {
         self.stagger = stagger
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
+        self.sframeContext = sframeContext
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,

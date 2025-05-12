@@ -34,6 +34,7 @@ class OpusPublication: Publication, AudioPublication {
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
     private let incrementing: Incrementing
+    private let sframeContext: SFrameContext?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -47,6 +48,7 @@ class OpusPublication: Publication, AudioPublication {
          relayId: String,
          startActive: Bool,
          incrementing: Incrementing,
+         sframeContext: SFrameContext?,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -60,6 +62,7 @@ class OpusPublication: Publication, AudioPublication {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.incrementing = incrementing
+        self.sframeContext = sframeContext
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -159,7 +162,20 @@ class OpusPublication: Publication, AudioPublication {
         loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
         var participantId = self.participantId.aggregate
         loc.add(key: Self.participantIdKey, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
-        let published = self.publish(data: data, priority: &priority, ttl: &ttl, loc: loc)
+
+        let protected: Data
+        if let sframeContext {
+            do {
+                protected = try sframeContext.mls.protect(epochId: sframeContext.currentEpoch,
+                                                          senderId: sframeContext.senderId, plaintext: data)
+            } catch {
+                Self.logger.error("Failed to protect: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            protected = data
+        }
+        let published = self.publish(data: protected, priority: &priority, ttl: &ttl, loc: loc)
         switch published {
         case .ok:
             switch self.incrementing {

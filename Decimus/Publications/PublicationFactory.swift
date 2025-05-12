@@ -25,6 +25,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
     private let startingGroup: UInt64?
+    private let sframeContext: SFrameContext?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -37,7 +38,8 @@ class PublicationFactoryImpl: PublicationFactory {
          stagger: Bool,
          verbose: Bool,
          keyFrameOnUpdate: Bool,
-         startingGroup: UInt64?) {
+         startingGroup: UInt64?,
+         sframeContext: SFrameContext?) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -50,6 +52,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.startingGroup = startingGroup
+        self.sframeContext = sframeContext
     }
 
     func create(publication: ManifestPublication,
@@ -121,7 +124,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   relayId: relayId,
                                                   stagger: self.stagger,
                                                   verbose: self.verbose,
-                                                  keyFrameOnUpdate: self.keyFrameOnUpdate)
+                                                  keyFrameOnUpdate: self.keyFrameOnUpdate,
+                                                  sframeContext: self.sframeContext)
             try self.captureManager.addInput(publication)
             return publication
         case .opus:
@@ -139,7 +143,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        endpointId: endpointId,
                                        relayId: relayId,
                                        startActive: true,
-                                       incrementing: .group)
+                                       incrementing: .group,
+                                       sframeContext: self.sframeContext)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

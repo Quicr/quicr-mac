@@ -2,6 +2,17 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
+import SFrame
+
+struct SFrameSettings: Codable {
+    var enable: Bool
+    var key: String
+
+    init() {
+        self.enable = false
+        self.key = "sixteen byte key"
+    }
+}
 
 /// Possible modes of rendering video.
 enum VideoBehaviour: CaseIterable, Identifiable, Codable {
@@ -92,8 +103,8 @@ struct SubscriptionConfig: Codable {
     var quicrLogs: Bool
     /// Override picoquic pacing for priorities.
     var quicPriorityLimit: UInt8
-    /// True to enable SFrame encryption of media.
-    var doSFrame: Bool
+    /// SFrame encryption of media settings.
+    var sframeSettings: SFrameSettings
     /// True to publish keyframe on subscribe update.
     var keyFrameOnUpdate: Bool
     /// Time to cleanup stale subscriptions for.
@@ -126,7 +137,7 @@ struct SubscriptionConfig: Codable {
         pauseResume = false
         quicrLogs = false
         quicPriorityLimit = 0
-        doSFrame = true
+        self.sframeSettings = .init()
         stagger = true
         self.keyFrameOnUpdate = true
         self.cleanupTime = 1.5
@@ -161,6 +172,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let startingGroup: UInt64?
     private let manualActiveSpeaker: Bool
+    private let sframeContext: MLS?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -173,7 +185,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          controller: MoqCallController,
          verbose: Bool,
          startingGroup: UInt64?,
-         manualActiveSpeaker: Bool) {
+         manualActiveSpeaker: Bool,
+         sframeContext: MLS?) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -186,6 +199,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.verbose = verbose
         self.startingGroup = startingGroup
         self.manualActiveSpeaker = manualActiveSpeaker
+        self.sframeContext = sframeContext
     }
 
     func create(subscription: ManifestSubscription,
@@ -323,6 +337,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig),
+                                         sframeContext: self.sframeContext,
                                          callback: { [weak set] timestamp, when, cached, _, usable in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn,
@@ -352,6 +367,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
                                         cleanupTime: self.subscriptionConfig.cleanupTime,
                                         activeSpeakerStats: self.manualActiveSpeaker ? self.activeSpeakerStats : nil,
+                                        sframeContext: self.sframeContext,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)

@@ -1,8 +1,21 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import CryptoKit
+import SFrame
 import SwiftUI
 import Network
+
+struct SFrameContext {
+    let mls: MLS
+    let senderId: MLS.SenderID
+    let currentEpoch: MLS.EpochID
+}
+
+struct SFrameConfig: Codable {
+    let enable: Bool
+    let secret: String
+}
 
 @MainActor
 class CallState: ObservableObject, Equatable {
@@ -32,6 +45,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
     let audioStartingGroup: UInt64?
+    private var sendContext: SFrameContext?
+    private var receiveContext: MLS?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -90,6 +105,33 @@ class CallState: ObservableObject, Equatable {
         }
         self.currentManifest = manifest
 
+        let sframeSettings = self.subscriptionConfig.value.sframeSettings
+        if sframeSettings.enable {
+            let epochId: MLS.EpochID = 0
+            do {
+                guard let suite = registry[.aes_128_gcm_sha256_128] else {
+                    throw "Unsupported CipherSuite"
+                }
+                let cryptoProvider = SwiftCryptoProvider(suite: suite)
+                let sendMls = try MLS(provider: cryptoProvider, epochBits: 1)
+                let recvMls = try MLS(provider: cryptoProvider, epochBits: 1)
+
+                let secret = SymmetricKey(data: Data(sframeSettings.key.utf8))
+                try sendMls.addEpoch(epochId: epochId,
+                                     sframeEpochSecret: secret)
+                try recvMls.addEpoch(epochId: epochId,
+                                     sframeEpochSecret: secret)
+
+                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                self.sendContext = .init(mls: sendMls,
+                                         senderId: senderId,
+                                         currentEpoch: epochId)
+                self.receiveContext = recvMls
+            } catch {
+                Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
+            }
+        }
+
         // TODO: Doesn't need to be this defensive.
         guard let captureManager = self.captureManager,
               let engine = self.engine else {
@@ -109,7 +151,8 @@ class CallState: ObservableObject, Equatable {
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
                                                         keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
-                                                        startingGroup: self.audioStartingGroup)
+                                                        startingGroup: self.audioStartingGroup,
+                                                        sframeContext: self.sendContext)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
@@ -126,7 +169,8 @@ class CallState: ObservableObject, Equatable {
                                                           controller: controller,
                                                           verbose: self.verbose,
                                                           startingGroup: startingGroupId,
-                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
+                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
+                                                          sframeContext: self.receiveContext)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 
