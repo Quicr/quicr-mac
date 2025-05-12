@@ -25,7 +25,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
     private let startingGroup: UInt64?
-    private let sframeContext: SFrameContext?
+    private let sframeContext: SendSFrameContext?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -39,7 +39,7 @@ class PublicationFactoryImpl: PublicationFactory {
          verbose: Bool,
          keyFrameOnUpdate: Bool,
          startingGroup: UInt64?,
-         sframeContext: SFrameContext?) {
+         sframeContext: SendSFrameContext?) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine

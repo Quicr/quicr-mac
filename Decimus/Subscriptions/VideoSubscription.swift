@@ -50,7 +50,7 @@ class VideoSubscription: Subscription {
     private var fetch: Fetch?
     private var fetched = false
     private let postCleanup = Atomic(false)
-    private let sframeContext: MLS?
+    private let sframeContext: SFrameContext?
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -125,7 +125,7 @@ class VideoSubscription: Subscription {
          verbose: Bool,
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
-         sframeContext: MLS?,
+         sframeContext: SFrameContext?,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -328,9 +328,9 @@ class VideoSubscription: Subscription {
 
         // Unprotect.
         let unprotected: Data
-        if let sframeContext = self.sframeContext {
+        if let sframeContext {
             do {
-                unprotected = try sframeContext.unprotect(ciphertext: data)
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
                 self.logger.error("Unprotect failure: \(error.localizedDescription)")
                 return

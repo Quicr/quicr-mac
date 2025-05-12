@@ -3,6 +3,7 @@
 
 import Foundation
 import SFrame
+import Synchronization
 
 struct SFrameSettings: Codable {
     var enable: Bool
@@ -172,7 +173,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let startingGroup: UInt64?
     private let manualActiveSpeaker: Bool
-    private let sframeContext: MLS?
+    private let sframeContext: SFrameContext?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -186,7 +187,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          verbose: Bool,
          startingGroup: UInt64?,
          manualActiveSpeaker: Bool,
-         sframeContext: MLS?) {
+         sframeContext: SFrameContext?) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig

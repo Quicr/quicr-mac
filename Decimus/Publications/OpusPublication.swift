@@ -34,7 +34,7 @@ class OpusPublication: Publication, AudioPublication {
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
     private let incrementing: Incrementing
-    private let sframeContext: SFrameContext?
+    private let sframeContext: SendSFrameContext?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -48,7 +48,7 @@ class OpusPublication: Publication, AudioPublication {
          relayId: String,
          startActive: Bool,
          incrementing: Incrementing,
-         sframeContext: SFrameContext?,
+         sframeContext: SendSFrameContext?,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -166,8 +166,11 @@ class OpusPublication: Publication, AudioPublication {
         let protected: Data
         if let sframeContext {
             do {
-                protected = try sframeContext.mls.protect(epochId: sframeContext.currentEpoch,
-                                                          senderId: sframeContext.senderId, plaintext: data)
+                protected = try sframeContext.context.mutex.withLock { locked in
+                    try locked.protect(epochId: sframeContext.currentEpoch,
+                                       senderId: sframeContext.senderId,
+                                       plaintext: data)
+                }
             } catch {
                 Self.logger.error("Failed to protect: \(error.localizedDescription)")
                 return

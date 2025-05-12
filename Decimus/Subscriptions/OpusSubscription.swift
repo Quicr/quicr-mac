@@ -24,7 +24,7 @@ class OpusSubscription: Subscription {
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private let sframeContext: MLS?
+    private let sframeContext: SFrameContext?
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -39,7 +39,7 @@ class OpusSubscription: Subscription {
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          activeSpeakerStats: ActiveSpeakerStats?,
-         sframeContext: MLS?,
+         sframeContext: SFrameContext?,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -122,7 +122,7 @@ class OpusSubscription: Subscription {
         let unprotected: Data
         if let sframeContext {
             do {
-                unprotected = try sframeContext.unprotect(ciphertext: data)
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
             } catch {
                 Self.logger.error("Failed to unprotect: \(error.localizedDescription)")
                 return

@@ -4,12 +4,27 @@
 import CryptoKit
 import SFrame
 import SwiftUI
+import Synchronization
 import Network
 
-struct SFrameContext {
-    let mls: MLS
+class SFrameContext {
+    let mutex: Mutex<MLS>
+
+    init(_ sframe: MLS) {
+        self.mutex = .init(sframe)
+    }
+}
+
+class SendSFrameContext {
+    let context: SFrameContext
     let senderId: MLS.SenderID
     let currentEpoch: MLS.EpochID
+
+    init(sframe: MLS, senderId: MLS.SenderID, currentEpoch: MLS.EpochID) {
+        self.context = .init(sframe)
+        self.senderId = senderId
+        self.currentEpoch = currentEpoch
+    }
 }
 
 struct SFrameConfig: Codable {
@@ -45,8 +60,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
     let audioStartingGroup: UInt64?
-    private var sendContext: SFrameContext?
-    private var receiveContext: MLS?
+    private var sendContext: SendSFrameContext?
+    private var receiveContext: SFrameContext?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -113,20 +128,20 @@ class CallState: ObservableObject, Equatable {
                     throw "Unsupported CipherSuite"
                 }
                 let cryptoProvider = SwiftCryptoProvider(suite: suite)
-                let sendMls = try MLS(provider: cryptoProvider, epochBits: 1)
-                let recvMls = try MLS(provider: cryptoProvider, epochBits: 1)
+                let sendContext = try MLS(provider: cryptoProvider, epochBits: 1)
+                let recvContext = try MLS(provider: cryptoProvider, epochBits: 1)
 
                 let secret = SymmetricKey(data: Data(sframeSettings.key.utf8))
-                try sendMls.addEpoch(epochId: epochId,
-                                     sframeEpochSecret: secret)
-                try recvMls.addEpoch(epochId: epochId,
-                                     sframeEpochSecret: secret)
+                try sendContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
+                try recvContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
 
                 let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
-                self.sendContext = .init(mls: sendMls,
+                self.sendContext = .init(sframe: sendContext,
                                          senderId: senderId,
                                          currentEpoch: epochId)
-                self.receiveContext = recvMls
+                self.receiveContext = .init(recvContext)
             } catch {
                 Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
             }
