@@ -252,7 +252,7 @@ class VideoSubscription: Subscription {
                 return .normal(false)
             } catch {
                 // Fallback to waiting for new group behaviour.
-                self.logger.error("Failed to start fetch: \(error.localizedDescription)")
+                self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
 
                 self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
                 return .drop
@@ -410,7 +410,7 @@ class VideoSubscription: Subscription {
                                                             && self.stateMachine.state == .running) {
                                         self.logger.info(message)
                                     } else {
-                                        self.logger.error(message)
+                                        self.logger.warning(message)
                                     }
                                   },
                                   objectReceived: {[weak self] headers, data, extensions in
