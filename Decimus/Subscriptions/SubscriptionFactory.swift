@@ -52,6 +52,8 @@ struct SubscriptionConfig: Codable {
     var useNewJitterBuffer: Bool
     /// Opus encode/decode window size to use.
     var opusWindowSize: OpusWindowSize
+    /// No more than this many packets will be concealed.
+    var audioPlcLimit: Int
     /// Control behaviour of video rendering.
     var videoBehaviour: VideoBehaviour
     /// Interval between key frames, or 0 for codec control.
@@ -107,6 +109,7 @@ struct SubscriptionConfig: Codable {
         jitterDepthTime = 0.2
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
+        self.audioPlcLimit = 6
         videoBehaviour = .freeze
         keyFrameInterval = 5
         mediaReliability = .init()
@@ -206,7 +209,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                 submitter: self.metricsSubmitter,
                                                 useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
                                                 granularMetrics: self.granularMetrics,
-                                                activeSpeakerStats: self.activeSpeakerStats)
+                                                activeSpeakerStats: self.activeSpeakerStats,
+                                                maxPlcThreshold: self.subscriptionConfig.audioPlcLimit)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -352,6 +356,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
                                         cleanupTime: self.subscriptionConfig.cleanupTime,
                                         activeSpeakerStats: self.manualActiveSpeaker ? self.activeSpeakerStats : nil,
+                                        maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)
