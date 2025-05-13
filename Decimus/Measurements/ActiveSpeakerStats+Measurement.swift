@@ -8,30 +8,9 @@ extension ActiveSpeakerStats {
         var fields: Fields = [:]
         var tags: [String: String] = [:]
 
-        func audioDetected(identifier: ParticipantId, timestamp: Date) {
+        func record(identifier: ParticipantId, timestamp: Date, event: CurrentState) {
             record(field: "events",
-                   value: "Audio" as AnyObject,
-                   timestamp: timestamp,
-                   tags: ["participant": "\(identifier.participantId)"])
-        }
-
-        func activeSet(identifier: ParticipantId, timestamp: Date) {
-            record(field: "events",
-                   value: "Active Speaker" as AnyObject,
-                   timestamp: timestamp,
-                   tags: ["participant": "\(identifier.participantId)"])
-        }
-
-        func imageEnqueued(identifier: ParticipantId, timestamp: Date) {
-            record(field: "events",
-                   value: "Image Enqueued" as AnyObject,
-                   timestamp: timestamp,
-                   tags: ["participant": "\(identifier.participantId)"])
-        }
-
-        func inactiveSet(identifier: ParticipantId, timestamp: Date) {
-            record(field: "events",
-                   value: "Inactive" as AnyObject,
+                   value: event.description as AnyObject,
                    timestamp: timestamp,
                    tags: ["participant": "\(identifier.participantId)"])
         }

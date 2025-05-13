@@ -83,7 +83,7 @@
     const std::uint64_t test = 0x1234;
     handlerPtr->SetSubscribeId(test);
     handlerPtr->SetTrackAlias(test);
-    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::SubscribeId a, quicr::messages::TrackAlias b) {
+    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::SubscribeID a, quicr::messages::TrackAlias b) {
         assert(a == test);
         assert(b == test);
         callback(context);

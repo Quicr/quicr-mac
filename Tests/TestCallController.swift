@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import XCTest
+import Synchronization
 @testable import QuicR
 
 final class TestFullTrackName: XCTestCase {
@@ -50,7 +51,24 @@ final class TestCallController: XCTestCase {
 
     class MockPublication: Publication { }
 
-    class MockSubscriptionFactory: SubscriptionFactory {
+    class MockSubscriptionFactory: GenericMockSubscriptionFactory<ObservableSubscriptionSet, MockSubscription> {
+        override func make(subscription: ManifestSubscription,
+                           codecFactory: CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> ObservableSubscriptionSet {
+            return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        }
+
+        override func make(set: ObservableSubscriptionSet,
+                           profile: Profile,
+                           codecFactory: any CodecFactory,
+                           endpointId: String,
+                           relayId: String) throws -> TestCallController.MockSubscription {
+            try .init(profile: profile)
+        }
+    }
+
+    class GenericMockSubscriptionFactory<T: SubscriptionSet, K: Subscription>: SubscriptionFactory {
         typealias SubscriptionCreated = (SubscriptionSet) -> Void
         private let callback: SubscriptionCreated
 
@@ -58,11 +76,29 @@ final class TestCallController: XCTestCase {
             self.callback = callback
         }
 
+        func make(subscription: ManifestSubscription,
+                  codecFactory: CodecFactory,
+                  endpointId: String,
+                  relayId: String) throws -> T {
+            fatalError("Not implemented - make set")
+        }
+
+        func make(set: T,
+                  profile: Profile,
+                  codecFactory: CodecFactory,
+                  endpointId: String,
+                  relayId: String) throws -> K {
+            fatalError("Not implemented - make subscription")
+        }
+
         func create(subscription: ManifestSubscription,
                     codecFactory: CodecFactory,
                     endpointId: String,
-                    relayId: String) throws -> any SubscriptionSet {
-            let set = ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
+                    relayId: String) throws -> SubscriptionSet {
+            let set = try self.make(subscription: subscription,
+                                    codecFactory: codecFactory,
+                                    endpointId: endpointId,
+                                    relayId: relayId)
             self.callback(set)
             return set
         }
@@ -72,11 +108,17 @@ final class TestCallController: XCTestCase {
                     codecFactory: CodecFactory,
                     endpointId: String,
                     relayId: String) throws -> Subscription {
-            try MockSubscription(profile: profile)
+            try self.make(set: set as! T, // swiftlint:disable:this force_cast
+                          profile: profile,
+                          codecFactory: codecFactory,
+                          endpointId: endpointId,
+                          relayId: relayId)
         }
     }
 
-    class MockSubscription: Subscription {
+    class MockSubscription: Subscription, DisplayNotification {
+        var mediaState = MediaState.subscribed
+
         init(profile: Profile) throws {
             try super.init(profile: profile,
                            endpointId: "1",
@@ -86,6 +128,21 @@ final class TestCallController: XCTestCase {
                            groupOrder: .originalPublisherOrder,
                            filterType: .none,
                            statusCallback: nil)
+        }
+
+        // Display notification.
+        private let callbacks = Mutex<DisplayCallbacks>(.init())
+        func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
+            self.callbacks.store(callback)
+        }
+        func unregisterDisplayCallback(_ token: Int) {
+            self.callbacks.remove(token)
+        }
+        func getMediaState() -> MediaState {
+            self.mediaState
+        }
+        func fireDisplayCallbacks() {
+            self.callbacks.fire()
         }
     }
 

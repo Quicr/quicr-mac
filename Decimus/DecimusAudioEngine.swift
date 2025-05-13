@@ -74,8 +74,9 @@ class DecimusAudioEngine {
         Self.logger.warning("Media services reset. Report this.")
     }
 
-    private lazy var routeChange: (Notification) -> Void = { notification in
-        guard let userInfo = notification.userInfo,
+    private lazy var routeChange: (Notification) -> Void = { [weak self] notification in
+        guard let self = self,
+              let userInfo = notification.userInfo,
               let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
             return

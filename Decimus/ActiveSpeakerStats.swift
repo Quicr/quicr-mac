@@ -10,17 +10,23 @@ actor ActiveSpeakerStats {
         let currentState: CurrentState
         let detected: Date?
         let set: Date?
+        let dropped: Date?
+        let received: Date?
         let enqueued: Date?
     }
 
     struct Result {
         let detected: Date?
         let set: Date?
+        let dropped: Date?
+        let received: Date
         let enqueued: Date
 
         init(_ record: Record) {
             self.detected = record.detected
             self.set = record.set
+            self.dropped = record.dropped
+            self.received = record.received!
             self.enqueued = record.enqueued!
         }
     }
@@ -29,6 +35,8 @@ actor ActiveSpeakerStats {
         case inactive
         case audioDetected
         case activeSpeakerSet
+        case dataDropped
+        case dataReceived
         case imageEnqueued
 
         var description: String {
@@ -36,9 +44,13 @@ actor ActiveSpeakerStats {
             case .inactive:
                 "Inactive"
             case .audioDetected:
-                "Audio Detected"
+                "Audio"
             case .activeSpeakerSet:
                 "Active Speaker"
+            case .dataDropped:
+                "Data Dropped"
+            case .dataReceived:
+                "Data Received"
             case .imageEnqueued:
                 "Image Enqueued"
             }
@@ -63,26 +75,13 @@ actor ActiveSpeakerStats {
                 let now = Date.now
                 if let self = self {
                     for participant in await self.participants {
-                        await self.reportCurrentState(identifier: participant.key,
-                                                      state: participant.value.currentState,
-                                                      now: now)
+                        await self.measurement?.measurement.record(identifier: participant.key,
+                                                                   timestamp: now,
+                                                                   event: participant.value.currentState)
                     }
                 }
                 try? await Task.sleep(for: .seconds(1))
             }
-        }
-    }
-
-    private func reportCurrentState(identifier: Identifier, state: CurrentState, now: Date) async {
-        switch state {
-        case .inactive:
-            await self.measurement?.measurement.inactiveSet(identifier: identifier, timestamp: now)
-        case .audioDetected:
-            await self.measurement?.measurement.audioDetected(identifier: identifier, timestamp: now)
-        case .activeSpeakerSet:
-            await self.measurement?.measurement.activeSet(identifier: identifier, timestamp: now)
-        case .imageEnqueued:
-            await self.measurement?.measurement.imageEnqueued(identifier: identifier, timestamp: now)
         }
     }
 
@@ -97,6 +96,8 @@ actor ActiveSpeakerStats {
         self.participants[identifier] = .init(currentState: state,
                                               detected: existing?.detected ?? when,
                                               set: existing?.set,
+                                              dropped: existing?.dropped,
+                                              received: existing?.received,
                                               enqueued: existing?.enqueued)
     }
 
@@ -111,8 +112,43 @@ actor ActiveSpeakerStats {
         self.participants[identifier] = .init(currentState: state,
                                               detected: record?.detected,
                                               set: record?.set ?? when,
+                                              dropped: record?.dropped,
+                                              received: record?.received,
                                               enqueued: record?.enqueued)
-        await self.measurement?.measurement.activeSet(identifier: identifier, timestamp: when)
+    }
+
+    /// This speaker's encoded video was received, but it was dropped.
+    /// - Parameter identifier: The participant.
+    /// - Parameter when: The point in time the video was received.
+    func dataDropped(_ identifier: Identifier, when: Date) async {
+        let record = self.participants[identifier]
+        let state = await self.stateTransition(identifier: identifier,
+                                               from: record?.currentState,
+                                               to: .dataDropped,
+                                               when: when)
+        self.participants[identifier] = .init(currentState: state,
+                                              detected: record?.detected,
+                                              set: record?.set,
+                                              dropped: record?.dropped ?? when,
+                                              received: record?.received,
+                                              enqueued: record?.enqueued)
+    }
+
+    /// This speaker's encoded video was received.
+    /// - Parameter identifier: The participant.
+    /// - Parameter when: The point in time the video was received.
+    func dataReceived(_ identifier: Identifier, when: Date) async {
+        let record = self.participants[identifier]
+        let state = await self.stateTransition(identifier: identifier,
+                                               from: record?.currentState,
+                                               to: .dataReceived,
+                                               when: when)
+        self.participants[identifier] = .init(currentState: state,
+                                              detected: record?.detected,
+                                              set: record?.set,
+                                              dropped: record?.dropped,
+                                              received: record?.received ?? when,
+                                              enqueued: record?.enqueued)
     }
 
     /// This speaker's video was enqueued/displayed.
@@ -126,6 +162,8 @@ actor ActiveSpeakerStats {
         let updated = Record(currentState: state,
                              detected: record?.detected,
                              set: record?.set,
+                             dropped: record?.dropped,
+                             received: record?.received,
                              enqueued: record?.enqueued ?? when)
         self.participants[identifier] = updated
         return .init(updated)
@@ -150,18 +188,45 @@ actor ActiveSpeakerStats {
         case .audioDetected:
             to
         case .activeSpeakerSet:
-            to == .audioDetected ? .activeSpeakerSet : to
+            switch to {
+            case .audioDetected:
+                CurrentState.activeSpeakerSet
+            default:
+                to
+            }
+        case .dataDropped:
+            switch to {
+            case .activeSpeakerSet:
+                CurrentState.dataDropped
+            case .audioDetected:
+                CurrentState.dataDropped
+            default:
+                to
+            }
+        case .dataReceived:
+            switch to {
+            case .activeSpeakerSet:
+                CurrentState.dataReceived
+            case .audioDetected:
+                CurrentState.dataReceived
+            default:
+                to
+            }
         case .imageEnqueued:
             switch to {
             case .activeSpeakerSet:
                 CurrentState.imageEnqueued
             case .audioDetected:
                 CurrentState.imageEnqueued
+            case .dataReceived:
+                CurrentState.imageEnqueued
             default:
                 to
             }
         }
-        await self.reportCurrentState(identifier: identifier, state: result, now: when)
+        await self.measurement?.measurement.record(identifier: identifier,
+                                                   timestamp: when,
+                                                   event: result)
         return result
     }
 }
