@@ -1,8 +1,36 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import CryptoKit
+import SFrame
 import SwiftUI
+import Synchronization
 import Network
+
+class SFrameContext {
+    let mutex: Mutex<MLS>
+
+    init(_ sframe: MLS) {
+        self.mutex = .init(sframe)
+    }
+}
+
+class SendSFrameContext {
+    let context: SFrameContext
+    let senderId: MLS.SenderID
+    let currentEpoch: MLS.EpochID
+
+    init(sframe: MLS, senderId: MLS.SenderID, currentEpoch: MLS.EpochID) {
+        self.context = .init(sframe)
+        self.senderId = senderId
+        self.currentEpoch = currentEpoch
+    }
+}
+
+struct SFrameConfig: Codable {
+    let enable: Bool
+    let secret: String
+}
 
 @MainActor
 class CallState: ObservableObject, Equatable {
@@ -32,6 +60,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
     let audioStartingGroup: UInt64?
+    private var sendContext: SendSFrameContext?
+    private var receiveContext: SFrameContext?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -90,6 +120,33 @@ class CallState: ObservableObject, Equatable {
         }
         self.currentManifest = manifest
 
+        let sframeSettings = self.subscriptionConfig.value.sframeSettings
+        if sframeSettings.enable {
+            let epochId: MLS.EpochID = 0
+            do {
+                guard let suite = registry[.aes_128_gcm_sha256_128] else {
+                    throw "Unsupported CipherSuite"
+                }
+                let cryptoProvider = SwiftCryptoProvider(suite: suite)
+                let sendContext = try MLS(provider: cryptoProvider, epochBits: 1)
+                let recvContext = try MLS(provider: cryptoProvider, epochBits: 1)
+
+                let secret = SymmetricKey(data: Data(sframeSettings.key.utf8))
+                try sendContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
+                try recvContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
+
+                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                self.sendContext = .init(sframe: sendContext,
+                                         senderId: senderId,
+                                         currentEpoch: epochId)
+                self.receiveContext = .init(recvContext)
+            } catch {
+                Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
+            }
+        }
+
         // TODO: Doesn't need to be this defensive.
         guard let captureManager = self.captureManager,
               let engine = self.engine else {
@@ -109,7 +166,8 @@ class CallState: ObservableObject, Equatable {
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
                                                         keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
-                                                        startingGroup: self.audioStartingGroup)
+                                                        startingGroup: self.audioStartingGroup,
+                                                        sframeContext: self.sendContext)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
@@ -126,7 +184,8 @@ class CallState: ObservableObject, Equatable {
                                                           controller: controller,
                                                           verbose: self.verbose,
                                                           startingGroup: startingGroupId,
-                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
+                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
+                                                          sframeContext: self.receiveContext)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 
