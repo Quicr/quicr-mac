@@ -23,6 +23,7 @@ class OpusSubscription: Subscription {
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let maxPlcThreshold: Int
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -37,6 +38,7 @@ class OpusSubscription: Subscription {
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          activeSpeakerStats: ActiveSpeakerStats?,
+         maxPlcThreshold: Int,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -55,6 +57,7 @@ class OpusSubscription: Subscription {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
         self.activeSpeakerStats = activeSpeakerStats
+        self.maxPlcThreshold = maxPlcThreshold
 
         // Create the actual audio handler upfront.
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
@@ -66,7 +69,8 @@ class OpusSubscription: Subscription {
                                        opusWindowSize: self.opusWindowSize,
                                        granularMetrics: self.granularMetrics,
                                        useNewJitterBuffer: self.useNewJitterBuffer,
-                                       metricsSubmitter: self.metricsSubmitter))
+                                       metricsSubmitter: self.metricsSubmitter,
+                                       maxPlcThreshold: self.maxPlcThreshold))
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         try super.init(profile: profile,
@@ -151,7 +155,8 @@ class OpusSubscription: Subscription {
                                                    opusWindowSize: self.opusWindowSize,
                                                    granularMetrics: self.granularMetrics,
                                                    useNewJitterBuffer: self.useNewJitterBuffer,
-                                                   metricsSubmitter: self.metricsSubmitter)
+                                                   metricsSubmitter: self.metricsSubmitter,
+                                                   maxPlcThreshold: self.maxPlcThreshold)
                     lockedHandler = handler
                     return handler
                 }
