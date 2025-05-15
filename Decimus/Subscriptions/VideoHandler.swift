@@ -340,7 +340,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
-                    participant.received(when: from, usable: true)
+                    if self.simulreceive != .enable {
+                        participant.received(when: from, usable: true)
+                    }
                     participant.label = .init(describing: self)
                 }
             }
