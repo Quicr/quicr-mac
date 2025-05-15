@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import SFrame
 import Synchronization
 
 /// Represents a QuicR video subscription.
@@ -49,6 +50,7 @@ class VideoSubscription: Subscription {
     private var fetch: Fetch?
     private var fetched = false
     private let postCleanup = Atomic(false)
+    private let sframeContext: SFrameContext?
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -123,6 +125,7 @@ class VideoSubscription: Subscription {
          verbose: Bool,
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
+         sframeContext: SFrameContext?,
          callback: @escaping ObjectReceived,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -163,6 +166,7 @@ class VideoSubscription: Subscription {
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
+        self.sframeContext = sframeContext
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -322,10 +326,23 @@ class VideoSubscription: Subscription {
             return
         }
 
+        // Unprotect.
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
         // Check for action & state change.
         func notify(drop: Bool) {
             handler.objectReceived(objectHeaders,
-                                   data: data,
+                                   data: unprotected,
                                    extensions: extensions,
                                    when: now,
                                    cached: false,

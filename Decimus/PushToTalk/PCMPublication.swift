@@ -35,6 +35,7 @@ class PCMPublication: Publication, AudioPublication {
     private var currentRequestId: UInt32?
     private let verbose: Bool
     private var file: AVAudioFile?
+    private let sframeContext: SendSFrameContext?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -48,7 +49,8 @@ class PCMPublication: Publication, AudioPublication {
          groupId: UInt64,
          markRequest: Bool,
          verbose: Bool,
-         record: Bool) throws {
+         record: Bool,
+         sframeContext: SendSFrameContext?) throws {
         self.engine = engine
         let ftn = try FullTrackName(namespace: profile.namespace, name: profile.name!)
         self.logger = .init(PCMPublication.self, prefix: ftn.description)
@@ -79,6 +81,7 @@ class PCMPublication: Publication, AudioPublication {
         self.desiredFormat = desired
         self.converter = converter
         self.verbose = verbose
+        self.sframeContext = sframeContext
 
         try super.init(profile: profile,
                        trackMode: .datagram,
@@ -171,6 +174,18 @@ class PCMPublication: Publication, AudioPublication {
         }
         var chunkData = Data(capacity: chunk.size)
         chunk.encode(into: &chunkData)
+        if let sframeContext {
+            do {
+                chunkData = try sframeContext.context.mutex.withLock { locked in
+                    try locked.protect(epochId: sframeContext.currentEpoch,
+                                       senderId: sframeContext.senderId,
+                                       plaintext: chunkData)
+                }
+            } catch {
+                self.logger.error("Failed to protect chunk: \(error.localizedDescription)")
+                return
+            }
+        }
         let published = self.publish(groupId: self.groupId,
                                      objectId: self.currentObjectId,
                                      data: chunkData,

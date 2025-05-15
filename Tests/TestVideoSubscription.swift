@@ -61,6 +61,7 @@ struct TestVideoSubscription {
                                      cleanupTime: 1.5,
                                      subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                  newGroupUpperThreshold: ngThreshold)),
+                                     sframeContext: nil,
                                      callback: { callback?($0, $1, $2, $3, $4) },
                                      statusChanged: ({_ in }))
     }

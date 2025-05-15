@@ -31,6 +31,8 @@ class PCMSubscription: Subscription, AudioSubscription {
     private let verbose: Bool
     private let ourGroupId: UInt64?
     private let listen: Atomic<Bool> = .init(true)
+    private let sframeContext: SFrameContext?
+    private let maxPlcThreshold: Int
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -46,6 +48,8 @@ class PCMSubscription: Subscription, AudioSubscription {
          cleanupTime: TimeInterval,
          verbose: Bool,
          ourGroupId: UInt64?,
+         sframeContext: SFrameContext?,
+         maxPlcThreshold: Int,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -59,6 +63,8 @@ class PCMSubscription: Subscription, AudioSubscription {
         self.cleanupTimer = cleanupTime
         self.verbose = verbose
         self.ourGroupId = ourGroupId
+        self.sframeContext = sframeContext
+        self.maxPlcThreshold = maxPlcThreshold
 
         // Original PCM format.
         var asbd = pcmFormat
@@ -119,6 +125,18 @@ class PCMSubscription: Subscription, AudioSubscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                self.logger.error("Failed to unprotect data: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
         let listen = self.listen.load(ordering: .acquiring)
         if let startingGroupId = self.ourGroupId,
            objectHeaders.groupId == startingGroupId {
@@ -155,7 +173,8 @@ class PCMSubscription: Subscription, AudioSubscription {
                                                    opusWindowSize: self.opusWindowSize,
                                                    granularMetrics: self.granularMetrics,
                                                    useNewJitterBuffer: self.useNewJitterBuffer,
-                                                   metricsSubmitter: self.metricsSubmitter)
+                                                   metricsSubmitter: self.metricsSubmitter,
+                                                   maxPlcThreshold: self.maxPlcThreshold)
                     lockedHandlers[objectHeaders.groupId] = handler
                     return handler
                 }
@@ -175,7 +194,7 @@ class PCMSubscription: Subscription, AudioSubscription {
             loc = .init(timestamp: now, sequence: nil)
         }
 
-        guard let chunk = try? ChunkMessage(from: data) else {
+        guard let chunk = try? ChunkMessage(from: unprotected) else {
             self.logger.warning("Failed to decode chunk message")
             return
         }
