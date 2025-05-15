@@ -85,6 +85,12 @@ struct SubscriptionSettingsView: View {
                         Text(String(describing: $0))
                     }
                 }
+                LabeledContent("Audio PLC Upper Limit (pkts)") {
+                    TextField("Audio PLC Upper Limit (pkts)",
+                              value: self.$subscriptionConfig.value.audioPlcLimit,
+                              format: .number)
+                        .labelsHidden()
+                }
                 LabeledContent("Video behaviour") {
                     Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
                         ForEach(VideoBehaviour.allCases) {

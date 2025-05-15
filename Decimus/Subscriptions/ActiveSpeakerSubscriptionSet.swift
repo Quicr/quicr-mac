@@ -14,6 +14,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     private let useNewJitterBuffer: Bool
     private let granularMetrics: Bool
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let maxPlcThreshold: Int
 
     /// Individual active speaker subscriptions.
     private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
@@ -29,7 +30,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
          submitter: MetricsSubmitter?,
          useNewJitterBuffer: Bool,
          granularMetrics: Bool,
-         activeSpeakerStats: ActiveSpeakerStats?) {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         maxPlcThreshold: Int) {
         self.engine = engine
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
@@ -39,6 +41,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.granularMetrics = granularMetrics
         self.activeSpeakerStats = activeSpeakerStats
+        self.maxPlcThreshold = maxPlcThreshold
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
     }
 
@@ -102,7 +105,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
                                          opusWindowSize: self.opusWindowSize,
                                          granularMetrics: self.granularMetrics,
                                          useNewJitterBuffer: self.useNewJitterBuffer,
-                                         metricsSubmitter: self.metricsSubmitter)
+                                         metricsSubmitter: self.metricsSubmitter,
+                                         maxPlcThreshold: self.maxPlcThreshold)
                 self.audioMediaObjects[participantId] = media
             } catch {
                 self.logger.error(

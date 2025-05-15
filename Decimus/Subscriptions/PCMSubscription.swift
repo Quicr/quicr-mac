@@ -32,6 +32,7 @@ class PCMSubscription: Subscription, AudioSubscription {
     private let ourGroupId: UInt64?
     private let listen: Atomic<Bool> = .init(true)
     private let sframeContext: SFrameContext?
+    private let maxPlcThreshold: Int
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -48,6 +49,7 @@ class PCMSubscription: Subscription, AudioSubscription {
          verbose: Bool,
          ourGroupId: UInt64?,
          sframeContext: SFrameContext?,
+         maxPlcThreshold: Int,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -62,6 +64,7 @@ class PCMSubscription: Subscription, AudioSubscription {
         self.verbose = verbose
         self.ourGroupId = ourGroupId
         self.sframeContext = sframeContext
+        self.maxPlcThreshold = maxPlcThreshold
 
         // Original PCM format.
         var asbd = pcmFormat
@@ -170,7 +173,8 @@ class PCMSubscription: Subscription, AudioSubscription {
                                                    opusWindowSize: self.opusWindowSize,
                                                    granularMetrics: self.granularMetrics,
                                                    useNewJitterBuffer: self.useNewJitterBuffer,
-                                                   metricsSubmitter: self.metricsSubmitter)
+                                                   metricsSubmitter: self.metricsSubmitter,
+                                                   maxPlcThreshold: self.maxPlcThreshold)
                     lockedHandlers[objectHeaders.groupId] = handler
                     return handler
                 }

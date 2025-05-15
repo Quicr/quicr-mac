@@ -52,6 +52,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
+    private let lastTimestampReceived = Atomic(Int64.zero)
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -186,6 +187,20 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
         // Notify receipt for stats.
         if self.simulreceive == .enable && self.activeSpeakerStats != nil {
+            let report: Bool
+            if let timestamp {
+                let timestamp = Int64(timestamp * microsecondsPerSecond)
+                let lastTimestamp = self.lastTimestampReceived.load(ordering: .acquiring)
+                if timestamp <= lastTimestamp {
+                    report = false
+                } else {
+                    self.lastTimestampReceived.store(timestamp, ordering: .releasing)
+                    report = true
+                }
+            } else {
+                report = true
+            }
+
             Task {
                 try await MainActor.run {
                     let participant = try self.participant.withLock { locked in
@@ -201,7 +216,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         }
                         return existing
                     }
-                    participant.received(when: when, usable: usable)
+                    if report {
+                        participant.received(when: when, usable: usable)
+                    }
                 }
             }
         }

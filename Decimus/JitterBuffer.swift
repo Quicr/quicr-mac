@@ -149,6 +149,11 @@ class JitterBuffer {
         return item
     }
 
+    /// Empty the buffer.
+    func clear() throws {
+        try self.buffer.reset()
+    }
+
     func updateLastSequenceRead(_ seq: UInt64) {
         self.lastSequenceRead.store(seq, ordering: .releasing)
     }

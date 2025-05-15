@@ -73,4 +73,10 @@ class PCMConverter: AudioDecoder {
         silence.frameLength = frames
         return silence
     }
+
+    func reset() throws {
+        self.converter.reset()
+        self.inputData.clear()
+        self.outputBuffer.frameLength = 0
+    }
 }
