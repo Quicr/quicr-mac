@@ -85,10 +85,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.logger.debug("[ActiveSpeakers] Changed: \(speakers). Real: \(real)")
 
         // Report last received real active speaker list.
+        let now = Date.now
         if real {
             self.lastReceived = speakers
             if let stats = self.activeSpeakerStats {
-                let now = Date.now
                 Task(priority: .utility) {
                     for speaker in speakers {
                         await stats.activeSpeakerSet(speaker, when: now)
@@ -109,10 +109,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.lastRenderedSpeakers = speakers
 
         // Update slots.
-        self.recheck(real: real, desiredSlots: speakers.count)
+        self.recheck(real: real, desiredSlots: speakers.count, when: now)
     }
 
-    private func recheck(real: Bool, desiredSlots: Int) {
+    private func recheck(real: Bool, desiredSlots: Int, when: Date) {
         var currentSlots = 0
 
         // Get the sets we're interested in.
@@ -143,7 +143,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                     defer { existingSet.unregisterDisplayCallback(token!) }
                     guard let self = self else { return }
                     self.logger.debug("[ActiveSpeakers] Existing set just started displaying: \(id)")
-                    self.recheck(real: real, desiredSlots: desiredSlots)
+                    self.recheck(real: real, desiredSlots: desiredSlots, when: when)
                 }
 
                 // Done with this set.
@@ -171,7 +171,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 defer { videoSet.unregisterDisplayCallback(token!) }
                 guard let self = self else { return }
                 self.logger.debug("[ActiveSpeakers] Got display callback for: \(id)")
-                self.recheck(real: real, desiredSlots: desiredSlots)
+                let now = Date.now
+                self.recheck(real: real, desiredSlots: desiredSlots, when: now)
             }
         }
 
@@ -179,15 +180,15 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         // If there are more active subscriptions than live subscriptions, we need to unsubscribe from them.
         if existingSets.count > desiredSlots {
             // Remove one.
-            self.unsubscribe(real: real)
-            self.recheck(real: real, desiredSlots: desiredSlots)
+            self.unsubscribe(real: real, when: when)
+            self.recheck(real: real, desiredSlots: desiredSlots, when: when)
             return
         }
 
         self.logger.debug("[ActiveSpeakers] Slots: \(currentSlots)/\(desiredSlots)")
     }
 
-    private func unsubscribe(real: Bool) {
+    private func unsubscribe(real: Bool, when: Date) {
         // Unsubscribe 1 video for any speakers that are no longer active.
         let existing = self.controller.getSubscriptionSets()
         if let toUnsub = existing
@@ -197,6 +198,11 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             do {
                 self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(toUnsub.participantId)")
                 try self.controller.unsubscribeToSet(toUnsub.sourceId)
+                if let stats = self.activeSpeakerStats {
+                    Task(priority: .utility) {
+                        await stats.remove(toUnsub.participantId, when: when)
+                    }
+                }
             } catch {
                 self.logger.error("Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
             }

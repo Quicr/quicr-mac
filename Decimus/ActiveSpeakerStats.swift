@@ -177,6 +177,7 @@ actor ActiveSpeakerStats {
         self.participants.removeValue(forKey: identifier)
     }
 
+    // swiftlint:disable cyclomatic_complexity function_body_length
     private func stateTransition(identifier: Identifier,
                                  from: CurrentState?,
                                  to: CurrentState,
@@ -209,6 +210,8 @@ actor ActiveSpeakerStats {
                 CurrentState.dataReceived
             case .audioDetected:
                 CurrentState.dataReceived
+            case .dataDropped:
+                CurrentState.dataReceived
             default:
                 to
             }
@@ -220,6 +223,8 @@ actor ActiveSpeakerStats {
                 CurrentState.imageEnqueued
             case .dataReceived:
                 CurrentState.imageEnqueued
+            case .dataDropped:
+                CurrentState.imageEnqueued
             default:
                 to
             }
@@ -229,4 +234,5 @@ actor ActiveSpeakerStats {
                                                    event: result)
         return result
     }
+    // swiftlint:enable cyclomatic_complexity function_body_length
 }

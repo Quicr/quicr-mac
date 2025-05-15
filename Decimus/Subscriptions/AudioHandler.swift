@@ -16,6 +16,7 @@ protocol AudioDecoder {
     func write(data: Data) throws -> AVAudioPCMBuffer
     func frames(data: Data) throws -> AVAudioFrameCount
     func plc(frames: AVAudioFrameCount) throws -> AVAudioPCMBuffer
+    func reset() throws
 }
 
 class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
@@ -40,6 +41,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
     private let jitterDepth: TimeInterval
     private let jitterMax: TimeInterval
     private let playing: Atomic<Bool> = .init(false)
+    private let maxPlcThreshold: Int
 
     // Time based buffer.
     private var timeAligner: TimeAligner?
@@ -69,7 +71,8 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
          opusWindowSize: OpusWindowSize,
          granularMetrics: Bool,
          useNewJitterBuffer: Bool,
-         metricsSubmitter: MetricsSubmitter?) throws {
+         metricsSubmitter: MetricsSubmitter?,
+         maxPlcThreshold: Int) throws {
         self.identifier = identifier
         self.engine = engine
         self.measurement = measurement
@@ -80,6 +83,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
         self.metricsSubmitter = metricsSubmitter
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
+        self.maxPlcThreshold = maxPlcThreshold
         super.init()
         if !self.useNewJitterBuffer {
             // Create the jitter buffer.
@@ -440,44 +444,14 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
                     }
 
                     // Decode, conceal, enqueue for playout.
-                    self.decodeWithConcealment(item, window: windowSize, when: now)
+                    self.checkForDiscontinuity(item, window: windowSize, when: now)
+                    self.decode(item, when: now)
                 }
             }
         }
     }
 
-    private func decodeWithConcealment(_ item: AudioJitterItem, window: OpusWindowSize, when: Date) {
-        // Deal with any discontinuity.
-        if var lastUsedSequence = self.lastUsedSequence,
-           item.sequenceNumber > lastUsedSequence,
-           item.sequenceNumber != lastUsedSequence + 1 {
-            // There is a discontinuity.
-            let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
-            Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
-            for _ in 0..<packetsToGenerate {
-                do {
-                    let frames = AVAudioFrameCount(window.rawValue * self.decoder.encodedFormat.sampleRate)
-                    let plc = try self.decoder.plc(frames: frames)
-                    lastUsedSequence += 1
-                    self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
-                    var timestamp = AudioTimeStamp()
-                    do {
-                        try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
-                                                        timestamp: &timestamp,
-                                                        frames: nil)
-                    } catch {
-                        Self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
-                        if let measurement = self.measurement?.measurement {
-                            Task(priority: .utility) {
-                                await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
-                            }
-                        }
-                    }
-                } catch {
-                    Self.logger.error("Failure generating PLC: \(error.localizedDescription)")
-                }
-            }
-        }
+    private func decode(_ item: AudioJitterItem, when: Date) {
         self.lastUsedSequence = item.sequenceNumber
 
         // Set window size.
@@ -521,6 +495,60 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
                 Task(priority: .utility) {
                     await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
                 }
+            }
+        }
+    }
+
+    private func checkForDiscontinuity(_ item: AudioJitterItem, window: OpusWindowSize, when: Date) {
+        // Check for discontinuity.
+        guard var lastUsedSequence,
+              item.sequenceNumber > lastUsedSequence,
+              item.sequenceNumber != lastUsedSequence + 1 else {
+            return
+        }
+
+        // Are we within the generation threshold?
+        let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
+        guard packetsToGenerate <= self.maxPlcThreshold else {
+            Self.logger.warning("Discontinuity too large: \(packetsToGenerate)")
+            self.playoutBuffer?.clear()
+            do {
+                try self.decoder.reset()
+            } catch {
+                Self.logger.warning("Couldn't reset decoder: \(error.localizedDescription)")
+            }
+            do {
+                try self.jitterBuffer?.clear()
+            } catch {
+                Self.logger.warning("Couldn't clear jitter buffer: \(error.localizedDescription)")
+            }
+            return
+        }
+
+        // Generate PLC.
+        // TODO: If this won't fit in the playout buffer, don't generate it.
+        Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
+        for _ in 0..<packetsToGenerate {
+            do {
+                let frames = AVAudioFrameCount(window.rawValue * self.decoder.encodedFormat.sampleRate)
+                let plc = try self.decoder.plc(frames: frames)
+                lastUsedSequence += 1
+                self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
+                var timestamp = AudioTimeStamp()
+                do {
+                    try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
+                                                    timestamp: &timestamp,
+                                                    frames: nil)
+                } catch {
+                    Self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
+                    if let measurement = self.measurement?.measurement {
+                        Task(priority: .utility) {
+                            await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
+                        }
+                    }
+                }
+            } catch {
+                Self.logger.error("Failure generating PLC: \(error.localizedDescription)")
             }
         }
     }

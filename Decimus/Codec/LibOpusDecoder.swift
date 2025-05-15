@@ -38,4 +38,8 @@ class LibOpusDecoder: AudioDecoder {
         try decoder.decode(nil, to: plc, count: frames)
         return plc
     }
+
+    func reset() throws {
+        try self.decoder.reset()
+    }
 }
