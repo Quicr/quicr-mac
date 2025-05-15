@@ -61,7 +61,7 @@ class CallState: ObservableObject, Equatable {
     private let joinDate = Date.now
     let audioStartingGroup: UInt64?
     private var sendContext: SendSFrameContext?
-    private var receiveContext: SFrameContext?
+    private(set) var receiveContext: SFrameContext?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true

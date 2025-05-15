@@ -112,7 +112,7 @@ struct PushToTalkCall: View {
         self.selectedChannel = availableChannels.first!
         self.callState = callState
         callState.engine!.setMicrophoneCapture(false)
-        self.textSubscription = try! PushToTalkText(aiTextReceive!)
+        self.textSubscription = try! PushToTalkText(aiTextReceive!, sframeContext: callState.receiveContext)
         try! callState.controller!.subscribe(self.textSubscription)
         // swiftlint:enable force_try
     }

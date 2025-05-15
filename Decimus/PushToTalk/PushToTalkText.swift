@@ -6,10 +6,12 @@ import Observation
 @Observable
 class PushToTalkText: Subscription {
     private let logger: DecimusLogger
+    private let sframeContext: SFrameContext?
     var currentChannel: String?
 
-    init(_ ftn: FullTrackName) throws {
+    init(_ ftn: FullTrackName, sframeContext: SFrameContext?) throws {
         self.logger = DecimusLogger(PushToTalkText.self, prefix: ftn.description)
+        self.sframeContext = sframeContext
         let tuple: [String] = ftn.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
         let profile = Profile(qualityProfile: "",
                               expiry: nil,
@@ -27,8 +29,20 @@ class PushToTalkText: Subscription {
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        let unprotected: Data
+        if let sframeContext = self.sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                self.logger.error("Failed to unprotect data: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
         self.logger.info("Received object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
-        guard let chunk = try? ChunkMessage(from: data) else {
+        guard let chunk = try? ChunkMessage(from: unprotected) else {
             self.logger.error("Failed to parse chunk")
             return
         }
