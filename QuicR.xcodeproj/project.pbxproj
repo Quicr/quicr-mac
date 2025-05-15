@@ -129,6 +129,7 @@
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
+		9BDE290A2DC3A2A3000E0325 /* SFrame in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDE29092DC3A2A3000E0325 /* SFrame */; };
 		9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */; };
 		9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */; };
 		9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */; };
@@ -440,6 +441,7 @@
 			files = (
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
+				9BDE290A2DC3A2A3000E0325 /* SFrame in Frameworks */,
 				18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */,
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */,
@@ -876,6 +878,7 @@
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
+				9BDE29092DC3A2A3000E0325 /* SFrame */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -918,6 +921,7 @@
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */,
+				9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -1594,6 +1598,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RichLogan/swift-frame";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ksemianov/WrappingHStack";
@@ -1644,6 +1656,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
+		};
+		9BDE29092DC3A2A3000E0325 /* SFrame */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */;
+			productName = SFrame;
 		};
 		FFA0E84F2A6F25A20027603B /* WrappingHStack */ = {
 			isa = XCSwiftPackageProductDependency;

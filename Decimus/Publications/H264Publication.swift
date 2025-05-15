@@ -37,6 +37,7 @@ class H264Publication: Publication, FrameListener {
     private let publishFailure = Atomic(false)
     private let verbose: Bool
     private let keyFrameOnUpdate: Bool
+    private let sframeContext: SendSFrameContext?
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, data, flag, sequence, userData in
@@ -73,11 +74,26 @@ class H264Publication: Publication, FrameListener {
         let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),
                         count: data.count,
                         deallocator: .none)
+        let protected: Data
+        if let sframeContext = publication.sframeContext {
+            do {
+                protected = try sframeContext.context.mutex.withLock { context in
+                    try context.protect(epochId: sframeContext.currentEpoch,
+                                        senderId: sframeContext.senderId,
+                                        plaintext: data)
+                }
+            } catch {
+                publication.logger.error("Failed to protect data: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            protected = data
+        }
         var priority = publication.getPriority(flag ? 0 : 1)
         var ttl = publication.getTTL(flag ? 0 : 1)
         let status = publication.publish(groupId: thisGroupId,
                                          objectId: thisObjectId,
-                                         data: data,
+                                         data: protected,
                                          priority: &priority,
                                          ttl: &ttl,
                                          extensions: loc.extensions)
@@ -99,7 +115,7 @@ class H264Publication: Publication, FrameListener {
 
         // Metrics.
         guard let measurement = publication.measurement else { return }
-        let bytes = data.count
+        let bytes = protected.count
         let sent: Date? = publication.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             await measurement.measurement.sentFrame(bytes: UInt64(bytes),
@@ -120,7 +136,8 @@ class H264Publication: Publication, FrameListener {
                   relayId: String,
                   stagger: Bool,
                   verbose: Bool,
-                  keyFrameOnUpdate: Bool) throws {
+                  keyFrameOnUpdate: Bool,
+                  sframeContext: SendSFrameContext?) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -138,6 +155,7 @@ class H264Publication: Publication, FrameListener {
         self.stagger = stagger
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
+        self.sframeContext = sframeContext
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,

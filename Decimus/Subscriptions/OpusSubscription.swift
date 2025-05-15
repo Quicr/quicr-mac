@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import SFrame
 import Synchronization
 
 class OpusSubscription: Subscription {
@@ -23,6 +24,7 @@ class OpusSubscription: Subscription {
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let sframeContext: SFrameContext?
     private let maxPlcThreshold: Int
 
     init(profile: Profile,
@@ -38,6 +40,7 @@ class OpusSubscription: Subscription {
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          activeSpeakerStats: ActiveSpeakerStats?,
+         sframeContext: SFrameContext?,
          maxPlcThreshold: Int,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
@@ -57,6 +60,7 @@ class OpusSubscription: Subscription {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
         self.activeSpeakerStats = activeSpeakerStats
+        self.sframeContext = sframeContext
         self.maxPlcThreshold = maxPlcThreshold
 
         // Create the actual audio handler upfront.
@@ -118,6 +122,19 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
 
+        // Unprotect.
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                Self.logger.error("Failed to unprotect: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
         guard let extensions = extensions,
               let loc = try? LowOverheadContainer(from: extensions) else {
             Self.logger.warning("Missing expected LOC headers")
@@ -176,7 +193,7 @@ class OpusSubscription: Subscription {
         }
 
         do {
-            try handler.submitEncodedAudio(data: data,
+            try handler.submitEncodedAudio(data: unprotected,
                                            sequence: sequence,
                                            date: now,
                                            timestamp: loc.timestamp)

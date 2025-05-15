@@ -213,8 +213,14 @@ struct SubscriptionSettingsView: View {
             }
         }
         Section("Security") {
-            HStack {
-                LabeledToggle("SFrame", isOn: $subscriptionConfig.value.doSFrame)
+            LabeledToggle("SFrame", isOn: $subscriptionConfig.value.sframeSettings.enable)
+            if self.subscriptionConfig.value.sframeSettings.enable {
+                LabeledContent("SFrame Secret") {
+                    TextField(
+                        "SFrame Secret",
+                        text: self.$subscriptionConfig.value.sframeSettings.key)
+                        .labelsHidden()
+                }
             }
         }
         Section("Transport") {
