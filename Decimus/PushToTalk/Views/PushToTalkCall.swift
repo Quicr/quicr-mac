@@ -94,10 +94,10 @@ struct PushToTalkCall: View {
             switch subscription.channelName {
             case aiAudioReceiveName:
                 aiAudioReceive = try! .init(namespace: subscription.tracknamespace,
-                                            name: "\(callState.audioStartingGroup)")
+                                            name: "\(callState.audioStartingGroup!)")
             case aiTextReceiveName:
                 aiTextReceive = try! .init(namespace: subscription.tracknamespace,
-                                           name: "\(callState.audioStartingGroup)")
+                                           name: "\(callState.audioStartingGroup!)")
             default:
                 break
             }
