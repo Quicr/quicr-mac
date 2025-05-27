@@ -213,7 +213,13 @@ class MoqCallController: QClientCallbacks {
                                      relayId: self.serverId!)
         if subscribe {
             for profile in details.profileSet.profiles {
-                try self.subscribe(set: set, profile: profile, factory: factory)
+                do {
+                    _ = try self.subscribe(set: set, profile: profile, factory: factory)
+                } catch let error as PubSubFactoryError {
+                    self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
+                                            "\(error.localizedDescription)",
+                                        alert: true)
+                }
             }
         }
         self.subscriptions[details.sourceID] = set

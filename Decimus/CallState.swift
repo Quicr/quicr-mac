@@ -107,7 +107,7 @@ class CallState: ObservableObject, Equatable {
         }
     }
 
-    func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length
+    func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length cyclomatic_complexity
         // Fetch the manifest from the conference server.
         let manifest: Manifest
         do {
@@ -147,20 +147,14 @@ class CallState: ObservableObject, Equatable {
             }
         }
 
-        // TODO: Doesn't need to be this defensive.
-        guard let captureManager = self.captureManager,
-              let engine = self.engine else {
-            return false
-        }
-
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
                                                         reliability: subConfig.mediaReliability,
-                                                        engine: engine,
+                                                        engine: self.engine,
                                                         metricsSubmitter: self.submitter,
                                                         granularMetrics: self.influxConfig.value.granular,
-                                                        captureManager: captureManager,
+                                                        captureManager: self.captureManager,
                                                         participantId: manifest.participantId,
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
@@ -177,7 +171,7 @@ class CallState: ObservableObject, Equatable {
                                                           metricsSubmitter: self.submitter,
                                                           subscriptionConfig: subConfig,
                                                           granularMetrics: self.influxConfig.value.granular,
-                                                          engine: engine,
+                                                          engine: self.engine,
                                                           participantId: ourParticipantId,
                                                           joinDate: self.joinDate,
                                                           activeSpeakerStats: self.activeSpeakerStats,
@@ -208,64 +202,75 @@ class CallState: ObservableObject, Equatable {
 
         // Inject the manifest in order to create publications & subscriptions.
         if make {
-            do {
-                // Publish.
-                for publication in manifest.publications {
-                    try controller.publish(details: publication,
-                                           factory: publicationFactory,
-                                           codecFactory: CodecFactoryImpl())
+            // Publish.
+            for publication in manifest.publications {
+                do {
+                    _ = try controller.publish(details: publication,
+                                               factory: publicationFactory,
+                                               codecFactory: CodecFactoryImpl())
+                } catch {
+                    Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                 }
+            }
 
-                // Subscribe.
-                for subscription in manifest.subscriptions {
+            // Subscribe.
+            for subscription in manifest.subscriptions {
+                do {
                     _ = try controller.subscribeToSet(details: subscription,
                                                       factory: subscriptionFactory,
                                                       subscribe: true)
+                } catch {
+                    Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                 }
+            }
 
-                // Active speaker handling.
-                let notifier: ActiveSpeakerNotifier?
-                if playtime.playtime && playtime.manualActiveSpeaker {
-                    let manual = ManualActiveSpeaker()
-                    self.manualActiveSpeaker = manual
-                    notifier = manual
-                } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                    notifier = real
-                } else {
-                    notifier = nil
-                }
-                if let notifier = notifier {
-                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+            // Active speaker handling.
+            let notifier: ActiveSpeakerNotifier?
+            if playtime.playtime && playtime.manualActiveSpeaker {
+                let manual = ManualActiveSpeaker()
+                self.manualActiveSpeaker = manual
+                notifier = manual
+            } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                notifier = real
+            } else {
+                notifier = nil
+            }
+            if let notifier = notifier {
+                let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                do {
                     self.activeSpeaker = try .init(notifier: notifier,
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
                                                    participantId: manifest.participantId,
                                                    activeSpeakerStats: self.activeSpeakerStats)
+                } catch {
+                    Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                 }
-            } catch {
-                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
-                return false
             }
         }
 
         // Start audio media.
-        do {
-            if make {
-                engine.setMicrophoneCapture(true)
+        if let engine = self.engine {
+            do {
+                if make {
+                    engine.setMicrophoneCapture(true)
+                }
+                try engine.start()
+                self.audioCapture = true
+            } catch {
+                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
-            try engine.start()
-            self.audioCapture = true
-        } catch {
-            Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
         }
 
         // Start video media.
-        do {
-            try captureManager.startCapturing()
-            self.videoCapture = true
-        } catch {
-            Self.logger.warning("Camera failure", alert: true)
+        if let captureManager = self.captureManager {
+            do {
+                try captureManager.startCapturing()
+                self.videoCapture = true
+            } catch {
+                Self.logger.warning("Camera failure", alert: true)
+            }
         }
         return true
     }

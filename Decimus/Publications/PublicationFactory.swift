@@ -4,6 +4,13 @@
 import Foundation
 import AVFoundation
 
+let noCameraMessage = "No camera capability"
+let noAudioError = "No audio capability"
+
+enum PubSubFactoryError: LocalizedError {
+    case cannotCreate(String)
+}
+
 protocol PublicationFactory {
     func create(publication: ManifestPublication,
                 codecFactory: CodecFactory,
@@ -15,9 +22,9 @@ class PublicationFactoryImpl: PublicationFactory {
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
     private let granularMetrics: Bool
-    private let engine: DecimusAudioEngine
+    private let engine: DecimusAudioEngine?
     private let metricsSubmitter: MetricsSubmitter?
-    private let captureManager: CaptureManager
+    private let captureManager: CaptureManager?
     private let participantId: ParticipantId
     private let keyFrameInterval: TimeInterval
     private let stagger: Bool
@@ -29,10 +36,10 @@ class PublicationFactoryImpl: PublicationFactory {
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
-         engine: DecimusAudioEngine,
+         engine: DecimusAudioEngine?,
          metricsSubmitter: MetricsSubmitter?,
          granularMetrics: Bool,
-         captureManager: CaptureManager,
+         captureManager: CaptureManager?,
          participantId: ParticipantId,
          keyFrameInterval: TimeInterval,
          stagger: Bool,
@@ -72,7 +79,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   relayId: relayId)
                 publications.append((fullTrackName, publication))
             } catch {
-                self.logger.error("[\(fullTrackName)] Failed to create publication: \(error.localizedDescription)")
+                self.logger.warning("[\(fullTrackName)] Couldn't create publication: \(error.localizedDescription)", alert: true)
             }
         }
         return publications
@@ -86,6 +93,9 @@ class PublicationFactoryImpl: PublicationFactory {
                 relayId: String) throws -> QPublishTrackHandlerObjC {
         switch config.codec {
         case .h264, .hevc:
+            guard let captureManager = self.captureManager else {
+                throw PubSubFactoryError.cannotCreate(noCameraMessage)
+            }
             guard let config = config as? VideoCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
@@ -126,9 +136,12 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   verbose: self.verbose,
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext)
-            try self.captureManager.addInput(publication)
+            try captureManager.addInput(publication)
             return publication
         case .opus:
+            guard let engine = self.engine else {
+                throw PubSubFactoryError.cannotCreate(noAudioError)
+            }
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
@@ -137,7 +150,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
                                        reliable: reliability.audio.publication,
-                                       engine: self.engine,
+                                       engine: engine,
                                        granularMetrics: self.granularMetrics,
                                        config: config,
                                        endpointId: endpointId,
