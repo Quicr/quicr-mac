@@ -19,7 +19,18 @@ protocol AudioDecoder {
     func reset() throws
 }
 
-class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
+class AudioHandler: TimeAlignable {
+    struct Config {
+        let jitterDepth: TimeInterval
+        let jitterMax: TimeInterval
+        let opusWindowSize: OpusWindowSize
+        let granularMetrics: Bool
+        let useNewJitterBuffer: Bool
+        let maxPlcThreshold: Int
+        let playoutBufferTime: TimeInterval
+        let slidingWindowTime: TimeInterval
+    }
+
     private static let logger = DecimusLogger(AudioHandler.self)
     private let identifier: String
     private var decoder: AudioDecoder
@@ -27,7 +38,6 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
     private var oldJitterBuffer: QJitterBuffer?
-    private let useNewJitterBuffer: Bool
     private var playoutBuffer: CircularBuffer?
     private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
     private let underrun = Atomic<UInt64>(0)
@@ -38,10 +48,8 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
     private let windowSizeUs = Atomic<UInt32>(0)
     private var windowSize: OpusWindowSize?
     private let metricsSubmitter: MetricsSubmitter?
-    private let jitterDepth: TimeInterval
-    private let jitterMax: TimeInterval
+    private let config: Config
     private let playing: Atomic<Bool> = .init(false)
-    private let maxPlcThreshold: Int
 
     // Time based buffer.
     private var timeAligner: TimeAligner?
@@ -66,33 +74,25 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
          engine: DecimusAudioEngine,
          decoder: AudioDecoder,
          measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
-         jitterDepth: TimeInterval,
-         jitterMax: TimeInterval,
-         opusWindowSize: OpusWindowSize,
-         granularMetrics: Bool,
-         useNewJitterBuffer: Bool,
          metricsSubmitter: MetricsSubmitter?,
-         maxPlcThreshold: Int) throws {
+         config: Config) throws {
         self.identifier = identifier
         self.engine = engine
         self.measurement = measurement
-        self.granularMetrics = granularMetrics
+        self.granularMetrics = config.granularMetrics
         self.decoder = decoder
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
-        self.useNewJitterBuffer = useNewJitterBuffer
+        self.config = config
         self.metricsSubmitter = metricsSubmitter
-        self.jitterDepth = jitterDepth
-        self.jitterMax = jitterMax
-        self.maxPlcThreshold = maxPlcThreshold
         super.init()
-        if !self.useNewJitterBuffer {
+        if !self.config.useNewJitterBuffer {
             // Create the jitter buffer.
-            let opusPacketSize = self.asbd.pointee.mSampleRate * opusWindowSize.rawValue
+            let opusPacketSize = self.asbd.pointee.mSampleRate * config.opusWindowSize.rawValue
             self.oldJitterBuffer = QJitterBuffer(elementSize: Int(asbd.pointee.mBytesPerPacket),
                                                  packetElements: Int(opusPacketSize),
                                                  clockRate: UInt(asbd.pointee.mSampleRate),
-                                                 maxLengthMs: UInt(jitterMax * 1000),
-                                                 minLengthMs: UInt(jitterDepth * 1000)) { level, msg, alert in
+                                                 maxLengthMs: UInt(config.jitterMax * 1000),
+                                                 minLengthMs: UInt(config.jitterDepth * 1000)) { level, msg, alert in
                 AudioHandler.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
             }
             // Create the player node.
@@ -117,7 +117,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
     }
 
     func createNewJitterBuffer(windowDuration: CMTime) throws -> JitterBuffer {
-        guard self.useNewJitterBuffer else { throw "Configuration Issue" }
+        guard self.config.useNewJitterBuffer else { throw "Configuration Issue" }
         // swiftlint:disable force_cast
         let handlers = CMBufferQueue.Handlers { builder in
             builder.compare {
@@ -155,19 +155,20 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
         guard windowDuration.seconds > 0 else { throw "Bad window size" }
         let buffer = try JitterBuffer(identifier: self.identifier,
                                       metricsSubmitter: self.metricsSubmitter,
-                                      minDepth: self.jitterDepth,
-                                      capacity: Int(self.jitterMax / windowDuration.seconds),
+                                      minDepth: self.config.jitterDepth,
+                                      capacity: Int(self.config.jitterMax / windowDuration.seconds),
                                       handlers: handlers)
         self.jitterBuffer = buffer
 
-        // TODO: Config for these constants.
         let format = DecimusAudioEngine.format
-        let playoutLengthTime: TimeInterval = 0.05
-        let playoutLength = UInt32(format.sampleRate * Double(format.streamDescription.pointee.mBytesPerFrame) * playoutLengthTime)
+        let playoutLengthTime: TimeInterval = self.config.playoutBufferTime
+        let playoutLength = UInt32(format.sampleRate *
+                                    Double(format.streamDescription.pointee.mBytesPerFrame) *
+                                    playoutLengthTime)
         self.playoutBuffer = try .init(length: playoutLength,
                                        format: self.asbd.pointee)
-        let slidingWindowLength: TimeInterval = 5.0
-        let capacity = Int(slidingWindowLength * (1.0/0.02)) // TODO: Window Size.
+        let slidingWindowLength: TimeInterval = self.config.slidingWindowTime
+        let capacity = Int(slidingWindowLength * (1.0 / self.config.opusWindowSize.rawValue))
         self.timeAligner = .init(windowLength: slidingWindowLength,
                                  capacity: capacity) { [weak self] in
             guard let self = self else { return [] }
@@ -182,7 +183,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
     }
 
     func submitEncodedAudio(data: Data, sequence: UInt64, date: Date, timestamp: Date) throws {
-        if self.useNewJitterBuffer {
+        if self.config.useNewJitterBuffer {
             let jitterBuffer: JitterBuffer
             if let existing = self.jitterBuffer {
                 jitterBuffer = existing
@@ -262,7 +263,11 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
         }
 
         guard data.pointee.mBuffers.mNumberChannels == self.asbd.pointee.mChannelsPerFrame else {
-            Self.logger.error("Unexpected render block channels. Got \(data.pointee.mBuffers.mNumberChannels). Expected \(self.asbd.pointee.mChannelsPerFrame)")
+            Self.logger.error("""
+                              Unexpected render block channels. \
+                              Got \(data.pointee.mBuffers.mNumberChannels). \
+                              Expected \(self.asbd.pointee.mChannelsPerFrame)
+                              """)
             return 1
         }
 
@@ -509,7 +514,7 @@ class AudioHandler: TimeAlignable { // swiftlint:disable:this type_body_length
 
         // Are we within the generation threshold?
         let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
-        guard packetsToGenerate <= self.maxPlcThreshold else {
+        guard packetsToGenerate <= self.config.maxPlcThreshold else {
             Self.logger.warning("Discontinuity too large: \(packetsToGenerate)")
             self.playoutBuffer?.clear()
             do {

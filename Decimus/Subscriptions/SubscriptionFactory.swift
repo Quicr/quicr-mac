@@ -66,6 +66,8 @@ struct SubscriptionConfig: Codable {
     var opusWindowSize: OpusWindowSize
     /// No more than this many packets will be concealed.
     var audioPlcLimit: Int
+    /// Audio playout buffer target depth.
+    var playoutBufferTime: TimeInterval
     /// Control behaviour of video rendering.
     var videoBehaviour: VideoBehaviour
     /// Interval between key frames, or 0 for codec control.
@@ -122,6 +124,7 @@ struct SubscriptionConfig: Codable {
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
         self.audioPlcLimit = 6
+        self.playoutBufferTime = 0.05
         videoBehaviour = .freeze
         keyFrameInterval = 5
         mediaReliability = .init()
@@ -218,17 +221,20 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             guard let engine = self.engine else {
                 throw PubSubFactoryError.cannotCreate(noAudioError)
             }
+            let config = AudioHandler.Config(jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                             jitterMax: max,
+                                             opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                             granularMetrics: self.granularMetrics,
+                                             useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                             maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
+                                             playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
+                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
             return ActiveSpeakerSubscriptionSet(subscription: subscription,
                                                 engine: engine,
-                                                jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                                jitterMax: max,
-                                                opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                                 ourParticipantId: self.participantId,
                                                 submitter: self.metricsSubmitter,
-                                                useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
-                                                granularMetrics: self.granularMetrics,
                                                 activeSpeakerStats: self.activeSpeakerStats,
-                                                maxPlcThreshold: self.subscriptionConfig.audioPlcLimit)
+                                                config: config)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -275,7 +281,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         throw CodecError.unsupportedCodecSet(found)
     }
 
-    func create(set: SubscriptionSet,
+    func create(set: SubscriptionSet, // swiftlint:disable:this function_body_length
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
@@ -380,6 +386,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         activeSpeakerStats: self.manualActiveSpeaker ? self.activeSpeakerStats : nil,
                                         sframeContext: self.sframeContext,
                                         maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
+                                        playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
+                                        slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
                                         statusChanged: unregister)
         }
         throw CodecError.invalidCodecConfig(config)
