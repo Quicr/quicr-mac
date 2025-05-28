@@ -23,10 +23,8 @@ typedef NS_ENUM(uint8_t, QStreamHeaderType) {
 };
 
 typedef NS_ENUM(uint8_t, QTrackMode) {
-    kQTrackModeDatagram,
-    kQTrackModeStreamPerObject,
-    kQTrackModeStreamPerGroup,
-    kQTrackModeStreamPerTrack
+    kDatagram,
+    kStream,
 };
 
 typedef NS_ENUM(uint8_t, QPublishObjectStatus) {

@@ -164,7 +164,7 @@ class H264Publication: Publication, FrameListener {
         }
 
         try super.init(profile: profile,
-                       trackMode: reliable ? .streamPerGroup : .datagram,
+                       trackMode: reliable ? .stream : .datagram,
                        defaultPriority: UInt8(clamping: defaultPriority),
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
