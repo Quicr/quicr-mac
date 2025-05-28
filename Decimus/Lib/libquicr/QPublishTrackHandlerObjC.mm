@@ -113,7 +113,8 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
 QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                                            quicr::TrackMode track_mode,
                                            std::uint8_t default_priority,
-                                           std::uint32_t default_ttl) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl)
+                                           std::uint32_t default_ttl,
+                                           std::optional<quicr::messages::StreamHeaderType> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
 {
 }
 
