@@ -161,10 +161,9 @@ class AudioHandler: TimeAlignable {
         self.jitterBuffer = buffer
 
         let format = DecimusAudioEngine.format
-        let playoutLengthTime: TimeInterval = self.config.playoutBufferTime
         let playoutLength = UInt32(format.sampleRate *
                                     Double(format.streamDescription.pointee.mBytesPerFrame) *
-                                    playoutLengthTime)
+                                    self.config.jitterMax)
         self.playoutBuffer = try .init(length: playoutLength,
                                        format: self.asbd.pointee)
         let slidingWindowLength: TimeInterval = self.config.slidingWindowTime
@@ -274,10 +273,86 @@ class AudioHandler: TimeAlignable {
         let buffer: AudioBuffer = data.pointee.mBuffers
         assert(buffer.mDataByteSize == numFrames * self.asbd.pointee.mBytesPerFrame)
 
-        let copiedFrames: Int
+        var copiedFrames = 0
         if let playoutBuffer = self.playoutBuffer {
-            let result = playoutBuffer.dequeue(frames: numFrames, buffer: &data.pointee)
-            copiedFrames = Int(result.frames)
+            // Dequeue audio from the playout buffer, catching up where late if possible.
+            var currentDestination = data.pointee
+            var currentDestinationSamples = numFrames
+            assert(numFrames == currentDestination.mBuffers.mDataByteSize / self.asbd.pointee.mBytesPerFrame)
+            while currentDestinationSamples > 0 {
+                // Attempt to dequeue the required frames from the playout buffer.
+                let result = playoutBuffer.dequeue(frames: currentDestinationSamples, buffer: &currentDestination)
+                guard result.frames > 0 else {
+                    // No frames were available, so we're done.
+                    break
+                }
+                var validThisPass = result.frames
+
+                // How early or late is this frame?
+                let dueDate = hostToDate(result.timestamp.mHostTime)
+                // TODO: Can we use the incoming render timestamp, rather than now()? Ideally we avoid a syscall.
+                let age = dueDate.timeIntervalSinceNow
+                let lateThreshold: TimeInterval = self.config.playoutBufferTime
+                guard age < -lateThreshold else {
+                    // This wasn't late, we're done.
+                    copiedFrames += Int(validThisPass)
+                    break
+                }
+
+                // Late!
+                // If there is more data to consume, we should remove any silence, and dequeue more to fill.
+                let remaining = playoutBuffer.peek().frames
+                guard remaining > 0 else {
+                    // Nothing left to use, nothing we can do.
+                    copiedFrames += Int(validThisPass)
+                    break
+                }
+
+                // There are more frames to consume, so let's try and catch up a bit by removing silence.
+
+                var writeIndex = 0
+                let silenceThreshold: Float32 = 0.001
+                var removed: AVAudioFrameCount = 0
+
+                assert(self.asbd.pointee.mBytesPerFrame == MemoryLayout<Float32>.size)
+                let samples = currentDestination.mBuffers.mData!.bindMemory(to: Float32.self,
+                                                                            capacity: Int(currentDestinationSamples))
+                let lengthSamples = UnsafeMutableBufferPointer<Float32>(start: samples,
+                                                                        count: Int(currentDestinationSamples))
+                for index in 0..<lengthSamples.count {
+                    let silent = abs(samples[index]) < silenceThreshold
+                    guard !silent else {
+                        // This is silence, skip it.
+                        removed += 1
+                        validThisPass -= 1
+                        guard removed < remaining else { break }
+                        continue
+                    }
+
+                    // Valid, write it.
+                    if writeIndex != index {
+                        samples[writeIndex] = samples[index]
+                    }
+                    writeIndex += 1
+                }
+
+                // Now we attempt to dequeue more frames to fill up to the target.
+                // Update our state, and iterate.
+                // Bytes we just filled.
+                let usedBytes = validThisPass * self.asbd.pointee.mBytesPerFrame
+                // Move the buffer forward.
+                currentDestination.mBuffers.mData = currentDestination.mBuffers.mData!.advanced(by: Int(usedBytes))
+                // Update available space.
+                currentDestination.mBuffers.mDataByteSize -= UInt32(usedBytes)
+                // Update required samples.
+                currentDestinationSamples -= validThisPass
+                // Update total frames copied this pass.
+                copiedFrames += Int(validThisPass)
+
+                #if DEBUG
+                Self.logger.debug("Audio was late at playout: \(age * 1000)ms. Removed \(removed) silent frames")
+                #endif
+            }
         } else if let jitterBuffer = self.oldJitterBuffer {
             copiedFrames = jitterBuffer.dequeue(buffer.mData,
                                                 destinationLength: Int(buffer.mDataByteSize),
@@ -418,8 +493,11 @@ class AudioHandler: TimeAlignable {
                     }
 
                     // Wait until we expect to have a frame available.
-                    let calc = self.calculateWaitTime(from: now)
-                    waitTime = calc ?? windowSize.rawValue
+                    if let calc = self.calculateWaitTime(from: now) {
+                        waitTime = calc - self.config.playoutBufferTime
+                    } else {
+                        waitTime = windowSize.rawValue
+                    }
                 } else {
                     return
                 }
@@ -443,7 +521,8 @@ class AudioHandler: TimeAlignable {
                         let now = Date.now
                         if let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
-                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: time + self.config.playoutBufferTime,
+                                                             metricsTimestamp: now)
                             }
                         }
                     }
@@ -477,7 +556,18 @@ class AudioHandler: TimeAlignable {
         }
 
         // Enqueue for playout.
-        var timestamp = AudioTimeStamp()
+        guard let diff = self.timeDiff.getTimeDiff() else {
+            Self.logger.error("Missing timing info, cannot use this audio")
+            return
+        }
+        let playout = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
+        var timestamp = AudioTimeStamp(mSampleTime: 0,
+                                       mHostTime: dateToHost(playout),
+                                       mRateScalar: 0,
+                                       mWordClockTime: 0,
+                                       mSMPTETime: .init(),
+                                       mFlags: .hostTimeValid,
+                                       mReserved: 0)
         do {
             guard let playoutBuffer = self.playoutBuffer else {
                 Self.logger.error("Missing playout buffer")
