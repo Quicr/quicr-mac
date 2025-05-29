@@ -77,6 +77,7 @@
 		9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48066D297F19700040F5D4 /* CaptureManager.swift */; };
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
+		9B4A44E72DE8ECE00058F5CD /* SFrame in Frameworks */ = {isa = PBXBuildFile; productRef = 9B4A44E62DE8ECE00058F5CD /* SFrame */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
 		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
@@ -131,7 +132,6 @@
 		9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDD5B12299697DE00C01D54 /* DequeModule */; };
 		9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B172996A86500C01D54 /* LibOpusDecoder.swift */; };
 		9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDD5B19299A395B00C01D54 /* LibOpusEncoder.swift */; };
-		9BDE290A2DC3A2A3000E0325 /* SFrame in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDE29092DC3A2A3000E0325 /* SFrame */; };
 		9BDE868B2B70ECC6009467A7 /* SwiftInterop.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BDE868A2B70ECC6009467A7 /* SwiftInterop.m */; };
 		9BE6288A2CE366AE001401D0 /* ActiveSpeakerNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE628892CE366A9001401D0 /* ActiveSpeakerNotifier.swift */; };
 		9BE6288C2CE36A32001401D0 /* TestActiveSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6288B2CE36A30001401D0 /* TestActiveSpeaker.swift */; };
@@ -445,7 +445,7 @@
 			files = (
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
-				9BDE290A2DC3A2A3000E0325 /* SFrame in Frameworks */,
+				9B4A44E72DE8ECE00058F5CD /* SFrame in Frameworks */,
 				18BF45782B0E0F3D006E8E24 /* TPCircularBuffer in Frameworks */,
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */,
@@ -892,7 +892,7 @@
 				188ABB552A792E9C00B31A6E /* Opus */,
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
-				9BDE29092DC3A2A3000E0325 /* SFrame */,
+				9B4A44E62DE8ECE00058F5CD /* SFrame */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -935,7 +935,7 @@
 				18BF45762B0E0F3D006E8E24 /* XCRemoteSwiftPackageReference "TPCircularBuffer" */,
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */,
-				9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */,
+				9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -1598,6 +1598,14 @@
 				minimumVersion = 1.0.3;
 			};
 		};
+		9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cisco-open/swift-frame.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/SimplyDanny/SwiftLintPlugins";
@@ -1612,14 +1620,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
-			};
-		};
-		9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/RichLogan/swift-frame";
-			requirement = {
-				branch = main;
-				kind = branch;
 			};
 		};
 		FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
@@ -1663,6 +1663,11 @@
 			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
 			productName = "plugin:SwiftLintBuildToolPlugin";
 		};
+		9B4A44E62DE8ECE00058F5CD /* SFrame */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */;
+			productName = SFrame;
+		};
 		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
@@ -1672,11 +1677,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
-		};
-		9BDE29092DC3A2A3000E0325 /* SFrame */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9BDE29082DC3A2A3000E0325 /* XCRemoteSwiftPackageReference "swift-frame" */;
-			productName = SFrame;
 		};
 		FFA0E84F2A6F25A20027603B /* WrappingHStack */ = {
 			isa = XCSwiftPackageProductDependency;
