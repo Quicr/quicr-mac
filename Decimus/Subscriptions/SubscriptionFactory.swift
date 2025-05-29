@@ -124,7 +124,7 @@ struct SubscriptionConfig: Codable {
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
         self.audioPlcLimit = 6
-        self.playoutBufferTime = 0.05
+        self.playoutBufferTime = 0.02
         videoBehaviour = .freeze
         keyFrameInterval = 5
         mediaReliability = .init()
