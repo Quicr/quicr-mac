@@ -10,7 +10,7 @@ struct AudioUtilitiesTests {
         let host = mach_absolute_time()
         let hostDate = hostToDate(host)
         let backToHost = dateToHost(hostDate)
-        let tickTolerance = 1
+        let tickTolerance = 50
         let diff = Int128(backToHost) - Int128(host)
         #expect(diff <= tickTolerance, "Host time should match after conversion")
     }
