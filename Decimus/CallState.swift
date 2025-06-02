@@ -117,7 +117,8 @@ class CallState: ObservableObject, Equatable {
         if self.recording {
             do {
                 #if canImport(ScreenCaptureKit)
-                self.appRecorder = try await AppRecorderImpl()
+                let filename = "quicr_\(self.config.email)_\(self.config.conferenceID)_\(Date.now.ISO8601Format())"
+                self.appRecorder = try await AppRecorderImpl(filename: filename)
                 #endif
             } catch {
                 Self.logger.error("Failed to start recording: \(error.localizedDescription)")

@@ -45,7 +45,7 @@ class AppRecorderImpl: AppRecorder {
     private let stream: SCStream
 
     /// Create a new recorder.
-    init() async throws {
+    init(filename: String) async throws {
         // Fetch available.
         let content = try await SCShareableContent.current
         guard let ourself = content.applications.filter({ app in
@@ -83,7 +83,7 @@ class AppRecorderImpl: AppRecorder {
         // Recording configuration.
         let recordingConfig = SCRecordingOutputConfiguration()
         recordingConfig.outputFileType = .mov
-        recordingConfig.outputURL = .downloadsDirectory.appendingPathComponent("recording",
+        recordingConfig.outputURL = .downloadsDirectory.appendingPathComponent(filename,
                                                                                conformingTo: .quickTimeMovie)
 
         let recording = SCRecordingOutput(configuration: recordingConfig,
