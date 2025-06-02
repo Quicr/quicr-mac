@@ -78,11 +78,13 @@
 		9B48068929829FB90040F5D4 /* VideoParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068829829FB90040F5D4 /* VideoParticipant.swift */; };
 		9B48068C298301FD0040F5D4 /* QMediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B48068B298301FD0040F5D4 /* QMediaTypes.swift */; };
 		9B4A44E72DE8ECE00058F5CD /* SFrame in Frameworks */ = {isa = PBXBuildFile; productRef = 9B4A44E62DE8ECE00058F5CD /* SFrame */; };
+		9B4A44E92DEAFB810058F5CD /* AppRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
 		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
+		9B6ADC5B2DEDB1AB009E9060 /* DisplayPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */; };
 		9B6C9F0C2DE5E80E0041B9C1 /* AudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F0B2DE5E8050041B9C1 /* AudioUtilities.swift */; };
 		9B6C9F112DE629720041B9C1 /* TestAudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */; };
 		9B7325EF2D558C3B00729DFB /* MockClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7325EE2D558C3900729DFB /* MockClient.swift */; };
@@ -287,11 +289,13 @@
 		9B48066D297F19700040F5D4 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		9B48068829829FB90040F5D4 /* VideoParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoParticipant.swift; sourceTree = "<group>"; };
 		9B48068B298301FD0040F5D4 /* QMediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QMediaTypes.swift; sourceTree = "<group>"; };
+		9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRecorder.swift; sourceTree = "<group>"; };
 		9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
 		9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAligned.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
+		9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPicker.swift; sourceTree = "<group>"; };
 		9B6C9F0B2DE5E8050041B9C1 /* AudioUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioUtilities.swift; sourceTree = "<group>"; };
 		9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUtilities.swift; sourceTree = "<group>"; };
 		9B7325EE2D558C3900729DFB /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
@@ -491,6 +495,7 @@
 		18C89A472A14EF02005B333B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */,
 				9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */,
 				18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */,
 				18C89A452A14E667005B333B /* AppStorageWrapper.swift */,
@@ -627,6 +632,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */,
 				9B6C9F0A2DE5E8020041B9C1 /* Audio */,
 				9B474D7F2DAD5D3200EB6DE7 /* CallState.swift */,
 				9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */,
@@ -882,7 +888,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				9B2B281C2D37CEF000A80593 /* PBXTargetDependency */,
+				9BAA26092DED9DA90085883C /* PBXTargetDependency */,
 			);
 			name = QuicR;
 			packageProductDependencies = (
@@ -1097,6 +1103,7 @@
 				9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */,
 				9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */,
 				9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */,
+				9B6ADC5B2DEDB1AB009E9060 /* DisplayPicker.swift in Sources */,
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
@@ -1114,6 +1121,7 @@
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9B6C9F0C2DE5E80E0041B9C1 /* AudioUtilities.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
+				9B4A44E92DEAFB810058F5CD /* AppRecorder.swift in Sources */,
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
@@ -1180,14 +1188,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		9B2B281C2D37CEF000A80593 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = 9B2B281B2D37CEF000A80593 /* SwiftLintBuildToolPlugin */;
-		};
 		9B85952029F04521008C813C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 9BA27FC1297D7270007013B2 /* QuicR */;
 			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
+		};
+		9BAA26092DED9DA90085883C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 9BAA26082DED9DA90085883C /* SwiftLintBuildToolPlugin */;
 		};
 		9BC070D32D2C37AD00FE5B0E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1206,7 +1214,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
@@ -1231,7 +1239,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.Tests;
@@ -1427,7 +1435,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1504,7 +1512,7 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1658,15 +1666,15 @@
 			package = 9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */;
 			productName = Numerics;
 		};
-		9B2B281B2D37CEF000A80593 /* SwiftLintBuildToolPlugin */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
-			productName = "plugin:SwiftLintBuildToolPlugin";
-		};
 		9B4A44E62DE8ECE00058F5CD /* SFrame */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */;
 			productName = SFrame;
+		};
+		9BAA26082DED9DA90085883C /* SwiftLintBuildToolPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
+			productName = "plugin:SwiftLintBuildToolPlugin";
 		};
 		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
