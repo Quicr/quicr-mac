@@ -26,6 +26,8 @@ class OpusSubscription: Subscription {
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let sframeContext: SFrameContext?
     private let maxPlcThreshold: Int
+    private let playoutBufferTime: TimeInterval
+    private let slidingWindowTime: TimeInterval
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -42,6 +44,8 @@ class OpusSubscription: Subscription {
          activeSpeakerStats: ActiveSpeakerStats?,
          sframeContext: SFrameContext?,
          maxPlcThreshold: Int,
+         playoutBufferTime: TimeInterval,
+         slidingWindowTime: TimeInterval,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -62,19 +66,24 @@ class OpusSubscription: Subscription {
         self.activeSpeakerStats = activeSpeakerStats
         self.sframeContext = sframeContext
         self.maxPlcThreshold = maxPlcThreshold
+        self.playoutBufferTime = playoutBufferTime
+        self.slidingWindowTime = slidingWindowTime
 
         // Create the actual audio handler upfront.
+        let config = AudioHandler.Config(jitterDepth: self.jitterDepth,
+                                         jitterMax: self.jitterMax,
+                                         opusWindowSize: self.opusWindowSize,
+                                         granularMetrics: self.granularMetrics,
+                                         useNewJitterBuffer: self.useNewJitterBuffer,
+                                         maxPlcThreshold: self.maxPlcThreshold,
+                                         playoutBufferTime: self.playoutBufferTime,
+                                         slidingWindowTime: self.slidingWindowTime)
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
                                        decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                        measurement: self.measurement,
-                                       jitterDepth: self.jitterDepth,
-                                       jitterMax: self.jitterMax,
-                                       opusWindowSize: self.opusWindowSize,
-                                       granularMetrics: self.granularMetrics,
-                                       useNewJitterBuffer: self.useNewJitterBuffer,
                                        metricsSubmitter: self.metricsSubmitter,
-                                       maxPlcThreshold: self.maxPlcThreshold))
+                                       config: config))
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         try super.init(profile: profile,
@@ -163,17 +172,20 @@ class OpusSubscription: Subscription {
         do {
             handler = try self.handler.withLock { lockedHandler in
                 guard let handler = lockedHandler else {
+                    let config = AudioHandler.Config(jitterDepth: self.jitterDepth,
+                                                     jitterMax: self.jitterMax,
+                                                     opusWindowSize: self.opusWindowSize,
+                                                     granularMetrics: self.granularMetrics,
+                                                     useNewJitterBuffer: self.useNewJitterBuffer,
+                                                     maxPlcThreshold: self.maxPlcThreshold,
+                                                     playoutBufferTime: self.playoutBufferTime,
+                                                     slidingWindowTime: self.slidingWindowTime)
                     let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
                                                    engine: self.engine,
                                                    decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                                    measurement: self.measurement,
-                                                   jitterDepth: self.jitterDepth,
-                                                   jitterMax: self.jitterMax,
-                                                   opusWindowSize: self.opusWindowSize,
-                                                   granularMetrics: self.granularMetrics,
-                                                   useNewJitterBuffer: self.useNewJitterBuffer,
                                                    metricsSubmitter: self.metricsSubmitter,
-                                                   maxPlcThreshold: self.maxPlcThreshold)
+                                                   config: config)
                     lockedHandler = handler
                     return handler
                 }

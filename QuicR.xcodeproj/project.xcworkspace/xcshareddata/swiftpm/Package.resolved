@@ -1,5 +1,5 @@
 {
-  "originHash" : "ad81a489ac7ffebb3e7ec52bc966e4b5f0b7966be7b44d94c2f6f96281c0913d",
+  "originHash" : "eed7039d1fed5e52504369e951b63dabecd93e917e45cac9cd7f29820c608915",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -58,7 +58,7 @@
     {
       "identity" : "swift-frame",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/RichLogan/swift-frame",
+      "location" : "https://github.com/cisco-open/swift-frame.git",
       "state" : {
         "branch" : "main",
         "revision" : "4cf265821e33b25fca5e0cfe994134e3568fa2d1"

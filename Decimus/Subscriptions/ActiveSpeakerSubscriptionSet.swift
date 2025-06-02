@@ -6,42 +6,28 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     // Dependencies.
     private let logger = DecimusLogger(ActiveSpeakerSubscriptionSet.self)
     private let engine: DecimusAudioEngine
-    private let jitterDepth: TimeInterval
-    private let jitterMax: TimeInterval
-    private let opusWindowSize: OpusWindowSize
     private let ourParticipantId: ParticipantId?
     private let metricsSubmitter: MetricsSubmitter?
-    private let useNewJitterBuffer: Bool
-    private let granularMetrics: Bool
     private let activeSpeakerStats: ActiveSpeakerStats?
-    private let maxPlcThreshold: Int
 
     /// Individual active speaker subscriptions.
     private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
     /// Per-client audio media objects.
     private var audioMediaObjects: [ParticipantId: AudioHandler] = [:]
 
+    private let audioHandlerConfig: AudioHandler.Config
+
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
-         jitterDepth: TimeInterval,
-         jitterMax: TimeInterval,
-         opusWindowSize: OpusWindowSize,
          ourParticipantId: ParticipantId?,
          submitter: MetricsSubmitter?,
-         useNewJitterBuffer: Bool,
-         granularMetrics: Bool,
          activeSpeakerStats: ActiveSpeakerStats?,
-         maxPlcThreshold: Int) {
+         config: AudioHandler.Config) {
         self.engine = engine
-        self.jitterDepth = jitterDepth
-        self.jitterMax = jitterMax
-        self.opusWindowSize = opusWindowSize
         self.ourParticipantId = ourParticipantId
         self.metricsSubmitter = submitter
-        self.useNewJitterBuffer = useNewJitterBuffer
-        self.granularMetrics = granularMetrics
         self.activeSpeakerStats = activeSpeakerStats
-        self.maxPlcThreshold = maxPlcThreshold
+        self.audioHandlerConfig = config
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
     }
 
@@ -100,13 +86,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
                                          engine: self.engine,
                                          decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                          measurement: measurement,
-                                         jitterDepth: self.jitterDepth,
-                                         jitterMax: self.jitterMax,
-                                         opusWindowSize: self.opusWindowSize,
-                                         granularMetrics: self.granularMetrics,
-                                         useNewJitterBuffer: self.useNewJitterBuffer,
                                          metricsSubmitter: self.metricsSubmitter,
-                                         maxPlcThreshold: self.maxPlcThreshold)
+                                         config: self.audioHandlerConfig)
                 self.audioMediaObjects[participantId] = media
             } catch {
                 self.logger.error(

@@ -62,6 +62,14 @@ struct SubscriptionSettingsView: View {
                 }
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
+                if self.subscriptionConfig.value.useNewJitterBuffer {
+                    LabeledContent("Playout Buffer Size (s)") {
+                        TextField("Playout Buffer Size (s)",
+                                  value: self.$subscriptionConfig.value.playoutBufferTime,
+                                  format: .number)
+                            .labelsHidden()
+                    }
+                }
                 LabeledToggle("KeyFrame on Update",
                               isOn: self.$subscriptionConfig.value.keyFrameOnUpdate)
 

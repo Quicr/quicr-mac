@@ -30,7 +30,6 @@ class OpusPublication: Publication, AudioPublication {
     private let startingGroupId: UInt64
     private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
-    private let bootDate: Date
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
     private let incrementing: Incrementing
@@ -79,7 +78,6 @@ class OpusPublication: Publication, AudioPublication {
               let defaultTTL = profile.expiry?.first else {
             throw "Missing expected profile values"
         }
-        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
         self.publish = .init(startActive)
         self.startingGroupId = groupId
@@ -236,7 +234,7 @@ class OpusPublication: Publication, AudioPublication {
         let encoded = try self.encoder.write(data: self.pcm)
 
         // Get absolute time.
-        let wallClock = try getAudioDate(dequeued.timestamp.mHostTime, bootDate: self.bootDate)
+        let wallClock = try hostToDate(dequeued.timestamp.mHostTime)
 
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
@@ -267,33 +265,4 @@ class OpusPublication: Publication, AudioPublication {
         decibel = max(decibel, minAudioLevel)
         return Int(decibel.rounded())
     }
-}
-
-func getAudioDate(_ hostTime: UInt64, bootDate: Date) throws -> Date {
-    let nano: UInt64
-    #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-    nano = getAudioDateMac(hostTime)
-    #else
-    nano = try getAudioDateiOS(hostTime)
-    #endif
-    let nanoInterval = TimeInterval(nano) / 1_000_000_000
-    return bootDate.addingTimeInterval(nanoInterval)
-}
-
-#if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-func getAudioDateMac(_ hostTime: UInt64) -> UInt64 {
-    AudioConvertHostTimeToNanos(hostTime)
-}
-#endif
-
-func getAudioDateiOS(_ hostTime: UInt64) throws -> UInt64 {
-    // Get absolute time.
-    var info = mach_timebase_info_data_t()
-    let result = mach_timebase_info(&info)
-    guard result == KERN_SUCCESS else {
-        throw "Failed to get mach time"
-    }
-    let factor = TimeInterval(info.numer) / TimeInterval(info.denom)
-    let nanoseconds = TimeInterval(hostTime) * factor
-    return UInt64(nanoseconds)
 }

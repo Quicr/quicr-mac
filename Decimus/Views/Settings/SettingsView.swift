@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import SwiftUI
+#if canImport(ScreenCaptureKit)
+import ScreenCaptureKit
+#endif
 
 struct SettingsView: View {
 
@@ -21,6 +24,10 @@ struct SettingsView: View {
     static let verboseKey = "verbose"
     @AppStorage(Self.verboseKey)
     private var verbose: Bool = false
+
+    static let recordingKey = "recordCall"
+    @AppStorage(Self.recordingKey)
+    private var recordCall: Bool = false
 
     var body: some View {
         // Reset all.
@@ -69,7 +76,13 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             Section("Debug") {
-                Toggle("Verbose Logging", isOn: self.$verbose)
+                LabeledToggle("Verbose Logging", isOn: self.$verbose)
+                #if canImport(ScreenCaptureKit)
+                LabeledToggle("Record Call", isOn: self.$recordCall)
+                if self.recordCall {
+                    DisplayPicker()
+                }
+                #endif
             }
             .decimusTextStyle()
 
