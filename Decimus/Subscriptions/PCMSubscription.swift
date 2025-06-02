@@ -16,55 +16,40 @@ class PCMSubscription: Subscription, AudioSubscription {
     private let engine: DecimusAudioEngine
     // private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
     private let reliable: Bool
-    private let granularMetrics: Bool
     private let handlers = Mutex<[UInt64: AudioHandler]>([:])
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
     private let lastUpdateTime = Mutex<[UInt64: Date?]>([:])
-    private let jitterDepth: TimeInterval
-    private let jitterMax: TimeInterval
-    private let opusWindowSize: OpusWindowSize
     private let metricsSubmitter: MetricsSubmitter?
-    private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let originalFormat: AVAudioFormat
     private let verbose: Bool
     private let ourGroupId: UInt64?
     private let listen: Atomic<Bool> = .init(true)
     private let sframeContext: SFrameContext?
-    private let maxPlcThreshold: Int
+    private let config: AudioHandler.Config
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
-         jitterDepth: TimeInterval,
-         jitterMax: TimeInterval,
-         opusWindowSize: OpusWindowSize,
          reliable: Bool,
-         granularMetrics: Bool,
+         config: AudioHandler.Config,
          endpointId: String,
          relayId: String,
-         useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          verbose: Bool,
          ourGroupId: UInt64?,
          sframeContext: SFrameContext?,
-         maxPlcThreshold: Int,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
         self.metricsSubmitter = submitter
-        self.jitterDepth = jitterDepth
-        self.jitterMax = jitterMax
-        self.opusWindowSize = opusWindowSize
+        self.config = config
         self.reliable = reliable
-        self.granularMetrics = granularMetrics
-        self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
         self.verbose = verbose
         self.ourGroupId = ourGroupId
         self.sframeContext = sframeContext
-        self.maxPlcThreshold = maxPlcThreshold
 
         // Original PCM format.
         var asbd = pcmFormat
@@ -166,15 +151,10 @@ class PCMSubscription: Subscription, AudioSubscription {
                                                    engine: self.engine,
                                                    decoder: PCMConverter(decodedFormat: DecimusAudioEngine.format,
                                                                          originalFormat: self.originalFormat,
-                                                                         windowSize: self.opusWindowSize),
+                                                                         windowSize: self.config.opusWindowSize),
                                                    measurement: nil,
-                                                   jitterDepth: self.jitterDepth,
-                                                   jitterMax: self.jitterMax,
-                                                   opusWindowSize: self.opusWindowSize,
-                                                   granularMetrics: self.granularMetrics,
-                                                   useNewJitterBuffer: self.useNewJitterBuffer,
                                                    metricsSubmitter: self.metricsSubmitter,
-                                                   maxPlcThreshold: self.maxPlcThreshold)
+                                                   config: self.config)
                     lockedHandlers[objectHeaders.groupId] = handler
                     return handler
                 }

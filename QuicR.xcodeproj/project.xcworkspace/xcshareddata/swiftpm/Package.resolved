@@ -1,5 +1,5 @@
 {
-  "originHash" : "eed7039d1fed5e52504369e951b63dabecd93e917e45cac9cd7f29820c608915",
+  "originHash" : "de967e6d33c181bdb3a3ca0d9d69e1135ca216cf898bbf4fd53510027a10fde4",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -61,7 +61,7 @@
       "location" : "https://github.com/cisco-open/swift-frame.git",
       "state" : {
         "branch" : "main",
-        "revision" : "4cf265821e33b25fca5e0cfe994134e3568fa2d1"
+        "revision" : "17ffc1d3106f2dd9d09a252278fc9fc5d00c8007"
       }
     },
     {

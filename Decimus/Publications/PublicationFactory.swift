@@ -153,7 +153,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                           participantId: self.participantId,
                                           metricsSubmitter: metricsSubmitter,
                                           opusWindowSize: self.opusWindowSize,
-                                          engine: self.engine,
+                                          engine: engine,
                                           config: config,
                                           endpointId: endpointId,
                                           relayId: relayId,

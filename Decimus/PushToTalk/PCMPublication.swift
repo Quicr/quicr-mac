@@ -26,7 +26,6 @@ class PCMPublication: Publication, AudioPublication {
     private let windowFrames: AVAudioFrameCount
     private let groupId: UInt64
     private var currentObjectId: UInt64 = 0
-    private let bootDate: Date
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
     private let converter: AVAudioConverter
@@ -69,7 +68,6 @@ class PCMPublication: Publication, AudioPublication {
               let defaultTTL = profile.expiry?.first else {
             throw "Missing expected profile values"
         }
-        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
         self.publish = .init(startActive)
         self.groupId = groupId
@@ -312,7 +310,7 @@ class PCMPublication: Publication, AudioPublication {
             assert(false)
             return nil
         }
-        let wallClock = try getAudioDate(timestamp.mHostTime, bootDate: self.bootDate)
+        let wallClock = hostToDate(timestamp.mHostTime)
 
         // Encode this data.
         return .init(encodedData: data, timestamp: wallClock)

@@ -373,22 +373,25 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 self.subscriptionConfig.jitterMaxTime
 
             if profile.channel == nil {
+                let config = AudioHandler.Config(jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                                 jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                                 opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                                 granularMetrics: self.granularMetrics,
+                                                 useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                                 maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
+                                                 playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
+                                                 slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
                 return try PCMSubscription(profile: profile,
-                                           engine: self.engine,
+                                           engine: engine,
                                            submitter: self.metricsSubmitter,
-                                           jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                           jitterMax: self.subscriptionConfig.videoJitterBuffer.capacity,
-                                           opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                            reliable: false,
-                                           granularMetrics: false,
+                                           config: config,
                                            endpointId: endpointId,
                                            relayId: relayId,
-                                           useNewJitterBuffer: true,
                                            cleanupTime: self.subscriptionConfig.cleanupTime,
                                            verbose: self.verbose,
                                            ourGroupId: self.startingGroup,
                                            sframeContext: self.sframeContext,
-                                           maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                            statusChanged: unregister)
             }
 
