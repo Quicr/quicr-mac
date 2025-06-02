@@ -43,6 +43,7 @@ class AppRecorderImpl: AppRecorder {
     private let microphoneDelegate = StreamDelegate()
     private let audioDelegate = StreamDelegate()
     private let stream: SCStream
+    private let logger = DecimusLogger(AppRecorderImpl.self)
 
     /// Create a new recorder.
     init(filename: String, display: CGDirectDisplayID) async throws {
@@ -53,8 +54,18 @@ class AppRecorderImpl: AppRecorder {
         }).first else {
             throw SCKError.noApp
         }
-        guard let display = content.displays.filter({ $0.displayID == display }).first else {
-            throw SCKError.noDisplay
+
+        // Handle multiple displays.
+        let selectedDisplay: SCDisplay
+        if let requested = content.displays.first(where: { $0.displayID == display }) {
+            selectedDisplay = requested
+        } else {
+            self.logger.warning("Requested display not found (\(display)), using first available.")
+            guard let first = content.displays.first else {
+                throw SCKError.noDisplay
+            }
+            selectedDisplay = first
+            self.logger.warning("Using display \(first.displayID) instead.")
         }
 
         // Setup stream.
@@ -63,7 +74,7 @@ class AppRecorderImpl: AppRecorder {
         config.excludesCurrentProcessAudio = false
         config.captureMicrophone = true
         config.captureResolution = .best
-        self.stream = SCStream(filter: .init(display: display,
+        self.stream = SCStream(filter: .init(display: selectedDisplay,
                                              including: [ourself],
                                              exceptingWindows: []),
                                configuration: config,
