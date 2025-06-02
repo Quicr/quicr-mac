@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-#if canImport(ScreenCaptureKit)
 import SwiftUI
+#if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 
 private struct Display: Identifiable, CustomStringConvertible, Hashable {
@@ -19,12 +19,14 @@ private struct Display: Identifiable, CustomStringConvertible, Hashable {
         self.id = 0
     }
 }
+#endif
 
 struct DisplayPicker: View {
     static let displayRecordKey = "displayRecordKey"
     @AppStorage(Self.displayRecordKey)
     private var displayRecord: Int = 0
 
+    #if canImport(ScreenCaptureKit)
     private static let noDisplay = Display()
     @State private var selectedDisplay = Self.noDisplay
     @State private var displays: [Display] = []
@@ -70,5 +72,7 @@ struct DisplayPicker: View {
             self.error = error
         }
     }
+    #else
+    var body: some View {}
+    #endif
 }
-#endif
