@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Accelerate
 import Foundation
 import AVFAudio
 import CoreAudio
@@ -42,6 +43,7 @@ class AudioHandler: TimeAlignable {
     private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
     private let underrun = Atomic<UInt64>(0)
     private let callbacks = Atomic<UInt64>(0)
+    private let silenceRemoved = Atomic<UInt64>(0)
     private let granularMetrics: Bool
     private var dequeueTask: Task<Void, Never>?
     private var lastUsedSequence: UInt64?
@@ -50,6 +52,8 @@ class AudioHandler: TimeAlignable {
     private let metricsSubmitter: MetricsSubmitter?
     private let config: Config
     private let playing: Atomic<Bool> = .init(false)
+
+    private var silenceDetectionBuffer: UnsafeMutableBufferPointer<Float32>?
 
     // Time based buffer.
     private var timeAligner: TimeAligner?
@@ -114,6 +118,9 @@ class AudioHandler: TimeAlignable {
 
         // Reset the node.
         node?.reset()
+
+        // Deallocate silence detection buffer.
+        self.silenceDetectionBuffer?.baseAddress?.deallocate()
     }
 
     func createNewJitterBuffer(windowDuration: CMTime) throws -> JitterBuffer {
@@ -214,6 +221,18 @@ class AudioHandler: TimeAlignable {
             } catch JitterBufferError.old {
                 Self.logger.warning("Didn't enqueue audio as already concealed / used")
             }
+
+            if let measurement = self.measurement {
+                let metricsDate = self.granularMetrics ? date : nil
+                Task(priority: .utility) {
+                    await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                                            timestamp: metricsDate)
+                    await measurement.measurement.removedSilence(removed: self.silenceRemoved.load(ordering: .relaxed),
+                                                                 timestamp: metricsDate)
+                    await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                                                 timestamp: metricsDate)
+                }
+            }
             return
         }
 
@@ -279,7 +298,22 @@ class AudioHandler: TimeAlignable {
             var currentDestination = data.pointee
             var currentDestinationSamples = numFrames
             assert(numFrames == currentDestination.mBuffers.mDataByteSize / self.asbd.pointee.mBytesPerFrame)
+            var iterations = 0
             while currentDestinationSamples > 0 {
+                iterations += 1
+                let currentSamples = Int(currentDestinationSamples)
+                if self.silenceDetectionBuffer == nil {
+                    self.silenceDetectionBuffer = .allocate(capacity: currentSamples)
+                } else if var buffer = self.silenceDetectionBuffer,
+                          buffer.count < currentSamples {
+                    buffer.deallocate()
+                    buffer = .allocate(capacity: currentSamples)
+                }
+
+                // Work in timed chunks.
+                let analysisSizeTime: TimeInterval = 0.005 // 5ms.
+                let analysisSizeFrames = AVAudioFrameCount(ceil(analysisSizeTime * self.asbd.pointee.mSampleRate))
+
                 // Attempt to dequeue the required frames from the playout buffer.
                 let result = playoutBuffer.dequeue(frames: currentDestinationSamples, buffer: &currentDestination)
                 guard result.frames > 0 else {
@@ -290,8 +324,10 @@ class AudioHandler: TimeAlignable {
 
                 // How early or late is this frame?
                 let dueDate = hostToDate(result.timestamp.mHostTime)
+
                 // TODO: Can we use the incoming render timestamp, rather than now()? Ideally we avoid a syscall.
                 let age = dueDate.timeIntervalSinceNow
+
                 let lateThreshold: TimeInterval = self.config.playoutBufferTime
                 guard age < -lateThreshold else {
                     // This wasn't late, we're done.
@@ -315,29 +351,69 @@ class AudioHandler: TimeAlignable {
                 var removed: AVAudioFrameCount = 0
 
                 assert(self.asbd.pointee.mBytesPerFrame == MemoryLayout<Float32>.size)
-                let samples = currentDestination.mBuffers.mData!.bindMemory(to: Float32.self,
-                                                                            capacity: Int(currentDestinationSamples))
-                let lengthSamples = UnsafeMutableBufferPointer<Float32>(start: samples,
-                                                                        count: Int(currentDestinationSamples))
-                for index in 0..<lengthSamples.count {
-                    let silent = abs(samples[index]) < silenceThreshold
-                    guard !silent else {
-                        // This is silence, skip it.
-                        removed += 1
-                        validThisPass -= 1
-                        guard removed < remaining else { break }
-                        continue
-                    }
+                let lengthSamples: UnsafeMutableBufferPointer<Float32>
+                lengthSamples = .init(start: currentDestination.mBuffers.mData?.bindMemory(to: Float32.self,
+                                                                                           capacity: currentSamples),
+                                      count: currentSamples)
 
-                    // Valid, write it.
-                    if writeIndex != index {
-                        samples[writeIndex] = samples[index]
+                // Silence detection.
+                let dequeuedFrames = result.frames
+                vDSP_vabs(lengthSamples.baseAddress!,
+                          1,
+                          self.silenceDetectionBuffer!.baseAddress!,
+                          1,
+                          vDSP_Length(lengthSamples.count))
+
+                var index = 0
+                let incrementBy = min(Int(analysisSizeFrames), lengthSamples.count)
+                while index <= lengthSamples.count - incrementBy {
+                    let rms = Self.rms(buffer: self.silenceDetectionBuffer!.baseAddress!.advanced(by: index),
+                                       count: incrementBy)
+                    if rms < silenceThreshold {
+                        // Skip this entire silent chunk.
+                        removed += AVAudioFrameCount(incrementBy)
+                        validThisPass -= AVAudioFrameCount(incrementBy)
+                        guard removed < remaining else { break }
+                    } else {
+                        // Keep this chunk.
+                        if index != writeIndex {
+                            memmove(lengthSamples.baseAddress!.advanced(by: writeIndex),
+                                    lengthSamples.baseAddress!.advanced(by: index),
+                                    Int(incrementBy) * MemoryLayout<Float32>.size)
+                        }
+                        writeIndex += incrementBy
                     }
-                    writeIndex += 1
+                    index += incrementBy
+                }
+
+                // Remainder.
+                let leftToCheck = lengthSamples.count - index
+                if leftToCheck > 0 && remaining > removed + AVAudioFrameCount(leftToCheck) {
+                    let rms = Self.rms(buffer: self.silenceDetectionBuffer!.baseAddress!.advanced(by: index),
+                                       count: leftToCheck)
+                    if rms < silenceThreshold {
+                        // Skip this entire silent chunk.
+                        removed += AVAudioFrameCount(leftToCheck)
+                        validThisPass -= AVAudioFrameCount(leftToCheck)
+                    } else {
+                        // Keep this chunk.
+                        if index != writeIndex {
+                            memmove(lengthSamples.baseAddress!.advanced(by: writeIndex),
+                                    lengthSamples.baseAddress!.advanced(by: index),
+                                    leftToCheck * MemoryLayout<Float32>.size)
+                        }
+                        writeIndex += leftToCheck
+                    }
+                    index += incrementBy
+                }
+
+                if removed > 0 {
+                    self.silenceRemoved.wrappingAdd(UInt64(removed), ordering: .relaxed)
                 }
 
                 // Now we attempt to dequeue more frames to fill up to the target.
                 // Update our state, and iterate.
+
                 // Bytes we just filled.
                 let usedBytes = validThisPass * self.asbd.pointee.mBytesPerFrame
                 // Move the buffer forward.
@@ -350,7 +426,9 @@ class AudioHandler: TimeAlignable {
                 copiedFrames += Int(validThisPass)
 
                 #if DEBUG
-                Self.logger.debug("Audio was late at playout: \(age * 1000)ms. Removed \(removed) silent frames")
+                let timeSaved = TimeInterval(removed) * (1.0 / self.asbd.pointee.mSampleRate) * 1000
+                // swiftlint:disable:next line_length
+                Self.logger.debug("Audio was late at playout: \(age * 1000)ms. Removed \(removed) (\(timeSaved)ms) silent frames. Took: \(iterations) iterations")
                 #endif
             }
         } else if let jitterBuffer = self.oldJitterBuffer {
@@ -382,6 +460,13 @@ class AudioHandler: TimeAlignable {
             return .zero
         }
         return .zero
+    }
+
+    private static func rms(buffer: UnsafeMutablePointer<Float32>, count: Int) -> Float32 {
+        var sum: Float32 = 0.0
+        let count = vDSP_Length(count)
+        vDSP_svesq(buffer, 1, &sum, count)
+        return sqrt(sum / Float32(count))
     }
 
     private let plcCallback: PacketCallback = { packets, count, userData in
@@ -494,6 +579,7 @@ class AudioHandler: TimeAlignable {
 
                     // Wait until we expect to have a frame available.
                     if let calc = self.calculateWaitTime(from: now) {
+                        // Deliberately dequeue early to account for the playout buffer target size.
                         waitTime = calc - self.config.playoutBufferTime
                     } else {
                         waitTime = windowSize.rawValue
@@ -521,8 +607,9 @@ class AudioHandler: TimeAlignable {
                         let now = Date.now
                         if let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
-                                await measurement.frameDelay(delay: time + self.config.playoutBufferTime,
-                                                             metricsTimestamp: now)
+                                // Adjust this time to reflect our deliberate early dequeue.
+                                let time = time - self.config.playoutBufferTime
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
                             }
                         }
                     }

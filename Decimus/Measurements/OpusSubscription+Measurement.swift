@@ -48,6 +48,10 @@ extension OpusSubscription {
             record(field: "callbacks", value: callbacks as AnyObject, timestamp: timestamp)
         }
 
+        func removedSilence(removed: UInt64, timestamp: Date?) {
+            record(field: "removedSilence", value: removed as AnyObject, timestamp: timestamp)
+        }
+
         func recordLibJitterMetrics(metrics: Metrics, timestamp: Date?) {
             record(field: "concealed", value: metrics.concealed_frames as AnyObject, timestamp: timestamp)
             record(field: "filled", value: metrics.filled_packets as AnyObject, timestamp: timestamp)
