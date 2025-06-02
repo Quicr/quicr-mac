@@ -78,6 +78,11 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
+    // Recording.
+    @AppStorage(SettingsView.recordingKey)
+    private(set) var recording = false
+    private var appRecorder: AppRecorder?
+
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
         self.audioStartingGroup = audioStartingGroup
@@ -108,6 +113,15 @@ class CallState: ObservableObject, Equatable {
     }
 
     func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length cyclomatic_complexity
+        // Recording.
+        if self.recording {
+            do {
+                self.appRecorder = try await AppRecorder()
+            } catch {
+                Self.logger.error("Failed to start recording: \(error.localizedDescription)")
+            }
+        }
+
         // Fetch the manifest from the conference server.
         let manifest: Manifest
         do {
@@ -353,6 +367,9 @@ class CallState: ObservableObject, Equatable {
             if self.audioCapture {
                 try engine?.stop()
                 self.audioCapture = false
+            }
+            if let recorder = self.appRecorder {
+                try await recorder.stopCapture()
             }
         } catch {
             Self.logger.error("Error while stopping media: \(error)")

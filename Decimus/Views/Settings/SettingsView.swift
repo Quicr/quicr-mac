@@ -12,6 +12,10 @@ struct SettingsView: View {
     @AppStorage(Self.verboseKey)
     private var verbose: Bool = false
 
+    static let recordingKey = "recordCall"
+    @AppStorage(Self.recordingKey)
+    private var recordCall: Bool = false
+
     var body: some View {
         // Reset all.
         HStack {
@@ -58,7 +62,8 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             Section("Debug") {
-                Toggle("Verbose Logging", isOn: self.$verbose)
+                LabeledToggle("Verbose Logging", isOn: self.$verbose)
+                LabeledToggle("Record Call", isOn: self.$recordCall)
             }
             .decimusTextStyle()
 
