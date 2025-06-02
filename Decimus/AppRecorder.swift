@@ -45,7 +45,7 @@ class AppRecorderImpl: AppRecorder {
     private let stream: SCStream
 
     /// Create a new recorder.
-    init(filename: String) async throws {
+    init(filename: String, display: CGDirectDisplayID) async throws {
         // Fetch available.
         let content = try await SCShareableContent.current
         guard let ourself = content.applications.filter({ app in
@@ -53,7 +53,7 @@ class AppRecorderImpl: AppRecorder {
         }).first else {
             throw SCKError.noApp
         }
-        guard let display = content.displays.first else {
+        guard let display = content.displays.filter({ $0.displayID == display }).first else {
             throw SCKError.noDisplay
         }
 

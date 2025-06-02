@@ -81,6 +81,8 @@ class CallState: ObservableObject, Equatable {
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
+    @AppStorage(DisplayPicker.displayRecordKey)
+    private var recordDisplay: Int = 0
     private var appRecorder: AppRecorder?
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
@@ -118,7 +120,7 @@ class CallState: ObservableObject, Equatable {
             do {
                 #if canImport(ScreenCaptureKit)
                 let filename = "quicr_\(self.config.email)_\(self.config.conferenceID)_\(Date.now.ISO8601Format())"
-                self.appRecorder = try await AppRecorderImpl(filename: filename)
+                self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif
             } catch {
                 Self.logger.error("Failed to start recording: \(error.localizedDescription)")
