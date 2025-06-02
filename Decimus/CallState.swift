@@ -116,7 +116,9 @@ class CallState: ObservableObject, Equatable {
         // Recording.
         if self.recording {
             do {
-                self.appRecorder = try await AppRecorder()
+                #if canImport(ScreenCaptureKit)
+                self.appRecorder = try await AppRecorderImpl()
+                #endif
             } catch {
                 Self.logger.error("Failed to start recording: \(error.localizedDescription)")
             }

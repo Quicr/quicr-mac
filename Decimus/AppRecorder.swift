@@ -1,10 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+protocol AppRecorder {
+    func stopCapture() async throws
+}
+
+#if canImport(ScreenCaptureKit)
 import ScreenCaptureKit
 
 /// Records the call to a file.
-class AppRecorder {
+class AppRecorderImpl: AppRecorder {
     enum SCKError: Error {
         case noDisplay
         case noApp
@@ -61,8 +66,8 @@ class AppRecorder {
         self.stream = SCStream(filter: .init(display: display,
                                              including: [ourself],
                                              exceptingWindows: []),
-                              configuration: config,
-                              delegate: nil)
+                               configuration: config,
+                               delegate: nil)
 
         // Realtime callbacks (stop log spam).
         try self.stream.addStreamOutput(self.videoDelegate,
@@ -94,3 +99,4 @@ class AppRecorder {
         try await self.stream.stopCapture()
     }
 }
+#endif
