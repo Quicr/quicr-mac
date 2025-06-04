@@ -468,7 +468,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                            let measurement = self.measurement?.measurement,
                            let time = self.calculateWaitTime(item: item) {
                             Task(priority: .utility) {
-                                await measurement.frameDelay(delay: time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
                             }
                         }
 
