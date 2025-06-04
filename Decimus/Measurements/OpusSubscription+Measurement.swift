@@ -77,5 +77,9 @@ extension OpusSubscription {
             self.playoutFull += 1
             record(field: "playoutFull", value: self.playoutFull as AnyObject, timestamp: timestamp)
         }
+
+        func arrived(timestamp: Date, metricsTimestamp: Date) {
+            record(field: "devTimestamp", value: timestamp.timeIntervalSince1970, timestamp: metricsTimestamp)
+        }
     }
 }

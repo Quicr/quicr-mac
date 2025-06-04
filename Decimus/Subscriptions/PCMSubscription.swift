@@ -14,7 +14,7 @@ class PCMSubscription: Subscription, AudioSubscription {
 
     private let profile: Profile
     private let engine: DecimusAudioEngine
-    // private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
+    private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
     private let reliable: Bool
     private let handlers = Mutex<[UInt64: AudioHandler]>([:])
     private var cleanupTask: Task<(), Never>?
@@ -58,6 +58,11 @@ class PCMSubscription: Subscription, AudioSubscription {
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         self.logger = DecimusLogger(PCMSubscription.self, prefix: self.fullTrackName.description)
+        if let submitter {
+            self.measurement = .init(measurement: .init(namespace: profile.namespace.joined()), submitter: submitter)
+        } else {
+            self.measurement = nil
+        }
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -172,6 +177,14 @@ class PCMSubscription: Subscription, AudioSubscription {
         } else {
             self.logger.warning("Missing expected LOC headers")
             loc = .init(timestamp: now, sequence: nil)
+        }
+
+        if self.config.granularMetrics,
+           let measurement = self.measurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.arrived(timestamp: loc.timestamp, metricsTimestamp: now)
+
+            }
         }
 
         guard let chunk = try? ChunkMessage(from: unprotected) else {

@@ -70,6 +70,9 @@ final class TimeAligner {
     }
 
     func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date, force: Bool = false) {
+        // If there's no longer anything in the window, reset the diff.
+        let force = force || (self.diffWindow.length() == 0)
+
         // Record this diff.
         let diff = when.timeIntervalSince1970 - timestamp
         self.diffWindow.add(timestamp: when, value: diff)

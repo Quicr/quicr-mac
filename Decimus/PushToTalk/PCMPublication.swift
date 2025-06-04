@@ -35,6 +35,7 @@ class PCMPublication: Publication, AudioPublication {
     private let verbose: Bool
     private var file: AVAudioFile?
     private let sframeContext: SendSFrameContext?
+    private var lastTimestamp: Date?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -121,7 +122,14 @@ class PCMPublication: Publication, AudioPublication {
                                 for index in 0..<encodedChunks.count {
                                     let last = last && index == encodedChunks.count - 1
                                     let data = encodedChunks[index]
-                                    self.publish(data: data.encodedData, timestamp: data.timestamp, final: last)
+                                    let timestamp: Date
+                                    if let set = data.timestamp {
+                                        timestamp = set
+                                    } else {
+                                        timestamp = self.lastTimestamp!.addingTimeInterval(self.opusWindowSize.rawValue)
+                                    }
+                                    self.lastTimestamp = timestamp
+                                    self.publish(data: data.encodedData, timestamp: timestamp, final: last)
                                 }
                             } else if last {
                                 self.publish(data: Data(), timestamp: Date.now, final: true)
@@ -217,7 +225,7 @@ class PCMPublication: Publication, AudioPublication {
 
     struct EncodeResult {
         let encodedData: Data
-        let timestamp: Date
+        let timestamp: Date?
     }
 
     private func flushEncode(last: Bool) throws -> [EncodeResult] {
@@ -269,7 +277,7 @@ class PCMPublication: Publication, AudioPublication {
             }
 
             self.pcm.frameLength = packets
-            let sourceData = buffer.dequeue(frames: min(peek.frames, packets),
+            let sourceData = buffer.dequeue(frames: packets,
                                             buffer: &self.pcm.mutableAudioBufferList.pointee)
             let silenceFrames = packets - sourceData.frames
             if silenceFrames > 0 {
@@ -281,7 +289,13 @@ class PCMPublication: Publication, AudioPublication {
                        0,
                        Int(silenceFramesBytes))
             }
-            timestamp = sourceData.timestamp
+
+            if sourceData.timestamp.mFlags.contains(.hostTimeValid) {
+                timestamp = sourceData.timestamp
+            } else {
+                timestamp = nil
+            }
+
             status.pointee = .haveData
             if let file = self.file {
                 do {
@@ -306,12 +320,12 @@ class PCMPublication: Publication, AudioPublication {
         let data = Data(bytesNoCopy: ptr!, count: Int(len), deallocator: .none)
 
         // Timestamp.
-        guard let timestamp else {
-            assert(false)
-            return nil
+        let wallClock: Date?
+        if let timestamp = timestamp {
+            wallClock = hostToDate(timestamp.mHostTime)
+        } else {
+            wallClock = nil
         }
-        let wallClock = hostToDate(timestamp.mHostTime)
-
         // Encode this data.
         return .init(encodedData: data, timestamp: wallClock)
     }

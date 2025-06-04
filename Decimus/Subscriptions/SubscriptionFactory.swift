@@ -10,7 +10,7 @@ struct SFrameSettings: Codable {
     var key: String
 
     init() {
-        self.enable = false
+        self.enable = true
         self.key = "sixteen byte key"
     }
 }
@@ -374,7 +374,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
 
             if profile.channel == nil {
                 let config = AudioHandler.Config(jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                                 jitterMax: self.subscriptionConfig.jitterMaxTime,
+                                                 jitterMax: jitterMax,
                                                  opusWindowSize: self.subscriptionConfig.opusWindowSize,
                                                  granularMetrics: self.granularMetrics,
                                                  useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,

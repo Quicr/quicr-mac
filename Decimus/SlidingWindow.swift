@@ -8,13 +8,13 @@ import Synchronization
 /// whose validity is determined by age.
 class SlidingTimeWindow<T: Numeric> {
     private let values: Mutex<Deque<(timestamp: Date, value: T)>>
-    private let length: TimeInterval
+    let windowSize: TimeInterval
 
     /// Create a new sliding time window.
     /// - Parameter length: The length of the window.
     /// - Parameter reserved: Optionally, capacity to reserve in elements.
     init(length: TimeInterval, reserved: Int? = nil) {
-        self.length = length
+        self.windowSize = length
         self.values = .init(.init(minimumCapacity: reserved ?? 0))
     }
 
@@ -26,6 +26,17 @@ class SlidingTimeWindow<T: Numeric> {
         self.values.withLock { $0.append((timestamp, value)) }
     }
 
+    /// Get the latest value in the window.
+    /// - Returns: The latest timestamp and value, or nil if the window is empty.
+    func latest() -> (Date, T)? {
+        self.values.withLock { $0.last }
+    }
+
+    /// Clear all the values in the window.
+    func clear() {
+        self.values.withLock { $0.removeAll(keepingCapacity: true) }
+    }
+
     /// Given a point in time, return all older values within the window.
     /// - Parameter from: The time from which the window will start.
     /// - Returns: An array of values no older than the window.
@@ -34,12 +45,18 @@ class SlidingTimeWindow<T: Numeric> {
             var toRemove = IndexSet()
             for index in values.indices {
                 let element = values[index]
-                guard from.timeIntervalSince(element.timestamp) > self.length else { break }
+                guard from.timeIntervalSince(element.timestamp) > self.windowSize else { break }
                 toRemove.insert(index)
             }
             values.remove(atOffsets: toRemove)
             return values.reduce(into: []) { $0.append($1.value) }
         }
+    }
+
+    /// The current number of elements in the window.
+    /// - Returns: The number of elements currently in the window.
+    func length() -> Int {
+        self.values.withLock { $0.count }
     }
 }
 
