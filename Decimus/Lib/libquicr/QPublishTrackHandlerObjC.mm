@@ -108,6 +108,12 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
     return static_cast<QPublishTrackHandlerStatus>(status);
 }
 
+-(QStreamHeaderType) getStreamMode {
+    assert(handlerPtr);
+    auto mode = handlerPtr->GetStreamMode();
+    return static_cast<QStreamHeaderType>(mode);
+}
+
 // C++
 
 QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
