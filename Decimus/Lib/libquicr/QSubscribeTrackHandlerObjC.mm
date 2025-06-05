@@ -47,20 +47,11 @@
     return static_cast<QFilterType>(handlerPtr->GetFilterType());
 }
 
--(NSNumber* _Nullable) getLatestGroupId {
+-(id<QLocation> _Nullable) getLatestLocation {
     assert(handlerPtr);
-    auto groupId = handlerPtr->GetLatestGroupID();
-    if (groupId.has_value()) {
-        return [NSNumber numberWithUnsignedLongLong:groupId.value()];
-    }
-    return nullptr;
-}
-
--(NSNumber* _Nullable) getLatestObjectId {
-    assert(handlerPtr);
-    auto objectId = handlerPtr->GetLatestObjectID();
-    if (objectId.has_value()) {
-        return [NSNumber numberWithUnsignedLongLong:objectId.value()];
+    const auto location = handlerPtr->GetLatestLocation();
+    if (location.has_value()) {
+        return [[QLocationImpl alloc] initWithGroup:location.value().group object:location.value().object];
     }
     return nullptr;
 }
@@ -81,9 +72,9 @@
 {
     assert(handlerPtr);
     const std::uint64_t test = 0x1234;
-    handlerPtr->SetSubscribeId(test);
+    handlerPtr->SetRequestId(test);
     handlerPtr->SetTrackAlias(test);
-    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::SubscribeID a, quicr::messages::TrackAlias b) {
+    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::RequestID a, quicr::messages::TrackAlias b) {
         assert(a == test);
         assert(b == test);
         callback(context);

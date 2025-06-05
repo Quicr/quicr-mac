@@ -15,7 +15,8 @@ public:
     QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
                          quicr::TrackMode track_mode,
                          std::uint8_t default_priority,
-                         std::uint32_t default_ttl);
+                         std::uint32_t default_ttl,
+                         std::optional<quicr::messages::StreamHeaderType> stream_mode = std::nullopt);
 
     void StatusChanged(Status status) override;
     void MetricsSampled(const quicr::PublishTrackMetrics&) override;

@@ -35,7 +35,7 @@ final class TestCallController: XCTestCase {
             for profile in publication.profileSet.profiles {
                 let ftn = try FullTrackName(namespace: profile.namespace, name: "")
                 let publication = try MockPublication(profile: profile,
-                                                      trackMode: .streamPerGroup,
+                                                      trackMode: .stream,
                                                       defaultPriority: 0,
                                                       defaultTTL: 0,
                                                       submitter: nil,
