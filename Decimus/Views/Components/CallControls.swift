@@ -10,6 +10,7 @@ struct CallControls: View {
     @StateObject private var viewModel: ViewModel
 
     @Binding var leaving: Bool
+    @Binding var showChat: Bool
 
     @State private var cameraModalExpanded: Bool = false
     @State private var muteModalExpanded: Bool = false
@@ -20,9 +21,13 @@ struct CallControls: View {
         hoverColour: .blue
     )
 
-    init(captureManager: CaptureManager?, engine: DecimusAudioEngine?, leaving: Binding<Bool>) {
+    init(captureManager: CaptureManager?,
+         engine: DecimusAudioEngine?,
+         leaving: Binding<Bool>,
+         showChat: Binding<Bool>) {
         _viewModel = StateObject(wrappedValue: ViewModel(captureManager: captureManager, engine: engine))
         _leaving = leaving
+        _showChat = showChat
     }
 
     private func openCameraModal() {
@@ -113,6 +118,18 @@ struct CallControls: View {
                     .padding(.bottom)
                 })
                 .disabled(viewModel.devices(.video).allSatisfy { !(viewModel.alteringDevice[$0] ?? false) })
+
+            Button(action: {
+                self.showChat = true
+            }, label: {
+                Image(systemName: "message")
+                    .renderingMode(.template)
+                    .foregroundColor(.white)
+                    .padding()
+            })
+            .foregroundColor(.white)
+            .background(.blue)
+            .clipShape(Circle())
 
             Button(action: {
                 leaving = true
@@ -262,7 +279,11 @@ extension CallControls {
 struct CallControls_Previews: PreviewProvider {
     static var previews: some View {
         let bool: Binding<Bool> = .init(get: { return false }, set: { _ in })
+        let showChat: Binding<Bool> = .constant(false)
         let capture: CaptureManager? = try? .init(metricsSubmitter: MockSubmitter(), granularMetrics: false)
-        CallControls(captureManager: capture, engine: try! .init(), leaving: bool) // swiftlint:disable:this force_try
+        CallControls(captureManager: capture,
+                     engine: try! .init(), // swiftlint:disable:this force_try
+                     leaving: bool,
+                     showChat: showChat)
     }
 }

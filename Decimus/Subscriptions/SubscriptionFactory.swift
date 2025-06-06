@@ -244,6 +244,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
+        let textCodecs: Set<CodecType> = [.text]
 
         // Resolve profile sets to config.
         var foundCodecs: [CodecType] = []
@@ -275,6 +276,10 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
 
         if found.isSubset(of: opusCodecs) {
+            return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        }
+
+        if found.isSubset(of: textCodecs) {
             return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
         }
 
@@ -389,6 +394,15 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
                                         slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
                                         statusChanged: unregister)
+        } else if config is TextCodecConfig {
+            return try MultipleCallbackSubscription(profile: profile,
+                                                    endpointId: endpointId,
+                                                    relayId: relayId,
+                                                    metricsSubmitter: self.metricsSubmitter,
+                                                    priority: 0,
+                                                    groupOrder: .originalPublisherOrder,
+                                                    filterType: .latestObject,
+                                                    statusCallback: {_ in})
         }
         throw CodecError.invalidCodecConfig(config)
     }
