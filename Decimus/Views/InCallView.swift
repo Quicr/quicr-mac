@@ -49,6 +49,7 @@ struct InCallView: View {
 
     private let viewModel: CallState
     @State private var leaving: Bool = false
+    @State private var showChat: Bool = false
     @State private var noParticipantsDetected = false
     @State private var showPreview = true
     @State private var lastTap: Date = .now
@@ -108,7 +109,8 @@ struct InCallView: View {
                                     // Call controls panel.
                                     CallControls(captureManager: self.viewModel.captureManager,
                                                  engine: self.viewModel.engine,
-                                                 leaving: self.$leaving)
+                                                 leaving: self.$leaving,
+                                                 showChat: self.$showChat)
                                 }
                             } else {
                                 Spacer()
@@ -136,7 +138,8 @@ struct InCallView: View {
                         // Call controls panel.
                         CallControls(captureManager: viewModel.captureManager,
                                      engine: viewModel.engine,
-                                     leaving: $leaving)
+                                     leaving: $leaving,
+                                     showChat: self.$showChat)
                             .disabled(leaving)
                             .padding(.bottom)
                             .frame(alignment: .top)
@@ -188,8 +191,8 @@ struct InCallView: View {
                                         HStack {
                                             TextField("Active Speakers",
                                                       text: self.$activeSpeakers)
-                                            #if !os(macOS)
-                                            .keyboardType(.asciiCapable)
+                                                #if !os(macOS)
+                                                .keyboardType(.asciiCapable)
                                             #endif
                                             Button("Set") { self.viewModel.setManualActiveSpeaker(self.activeSpeakers)
                                             }
@@ -209,6 +212,15 @@ struct InCallView: View {
                     Button("Done") {
                         self.debugDetail = false
                     }.padding()
+                }
+                .sheet(isPresented: self.$showChat) {
+                    VStack {
+                        ChatView(callback: { self.viewModel.textPublication?.sendMessage($0) })
+                            .environment(self.viewModel.textSubscriptions)
+                        Button("Done") {
+                            self.showChat = false
+                        }.padding()
+                    }
                 }
 
                 // Preview / self-view.

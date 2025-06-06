@@ -8,14 +8,7 @@ import Accelerate
 import Synchronization
 
 class OpusPublication: Publication, AudioPublication {
-    enum Incrementing {
-        case group
-        case object
-    }
-
     private static let logger = DecimusLogger(OpusPublication.self)
-    static let energyLevelKey: NSNumber = 6
-    static let participantIdKey: NSNumber = 8
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -157,9 +150,9 @@ class OpusPublication: Publication, AudioPublication {
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
-        loc.add(key: Self.energyLevelKey, value: Data([energyLevelValue]))
+        loc.add(key: AppHeaderRegistry.energyLevel, value: Data([energyLevelValue]))
         var participantId = self.participantId.aggregate
-        loc.add(key: Self.participantIdKey, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
+        loc.add(key: AppHeaderRegistry.participantId, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
 
         let protected: Data
         if let sframeContext {
