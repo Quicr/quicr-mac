@@ -48,7 +48,7 @@ class CallState: ObservableObject, Equatable {
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
     private(set) var videoParticipants = VideoParticipants()
     private(set) var currentManifest: Manifest?
-    private(set) var textSubscriptions = TextSubscriptions()
+    private(set) var textSubscriptions: TextSubscriptions?
     private(set) var textPublication: TextPublication?
     private let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
@@ -168,6 +168,8 @@ class CallState: ObservableObject, Equatable {
             }
         }
 
+        self.textSubscriptions = .init(sframeContext: self.receiveContext)
+
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
@@ -251,7 +253,7 @@ class CallState: ObservableObject, Equatable {
                                      "Text subscription handler should be MultipleCallbackSubscription")
                         // swiftlint:disable:next force_cast
                         let sub = handlers.first!.1 as! MultipleCallbackSubscription
-                        self.textSubscriptions.addSubscription(sub)
+                        self.textSubscriptions?.addSubscription(sub)
                     }
                 } catch {
                     Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")

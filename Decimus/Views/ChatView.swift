@@ -66,7 +66,7 @@ struct ChatView: View {
 
 #if DEBUG
 private func makeSubscriptions() -> TextSubscriptions {
-    let subscriptions = TextSubscriptions()
+    let subscriptions = TextSubscriptions(sframeContext: nil)
     subscriptions.messages.append(.init(author: .init(1),
                                         message: "Hello World",
                                         dateReceived: .now))
@@ -85,5 +85,5 @@ private func makeSubscriptions() -> TextSubscriptions {
 
 #Preview("No Messages") {
     ChatView(callback: { print($0) })
-        .environment(TextSubscriptions())
+        .environment(TextSubscriptions(sframeContext: nil))
 }

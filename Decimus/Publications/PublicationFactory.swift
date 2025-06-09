@@ -165,7 +165,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        trackMode: .streamPerGroup,
                                        submitter: metricsSubmitter,
                                        endpointId: endpointId,
-                                       relayId: relayId)
+                                       relayId: relayId,
+                                       sframeContext: self.sframeContext)
         default:
             throw CodecError.noCodecFound(config.codec)
         }
