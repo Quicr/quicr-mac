@@ -122,7 +122,6 @@
 		9BAAFF4F2DAFB50300CBDA98 /* PushToTalkCommon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF4A2DAFB50300CBDA98 /* PushToTalkCommon.swift */; };
 		9BAAFF502DAFB50300CBDA98 /* PCMPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF462DAFB50300CBDA98 /* PCMPublication.swift */; };
 		9BAAFF512DAFB50300CBDA98 /* PTTConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF472DAFB50300CBDA98 /* PTTConfig.swift */; };
-		9BAAFF522DAFB50300CBDA98 /* ALaw.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF452DAFB50300CBDA98 /* ALaw.swift */; };
 		9BAAFF532DAFB50300CBDA98 /* PushToTalkText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF4C2DAFB50300CBDA98 /* PushToTalkText.swift */; };
 		9BAAFF542DAFB50300CBDA98 /* PushToTalkCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF432DAFB50300CBDA98 /* PushToTalkCall.swift */; };
 		9BAAFF552DAFB50300CBDA98 /* PushToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAAFF422DAFB50300CBDA98 /* PushToTalkButton.swift */; };
@@ -367,7 +366,6 @@
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAAFF422DAFB50300CBDA98 /* PushToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkButton.swift; sourceTree = "<group>"; };
 		9BAAFF432DAFB50300CBDA98 /* PushToTalkCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkCall.swift; sourceTree = "<group>"; };
-		9BAAFF452DAFB50300CBDA98 /* ALaw.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ALaw.swift; sourceTree = "<group>"; };
 		9BAAFF462DAFB50300CBDA98 /* PCMPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PCMPublication.swift; sourceTree = "<group>"; };
 		9BAAFF472DAFB50300CBDA98 /* PTTConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTTConfig.swift; sourceTree = "<group>"; };
 		9BAAFF482DAFB50300CBDA98 /* PTTManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTTManifest.swift; sourceTree = "<group>"; };
@@ -767,7 +765,6 @@
 			isa = PBXGroup;
 			children = (
 				9BAAFF442DAFB50300CBDA98 /* Views */,
-				9BAAFF452DAFB50300CBDA98 /* ALaw.swift */,
 				9BAAFF462DAFB50300CBDA98 /* PCMPublication.swift */,
 				9BAAFF472DAFB50300CBDA98 /* PTTConfig.swift */,
 				9BAAFF482DAFB50300CBDA98 /* PTTManifest.swift */,
@@ -1220,7 +1217,6 @@
 				9BAAFF4F2DAFB50300CBDA98 /* PushToTalkCommon.swift in Sources */,
 				9BAAFF502DAFB50300CBDA98 /* PCMPublication.swift in Sources */,
 				9BAAFF512DAFB50300CBDA98 /* PTTConfig.swift in Sources */,
-				9BAAFF522DAFB50300CBDA98 /* ALaw.swift in Sources */,
 				9BAAFF532DAFB50300CBDA98 /* PushToTalkText.swift in Sources */,
 				9BAAFF542DAFB50300CBDA98 /* PushToTalkCall.swift in Sources */,
 				9BAAFF552DAFB50300CBDA98 /* PushToTalkButton.swift in Sources */,
