@@ -4,6 +4,7 @@
 enum ManifestMediaTypes: String {
     case video
     case audio
+    case text
 }
 
 struct ParticipantId: Codable, Equatable, Hashable, CustomStringConvertible {
