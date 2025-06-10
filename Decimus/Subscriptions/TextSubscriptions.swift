@@ -3,10 +3,15 @@
 
 /// A received text message.
 struct TextMessage: Identifiable {
+    enum Author {
+        case me
+        case participant(ParticipantId?)
+    }
+
     let id = UUID()
 
     /// The participant who sent the message.
-    let author: ParticipantId?
+    let author: Author
     /// The text content of the message.
     let message: String
     /// The date and time when the message was received.
@@ -59,7 +64,7 @@ class TextSubscriptions {
             self.logger.error("Failed to decode text message from data")
             return
         }
-        let message = TextMessage(author: participantId, message: text, dateReceived: .now)
+        let message = TextMessage(author: .participant(participantId), message: text, dateReceived: .now)
         self.logger.debug("Received text message from \(String(describing: message.author)): \(message.message)")
         self.messages.append(message)
     }

@@ -22,7 +22,12 @@ struct ChatView: View {
                 List(self.textSubscriptions.messages) { message in
                     VStack(alignment: .leading) {
                         HStack {
-                            let author = message.author != nil ? "\(message.author!.participantId)" : "Unknown"
+                            let author = switch message.author {
+                            case .me:
+                                "You"
+                            case .participant(let participant):
+                                participant != nil ? "\(participant!.participantId)" : "Unknown"
+                            }
                             Text(author)
                             Text("-")
                             Text(message.dateReceived.formatted())
@@ -58,6 +63,7 @@ struct ChatView: View {
 
     private func submit() {
         guard !self.toSend.isEmpty else { return }
+        self.textSubscriptions.messages.append(.init(author: .me, message: self.toSend, dateReceived: .now))
         self.callback(self.toSend)
         self.toSend = ""
         self.focus = true
@@ -67,10 +73,10 @@ struct ChatView: View {
 #if DEBUG
 private func makeSubscriptions() -> TextSubscriptions {
     let subscriptions = TextSubscriptions(sframeContext: nil)
-    subscriptions.messages.append(.init(author: .init(1),
+    subscriptions.messages.append(.init(author: .participant(.init(1)),
                                         message: "Hello World",
                                         dateReceived: .now))
-    subscriptions.messages.append(.init(author: .init(2),
+    subscriptions.messages.append(.init(author: .me,
                                         message: "Second Message",
                                         dateReceived: .now))
     return subscriptions
