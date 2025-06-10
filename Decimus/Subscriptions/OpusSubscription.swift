@@ -197,7 +197,7 @@ class OpusSubscription: Subscription {
         }
 
         if let activeSpeakerStats = self.activeSpeakerStats,
-           let participantId = loc.get(key: OpusPublication.participantIdKey) {
+           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
             Task(priority: .utility) {
                 let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
                 await activeSpeakerStats.audioDetected(.init(participantId), when: now)

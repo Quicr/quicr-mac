@@ -38,7 +38,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     func receivedObject(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         // Extract the client ID from the header.
         guard let extensions = extensions,
-              let participantIdextension = extensions[OpusPublication.participantIdKey] else {
+              let participantIdextension = extensions[AppHeaderRegistry.participantId.rawValue] else {
             self.logger.error("Missing expected client ID extension")
             return
         }
