@@ -48,6 +48,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
     private(set) var videoParticipants = VideoParticipants()
     private(set) var currentManifest: Manifest?
+    private(set) var textSubscriptions: TextSubscriptions?
+    private(set) var textPublication: TextPublication?
     private let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
     private var measurement: MeasurementRegistration<_Measurement>?
@@ -166,6 +168,8 @@ class CallState: ObservableObject, Equatable {
             }
         }
 
+        self.textSubscriptions = .init(sframeContext: self.receiveContext)
+
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
@@ -224,9 +228,12 @@ class CallState: ObservableObject, Equatable {
             // Publish.
             for publication in manifest.publications {
                 do {
-                    _ = try controller.publish(details: publication,
-                                               factory: publicationFactory,
-                                               codecFactory: CodecFactoryImpl())
+                    let created = try controller.publish(details: publication,
+                                                         factory: publicationFactory,
+                                                         codecFactory: CodecFactoryImpl())
+                    for pub in created where pub.1 is TextPublication {
+                        self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+                    }
                 } catch {
                     Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                 }
@@ -235,9 +242,19 @@ class CallState: ObservableObject, Equatable {
             // Subscribe.
             for subscription in manifest.subscriptions {
                 do {
-                    _ = try controller.subscribeToSet(details: subscription,
-                                                      factory: subscriptionFactory,
-                                                      subscribe: true)
+                    let set = try controller.subscribeToSet(details: subscription,
+                                                            factory: subscriptionFactory,
+                                                            subscribe: true)
+                    if subscription.mediaType == ManifestMediaTypes.text.rawValue {
+                        let handlers = set.getHandlers()
+                        precondition(handlers.count == 1,
+                                     "Text subscription should only have one handler")
+                        precondition(handlers.first?.1 is MultipleCallbackSubscription,
+                                     "Text subscription handler should be MultipleCallbackSubscription")
+                        // swiftlint:disable:next force_cast
+                        let sub = handlers.first!.1 as! MultipleCallbackSubscription
+                        self.textSubscriptions?.addSubscription(sub)
+                    }
                 } catch {
                     Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                 }

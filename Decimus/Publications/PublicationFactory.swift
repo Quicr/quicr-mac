@@ -178,6 +178,15 @@ class PublicationFactoryImpl: PublicationFactory {
                                        startActive: profile.channel != nil,
                                        incrementing: .group,
                                        sframeContext: self.sframeContext)
+        case .text:
+            return try TextPublication(participantId: self.participantId,
+                                       incrementing: .object,
+                                       profile: profile,
+                                       trackMode: .streamPerGroup,
+                                       submitter: metricsSubmitter,
+                                       endpointId: endpointId,
+                                       relayId: relayId,
+                                       sframeContext: self.sframeContext)
         default:
             throw CodecError.noCodecFound(config.codec)
         }

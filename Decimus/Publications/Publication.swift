@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
+    enum Incrementing {
+        case group
+        case object
+    }
+
     internal let profile: Profile
     private let logger: DecimusLogger
     private let measurement: MeasurementRegistration<TrackMeasurement>?
