@@ -99,8 +99,13 @@ struct PushToTalkCall: View {
             }
             let subscriptionFtn = try! FullTrackName(namespace: subscription.audio!.tracknamespace,
                                                      name: subscription.audio!.trackname)
-            let textFtn = try! FullTrackName(namespace: subscription.text!.tracknamespace,
-                                             name: subscription.text!.trackname)
+            let textFtn: FullTrackName?
+            if let text = subscription.text {
+                textFtn = try! FullTrackName(namespace: text.tracknamespace,
+                                            name: text.trackname)
+            } else {
+                textFtn = nil
+            }
             do {
                 let created = try PushToTalkChannel(name: channel.key,
                                                     moq: publicationFtn,
@@ -204,8 +209,10 @@ struct PushToTalkCall: View {
                                  start: { await self.talk(.channel) },
                                  end: { await self.stopTalking(.channel) })
 
-                ChatView { print($0) }
-                    .environment(self.callState.textSubscriptions)
+                if self.audioChannels[self.selectedChannel]?.textPublication != nil {
+                    ChatView { self.sendMessage($0) }
+                        .environment(self.callState.textSubscriptions)
+                }
 
                 Spacer()
 

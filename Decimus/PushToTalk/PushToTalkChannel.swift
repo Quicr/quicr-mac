@@ -17,7 +17,8 @@ class PushToTalkChannel {
     #endif
     private let publication: AudioPublication
     private let subscription: AudioSubscription
-    private let textPublication: TextPublication
+    let textPublication: TextPublication?
+    private let textSubscription: MultipleCallbackSubscription?
     private let callController: MoqCallController
     private let logger: DecimusLogger
     let createdFrom: CreatedFrom
@@ -30,7 +31,7 @@ class PushToTalkChannel {
     init(name: String,
          moq: FullTrackName,
          subscribe: FullTrackName,
-         text: FullTrackName,
+         text: FullTrackName?,
          callState: CallState,
          ai: Bool,
          engine: DecimusAudioEngine,
@@ -84,27 +85,47 @@ class PushToTalkChannel {
                                                          subscribe: true)
         self.subscription = set.getHandlers().first!.value as! AudioSubscription // swiftlint:disable:this force_cast
 
-        // Text publication.
-        let nsTuple: [String] = text.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
-        let profile = Profile(qualityProfile: "text",
-                              expiry: [5000],
-                              priorities: [4],
-                              namespace: nsTuple,
-                              channel: nil,
-                              name: .init(data: text.name, encoding: .utf8)!)
-        let publication = ManifestPublication(mediaType: "text",
-                                              sourceName: "source",
-                                              sourceID: self.uuid.uuidString,
-                                              label: self.uuid.uuidString,
-                                              profileSet: .init(type: "text", profiles: [profile]))
-        let createdText = try self.callController.publish(details: manifestPublication,
-                                                          factory: callState.publicationFactory!,
-                                                          codecFactory: CodecFactoryImpl())
-        assert(created.count == 1)
-        guard let textPublication = created.first?.1 as? TextPublication else {
-            throw "Failed to create text publication"
+        // Text chat.
+        if let text = text {
+            let nsTuple: [String] = text.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
+            let profile = Profile(qualityProfile: "text",
+                                  expiry: [5000],
+                                  priorities: [4],
+                                  namespace: nsTuple,
+                                  channel: nil,
+                                  name: .init(data: text.name, encoding: .utf8)!)
+            let publication = ManifestPublication(mediaType: "text",
+                                                  sourceName: "source",
+                                                  sourceID: self.uuid.uuidString,
+                                                  label: self.uuid.uuidString,
+                                                  profileSet: .init(type: "text", profiles: [profile]))
+            let createdText = try self.callController.publish(details: publication,
+                                                              factory: callState.publicationFactory!,
+                                                              codecFactory: CodecFactoryImpl())
+            assert(createdText.count == 1)
+            guard let textPublication = createdText.first?.1 as? TextPublication else {
+                throw "Failed to create text publication"
+            }
+            self.textPublication = textPublication
+            
+            let subscription = ManifestSubscription(mediaType: "text",
+                                                    sourceName: "source",
+                                                    sourceID: self.uuid.uuidString,
+                                                    label: self.uuid.uuidString,
+                                                    participantId: .init(1),
+                                                    profileSet: .init(type: "text", profiles: [profile]))
+            let createdTextSub = try self.callController.subscribeToSet(details: subscription,
+                                                                        factory: callState.subscriptionFactory!,
+                                                                        subscribe: true)
+            guard let textSubscription = createdTextSub.getHandlers().first?.value as? MultipleCallbackSubscription else {
+                throw "Failed to create text subscription"
+            }
+            self.textSubscription = textSubscription
+            callState.textSubscriptions!.addSubscription(textSubscription)
+        } else {
+            self.textPublication = nil
+            self.textSubscription = nil
         }
-        self.textPublication = textPublication
     }
 
     func startListening() {
@@ -130,6 +151,6 @@ class PushToTalkChannel {
     }
 
     func sendTextMessage(_ message: String) {
-        self.textPublication.sendMessage(message)
+        self.textPublication!.sendMessage(message)
     }
 }
