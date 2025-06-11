@@ -17,6 +17,7 @@ class PushToTalkChannel {
     #endif
     private let publication: AudioPublication
     private let subscription: AudioSubscription
+    private let textPublication: TextPublication
     private let callController: MoqCallController
     private let logger: DecimusLogger
     let createdFrom: CreatedFrom
@@ -29,6 +30,7 @@ class PushToTalkChannel {
     init(name: String,
          moq: FullTrackName,
          subscribe: FullTrackName,
+         text: FullTrackName,
          callState: CallState,
          ai: Bool,
          engine: DecimusAudioEngine,
@@ -81,6 +83,28 @@ class PushToTalkChannel {
                                                          factory: callState.subscriptionFactory!,
                                                          subscribe: true)
         self.subscription = set.getHandlers().first!.value as! AudioSubscription // swiftlint:disable:this force_cast
+
+        // Text publication.
+        let nsTuple: [String] = text.nameSpace.reduce(into: []) { $0.append(.init(data: $1, encoding: .utf8)!) }
+        let profile = Profile(qualityProfile: "text",
+                              expiry: [5000],
+                              priorities: [4],
+                              namespace: nsTuple,
+                              channel: nil,
+                              name: .init(data: text.name, encoding: .utf8)!)
+        let publication = ManifestPublication(mediaType: "text",
+                                              sourceName: "source",
+                                              sourceID: self.uuid.uuidString,
+                                              label: self.uuid.uuidString,
+                                              profileSet: .init(type: "text", profiles: [profile]))
+        let createdText = try self.callController.publish(details: manifestPublication,
+                                                          factory: callState.publicationFactory!,
+                                                          codecFactory: CodecFactoryImpl())
+        assert(created.count == 1)
+        guard let textPublication = created.first?.1 as? TextPublication else {
+            throw "Failed to create text publication"
+        }
+        self.textPublication = textPublication
     }
 
     func startListening() {
@@ -103,5 +127,9 @@ class PushToTalkChannel {
         self.logger.debug("Stop transmitting")
         self.publication.togglePublishing(active: false)
         self.engine.setMicrophoneCapture(false)
+    }
+
+    func sendTextMessage(_ message: String) {
+        self.textPublication.sendMessage(message)
     }
 }
