@@ -26,7 +26,7 @@ struct ChatView: View {
                             case .me:
                                 "You"
                             case .participant(let participant):
-                                participant != nil ? "\(participant!.participantId)" : "Unknown"
+                                participant != nil ? "\(participant!)" : "Unknown"
                             }
                             Text(author)
                             Text("-")
@@ -72,7 +72,7 @@ struct ChatView: View {
 
 #if DEBUG
 private func makeSubscriptions() -> TextSubscriptions {
-    let subscriptions = TextSubscriptions(sframeContext: nil)
+    let subscriptions = TextSubscriptions(sframeContext: nil, ourself: nil) { _, _, _ in return nil}
     subscriptions.messages.append(.init(author: .participant(.init(1)),
                                         message: "Hello World",
                                         dateReceived: .now))
@@ -91,5 +91,5 @@ private func makeSubscriptions() -> TextSubscriptions {
 
 #Preview("No Messages") {
     ChatView(callback: { print($0) })
-        .environment(TextSubscriptions(sframeContext: nil))
+        .environment(TextSubscriptions(sframeContext: nil, ourself: nil) { _, _, _ in return nil })
 }

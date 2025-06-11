@@ -168,7 +168,11 @@ class CallState: ObservableObject, Equatable {
             }
         }
 
-        self.textSubscriptions = .init(sframeContext: self.receiveContext)
+        let playtime = self.playtimeConfig.value
+        let ourself = (playtime.playtime && playtime.echo) ? nil : self.audioStartingGroup
+        self.textSubscriptions = .init(sframeContext: self.receiveContext,
+                                       ourself: ourself,
+                                       getAuthor: { headers, _, _ in headers.groupId })
 
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
@@ -185,7 +189,6 @@ class CallState: ObservableObject, Equatable {
                                                         keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
                                                         startingGroup: self.audioStartingGroup,
                                                         sframeContext: self.sendContext)
-        let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
         self.controller = controller

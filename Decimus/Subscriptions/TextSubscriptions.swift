@@ -5,7 +5,7 @@
 struct TextMessage: Identifiable {
     enum Author {
         case me
-        case participant(ParticipantId?)
+        case participant(UInt64?)
     }
 
     let id = UUID()
@@ -26,9 +26,14 @@ class TextSubscriptions {
     private let logger = DecimusLogger(TextSubscriptions.self)
     private var registrations: [MultipleCallbackSubscription: Int] = [:]
     private let sframeContext: SFrameContext?
+    private let participantId: UInt64?
+    typealias GetAuthor = (QObjectHeaders, Data, [NSNumber: Data]?) -> UInt64?
+    private let getAuthor: GetAuthor
 
-    init(sframeContext: SFrameContext?) {
+    init(sframeContext: SFrameContext?, ourself: UInt64?, getAuthor: @escaping GetAuthor) {
         self.sframeContext = sframeContext
+        self.getAuthor = getAuthor
+        self.participantId = ourself
     }
 
     /// Add a subscription to track.
@@ -39,13 +44,11 @@ class TextSubscriptions {
     }
 
     private func callback(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        let participantId: ParticipantId?
-        if let extensions,
-           let participantIdData = extensions[AppHeaderRegistry.participantId.rawValue] {
-            participantId = ParticipantId(participantIdData.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) })
-        } else {
-            self.logger.warning("Missing participant ID in text message")
-            participantId = nil
+        let participantId = self.getAuthor(headers, data, extensions)
+        if let ourself = self.participantId,
+           participantId == ourself {
+            self.logger.debug("Received text message from self, ignoring")
+            return
         }
 
         let unprotected: Data
