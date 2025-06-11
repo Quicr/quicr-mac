@@ -17,5 +17,6 @@
 #import "libquicr/QPublishTrackHandlerObjC.h"
 #import "libquicr/QSubscribeTrackHandlerObjC.h"
 #import "libquicr/QFetchTrackHandlerObjC.h"
+#import "libquicr/QLocation.h"
 
 #endif
