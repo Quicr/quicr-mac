@@ -28,6 +28,7 @@ struct PushToTalkCall: View {
     @State private var listenToAll = true
     @AppStorage("Native PTT") private var nativePTT: Bool = false
 
+    // swiftlint:disable:next function_body_length
     init(manifest: PTTManifest,
          callState: CallState) {
         assert(callState.controller != nil)
@@ -54,28 +55,57 @@ struct PushToTalkCall: View {
         self.availableChannels = availableChannels
 
         // swiftlint:disable force_try
-        // Create all the regular audio channels upfront.
-        let publicationsByName = Dictionary(uniqueKeysWithValues: manifest.publications.map { ($0.channelName, $0) })
-        let subscriptionsByName = Dictionary(uniqueKeysWithValues: manifest.subscriptions.map { ($0.channelName, $0) })
+        // Create all the regular channels upfront.
+        struct ChannelTracks {
+            var audio: Track?
+            var text: Track?
+        }
+        var publicationsByName: [String: ChannelTracks] = [:]
+        for publication in manifest.publications {
+            if publicationsByName[publication.channelName] == nil {
+                publicationsByName[publication.channelName] = ChannelTracks()
+            }
+            if publication.codec == "ascii" {
+                publicationsByName[publication.channelName]!.text = publication
+            } else {
+                publicationsByName[publication.channelName]!.audio = publication
+            }
+        }
+        var subscriptionsByName: [String: ChannelTracks] = [:]
+        for subscription in manifest.subscriptions {
+            if subscriptionsByName[subscription.channelName] == nil {
+                subscriptionsByName[subscription.channelName] = ChannelTracks()
+            }
+            if subscription.codec == "ascii" {
+                subscriptionsByName[subscription.channelName]!.text = subscription
+            } else {
+                subscriptionsByName[subscription.channelName]!.audio = subscription
+            }
+        }
+
         var audioChannels: [String: PushToTalkChannel] = [:]
         var aiPublish: FullTrackName?
         for channel in publicationsByName {
             guard channel.key != aiPublishName else {
-                aiPublish = try! FullTrackName(namespace: channel.value.tracknamespace, name: channel.value.trackname)
+                aiPublish = try! FullTrackName(namespace: channel.value.audio!.tracknamespace,
+                                               name: channel.value.audio!.trackname)
                 continue
             }
-            let publicationFtn = try! FullTrackName(namespace: channel.value.tracknamespace,
-                                                    name: channel.value.trackname)
+            let publicationFtn = try! FullTrackName(namespace: channel.value.audio!.tracknamespace,
+                                                    name: channel.value.audio!.trackname)
             guard let subscription = subscriptionsByName[channel.key] else {
                 self.logger.error("Couldn't find subscription for channel \(channel.key)")
                 continue
             }
-            let subscriptionFtn = try! FullTrackName(namespace: subscription.tracknamespace,
-                                                     name: subscription.trackname)
+            let subscriptionFtn = try! FullTrackName(namespace: subscription.audio!.tracknamespace,
+                                                     name: subscription.audio!.trackname)
+            let textFtn = try! FullTrackName(namespace: subscription.text!.tracknamespace,
+                                             name: subscription.text!.trackname)
             do {
                 let created = try PushToTalkChannel(name: channel.key,
                                                     moq: publicationFtn,
                                                     subscribe: subscriptionFtn,
+                                                    text: textFtn,
                                                     callState: callState,
                                                     ai: false,
                                                     engine: callState.engine!)
@@ -105,6 +135,7 @@ struct PushToTalkCall: View {
         self.aiAudioChannel = try! PushToTalkChannel(name: "AI",
                                                      moq: aiPublish!,
                                                      subscribe: aiAudioReceive!,
+                                                     text: .init(namespace: ["text"], name: ""),
                                                      callState: callState,
                                                      ai: true,
                                                      engine: callState.engine!)
@@ -172,7 +203,12 @@ struct PushToTalkCall: View {
                 PushToTalkButton("Channel",
                                  start: { await self.talk(.channel) },
                                  end: { await self.stopTalking(.channel) })
+
+                ChatView { print($0) }
+                    .environment(self.callState.textSubscriptions)
+
                 Spacer()
+
                 Button("Leave", role: .destructive) {
                     Task {
                         await self.callState.leave()
@@ -245,6 +281,11 @@ struct PushToTalkCall: View {
         }
         try await self.manager?.registerChannel(self.aiAudioChannel, native: false)
         self.ready = true
+    }
+
+    private func sendMessage(_ message: String) {
+        let channel = self.audioChannels[self.selectedChannel]!
+        channel.sendTextMessage(message)
     }
 
     private func talk(_ destination: Destination) async {
