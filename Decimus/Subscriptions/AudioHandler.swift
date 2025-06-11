@@ -120,7 +120,7 @@ class AudioHandler: TimeAlignable {
         node?.reset()
 
         // Deallocate silence detection buffer.
-        self.silenceDetectionBuffer?.baseAddress?.deallocate()
+        self.silenceDetectionBuffer?.deallocate()
     }
 
     func createNewJitterBuffer(windowDuration: CMTime) throws -> JitterBuffer {
@@ -304,10 +304,11 @@ class AudioHandler: TimeAlignable {
                 let currentSamples = Int(currentDestinationSamples)
                 if self.silenceDetectionBuffer == nil {
                     self.silenceDetectionBuffer = .allocate(capacity: currentSamples)
-                } else if var buffer = self.silenceDetectionBuffer,
-                          buffer.count < currentSamples {
-                    buffer.deallocate()
-                    buffer = .allocate(capacity: currentSamples)
+                } else if self.silenceDetectionBuffer != nil,
+                          self.silenceDetectionBuffer!.count < currentSamples {
+                    self.silenceDetectionBuffer!.deallocate()
+                    self.silenceDetectionBuffer = nil
+                    self.silenceDetectionBuffer! = .allocate(capacity: currentSamples)
                 }
 
                 // Work in timed chunks.
