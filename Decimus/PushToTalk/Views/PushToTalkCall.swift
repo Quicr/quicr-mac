@@ -45,9 +45,8 @@ struct PushToTalkCall: View {
         // Get available channels, order matters.
         var availableChannels: [String] = []
         for publication in manifest.publications {
-            guard publication.channelName != aiPublishName else { continue }
-            guard !availableChannels.contains(publication.channelName) else {
-                self.logger.error("Duplicate channel: \(publication.channelName)")
+            guard publication.channelName != aiPublishName,
+                  !availableChannels.contains(publication.channelName) else {
                 continue
             }
             availableChannels.append(publication.channelName)
