@@ -162,7 +162,7 @@ class PublicationFactoryImpl: PublicationFactory {
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,
                                        profile: profile,
-                                       trackMode: .streamPerGroup,
+                                       trackMode: .stream,
                                        submitter: metricsSubmitter,
                                        endpointId: endpointId,
                                        relayId: relayId,
