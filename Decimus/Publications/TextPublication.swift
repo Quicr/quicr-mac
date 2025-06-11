@@ -8,7 +8,7 @@ class TextPublication: Publication {
     private let logger = DecimusLogger(TextPublication.self)
     private let sframeContext: SendSFrameContext?
 
-    private var currentGroupId: UInt64 = 0
+    private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
 
     /// Creates a new TextPublication.
@@ -19,7 +19,8 @@ class TextPublication: Publication {
          submitter: (any MetricsSubmitter)?,
          endpointId: String,
          relayId: String,
-         sframeContext: SendSFrameContext?) throws {
+         sframeContext: SendSFrameContext?,
+         startingGroupId: UInt64) throws {
         self.participantId = withUnsafeBytes(of: participantId.aggregate) { Data($0) }
         self.incrementing = incrementing
         guard let priority = profile.priorities?.first,
@@ -27,6 +28,7 @@ class TextPublication: Publication {
             throw "Missing profile"
         }
         self.sframeContext = sframeContext
+        self.currentGroupId = startingGroupId
         try super.init(profile: profile,
                        trackMode: trackMode,
                        defaultPriority: UInt8(priority),
