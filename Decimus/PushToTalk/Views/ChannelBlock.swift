@@ -14,11 +14,17 @@ struct ChannelBlock: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10)
+                .foregroundStyle(.windowBackground)
             VStack {
                 HStack {
                     self.channel.icon
+                        .frame(alignment: .leading)
+                    Spacer()
                     Text(self.channel.name)
+                    Spacer()
                 }
+                .foregroundStyle(.foreground)
+                .padding()
 
                 Divider()
             }
