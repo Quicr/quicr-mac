@@ -303,7 +303,7 @@ class AudioHandler: TimeAlignable {
                 iterations += 1
                 let currentSamples = Int(currentDestinationSamples)
                 if self.silenceDetectionBuffer == nil {
-                    self.silenceDetectionBuffer = .allocate(capacity: currentSamples)
+                    self.silenceDetectionBuffer = .allocate(capacity: currentSamples * 8)
                 } else if self.silenceDetectionBuffer != nil,
                           self.silenceDetectionBuffer!.count < currentSamples {
                     self.silenceDetectionBuffer!.deallocate()
