@@ -1517,10 +1517,10 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
+				INFOPLIST_KEY_CFBundleDisplayName = "QuicR PTT";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "$(PROJECT_NAME) can scan the network for a local relay";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "QuicR can scan the network for a local relay";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1543,7 +1543,7 @@
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.ptt;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
@@ -1594,10 +1594,10 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
+				INFOPLIST_KEY_CFBundleDisplayName = "QuicR PTT";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
 				INFOPLIST_KEY_NSCameraUsageDescription = "QuicR needs your camera in order for others to see you in calls";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "$(PROJECT_NAME) can scan the network for a local relay";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "QuicR can scan the network for a local relay";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "QuicR needs your camera in order for others to see you in calls";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -1620,7 +1620,7 @@
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus.ptt;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator iphoneos iphonesimulator macosx";
