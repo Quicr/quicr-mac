@@ -123,6 +123,7 @@
 		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
 		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
+		9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BBFF99C2DE751380093EA8E /* QLocation.mm */; };
 		9BC070D52D2D3A8B00FE5B0E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC070D42D2D3A8700FE5B0E /* Subscription.swift */; };
 		9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */; };
 		9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */; };
@@ -355,6 +356,8 @@
 		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
 		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
+		9BBFF99B2DE750D80093EA8E /* QLocation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QLocation.h; sourceTree = "<group>"; };
+		9BBFF99C2DE751380093EA8E /* QLocation.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QLocation.mm; sourceTree = "<group>"; };
 		9BC070D42D2D3A8700FE5B0E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
 		9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoPublication.swift; sourceTree = "<group>"; };
 		9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarianceCalculator.swift; sourceTree = "<group>"; };
@@ -590,6 +593,8 @@
 		9B8E14DA2C7E935E009D8C24 /* libquicr */ = {
 			isa = PBXGroup;
 			children = (
+				9BBFF99C2DE751380093EA8E /* QLocation.mm */,
+				9BBFF99B2DE750D80093EA8E /* QLocation.h */,
 				9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */,
 				9B7B26972D36B14F00A29CFA /* QFetchTrackHandlerObjC.h */,
 				9B7B26942D36AE0C00A29CFA /* QFetchTrackHandler.h */,
@@ -1115,6 +1120,7 @@
 				18C89A462A14E667005B333B /* AppStorageWrapper.swift in Sources */,
 				18865CC72A81356100B9A647 /* SubscriptionSettingsView.swift in Sources */,
 				9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */,
+				9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */,
 				FFBF2FB729BFE48100D769CF /* ActionButton.swift in Sources */,
 				9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */,
 				9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */,

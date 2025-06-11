@@ -77,7 +77,7 @@ class OpusPublication: Publication, AudioPublication {
         self.currentGroupId = groupId
 
         try super.init(profile: profile,
-                       trackMode: reliable ? .streamPerTrack : .datagram,
+                       trackMode: reliable ? .stream : .datagram,
                        defaultPriority: UInt8(clamping: defaultPriority),
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
