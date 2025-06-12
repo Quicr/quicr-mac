@@ -112,6 +112,7 @@
 		9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E45402CF4BFA7003C863A /* MockCodecFactory.swift */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
+		9B9665172DFAE41E007CC380 /* TestAudioHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
 		9BA27FCA297D7271007013B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9BA27FC9297D7271007013B2 /* Assets.xcassets */; };
@@ -343,6 +344,7 @@
 		9B8E45402CF4BFA7003C863A /* MockCodecFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCodecFactory.swift; sourceTree = "<group>"; };
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
+		9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioHandler.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* QuicR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuicR.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9BA27FC5297D7270007013B2 /* DecimusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimusApp.swift; sourceTree = "<group>"; };
@@ -561,6 +563,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */,
 				9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */,
 				9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */,
 				9B25D2102D9AA0B200FE8AB7 /* TestTimeAlign.swift */,
@@ -1066,6 +1069,7 @@
 				9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
 				9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */,
+				9B9665172DFAE41E007CC380 /* TestAudioHandler.swift in Sources */,
 				187DE36D2C997A180090FB68 /* TestCallController.swift in Sources */,
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				9B156F002D64AB1100E91D0F /* TestSlidingWindow.swift in Sources */,
