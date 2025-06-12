@@ -76,7 +76,10 @@ class VideoParticipant: Identifiable {
         // Stats.
         if let stats = self.activeSpeakerStats {
             Task { @MainActor in
-                let record = await stats.imageEnqueued(self.participantId, when: when)
+                guard let record = try? await stats.imageEnqueued(self.participantId, when: when) else {
+                    self.logger.error("[\(self.id)] Failed to record enqueue image")
+                    return
+                }
                 if let detected = record.detected {
                     self.fromDetected = record.enqueued.timeIntervalSince(detected)
                 }
