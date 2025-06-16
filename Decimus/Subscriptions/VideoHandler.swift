@@ -255,7 +255,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
             guard self.simulreceive != .enable else { return }
             DispatchQueue.main.async {
                 guard let participant = self.participant.get() else { return }
-                participant.received(when: when, usable: false)
+                participant.received(when: when, usable: false, timestamp: nil)
             }
             return
         }
@@ -373,7 +373,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
                     if self.simulreceive != .enable {
-                        participant.received(when: from, usable: true)
+                        participant.received(when: from,
+                                             usable: true,
+                                             timestamp: frame.samples.first?.presentationTimeStamp.seconds)
                     }
                     participant.label = .init(describing: self)
                 }
