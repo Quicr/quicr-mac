@@ -14,8 +14,13 @@ class VideoSubscription: Subscription {
         var fetchUpperThreshold: T
         var newGroupUpperThreshold: T
     }
+
+    /// Configuration for the video subscription.
     struct Config {
+        /// Configuration for joining flow behaviour (FETCH/NEWGROUP).
         let joinConfig: JoinConfig<UInt64>
+        /// Whether to calculate/display latency metrics.
+        let calculateLatency: Bool
     }
 
     private let fullTrackName: FullTrackName
@@ -162,7 +167,8 @@ class VideoSubscription: Subscription {
                                        participantId: participantId,
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
-                                       activeSpeakerStats: self.activeSpeakerStats)
+                                       activeSpeakerStats: self.activeSpeakerStats,
+                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
@@ -380,7 +386,8 @@ class VideoSubscription: Subscription {
                                                  participantId: self.participantId,
                                                  subscribeDate: self.creationDate,
                                                  joinDate: self.joinDate,
-                                                 activeSpeakerStats: self.activeSpeakerStats)
+                                                 activeSpeakerStats: self.activeSpeakerStats,
+                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated
                 handler = recreated

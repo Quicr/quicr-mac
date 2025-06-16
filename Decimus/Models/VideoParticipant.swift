@@ -40,6 +40,14 @@ class VideoParticipant: Identifiable {
     private let slidingWindow: SlidingTimeWindow<TimeInterval>?
     private var averagingTask: Task<(), Never>?
 
+    /// Configuration for the participant view.
+    struct Config {
+        /// Whether to calculate end-to-end latency.
+        let calculateLatency: Bool
+        /// The time interval for the sliding window used to calculate end-to-end latency.
+        let slidingWindowTime: TimeInterval
+    }
+
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
@@ -53,7 +61,7 @@ class VideoParticipant: Identifiable {
          videoParticipants: VideoParticipants,
          participantId: ParticipantId,
          activeSpeakerStats: ActiveSpeakerStats?,
-         slidingWindowTime: TimeInterval) throws {
+         config: Config) throws {
         self.id = id
         self.label = id
         self.highlight = false
@@ -62,8 +70,8 @@ class VideoParticipant: Identifiable {
         self.videoParticipants = videoParticipants
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
-        if activeSpeakerStats != nil {
-            self.slidingWindow = SlidingTimeWindow<TimeInterval>(length: slidingWindowTime)
+        if config.calculateLatency {
+            self.slidingWindow = SlidingTimeWindow<TimeInterval>(length: config.slidingWindowTime)
             self.averagingTask = Task(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
                     if let self = self,
@@ -73,7 +81,7 @@ class VideoParticipant: Identifiable {
                             self.endToEndLatency = window.reduce(0, +) / TimeInterval(window.count)
                         }
                     }
-                    try? await Task.sleep(for: .seconds(slidingWindowTime))
+                    try? await Task.sleep(for: .seconds(config.slidingWindowTime))
                 }
             }
         } else {

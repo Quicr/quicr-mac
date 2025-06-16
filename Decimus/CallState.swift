@@ -202,7 +202,8 @@ class CallState: ObservableObject, Equatable {
                                                           verbose: self.verbose,
                                                           startingGroup: startingGroupId,
                                                           manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
-                                                          sframeContext: self.receiveContext)
+                                                          sframeContext: self.receiveContext,
+                                                          calculateLatency: self.showLabels)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 

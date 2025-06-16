@@ -81,6 +81,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
+    private let handlerConfig: Config
+
+    /// Configuration for the handler.
+    struct Config {
+        /// True to calculate end-to-end latency.
+        let calculateLatency: Bool
+    }
 
     /// Create a new video handler.
     /// - Parameters:
@@ -93,6 +100,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
+    ///     - handlerConfig: Configuration for this handler.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
     init(fullTrackName: FullTrackName,
          config: VideoCodecConfig,
@@ -107,7 +115,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
          participantId: ParticipantId,
          subscribeDate: Date,
          joinDate: Date,
-         activeSpeakerStats: ActiveSpeakerStats?) throws {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         handlerConfig: Config) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -129,6 +138,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
         self.variances = variances
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        self.handlerConfig = handlerConfig
         super.init()
         if self.simulreceive != .enable {
             Task {
@@ -141,7 +151,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                 videoParticipants: self.participants,
                                                 participantId: self.participantId,
                                                 activeSpeakerStats: self.activeSpeakerStats,
-                                                slidingWindowTime: self.jitterBufferConfig.window)
+                                                config: .init(calculateLatency: self.handlerConfig.calculateLatency,
+                                                              slidingWindowTime: self.jitterBufferConfig.window))
+
                 }
                 guard let participant = participant else { return }
                 self.participant.withLock { $0 = participant }
@@ -158,7 +170,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                 // Calculate / report E2E latency.
                 let endToEndLatency: TimeInterval?
                 let now = Date.now
-                if self.activeSpeakerStats != nil {
+                if self.handlerConfig.calculateLatency {
                     let presentationTime = sample.presentationTimeStamp.seconds
                     let presentationDate = Date(timeIntervalSince1970: presentationTime)
                     let age = now.timeIntervalSince(presentationDate)

@@ -80,17 +80,41 @@ struct VideoGrid: View {
                                 .conditionalModifier(self.showLabels && participant.joinToFirstFrame != nil) {
                                     $0.overlay(alignment: .topTrailing) {
                                         VStack(alignment: .leading) {
-                                            Text("From Join: \(participant.joinToFirstFrame!)s")
-                                            Text("From Subscribe: \(participant.subscribeToFirstFrame!)s")
+                                            HStack {
+                                                Text("From Join: ")
+                                                let formatted = String(format: "%.2f", participant.joinToFirstFrame!)
+                                                Text("\(formatted)s")
+                                                    .fontDesign(.monospaced)
+                                            }
+                                            HStack {
+                                                Text("From Subscribe: ")
+                                                let formatted = String(format: "%.2f", participant.subscribeToFirstFrame!)
+                                                Text("\(formatted)s")
+                                                    .fontDesign(.monospaced)
+                                            }
                                             if let detect = participant.fromDetected {
-                                                Text("Display - Audio Heard: \(detect)s")
+                                                HStack {
+                                                    Text("Display - Audio Heard: ")
+                                                    let formatted = String(format: "%.2f", detect)
+                                                    Text("\(formatted)s")
+                                                        .fontDesign(.monospaced)
+                                                }
                                             }
                                             if let set = participant.fromSet {
-                                                Text("Display - Speaker Active: \(set)s")
+                                                HStack {
+                                                    Text("Display - Speaker Set: ")
+                                                    let formatted = String(format: "%.2f", set)
+                                                    Text("\(formatted)s")
+                                                        .fontDesign(.monospaced)
+                                                }
                                             }
                                             if let latency = participant.endToEndLatency {
-                                                let formatted = String(format: "%.2f", latency * 1000)
-                                                Text("End-to-End Latency: \(formatted)ms")
+                                                HStack {
+                                                    Text("End-to-End Latency: ")
+                                                    let formatted = String(format: "%.2f", latency * 1000)
+                                                    Text("\(formatted)ms")
+                                                        .fontDesign(.monospaced)
+                                                }
                                             }
                                         }
                                         .background()

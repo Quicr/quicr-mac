@@ -53,6 +53,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
     private let lastTimestampReceived = Atomic(Int64.zero)
+    private let config: Config
+
+    /// Configuration for the video subscription set.
+    struct Config {
+        /// True to calculate / display end-to-end latency.
+        let calculateLatency: Bool
+
+        /// Get a video participant config from this config.
+        func getVideoParticipantConfig(_ set: VideoSubscriptionSet) -> VideoParticipant.Config {
+            .init(calculateLatency: self.calculateLatency,
+                  slidingWindowTime: set.jitterBufferConfig.window)
+        }
+    }
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -71,7 +84,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
          cleanupTime: TimeInterval,
-         slidingWindowTime: TimeInterval) throws {
+         slidingWindowTime: TimeInterval,
+         config: Config) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -108,6 +122,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         self.joinDate = joinDate
         self.activeSpeakerStats = activeSpeakerStats
         self.cleanupTimer = cleanupTime
+        self.config = config
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
@@ -211,7 +226,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
                                                                activeSpeakerStats: self.activeSpeakerStats,
-                                                               slidingWindowTime: self.jitterBufferConfig.window)
+                                                               config: self.config.getVideoParticipantConfig(self))
                             locked = created
                             return created
                         }
@@ -534,7 +549,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
                                                                activeSpeakerStats: self.activeSpeakerStats,
-                                                               slidingWindowTime: self.jitterBufferConfig.window)
+                                                               config: self.config.getVideoParticipantConfig(self))
                             lockedParticipant = created
                             return created
                         }
@@ -548,7 +563,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                     }
                     do {
                         let e2eLatency: TimeInterval?
-                        if self.activeSpeakerStats != nil {
+                        if self.config.calculateLatency {
                             let now = Date.now
                             let presentationTime = selectedSample.presentationTimeStamp.seconds
                             let presentationDate = Date(timeIntervalSince1970: presentationTime)
