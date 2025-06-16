@@ -40,6 +40,14 @@ extension VideoHandler {
             record(field: "age", value: age as AnyObject, timestamp: timestamp, tags: tags)
         }
 
+        func writeDecoder(age: TimeInterval, timestamp: Date) {
+            self.record(field: "ageDecode", value: age, timestamp: timestamp)
+        }
+
+        func decodedAge(age: TimeInterval, timestamp: Date) {
+            self.record(field: "ageDecoded", value: age, timestamp: timestamp)
+        }
+
         func decodedFrame(timestamp: Date?) {
             self.decoded += 1
             record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)

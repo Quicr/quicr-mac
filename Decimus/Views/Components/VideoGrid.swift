@@ -52,8 +52,8 @@ struct VideoGrid: View {
                            alignment: .center)
                     .cornerRadius(self.cornerRadius)
                     .padding([.horizontal, .bottom])
-                #if os(tvOS)
-                .ignoresSafeArea()
+                    #if os(tvOS)
+                    .ignoresSafeArea()
                 #endif
             }
         } else {
@@ -87,6 +87,10 @@ struct VideoGrid: View {
                                             }
                                             if let set = participant.fromSet {
                                                 Text("Display - Speaker Active: \(set)s")
+                                            }
+                                            if let latency = participant.endToEndLatency {
+                                                let formatted = String(format: "%.2f", latency * 1000)
+                                                Text("End-to-End Latency: \(formatted)ms")
                                             }
                                         }
                                         .background()

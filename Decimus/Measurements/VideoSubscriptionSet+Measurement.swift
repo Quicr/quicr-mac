@@ -40,5 +40,9 @@ extension VideoSubscriptionSet {
         func reportVariance(variance: TimeInterval, when: Date) {
             record(field: "variance", value: variance as AnyObject, timestamp: when)
         }
+
+        func age(_ age: TimeInterval, timestamp: Date) {
+            self.record(field: "age", value: age, timestamp: timestamp)
+        }
     }
 }

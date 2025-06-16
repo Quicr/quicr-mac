@@ -210,7 +210,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                                                                subscribeDate: self.subscribeDate,
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats)
+                                                               activeSpeakerStats: self.activeSpeakerStats,
+                                                               slidingWindowTime: self.jitterBufferConfig.window)
                             locked = created
                             return created
                         }
@@ -532,7 +533,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                                                                subscribeDate: self.subscribeDate,
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats)
+                                                               activeSpeakerStats: self.activeSpeakerStats,
+                                                               slidingWindowTime: self.jitterBufferConfig.window)
                             lockedParticipant = created
                             return created
                         }
@@ -545,10 +547,27 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         participant.label = dispatchLabel
                     }
                     do {
+                        let e2eLatency: TimeInterval?
+                        if self.activeSpeakerStats != nil {
+                            let now = Date.now
+                            let presentationTime = selectedSample.presentationTimeStamp.seconds
+                            let presentationDate = Date(timeIntervalSince1970: presentationTime)
+                            let age = now.timeIntervalSince(presentationDate)
+                            if self.granularMetrics,
+                               let measurement = measurement?.measurement {
+                                Task(priority: .utility) {
+                                    await measurement.age(age, timestamp: now)
+                                }
+                            }
+                            e2eLatency = age
+                        } else {
+                            e2eLatency = nil
+                        }
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
                                                 transform: transform,
-                                                when: at)
+                                                when: at,
+                                                endToEndLatency: e2eLatency)
                         self.mediaState.withLock { existing in
                             assert(existing != .subscribed)
                             existing = .rendered
