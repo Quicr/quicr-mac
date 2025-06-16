@@ -180,6 +180,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let startingGroup: UInt64?
     private let manualActiveSpeaker: Bool
     private let sframeContext: SFrameContext?
+    private let calculateLatency: Bool
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -193,7 +194,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          verbose: Bool,
          startingGroup: UInt64?,
          manualActiveSpeaker: Bool,
-         sframeContext: SFrameContext?) {
+         sframeContext: SFrameContext?,
+         calculateLatency: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -207,6 +209,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.startingGroup = startingGroup
         self.manualActiveSpeaker = manualActiveSpeaker
         self.sframeContext = sframeContext
+        self.calculateLatency = calculateLatency
     }
 
     func create(subscription: ManifestSubscription,
@@ -272,7 +275,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             joinDate: self.joinDate,
                                             activeSpeakerStats: self.activeSpeakerStats,
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
-                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
+                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
+                                            config: .init(calculateLatency: self.calculateLatency))
         }
 
         if found.isSubset(of: opusCodecs) {
@@ -355,7 +359,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          controller: self.controller,
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
-                                         subscriptionConfig: .init(joinConfig: joinConfig),
+                                         subscriptionConfig: .init(joinConfig: joinConfig,
+                                                                   calculateLatency: self.calculateLatency),
                                          sframeContext: self.sframeContext,
                                          callback: { [weak set] timestamp, when, cached, _, usable in
                                             guard let set = set else { return }

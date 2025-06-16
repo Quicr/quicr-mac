@@ -81,6 +81,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
+    private let handlerConfig: Config
+
+    /// Configuration for the handler.
+    struct Config {
+        /// True to calculate end-to-end latency.
+        let calculateLatency: Bool
+    }
 
     /// Create a new video handler.
     /// - Parameters:
@@ -93,6 +100,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
+    ///     - handlerConfig: Configuration for this handler.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
     init(fullTrackName: FullTrackName,
          config: VideoCodecConfig,
@@ -107,7 +115,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
          participantId: ParticipantId,
          subscribeDate: Date,
          joinDate: Date,
-         activeSpeakerStats: ActiveSpeakerStats?) throws {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         handlerConfig: Config) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -129,6 +138,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
         self.variances = variances
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        self.handlerConfig = handlerConfig
         super.init()
         if self.simulreceive != .enable {
             Task {
@@ -140,7 +150,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                 subscribeDate: subscribeDate,
                                                 videoParticipants: self.participants,
                                                 participantId: self.participantId,
-                                                activeSpeakerStats: self.activeSpeakerStats)
+                                                activeSpeakerStats: self.activeSpeakerStats,
+                                                config: .init(calculateLatency: self.handlerConfig.calculateLatency,
+                                                              slidingWindowTime: self.jitterBufferConfig.window))
+
                 }
                 guard let participant = participant else { return }
                 self.participant.withLock { $0 = participant }
@@ -153,7 +166,25 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
             // Create the decoder.
             self.decoder = .init(config: self.config) { [weak self] sample in
                 guard let self = self else { return }
+
+                // Calculate / report E2E latency.
+                let endToEndLatency: TimeInterval?
                 let now = Date.now
+                if self.handlerConfig.calculateLatency {
+                    let presentationTime = sample.presentationTimeStamp.seconds
+                    let presentationDate = Date(timeIntervalSince1970: presentationTime)
+                    let age = now.timeIntervalSince(presentationDate)
+                    endToEndLatency = age
+                    if self.granularMetrics,
+                       let measurement = self.measurement?.measurement {
+                        Task(priority: .utility) {
+                            await measurement.decodedAge(age: age, timestamp: now)
+                        }
+                    }
+                } else {
+                    endToEndLatency = nil
+                }
+
                 if simulreceive != .none {
                     _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
                                                             now: now)
@@ -168,7 +199,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                orientation: self.orientation,
                                                verticalMirror: self.verticalMirror,
                                                from: now,
-                                               participant: participant)
+                                               participant: participant,
+                                               endToEndLatency: endToEndLatency)
                     } catch {
                         Self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
@@ -542,7 +574,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                        orientation: sample.orientation,
                                        verticalMirror: sample.verticalMirror,
                                        from: from,
-                                       participant: participant)
+                                       participant: participant,
+                                       endToEndLatency: nil)
             } else {
                 if let orientation = sample.orientation {
                     self.atomicOrientation.store(orientation.rawValue, ordering: .releasing)
@@ -551,6 +584,16 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                     self.atomicMirror.store(verticalMirror, ordering: .releasing)
                 }
                 try decoder!.write(sampleBuffer)
+                if self.granularMetrics,
+                   let measurement = self.measurement?.measurement {
+                    let written = Date.now
+                    let presentationTime = sampleBuffer.presentationTimeStamp
+                    Task(priority: .utility) {
+                        let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                        let age = written.timeIntervalSince(presentationDate)
+                        await measurement.writeDecoder(age: age, timestamp: written)
+                    }
+                }
             }
         }
     }
@@ -559,7 +602,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                orientation: DecimusVideoRotation?,
                                verticalMirror: Bool?,
                                from: Date,
-                               participant: VideoParticipant) throws {
+                               participant: VideoParticipant,
+                               endToEndLatency: TimeInterval?) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? from : nil
@@ -587,7 +631,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                 }
                 try participant.enqueue(sample,
                                         transform: orientation?.toTransform(verticalMirror!),
-                                        when: from)
+                                        when: from,
+                                        endToEndLatency: endToEndLatency)
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds

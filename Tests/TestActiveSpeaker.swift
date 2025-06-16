@@ -36,7 +36,8 @@ final class TestActiveSpeaker: XCTestCase {
                              joinDate: .now,
                              activeSpeakerStats: nil,
                              cleanupTime: 30,
-                             slidingWindowTime: 30)
+                             slidingWindowTime: 30,
+                             config: .init(calculateLatency: false))
         }
 
         override func make(set: VideoSubscriptionSet,

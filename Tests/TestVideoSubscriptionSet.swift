@@ -180,7 +180,8 @@ struct VideoSubscriptionSetTests {
                                            joinDate: .now,
                                            activeSpeakerStats: nil,
                                            cleanupTime: 10,
-                                           slidingWindowTime: 10)
+                                           slidingWindowTime: 10,
+                                           config: .init(calculateLatency: false))
         try set.receivedObject(.init(namespace: [], name: ""),
                                timestamp: timestamp,
                                when: Self.now,
