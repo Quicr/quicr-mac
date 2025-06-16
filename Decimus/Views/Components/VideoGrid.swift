@@ -108,12 +108,24 @@ struct VideoGrid: View {
                                                         .fontDesign(.monospaced)
                                                 }
                                             }
-                                            if let latency = participant.endToEndLatency {
-                                                HStack {
-                                                    Text("End-to-End Latency: ")
-                                                    let formatted = String(format: "%.2f", latency * 1000)
-                                                    Text("\(formatted)ms")
-                                                        .fontDesign(.monospaced)
+                                            if let latencies = participant.latencies {
+                                                if let average = latencies.receive.average {
+                                                    HStack {
+                                                        Text("Age (Receive): ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
+                                                }
+                                                if let average = latencies.display.average {
+                                                    HStack {
+                                                        Text("Age (Display): ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
                                                 }
                                             }
                                         }

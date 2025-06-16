@@ -36,8 +36,41 @@ class VideoParticipant: Identifiable {
     private(set) var fromSet: TimeInterval?
     private(set) var joinToFirstFrame: TimeInterval?
     private(set) var subscribeToFirstFrame: TimeInterval?
-    private(set) var endToEndLatency: TimeInterval?
-    private let slidingWindow: SlidingTimeWindow<TimeInterval>?
+
+    // End to end latency / age statistics.
+    @Observable
+    class LatencyRecord {
+        let slidingWindow: SlidingTimeWindow<TimeInterval>
+        private(set) var average: TimeInterval?
+
+        init(_ length: TimeInterval) {
+            self.slidingWindow = SlidingTimeWindow(length: length)
+        }
+
+        func calc(from: Date) {
+            let window = self.slidingWindow.get(from: .now)
+            if window.count > 0 {
+                self.average = window.reduce(0, +) / TimeInterval(window.count)
+            }
+        }
+    }
+
+    @Observable
+    class Latencies {
+        private(set) var display: LatencyRecord
+        private(set) var receive: LatencyRecord
+
+        init(_ length: TimeInterval) {
+            self.display = LatencyRecord(length)
+            self.receive = LatencyRecord(length)
+        }
+
+        func calc(from: Date) {
+            self.display.calc(from: from)
+            self.receive.calc(from: from)
+        }
+    }
+    let latencies: Latencies?
     private var averagingTask: Task<(), Never>?
 
     /// Configuration for the participant view.
@@ -71,26 +104,29 @@ class VideoParticipant: Identifiable {
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         if config.calculateLatency {
-            self.slidingWindow = SlidingTimeWindow<TimeInterval>(length: config.slidingWindowTime)
+            self.latencies = .init(config.slidingWindowTime)
             self.averagingTask = Task(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
                     if let self = self,
-                       let slidingWindow = self.slidingWindow {
-                        let window = slidingWindow.get(from: .now)
-                        if window.count > 0 {
-                            self.endToEndLatency = window.reduce(0, +) / TimeInterval(window.count)
-                        }
+                       let latencies = self.latencies {
+                        latencies.calc(from: .now)
                     }
                     try? await Task.sleep(for: .seconds(config.slidingWindowTime))
                 }
             }
         } else {
-            self.slidingWindow = nil
+            self.latencies = nil
         }
         try self.videoParticipants.add(self)
     }
 
-    func received(when: Date, usable: Bool) {
+    func received(when: Date, usable: Bool, timestamp: TimeInterval?) {
+        if let timestamp,
+           let receive = self.latencies?.receive {
+            let presentationDate = Date(timeIntervalSince1970: timestamp)
+            receive.slidingWindow.add(timestamp: when, value: when.timeIntervalSince(presentationDate))
+        }
+
         guard let stats = self.activeSpeakerStats else { return }
         Task { @MainActor in
             if usable {
@@ -126,8 +162,8 @@ class VideoParticipant: Identifiable {
         }
 
         if let endToEndLatency,
-           let slidingWindow = self.slidingWindow {
-            slidingWindow.add(timestamp: when, value: endToEndLatency)
+           let latencies = self.latencies {
+            latencies.display.slidingWindow.add(timestamp: when, value: endToEndLatency)
         }
 
         // Enqueue the frame.

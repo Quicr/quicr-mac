@@ -201,7 +201,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     /// - Parameter usable: True if this object should be used.
     public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
         // Notify receipt for stats.
-        if self.simulreceive == .enable && self.activeSpeakerStats != nil {
+        if self.simulreceive == .enable {
             let report: Bool
             if let timestamp {
                 let timestamp = Int64(timestamp * microsecondsPerSecond)
@@ -233,7 +233,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         return existing
                     }
                     if report {
-                        participant.received(when: when, usable: usable)
+                        participant.received(when: when, usable: usable, timestamp: timestamp)
                     }
                 }
             }
