@@ -362,13 +362,9 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          subscriptionConfig: .init(joinConfig: joinConfig,
                                                                    calculateLatency: self.calculateLatency),
                                          sframeContext: self.sframeContext,
-                                         callback: { [weak set] timestamp, when, cached, _, usable in
+                                         callback: { [weak set] details in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn,
-                                                               timestamp: timestamp,
-                                                               when: when,
-                                                               cached: cached,
-                                                               usable: usable)
+                                            set.receivedObject(ftn, details: details)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {

@@ -33,7 +33,7 @@ class VideoSubscription: Subscription {
     private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
-    private let callback: ObjectReceived
+    private let callback: ObjectReceivedCallback
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
     private let verbose: Bool
@@ -131,7 +131,7 @@ class VideoSubscription: Subscription {
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
-         callback: @escaping ObjectReceived,
+         callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config

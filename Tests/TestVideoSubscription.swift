@@ -27,7 +27,7 @@ struct TestVideoSubscription {
     private func makeSubscription(_ mockClient: MockClient,
                                   fetchThreshold: UInt64,
                                   ngThreshold: UInt64,
-                                  callback: ObjectReceived? = nil) async throws -> VideoSubscription {
+                                  callback: ObjectReceivedCallback? = nil) async throws -> VideoSubscription {
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -63,7 +63,7 @@ struct TestVideoSubscription {
                                                                                  newGroupUpperThreshold: ngThreshold),
                                                                calculateLatency: false),
                                      sframeContext: nil,
-                                     callback: { callback?($0, $1, $2, $3, $4) },
+                                     callback: { callback?($0) },
                                      statusChanged: ({_ in }))
     }
 
@@ -212,10 +212,10 @@ struct TestVideoSubscription {
         var gotGroupId: UInt64?
         var gotObjectId: UInt64?
         var shouldDrop: Bool?
-        let callback: ObjectReceived = { _, _, _, headers, usable in
-            shouldDrop = !usable
-            gotGroupId = headers.groupId
-            gotObjectId = headers.objectId
+        let callback: ObjectReceivedCallback = { details in
+            shouldDrop = !details.usable
+            gotGroupId = details.headers.groupId
+            gotObjectId = details.headers.objectId
         }
 
         let mockClient = MockClient(publish: { _ in },

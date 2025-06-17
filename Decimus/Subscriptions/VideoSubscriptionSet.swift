@@ -199,11 +199,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     /// - Parameter when: The local datetime this happened.
     /// - Parameter cached: True if this object is cached.
     /// - Parameter usable: True if this object should be used.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
+    public func receivedObject(_ ftn: FullTrackName, details: ObjectReceived) {
         // Notify receipt for stats.
         if self.simulreceive == .enable {
             let report: Bool
-            if let timestamp {
+            if let timestamp = details.timestamp {
                 let timestamp = Int64(timestamp * microsecondsPerSecond)
                 let lastTimestamp = self.lastTimestampReceived.load(ordering: .acquiring)
                 if timestamp <= lastTimestamp {
@@ -233,20 +233,20 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         return existing
                     }
                     if report {
-                        participant.received(when: when, usable: usable, timestamp: timestamp)
+                        participant.received(details)
                     }
                 }
             }
         }
 
-        if let timestamp = timestamp {
+        if let timestamp = details.timestamp {
             // Set the timestamp diff using the min value from recent live objects.
-            if !cached {
-                self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
+            if !details.cached {
+                self.timeAligner!.doTimestampTimeDiff(timestamp, when: details.when)
             }
 
             // Calculate switching set arrival variance.
-            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: details.when)
         }
 
         // If we're responsible for rendering.
@@ -258,7 +258,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         }
 
         // Record the last time this updated.
-        self.lastUpdateTime = when
+        self.lastUpdateTime = details.when
 
         // Update our state.
         self.mediaState.withLock { existing in

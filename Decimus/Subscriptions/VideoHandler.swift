@@ -16,22 +16,28 @@ struct VideoHelpers {
     let seiData: ApplicationSeiData
 }
 
+/// Information about a received object.
+struct ObjectReceived {
+    /// The timestamp of the object, if available.
+    let timestamp: TimeInterval?
+    /// The date when the object was received.
+    let when: Date
+    /// True if the object is from the cache.
+    let cached: Bool
+    /// The headers of the object.
+    let headers: QObjectHeaders
+    /// True if the object is usable, false if it should be dropped.
+    let usable: Bool
+    /// The publish timestamp, if available.
+    let publishTimestamp: Date?
+}
+
 /// Callback type for an object.
-/// - Parameters:
-///    - timestamp: The timestamp of the object, if available.
-///    - when: The date when the object was received.
-///    - cached: True if the object is from the cache.
-///    - headers: The object headers.
-///    - usable: True if the object is usable, false if it should be dropped.
-typealias ObjectReceived = (_ timestamp: TimeInterval?,
-                            _ when: Date,
-                            _ cached: Bool,
-                            _ headers: QObjectHeaders,
-                            _ usable: Bool) -> Void
+/// - Parameter details: The details of the object received.
+typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: TimeAlignable, CustomStringConvertible {
-    // swiftlint:disable:this type_body_length
+class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
     private static let logger = DecimusLogger(VideoHandler.self)
 
     /// The current configuration in use.
@@ -72,7 +78,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     private let variances: VarianceCalculator
 
     private struct Callbacks {
-        var callbacks: [Int: ObjectReceived] = [:]
+        var callbacks: [Int: ObjectReceivedCallback] = [:]
         var currentCallbackToken = 0
     }
     private let callbacks = Mutex<Callbacks>(.init())
@@ -217,7 +223,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     /// Register to receive notifications of an object being received.
     /// - Parameter callback: Callback to be called.
     /// - Returns: Token for unregister.
-    func registerCallback(_ callback: @escaping ObjectReceived) -> Int {
+    func registerCallback(_ callback: @escaping ObjectReceivedCallback) -> Int {
         self.callbacks.withLock { callbacks in
             callbacks.currentCallbackToken += 1
             callbacks.callbacks[callbacks.currentCallbackToken] = callback
@@ -248,14 +254,20 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                         drop: Bool) {
         guard !drop else {
             // Not usable, but notify receipt.
-            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
+            let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
+            let details = ObjectReceived(timestamp: nil,
+                                         when: when,
+                                         cached: cached,
+                                         headers: objectHeaders,
+                                         usable: false,
+                                         publishTimestamp: nil)
             for callback in toCall {
-                callback(nil, when, cached, objectHeaders, false)
+                callback(details)
             }
             guard self.simulreceive != .enable else { return }
             DispatchQueue.main.async {
                 guard let participant = self.participant.get() else { return }
-                participant.received(when: when, usable: false, timestamp: nil)
+                participant.received(details)
             }
             return
         }
@@ -293,14 +305,28 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                 }
             }
 
-            // Notify interested parties of this object.
-            let toCall: [ObjectReceived] = self.callbacks.withLock { Array($0.callbacks.values) }
-            for callback in toCall {
-                callback(timestamp, when, cached, objectHeaders, true)
+            let publishTimestamp: Date?
+            if let publishTimestampData = loc.get(key: .publishTimestamp) {
+                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
+                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
+                publishTimestamp = .init(timeIntervalSince1970: interval)
+            } else {
+                publishTimestamp = nil
             }
 
-            // TODO: This can be inlined here.
-            try self.submitEncodedData(frame, from: when, cached: cached)
+            // Notify interested parties of this object.
+            let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
+            let details = ObjectReceived(timestamp: timestamp,
+                                         when: when,
+                                         cached: cached,
+                                         headers: objectHeaders,
+                                         usable: true,
+                                         publishTimestamp: publishTimestamp)
+            for callback in toCall {
+                callback(details)
+            }
+
+            try self.submitEncodedData(frame, details: details)
         } catch {
             Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
@@ -319,11 +345,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
     }
 
     /// Pass an encoded video frame to this video handler.
-    /// - Parameter data Encoded H264 frame data.
-    /// - Parameter groupId The group.
-    /// - Parameter objectId The object in the group.
-    /// - Parameter cached True if this object is from the cache (not live).
-    func submitEncodedData(_ frame: DecimusVideoFrame, from: Date, cached: Bool) throws {
+    /// - Parameter frame: Encoded video frame.
+    /// - Parameter details: Details about the received object.
+    private func submitEncodedData(_ frame: DecimusVideoFrame, details: ObjectReceived) throws {
         // Do we need to create a jitter buffer?
         if self.jitterBuffer == nil,
            self.jitterBufferConfig.mode != .layer,
@@ -342,14 +366,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
         if let jitterBuffer = self.jitterBuffer {
             let item = try DecimusVideoFrameJitterItem(frame)
             do {
-                try jitterBuffer.write(item: item, from: from)
+                try jitterBuffer.write(item: item, from: details.when)
             } catch JitterBufferError.full {
                 Self.logger.warning("Didn't enqueue as queue was full")
             } catch JitterBufferError.old {
                 Self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
-            try decode(sample: frame, from: from)
+            try decode(sample: frame, from: details.when)
         }
 
         // Do we need to update the label?
@@ -373,9 +397,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
                     if self.simulreceive != .enable {
-                        participant.received(when: from,
-                                             usable: true,
-                                             timestamp: frame.samples.first?.presentationTimeStamp.seconds)
+                        participant.received(details)
                     }
                     participant.label = .init(describing: self)
                 }
@@ -384,17 +406,19 @@ class VideoHandler: TimeAlignable, CustomStringConvertible {
 
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date? = self.granularMetrics ? from : nil
+            let now: Date? = self.granularMetrics ? details.when : nil
             Task(priority: .utility) {
                 if let now = now,
                    let presentationTime = frame.samples.first?.presentationTimeStamp {
                     let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
                     let age = now.timeIntervalSince(presentationDate)
-                    await measurement.measurement.age(age: age, timestamp: now, cached: cached)
+                    await measurement.measurement.age(age: age, timestamp: now, cached: details.cached)
                 }
-                await measurement.measurement.receivedFrame(timestamp: now, idr: frame.objectId == 0, cached: cached)
+                await measurement.measurement.receivedFrame(timestamp: now,
+                                                            idr: frame.objectId == 0,
+                                                            cached: details.cached)
                 let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: cached)
+                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: details.cached)
             }
         }
     }
