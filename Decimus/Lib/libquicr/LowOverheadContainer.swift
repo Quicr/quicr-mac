@@ -66,6 +66,13 @@ class LowOverheadContainer {
         return self.extensions[key]
     }
 
+    /// Get a value from the container.
+    /// - Parameter key: Key to retrieve.
+    /// - Returns: Value associated with the key, if any.
+    func get(key: AppHeaderRegistry) -> Data? {
+        self.get(key: key.rawValue)
+    }
+
     /// Parse a LOC from a MoQ header extension dictionary.
     /// - Throws: ``LowOverheadContainerError/missingField`` if a mandatory field is missing.
     init(from extensions: [NSNumber: Data]) throws {

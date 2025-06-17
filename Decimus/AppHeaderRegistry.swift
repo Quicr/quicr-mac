@@ -4,11 +4,13 @@
 enum AppHeaderRegistry {
     case energyLevel
     case participantId
+    case publishTimestamp
 
     private var uintValue: UInt {
         switch self {
-        case .energyLevel: return 6
-        case .participantId: return 8
+        case .energyLevel: 6
+        case .participantId: 8
+        case .publishTimestamp: 10
         }
     }
 
@@ -23,6 +25,8 @@ enum AppHeaderRegistry {
             self = .energyLevel
         case AppHeaderRegistry.participantId.uintValue:
             self = .participantId
+        case AppHeaderRegistry.publishTimestamp.uintValue:
+            self = .publishTimestamp
         default:
             return nil
         }

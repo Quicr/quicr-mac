@@ -57,17 +57,20 @@ class VideoParticipant: Identifiable {
 
     @Observable
     class Latencies {
-        private(set) var display: LatencyRecord
-        private(set) var receive: LatencyRecord
+        let display: LatencyRecord
+        let receive: LatencyRecord
+        let traversal: LatencyRecord
 
         init(_ length: TimeInterval) {
-            self.display = LatencyRecord(length)
-            self.receive = LatencyRecord(length)
+            self.display = .init(length)
+            self.receive = .init(length)
+            self.traversal = .init(length)
         }
 
         func calc(from: Date) {
             self.display.calc(from: from)
             self.receive.calc(from: from)
+            self.traversal.calc(from: from)
         }
     }
     let latencies: Latencies?
@@ -120,19 +123,26 @@ class VideoParticipant: Identifiable {
         try self.videoParticipants.add(self)
     }
 
-    func received(when: Date, usable: Bool, timestamp: TimeInterval?) {
-        if let timestamp,
+    func received(_ details: ObjectReceived) {
+        if let timestamp = details.timestamp,
            let receive = self.latencies?.receive {
             let presentationDate = Date(timeIntervalSince1970: timestamp)
-            receive.slidingWindow.add(timestamp: when, value: when.timeIntervalSince(presentationDate))
+            receive.slidingWindow.add(timestamp: details.when,
+                                      value: details.when.timeIntervalSince(presentationDate))
+        }
+
+        if let publishTimestamp = details.publishTimestamp,
+           let traversal = self.latencies?.traversal {
+            traversal.slidingWindow.add(timestamp: details.when,
+                                        value: details.when.timeIntervalSince(publishTimestamp))
         }
 
         guard let stats = self.activeSpeakerStats else { return }
         Task { @MainActor in
-            if usable {
-                await stats.dataReceived(self.participantId, when: when)
+            if details.usable {
+                await stats.dataReceived(self.participantId, when: details.when)
             } else {
-                await stats.dataDropped(self.participantId, when: when)
+                await stats.dataDropped(self.participantId, when: details.when)
             }
         }
     }

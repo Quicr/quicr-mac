@@ -69,6 +69,8 @@ class H264Publication: Publication, FrameListener {
 
         // Use extensions for LOC.
         let loc = LowOverheadContainer(timestamp: presentationDate, sequence: sequence)
+        let now = UInt64(Date.now.timeIntervalSince1970 * 1000)
+        loc.add(key: .publishTimestamp, value: withUnsafeBytes(of: now) { Data($0) })
 
         // Publish.
         let data = Data(bytesNoCopy: .init(mutating: data.baseAddress!),

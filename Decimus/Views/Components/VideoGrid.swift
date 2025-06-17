@@ -127,6 +127,15 @@ struct VideoGrid: View {
                                                             .fontDesign(.monospaced)
                                                     }
                                                 }
+                                                if let average = latencies.traversal.average {
+                                                    HStack {
+                                                        Text("MoQ Traversal Time: ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
+                                                }
                                             }
                                         }
                                         .background()
