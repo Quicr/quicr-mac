@@ -42,21 +42,17 @@ class PushToTalkText: Subscription {
         }
 
         self.logger.info("Received object: \(objectHeaders.groupId):\(objectHeaders.objectId)")
-        guard let chunk = try? ChunkMessage(from: unprotected) else {
+        guard let chunk = try? ChatMessage(from: unprotected) else {
             self.logger.error("Failed to parse chunk")
             return
         }
-        if let changeChannel = try? JSONDecoder().decode(ChangeChannelMessage.self, from: chunk.data) {
+
+        if let changeChannel = try? JSONDecoder().decode(ChangeChannelMessage.self, from: .init(chunk.text.utf8)) {
             self.logger.info("Received change channel to: \(changeChannel.channelName)")
             self.currentChannel = changeChannel.channelName
             return
         }
 
-        if let string = String(data: chunk.data, encoding: .utf8) {
-            self.logger.info("Received message: \(string)")
-            return
-        }
-
-        self.logger.notice("Gateway message: \(chunk)")
+        self.logger.info("Received message: \(chunk.text)")
     }
 }

@@ -161,6 +161,7 @@
 		9BE6B7C72C9D92940069FE9F /* TokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C62C9D92890069FE9F /* TokenStorage.swift */; };
 		9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */; };
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
+		9BF4103E2E01738900F70B3D /* TestChunkParsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF4103D2E01738500F70B3D /* TestChunkParsing.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
@@ -412,6 +413,7 @@
 		9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTokenStorage.swift; sourceTree = "<group>"; };
 		9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
+		9BF4103D2E01738500F70B3D /* TestChunkParsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestChunkParsing.swift; sourceTree = "<group>"; };
 		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		D786194B2A290F1600EC0556 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = qmedia.xcframework; path = dependencies/qmedia.xcframework; sourceTree = "<group>"; };
@@ -590,6 +592,7 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9BF4103D2E01738500F70B3D /* TestChunkParsing.swift */,
 				9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */,
 				9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */,
 				9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */,
@@ -1130,6 +1133,7 @@
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
 				9B156F002D64AB1100E91D0F /* TestSlidingWindow.swift in Sources */,
 				187DE3712C997C7A0090FB68 /* TestVideoSubscription.swift in Sources */,
+				9BF4103E2E01738900F70B3D /* TestChunkParsing.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
 				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,

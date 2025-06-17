@@ -170,16 +170,18 @@ class PCMPublication: Publication, AudioPublication {
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
         let loc = LowOverheadContainer(timestamp: timestamp, sequence: self.currentObjectId)
-        let chunk = ChunkMessage(type: self.currentRequestId != nil ? .aiAudio : .audio,
-                                 isLastChunk: final,
-                                 data: data,
-                                 requestId: self.currentRequestId)
-        if final,
-           let currentRequestId = self.currentRequestId {
-            self.currentRequestId = currentRequestId + 1
+        let chunk: ChunkCodable
+        if let currentRequestId = self.currentRequestId {
+            chunk = AIRequestChunk(requestID: currentRequestId,
+                                   isLastChunk: final,
+                                   audioData: data)
+            if final {
+                self.currentRequestId = currentRequestId + 1
+            }
+        } else {
+            chunk = AudioChunk(isLastChunk: final, audioData: data)
         }
-        var chunkData = Data(capacity: chunk.size)
-        chunk.encode(into: &chunkData)
+        var chunkData = chunk.encode()
         if let sframeContext {
             do {
                 chunkData = try sframeContext.context.mutex.withLock { locked in

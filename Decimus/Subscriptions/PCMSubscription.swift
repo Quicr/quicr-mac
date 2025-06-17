@@ -187,13 +187,13 @@ class PCMSubscription: Subscription, AudioSubscription {
             }
         }
 
-        guard let chunk = try? ChunkMessage(from: unprotected) else {
-            self.logger.warning("Failed to decode chunk message")
+        guard let chunk = try? AudioChunk(from: unprotected) else {
+            self.logger.warning("Failed to decode audio chunk")
             return
         }
 
         do {
-            try handler.submitEncodedAudio(data: chunk.data,
+            try handler.submitEncodedAudio(data: chunk.audioData,
                                            sequence: objectHeaders.objectId,
                                            date: now,
                                            timestamp: loc.timestamp)
