@@ -63,7 +63,7 @@ struct AudioChunk: ChunkCodable {
         var data = Data()
         data.append(MessageType.pttAudio.rawValue)
         data.append(self.isLastChunk ? UInt8(1) : UInt8(0))
-        let chunkLength = UInt32(self.audioData.count).bigEndian
+        let chunkLength = UInt32(self.audioData.count)
         withUnsafeBytes(of: chunkLength) { data.append(contentsOf: $0) }
         data.append(self.audioData)
         return data
@@ -80,7 +80,7 @@ struct AudioChunk: ChunkCodable {
         self.isLastChunk = data[1] != 0
 
         let lengthBytes = data[2..<6]
-        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 
         guard data.count >= 6 + Int(chunkLength) else {
             throw MessageParsingError.dataLengthMismatch
@@ -108,11 +108,11 @@ struct AIRequestChunk: ChunkCodable {
     func encode() -> Data {
         var data = Data()
         data.append(MessageType.aiAudioRequest.rawValue)
-        withUnsafeBytes(of: requestID.bigEndian) { data.append(contentsOf: $0) }
-        data.append(isLastChunk ? UInt8(1) : UInt8(0))
-        let chunkLength = UInt32(audioData.count).bigEndian
+        withUnsafeBytes(of: self.requestID) { data.append(contentsOf: $0) }
+        data.append(self.isLastChunk ? UInt8(1) : UInt8(0))
+        let chunkLength = UInt32(self.audioData.count)
         withUnsafeBytes(of: chunkLength) { data.append(contentsOf: $0) }
-        data.append(audioData)
+        data.append(self.audioData)
         return data
     }
 
@@ -124,11 +124,11 @@ struct AIRequestChunk: ChunkCodable {
             throw MessageParsingError.invalidMessageType(type)
         }
 
-        self.requestID = data[1..<5].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        self.requestID = data[1..<5].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
         self.isLastChunk = data[5] != 0
 
         let lengthBytes = data[6..<10]
-        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 
         guard data.count >= 10 + Int(chunkLength) else {
             throw MessageParsingError.dataLengthMismatch
@@ -159,12 +159,12 @@ struct AIResponseChunk: ChunkCodable {
     func encode() -> Data {
         var data = Data()
         data.append(MessageType.aiResponse.rawValue)
-        withUnsafeBytes(of: requestID.bigEndian) { data.append(contentsOf: $0) }
-        data.append(contentType.rawValue)
-        data.append(isLastChunk ? UInt8(1) : UInt8(0))
-        let chunkLength = UInt32(responseData.count).bigEndian
+        withUnsafeBytes(of: self.requestID) { data.append(contentsOf: $0) }
+        data.append(self.contentType.rawValue)
+        data.append(self.isLastChunk ? UInt8(1) : UInt8(0))
+        let chunkLength = UInt32(self.responseData.count)
         withUnsafeBytes(of: chunkLength) { data.append(contentsOf: $0) }
-        data.append(responseData)
+        data.append(self.responseData)
         return data
     }
 
@@ -176,7 +176,7 @@ struct AIResponseChunk: ChunkCodable {
             throw MessageParsingError.invalidMessageType(type)
         }
 
-        self.requestID = data[1..<5].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        self.requestID = data[1..<5].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 
         guard let contentTypeValue = ContentType(rawValue: data[5]) else {
             throw MessageParsingError.invalidContentType(data[5])
@@ -186,7 +186,7 @@ struct AIResponseChunk: ChunkCodable {
         self.isLastChunk = data[6] != 0
 
         let lengthBytes = data[7..<11]
-        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 
         guard data.count >= 11 + Int(chunkLength) else {
             throw MessageParsingError.dataLengthMismatch
@@ -211,12 +211,12 @@ struct ChatMessage: ChunkCodable {
 
         guard let textData = text.data(using: .utf8) else {
             // Empty message if encoding fails
-            let emptyLength = UInt32(0).bigEndian
+            let emptyLength = UInt32(0)
             withUnsafeBytes(of: emptyLength) { data.append(contentsOf: $0) }
             return data
         }
 
-        let chunkLength = UInt32(textData.count).bigEndian
+        let chunkLength = UInt32(textData.count)
         withUnsafeBytes(of: chunkLength) { data.append(contentsOf: $0) }
         data.append(textData)
         return data
@@ -231,7 +231,7 @@ struct ChatMessage: ChunkCodable {
         }
 
         let lengthBytes = data[1..<5]
-        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
+        let chunkLength = lengthBytes.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
 
         guard data.count >= 5 + Int(chunkLength) else {
             throw MessageParsingError.dataLengthMismatch
