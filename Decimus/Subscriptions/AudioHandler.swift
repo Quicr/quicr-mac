@@ -713,13 +713,27 @@ class AudioHandler: TimeAlignable {
         // Generate PLC.
         // TODO: If this won't fit in the playout buffer, don't generate it.
         Self.logger.warning("Need to conceal \(packetsToGenerate) packets.")
-        for _ in 0..<packetsToGenerate {
+        // Enqueue for playout.
+        guard let diff = self.timeDiff.getTimeDiff() else {
+            Self.logger.error("Missing timing info, cannot use this audio")
+            return
+        }
+        let itemDate = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
+        for packet in 0..<packetsToGenerate {
             do {
                 let frames = AVAudioFrameCount(window.rawValue * self.decoder.encodedFormat.sampleRate)
                 let plc = try self.decoder.plc(frames: frames)
                 lastUsedSequence += 1
                 self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
-                var timestamp = AudioTimeStamp()
+                let backwards = packetsToGenerate - packet
+                let date = itemDate.addingTimeInterval(Double(backwards) * window.rawValue * -1)
+                var timestamp = AudioTimeStamp(mSampleTime: 0,
+                                               mHostTime: dateToHost(date),
+                                               mRateScalar: 0,
+                                               mWordClockTime: 0,
+                                               mSMPTETime: .init(),
+                                               mFlags: .hostTimeValid,
+                                               mReserved: 0)
                 do {
                     try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
                                                     timestamp: &timestamp,
