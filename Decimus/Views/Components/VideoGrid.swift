@@ -52,8 +52,8 @@ struct VideoGrid: View {
                            alignment: .center)
                     .cornerRadius(self.cornerRadius)
                     .padding([.horizontal, .bottom])
-                #if os(tvOS)
-                .ignoresSafeArea()
+                    #if os(tvOS)
+                    .ignoresSafeArea()
                 #endif
             }
         } else {
@@ -80,13 +80,62 @@ struct VideoGrid: View {
                                 .conditionalModifier(self.showLabels && participant.joinToFirstFrame != nil) {
                                     $0.overlay(alignment: .topTrailing) {
                                         VStack(alignment: .leading) {
-                                            Text("From Join: \(participant.joinToFirstFrame!)s")
-                                            Text("From Subscribe: \(participant.subscribeToFirstFrame!)s")
+                                            HStack {
+                                                Text("From Join: ")
+                                                let formatted = String(format: "%.2f", participant.joinToFirstFrame!)
+                                                Text("\(formatted)s")
+                                                    .fontDesign(.monospaced)
+                                            }
+                                            HStack {
+                                                Text("From Subscribe: ")
+                                                let formatted = String(format: "%.2f", participant.subscribeToFirstFrame!)
+                                                Text("\(formatted)s")
+                                                    .fontDesign(.monospaced)
+                                            }
                                             if let detect = participant.fromDetected {
-                                                Text("Display - Audio Heard: \(detect)s")
+                                                HStack {
+                                                    Text("Display - Audio Heard: ")
+                                                    let formatted = String(format: "%.2f", detect)
+                                                    Text("\(formatted)s")
+                                                        .fontDesign(.monospaced)
+                                                }
                                             }
                                             if let set = participant.fromSet {
-                                                Text("Display - Speaker Active: \(set)s")
+                                                HStack {
+                                                    Text("Display - Speaker Set: ")
+                                                    let formatted = String(format: "%.2f", set)
+                                                    Text("\(formatted)s")
+                                                        .fontDesign(.monospaced)
+                                                }
+                                            }
+                                            if let latencies = participant.latencies {
+                                                if let average = latencies.receive.average {
+                                                    HStack {
+                                                        Text("Age (Receive): ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
+                                                }
+                                                if let average = latencies.display.average {
+                                                    HStack {
+                                                        Text("Age (Display): ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
+                                                }
+                                                if let average = latencies.traversal.average {
+                                                    HStack {
+                                                        Text("MoQ Traversal Time: ")
+                                                        let formatted = String(format: "%.2f",
+                                                                               average * 1000)
+                                                        Text("\(formatted)ms")
+                                                            .fontDesign(.monospaced)
+                                                    }
+                                                }
                                             }
                                         }
                                         .background()

@@ -149,6 +149,11 @@ class JitterBuffer {
         return item
     }
 
+    /// Empty the buffer.
+    func clear() throws {
+        try self.buffer.reset()
+    }
+
     func updateLastSequenceRead(_ seq: UInt64) {
         self.lastSequenceRead.store(seq, ordering: .releasing)
     }
@@ -165,6 +170,17 @@ class JitterBuffer {
         self.buffer.duration.seconds
     }
 
+    /// Get the point in time this item should ideally be played out.
+    /// - Parameter item: The item to calculate the playout date for.
+    /// - Parameter offset: Offset from the start point at which media starts.
+    /// - Parameter since: The start point of the media timeline.
+    /// - Returns: The date at which this item should be played out.
+    func getPlayoutDate(item: JitterItem,
+                        offset: TimeInterval,
+                        since: Date = .init(timeIntervalSince1970: 0)) -> Date {
+        Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + self.minDepth
+    }
+
     /// Calculate the estimated time interval until this frame should be rendered.
     /// - Parameter frame: The frame to calculate the wait time for.
     /// - Parameter from: The time to calculate the time interval from.
@@ -175,8 +191,8 @@ class JitterBuffer {
                            from: Date,
                            offset: TimeInterval,
                            since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval {
-        let targetDate = Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since)
-        let waitTime = targetDate.timeIntervalSince(from) + self.minDepth
+        let targetDate = self.getPlayoutDate(item: item, offset: offset, since: since)
+        let waitTime = targetDate.timeIntervalSince(from)
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.measurement.waitTime(value: waitTime, timestamp: from)

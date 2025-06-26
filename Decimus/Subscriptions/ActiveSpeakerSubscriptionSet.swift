@@ -6,13 +6,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     // Dependencies.
     private let logger = DecimusLogger(ActiveSpeakerSubscriptionSet.self)
     private let engine: DecimusAudioEngine
-    private let jitterDepth: TimeInterval
-    private let jitterMax: TimeInterval
-    private let opusWindowSize: OpusWindowSize
     private let ourParticipantId: ParticipantId?
     private let metricsSubmitter: MetricsSubmitter?
-    private let useNewJitterBuffer: Bool
-    private let granularMetrics: Bool
     private let activeSpeakerStats: ActiveSpeakerStats?
 
     /// Individual active speaker subscriptions.
@@ -20,25 +15,19 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     /// Per-client audio media objects.
     private var audioMediaObjects: [ParticipantId: AudioHandler] = [:]
 
+    private let audioHandlerConfig: AudioHandler.Config
+
     init(subscription: ManifestSubscription,
          engine: DecimusAudioEngine,
-         jitterDepth: TimeInterval,
-         jitterMax: TimeInterval,
-         opusWindowSize: OpusWindowSize,
          ourParticipantId: ParticipantId?,
          submitter: MetricsSubmitter?,
-         useNewJitterBuffer: Bool,
-         granularMetrics: Bool,
-         activeSpeakerStats: ActiveSpeakerStats?) {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         config: AudioHandler.Config) {
         self.engine = engine
-        self.jitterDepth = jitterDepth
-        self.jitterMax = jitterMax
-        self.opusWindowSize = opusWindowSize
         self.ourParticipantId = ourParticipantId
         self.metricsSubmitter = submitter
-        self.useNewJitterBuffer = useNewJitterBuffer
-        self.granularMetrics = granularMetrics
         self.activeSpeakerStats = activeSpeakerStats
+        self.audioHandlerConfig = config
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
     }
 
@@ -49,7 +38,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     func receivedObject(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         // Extract the client ID from the header.
         guard let extensions = extensions,
-              let participantIdextension = extensions[OpusPublication.participantIdKey] else {
+              let participantIdextension = extensions[AppHeaderRegistry.participantId.rawValue] else {
             self.logger.error("Missing expected client ID extension")
             return
         }
@@ -97,12 +86,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
                                          engine: self.engine,
                                          decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                          measurement: measurement,
-                                         jitterDepth: self.jitterDepth,
-                                         jitterMax: self.jitterMax,
-                                         opusWindowSize: self.opusWindowSize,
-                                         granularMetrics: self.granularMetrics,
-                                         useNewJitterBuffer: self.useNewJitterBuffer,
-                                         metricsSubmitter: self.metricsSubmitter)
+                                         metricsSubmitter: self.metricsSubmitter,
+                                         config: self.audioHandlerConfig)
                 self.audioMediaObjects[participantId] = media
             } catch {
                 self.logger.error(

@@ -180,12 +180,21 @@ struct VideoSubscriptionSetTests {
                                            joinDate: .now,
                                            activeSpeakerStats: nil,
                                            cleanupTime: 10,
-                                           slidingWindowTime: 10)
+                                           slidingWindowTime: 10,
+                                           config: .init(calculateLatency: false))
+        let details = ObjectReceived(timestamp: timestamp,
+                                     when: Self.now,
+                                     cached: false,
+                                     headers: .init(groupId: 0,
+                                                    objectId: 0,
+                                                    payloadLength: 0,
+                                                    priority: nil,
+                                                    ttl: nil),
+                                     usable: true,
+                                     publishTimestamp: nil)
+
         try set.receivedObject(.init(namespace: [], name: ""),
-                               timestamp: timestamp,
-                               when: Self.now,
-                               cached: false,
-                               usable: true)
+                               details: details)
     }
 }
 

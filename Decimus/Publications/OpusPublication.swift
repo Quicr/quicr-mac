@@ -8,14 +8,7 @@ import Accelerate
 import Synchronization
 
 class OpusPublication: Publication, AudioPublication {
-    enum Incrementing {
-        case group
-        case object
-    }
-
     private static let logger = DecimusLogger(OpusPublication.self)
-    static let energyLevelKey: NSNumber = 66
-    static let participantIdKey: NSNumber = 88
     private static let silence: Int = 127
 
     private let encoder: LibOpusEncoder
@@ -30,10 +23,10 @@ class OpusPublication: Publication, AudioPublication {
     private let startingGroupId: UInt64
     private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
-    private let bootDate: Date
     private let participantId: ParticipantId
     private let publish: Atomic<Bool>
     private let incrementing: Incrementing
+    private let sframeContext: SendSFrameContext?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -47,6 +40,7 @@ class OpusPublication: Publication, AudioPublication {
          relayId: String,
          startActive: Bool,
          incrementing: Incrementing,
+         sframeContext: SendSFrameContext?,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -60,6 +54,7 @@ class OpusPublication: Publication, AudioPublication {
         self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.incrementing = incrementing
+        self.sframeContext = sframeContext
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -76,14 +71,13 @@ class OpusPublication: Publication, AudioPublication {
               let defaultTTL = profile.expiry?.first else {
             throw "Missing expected profile values"
         }
-        self.bootDate = Date.now.addingTimeInterval(-ProcessInfo.processInfo.systemUptime)
         self.participantId = participantId
         self.publish = .init(startActive)
         self.startingGroupId = groupId
         self.currentGroupId = groupId
 
         try super.init(profile: profile,
-                       trackMode: reliable ? .streamPerTrack : .datagram,
+                       trackMode: reliable ? .stream : .datagram,
                        defaultPriority: UInt8(clamping: defaultPriority),
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,
@@ -166,10 +160,26 @@ class OpusPublication: Publication, AudioPublication {
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
-        extensions[Self.energyLevelKey] = Data([energyLevelValue])
+        extensions[AppHeaderRegistry.energyLevel.rawValue] = Data([energyLevelValue])
         var participantId = self.participantId.aggregate
-        extensions[Self.participantIdKey] = Data(bytes: &participantId, count: MemoryLayout<UInt32>.size)
-        let published = self.publish(data: data, priority: &priority, ttl: &ttl, extensions: extensions)
+        extensions[AppHeaderRegistry.participantId.rawValue] = Data(bytes: &participantId, count: MemoryLayout<UInt32>.size)
+
+        let protected: Data
+        if let sframeContext {
+            do {
+                protected = try sframeContext.context.mutex.withLock { locked in
+                    try locked.protect(epochId: sframeContext.currentEpoch,
+                                       senderId: sframeContext.senderId,
+                                       plaintext: data)
+                }
+            } catch {
+                Self.logger.error("Failed to protect: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            protected = data
+        }
+        let published = self.publish(data: protected, priority: &priority, ttl: &ttl, extensions: extensions)
         switch published {
         case .ok:
             switch self.incrementing {
@@ -226,14 +236,12 @@ class OpusPublication: Publication, AudioPublication {
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
         // Get absolute time.
-        let nano = try getAudioNano(dequeued.timestamp.mHostTime)
-        // Get wall clock time.
-        let wallClock = self.bootDate.addingTimeInterval(TimeInterval(nano) / 1_000_000_000)
+        let wallClock = hostToDate(dequeued.timestamp.mHostTime)
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
         let metadata = AudioBitstreamData(seqId: self.currentGroupId,
-                                          ptsTimestamp: nano,
+                                          ptsTimestamp: dequeued.timestamp.mHostTime,
                                           timebase: 1_000_000_000, sampleFreq: UInt64(self.pcm.format.sampleRate),
                                           numChannels: UInt64(self.pcm.format.channelCount),
                                           duration: UInt64(self.opusWindowSize.rawValue * 1_000_000_000.0),
@@ -263,32 +271,4 @@ class OpusPublication: Publication, AudioPublication {
         decibel = max(decibel, minAudioLevel)
         return Int(decibel.rounded())
     }
-}
-
-func getAudioNano(_ hostTime: UInt64) throws -> UInt64 {
-    let nano: UInt64
-    #if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-    nano = getAudioDateMac(hostTime)
-    #else
-    nano = try getAudioDateiOS(hostTime)
-    #endif
-    return nano
-}
-
-#if os(macOS) || (os(iOS) && targetEnvironment(macCatalyst))
-func getAudioDateMac(_ hostTime: UInt64) -> UInt64 {
-    AudioConvertHostTimeToNanos(hostTime)
-}
-#endif
-
-func getAudioDateiOS(_ hostTime: UInt64) throws -> UInt64 {
-    // Get absolute time.
-    var info = mach_timebase_info_data_t()
-    let result = mach_timebase_info(&info)
-    guard result == KERN_SUCCESS else {
-        throw "Failed to get mach time"
-    }
-    let factor = TimeInterval(info.numer) / TimeInterval(info.denom)
-    let nanoseconds = TimeInterval(hostTime) * factor
-    return UInt64(nanoseconds)
 }

@@ -52,11 +52,25 @@ class LowOverheadContainer {
         self.extensions[key] = value
     }
 
+    /// Add a new key-value pair to the container.
+    /// - Parameter key: Key to add.
+    /// - Parameter value: Value to add.
+    func add(key: AppHeaderRegistry, value: Data) {
+        self.add(key: key.rawValue, value: value)
+    }
+
     /// Get a value from the container.
     /// - Parameter key: Key to retrieve.
     /// - Returns: Value associated with the key, if any.
     func get(key: NSNumber) -> Data? {
         return self.extensions[key]
+    }
+
+    /// Get a value from the container.
+    /// - Parameter key: Key to retrieve.
+    /// - Returns: Value associated with the key, if any.
+    func get(key: AppHeaderRegistry) -> Data? {
+        self.get(key: key.rawValue)
     }
 
     /// Parse a LOC from a MoQ header extension dictionary.

@@ -2,6 +2,18 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
+import SFrame
+import Synchronization
+
+struct SFrameSettings: Codable {
+    var enable: Bool
+    var key: String
+
+    init() {
+        self.enable = false
+        self.key = "sixteen byte key"
+    }
+}
 
 /// Possible modes of rendering video.
 enum VideoBehaviour: CaseIterable, Identifiable, Codable {
@@ -52,6 +64,10 @@ struct SubscriptionConfig: Codable {
     var useNewJitterBuffer: Bool
     /// Opus encode/decode window size to use.
     var opusWindowSize: OpusWindowSize
+    /// No more than this many packets will be concealed.
+    var audioPlcLimit: Int
+    /// Audio playout buffer target depth.
+    var playoutBufferTime: TimeInterval
     /// Control behaviour of video rendering.
     var videoBehaviour: VideoBehaviour
     /// Interval between key frames, or 0 for codec control.
@@ -92,8 +108,8 @@ struct SubscriptionConfig: Codable {
     var quicrLogs: Bool
     /// Override picoquic pacing for priorities.
     var quicPriorityLimit: UInt8
-    /// True to enable SFrame encryption of media.
-    var doSFrame: Bool
+    /// SFrame encryption of media settings.
+    var sframeSettings: SFrameSettings
     /// True to publish keyframe on subscribe update.
     var keyFrameOnUpdate: Bool
     /// Time to cleanup stale subscriptions for.
@@ -107,6 +123,8 @@ struct SubscriptionConfig: Codable {
         jitterDepthTime = 0.2
         useNewJitterBuffer = false
         opusWindowSize = .twentyMs
+        self.audioPlcLimit = 6
+        self.playoutBufferTime = 0.02
         videoBehaviour = .freeze
         keyFrameInterval = 5
         mediaReliability = .init()
@@ -126,7 +144,7 @@ struct SubscriptionConfig: Codable {
         pauseResume = false
         quicrLogs = false
         quicPriorityLimit = 0
-        doSFrame = true
+        self.sframeSettings = .init()
         stagger = true
         self.keyFrameOnUpdate = true
         self.cleanupTime = 1.5
@@ -152,7 +170,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let metricsSubmitter: MetricsSubmitter?
     private let subscriptionConfig: SubscriptionConfig
     private let granularMetrics: Bool
-    private let engine: DecimusAudioEngine
+    private let engine: DecimusAudioEngine?
     private let participantId: ParticipantId?
     private let joinDate: Date
     private let controller: MoqCallController
@@ -161,19 +179,23 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let startingGroup: UInt64?
     private let manualActiveSpeaker: Bool
+    private let sframeContext: SFrameContext?
+    private let calculateLatency: Bool
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          subscriptionConfig: SubscriptionConfig,
          granularMetrics: Bool,
-         engine: DecimusAudioEngine,
+         engine: DecimusAudioEngine?,
          participantId: ParticipantId?,
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
          controller: MoqCallController,
          verbose: Bool,
          startingGroup: UInt64?,
-         manualActiveSpeaker: Bool) {
+         manualActiveSpeaker: Bool,
+         sframeContext: SFrameContext?,
+         calculateLatency: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -186,6 +208,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.verbose = verbose
         self.startingGroup = startingGroup
         self.manualActiveSpeaker = manualActiveSpeaker
+        self.sframeContext = sframeContext
+        self.calculateLatency = calculateLatency
     }
 
     func create(subscription: ManifestSubscription,
@@ -197,16 +221,23 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             self.subscriptionConfig.jitterMaxTime
         if subscription.mediaType == ManifestMediaTypes.audio.rawValue && subscription.profileSet.type == "switched" {
             // This a switched / active speaker subscription type.
+            guard let engine = self.engine else {
+                throw PubSubFactoryError.cannotCreate(noAudioError)
+            }
+            let config = AudioHandler.Config(jitterDepth: self.subscriptionConfig.jitterDepthTime,
+                                             jitterMax: max,
+                                             opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                             granularMetrics: self.granularMetrics,
+                                             useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
+                                             maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
+                                             playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
+                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
             return ActiveSpeakerSubscriptionSet(subscription: subscription,
-                                                engine: self.engine,
-                                                jitterDepth: self.subscriptionConfig.jitterDepthTime,
-                                                jitterMax: max,
-                                                opusWindowSize: self.subscriptionConfig.opusWindowSize,
+                                                engine: engine,
                                                 ourParticipantId: self.participantId,
                                                 submitter: self.metricsSubmitter,
-                                                useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
-                                                granularMetrics: self.granularMetrics,
-                                                activeSpeakerStats: self.activeSpeakerStats)
+                                                activeSpeakerStats: self.activeSpeakerStats,
+                                                config: config)
         }
 
         if subscription.mediaType == "playtime-control" {
@@ -216,6 +247,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         // Supported codec sets.
         let videoCodecs: Set<CodecType> = [.h264, .hevc]
         let opusCodecs: Set<CodecType> = [.opus]
+        let textCodecs: Set<CodecType> = [.text]
 
         // Resolve profile sets to config.
         var foundCodecs: [CodecType] = []
@@ -243,17 +275,22 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             joinDate: self.joinDate,
                                             activeSpeakerStats: self.activeSpeakerStats,
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
-                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
+                                            slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
+                                            config: .init(calculateLatency: self.calculateLatency))
         }
 
         if found.isSubset(of: opusCodecs) {
             return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
         }
 
+        if found.isSubset(of: textCodecs) {
+            return ObservableSubscriptionSet(sourceId: subscription.sourceID, participantId: subscription.participantId)
+        }
+
         throw CodecError.unsupportedCodecSet(found)
     }
 
-    func create(set: SubscriptionSet,
+    func create(set: SubscriptionSet, // swiftlint:disable:this function_body_length
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
@@ -322,25 +359,26 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          controller: self.controller,
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
-                                         subscriptionConfig: .init(joinConfig: joinConfig),
-                                         callback: { [weak set] timestamp, when, cached, _, usable in
+                                         subscriptionConfig: .init(joinConfig: joinConfig,
+                                                                   calculateLatency: self.calculateLatency),
+                                         sframeContext: self.sframeContext,
+                                         callback: { [weak set] details in
                                             guard let set = set else { return }
-                                            set.receivedObject(ftn,
-                                                               timestamp: timestamp,
-                                                               when: when,
-                                                               cached: cached,
-                                                               usable: usable)
+                                            set.receivedObject(ftn, details: details)
                                          },
                                          statusChanged: unregister)
         } else if config is AudioCodecConfig {
             guard set is ObservableSubscriptionSet else {
                 throw "AudioCodecConfig expects ObservableSubscriptionSet"
             }
+            guard let engine = self.engine else {
+                throw PubSubFactoryError.cannotCreate(noAudioError)
+            }
             let jitterMax = self.subscriptionConfig.useNewJitterBuffer ?
                 self.subscriptionConfig.videoJitterBuffer.capacity :
                 self.subscriptionConfig.jitterMaxTime
             return try OpusSubscription(profile: profile,
-                                        engine: self.engine,
+                                        engine: engine,
                                         submitter: self.metricsSubmitter,
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
                                         jitterMax: jitterMax,
@@ -352,7 +390,20 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
                                         cleanupTime: self.subscriptionConfig.cleanupTime,
                                         activeSpeakerStats: self.manualActiveSpeaker ? self.activeSpeakerStats : nil,
+                                        sframeContext: self.sframeContext,
+                                        maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
+                                        playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
+                                        slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
                                         statusChanged: unregister)
+        } else if config is TextCodecConfig {
+            return try MultipleCallbackSubscription(profile: profile,
+                                                    endpointId: endpointId,
+                                                    relayId: relayId,
+                                                    metricsSubmitter: self.metricsSubmitter,
+                                                    priority: 0,
+                                                    groupOrder: .originalPublisherOrder,
+                                                    filterType: .latestObject,
+                                                    statusCallback: {_ in})
         }
         throw CodecError.invalidCodecConfig(config)
     }

@@ -17,7 +17,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-class VideoSubscriptionSet: ObservableSubscriptionSet {
+class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private static let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription
@@ -52,6 +52,20 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     private let joinDate: Date
     private let activeSpeakerStats: ActiveSpeakerStats?
     private var timeAligner: TimeAligner?
+    private let lastTimestampReceived = Atomic(Int64.zero)
+    private let config: Config
+
+    /// Configuration for the video subscription set.
+    struct Config {
+        /// True to calculate / display end-to-end latency.
+        let calculateLatency: Bool
+
+        /// Get a video participant config from this config.
+        func getVideoParticipantConfig(_ set: VideoSubscriptionSet) -> VideoParticipant.Config {
+            .init(calculateLatency: self.calculateLatency,
+                  slidingWindowTime: set.jitterBufferConfig.window)
+        }
+    }
 
     init(subscription: ManifestSubscription,
          participants: VideoParticipants,
@@ -70,7 +84,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
          cleanupTime: TimeInterval,
-         slidingWindowTime: TimeInterval) throws {
+         slidingWindowTime: TimeInterval,
+         config: Config) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -107,6 +122,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         self.joinDate = joinDate
         self.activeSpeakerStats = activeSpeakerStats
         self.cleanupTimer = cleanupTime
+        self.config = config
 
         // Adjust and store expected quality profiles.
         var createdProfiles: [FullTrackName: VideoCodecConfig] = [:]
@@ -120,13 +136,15 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
             createdProfiles[fullTrackName] = config
         }
 
-        // Make all the video subscriptions upfront.
+        // Store all the containing profiles.
         self.profiles = createdProfiles
         let maxFps = createdProfiles.values.reduce(into: 0) { $0 = max($0, Int($1.fps)) }
         let capacityGuess = TimeInterval(maxFps) * TimeInterval(createdProfiles.count) * slidingWindowTime
 
         // Base.
         super.init(sourceId: subscription.sourceID, participantId: subscription.participantId)
+
+        // Prepare for aligning contained subscriptions to the same time line.
         self.timeAligner = .init(windowLength: slidingWindowTime,
                                  capacity: Int(capacityGuess)) { [weak self] in
             guard let self = self else { return [] }
@@ -164,13 +182,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         Self.logger.debug("Deinit")
     }
 
-    override func addHandler(_ handler: QSubscribeTrackHandlerObjC) throws {
-        guard let handler = handler as? VideoSubscription else {
-            throw "Handler MUST be VideoSubscription"
-        }
-        try super.addHandler(handler)
-    }
-
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
         let result = super.removeHandler(ftn)
         if self.simulreceive == .enable,
@@ -188,9 +199,23 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     /// - Parameter when: The local datetime this happened.
     /// - Parameter cached: True if this object is cached.
     /// - Parameter usable: True if this object should be used.
-    public func receivedObject(_ ftn: FullTrackName, timestamp: TimeInterval?, when: Date, cached: Bool, usable: Bool) {
+    public func receivedObject(_ ftn: FullTrackName, details: ObjectReceived) {
         // Notify receipt for stats.
-        if self.simulreceive == .enable && self.activeSpeakerStats != nil {
+        if self.simulreceive == .enable {
+            let report: Bool
+            if let timestamp = details.timestamp {
+                let timestamp = Int64(timestamp * microsecondsPerSecond)
+                let lastTimestamp = self.lastTimestampReceived.load(ordering: .acquiring)
+                if timestamp <= lastTimestamp {
+                    report = false
+                } else {
+                    self.lastTimestampReceived.store(timestamp, ordering: .releasing)
+                    report = true
+                }
+            } else {
+                report = true
+            }
+
             Task {
                 try await MainActor.run {
                     let participant = try self.participant.withLock { locked in
@@ -200,25 +225,28 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                                                                subscribeDate: self.subscribeDate,
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats)
+                                                               activeSpeakerStats: self.activeSpeakerStats,
+                                                               config: self.config.getVideoParticipantConfig(self))
                             locked = created
                             return created
                         }
                         return existing
                     }
-                    participant.received(when: when, usable: usable)
+                    if report {
+                        participant.received(details)
+                    }
                 }
             }
         }
 
-        if let timestamp = timestamp {
+        if let timestamp = details.timestamp {
             // Set the timestamp diff using the min value from recent live objects.
-            if !cached {
-                self.timeAligner!.doTimestampTimeDiff(timestamp, when: when)
+            if !details.cached {
+                self.timeAligner!.doTimestampTimeDiff(timestamp, when: details.when)
             }
 
             // Calculate switching set arrival variance.
-            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: when)
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: details.when)
         }
 
         // If we're responsible for rendering.
@@ -230,7 +258,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Record the last time this updated.
-        self.lastUpdateTime = when
+        self.lastUpdateTime = details.when
+
+        // Update our state.
+        self.mediaState.withLock { existing in
+            guard existing == .subscribed else { return }
+            existing = .received
+        }
     }
 
     private func startRenderTask() {
@@ -514,7 +548,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                                                                subscribeDate: self.subscribeDate,
                                                                videoParticipants: self.participants,
                                                                participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats)
+                                                               activeSpeakerStats: self.activeSpeakerStats,
+                                                               config: self.config.getVideoParticipantConfig(self))
                             lockedParticipant = created
                             return created
                         }
@@ -527,10 +562,32 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
                         participant.label = dispatchLabel
                     }
                     do {
+                        let e2eLatency: TimeInterval?
+                        if self.config.calculateLatency {
+                            let now = Date.now
+                            let presentationTime = selectedSample.presentationTimeStamp.seconds
+                            let presentationDate = Date(timeIntervalSince1970: presentationTime)
+                            let age = now.timeIntervalSince(presentationDate)
+                            if self.granularMetrics,
+                               let measurement = measurement?.measurement {
+                                Task(priority: .utility) {
+                                    await measurement.age(age, timestamp: now)
+                                }
+                            }
+                            e2eLatency = age
+                        } else {
+                            e2eLatency = nil
+                        }
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
                                                 transform: transform,
-                                                when: at)
+                                                when: at,
+                                                endToEndLatency: e2eLatency)
+                        self.mediaState.withLock { existing in
+                            assert(existing != .subscribed)
+                            existing = .rendered
+                        }
+                        self.displayCallbacks.fire()
                     } catch {
                         Self.logger.error("Could not enqueue sample: \(error)")
                     }
@@ -572,4 +629,30 @@ class VideoSubscriptionSet: ObservableSubscriptionSet {
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
+
+    // MARK: DisplayNotification implementation.
+
+    private let displayCallbacks = Mutex<DisplayCallbacks>(.init())
+    private let mediaState = Mutex<MediaState>(.subscribed)
+
+    func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
+        return self.displayCallbacks.store(callback)
+    }
+
+    func unregisterDisplayCallback(_ token: Int) {
+        self.displayCallbacks.remove(token)
+    }
+
+    func getMediaState() -> MediaState {
+        self.mediaState.get()
+    }
+
+    func fireDisplayCallbacks() {
+        #if DEBUG
+        self.mediaState.withLock { $0 = .rendered }
+        #else
+        assert(self.mediaState.get() == .rendered)
+        #endif
+        self.displayCallbacks.fire()
+    }
 }

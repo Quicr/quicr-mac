@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import SFrame
 import Synchronization
 
 class OpusSubscription: Subscription {
@@ -23,6 +24,10 @@ class OpusSubscription: Subscription {
     private let useNewJitterBuffer: Bool
     private let fullTrackName: FullTrackName
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let sframeContext: SFrameContext?
+    private let maxPlcThreshold: Int
+    private let playoutBufferTime: TimeInterval
+    private let slidingWindowTime: TimeInterval
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -37,6 +42,10 @@ class OpusSubscription: Subscription {
          useNewJitterBuffer: Bool,
          cleanupTime: TimeInterval,
          activeSpeakerStats: ActiveSpeakerStats?,
+         sframeContext: SFrameContext?,
+         maxPlcThreshold: Int,
+         playoutBufferTime: TimeInterval,
+         slidingWindowTime: TimeInterval,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -55,18 +64,26 @@ class OpusSubscription: Subscription {
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime
         self.activeSpeakerStats = activeSpeakerStats
+        self.sframeContext = sframeContext
+        self.maxPlcThreshold = maxPlcThreshold
+        self.playoutBufferTime = playoutBufferTime
+        self.slidingWindowTime = slidingWindowTime
 
         // Create the actual audio handler upfront.
+        let config = AudioHandler.Config(jitterDepth: self.jitterDepth,
+                                         jitterMax: self.jitterMax,
+                                         opusWindowSize: self.opusWindowSize,
+                                         granularMetrics: self.granularMetrics,
+                                         useNewJitterBuffer: self.useNewJitterBuffer,
+                                         maxPlcThreshold: self.maxPlcThreshold,
+                                         playoutBufferTime: self.playoutBufferTime,
+                                         slidingWindowTime: self.slidingWindowTime)
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
                                        decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                        measurement: self.measurement,
-                                       jitterDepth: self.jitterDepth,
-                                       jitterMax: self.jitterMax,
-                                       opusWindowSize: self.opusWindowSize,
-                                       granularMetrics: self.granularMetrics,
-                                       useNewJitterBuffer: self.useNewJitterBuffer,
-                                       metricsSubmitter: self.metricsSubmitter))
+                                       metricsSubmitter: self.metricsSubmitter,
+                                       config: config))
         let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
         try super.init(profile: profile,
@@ -113,13 +130,7 @@ class OpusSubscription: Subscription {
 
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
-
-        //        guard let extensions = extensions,
-        //              let loc = try? LowOverheadContainer(from: extensions) else {
-        //            Self.logger.warning("Missing expected LOC headers")
-        //            return
-        //        }
-
+        
         guard let extensions = extensions else {
             Self.logger.warning("Missing expected extensions")
             return
@@ -136,6 +147,19 @@ class OpusSubscription: Subscription {
         } catch {
             Self.logger.error("Couldn't parse metadata")
             return
+        }
+
+        // Unprotect.
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                Self.logger.error("Failed to unprotect: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
         }
 
         // TODO: Handle sequence rollover.
@@ -160,16 +184,20 @@ class OpusSubscription: Subscription {
         do {
             handler = try self.handler.withLock { lockedHandler in
                 guard let handler = lockedHandler else {
+                    let config = AudioHandler.Config(jitterDepth: self.jitterDepth,
+                                                     jitterMax: self.jitterMax,
+                                                     opusWindowSize: self.opusWindowSize,
+                                                     granularMetrics: self.granularMetrics,
+                                                     useNewJitterBuffer: self.useNewJitterBuffer,
+                                                     maxPlcThreshold: self.maxPlcThreshold,
+                                                     playoutBufferTime: self.playoutBufferTime,
+                                                     slidingWindowTime: self.slidingWindowTime)
                     let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
                                                    engine: self.engine,
                                                    decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                                    measurement: self.measurement,
-                                                   jitterDepth: self.jitterDepth,
-                                                   jitterMax: self.jitterMax,
-                                                   opusWindowSize: self.opusWindowSize,
-                                                   granularMetrics: self.granularMetrics,
-                                                   useNewJitterBuffer: self.useNewJitterBuffer,
-                                                   metricsSubmitter: self.metricsSubmitter)
+                                                   metricsSubmitter: self.metricsSubmitter,
+                                                   config: config)
                     lockedHandler = handler
                     return handler
                 }
@@ -180,18 +208,17 @@ class OpusSubscription: Subscription {
             return
         }
 
-        //        if let activeSpeakerStats = self.activeSpeakerStats,
-        //           let participantId = loc.get(key: OpusPublication.participantIdKey) {
-        //            Task(priority: .utility) {
-        //                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-        //                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
-        //            }
-        //        }
-
         let timestamp = Date(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+//        if let activeSpeakerStats = self.activeSpeakerStats,
+//           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
+//            Task(priority: .utility) {
+//                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+//                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+//            }
+//        }
 
         do {
-            try handler.submitEncodedAudio(data: data,
+            try handler.submitEncodedAudio(data: unprotected,
                                            sequence: sequence,
                                            date: now,
                                            timestamp: timestamp)

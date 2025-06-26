@@ -40,6 +40,7 @@ class H264Publication: Publication, FrameListener {
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
     private let emitStartCodes = false
     private var sequence: UInt64 = 0
+    private let sframeContext: SendSFrameContext?
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -151,20 +152,36 @@ class H264Publication: Publication, FrameListener {
         }
 
         // Publish.
+        var protected: Data?
         let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
             let data = Data(bytesNoCopy: .init(mutating: ptr.baseAddress!),
                             count: ptr.count,
                             deallocator: .none)
+            let protected: Data
+            if let sframeContext = publication.sframeContext {
+                do {
+                    protected = try sframeContext.context.mutex.withLock { context in
+                        try context.protect(epochId: sframeContext.currentEpoch,
+                                            senderId: sframeContext.senderId,
+                                            plaintext: data)
+                    }
+                } catch {
+                    publication.logger.error("Failed to protect data: \(error.localizedDescription)")
+                    return (QPublishObjectStatus.internalError, 0)
+                }
+            } else {
+                protected = data
+            }
             var priority = publication.getPriority(idr ? 0 : 1)
             var ttl = publication.getTTL(idr ? 0 : 1)
-            return publication.publish(groupId: thisGroupId,
-                                       objectId: thisObjectId,
-                                       data: data,
-                                       priority: &priority,
-                                       ttl: &ttl,
-                                       extensions: extensions)
+            return (publication.publish(groupId: thisGroupId,
+                                        objectId: thisObjectId,
+                                        data: protected,
+                                        priority: &priority,
+                                        ttl: &ttl,
+                                        extensions: extensions), protected.count)
         }
-        switch status {
+        switch status.0 {
         case .ok:
             if publication.verbose {
                 publication.logger.debug("Published: \(thisGroupId): \(thisObjectId)")
@@ -183,7 +200,7 @@ class H264Publication: Publication, FrameListener {
 
         // Metrics.
         guard let measurement = publication.measurement else { return }
-        let bytes = buffer.dataLength
+        let bytes = status.1
         let sent: Date? = publication.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             await measurement.measurement.sentFrame(bytes: UInt64(bytes),
@@ -204,7 +221,8 @@ class H264Publication: Publication, FrameListener {
                   relayId: String,
                   stagger: Bool,
                   verbose: Bool,
-                  keyFrameOnUpdate: Bool) throws {
+                  keyFrameOnUpdate: Bool,
+                  sframeContext: SendSFrameContext?) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -222,6 +240,7 @@ class H264Publication: Publication, FrameListener {
         self.stagger = stagger
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
+        self.sframeContext = sframeContext
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,
@@ -230,7 +249,7 @@ class H264Publication: Publication, FrameListener {
         }
 
         try super.init(profile: profile,
-                       trackMode: reliable ? .streamPerGroup : .datagram,
+                       trackMode: reliable ? .stream : .datagram,
                        defaultPriority: UInt8(clamping: defaultPriority),
                        defaultTTL: UInt16(clamping: defaultTTL),
                        submitter: metricsSubmitter,

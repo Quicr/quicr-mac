@@ -62,6 +62,14 @@ struct SubscriptionSettingsView: View {
                 }
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
+                if self.subscriptionConfig.value.useNewJitterBuffer {
+                    LabeledContent("Playout Buffer Size (s)") {
+                        TextField("Playout Buffer Size (s)",
+                                  value: self.$subscriptionConfig.value.playoutBufferTime,
+                                  format: .number)
+                            .labelsHidden()
+                    }
+                }
                 LabeledToggle("KeyFrame on Update",
                               isOn: self.$subscriptionConfig.value.keyFrameOnUpdate)
 
@@ -84,6 +92,12 @@ struct SubscriptionSettingsView: View {
                     ForEach(OpusWindowSize.allCases) {
                         Text(String(describing: $0))
                     }
+                }
+                LabeledContent("Audio PLC Upper Limit (pkts)") {
+                    TextField("Audio PLC Upper Limit (pkts)",
+                              value: self.$subscriptionConfig.value.audioPlcLimit,
+                              format: .number)
+                        .labelsHidden()
                 }
                 LabeledContent("Video behaviour") {
                     Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
@@ -207,8 +221,14 @@ struct SubscriptionSettingsView: View {
             }
         }
         Section("Security") {
-            HStack {
-                LabeledToggle("SFrame", isOn: $subscriptionConfig.value.doSFrame)
+            LabeledToggle("SFrame", isOn: $subscriptionConfig.value.sframeSettings.enable)
+            if self.subscriptionConfig.value.sframeSettings.enable {
+                LabeledContent("SFrame Secret") {
+                    TextField(
+                        "SFrame Secret",
+                        text: self.$subscriptionConfig.value.sframeSettings.key)
+                        .labelsHidden()
+                }
             }
         }
         Section("Transport") {

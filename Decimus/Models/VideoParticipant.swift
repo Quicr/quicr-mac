@@ -37,6 +37,53 @@ class VideoParticipant: Identifiable {
     private(set) var joinToFirstFrame: TimeInterval?
     private(set) var subscribeToFirstFrame: TimeInterval?
 
+    // End to end latency / age statistics.
+    @Observable
+    class LatencyRecord {
+        let slidingWindow: SlidingTimeWindow<TimeInterval>
+        private(set) var average: TimeInterval?
+
+        init(_ length: TimeInterval) {
+            self.slidingWindow = SlidingTimeWindow(length: length)
+        }
+
+        func calc(from: Date) {
+            let window = self.slidingWindow.get(from: .now)
+            if window.count > 0 {
+                self.average = window.reduce(0, +) / TimeInterval(window.count)
+            }
+        }
+    }
+
+    @Observable
+    class Latencies {
+        let display: LatencyRecord
+        let receive: LatencyRecord
+        let traversal: LatencyRecord
+
+        init(_ length: TimeInterval) {
+            self.display = .init(length)
+            self.receive = .init(length)
+            self.traversal = .init(length)
+        }
+
+        func calc(from: Date) {
+            self.display.calc(from: from)
+            self.receive.calc(from: from)
+            self.traversal.calc(from: from)
+        }
+    }
+    let latencies: Latencies?
+    private var averagingTask: Task<(), Never>?
+
+    /// Configuration for the participant view.
+    struct Config {
+        /// Whether to calculate end-to-end latency.
+        let calculateLatency: Bool
+        /// The time interval for the sliding window used to calculate end-to-end latency.
+        let slidingWindowTime: TimeInterval
+    }
+
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
@@ -49,7 +96,8 @@ class VideoParticipant: Identifiable {
          subscribeDate: Date,
          videoParticipants: VideoParticipants,
          participantId: ParticipantId,
-         activeSpeakerStats: ActiveSpeakerStats?) throws {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         config: Config) throws {
         self.id = id
         self.label = id
         self.highlight = false
@@ -58,25 +106,58 @@ class VideoParticipant: Identifiable {
         self.videoParticipants = videoParticipants
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        if config.calculateLatency {
+            self.latencies = .init(config.slidingWindowTime)
+            self.averagingTask = Task(priority: .utility) { [weak self] in
+                while !Task.isCancelled {
+                    if let self = self,
+                       let latencies = self.latencies {
+                        latencies.calc(from: .now)
+                    }
+                    try? await Task.sleep(for: .seconds(config.slidingWindowTime))
+                }
+            }
+        } else {
+            self.latencies = nil
+        }
         try self.videoParticipants.add(self)
     }
 
-    func received(when: Date, usable: Bool) {
+    func received(_ details: ObjectReceived) {
+        if let timestamp = details.timestamp,
+           let receive = self.latencies?.receive {
+            let presentationDate = Date(timeIntervalSince1970: timestamp)
+            receive.slidingWindow.add(timestamp: details.when,
+                                      value: details.when.timeIntervalSince(presentationDate))
+        }
+
+        if let publishTimestamp = details.publishTimestamp,
+           let traversal = self.latencies?.traversal {
+            traversal.slidingWindow.add(timestamp: details.when,
+                                        value: details.when.timeIntervalSince(publishTimestamp))
+        }
+
         guard let stats = self.activeSpeakerStats else { return }
         Task { @MainActor in
-            if usable {
-                await stats.dataReceived(self.participantId, when: when)
+            if details.usable {
+                await stats.dataReceived(self.participantId, when: details.when)
             } else {
-                await stats.dataDropped(self.participantId, when: when)
+                await stats.dataDropped(self.participantId, when: details.when)
             }
         }
     }
 
-    func enqueue(_ sampleBuffer: CMSampleBuffer, transform: CATransform3D?, when: Date) throws {
+    func enqueue(_ sampleBuffer: CMSampleBuffer,
+                 transform: CATransform3D?,
+                 when: Date,
+                 endToEndLatency: TimeInterval?) throws {
         // Stats.
         if let stats = self.activeSpeakerStats {
             Task { @MainActor in
-                let record = await stats.imageEnqueued(self.participantId, when: when)
+                guard let record = try? await stats.imageEnqueued(self.participantId, when: when) else {
+                    self.logger.warning("[\(self.id)] Failed to record enqueue image")
+                    return
+                }
                 if let detected = record.detected {
                     self.fromDetected = record.enqueued.timeIntervalSince(detected)
                 }
@@ -88,6 +169,11 @@ class VideoParticipant: Identifiable {
         if self.joinToFirstFrame == nil {
             self.joinToFirstFrame = when.timeIntervalSince(self.startDate)
             self.subscribeToFirstFrame = when.timeIntervalSince(self.subscribeDate)
+        }
+
+        if let endToEndLatency,
+           let latencies = self.latencies {
+            latencies.display.slidingWindow.add(timestamp: when, value: endToEndLatency)
         }
 
         // Enqueue the frame.

@@ -4,6 +4,7 @@
 actor ActiveSpeakerStats {
     enum Error: Swift.Error {
         case missing
+        case noReceived
     }
 
     struct Record {
@@ -22,11 +23,14 @@ actor ActiveSpeakerStats {
         let received: Date
         let enqueued: Date
 
-        init(_ record: Record) {
+        init(_ record: Record) throws {
             self.detected = record.detected
             self.set = record.set
             self.dropped = record.dropped
-            self.received = record.received!
+            guard let recordReceived = record.received else {
+                throw Error.noReceived
+            }
+            self.received = recordReceived
             self.enqueued = record.enqueued!
         }
     }
@@ -154,7 +158,7 @@ actor ActiveSpeakerStats {
     /// This speaker's video was enqueued/displayed.
     /// - Parameter identifier: The participant.
     /// - Parameter when: The point in time the video was enqueued/displayed.
-    func imageEnqueued(_ identifier: Identifier, when: Date) async -> Result {
+    func imageEnqueued(_ identifier: Identifier, when: Date) async throws -> Result {
         let record = self.participants[identifier]
         let state = await self.stateTransition(identifier: identifier,
                                                from: record?.currentState,
@@ -166,7 +170,7 @@ actor ActiveSpeakerStats {
                              received: record?.received,
                              enqueued: record?.enqueued ?? when)
         self.participants[identifier] = updated
-        return .init(updated)
+        return try .init(updated)
     }
 
     /// This participant was set inactive.
@@ -177,6 +181,7 @@ actor ActiveSpeakerStats {
         self.participants.removeValue(forKey: identifier)
     }
 
+    // swiftlint:disable cyclomatic_complexity function_body_length
     private func stateTransition(identifier: Identifier,
                                  from: CurrentState?,
                                  to: CurrentState,
@@ -209,6 +214,8 @@ actor ActiveSpeakerStats {
                 CurrentState.dataReceived
             case .audioDetected:
                 CurrentState.dataReceived
+            case .dataDropped:
+                CurrentState.dataReceived
             default:
                 to
             }
@@ -220,6 +227,8 @@ actor ActiveSpeakerStats {
                 CurrentState.imageEnqueued
             case .dataReceived:
                 CurrentState.imageEnqueued
+            case .dataDropped:
+                CurrentState.imageEnqueued
             default:
                 to
             }
@@ -229,4 +238,5 @@ actor ActiveSpeakerStats {
                                                    event: result)
         return result
     }
+    // swiftlint:enable cyclomatic_complexity function_body_length
 }

@@ -27,6 +27,9 @@ enum CodecType: UInt8, CaseIterable {
 
     // Mock.
     case mock
+
+    // Text.
+    case text
 }
 
 /// Abstract configuration for initialising codecs.
@@ -61,6 +64,11 @@ struct VideoCodecConfig: CodecConfig, Equatable {
 struct AudioCodecConfig: CodecConfig {
     let codec: CodecType
     let bitrate: UInt32
+}
+
+struct TextCodecConfig: CodecConfig {
+    let codec: CodecType = .text
+    let bitrate: UInt32 = 0
 }
 
 protocol CodecFactory {
@@ -103,6 +111,8 @@ class CodecFactoryImpl: CodecFactory {
                 return try VideoCodecConfig(codec: codec, bitrateType: bitrateType, tokens: tokens)
             case .opus:
                 return try AudioCodecConfig(codec: codec, tokens: tokens)
+            case .text:
+                return TextCodecConfig()
             default:
                 return UnknownCodecConfig()
             }

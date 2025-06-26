@@ -1,8 +1,36 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import CryptoKit
+import SFrame
 import SwiftUI
+import Synchronization
 import Network
+
+class SFrameContext {
+    let mutex: Mutex<MLS>
+
+    init(_ sframe: MLS) {
+        self.mutex = .init(sframe)
+    }
+}
+
+class SendSFrameContext {
+    let context: SFrameContext
+    let senderId: MLS.SenderID
+    let currentEpoch: MLS.EpochID
+
+    init(sframe: MLS, senderId: MLS.SenderID, currentEpoch: MLS.EpochID) {
+        self.context = .init(sframe)
+        self.senderId = senderId
+        self.currentEpoch = currentEpoch
+    }
+}
+
+struct SFrameConfig: Codable {
+    let enable: Bool
+    let secret: String
+}
 
 @MainActor
 class CallState: ObservableObject, Equatable {
@@ -20,6 +48,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
     private(set) var videoParticipants = VideoParticipants()
     private(set) var currentManifest: Manifest?
+    private(set) var textSubscriptions: TextSubscriptions?
+    private(set) var textPublication: TextPublication?
     private let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
     private var measurement: MeasurementRegistration<_Measurement>?
@@ -32,6 +62,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var subscriptionFactory: SubscriptionFactoryImpl?
     private let joinDate = Date.now
     let audioStartingGroup: UInt64?
+    private var sendContext: SendSFrameContext?
+    private var receiveContext: SFrameContext?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -47,6 +79,13 @@ class CallState: ObservableObject, Equatable {
 
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
+
+    // Recording.
+    @AppStorage(SettingsView.recordingKey)
+    private(set) var recording = false
+    @AppStorage(DisplayPicker.displayRecordKey)
+    private var recordDisplay: Int = 0
+    private var appRecorder: AppRecorder?
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
@@ -77,7 +116,19 @@ class CallState: ObservableObject, Equatable {
         }
     }
 
-    func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length
+    func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length cyclomatic_complexity
+        // Recording.
+        if self.recording {
+            do {
+                #if canImport(ScreenCaptureKit)
+                let filename = "quicr_\(self.config.email)_\(self.config.conferenceID)_\(Date.now.ISO8601Format())"
+                self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
+                #endif
+            } catch {
+                Self.logger.error("Failed to start recording: \(error.localizedDescription)")
+            }
+        }
+
         // Fetch the manifest from the conference server.
         let manifest: Manifest
         do {
@@ -90,26 +141,50 @@ class CallState: ObservableObject, Equatable {
         }
         self.currentManifest = manifest
 
-        // TODO: Doesn't need to be this defensive.
-        guard let captureManager = self.captureManager,
-              let engine = self.engine else {
-            return false
+        let sframeSettings = self.subscriptionConfig.value.sframeSettings
+        if sframeSettings.enable {
+            let epochId: MLS.EpochID = 0
+            do {
+                guard let suite = registry[.aes_128_gcm_sha256_128] else {
+                    throw "Unsupported CipherSuite"
+                }
+                let cryptoProvider = SwiftCryptoProvider(suite: suite)
+                let sendContext = try MLS(provider: cryptoProvider, epochBits: 1)
+                let recvContext = try MLS(provider: cryptoProvider, epochBits: 1)
+
+                let secret = SymmetricKey(data: Data(sframeSettings.key.utf8))
+                try sendContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
+                try recvContext.addEpoch(epochId: epochId,
+                                         sframeEpochSecret: secret)
+
+                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                self.sendContext = .init(sframe: sendContext,
+                                         senderId: senderId,
+                                         currentEpoch: epochId)
+                self.receiveContext = .init(recvContext)
+            } catch {
+                Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
+            }
         }
+
+        self.textSubscriptions = .init(sframeContext: self.receiveContext)
 
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
                                                         reliability: subConfig.mediaReliability,
-                                                        engine: engine,
+                                                        engine: self.engine,
                                                         metricsSubmitter: self.submitter,
                                                         granularMetrics: self.influxConfig.value.granular,
-                                                        captureManager: captureManager,
+                                                        captureManager: self.captureManager,
                                                         participantId: manifest.participantId,
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
                                                         keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
-                                                        startingGroup: self.audioStartingGroup)
+                                                        startingGroup: self.audioStartingGroup,
+                                                        sframeContext: self.sendContext)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
@@ -119,14 +194,16 @@ class CallState: ObservableObject, Equatable {
                                                           metricsSubmitter: self.submitter,
                                                           subscriptionConfig: subConfig,
                                                           granularMetrics: self.influxConfig.value.granular,
-                                                          engine: engine,
+                                                          engine: self.engine,
                                                           participantId: ourParticipantId,
                                                           joinDate: self.joinDate,
                                                           activeSpeakerStats: self.activeSpeakerStats,
                                                           controller: controller,
                                                           verbose: self.verbose,
                                                           startingGroup: startingGroupId,
-                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker)
+                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
+                                                          sframeContext: self.receiveContext,
+                                                          calculateLatency: self.showLabels)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 
@@ -149,64 +226,88 @@ class CallState: ObservableObject, Equatable {
 
         // Inject the manifest in order to create publications & subscriptions.
         if make {
-            do {
-                // Publish.
-                for publication in manifest.publications {
-                    try controller.publish(details: publication,
-                                           factory: publicationFactory,
-                                           codecFactory: CodecFactoryImpl())
+            // Publish.
+            for publication in manifest.publications {
+                do {
+                    let created = try controller.publish(details: publication,
+                                                         factory: publicationFactory,
+                                                         codecFactory: CodecFactoryImpl())
+                    for pub in created where pub.1 is TextPublication {
+                        self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+                    }
+                } catch {
+                    Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                 }
+            }
 
-                // Subscribe.
-                for subscription in manifest.subscriptions {
-                    _ = try controller.subscribeToSet(details: subscription,
-                                                      factory: subscriptionFactory,
-                                                      subscribe: true)
+            // Subscribe.
+            for subscription in manifest.subscriptions {
+                do {
+                    let set = try controller.subscribeToSet(details: subscription,
+                                                            factory: subscriptionFactory,
+                                                            subscribe: true)
+                    if subscription.mediaType == ManifestMediaTypes.text.rawValue {
+                        let handlers = set.getHandlers()
+                        precondition(handlers.count == 1,
+                                     "Text subscription should only have one handler")
+                        precondition(handlers.first?.1 is MultipleCallbackSubscription,
+                                     "Text subscription handler should be MultipleCallbackSubscription")
+                        // swiftlint:disable:next force_cast
+                        let sub = handlers.first!.1 as! MultipleCallbackSubscription
+                        self.textSubscriptions?.addSubscription(sub)
+                    }
+                } catch {
+                    Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                 }
+            }
 
-                // Active speaker handling.
-                let notifier: ActiveSpeakerNotifier?
-                if playtime.playtime && playtime.manualActiveSpeaker {
-                    let manual = ManualActiveSpeaker()
-                    self.manualActiveSpeaker = manual
-                    notifier = manual
-                } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                    notifier = real
-                } else {
-                    notifier = nil
-                }
-                if let notifier = notifier {
-                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+            // Active speaker handling.
+            let notifier: ActiveSpeakerNotifier?
+            if playtime.playtime && playtime.manualActiveSpeaker {
+                let manual = ManualActiveSpeaker()
+                self.manualActiveSpeaker = manual
+                notifier = manual
+            } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                notifier = real
+            } else {
+                notifier = nil
+            }
+            if let notifier = notifier {
+                let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                do {
                     self.activeSpeaker = try .init(notifier: notifier,
                                                    controller: controller,
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
                                                    participantId: manifest.participantId,
                                                    activeSpeakerStats: self.activeSpeakerStats)
+                } catch {
+                    Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                 }
-            } catch {
-                Self.logger.error("Failed to set manifest: \(error.localizedDescription)")
-                return false
             }
         }
 
         // Start audio media.
-        do {
-            if make {
-                engine.setMicrophoneCapture(true)
+        if let engine = self.engine {
+            do {
+                if make {
+                    engine.setMicrophoneCapture(true)
+                }
+                try engine.start()
+                self.audioCapture = true
+            } catch {
+                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
-            try engine.start()
-            self.audioCapture = true
-        } catch {
-            Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
         }
 
         // Start video media.
-        do {
-            try captureManager.startCapturing()
-            self.videoCapture = true
-        } catch {
-            Self.logger.warning("Camera failure", alert: true)
+        if let captureManager = self.captureManager {
+            do {
+                try captureManager.startCapturing()
+                self.videoCapture = true
+            } catch {
+                Self.logger.warning("Camera failure", alert: true)
+            }
         }
         return true
     }
@@ -289,6 +390,9 @@ class CallState: ObservableObject, Equatable {
             if self.audioCapture {
                 try engine?.stop()
                 self.audioCapture = false
+            }
+            if let recorder = self.appRecorder {
+                try await recorder.stopCapture()
             }
         } catch {
             Self.logger.error("Error while stopping media: \(error)")

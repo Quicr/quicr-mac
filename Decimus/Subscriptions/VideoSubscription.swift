@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import SFrame
 import Synchronization
 
 /// Represents a QuicR video subscription.
@@ -13,8 +14,13 @@ class VideoSubscription: Subscription {
         var fetchUpperThreshold: T
         var newGroupUpperThreshold: T
     }
+
+    /// Configuration for the video subscription.
     struct Config {
+        /// Configuration for joining flow behaviour (FETCH/NEWGROUP).
         let joinConfig: JoinConfig<UInt64>
+        /// Whether to calculate/display latency metrics.
+        let calculateLatency: Bool
     }
 
     private let fullTrackName: FullTrackName
@@ -27,7 +33,7 @@ class VideoSubscription: Subscription {
     private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
     private let variances: VarianceCalculator
-    private let callback: ObjectReceived
+    private let callback: ObjectReceivedCallback
     private var token: Int = 0
     private let logger = DecimusLogger(VideoSubscription.self)
     private let verbose: Bool
@@ -49,6 +55,7 @@ class VideoSubscription: Subscription {
     private var fetch: Fetch?
     private var fetched = false
     private let postCleanup = Atomic(false)
+    private let sframeContext: SFrameContext?
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -123,7 +130,8 @@ class VideoSubscription: Subscription {
          verbose: Bool,
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
-         callback: @escaping ObjectReceived,
+         sframeContext: SFrameContext?,
+         callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config
@@ -159,10 +167,12 @@ class VideoSubscription: Subscription {
                                        participantId: participantId,
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
-                                       activeSpeakerStats: self.activeSpeakerStats)
+                                       activeSpeakerStats: self.activeSpeakerStats,
+                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
+        self.sframeContext = sframeContext
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -248,7 +258,7 @@ class VideoSubscription: Subscription {
                 return .normal(false)
             } catch {
                 // Fallback to waiting for new group behaviour.
-                self.logger.error("Failed to start fetch: \(error.localizedDescription)")
+                self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
 
                 self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
                 return .drop
@@ -322,10 +332,23 @@ class VideoSubscription: Subscription {
             return
         }
 
+        // Unprotect.
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
         // Check for action & state change.
         func notify(drop: Bool) {
             handler.objectReceived(objectHeaders,
-                                   data: data,
+                                   data: unprotected,
                                    extensions: extensions,
                                    when: now,
                                    cached: false,
@@ -363,7 +386,8 @@ class VideoSubscription: Subscription {
                                                  participantId: self.participantId,
                                                  subscribeDate: self.creationDate,
                                                  joinDate: self.joinDate,
-                                                 activeSpeakerStats: self.activeSpeakerStats)
+                                                 activeSpeakerStats: self.activeSpeakerStats,
+                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated
                 handler = recreated
@@ -393,7 +417,7 @@ class VideoSubscription: Subscription {
                                                             && self.stateMachine.state == .running) {
                                         self.logger.info(message)
                                     } else {
-                                        self.logger.error(message)
+                                        self.logger.warning(message)
                                     }
                                   },
                                   objectReceived: {[weak self] headers, data, extensions in

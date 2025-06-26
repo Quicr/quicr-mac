@@ -12,6 +12,7 @@
 #import "QCommon.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
 #import "QFullTrackName.h"
+#import "QLocation.h"
 
 @interface QSubscribeTrackHandlerObjC : NSObject
 {
@@ -28,8 +29,7 @@
 -(uint8_t) getPriority;
 -(QGroupOrder) getGroupOrder;
 -(QFilterType) getFilterType;
--(NSNumber* _Nullable) getLatestGroupId;
--(NSNumber* _Nullable) getLatestObjectId;
+-(id<QLocation> _Nullable) getLatestLocation;
 -(void) requestNewGroup;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 typedef void (*NewGroupCallback)(void* _Nonnull);

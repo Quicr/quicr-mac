@@ -213,7 +213,13 @@ class MoqCallController: QClientCallbacks {
                                      relayId: self.serverId!)
         if subscribe {
             for profile in details.profileSet.profiles {
-                try self.subscribe(set: set, profile: profile, factory: factory)
+                do {
+                    _ = try self.subscribe(set: set, profile: profile, factory: factory)
+                } catch let error as PubSubFactoryError {
+                    self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
+                                            "\(error.localizedDescription)",
+                                        alert: true)
+                }
             }
         }
         self.subscriptions[details.sourceID] = set
@@ -224,8 +230,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter set: The subscription set to add the track to.
     /// - Parameter profile: The profile to subscribe to.
     /// - Parameter factory: Factory to create subscription objects.
+    /// - Returns: The created subscription.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws {
+    func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws -> Subscription {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let subscription = try factory.create(set: set,
                                               profile: profile,
@@ -234,6 +241,7 @@ class MoqCallController: QClientCallbacks {
                                               relayId: self.serverId!)
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
+        return subscription
     }
 
     /// Directly subscribe to a handler.
