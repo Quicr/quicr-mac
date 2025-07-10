@@ -46,6 +46,7 @@
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
 		18F7C4D82AB1C7AA005EDB88 /* JitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* JitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
+		9B0B2FB32E1FE19000039FC6 /* WiFiScanDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0B2FB22E1FE19000039FC6 /* WiFiScanDetector.swift */; };
 		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */; };
 		9B1246322CD8EB83004C020C /* QFullTrackName.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246312CD8EB7F004C020C /* QFullTrackName.mm */; };
@@ -266,6 +267,7 @@
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* JitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JitterBuffer.swift; sourceTree = "<group>"; };
+		9B0B2FB22E1FE19000039FC6 /* WiFiScanDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiScanDetector.swift; sourceTree = "<group>"; };
 		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscriptionSet+Measurement.swift"; sourceTree = "<group>"; };
 		9B1246312CD8EB7F004C020C /* QFullTrackName.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFullTrackName.mm; sourceTree = "<group>"; };
@@ -650,6 +652,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B0B2FB22E1FE19000039FC6 /* WiFiScanDetector.swift */,
 				9B15FA852DF2DB2900756DF7 /* AppHeaderRegistry.swift */,
 				9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */,
 				9B6C9F0A2DE5E8020041B9C1 /* Audio */,
@@ -1160,6 +1163,7 @@
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */,
+				9B0B2FB32E1FE19000039FC6 /* WiFiScanDetector.swift in Sources */,
 				9BE6288E2CE4FCDD001401D0 /* ManualActiveSpeaker.swift in Sources */,
 				9B131E352B7E548700B29D77 /* CMSampleBuffer+Attachments.swift in Sources */,
 				9B7921072DBA45EE0000684D /* DisplayNotification.swift in Sources */,

@@ -181,6 +181,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let manualActiveSpeaker: Bool
     private let sframeContext: SFrameContext?
     private let calculateLatency: Bool
+    private let wifiScanDetector: WiFiScanDetector
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -210,6 +211,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.manualActiveSpeaker = manualActiveSpeaker
         self.sframeContext = sframeContext
         self.calculateLatency = calculateLatency
+        self.wifiScanDetector = .init(expectedInterval: 30, submitter: metricsSubmitter)
     }
 
     func create(subscription: ManifestSubscription,
@@ -362,6 +364,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          subscriptionConfig: .init(joinConfig: joinConfig,
                                                                    calculateLatency: self.calculateLatency),
                                          sframeContext: self.sframeContext,
+                                         wifiScanDetector: self.wifiScanDetector,
                                          callback: { [weak set] details in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, details: details)

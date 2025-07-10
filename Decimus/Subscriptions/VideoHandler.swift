@@ -88,6 +88,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
     private let handlerConfig: Config
+    private let detector: WiFiScanDetector
+    private var lastReceived: Date?
 
     /// Configuration for the handler.
     struct Config {
@@ -122,7 +124,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
          subscribeDate: Date,
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
-         handlerConfig: Config) throws {
+         handlerConfig: Config,
+         wifiDetector: WiFiScanDetector) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -145,6 +148,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.handlerConfig = handlerConfig
+        self.detector = wifiDetector
         super.init()
         if self.simulreceive != .enable {
             Task {
@@ -252,6 +256,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         when: Date,
                         cached: Bool,
                         drop: Bool) {
+        if let lastReceived = self.lastReceived {
+            let interval = when.timeIntervalSince(lastReceived)
+            self.detector.addJitterMeasurement(jitter: interval, namespace: "\(self.fullTrackName)", timestamp: when)
+            // TODO: Do something with the prediction.
+        }
+        self.lastReceived = when
+
         guard !drop else {
             // Not usable, but notify receipt.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }

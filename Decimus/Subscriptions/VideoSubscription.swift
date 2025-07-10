@@ -56,6 +56,7 @@ class VideoSubscription: Subscription {
     private var fetched = false
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
+    private let wifiScanDetector: WiFiScanDetector
 
     // State machine.
     private var stateMachine = StateMachine()
@@ -131,6 +132,7 @@ class VideoSubscription: Subscription {
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
+         wifiScanDetector: WiFiScanDetector,
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -154,6 +156,7 @@ class VideoSubscription: Subscription {
         self.endpointId = endpointId
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
+        self.wifiScanDetector = wifiScanDetector
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -168,7 +171,8 @@ class VideoSubscription: Subscription {
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
                                        activeSpeakerStats: self.activeSpeakerStats,
-                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
+                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency),
+                                       wifiDetector: self.wifiScanDetector)
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
@@ -387,7 +391,8 @@ class VideoSubscription: Subscription {
                                                  subscribeDate: self.creationDate,
                                                  joinDate: self.joinDate,
                                                  activeSpeakerStats: self.activeSpeakerStats,
-                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
+                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency),
+                                                 wifiDetector: self.wifiScanDetector)
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated
                 handler = recreated
