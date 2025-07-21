@@ -14,12 +14,18 @@
 #import "QCommon.h"
 
 typedef NS_ENUM(uint8_t, QStreamHeaderType) {
-    kQStreamHeaderTypeSubgroupZeroNoExtensions = 0x08,          // No extensions, Subgroup ID = 0
-    kQStreamHeaderTypeSubgroupZeroWithExtensions = 0x09,        // With extensions, Subgroup ID = 0
-    kQStreamHeaderTypeSubgroupFirstObjectNoExtensions = 0x0A,   // No extensions, Subgroup ID = First Object ID
-    kQStreamHeaderTypeSubgroupFirstObjectWithExtensions = 0x0B, // With extensions, Subgroup ID = First Object ID
-    kQStreamHeaderTypeSubgroupExplicitNoExtensions = 0x0C,      // No extensions, Explicit Subgroup ID
-    kQStreamHeaderTypeSubgroupExplicitWithExtensions = 0x0D,    // With extensions, Explicit Subgroup ID
+    kSubgroup0NotEndOfGroupNoExtensions = 0x10,
+    kSubgroup0NotEndOfGroupWithExtensions = 0x11,
+    kSubgroupFirstObjectNotEndOfGroupNoExtensions = 0x12,
+    kSubgroupFirstObjectNotEndOfGroupWithExtensions = 0x13,
+    kSubgroupExplicitNotEndOfGroupNoExtensions = 0x14,
+    kSubgroupExplicitNotEndOfGroupWithExtensions = 0x15,
+    kSubgroup0EndOfGroupNoExtensions = 0x18,
+    kSubgroup0EndOfGroupWithExtensions = 0x19,
+    kSubgroupFirstObjectEndOfGroupNoExtensions = 0x1A,
+    kSubgroupFirstObjectEndOfGroupWithExtensions = 0x1B,
+    kSubgroupExplicitEndOfGroupNoExtensions = 0x1C,
+    kSubgroupExplicitEndOfGroupWithExtensions = 0x1D
 };
 
 typedef NS_ENUM(uint8_t, QTrackMode) {
