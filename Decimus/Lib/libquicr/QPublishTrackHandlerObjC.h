@@ -66,6 +66,7 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(void) setDefaultPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;
 -(void) setDefaultTrackMode: (QTrackMode) trackMode;
+-(void) setUseAnnounce: (bool) use;
 -(QPublishTrackHandlerStatus) getStatus;
 -(QStreamHeaderType) getStreamMode;
 
