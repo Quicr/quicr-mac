@@ -239,6 +239,7 @@ class MoqCallController: QClientCallbacks {
                                               codecFactory: CodecFactoryImpl(),
                                               endpointId: self.endpointUri,
                                               relayId: self.serverId!)
+        subscription.setDeliveryTimeout(5000); // TODO: Pass configurable value.
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
         return subscription
@@ -249,6 +250,7 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     func subscribe(_ handler: Subscription) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
+        handler.setDeliveryTimeout(5000); // TODO: Pass configurable value.
         self.client.subscribeTrack(withHandler: handler)
     }
 
