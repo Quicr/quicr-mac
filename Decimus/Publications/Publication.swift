@@ -39,7 +39,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
                    defaultPriority: defaultPriority,
                    defaultTTL: UInt32(defaultTTL))
         super.setCallbacks(self)
-        super.setUseAnnounce(true)
+        super.setUseAnnounce(false)
     }
 
     internal func statusChanged(_ status: QPublishTrackHandlerStatus) {
