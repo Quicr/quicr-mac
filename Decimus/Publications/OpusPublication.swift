@@ -94,7 +94,7 @@ class OpusPublication: Publication, AudioPublication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.encodedData, timestamp: data.timestamp, decibel: data.decibelLevel)
+                            self.publish(data: data.encodedData, metadata: data.metadata, decibel: data.decibelLevel)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -125,7 +125,7 @@ class OpusPublication: Publication, AudioPublication {
         self.publish.store(active, ordering: .releasing)
     }
 
-    private func publish(data: Data, timestamp: Date, decibel: Int) {
+    private func publish(data: Data, metadata: AudioBitstreamData, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -138,21 +138,31 @@ class OpusPublication: Publication, AudioPublication {
             Self.logger.warning("Not published due to status: \(status)")
             return
         }
+        var extensions = HeaderExtensions()
+        /*
+         let seqId: VarInt
+         let ptsTimestamp: VarInt
+         let timebase: VarInt
+         let sampleFreq: VarInt
+         let numChannels: VarInt
+         let duration: VarInt
+         let wallClock: VarInt
+         */
+
+        do {
+            try extensions.setHeader(.audioOpusBitstreamData(metadata))
+        } catch {
+            OpusPublication.logger.error("Failed to set opusBitstream header extensions: \(error.localizedDescription)")
+        }
+
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
-        let sequence = switch incrementing {
-        case .group:
-            self.currentGroupId - self.startingGroupId
-        case .object:
-            self.currentObjectId
-        }
-        let loc = LowOverheadContainer(timestamp: timestamp, sequence: sequence)
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
-        loc.add(key: AppHeaderRegistry.energyLevel, value: Data([energyLevelValue]))
+        extensions[AppHeaderRegistry.energyLevel.rawValue] = Data([energyLevelValue])
         var participantId = self.participantId.aggregate
-        loc.add(key: AppHeaderRegistry.participantId, value: Data(bytes: &participantId, count: MemoryLayout<UInt32>.size))
+        extensions[AppHeaderRegistry.participantId.rawValue] = Data(bytes: &participantId, count: MemoryLayout<UInt32>.size)
 
         let protected: Data
         if let sframeContext {
@@ -169,7 +179,7 @@ class OpusPublication: Publication, AudioPublication {
         } else {
             protected = data
         }
-        let published = self.publish(data: protected, priority: &priority, ttl: &ttl, loc: loc)
+        let published = self.publish(data: protected, priority: &priority, ttl: &ttl, extensions: extensions)
         switch published {
         case .ok:
             switch self.incrementing {
@@ -186,19 +196,19 @@ class OpusPublication: Publication, AudioPublication {
     private func publish(data: Data,
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
-                         loc: LowOverheadContainer) -> QPublishObjectStatus {
+                         extensions: HeaderExtensions) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId,
-                                     objectId: self.currentObjectId,
+                                     objectId: 0,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: loc.extensions)
+        return self.publishObject(headers, data: data, extensions: extensions)
     }
 
     struct EncodeResult {
         let encodedData: Data
-        let timestamp: Date
         let decibelLevel: Int
+        let metadata: AudioBitstreamData
     }
 
     private func encode() throws -> EncodeResult? {
@@ -225,15 +235,18 @@ class OpusPublication: Publication, AudioPublication {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
-
         // Get absolute time.
-        let wallClock = try hostToDate(dequeued.timestamp.mHostTime)
-
+        let wallClock = hostToDate(dequeued.timestamp.mHostTime)
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
-        // Encode this data.
-        return .init(encodedData: encoded, timestamp: wallClock, decibelLevel: decibel)
+        let metadata = AudioBitstreamData(seqId: self.currentGroupId,
+                                          ptsTimestamp: dequeued.timestamp.mHostTime,
+                                          timebase: 1_000_000_000, sampleFreq: UInt64(self.pcm.format.sampleRate),
+                                          numChannels: UInt64(self.pcm.format.channelCount),
+                                          duration: UInt64(self.opusWindowSize.rawValue * 1_000_000_000.0),
+                                          wallClock: UInt64(wallClock.timeIntervalSince1970 * 1000))
+        return .init(encodedData: encoded, decibelLevel: decibel, metadata: metadata)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

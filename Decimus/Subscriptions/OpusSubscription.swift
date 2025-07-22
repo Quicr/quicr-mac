@@ -130,6 +130,24 @@ class OpusSubscription: Subscription {
 
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
+        
+        guard let extensions = extensions else {
+            Self.logger.warning("Missing expected extensions")
+            return
+        }
+
+        let metadata: AudioBitstreamData
+        do {
+            metadata = switch try extensions.getHeader(.audioOpusBitstreamData) {
+            case .audioOpusBitstreamData(let metadata):
+                metadata
+            default:
+                throw "Missing expected interop extension"
+            }
+        } catch {
+            Self.logger.error("Couldn't parse metadata")
+            return
+        }
 
         // Unprotect.
         let unprotected: Data
@@ -144,14 +162,8 @@ class OpusSubscription: Subscription {
             unprotected = data
         }
 
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
-            return
-        }
-
         // TODO: Handle sequence rollover.
-        let sequence = loc.sequence ?? objectHeaders.objectId
+        let sequence = metadata.seqId.value
         if sequence > self.seq {
             let missing = sequence - self.seq - 1
             let currentSeq = self.seq
@@ -196,19 +208,20 @@ class OpusSubscription: Subscription {
             return
         }
 
-        if let activeSpeakerStats = self.activeSpeakerStats,
-           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
-            Task(priority: .utility) {
-                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
-            }
-        }
+        let timestamp = Date(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+//        if let activeSpeakerStats = self.activeSpeakerStats,
+//           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
+//            Task(priority: .utility) {
+//                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+//                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+//            }
+//        }
 
         do {
             try handler.submitEncodedAudio(data: unprotected,
                                            sequence: sequence,
                                            date: now,
-                                           timestamp: loc.timestamp)
+                                           timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
