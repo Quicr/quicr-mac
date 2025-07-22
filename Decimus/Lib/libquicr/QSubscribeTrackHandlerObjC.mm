@@ -67,6 +67,12 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
+-(void) setDeliveryTimeout:(uint64_t)timeout
+{
+    assert(handlerPtr);
+    handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
+}
+
 #if DEBUG
 -(void) setNewGroupCallback: (NewGroupCallback _Nonnull) callback context: (void* _Nonnull) context;
 {

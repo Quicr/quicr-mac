@@ -341,8 +341,8 @@ class CallState: ObservableObject, Equatable {
         return qLogPath.path.withCString { qLogPath in
             let tConfig = TransportConfig(tls_cert_filename: nil,
                                           tls_key_filename: nil,
-                                          time_queue_init_queue_size: 1000,
-                                          time_queue_max_duration: 5000,
+                                          time_queue_init_queue_size: 1000 * 150,
+                                          time_queue_max_duration: 5000 * 150,
                                           time_queue_bucket_interval: 1,
                                           time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
                                           debug: true,

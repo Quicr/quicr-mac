@@ -114,6 +114,11 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
     return static_cast<QStreamHeaderType>(mode);
 }
 
+-(void) setUseAnnounce: (bool) use {
+    assert(handlerPtr);
+    handlerPtr->SetUseAnnounce(use);
+}
+
 // C++
 
 QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_track_name,
