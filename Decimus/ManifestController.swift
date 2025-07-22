@@ -38,7 +38,7 @@ class ManifestController {
     /// - Returns: Array of available configurations.
     func getConfigs() async throws -> [Config] {
         var url = components
-        url.path = "/configs"
+        url.path = "/api/configs"
         let request = try makeRequest(method: "GET", components: url)
         let (data, _) = try await URLSession.shared.data(for: request)
 
@@ -56,7 +56,7 @@ class ManifestController {
     /// - Parameter email: User's email.
     func getUser(email: String) async throws -> User {
         var url = components
-        url.path = "/users"
+        url.path = "/api/users"
 
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
@@ -80,7 +80,7 @@ class ManifestController {
     /// - Returns: List of conferences this user can join.
     func getConferences(for email: String) async throws -> [Conference] {
         var url = components
-        url.path = "/conferences"
+        url.path = "/api/conferences"
 
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
@@ -101,7 +101,7 @@ class ManifestController {
     /// - Returns: The manifest.
     func getManifest(confId: UInt32, email: String) async throws -> Manifest {
         var url = components
-        url.path = "/conferences/\(confId)/manifest"
+        url.path = "/api/conferences/\(confId)/manifest"
         url.queryItems = [
             URLQueryItem(name: "configProfile", value: self.currentConfig),
             URLQueryItem(name: "email", value: email)
