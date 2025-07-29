@@ -4,7 +4,7 @@
 /// Default ports for each supported protocol.
 let defaultProtocolPorts: [ProtocolType: UInt16] = [
     .UDP: 33434,
-    .QUIC: 33435
+    .QUIC: 33437
 ]
 
 /// Connection details for a MoQ relay.
