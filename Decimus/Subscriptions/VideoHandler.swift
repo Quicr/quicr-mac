@@ -91,6 +91,19 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let detector: WiFiScanDetector
     private var lastReceived: Date?
 
+    // Wi-Fi scan jitter buffer ramping
+    enum RampState {
+        case none, up(Date), spike(Date), down(Date)
+    }
+    private var targetJitterDepth: TimeInterval
+    private var rampState = RampState.none
+    private let spikeDepth: TimeInterval = 0.200 // 200ms fallback
+    private let rampDuration: TimeInterval = 1.0  // 1s
+    private var predictable = false  // Don't predict if we can't
+    private var lastSpikeDetectionTime: Date?  // Track when we last detected elevated latency
+    private var spikeToken: Int?
+    private var lastSpikeRespondedTo: Int?
+
     /// Configuration for the handler.
     struct Config {
         /// True to calculate end-to-end latency.
@@ -149,7 +162,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.activeSpeakerStats = activeSpeakerStats
         self.handlerConfig = handlerConfig
         self.detector = wifiDetector
+        self.targetJitterDepth = self.jitterBufferConfig.minDepth
         super.init()
+        self.spikeToken = self.detector.registerNotifyCallback { [weak self] in
+            guard let self = self else { return }
+            self.predictable = true
+        }
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -221,6 +239,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
     deinit {
         self.dequeueTask?.cancel()
+        if let spikeToken = self.spikeToken {
+            self.detector.removeNotifyCallback(token: spikeToken)
+        }
         Self.logger.debug("Deinit")
     }
 
@@ -258,10 +279,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         drop: Bool) {
         if let lastReceived = self.lastReceived {
             let interval = when.timeIntervalSince(lastReceived)
-            self.detector.addJitterMeasurement(jitter: interval, namespace: "\(self.fullTrackName)", timestamp: when)
-            // TODO: Do something with the prediction.
+            self.detector.addIntervalMeasurement(interval: interval, namespace: "\(self.fullTrackName)", timestamp: when)
         }
         self.lastReceived = when
+
+        // Spike prediction and jitter buffer ramping.
+        let prediction = self.detector.predictNextScan(from: when)
+        self.updateJitterBufferForWiFiScan(prediction: prediction, timestamp: when)
 
         guard !drop else {
             // Not usable, but notify receipt.
@@ -432,6 +456,81 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: details.cached)
             }
         }
+    }
+
+    /// Update jitter buffer depth based on Wi-Fi scan prediction
+    private func updateJitterBufferForWiFiScan(prediction: (timeToScan: TimeInterval?,
+                                                            predictedLength: TimeInterval,
+                                                            spikeId: Int),
+                                               timestamp: Date) {
+        // Wait until we're in a position to predict.
+        guard let jitterBuffer = self.jitterBuffer,
+              self.predictable else { return }
+
+        let timeToScan = prediction.timeToScan
+        let predictedLength = prediction.predictedLength
+        let baseDepth = self.jitterBufferConfig.minDepth
+
+        // Resolve current state.
+        let rampStartTime: Date
+        switch self.rampState {
+        case .none:
+            guard let timeToScan = timeToScan,
+                  timeToScan <= self.rampDuration,
+                  predictedLength > baseDepth else { return } // Nothing to do.
+            if let lastSpikeRespondedTo,
+               prediction.spikeId <= lastSpikeRespondedTo {
+                return // Already responded to this prediction.
+            }
+
+            // Start ramp up in prep for scan.
+            Self.logger.info("📡 STARTING RAMP UP: spike in \(timeToScan)s, predicted \(predictedLength * 1000)ms")
+            self.lastSpikeRespondedTo = prediction.spikeId
+            self.rampState = .up(timestamp)
+            rampStartTime = timestamp
+            self.targetJitterDepth = predictedLength + baseDepth
+        case .up(let startTime):
+            guard timestamp.timeIntervalSince(startTime) < self.rampDuration else {
+                Self.logger.info("📡 RAMP UP COMPLETE, HOLDING AT DEPTH")
+                self.rampState = .spike(timestamp)
+                return // Stay at spike depth.
+            }
+
+            // Still ramping up, no change.
+            rampStartTime = startTime
+        case .spike(let startTime):
+            guard timestamp.timeIntervalSince(startTime) > predictedLength else { return }
+            // We're done, start ramp down.
+            Self.logger.info("📡 STARTING RAMP DOWN: spike should be over")
+            self.rampState = .down(timestamp)
+            rampStartTime = timestamp
+        case .down(let startTime):
+            rampStartTime = startTime
+            // Have we finished ramping down?
+            if timestamp.timeIntervalSince(startTime) >= self.rampDuration {
+                Self.logger.info("📡 RAMP DOWN COMPLETE")
+                self.rampState = .none
+            }
+        }
+
+        // Calculate new required depth.
+        let rampProgress = min(timestamp.timeIntervalSince(rampStartTime) / self.rampDuration, 100.0)
+        let newDepth = switch self.rampState {
+        case .up:
+            // Ramp up from base to spike depth.
+            self.jitterBufferConfig.minDepth + (self.targetJitterDepth - baseDepth) * rampProgress
+        case .down:
+            // Ramp from spike depth back to base.
+            self.targetJitterDepth - (self.targetJitterDepth - baseDepth) * rampProgress
+        case .none:
+            baseDepth
+        case .spike:
+            predictedLength // Should never happen.
+        }
+
+        // Apply the new depth.
+        jitterBuffer.setTargetDepth(newDepth)
+        Self.logger.info("Set new target depth: \(newDepth * 1000)ms")
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {

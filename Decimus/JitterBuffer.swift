@@ -43,7 +43,7 @@ class JitterBuffer {
     }
 
     private static let logger = DecimusLogger(JitterBuffer.self)
-    private let minDepth: TimeInterval
+    private let targetDepthUs: Atomic<UInt64>
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
     private let playingFromStart: Bool
@@ -75,9 +75,13 @@ class JitterBuffer {
         } else {
             self.measurement = nil
         }
-        self.minDepth = minDepth
+        self.targetDepthUs = .init(.init(minDepth * microsecondsPerSecond))
         self.playingFromStart = playingFromStart
         self.play = .init(playingFromStart)
+    }
+
+    func setTargetDepth(_ depth: TimeInterval) {
+        self.targetDepthUs.store(UInt64(depth * microsecondsPerSecond), ordering: .releasing)
     }
 
     /// Allow frames to be dequeued from the buffer.
@@ -178,7 +182,8 @@ class JitterBuffer {
     func getPlayoutDate(item: JitterItem,
                         offset: TimeInterval,
                         since: Date = .init(timeIntervalSince1970: 0)) -> Date {
-        Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + self.minDepth
+        let targetDepth = TimeInterval(self.targetDepthUs.load(ordering: .acquiring)) / microsecondsPerSecond
+        return Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + targetDepth
     }
 
     /// Calculate the estimated time interval until this frame should be rendered.

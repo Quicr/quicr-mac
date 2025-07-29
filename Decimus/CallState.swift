@@ -87,6 +87,10 @@ class CallState: ObservableObject, Equatable {
     private var recordDisplay: Int = 0
     private var appRecorder: AppRecorder?
 
+    #if os(macOS)
+    private let wlan = try! CoreWLANWiFiScanNotifier() // swiftlint:disable:this force_try
+    #endif
+
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
         self.audioStartingGroup = audioStartingGroup
