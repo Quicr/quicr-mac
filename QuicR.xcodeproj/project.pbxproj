@@ -94,6 +94,7 @@
 		9B6C9F0C2DE5E80E0041B9C1 /* AudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F0B2DE5E8050041B9C1 /* AudioUtilities.swift */; };
 		9B6C9F112DE629720041B9C1 /* TestAudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */; };
 		9B7325EF2D558C3B00729DFB /* MockClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7325EE2D558C3900729DFB /* MockClient.swift */; };
+		9B75E48A2E323D5B007A30A4 /* WiFiScanNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */; };
 		9B7921072DBA45EE0000684D /* DisplayNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7921062DBA45EA0000684D /* DisplayNotification.swift */; };
 		9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26912D367B3C00A29CFA /* TestSubscription.swift */; };
 		9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */; };
@@ -314,6 +315,7 @@
 		9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUtilities.swift; sourceTree = "<group>"; };
 		9B7325EE2D558C3900729DFB /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
 		9B749B882CD8E3CD002E0FC7 /* QFullTrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFullTrackName.h; sourceTree = "<group>"; };
+		9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiScanNotifier.swift; sourceTree = "<group>"; };
 		9B7921062DBA45EA0000684D /* DisplayNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNotification.swift; sourceTree = "<group>"; };
 		9B7B26912D367B3C00A29CFA /* TestSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSubscription.swift; sourceTree = "<group>"; };
 		9B7B26942D36AE0C00A29CFA /* QFetchTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFetchTrackHandler.h; sourceTree = "<group>"; };
@@ -552,6 +554,15 @@
 			path = Audio;
 			sourceTree = "<group>";
 		};
+		9B75E4882E323D3A007A30A4 /* WiFi */ = {
+			isa = PBXGroup;
+			children = (
+				9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */,
+				9B0B2FB22E1FE19000039FC6 /* WiFiScanDetector.swift */,
+			);
+			path = WiFi;
+			sourceTree = "<group>";
+		};
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -652,7 +663,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
-				9B0B2FB22E1FE19000039FC6 /* WiFiScanDetector.swift */,
+				9B75E4882E323D3A007A30A4 /* WiFi */,
 				9B15FA852DF2DB2900756DF7 /* AppHeaderRegistry.swift */,
 				9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */,
 				9B6C9F0A2DE5E8020041B9C1 /* Audio */,
@@ -1050,7 +1061,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1195,6 +1206,7 @@
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
+				9B75E48A2E323D5B007A30A4 /* WiFiScanNotifier.swift in Sources */,
 				9B7C91E02DA6A94F008F1DDB /* ActiveSpeakerStats+Measurement.swift in Sources */,
 				9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
@@ -1245,7 +1257,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1270,7 +1282,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1437,7 +1449,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1514,7 +1526,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
