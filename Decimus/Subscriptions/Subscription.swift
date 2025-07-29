@@ -62,6 +62,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                    groupOrder: groupOrder,
                    filterType: filterType)
         super.setCallbacks(self)
+        super.setDeliveryTimeout(UInt64(profile.expiry?.max() ?? 5000))
     }
 
     /// Fires when the underlying subscription handler's status changes.
