@@ -88,7 +88,7 @@ class CallState: ObservableObject, Equatable {
     private var appRecorder: AppRecorder?
 
     #if os(macOS)
-    private let wlan = try! CoreWLANWiFiScanNotifier() // swiftlint:disable:this force_try
+    private var wlan: CoreWLANWiFiScanNotifier?
     #endif
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
@@ -433,6 +433,7 @@ class CallState: ObservableObject, Equatable {
                                             config: influxConfig.value,
                                             tags: tags)
         submitter = influx
+        self.wlan = try? .init(submitter: influx)
         if self.showLabels {
             self.activeSpeakerStats = .init(influx)
         }

@@ -17,9 +17,11 @@ import CoreWLAN
 class CoreWLANWiFiScanNotifier: WiFiScanNotifier, CWEventDelegate {
 
     private let client = CWWiFiClient.shared()
+    private let measurement: MeasurementRegistration<WiFiCacheEventMeasurement>
 
-    init() throws {
+    init(submitter: MetricsSubmitter) throws {
         try self.client.startMonitoringEvent(with: .scanCacheUpdated)
+        self.measurement = .init(measurement: .init(), submitter: submitter)
         self.client.delegate = self
     }
 
@@ -28,9 +30,22 @@ class CoreWLANWiFiScanNotifier: WiFiScanNotifier, CWEventDelegate {
     }
 
     func scanCacheUpdatedForWiFiInterface(withName interfaceName: String) {
-        print("*****Cached updated with: \(interfaceName)")
+        let now = Date.now
+        Task(priority: .utility) {
+            await self.measurement.measurement.updated(timestamp: now)
+        }
     }
+}
 
+actor WiFiCacheEventMeasurement: Measurement {
+    let id = UUID()
+    var name: String = "WiFi Scan"
+    var fields = Fields()
+    var tags: [String: String] = [:]
+
+    func updated(timestamp: Date) {
+        self.record(field: "Updated", value: 1, timestamp: timestamp)
+    }
 }
 
 #endif
