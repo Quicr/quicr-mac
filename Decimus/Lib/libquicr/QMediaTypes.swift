@@ -46,6 +46,8 @@ extension QPublishObjectStatus: CustomStringConvertible {
             "previousObjectNotCompleteMustStartNewTrack"
         case .previousObjectTruncated:
             "previousObjectTruncated"
+        case .paused:
+            "paused"
         @unknown default:
             "unknown default"
         }
@@ -73,6 +75,10 @@ extension QPublishTrackHandlerStatus: CustomStringConvertible {
             "subscriptionUpdated"
         case .newGroupRequested:
             "newGroupRequested"
+        case .pendingPublishOk:
+            "pendingPublishOk"
+        case .paused:
+            "paused"
         @unknown default:
             "unknown default"
         }

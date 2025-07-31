@@ -56,11 +56,6 @@
     return nullptr;
 }
 
--(void) requestNewGroup {
-    assert(handlerPtr);
-    handlerPtr->RequestNewGroup();
-}
-
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
 {
     assert(handlerPtr);
@@ -72,21 +67,6 @@
     assert(handlerPtr);
     handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
 }
-
-#if DEBUG
--(void) setNewGroupCallback: (NewGroupCallback _Nonnull) callback context: (void* _Nonnull) context;
-{
-    assert(handlerPtr);
-    const std::uint64_t test = 0x1234;
-    handlerPtr->SetRequestId(test);
-    handlerPtr->SetTrackAlias(test);
-    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::RequestID a, quicr::messages::TrackAlias b) {
-        assert(a == test);
-        assert(b == test);
-        callback(context);
-    };
-}
-#endif
 
 @end
 
