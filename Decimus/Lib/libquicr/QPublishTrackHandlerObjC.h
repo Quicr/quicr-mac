@@ -48,6 +48,7 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
     kQPublishObjectStatusObjectDataTooLarge,
     kQPublishObjectStatusPreviousObjectNotCompleteMustStartNewGroup,
     kQPublishObjectStatusPreviousObjectNotCompleteMustStartNewTrack,
+    kQPublishObjectStatusPaused
 };
 
 @interface QPublishTrackHandlerObjC : NSObject

@@ -133,9 +133,8 @@ class OpusPublication: Publication, AudioPublication {
             }
         }
 
-        let status = self.getStatus()
-        guard status == .ok || status == .subscriptionUpdated else {
-            Self.logger.warning("Not published due to status: \(status)")
+        guard self.shouldPublish() else {
+            Self.logger.warning("Not published due to status: \(self.getStatus())")
             return
         }
         var priority = self.getPriority(0)

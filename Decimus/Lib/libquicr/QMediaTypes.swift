@@ -19,35 +19,38 @@ extension QPublishObjectStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .internalError:
-            "internalError"
+            return "internalError"
         case .noPreviousObject:
-            "noPreviousObject"
+            return "noPreviousObject"
         case .noSubscribers:
-            "noSubscribers"
+            return "noSubscribers"
         case .notAnnounced:
-            "notAnnounced"
+            return "notAnnounced"
         case .notAuthorized:
-            "notAuthorized"
+            return "notAuthorized"
         case .objectContinuationDataNeeded:
-            "objectContinuationDataNeeded"
+            return "objectContinuationDataNeeded"
         case .objectDataComplete:
-            "objectDataComplete"
+            return "objectDataComplete"
         case .objectDataIncomplete:
-            "objectDataIncomplete"
+            return "objectDataIncomplete"
         case .objectDataTooLarge:
-            "objectDataTooLarge"
+            return "objectDataTooLarge"
         case .objectPayloadLengthExceeded:
-            "objectPayloadLengthExceeded"
+            return "objectPayloadLengthExceeded"
         case .ok:
-            "ok"
+            return "ok"
         case .previousObjectNotCompleteMustStartNewGroup:
-            "previousObjectNotCompleteMustStartNewGroup"
+            return "previousObjectNotCompleteMustStartNewGroup"
         case .previousObjectNotCompleteMustStartNewTrack:
-            "previousObjectNotCompleteMustStartNewTrack"
+            return "previousObjectNotCompleteMustStartNewTrack"
         case .previousObjectTruncated:
-            "previousObjectTruncated"
+            return "previousObjectTruncated"
+        case .paused:
+            return "paused"
         @unknown default:
-            "unknown default"
+            assert(false, "All QPublishObjectStatus cases MUST be mapped")
+            return "unknown default"
         }
     }
 }
@@ -56,25 +59,30 @@ extension QPublishTrackHandlerStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ok:
-            "ok"
+            return "ok"
         case .announceNotAuthorized:
-            "announceNotAuthorized"
+            return "announceNotAuthorized"
         case .noSubscribers:
-            "noSubscribers"
+            return "noSubscribers"
         case .notAnnounced:
-            "notAnnounced"
+            return "notAnnounced"
         case .notConnected:
-            "notConnected"
+            return "notConnected"
         case .pendingAnnounceResponse:
-            "pendingAnnounceResponse"
+            return "pendingAnnounceResponse"
         case .sendingUnannounce:
-            "sendingUnannounce"
+            return "sendingUnannounce"
         case .subscriptionUpdated:
-            "subscriptionUpdated"
+            return "subscriptionUpdated"
         case .newGroupRequested:
-            "newGroupRequested"
+            return "newGroupRequested"
+        case .pendingPublishOk:
+            return "pendingPublishOk"
+        case .paused:
+            return "paused"
         @unknown default:
-            "unknown default"
+            assert(false, "All QPublishTrackHandlerStatus cases MUST be mapped")
+            return "unknown default"
         }
     }
 }
@@ -83,21 +91,24 @@ extension QSubscribeTrackHandlerStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .notAuthorized:
-            "notAuthorized"
+            return "notAuthorized"
         case .notConnected:
-            "notConnected"
+            return "notConnected"
         case .notSubscribed:
-            "notSubscribed"
+            return "notSubscribed"
         case .ok:
-            "ok"
-        case .pendingSubscribeResponse:
-            "pendingSubscribeResponse"
+            return "ok"
+        case .pendingResponse:
+            return "pendingResponse"
         case .sendingUnsubscribe:
-            "sendingUnsubscribe"
-        case .subscribeError:
-            "subscribeError"
+            return "sendingUnsubscribe"
+        case .error:
+            return "error"
+        case .paused:
+            return "paused"
         @unknown default:
-            "unknown default"
+            assert(false, "All QSubscribeTrackHandlerStatus cases MUST be mapped")
+            return "unknown default"
         }
     }
 }
@@ -106,25 +117,26 @@ extension QClientStatus: CustomStringConvertible {
     public var description: String {
         switch self {
         case .clientConnecting:
-            "clientConnecting"
+            return "clientConnecting"
         case .clientPendingServerSetup:
-            "clientPendingServerSetup"
+            return "clientPendingServerSetup"
         case .clientFailedToConnect:
-            "clientFailedToConnect"
+            return "clientFailedToConnect"
         case .clientNotConnected:
-            "clientNotConnected"
+            return "clientNotConnected"
         case .disconnecting:
-            "disconnecting"
+            return "disconnecting"
         case .internalError:
-            "internalError"
+            return "internalError"
         case .invalidParams:
-            "invalidParams"
+            return "invalidParams"
         case .notReady:
-            "notReady"
+            return "notReady"
         case .ready:
-            "ready"
+            return "ready"
         @unknown default:
-            "unknown default"
+            assert(false, "All QClientStatus cases MUST be mapped")
+            return "unknown default"
         }
     }
 }

@@ -6,11 +6,12 @@
 typedef NS_ENUM(uint8_t, QSubscribeTrackHandlerStatus) {
     kQSubscribeTrackHandlerStatusOk,
     kQSubscribeTrackHandlerStatusNotConnected,
-    kQSubscribeTrackHandlerStatusSubscribeError,
+    kQSubscribeTrackHandlerStatusError,
     kQSubscribeTrackHandlerStatusNotAuthorized,
     kQSubscribeTrackHandlerStatusNotSubscribed,
-    kQSubscribeTrackHandlerStatusPendingSubscribeResponse,
-    kQSubscribeTrackHandlerStatusSendingUnsubscribe
+    kQSubscribeTrackHandlerStatusPendingResponse,
+    kQSubscribeTrackHandlerStatusSendingUnsubscribe,
+    kQSubscribeTrackHandlerStatusPaused
 };
 
 typedef struct QSubscribeTrackMetrics {
