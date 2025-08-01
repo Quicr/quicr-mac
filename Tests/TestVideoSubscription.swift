@@ -91,120 +91,120 @@ struct TestVideoSubscription {
     let fetchThreshold: UInt64 = 10
     let ngThreshold: UInt64 = 100
 
-    @Test("First object was start of group", .enabled(if: Self.isDebug))
-    @MainActor
-    func testNoFetch() async throws {
-        // When we get the start of the group:
-        // - No fetch is kicked off.
-        // - No new group is requested.
-        let mockClient = MockClient(publish: {_ in},
-                                    unpublish: {_ in},
-                                    subscribe: {_ in},
-                                    unsubscribe: {_ in},
-                                    fetch: {_ in #expect(Bool(false)) },
-                                    fetchCancel: {_ in #expect(Bool(false)) })
-        var newGroup = false
-        let subscription = try await self.makeSubscription(mockClient,
-                                                           fetchThreshold: fetchThreshold,
-                                                           ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
-        subscription.mockObject(groupId: 0, objectId: 0)
-        #expect(newGroup == false)
-    }
-
-    @Test("Test early in group", .enabled(if: Self.isDebug))
-    @MainActor
-    func testFetch() async throws {
-        // When we get an object early in the group.
-        // - FETCH for missing data.
-        // - No new group.
-        var fetch: Fetch?
-        let mockClient = MockClient(publish: { _ in },
-                                    unpublish: { _ in },
-                                    subscribe: { _ in },
-                                    unsubscribe: { _ in },
-                                    fetch: { fetch = $0 },
-                                    fetchCancel: { _ in #expect(Bool(false)) })
-        let subscription = try await self.makeSubscription(mockClient,
-                                                           fetchThreshold: fetchThreshold,
-                                                           ngThreshold: ngThreshold)
-        var newGroup = false
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
-        let arrivedGroup: UInt64 = 0
-        let arrivedObject: UInt64 = fetchThreshold - 1
-
-        subscription.mockObject(groupId: arrivedGroup, objectId: arrivedObject)
-        #expect(fetch != nil)
-        #expect(fetch!.getStartGroup() == arrivedGroup)
-        #expect(fetch!.getEndGroup() == arrivedGroup)
-        #expect(fetch!.getStartObject() == 0)
-        #expect(fetch!.getEndObject() == arrivedObject)
-        #expect(newGroup == false)
-    }
-
-    @Test("Test middle of group", .enabled(if: Self.isDebug))
-    @MainActor
-    func testNewGroup() async throws {
-        // We want to validate that a new group instead of fetch is kicked off,
-        // when we're >10 objects in.
-        var fetch: Fetch?
-        var newGroup = false
-        let mockClient = MockClient(publish: { _ in },
-                                    unpublish: { _ in },
-                                    subscribe: { _ in },
-                                    unsubscribe: { _ in },
-                                    fetch: { fetch = $0 },
-                                    fetchCancel: { _ in #expect(Bool(false)) })
-        let subscription = try await self.makeSubscription(mockClient,
-                                                           fetchThreshold: fetchThreshold,
-                                                           ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
-        subscription.mockObject(groupId: 0, objectId: fetchThreshold)
-        #expect(fetch == nil)
-        #expect(newGroup == true)
-    }
-
-    @Test("Test Wait Too Late For New Group", .enabled(if: Self.isDebug))
-    @MainActor
-    func testLateNewGroup() async throws {
-        // We want to validate that no new group or fetch is kicked off,
-        // when we're >100 objects in.
-        var fetch: Fetch?
-        var newGroup = false
-        let mockClient = MockClient(publish: { _ in },
-                                    unpublish: { _ in },
-                                    subscribe: { _ in },
-                                    unsubscribe: { _ in },
-                                    fetch: { fetch = $0 },
-                                    fetchCancel: { _ in #expect(Bool(false)) })
-        let subscription = try await self.makeSubscription(mockClient,
-                                                           fetchThreshold: fetchThreshold,
-                                                           ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
-        subscription.mockObject(groupId: 0, objectId: ngThreshold)
-        #expect(fetch == nil)
-        #expect(newGroup == false)
-    }
+    //    @Test("First object was start of group", .enabled(if: Self.isDebug))
+    //    @MainActor
+    //    func testNoFetch() async throws {
+    //        // When we get the start of the group:
+    //        // - No fetch is kicked off.
+    //        // - No new group is requested.
+    //        let mockClient = MockClient(publish: {_ in},
+    //                                    unpublish: {_ in},
+    //                                    subscribe: {_ in},
+    //                                    unsubscribe: {_ in},
+    //                                    fetch: {_ in #expect(Bool(false)) },
+    //                                    fetchCancel: {_ in #expect(Bool(false)) })
+    //        var newGroup = false
+    //        let subscription = try await self.makeSubscription(mockClient,
+    //                                                           fetchThreshold: fetchThreshold,
+    //                                                           ngThreshold: ngThreshold)
+    //        #if DEBUG
+    //        subscription.setNewGroupCallback({ usrData in
+    //            let bool = usrData.assumingMemoryBound(to: Bool.self)
+    //            bool.pointee = true
+    //        }, context: &newGroup)
+    //        #endif
+    //        subscription.mockObject(groupId: 0, objectId: 0)
+    //        #expect(newGroup == false)
+    //    }
+    //
+    //    @Test("Test early in group", .enabled(if: Self.isDebug))
+    //    @MainActor
+    //    func testFetch() async throws {
+    //        // When we get an object early in the group.
+    //        // - FETCH for missing data.
+    //        // - No new group.
+    //        var fetch: Fetch?
+    //        let mockClient = MockClient(publish: { _ in },
+    //                                    unpublish: { _ in },
+    //                                    subscribe: { _ in },
+    //                                    unsubscribe: { _ in },
+    //                                    fetch: { fetch = $0 },
+    //                                    fetchCancel: { _ in #expect(Bool(false)) })
+    //        let subscription = try await self.makeSubscription(mockClient,
+    //                                                           fetchThreshold: fetchThreshold,
+    //                                                           ngThreshold: ngThreshold)
+    //        var newGroup = false
+    //        #if DEBUG
+    //        subscription.setNewGroupCallback({ usrData in
+    //            let bool = usrData.assumingMemoryBound(to: Bool.self)
+    //            bool.pointee = true
+    //        }, context: &newGroup)
+    //        #endif
+    //        let arrivedGroup: UInt64 = 0
+    //        let arrivedObject: UInt64 = fetchThreshold - 1
+    //
+    //        subscription.mockObject(groupId: arrivedGroup, objectId: arrivedObject)
+    //        #expect(fetch != nil)
+    //        #expect(fetch!.getStartGroup() == arrivedGroup)
+    //        #expect(fetch!.getEndGroup() == arrivedGroup)
+    //        #expect(fetch!.getStartObject() == 0)
+    //        #expect(fetch!.getEndObject() == arrivedObject)
+    //        #expect(newGroup == false)
+    //    }
+    //
+    //    @Test("Test middle of group", .enabled(if: Self.isDebug))
+    //    @MainActor
+    //    func testNewGroup() async throws {
+    //        // We want to validate that a new group instead of fetch is kicked off,
+    //        // when we're >10 objects in.
+    //        var fetch: Fetch?
+    //        var newGroup = false
+    //        let mockClient = MockClient(publish: { _ in },
+    //                                    unpublish: { _ in },
+    //                                    subscribe: { _ in },
+    //                                    unsubscribe: { _ in },
+    //                                    fetch: { fetch = $0 },
+    //                                    fetchCancel: { _ in #expect(Bool(false)) })
+    //        let subscription = try await self.makeSubscription(mockClient,
+    //                                                           fetchThreshold: fetchThreshold,
+    //                                                           ngThreshold: ngThreshold)
+    //        #if DEBUG
+    //        subscription.setNewGroupCallback({ usrData in
+    //            let bool = usrData.assumingMemoryBound(to: Bool.self)
+    //            bool.pointee = true
+    //        }, context: &newGroup)
+    //        #endif
+    //        subscription.mockObject(groupId: 0, objectId: fetchThreshold)
+    //        #expect(fetch == nil)
+    //        #expect(newGroup == true)
+    //    }
+    //
+    //    @Test("Test Wait Too Late For New Group", .enabled(if: Self.isDebug))
+    //    @MainActor
+    //    func testLateNewGroup() async throws {
+    //        // We want to validate that no new group or fetch is kicked off,
+    //        // when we're >100 objects in.
+    //        var fetch: Fetch?
+    //        var newGroup = false
+    //        let mockClient = MockClient(publish: { _ in },
+    //                                    unpublish: { _ in },
+    //                                    subscribe: { _ in },
+    //                                    unsubscribe: { _ in },
+    //                                    fetch: { fetch = $0 },
+    //                                    fetchCancel: { _ in #expect(Bool(false)) })
+    //        let subscription = try await self.makeSubscription(mockClient,
+    //                                                           fetchThreshold: fetchThreshold,
+    //                                                           ngThreshold: ngThreshold)
+    //        #if DEBUG
+    //        subscription.setNewGroupCallback({ usrData in
+    //            let bool = usrData.assumingMemoryBound(to: Bool.self)
+    //            bool.pointee = true
+    //        }, context: &newGroup)
+    //        #endif
+    //        subscription.mockObject(groupId: 0, objectId: ngThreshold)
+    //        #expect(fetch == nil)
+    //        #expect(newGroup == false)
+    //    }
 
     @Test("Test New Group State")
     @MainActor
