@@ -7,16 +7,17 @@ extension QSubscribeTrackHandlerStatus: Equatable, CaseIterable {
         .notConnected,
         .notSubscribed,
         .ok,
-        .pendingSubscribeResponse,
+        .pendingResponse,
         .sendingUnsubscribe,
-        .subscribeError
+        .error,
+        .paused
     ]
 
     /// Subset of statuses that are errors.
     public static let errors: [QSubscribeTrackHandlerStatus] = [.notConnected,
                                                                 .notAuthorized,
                                                                 .notSubscribed,
-                                                                .subscribeError]
+                                                                .error]
 
     /// True is this status is an error.
     public var isError: Bool { Self.errors.contains(self) }
