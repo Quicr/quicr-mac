@@ -433,7 +433,9 @@ class CallState: ObservableObject, Equatable {
                                             config: influxConfig.value,
                                             tags: tags)
         submitter = influx
+        #if os(macOS)
         self.wlan = try? .init(submitter: influx)
+        #endif
         if self.showLabels {
             self.activeSpeakerStats = .init(influx)
         }

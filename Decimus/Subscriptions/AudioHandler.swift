@@ -30,6 +30,7 @@ class AudioHandler: TimeAlignable {
         let maxPlcThreshold: Int
         let playoutBufferTime: TimeInterval
         let slidingWindowTime: TimeInterval
+        let adaptive: Bool
     }
 
     private static let logger = DecimusLogger(AudioHandler.self)
@@ -52,6 +53,7 @@ class AudioHandler: TimeAlignable {
     private let metricsSubmitter: MetricsSubmitter?
     private let config: Config
     private let playing: Atomic<Bool> = .init(false)
+    private let jitterCalculation: RFC3550Jitter
 
     private var silenceDetectionBuffer: UnsafeMutableBufferPointer<Float32>?
 
@@ -88,6 +90,7 @@ class AudioHandler: TimeAlignable {
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
         self.config = config
         self.metricsSubmitter = metricsSubmitter
+        self.jitterCalculation = .init(identifier: identifier, submitter: metricsSubmitter)
         super.init()
         if !self.config.useNewJitterBuffer {
             // Create the jitter buffer.
@@ -208,6 +211,12 @@ class AudioHandler: TimeAlignable {
 
             // Set the timestamp diff from the first recveived object.
             self.timeAligner!.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: date)
+
+            // Jitter calculation.
+            self.jitterCalculation.record(timestamp: timestamp, arrival: date)
+            if self.config.adaptive {
+                jitterBuffer.setBaseTargetDepth(self.config.jitterDepth + (self.jitterCalculation.smoothed * 1.5))
+            }
 
             // TODO: Is this right?
             // We don't want to emplace this if we're not playing out yet.

@@ -56,7 +56,7 @@ class VideoSubscription: Subscription {
     private var fetched = false
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
-    private let wifiScanDetector: WiFiScanDetector
+    private let wifiScanDetector: WiFiScanDetector?
 
     // State machine.
     internal private(set) var stateMachine = StateMachine()
@@ -132,7 +132,7 @@ class VideoSubscription: Subscription {
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
-         wifiScanDetector: WiFiScanDetector,
+         wifiScanDetector: WiFiScanDetector?,
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()

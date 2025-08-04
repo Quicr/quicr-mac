@@ -60,6 +60,10 @@ struct SubscriptionSettingsView: View {
                         format: .number)
                         .labelsHidden()
                 }
+                LabeledToggle("Adaptive Jitter Buffer",
+                              isOn: self.$subscriptionConfig.value.videoJitterBuffer.adaptive)
+                LabeledToggle("Experimental WiFi Adaptation",
+                              isOn: self.$subscriptionConfig.value.videoJitterBuffer.spikePrediction)
                 LabeledToggle("New Audio Buffer",
                               isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
                 if self.subscriptionConfig.value.useNewJitterBuffer {

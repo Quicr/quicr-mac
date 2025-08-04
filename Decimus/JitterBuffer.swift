@@ -27,6 +27,10 @@ class JitterBuffer {
         var capacity: TimeInterval = 5
         /// The window over which jitter is calculated.
         var window: TimeInterval = 5
+        /// Dynamically adjust target depth.
+        var adaptive: Bool = true
+        /// WiFi spike prediction.
+        var spikePrediction: Bool = false
     }
 
     /// Possible modes of jitter buffer usage.
@@ -43,7 +47,8 @@ class JitterBuffer {
     }
 
     private static let logger = DecimusLogger(JitterBuffer.self)
-    private let targetDepthUs: Atomic<UInt64>
+    private let baseTargetDepthUs: Atomic<UInt64>
+    private let adjustmentTargetDepthUs: Atomic<UInt64>
     private var buffer: CMBufferQueue
     private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
     private let playingFromStart: Bool
@@ -57,9 +62,13 @@ class JitterBuffer {
     }
 
     /// Create a new video jitter buffer.
+    /// This jitter buffer has 3 notions of depth: Target base, target actual, and current depth.
+    ///     Target base: The unadjusted target depth / delay.
+    ///     Target actual: The adjusted target depth / delay.
+    ///     Current depth: The current duration of media in the buffer.
     /// - Parameter identifier: Label for this buffer.
     /// - Parameter metricsSubmitter: Optionally, an object to submit metrics through.
-    /// - Parameter minDepth: Fixed initial & target delay in seconds.
+    /// - Parameter minDepth: Starting target base depth in seconds.
     /// - Parameter capacity: Capacity in number of buffers / elements.
     /// - Parameter handlers: CMBufferQueue.Handlers implementation to use.
     init(identifier: String,
@@ -75,13 +84,39 @@ class JitterBuffer {
         } else {
             self.measurement = nil
         }
-        self.targetDepthUs = .init(.init(minDepth * microsecondsPerSecond))
+        self.baseTargetDepthUs = .init(.init(minDepth * microsecondsPerSecond))
+        self.adjustmentTargetDepthUs = .init(0)
         self.playingFromStart = playingFromStart
         self.play = .init(playingFromStart)
     }
 
-    func setTargetDepth(_ depth: TimeInterval) {
-        self.targetDepthUs.store(UInt64(depth * microsecondsPerSecond), ordering: .releasing)
+    /// Set the buffer's target base depth.
+    /// This is the depth that the buffer will attempt to maintain, but may temporarily be adjusted.
+    /// Adjustments will return to this value.
+    /// - Parameter depth: The target depth in seconds.
+    func setBaseTargetDepth(_ depth: TimeInterval) {
+        self.baseTargetDepthUs.store(UInt64(depth * microsecondsPerSecond), ordering: .releasing)
+    }
+
+    /// Get the base target depth of the buffer.
+    /// - Returns: The base target depth in seconds.
+    func getBaseTargetDepth() -> TimeInterval {
+        TimeInterval(self.baseTargetDepthUs.load(ordering: .acquiring)) / microsecondsPerSecond
+    }
+
+    /// Set the buffer's current target depth adjustment.
+    /// This is the resultant depth that the buffer will currently target.
+    /// Caller's should only use this for adjustments, and should reset to 0.
+    func setTargetAdjustment(_ adjustment: TimeInterval) {
+        self.adjustmentTargetDepthUs.store(UInt64(adjustment * microsecondsPerSecond), ordering: .releasing)
+    }
+
+    /// Get the current target depth of the buffer (including any adjustment).
+    /// - Returns: The current target depth in seconds.
+    func getCurrentTargetDepth() -> TimeInterval {
+        let target = self.getBaseTargetDepth()
+        let adjustment = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .acquiring)) / microsecondsPerSecond
+        return target + adjustment
     }
 
     /// Allow frames to be dequeued from the buffer.
@@ -182,8 +217,8 @@ class JitterBuffer {
     func getPlayoutDate(item: JitterItem,
                         offset: TimeInterval,
                         since: Date = .init(timeIntervalSince1970: 0)) -> Date {
-        let targetDepth = TimeInterval(self.targetDepthUs.load(ordering: .acquiring)) / microsecondsPerSecond
-        return Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + targetDepth
+        let actualTargetDepth = self.getCurrentTargetDepth()
+        return Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + actualTargetDepth
     }
 
     /// Calculate the estimated time interval until this frame should be rendered.
