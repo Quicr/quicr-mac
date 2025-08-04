@@ -13,6 +13,8 @@ typedef NS_ENUM(uint8_t, QPublishTrackHandlerStatus) {
     kQPublishTrackHandlerStatusSendingUnannounce,
     kQPublishTrackHandlerStatusSubscriptionUpdated,
     kQPublishTrackHandlerStatusNewGroupRequested,
+    kQPublishTrackHandlerStatusPendingPublishOk,
+    kQPublishTrackHandlerStatusPaused
 };
 
 typedef struct QPublishTrackMetricsQuic {

@@ -59,10 +59,10 @@ class VideoSubscription: Subscription {
     private let wifiScanDetector: WiFiScanDetector
 
     // State machine.
-    private var stateMachine = StateMachine()
+    internal private(set) var stateMachine = StateMachine()
 
     /// Possible states the video subscription can be in.
-    private enum State: Equatable {
+    internal enum State: Equatable {
         /// We're waiting to make a decision about how to join the video stream.
         case startup
         /// We're running as normal, passing to handler.
@@ -70,14 +70,14 @@ class VideoSubscription: Subscription {
         /// We're currently fetching, processing fetched and live objects.
         case fetching(_ inProgress: Fetch)
         /// We're waiting for a new group to start, dropping anything else.
-        case waitingForNewGroup
+        case waitingForNewGroup(_ requested: Bool)
     }
     private enum StateMachineError: Error {
         case badTransition(_ from: State, _ to: State)
     }
     /// Models possible states and transitions for a video subscription.
-    private struct StateMachine {
-        var state = State.startup
+    internal struct StateMachine {
+        internal private(set) var state = State.startup
         func transition(to newState: State) throws -> Self {
             var result = self
             var valid: Bool {
@@ -210,6 +210,10 @@ class VideoSubscription: Subscription {
         case drop
     }
 
+    internal func getCurrentState() -> VideoSubscription.State {
+        self.stateMachine.state
+    }
+
     private func determineState(objectHeaders: QObjectHeaders) -> Result {
         // swiftlint:disable force_try
         var getAction: Result { switch self.stateMachine.state {
@@ -241,7 +245,7 @@ class VideoSubscription: Subscription {
             guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
                 // Too far in, just wait.
                 self.logger.debug("Waiting for new group")
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
 
@@ -249,7 +253,7 @@ class VideoSubscription: Subscription {
                 // Not close enough to the start, new group and wait.
                 self.logger.debug("Requesting new group")
                 self.requestNewGroup()
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(true))
                 return .drop
             }
 
@@ -264,7 +268,7 @@ class VideoSubscription: Subscription {
                 // Fallback to waiting for new group behaviour.
                 self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
 
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
         case .waitingForNewGroup:
