@@ -53,6 +53,8 @@ enum CaptureManagerError: Error {
     case noAudio
     /// The requested operation MUST be called from the main thread, and was not.
     case mainThread
+    // Failure to start the session.
+    case startupFailure(String)
 }
 
 /// Manages local video capture.
@@ -83,6 +85,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let warmupTime: TimeInterval = 0.75
     private var pressureObservations: [AVCaptureDevice: NSObjectProtocol] = [:]
     private let bootDate: Date
+    private let startupTcs = TaskCompletionSource<Void>()
 
     /// Create a new ``CaptureManager``.
     /// - Parameter metricsSubmitter: Optionally, a submitter to collect/submit metrics through.
@@ -134,16 +137,26 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// Start capturing video from all target devices.
     /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     /// ``CaptureManagerError/badSessionState`` if already running.
-    func startCapturing() throws {
-        guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
-        guard !session.isRunning else {
+    @MainActor
+    func startCapturing() async throws {
+        guard !self.session.isRunning else {
             throw CaptureManagerError.badSessionState
         }
-        assert(observer == nil)
-        observer = notifier.addObserver(forName: .AVCaptureSessionRuntimeError,
+        assert(self.observer == nil)
+        self.observer = self.notifier.addObserver(forName: AVCaptureSession.runtimeErrorNotification,
+                                                  object: nil,
+                                                  queue: nil,
+                                                  using: self.onStartFailure)
+        observer = notifier.addObserver(forName: AVCaptureSession.didStartRunningNotification,
                                         object: nil,
                                         queue: nil,
-                                        using: onStartFailure)
+                                        using: self.onStartRunning)
+        self.queue.async { [weak self] in
+            self?.session.startRunning()
+            try await self?.startupTcs.task.value
+
+        }
+
         queue.async { [weak self] in
             guard let self = self else { return }
             self.session.startRunning()
@@ -153,12 +166,16 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
     }
 
+    private func onStartRunning(notification: Notification) {
+        try! self.startupTcs.setResult(())
+    }
+
     private func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
-            Self.logger.error("AVCaptureSession failed for unknown reason")
+            try! self.startupTcs.setError(CaptureManagerError.startupFailure("Unknown failure"))
             return
         }
-        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
+        try! self.startupTcs.setError(CaptureManagerError.startupFailure(error.localizedDescription))
     }
 
     /// Stop capturing media.
