@@ -182,7 +182,7 @@ class CallState: ObservableObject, Equatable {
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
-                                                        keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
+                                                        keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                         startingGroup: self.audioStartingGroup,
                                                         sframeContext: self.sendContext)
         let playtime = self.playtimeConfig.value

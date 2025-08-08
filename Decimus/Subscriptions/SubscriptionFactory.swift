@@ -111,7 +111,7 @@ struct SubscriptionConfig: Codable {
     /// SFrame encryption of media settings.
     var sframeSettings: SFrameSettings
     /// True to publish keyframe on subscribe update.
-    var keyFrameOnUpdate: Bool
+    var keyFrameOnSubscribeUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
     /// Stream join time rules.
@@ -121,7 +121,7 @@ struct SubscriptionConfig: Codable {
     init() {
         jitterMaxTime = 1
         jitterDepthTime = 0.2
-        useNewJitterBuffer = false
+        self.useNewJitterBuffer = true
         opusWindowSize = .twentyMs
         self.audioPlcLimit = 6
         self.playoutBufferTime = 0.02
@@ -146,7 +146,7 @@ struct SubscriptionConfig: Codable {
         quicPriorityLimit = 0
         self.sframeSettings = .init()
         stagger = true
-        self.keyFrameOnUpdate = true
+        self.keyFrameOnSubscribeUpdate = false
         self.cleanupTime = 1.5
         self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
     }
