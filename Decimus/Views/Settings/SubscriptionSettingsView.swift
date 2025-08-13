@@ -74,8 +74,13 @@ struct SubscriptionSettingsView: View {
                             .labelsHidden()
                     }
                 }
-                LabeledToggle("KeyFrame on Update",
-                              isOn: self.$subscriptionConfig.value.keyFrameOnUpdate)
+                LabeledToggle("Key Frame on Update",
+                              isOn: self.$subscriptionConfig.value.keyFrameOnSubscribeUpdate)
+                if self.subscriptionConfig.value.keyFrameOnSubscribeUpdate {
+                    Text("I hope you know what you're doing 😅")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 LabeledContent("Fetch before (s)") {
                     TextField(
