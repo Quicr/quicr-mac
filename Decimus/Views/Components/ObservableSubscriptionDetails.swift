@@ -4,7 +4,7 @@
 import SwiftUI
 
 struct ObservableSubscriptionSetDetails: View {
-    var observable: ObservableSubscriptionSet
+    let observable: ObservableSubscriptionSet
     let manifestSubscriptionSet: ManifestSubscription
     let controller: MoqCallController
     let factory: SubscriptionFactory
@@ -15,34 +15,61 @@ struct ObservableSubscriptionSetDetails: View {
         Text(self.observable.sourceId)
             .bold()
 
-        // Ability to alter individual subscribe state via toggle.
-        ForEach(manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
+        ForEach(self.manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
+            Text(manifestSubscription.qualityProfile)
             if let manifestFtn = try? manifestSubscription.getFullTrackName() {
-                let exists = self.observable.observedLiveSubscriptions.contains(manifestFtn)
-                let binding = Binding<Bool>(get: {
-                    exists
-                }, set: { isOn in
-                    if isOn {
-                        do {
-                            try self.controller.subscribe(set: self.observable,
-                                                          profile: manifestSubscription,
-                                                          factory: self.factory)
-                        } catch {
-                            self.logger.error("Failed to subscribe: \(error.localizedDescription)")
+                // Toggle for subscribe state.
+                Form {
+                    LabeledToggle("Subscribed",
+                                  isOn: self.makeSubscribeBinding(manifestSubscription, manifestFtn: manifestFtn))
+
+                    // Get the actual state.
+                    if let handler = self.observable.getHandlers().first {
+                        if let video = handler.value as? VideoSubscription {
+                            if let videoHandler = video.handler.get() {
+                                if let buffer = videoHandler.jitterBuffer {
+                                    Section("Jitter Buffer") {
+                                        Text("Depth: \(buffer.currentDepth * 1000)ms")
+                                        Text("Target: \(buffer.baseTargetDepth * 1000)ms")
+                                    }
+                                }
+                            }
+                        } else {
+                            Text("I don't know what this is")
+                                .foregroundStyle(.red)
                         }
                     } else {
-                        do {
-                            try self.controller.unsubscribe(observable.sourceId, ftn: manifestFtn)
-                        } catch {
-                            self.logger.error("Failed to unsubscribe: \(error.localizedDescription)")
-                        }
+                        Text("Failed to lookup state")
+                            .foregroundStyle(.red)
                     }
-                })
-                LabeledToggle(manifestSubscription.qualityProfile, isOn: binding)
+                }
             } else {
                 Text("\(manifestSubscription.namespace.joined()) Failed to parse full track name")
                     .foregroundStyle(.red)
             }
         }
+    }
+
+    private func makeSubscribeBinding(_ manifestSubscription: Profile, manifestFtn: FullTrackName) -> Binding<Bool> {
+        let exists = self.observable.observedLiveSubscriptions.contains(manifestFtn)
+        return .init(get: {
+            exists
+        }, set: { isOn in
+            if isOn {
+                do {
+                    _ = try self.controller.subscribe(set: self.observable,
+                                                      profile: manifestSubscription,
+                                                      factory: self.factory)
+                } catch {
+                    self.logger.error("Failed to subscribe: \(error.localizedDescription)")
+                }
+            } else {
+                do {
+                    try self.controller.unsubscribe(observable.sourceId, ftn: manifestFtn)
+                } catch {
+                    self.logger.error("Failed to unsubscribe: \(error.localizedDescription)")
+                }
+            }
+        })
     }
 }

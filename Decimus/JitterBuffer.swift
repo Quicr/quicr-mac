@@ -3,6 +3,7 @@
 
 import Foundation
 import CoreMedia
+import Observation
 import Synchronization
 
 // swiftlint:disable force_cast
@@ -15,6 +16,7 @@ enum JitterBufferError: Error {
 }
 
 /// A very simplified jitter buffer designed to contain compressed frames in order.
+@Observable
 class JitterBuffer {
 
     /// Jiitter buffer configuration.
@@ -56,6 +58,11 @@ class JitterBuffer {
     private let lastSequenceRead = Atomic<UInt64>(0)
     private let lastSequenceSet = Atomic<Bool>(false)
 
+    // Observables.
+    private(set) var currentDepth: TimeInterval = 0
+    private(set) var baseTargetDepth: TimeInterval
+    private(set) var currentAdjustmentDepth: TimeInterval
+
     protocol JitterItem: AnyObject {
         var sequenceNumber: UInt64 { get }
         var timestamp: CMTime { get }
@@ -85,6 +92,8 @@ class JitterBuffer {
             self.measurement = nil
         }
         self.baseTargetDepthUs = .init(.init(minDepth * microsecondsPerSecond))
+        self.baseTargetDepth = minDepth
+        self.currentAdjustmentDepth = 0
         self.adjustmentTargetDepthUs = .init(0)
         self.playingFromStart = playingFromStart
         self.play = .init(playingFromStart)
@@ -170,6 +179,7 @@ class JitterBuffer {
         guard let oldest = self.buffer.dequeue() else {
             if let measurement = self.measurement {
                 Task(priority: .utility) {
+                    self.currentDepth = depth!
                     await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
                     await measurement.measurement.underrun(timestamp: from)
                 }
@@ -178,6 +188,7 @@ class JitterBuffer {
         }
         if let measurement = self.measurement {
             Task(priority: .utility) {
+                self.currentDepth = depth!
                 await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
                 await measurement.measurement.read(timestamp: from)
             }
