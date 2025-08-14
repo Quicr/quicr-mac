@@ -7,13 +7,11 @@ struct SubscriptionPopover: View {
     private let controller: MoqCallController
     private let manifest: Manifest
     private let factory: SubscriptionFactory
-    private let simulreceive: SimulreceiveMode
 
-    init(_ controller: MoqCallController, manifest: Manifest, factory: SubscriptionFactory, simulreceive: SimulreceiveMode) {
+    init(_ controller: MoqCallController, manifest: Manifest, factory: SubscriptionFactory) {
         self.controller = controller
         self.manifest = manifest
         self.factory = factory
-        self.simulreceive = simulreceive
     }
 
     private var observables: [SourceIDType: ObservableSubscriptionSet] {
@@ -36,8 +34,7 @@ struct SubscriptionPopover: View {
                             ObservableSubscriptionSetDetails(observable: set,
                                                              manifestSubscriptionSet: manifestSubscriptionSet,
                                                              controller: self.controller,
-                                                             factory: self.factory,
-                                                             simulreceive: self.simulreceive)
+                                                             factory: self.factory)
                                 .padding()
                         } else {
                             Text("\(manifestSubscriptionSet.sourceID) not observable").foregroundStyle(.red)

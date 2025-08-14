@@ -8,7 +8,6 @@ struct ObservableSubscriptionSetDetails: View {
     let manifestSubscriptionSet: ManifestSubscription
     let controller: MoqCallController
     let factory: SubscriptionFactory
-    let simulreceive: SimulreceiveMode
     private let logger = DecimusLogger(ObservableSubscriptionSetDetails.self)
 
     var body: some View {

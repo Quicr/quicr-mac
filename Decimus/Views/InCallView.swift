@@ -203,8 +203,7 @@ struct InCallView: View {
                             ScrollView {
                                 SubscriptionPopover(controller,
                                                     manifest: manifest,
-                                                    factory: self.viewModel.subscriptionFactory!,
-                                                    simulreceive: self.viewModel.subscriptionConfig.value.simulreceive)
+                                                    factory: self.viewModel.subscriptionFactory!)
                                 PublicationPopover(controller)
                             }
                         }
