@@ -14,55 +14,54 @@ struct ObservableSubscriptionSetDetails: View {
         let handlers = self.observable.getHandlers()
         // Quality subscribes.
         if !self.manifestSubscriptionSet.profileSet.profiles.isEmpty {
-            GroupBox(self.observable.sourceId) {
-                VStack {
-                    ForEach(self.manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
-                        if let manifestFtn = try? manifestSubscription.getFullTrackName() {
-                            // Profile label.
-                            Text(manifestSubscription.qualityProfile)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                                .frame(alignment: .leading)
+            VStack {
+                Text(self.observable.sourceId)
+                ForEach(self.manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
+                    if let manifestFtn = try? manifestSubscription.getFullTrackName() {
+                        // Profile label.
+                        Text(manifestSubscription.qualityProfile)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .frame(alignment: .leading)
 
-                            // Toggle for subscribe state.
-                            LabeledToggle("Subscribed",
-                                          isOn: self.makeSubscribeBinding(manifestSubscription,
-                                                                          manifestFtn: manifestFtn))
+                        // Toggle for subscribe state.
+                        LabeledToggle("Subscribed",
+                                      isOn: self.makeSubscribeBinding(manifestSubscription,
+                                                                      manifestFtn: manifestFtn))
 
-                            // Buffer inspection.
-                            if let subscription = handlers[manifestFtn] {
-                                if let subscription = subscription as? VideoSubscription {
-                                    if let videoHandler = subscription.handler.get(),
-                                       let buffer = videoHandler.jitterBuffer {
+                        // Buffer inspection.
+                        if let subscription = handlers[manifestFtn] {
+                            if let subscription = subscription as? VideoSubscription {
+                                if let videoHandler = subscription.handler.get(),
+                                   let buffer = videoHandler.jitterBuffer {
+                                    HStack {
+                                        Text("Current:")
+                                        Spacer()
                                         HStack {
-                                            Text("Current:")
-                                            Spacer()
-                                            HStack {
-                                                Text(buffer.currentDepth * 1000,
-                                                     format: .number.precision(.fractionLength(2)))
-                                                Text("ms")
-                                            }
+                                            Text(buffer.currentDepth * 1000,
+                                                 format: .number.precision(.fractionLength(2)))
+                                            Text("ms")
                                         }
+                                    }
+                                    HStack {
+                                        Text("Target:")
+                                        Spacer()
                                         HStack {
-                                            Text("Target:")
-                                            Spacer()
-                                            HStack {
-                                                Text(buffer.baseTargetDepth * 1000,
-                                                     format: .number.precision(.fractionLength(2)))
-                                                Text("ms")
-                                            }
+                                            Text(buffer.baseTargetDepth * 1000,
+                                                 format: .number.precision(.fractionLength(2)))
+                                            Text("ms")
                                         }
-                                    } else {
-                                        Text("No handler yet")
                                     }
                                 } else {
-                                    Text("Only video subscriptions are supported")
-                                        .foregroundStyle(.orange)
+                                    Text("No handler yet")
                                 }
                             } else {
-                                Text("Missing subscription")
-                                    .foregroundStyle(.red)
+                                Text("Only video subscriptions are supported")
+                                    .foregroundStyle(.orange)
                             }
+                        } else {
+                            Text("Missing subscription")
+                                .foregroundStyle(.red)
                         }
                     }
                 }
