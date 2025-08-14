@@ -7,32 +7,43 @@ struct SubscriptionPopover: View {
     private let controller: MoqCallController
     private let manifest: Manifest
     private let factory: SubscriptionFactory
+    private let simulreceive: SimulreceiveMode
 
-    init(_ controller: MoqCallController, manifest: Manifest, factory: SubscriptionFactory) {
+    init(_ controller: MoqCallController, manifest: Manifest, factory: SubscriptionFactory, simulreceive: SimulreceiveMode) {
         self.controller = controller
         self.manifest = manifest
         self.factory = factory
+        self.simulreceive = simulreceive
     }
 
-    var body: some View {
-        Text("Subscriptions")
-            .font(.title)
-
-        // Get the observable sets.
+    private var observables: [SourceIDType: ObservableSubscriptionSet] {
         let result: [SourceIDType: ObservableSubscriptionSet] = [:]
-        let observables = self.manifest.subscriptions.reduce(into: result) { partialResult, manifestSubscription in
+        return self.manifest.subscriptions.reduce(into: result) { partialResult, manifestSubscription in
             let set = self.controller.getSubscriptionSet(manifestSubscription.sourceID) as? ObservableSubscriptionSet
             partialResult[manifestSubscription.sourceID] = set
         }
+    }
 
-        ForEach(self.manifest.subscriptions, id: \.sourceID) { manifestSubscriptionSet in
-            if let set = observables[manifestSubscriptionSet.sourceID] {
-                ObservableSubscriptionSetDetails(observable: set,
-                                                 manifestSubscriptionSet: manifestSubscriptionSet,
-                                                 controller: self.controller,
-                                                 factory: self.factory)
-            } else {
-                Text("\(manifestSubscriptionSet.sourceID) not observable").foregroundStyle(.red)
+    var body: some View {
+        VStack {
+            Text("Subscriptions")
+                .font(.title2)
+
+            ScrollView {
+                LazyVStack {
+                    ForEach(self.manifest.subscriptions) { manifestSubscriptionSet in
+                        if let set = self.observables[manifestSubscriptionSet.sourceID] {
+                            ObservableSubscriptionSetDetails(observable: set,
+                                                             manifestSubscriptionSet: manifestSubscriptionSet,
+                                                             controller: self.controller,
+                                                             factory: self.factory,
+                                                             simulreceive: self.simulreceive)
+                                .padding()
+                        } else {
+                            Text("\(manifestSubscriptionSet.sourceID) not observable").foregroundStyle(.red)
+                        }
+                    }
+                }
             }
         }
     }

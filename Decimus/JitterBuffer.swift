@@ -177,21 +177,11 @@ class JitterBuffer {
 
         // Ensure there's something to get.
         guard let oldest = self.buffer.dequeue() else {
-            if let measurement = self.measurement {
-                Task(priority: .utility) {
-                    self.currentDepth = depth!
-                    await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
-                    await measurement.measurement.underrun(timestamp: from)
-                }
-            }
+            self.doReadMetrics(depth, underrun: true, when: from)
             return nil
         }
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                self.currentDepth = depth!
-                await measurement.measurement.currentDepth(depth: depth!, timestamp: from)
-                await measurement.measurement.read(timestamp: from)
-            }
+            self.doReadMetrics(depth, underrun: false, when: from)
         }
         let item = oldest as! T
         self.lastSequenceRead.store(item.sequenceNumber, ordering: .releasing)
@@ -264,6 +254,26 @@ class JitterBuffer {
         let item = peek as! JitterItem
         return self.calculateWaitTime(item: item, from: from, offset: offset, since: since)
     }
-}
 
-// swiftlint:enable force_cast
+    // swiftlint:enable force_cast
+
+    private func doReadMetrics(_ depth: TimeInterval?, underrun: Bool, when: Date) {
+        if let measurement = self.measurement {
+            Task(priority: .utility) {
+                self.currentDepth = depth!
+                // swiftlint:disable line_length
+                self.baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
+                self.currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
+                // swiftlint:enable line_length
+                await measurement.measurement.curr// swiftlint:enable force_castentDepth(depth: depth!,
+                target: self.baseTargetDepth,
+                adjustment: self.currentAdjustmentDepth, timestamp: when)
+                if underrun {
+                    await measurement.measurement.underrun(timestamp: when)
+                } else {
+                    await measurement.measurement.read(timestamp: when)
+                }
+            }
+        }
+    }
+}

@@ -38,13 +38,12 @@ typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
-    private static let logger = DecimusLogger(VideoHandler.self)
-
     /// The current configuration in use.
     let config: VideoCodecConfig
     /// The full track name identifiying this stream.
     let fullTrackName: FullTrackName
 
+    private let logger: DecimusLogger
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
@@ -144,6 +143,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
+        self.logger = .init(VideoHandler.self, prefix: "\(fullTrackName)")
         self.fullTrackName = fullTrackName
         self.config = config
         self.participants = participants
@@ -234,7 +234,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                                participant: participant,
                                                endToEndLatency: endToEndLatency)
                     } catch {
-                        Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                        self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
                 }
             }
@@ -246,7 +246,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         if let spikeToken = self.spikeToken {
             self.detector!.removeNotifyCallback(token: spikeToken)
         }
-        Self.logger.debug("Deinit")
+        self.logger.debug("Deinit")
     }
 
     /// Register to receive notifications of an object being received.
@@ -320,12 +320,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         do {
             // Pull LOC data out of headers.
             guard let extensions = extensions else {
-                Self.logger.warning("Missing expected LOC headers")
+                self.logger.warning("Missing expected LOC headers")
                 return
             }
             let loc = try LowOverheadContainer(from: extensions)
             guard let sequence = loc.sequence else {
-                Self.logger.error("Video needs LOC sequence number set")
+                self.logger.error("Video needs LOC sequence number set")
                 return
             }
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
@@ -334,20 +334,26 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                                    objectId: objectHeaders.objectId,
                                                    sequenceNumber: sequence,
                                                    timestamp: loc.timestamp) else {
-                Self.logger.warning("No video data in object")
+                self.logger.warning("No video data in object")
                 return
             }
 
             guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
-                Self.logger.error("Missing expected timestamp")
+                self.logger.error("Missing expected timestamp")
                 return
             }
 
             // Drive base target depth from smoothed RFC3550 jitter.
             if self.jitterBufferConfig.adaptive {
                 self.jitterCalculation.record(timestamp: loc.timestamp, arrival: when)
-                let baseTarget = self.jitterBufferConfig.minDepth + (self.jitterCalculation.smoothed * 1.5)
-                self.jitterBuffer?.setBaseTargetDepth(baseTarget)
+                let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
+                if let jitterBuffer = self.jitterBuffer {
+                    let existing = jitterBuffer.getBaseTargetDepth()
+                    let change = (newTarget - existing) / existing
+                    if change > 0 || change < -0.1 {
+                        jitterBuffer.setBaseTargetDepth(newTarget)
+                    }
+                }
             }
 
             if let measurement = self.measurement?.measurement,
@@ -380,7 +386,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
             try self.submitEncodedData(frame, details: details)
         } catch {
-            Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
+            self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
     }
 
@@ -390,7 +396,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     func play() {
         guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
-            Self.logger.error("Set play with no buffer")
+            self.logger.error("Set play with no buffer")
             return
         }
         buffer.startPlaying()
@@ -420,9 +426,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             do {
                 try jitterBuffer.write(item: item, from: details.when)
             } catch JitterBufferError.full {
-                Self.logger.warning("Didn't enqueue as queue was full")
+                self.logger.warning("Didn't enqueue as queue was full")
             } catch JitterBufferError.old {
-                Self.logger.warning("Didn't enqueue as frame was older than last read")
+                self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
             try decode(sample: frame, from: details.when)
@@ -499,7 +505,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             }
 
             // Start ramp up in prep for scan.
-            Self.logger.info("📡 STARTING RAMP UP: spike in \(timeToScan)s, predicted \(predictedMagnitude * 1000)ms")
+            self.logger.info("📡 STARTING RAMP UP: spike in \(timeToScan)s, predicted \(predictedMagnitude * 1000)ms")
             self.lastSpikeRespondedTo = prediction.spikeId
             self.currentSpikeLength = prediction.predictedLength
             self.rampState = .up(timestamp)
@@ -507,7 +513,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             self.targetJitterDepth = predictedMagnitude + baseDepth
         case .up(let startTime):
             guard timestamp.timeIntervalSince(startTime) < self.rampDuration else {
-                Self.logger.info("📡 RAMP UP COMPLETE, HOLDING AT DEPTH")
+                self.logger.info("📡 RAMP UP COMPLETE, HOLDING AT DEPTH")
                 self.rampState = .spike(timestamp)
                 return // Stay at spike depth.
             }
@@ -517,14 +523,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         case .spike(let startTime):
             guard timestamp.timeIntervalSince(startTime) > self.currentSpikeLength! else { return }
             // We're done, start ramp down.
-            Self.logger.info("📡 STARTING RAMP DOWN: spike should be over")
+            self.logger.info("📡 STARTING RAMP DOWN: spike should be over")
             self.rampState = .down(timestamp)
             rampStartTime = timestamp
         case .down(let startTime):
             rampStartTime = startTime
             // Have we finished ramping down?
             if timestamp.timeIntervalSince(startTime) >= self.rampDuration {
-                Self.logger.info("📡 RAMP DOWN COMPLETE")
+                self.logger.info("📡 RAMP DOWN COMPLETE")
                 self.rampState = .none
                 self.currentSpikeLength = nil
             }
@@ -547,7 +553,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
         // Apply the new depth.
         jitterBuffer.setTargetAdjustment(adjustment)
-        Self.logger.info("Set new target depth: \(jitterBuffer.getCurrentTargetDepth() * 1000)ms")
+        self.logger.info("Set new target depth: \(jitterBuffer.getCurrentTargetDepth() * 1000)ms")
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
@@ -629,7 +635,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
                     } else {
                         guard let duration = self.duration else {
-                            Self.logger.error("Missing duration")
+                            self.logger.error("Missing duration")
                             return
                         }
                         waitTime = calculateWaitTime(from: now) ?? duration
@@ -664,7 +670,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -720,7 +726,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
                 guard let participant = self.participant.get() else {
-                    Self.logger.warning("Missing expected participant")
+                    self.logger.warning("Missing expected participant")
                     return
                 }
                 try self.enqueueSample(sample: sampleBuffer,
@@ -770,7 +776,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if sample.sampleAttachments.count > 0 {
                 sample.sampleAttachments[0][.displayImmediately] = true
             } else {
-                Self.logger.warning("Couldn't set display immediately attachment")
+                self.logger.warning("Couldn't set display immediately attachment")
             }
         }
 
@@ -794,7 +800,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     }
                 }
             } catch {
-                Self.logger.error("Could not enqueue sample: \(error)")
+                self.logger.error("Could not enqueue sample: \(error)")
             }
         }
     }
@@ -823,9 +829,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             do {
                 try participant.view.flush()
             } catch {
-                Self.logger.error("Could not flush layer: \(error)")
+                self.logger.error("Could not flush layer: \(error)")
             }
-            Self.logger.debug("Flushing display layer")
+            self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
     }
@@ -868,7 +874,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     seis.append(sei)
                 }
             } catch {
-                Self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
+                self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
             }
         }
         let format: CMFormatDescription?

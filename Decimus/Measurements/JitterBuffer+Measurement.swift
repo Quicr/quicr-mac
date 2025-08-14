@@ -18,12 +18,16 @@ extension JitterBuffer {
             tags["namespace"] = namespace
         }
 
-        func currentDepth(depth: TimeInterval, timestamp: Date?) {
+        func currentDepth(depth: TimeInterval, target: TimeInterval, adjustment: TimeInterval, timestamp: Date?) {
             guard depth.isFinite,
                   depth.truncatingRemainder(dividingBy: 1) != 0 else {
                 return
             }
             record(field: "currentDepth", value: UInt32(depth * 1000) as AnyObject, timestamp: timestamp)
+            self.record(field: "targetDepth", value: target, timestamp: timestamp)
+            if adjustment > 0 {
+                self.record(field: "adjustment", value: adjustment, timestamp: timestamp)
+            }
         }
 
         func underrun(timestamp: Date?) {

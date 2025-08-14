@@ -72,7 +72,7 @@ class CallState: ObservableObject, Equatable {
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     @AppStorage("subscriptionConfig")
-    private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+    private(set) var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @AppStorage(PlaytimeSettingsView.defaultsKey)
     private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
