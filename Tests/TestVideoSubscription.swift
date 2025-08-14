@@ -63,6 +63,7 @@ struct TestVideoSubscription {
                                                                                  newGroupUpperThreshold: ngThreshold),
                                                                calculateLatency: false),
                                      sframeContext: nil,
+                                     wifiScanDetector: nil,
                                      callback: { callback?($0) },
                                      statusChanged: ({_ in }))
     }

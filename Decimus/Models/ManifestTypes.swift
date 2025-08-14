@@ -59,7 +59,9 @@ struct ManifestPublication: Codable {
 }
 
 /// A set of related subscription entries.
-struct ManifestSubscription: Codable {
+struct ManifestSubscription: Codable, Identifiable {
+    var id: String { self.sourceID }
+
     /// Details of the subscription set.
     let mediaType, sourceName, sourceID, label: String
     let participantId: ParticipantId

@@ -462,4 +462,35 @@ struct JitterBufferTests {
         var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
         #expect(read!.frame == sample)
     }
+
+    @Test("Test depth get/set")
+    func testDepths() throws {
+        let startingDepth: TimeInterval = 0.1
+        let targetBase: TimeInterval = 0.2
+        let targetActual: TimeInterval = 0.3
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: startingDepth,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: false))
+
+        // Starting.
+        #expect(buffer.getBaseTargetDepth() == startingDepth)
+        #expect(buffer.getCurrentTargetDepth() == startingDepth)
+
+        // Set base.
+        buffer.setBaseTargetDepth(targetBase)
+        #expect(buffer.getBaseTargetDepth() == targetBase)
+        #expect(buffer.getCurrentTargetDepth() == targetBase)
+
+        // Set adjustment.
+        buffer.setTargetAdjustment(targetActual - targetBase)
+        #expect(buffer.getBaseTargetDepth() == targetBase)
+        #expect(buffer.getCurrentTargetDepth().isApproximatelyEqual(to: targetActual, absoluteTolerance: 0.0001))
+
+        // Undo adjustment.
+        buffer.setTargetAdjustment(0)
+        #expect(buffer.getBaseTargetDepth() == targetBase)
+        #expect(buffer.getCurrentTargetDepth().isApproximatelyEqual(to: targetBase))
+    }
 }

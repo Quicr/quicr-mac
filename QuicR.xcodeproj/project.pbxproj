@@ -93,9 +93,11 @@
 		9B6C9F0C2DE5E80E0041B9C1 /* AudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F0B2DE5E8050041B9C1 /* AudioUtilities.swift */; };
 		9B6C9F112DE629720041B9C1 /* TestAudioUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */; };
 		9B7325EF2D558C3B00729DFB /* MockClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7325EE2D558C3900729DFB /* MockClient.swift */; };
+		9B75E48A2E323D5B007A30A4 /* WiFiScanNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */; };
 		9B7921072DBA45EE0000684D /* DisplayNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7921062DBA45EA0000684D /* DisplayNotification.swift */; };
 		9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26912D367B3C00A29CFA /* TestSubscription.swift */; };
 		9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */; };
+		9B7C2F252E4E023F005556B0 /* WiFiScanDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7C2F242E4E023C005556B0 /* WiFiScanDetector.swift */; };
 		9B7C91DD2DA67060008F1DDB /* TestActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */; };
 		9B7C91E02DA6A94F008F1DDB /* ActiveSpeakerStats+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7C91DF2DA6A947008F1DDB /* ActiveSpeakerStats+Measurement.swift */; };
 		9B7F40022ACB1914003333C3 /* H264Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B7F40012ACB1914003333C3 /* H264Utilities.swift */; };
@@ -123,6 +125,7 @@
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
+		9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB707AB2E40B51700C697B6 /* RFC3550.swift */; };
 		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
 		9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BBFF99C2DE751380093EA8E /* QLocation.mm */; };
 		9BC070D52D2D3A8B00FE5B0E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC070D42D2D3A8700FE5B0E /* Subscription.swift */; };
@@ -312,11 +315,13 @@
 		9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioUtilities.swift; sourceTree = "<group>"; };
 		9B7325EE2D558C3900729DFB /* MockClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockClient.swift; sourceTree = "<group>"; };
 		9B749B882CD8E3CD002E0FC7 /* QFullTrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFullTrackName.h; sourceTree = "<group>"; };
+		9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiScanNotifier.swift; sourceTree = "<group>"; };
 		9B7921062DBA45EA0000684D /* DisplayNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayNotification.swift; sourceTree = "<group>"; };
 		9B7B26912D367B3C00A29CFA /* TestSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSubscription.swift; sourceTree = "<group>"; };
 		9B7B26942D36AE0C00A29CFA /* QFetchTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFetchTrackHandler.h; sourceTree = "<group>"; };
 		9B7B26972D36B14F00A29CFA /* QFetchTrackHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QFetchTrackHandlerObjC.h; sourceTree = "<group>"; };
 		9B7B26982D36B21300A29CFA /* QFetchTrackHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFetchTrackHandlerObjC.mm; sourceTree = "<group>"; };
+		9B7C2F242E4E023C005556B0 /* WiFiScanDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiScanDetector.swift; sourceTree = "<group>"; };
 		9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestActiveSpeakerStats.swift; sourceTree = "<group>"; };
 		9B7C91DF2DA6A947008F1DDB /* ActiveSpeakerStats+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActiveSpeakerStats+Measurement.swift"; sourceTree = "<group>"; };
 		9B7F40012ACB1914003333C3 /* H264Utilities.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = H264Utilities.swift; sourceTree = "<group>"; };
@@ -357,6 +362,7 @@
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
+		9BB707AB2E40B51700C697B6 /* RFC3550.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFC3550.swift; sourceTree = "<group>"; };
 		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
 		9BBFF99B2DE750D80093EA8E /* QLocation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QLocation.h; sourceTree = "<group>"; };
 		9BBFF99C2DE751380093EA8E /* QLocation.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QLocation.mm; sourceTree = "<group>"; };
@@ -550,6 +556,15 @@
 			path = Audio;
 			sourceTree = "<group>";
 		};
+		9B75E4882E323D3A007A30A4 /* WiFi */ = {
+			isa = PBXGroup;
+			children = (
+				9B7C2F242E4E023C005556B0 /* WiFiScanDetector.swift */,
+				9B75E4892E323D42007A30A4 /* WiFiScanNotifier.swift */,
+			);
+			path = WiFi;
+			sourceTree = "<group>";
+		};
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
@@ -650,6 +665,8 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9BB707AB2E40B51700C697B6 /* RFC3550.swift */,
+				9B75E4882E323D3A007A30A4 /* WiFi */,
 				9B15FA852DF2DB2900756DF7 /* AppHeaderRegistry.swift */,
 				9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */,
 				9B6C9F0A2DE5E8020041B9C1 /* Audio */,
@@ -1133,6 +1150,7 @@
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
+				9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				9B15FA822DF2CB2F00756DF7 /* TextSubscriptions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,
@@ -1191,6 +1209,7 @@
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,
 				9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */,
 				18C89A422A13EB1E005B333B /* InfluxConfig.swift in Sources */,
+				9B75E48A2E323D5B007A30A4 /* WiFiScanNotifier.swift in Sources */,
 				9B7C91E02DA6A94F008F1DDB /* ActiveSpeakerStats+Measurement.swift in Sources */,
 				9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */,
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
@@ -1210,6 +1229,7 @@
 				9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */,
 				9B15FA842DF2D02800756DF7 /* MultipleCallbackSubscription.swift in Sources */,
 				9BE6B7C72C9D92940069FE9F /* TokenStorage.swift in Sources */,
+				9B7C2F252E4E023F005556B0 /* WiFiScanDetector.swift in Sources */,
 				9B8B9D512BF37CC400F7AE34 /* VideoUtilities.swift in Sources */,
 				9BDD5B1A299A395B00C01D54 /* LibOpusEncoder.swift in Sources */,
 			);

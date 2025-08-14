@@ -6,6 +6,10 @@ import Synchronization
 
 class OpusSubscription: Subscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
+    
+    struct Config {
+        let adaptive: Bool
+    }
 
     private let profile: Profile
     private let engine: DecimusAudioEngine
@@ -28,6 +32,7 @@ class OpusSubscription: Subscription {
     private let maxPlcThreshold: Int
     private let playoutBufferTime: TimeInterval
     private let slidingWindowTime: TimeInterval
+    private let config: Config
 
     init(profile: Profile,
          engine: DecimusAudioEngine,
@@ -46,6 +51,7 @@ class OpusSubscription: Subscription {
          maxPlcThreshold: Int,
          playoutBufferTime: TimeInterval,
          slidingWindowTime: TimeInterval,
+         config: Config,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -68,6 +74,7 @@ class OpusSubscription: Subscription {
         self.maxPlcThreshold = maxPlcThreshold
         self.playoutBufferTime = playoutBufferTime
         self.slidingWindowTime = slidingWindowTime
+        self.config = config
 
         // Create the actual audio handler upfront.
         let config = AudioHandler.Config(jitterDepth: self.jitterDepth,
@@ -77,7 +84,8 @@ class OpusSubscription: Subscription {
                                          useNewJitterBuffer: self.useNewJitterBuffer,
                                          maxPlcThreshold: self.maxPlcThreshold,
                                          playoutBufferTime: self.playoutBufferTime,
-                                         slidingWindowTime: self.slidingWindowTime)
+                                         slidingWindowTime: self.slidingWindowTime,
+                                         adaptive: self.config.adaptive)
         self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
                                        engine: self.engine,
                                        decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
@@ -179,7 +187,8 @@ class OpusSubscription: Subscription {
                                                      useNewJitterBuffer: self.useNewJitterBuffer,
                                                      maxPlcThreshold: self.maxPlcThreshold,
                                                      playoutBufferTime: self.playoutBufferTime,
-                                                     slidingWindowTime: self.slidingWindowTime)
+                                                     slidingWindowTime: self.slidingWindowTime,
+                                                     adaptive: self.config.adaptive)
                     let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
                                                    engine: self.engine,
                                                    decoder: LibOpusDecoder(format: DecimusAudioEngine.format),

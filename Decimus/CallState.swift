@@ -72,7 +72,7 @@ class CallState: ObservableObject, Equatable {
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     @AppStorage("subscriptionConfig")
-    private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+    private(set) var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @AppStorage(PlaytimeSettingsView.defaultsKey)
     private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
@@ -86,6 +86,10 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(DisplayPicker.displayRecordKey)
     private var recordDisplay: Int = 0
     private var appRecorder: AppRecorder?
+
+    #if os(macOS)
+    private var wlan: CoreWLANWiFiScanNotifier?
+    #endif
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
@@ -429,6 +433,9 @@ class CallState: ObservableObject, Equatable {
                                             config: influxConfig.value,
                                             tags: tags)
         submitter = influx
+        #if os(macOS)
+        self.wlan = try? .init(submitter: influx)
+        #endif
         if self.showLabels {
             self.activeSpeakerStats = .init(influx)
         }
