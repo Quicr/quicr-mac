@@ -89,8 +89,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
     private var lastReceived: Date?
+    private let jitterCalculation: RFC3550Jitter
 
-    // Wi-Fi scan jitter buffer ramping
+    // Wi-Fi scan jitter buffer ramping state.
     enum RampState {
         case none, up(Date), spike(Date), down(Date)
     }
@@ -103,7 +104,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private var spikeToken: Int?
     private var lastSpikeRespondedTo: Int?
     private var currentSpikeLength: TimeInterval?
-    private let jitterCalculation: RFC3550Jitter
 
     /// Configuration for the handler.
     struct Config {
@@ -501,11 +501,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                   predictedMagnitude > baseDepth else { return } // Nothing to do.
             if let lastSpikeRespondedTo,
                prediction.spikeId <= lastSpikeRespondedTo {
-                return // Already responded to this prediction.
+                // Already responded to this prediction.
+                return
             }
 
             // Start ramp up in prep for scan.
-            self.logger.info("📡 STARTING RAMP UP: spike in \(timeToScan)s, predicted \(predictedMagnitude * 1000)ms")
+            self.logger.info("📡 Ramping up - Spike in \(timeToScan)s, predicted max interval \(predictedMagnitude * 1000)ms")
             self.lastSpikeRespondedTo = prediction.spikeId
             self.currentSpikeLength = prediction.predictedLength
             self.rampState = .up(timestamp)
@@ -513,7 +514,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             self.targetJitterDepth = predictedMagnitude + baseDepth
         case .up(let startTime):
             guard timestamp.timeIntervalSince(startTime) < self.rampDuration else {
-                self.logger.info("📡 RAMP UP COMPLETE, HOLDING AT DEPTH")
+                self.logger.info("📡 Ramp up complete")
                 self.rampState = .spike(timestamp)
                 return // Stay at spike depth.
             }
@@ -523,14 +524,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         case .spike(let startTime):
             guard timestamp.timeIntervalSince(startTime) > self.currentSpikeLength! else { return }
             // We're done, start ramp down.
-            self.logger.info("📡 STARTING RAMP DOWN: spike should be over")
+            self.logger.info("📡 Ramping down - Spike should be over")
             self.rampState = .down(timestamp)
             rampStartTime = timestamp
         case .down(let startTime):
             rampStartTime = startTime
             // Have we finished ramping down?
             if timestamp.timeIntervalSince(startTime) >= self.rampDuration {
-                self.logger.info("📡 RAMP DOWN COMPLETE")
+                self.logger.info("📡 Ramp down complete")
                 self.rampState = .none
                 self.currentSpikeLength = nil
             }
@@ -553,7 +554,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
         // Apply the new depth.
         jitterBuffer.setTargetAdjustment(adjustment)
-        self.logger.info("Set new target depth: \(jitterBuffer.getCurrentTargetDepth() * 1000)ms")
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {

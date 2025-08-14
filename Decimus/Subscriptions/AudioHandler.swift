@@ -213,9 +213,17 @@ class AudioHandler: TimeAlignable {
             self.timeAligner!.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: date)
 
             // Jitter calculation.
-            self.jitterCalculation.record(timestamp: timestamp, arrival: date)
             if self.config.adaptive {
-                jitterBuffer.setBaseTargetDepth(self.config.jitterDepth + (self.jitterCalculation.smoothed * 1.5))
+                self.jitterCalculation.record(timestamp: timestamp, arrival: date)
+                let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
+                                    (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
+                if let jitterBuffer = self.jitterBuffer {
+                    let existing = jitterBuffer.getBaseTargetDepth()
+                    let change = (newTarget - existing) / existing
+                    if change > 0 || change < -0.1 {
+                        jitterBuffer.setBaseTargetDepth(newTarget)
+                    }
+                }
             }
 
             // TODO: Is this right?
