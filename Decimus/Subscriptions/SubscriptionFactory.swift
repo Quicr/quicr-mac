@@ -212,7 +212,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.sframeContext = sframeContext
         self.calculateLatency = calculateLatency
         if self.subscriptionConfig.videoJitterBuffer.spikePrediction {
-            self.wifiScanDetector = .init(submitter: metricsSubmitter)
+            self.wifiScanDetector = MockWiFiScanDetector()
         } else {
             self.wifiScanDetector = nil
         }

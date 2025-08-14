@@ -265,9 +265,9 @@ class JitterBuffer {
                 self.baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
                 self.currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
                 // swiftlint:enable line_length
-                await measurement.measurement.curr// swiftlint:enable force_castentDepth(depth: depth!,
-                target: self.baseTargetDepth,
-                adjustment: self.currentAdjustmentDepth, timestamp: when)
+                await measurement.measurement.currentDepth(depth: depth!,
+                                                           target: self.baseTargetDepth,
+                                                           adjustment: self.currentAdjustmentDepth, timestamp: when)
                 if underrun {
                     await measurement.measurement.underrun(timestamp: when)
                 } else {

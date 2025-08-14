@@ -285,7 +285,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             let interval = when.timeIntervalSince(lastReceived)
             if let detector = self.detector {
                 detector.addIntervalMeasurement(interval: interval,
-                                                namespace: "\(self.fullTrackName)",
+                                                identifier: "\(self.fullTrackName)",
                                                 timestamp: when)
             }
         }
@@ -482,7 +482,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
 
     /// Update jitter buffer depth based on Wi-Fi scan prediction
-    private func updateJitterBufferForWiFiScan(prediction: WiFiScanDetector.Prediction,
+    private func updateJitterBufferForWiFiScan(prediction: Prediction,
                                                timestamp: Date) {
         // Wait until we're in a position to predict.
         guard let jitterBuffer = self.jitterBuffer,
