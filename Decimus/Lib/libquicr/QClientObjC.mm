@@ -38,7 +38,7 @@ static quicr::TransportConfig convert(TransportConfig config) {
     moqConfig.endpoint_id = std::string(config.endpointId);
     moqConfig.metrics_sample_ms = config.metricsSampleMs;
     moqConfig.transport_config = convert(config.transportConfig);
-    qClientPtr = std::make_unique<QClient>(moqConfig);
+    qClientPtr = QClient::Create(moqConfig);
     return self;
 }
 
@@ -142,6 +142,10 @@ static quicr::TransportConfig convert(TransportConfig config) {
 }
 
 // C++
+
+std::shared_ptr<QClient> QClient::Create(quicr::ClientConfig config) {
+    return std::shared_ptr<QClient>(new QClient(config));
+}
 
 QClient::QClient(quicr::ClientConfig config) : quicr::Client(config)
 {
