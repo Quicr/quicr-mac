@@ -21,6 +21,8 @@ class VideoSubscription: Subscription {
         let joinConfig: JoinConfig<UInt64>
         /// Whether to calculate/display latency metrics.
         let calculateLatency: Bool
+        /// True for media interop mode.
+        let mediaInterop: Bool
     }
 
     private let fullTrackName: FullTrackName
@@ -56,12 +58,13 @@ class VideoSubscription: Subscription {
     private var fetched = false
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
+    private let wifiScanDetector: WiFiScanDetector?
 
     // State machine.
-    private var stateMachine = StateMachine()
+    internal private(set) var stateMachine = StateMachine()
 
     /// Possible states the video subscription can be in.
-    private enum State: Equatable {
+    internal enum State: Equatable {
         /// We're waiting to make a decision about how to join the video stream.
         case startup
         /// We're running as normal, passing to handler.
@@ -69,14 +72,14 @@ class VideoSubscription: Subscription {
         /// We're currently fetching, processing fetched and live objects.
         case fetching(_ inProgress: Fetch)
         /// We're waiting for a new group to start, dropping anything else.
-        case waitingForNewGroup
+        case waitingForNewGroup(_ requested: Bool)
     }
     private enum StateMachineError: Error {
         case badTransition(_ from: State, _ to: State)
     }
     /// Models possible states and transitions for a video subscription.
-    private struct StateMachine {
-        var state = State.startup
+    internal struct StateMachine {
+        internal private(set) var state = State.startup
         func transition(to newState: State) throws -> Self {
             var result = self
             var valid: Bool {
@@ -131,6 +134,7 @@ class VideoSubscription: Subscription {
          cleanupTime: TimeInterval,
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
+         wifiScanDetector: WiFiScanDetector?,
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -154,6 +158,9 @@ class VideoSubscription: Subscription {
         self.endpointId = endpointId
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
+        self.wifiScanDetector = wifiScanDetector
+        let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
+                                                mediaInterop: self.subscriptionConfig.mediaInterop)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -168,7 +175,8 @@ class VideoSubscription: Subscription {
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
                                        activeSpeakerStats: self.activeSpeakerStats,
-                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
+                                       handlerConfig: handlerConfig,
+                                       wifiDetector: self.wifiScanDetector)
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
@@ -206,6 +214,10 @@ class VideoSubscription: Subscription {
         case drop
     }
 
+    internal func getCurrentState() -> VideoSubscription.State {
+        self.stateMachine.state
+    }
+
     private func determineState(objectHeaders: QObjectHeaders) -> Result {
         // swiftlint:disable force_try
         var getAction: Result { switch self.stateMachine.state {
@@ -237,7 +249,7 @@ class VideoSubscription: Subscription {
             guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
                 // Too far in, just wait.
                 self.logger.debug("Waiting for new group")
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
 
@@ -245,7 +257,7 @@ class VideoSubscription: Subscription {
                 // Not close enough to the start, new group and wait.
                 self.logger.debug("Requesting new group")
                 self.requestNewGroup()
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(true))
                 return .drop
             }
 
@@ -260,7 +272,7 @@ class VideoSubscription: Subscription {
                 // Fallback to waiting for new group behaviour.
                 self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
 
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup)
+                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
         case .waitingForNewGroup:
@@ -373,6 +385,8 @@ class VideoSubscription: Subscription {
             if let unwrapped = lockedHandler {
                 handler = unwrapped
             } else {
+                let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
+                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
                 let recreated = try VideoHandler(fullTrackName: self.fullTrackName,
                                                  config: self.config,
                                                  participants: self.participants,
@@ -387,7 +401,8 @@ class VideoSubscription: Subscription {
                                                  subscribeDate: self.creationDate,
                                                  joinDate: self.joinDate,
                                                  activeSpeakerStats: self.activeSpeakerStats,
-                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency))
+                                                 handlerConfig: config,
+                                                 wifiDetector: self.wifiScanDetector)
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated
                 handler = recreated

@@ -7,16 +7,17 @@ extension QSubscribeTrackHandlerStatus: Equatable, CaseIterable {
         .notConnected,
         .notSubscribed,
         .ok,
-        .pendingSubscribeResponse,
+        .pendingResponse,
         .sendingUnsubscribe,
-        .subscribeError
+        .error,
+        .paused
     ]
 
     /// Subset of statuses that are errors.
     public static let errors: [QSubscribeTrackHandlerStatus] = [.notConnected,
                                                                 .notAuthorized,
                                                                 .notSubscribed,
-                                                                .subscribeError]
+                                                                .error]
 
     /// True is this status is an error.
     public var isError: Bool { Self.errors.contains(self) }
@@ -62,6 +63,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
                    groupOrder: groupOrder,
                    filterType: filterType)
         super.setCallbacks(self)
+        super.setDeliveryTimeout(UInt64(profile.expiry?.max() ?? 5000))
     }
 
     /// Fires when the underlying subscription handler's status changes.

@@ -23,11 +23,11 @@ let relayConfigs: [RelayURLs: [MediaClient.ProtocolType: UInt16]] = [
     ],
     .usWest2: [
         .UDP: 33434,
-        .QUIC: 33435
+        .QUIC: 33437
     ],
     .euWest2: [
         .UDP: 33434,
-        .QUIC: 33435
+        .QUIC: 33437
     ]
 ]
 

@@ -42,7 +42,7 @@ typedef struct QClientConfig {
 @interface QClientObjC : NSObject<MoqClient>
 {
 #ifdef __cplusplus
-   std::unique_ptr<QClient> qClientPtr;
+   std::shared_ptr<QClient> qClientPtr;
 #endif
 }
 

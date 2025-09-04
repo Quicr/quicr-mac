@@ -72,7 +72,7 @@ class CallState: ObservableObject, Equatable {
     private var influxConfig: AppStorageWrapper<InfluxConfig> = .init(value: .init())
 
     @AppStorage("subscriptionConfig")
-    private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
+    private(set) var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
     @AppStorage(PlaytimeSettingsView.defaultsKey)
     private(set) var playtimeConfig: AppStorageWrapper<PlaytimeSettings> = .init(value: .init())
@@ -80,12 +80,19 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
+    @AppStorage(SettingsView.mediaInteropKey)
+    private(set) var mediaInterop = false
+
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
     @AppStorage(DisplayPicker.displayRecordKey)
     private var recordDisplay: Int = 0
     private var appRecorder: AppRecorder?
+
+    #if os(macOS)
+    private var wlan: CoreWLANWiFiScanNotifier?
+    #endif
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.config = config
@@ -182,7 +189,7 @@ class CallState: ObservableObject, Equatable {
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
-                                                        keyFrameOnUpdate: subConfig.keyFrameOnUpdate,
+                                                        keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                         startingGroup: self.audioStartingGroup,
                                                         sframeContext: self.sendContext)
         let playtime = self.playtimeConfig.value
@@ -203,7 +210,8 @@ class CallState: ObservableObject, Equatable {
                                                           startingGroup: startingGroupId,
                                                           manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
                                                           sframeContext: self.receiveContext,
-                                                          calculateLatency: self.showLabels)
+                                                          calculateLatency: self.showLabels,
+                                                          mediaInterop: self.mediaInterop)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 
@@ -341,8 +349,8 @@ class CallState: ObservableObject, Equatable {
         return qLogPath.path.withCString { qLogPath in
             let tConfig = TransportConfig(tls_cert_filename: nil,
                                           tls_key_filename: nil,
-                                          time_queue_init_queue_size: 1000,
-                                          time_queue_max_duration: 5000,
+                                          time_queue_init_queue_size: 1000 * 150,
+                                          time_queue_max_duration: 5000 * 150,
                                           time_queue_bucket_interval: 1,
                                           time_queue_rx_size: UInt32(subConfig.timeQueueTTL),
                                           debug: true,
@@ -429,6 +437,9 @@ class CallState: ObservableObject, Equatable {
                                             config: influxConfig.value,
                                             tags: tags)
         submitter = influx
+        #if os(macOS)
+        self.wlan = try? .init(submitter: influx)
+        #endif
         if self.showLabels {
             self.activeSpeakerStats = .init(influx)
         }

@@ -67,20 +67,11 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-#if DEBUG
--(void) setNewGroupCallback: (NewGroupCallback _Nonnull) callback context: (void* _Nonnull) context;
+-(void) setDeliveryTimeout:(uint64_t)timeout
 {
     assert(handlerPtr);
-    const std::uint64_t test = 0x1234;
-    handlerPtr->SetRequestId(test);
-    handlerPtr->SetTrackAlias(test);
-    handlerPtr->new_group_request_callback_ = [callback, context](quicr::messages::RequestID a, quicr::messages::TrackAlias b) {
-        assert(a == test);
-        assert(b == test);
-        callback(context);
-    };
+    handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
 }
-#endif
 
 @end
 

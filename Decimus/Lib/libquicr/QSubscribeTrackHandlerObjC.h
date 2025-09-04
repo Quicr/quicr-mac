@@ -32,10 +32,8 @@
 -(id<QLocation> _Nullable) getLatestLocation;
 -(void) requestNewGroup;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
+-(void)setDeliveryTimeout:(uint64_t) timeout;
 typedef void (*NewGroupCallback)(void* _Nonnull);
-#if DEBUG
--(void) setNewGroupCallback: (NewGroupCallback _Nonnull) callback context: (void* _Nonnull) context;
-#endif
 
 @end
 

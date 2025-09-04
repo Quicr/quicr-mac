@@ -30,6 +30,7 @@ class AudioHandler: TimeAlignable {
         let maxPlcThreshold: Int
         let playoutBufferTime: TimeInterval
         let slidingWindowTime: TimeInterval
+        let adaptive: Bool
     }
 
     private static let logger = DecimusLogger(AudioHandler.self)
@@ -52,6 +53,7 @@ class AudioHandler: TimeAlignable {
     private let metricsSubmitter: MetricsSubmitter?
     private let config: Config
     private let playing: Atomic<Bool> = .init(false)
+    private let jitterCalculation: RFC3550Jitter
 
     private var silenceDetectionBuffer: UnsafeMutableBufferPointer<Float32>?
 
@@ -88,6 +90,7 @@ class AudioHandler: TimeAlignable {
         self.asbd = .init(mutating: decoder.decodedFormat.streamDescription)
         self.config = config
         self.metricsSubmitter = metricsSubmitter
+        self.jitterCalculation = .init(identifier: identifier, submitter: metricsSubmitter)
         super.init()
         if !self.config.useNewJitterBuffer {
             // Create the jitter buffer.
@@ -208,6 +211,20 @@ class AudioHandler: TimeAlignable {
 
             // Set the timestamp diff from the first recveived object.
             self.timeAligner!.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: date)
+
+            // Jitter calculation.
+            if self.config.adaptive {
+                self.jitterCalculation.record(timestamp: timestamp, arrival: date)
+                let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
+                                    (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
+                if let jitterBuffer = self.jitterBuffer {
+                    let existing = jitterBuffer.getBaseTargetDepth()
+                    let change = (newTarget - existing) / existing
+                    if change > 0 || change < -0.1 {
+                        jitterBuffer.setBaseTargetDepth(newTarget)
+                    }
+                }
+            }
 
             // TODO: Is this right?
             // We don't want to emplace this if we're not playing out yet.

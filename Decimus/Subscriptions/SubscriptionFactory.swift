@@ -111,7 +111,7 @@ struct SubscriptionConfig: Codable {
     /// SFrame encryption of media settings.
     var sframeSettings: SFrameSettings
     /// True to publish keyframe on subscribe update.
-    var keyFrameOnUpdate: Bool
+    var keyFrameOnSubscribeUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
     /// Stream join time rules.
@@ -121,7 +121,7 @@ struct SubscriptionConfig: Codable {
     init() {
         jitterMaxTime = 1
         jitterDepthTime = 0.2
-        useNewJitterBuffer = false
+        self.useNewJitterBuffer = true
         opusWindowSize = .twentyMs
         self.audioPlcLimit = 6
         self.playoutBufferTime = 0.02
@@ -146,7 +146,7 @@ struct SubscriptionConfig: Codable {
         quicPriorityLimit = 0
         self.sframeSettings = .init()
         stagger = true
-        self.keyFrameOnUpdate = true
+        self.keyFrameOnSubscribeUpdate = false
         self.cleanupTime = 1.5
         self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
     }
@@ -181,6 +181,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let manualActiveSpeaker: Bool
     private let sframeContext: SFrameContext?
     private let calculateLatency: Bool
+    private let wifiScanDetector: WiFiScanDetector?
+    private let mediaInterop: Bool
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -195,7 +197,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          startingGroup: UInt64?,
          manualActiveSpeaker: Bool,
          sframeContext: SFrameContext?,
-         calculateLatency: Bool) {
+         calculateLatency: Bool,
+         mediaInterop: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -210,6 +213,12 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         self.manualActiveSpeaker = manualActiveSpeaker
         self.sframeContext = sframeContext
         self.calculateLatency = calculateLatency
+        if self.subscriptionConfig.videoJitterBuffer.spikePrediction {
+            self.wifiScanDetector = MockWiFiScanDetector()
+        } else {
+            self.wifiScanDetector = nil
+        }
+        self.mediaInterop = mediaInterop
     }
 
     func create(subscription: ManifestSubscription,
@@ -231,7 +240,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                              useNewJitterBuffer: self.subscriptionConfig.useNewJitterBuffer,
                                              maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                              playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
-                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window)
+                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
+                                             adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive)
             return ActiveSpeakerSubscriptionSet(subscription: subscription,
                                                 engine: engine,
                                                 ourParticipantId: self.participantId,
@@ -360,8 +370,10 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig,
-                                                                   calculateLatency: self.calculateLatency),
+                                                                   calculateLatency: self.calculateLatency,
+                                                                   mediaInterop: self.mediaInterop),
                                          sframeContext: self.sframeContext,
+                                         wifiScanDetector: self.wifiScanDetector,
                                          callback: { [weak set] details in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, details: details)
@@ -394,6 +406,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                         playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
                                         slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
+                                        config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive),
                                         statusChanged: unregister)
         } else if config is TextCodecConfig {
             return try MultipleCallbackSubscription(profile: profile,

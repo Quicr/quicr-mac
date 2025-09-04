@@ -61,8 +61,10 @@ struct TestVideoSubscription {
                                      cleanupTime: 1.5,
                                      subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                  newGroupUpperThreshold: ngThreshold),
-                                                               calculateLatency: false),
+                                                               calculateLatency: false,
+                                                               mediaInterop: false),
                                      sframeContext: nil,
+                                     wifiScanDetector: nil,
                                      callback: { callback?($0) },
                                      statusChanged: ({_ in }))
     }
@@ -80,18 +82,10 @@ struct TestVideoSubscription {
         subscription.metricsSampled(.init())
     }
 
-    private static var isDebug: Bool {
-        #if DEBUG
-        return true
-        #else
-        return false
-        #endif
-    }
-
     let fetchThreshold: UInt64 = 10
     let ngThreshold: UInt64 = 100
 
-    @Test("First object was start of group", .enabled(if: Self.isDebug))
+    @Test("First object was start of group")
     @MainActor
     func testNoFetch() async throws {
         // When we get the start of the group:
@@ -103,21 +97,14 @@ struct TestVideoSubscription {
                                     unsubscribe: {_ in},
                                     fetch: {_ in #expect(Bool(false)) },
                                     fetchCancel: {_ in #expect(Bool(false)) })
-        var newGroup = false
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
         subscription.mockObject(groupId: 0, objectId: 0)
-        #expect(newGroup == false)
+        #expect(subscription.getCurrentState() == .running)
     }
 
-    @Test("Test early in group", .enabled(if: Self.isDebug))
+    @Test("Test early in group")
     @MainActor
     func testFetch() async throws {
         // When we get an object early in the group.
@@ -133,26 +120,25 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        var newGroup = false
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
         let arrivedGroup: UInt64 = 0
         let arrivedObject: UInt64 = fetchThreshold - 1
 
         subscription.mockObject(groupId: arrivedGroup, objectId: arrivedObject)
+
+        switch subscription.getCurrentState() {
+        case .fetching(let fetching):
+            #expect(fetching.getStartGroup() == arrivedGroup)
+            #expect(fetching.getEndGroup() == arrivedGroup)
+            #expect(fetching.getStartObject() == 0)
+            #expect(fetching.getEndObject() == arrivedObject)
+            #expect(fetch == fetching)
+        default:
+            #expect(Bool(false), "Expected fetching state, got \(subscription.getCurrentState())")
+        }
         #expect(fetch != nil)
-        #expect(fetch!.getStartGroup() == arrivedGroup)
-        #expect(fetch!.getEndGroup() == arrivedGroup)
-        #expect(fetch!.getStartObject() == 0)
-        #expect(fetch!.getEndObject() == arrivedObject)
-        #expect(newGroup == false)
     }
 
-    @Test("Test middle of group", .enabled(if: Self.isDebug))
+    @Test("Test middle of group")
     @MainActor
     func testNewGroup() async throws {
         // We want to validate that a new group instead of fetch is kicked off,
@@ -168,18 +154,18 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
         subscription.mockObject(groupId: 0, objectId: fetchThreshold)
+        switch subscription.getCurrentState() {
+        case .waitingForNewGroup(let requested):
+            newGroup = requested
+        default:
+            break
+        }
         #expect(fetch == nil)
-        #expect(newGroup == true)
+        #expect(newGroup)
     }
 
-    @Test("Test Wait Too Late For New Group", .enabled(if: Self.isDebug))
+    @Test("Test Wait Too Late For New Group")
     @MainActor
     func testLateNewGroup() async throws {
         // We want to validate that no new group or fetch is kicked off,
@@ -195,13 +181,13 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        #if DEBUG
-        subscription.setNewGroupCallback({ usrData in
-            let bool = usrData.assumingMemoryBound(to: Bool.self)
-            bool.pointee = true
-        }, context: &newGroup)
-        #endif
         subscription.mockObject(groupId: 0, objectId: ngThreshold)
+        switch subscription.getCurrentState() {
+        case .waitingForNewGroup(let requested):
+            newGroup = requested
+        default:
+            break
+        }
         #expect(fetch == nil)
         #expect(newGroup == false)
     }

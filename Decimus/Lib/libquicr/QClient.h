@@ -12,7 +12,7 @@
 class QClient : public quicr::Client
 {
 public:
-    QClient(quicr::ClientConfig config);
+    static std::shared_ptr<QClient> Create(quicr::ClientConfig config);
     ~QClient();
 
     void StatusChanged(Status status) override;
@@ -21,6 +21,7 @@ public:
 
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:
+    QClient(quicr::ClientConfig config);
     __weak id<QClientCallbacks> _callbacks;
 };
 

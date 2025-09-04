@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
 import AVFoundation
 import Synchronization
 
@@ -38,13 +40,12 @@ typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
 class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
-    private static let logger = DecimusLogger(VideoHandler.self)
-
     /// The current configuration in use.
     let config: VideoCodecConfig
     /// The full track name identifiying this stream.
     let fullTrackName: FullTrackName
 
+    private let logger: DecimusLogger
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
@@ -88,11 +89,30 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
     private let handlerConfig: Config
+    private let detector: WiFiScanDetector?
+    private var lastReceived: Date?
+    private let jitterCalculation: RFC3550Jitter
+
+    // Wi-Fi scan jitter buffer ramping state.
+    enum RampState {
+        case none, up(Date), spike(Date), down(Date)
+    }
+    private var targetJitterDepth: TimeInterval
+    private var rampState = RampState.none
+    private let spikeDepth: TimeInterval = 0.200 // 200ms fallback
+    private let rampDuration: TimeInterval = 1.0  // 1s
+    private var predictable = false  // Don't predict if we can't
+    private var lastSpikeDetectionTime: Date?  // Track when we last detected elevated latency
+    private var spikeToken: Int?
+    private var lastSpikeRespondedTo: Int?
+    private var currentSpikeLength: TimeInterval?
 
     /// Configuration for the handler.
     struct Config {
         /// True to calculate end-to-end latency.
         let calculateLatency: Bool
+        /// True to use MoQ MI
+        let mediaInterop: Bool
     }
 
     /// Create a new video handler.
@@ -122,10 +142,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
          subscribeDate: Date,
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
-         handlerConfig: Config) throws {
+         handlerConfig: Config,
+         wifiDetector: WiFiScanDetector?) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
+        self.logger = .init(VideoHandler.self, prefix: "\(fullTrackName)")
         self.fullTrackName = fullTrackName
         self.config = config
         self.participants = participants
@@ -145,7 +167,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.handlerConfig = handlerConfig
+        self.detector = wifiDetector
+        self.targetJitterDepth = self.jitterBufferConfig.minDepth
+        self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
+                                       submitter: metricsSubmitter)
         super.init()
+        self.spikeToken = self.detector?.registerNotifyCallback { [weak self] in
+            guard let self = self else { return }
+            self.predictable = true
+        }
         if self.simulreceive != .enable {
             Task {
                 let participant = try await MainActor.run {
@@ -208,7 +238,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                                participant: participant,
                                                endToEndLatency: endToEndLatency)
                     } catch {
-                        Self.logger.error("Failed to enqueue decoded sample: \(error)")
+                        self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
                 }
             }
@@ -217,7 +247,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
     deinit {
         self.dequeueTask?.cancel()
-        Self.logger.debug("Deinit")
+        if let spikeToken = self.spikeToken {
+            self.detector!.removeNotifyCallback(token: spikeToken)
+        }
+        self.logger.debug("Deinit")
     }
 
     /// Register to receive notifications of an object being received.
@@ -246,12 +279,28 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     /// - Parameter when: Date when the object was received.
     /// - Parameter cached: True if this object is from the cache (not live).
     /// - Parameter drop: True if this object should be dropped.
-    func objectReceived(_ objectHeaders: QObjectHeaders,
+    func objectReceived(_ objectHeaders: QObjectHeaders, // swiftlint:disable:this cyclomatic_complexity function_body_length
                         data: Data,
                         extensions: [NSNumber: Data]?,
                         when: Date,
                         cached: Bool,
                         drop: Bool) {
+        if let lastReceived = self.lastReceived {
+            let interval = when.timeIntervalSince(lastReceived)
+            if let detector = self.detector {
+                detector.addIntervalMeasurement(interval: interval,
+                                                identifier: "\(self.fullTrackName)",
+                                                timestamp: when)
+            }
+        }
+        self.lastReceived = when
+
+        // Spike prediction and jitter buffer ramping.
+        if let detector = self.detector {
+            let prediction = detector.predictNextScan(from: when)
+            self.updateJitterBufferForWiFiScan(prediction: prediction, timestamp: when)
+        }
+
         guard !drop else {
             // Not usable, but notify receipt.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
@@ -272,57 +321,80 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             return
         }
 
+        // Video needs extensions to be present.
+        guard let extensions = extensions else {
+            self.logger.error("Missing expected header extensions")
+            return
+        }
+
+        let encoded: Data
+        let presentationTimestamp: CMTime
+        let sequence: UInt64
         do {
-            // Pull LOC data out of headers.
-            guard let extensions = extensions else {
-                Self.logger.error("Missing expected header extensions")
-                return
-            }
+            if self.handlerConfig.mediaInterop {
+                let metadata = switch try extensions.getHeader(.videoH264AVCCMetadata) {
+                case .videoH264AVCCMetadata(let metadata):
+                    metadata
+                default:
+                    throw "Bad header extension"
+                }
+                presentationTimestamp = .init(value: CMTimeValue(metadata.ptsTimestamp.value),
+                                              timescale: CMTimeScale(metadata.timebase.value))
+                sequence = metadata.seqId.value
 
-            // Metadata should exist for every frame.
-            let metadata = switch try extensions.getHeader(.videoH264AVCCMetadata) {
-            case .videoH264AVCCMetadata(let metadata):
-                metadata
-            default:
-                throw "Bad header extension"
-            }
+                let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
+                case .videoH264AVCCExtradata(let data):
+                    data
+                case nil:
+                    nil
+                default:
+                    throw "Bad header extension"
+                }
 
-            // Extradata may exist.
-            let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
-            case .videoH264AVCCExtradata(let data):
-                data
-            case nil:
-                nil
-            default:
-                throw "Bad header extension"
-            }
-
-            // TODO: Optimize this.
-            let encoded: Data
-            if let extradata = extradata {
-                encoded = extradata + data
+                if let extradata = extradata {
+                    encoded = extradata + data
+                } else {
+                    encoded = data
+                }
             } else {
+                let loc = try LowOverheadContainer(from: extensions)
+                guard let locSeq = loc.sequence else {
+                    self.logger.error("Video needs LOC sequence number set")
+                    return
+                }
                 encoded = data
+                presentationTimestamp = .init(value: .init(loc.timestamp.timeIntervalSince1970 * microsecondsPerSecond),
+                                              timescale: CMTimeScale(microsecondsPerSecond))
+                sequence = locSeq
             }
-
-            let presentation = CMTime(value: CMTimeValue(metadata.ptsTimestamp.value),
-                                      timescale: CMTimeScale(metadata.timebase.value))
-
-
 
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
                                                    data: encoded,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
-                                                   sequenceNumber: metadata.seqId.value,
-                                                   presentation: presentation) else {
-                Self.logger.warning("No video data in object")
+                                                   sequenceNumber: sequence,
+                                                   presentation: presentationTimestamp) else {
+                self.logger.error("Failed to depacketize video frame")
                 return
             }
 
             guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
-                Self.logger.error("Missing expected timestamp")
+                self.logger.error("Missing expected timestamp")
                 return
+            }
+
+            // Drive base target depth from smoothed RFC3550 jitter.
+            if self.jitterBufferConfig.adaptive {
+                // FIXME: Probably want to not involve Date if avoidable.
+                self.jitterCalculation.record(timestamp: .init(timeIntervalSince1970: timestamp), arrival: when)
+                let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
+                if let jitterBuffer = self.jitterBuffer {
+                    let existing = jitterBuffer.getBaseTargetDepth()
+                    let change = (newTarget - existing) / existing
+                    if change > 0 || change < -0.1 {
+                        jitterBuffer.setBaseTargetDepth(newTarget)
+                    }
+                }
             }
 
             if let measurement = self.measurement?.measurement,
@@ -332,14 +404,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 }
             }
 
+            // TODO: Reimplement.
             let publishTimestamp: Date? = nil
-//            if let publishTimestampData = loc.get(key: .publishTimestamp) {
-//                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
-//                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
-//                publishTimestamp = .init(timeIntervalSince1970: interval)
-//            } else {
-//                publishTimestamp = nil
-//            }
+            //            if let publishTimestampData = loc.get(key: .publishTimestamp) {
+            //                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
+            //                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
+            //                publishTimestamp = .init(timeIntervalSince1970: interval)
+            //            } else {
+            //                publishTimestamp = nil
+            //            }
 
             // Notify interested parties of this object.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
@@ -355,7 +428,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
             try self.submitEncodedData(frame, details: details)
         } catch {
-            Self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
+            self.logger.error("Failed to handle obj recv: \(error.localizedDescription)")
         }
     }
 
@@ -365,7 +438,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     func play() {
         guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
-            Self.logger.error("Set play with no buffer")
+            self.logger.error("Set play with no buffer")
             return
         }
         buffer.startPlaying()
@@ -395,9 +468,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             do {
                 try jitterBuffer.write(item: item, from: details.when)
             } catch JitterBufferError.full {
-                Self.logger.warning("Didn't enqueue as queue was full")
+                self.logger.warning("Didn't enqueue as queue was full")
             } catch JitterBufferError.old {
-                Self.logger.warning("Didn't enqueue as frame was older than last read")
+                self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
             try decode(sample: frame, from: details.when)
@@ -448,6 +521,81 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: details.cached)
             }
         }
+    }
+
+    /// Update jitter buffer depth based on Wi-Fi scan prediction
+    private func updateJitterBufferForWiFiScan(prediction: Prediction,
+                                               timestamp: Date) {
+        // Wait until we're in a position to predict.
+        guard let jitterBuffer = self.jitterBuffer,
+              self.predictable else { return }
+
+        let timeToScan = prediction.timeToScan
+        let predictedMagnitude = prediction.predictedMagnitude
+        let baseDepth = jitterBuffer.getBaseTargetDepth()
+
+        // Resolve current state.
+        let rampStartTime: Date
+        switch self.rampState {
+        case .none:
+            guard let timeToScan = timeToScan,
+                  timeToScan <= self.rampDuration,
+                  predictedMagnitude > baseDepth else { return } // Nothing to do.
+            if let lastSpikeRespondedTo,
+               prediction.spikeId <= lastSpikeRespondedTo {
+                // Already responded to this prediction.
+                return
+            }
+
+            // Start ramp up in prep for scan.
+            self.logger.info("📡 Ramping up - Spike in \(timeToScan)s, predicted max interval \(predictedMagnitude * 1000)ms")
+            self.lastSpikeRespondedTo = prediction.spikeId
+            self.currentSpikeLength = prediction.predictedLength
+            self.rampState = .up(timestamp)
+            rampStartTime = timestamp
+            self.targetJitterDepth = predictedMagnitude + baseDepth
+        case .up(let startTime):
+            guard timestamp.timeIntervalSince(startTime) < self.rampDuration else {
+                self.logger.info("📡 Ramp up complete")
+                self.rampState = .spike(timestamp)
+                return // Stay at spike depth.
+            }
+
+            // Still ramping up, no change.
+            rampStartTime = startTime
+        case .spike(let startTime):
+            guard timestamp.timeIntervalSince(startTime) > self.currentSpikeLength! else { return }
+            // We're done, start ramp down.
+            self.logger.info("📡 Ramping down - Spike should be over")
+            self.rampState = .down(timestamp)
+            rampStartTime = timestamp
+        case .down(let startTime):
+            rampStartTime = startTime
+            // Have we finished ramping down?
+            if timestamp.timeIntervalSince(startTime) >= self.rampDuration {
+                self.logger.info("📡 Ramp down complete")
+                self.rampState = .none
+                self.currentSpikeLength = nil
+            }
+        }
+
+        // Calculate new required depth.
+        let rampProgress = min(timestamp.timeIntervalSince(rampStartTime) / self.rampDuration, 100.0)
+        let adjustment = switch self.rampState {
+        case .up:
+            // Ramp up from base to spike depth.
+            (self.targetJitterDepth - baseDepth) * rampProgress
+        case .down:
+            // Ramp from spike depth back to base.
+            (self.targetJitterDepth - baseDepth) * (1 - rampProgress)
+        case .none:
+            TimeInterval(0)
+        case .spike:
+            predictedMagnitude // Should never happen.
+        }
+
+        // Apply the new depth.
+        jitterBuffer.setTargetAdjustment(adjustment)
     }
 
     private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
@@ -529,7 +677,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
                     } else {
                         guard let duration = self.duration else {
-                            Self.logger.error("Missing duration")
+                            self.logger.error("Missing duration")
                             return
                         }
                         waitTime = calculateWaitTime(from: now) ?? duration
@@ -564,7 +712,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now)
                         } catch {
-                            Self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -620,7 +768,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         for sampleBuffer in sample.samples {
             if self.jitterBufferConfig.mode == .layer {
                 guard let participant = self.participant.get() else {
-                    Self.logger.warning("Missing expected participant")
+                    self.logger.warning("Missing expected participant")
                     return
                 }
                 try self.enqueueSample(sample: sampleBuffer,
@@ -670,7 +818,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if sample.sampleAttachments.count > 0 {
                 sample.sampleAttachments[0][.displayImmediately] = true
             } else {
-                Self.logger.warning("Couldn't set display immediately attachment")
+                self.logger.warning("Couldn't set display immediately attachment")
             }
         }
 
@@ -694,7 +842,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     }
                 }
             } catch {
-                Self.logger.error("Could not enqueue sample: \(error)")
+                self.logger.error("Could not enqueue sample: \(error)")
             }
         }
     }
@@ -723,9 +871,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             do {
                 try participant.view.flush()
             } catch {
-                Self.logger.error("Could not flush layer: \(error)")
+                self.logger.error("Could not flush layer: \(error)")
             }
-            Self.logger.debug("Flushing display layer")
+            self.logger.debug("Flushing display layer")
             self.startTimeSet = false
         }
     }
@@ -762,7 +910,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     seis.append(sei)
                 }
             } catch {
-                Self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
+                self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
             }
         }
         let format: CMFormatDescription?

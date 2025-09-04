@@ -19,6 +19,10 @@ struct SettingsView: View {
     @AppStorage(Self.recordingKey)
     private var recordCall: Bool = false
 
+    static let mediaInteropKey = "mediaInterop"
+    @AppStorage(Self.mediaInteropKey)
+    private var mediaInterop: Bool = false
+
     var body: some View {
         // Reset all.
         HStack {
@@ -43,6 +47,7 @@ struct SettingsView: View {
                     }
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -65,6 +70,7 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             Section("Debug") {
+                LabeledToggle("Media Interop", isOn: self.$mediaInterop)
                 LabeledToggle("Verbose Logging", isOn: self.$verbose)
                 #if canImport(ScreenCaptureKit)
                 LabeledToggle("Record Call", isOn: self.$recordCall)
