@@ -378,15 +378,11 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 return
             }
 
-            guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
-                self.logger.error("Missing expected timestamp")
-                return
-            }
+            let presentationInterval = presentationTimestamp.seconds
 
             // Drive base target depth from smoothed RFC3550 jitter.
             if self.jitterBufferConfig.adaptive {
-                // FIXME: Probably want to not involve Date if avoidable.
-                self.jitterCalculation.record(timestamp: .init(timeIntervalSince1970: timestamp), arrival: when)
+                self.jitterCalculation.record(timestamp: presentationInterval, arrival: when)
                 let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
                 if let jitterBuffer = self.jitterBuffer {
                     let existing = jitterBuffer.getBaseTargetDepth()
@@ -400,23 +396,22 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if let measurement = self.measurement?.measurement,
                self.granularMetrics {
                 Task(priority: .utility) {
-                    await measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
+                    await measurement.timestamp(timestamp: presentationInterval, when: when, cached: cached)
                 }
             }
 
-            // TODO: Reimplement.
-            let publishTimestamp: Date? = nil
-            //            if let publishTimestampData = loc.get(key: .publishTimestamp) {
-            //                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
-            //                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
-            //                publishTimestamp = .init(timeIntervalSince1970: interval)
-            //            } else {
-            //                publishTimestamp = nil
-            //            }
+            let publishTimestamp: Date?
+            if let publishTimestampData = extensions[AppHeaderRegistry.publishTimestamp.rawValue] {
+                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
+                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
+                publishTimestamp = .init(timeIntervalSince1970: interval)
+            } else {
+                publishTimestamp = nil
+            }
 
             // Notify interested parties of this object.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
-            let details = ObjectReceived(timestamp: timestamp,
+            let details = ObjectReceived(timestamp: presentationInterval,
                                          when: when,
                                          cached: cached,
                                          headers: objectHeaders,
@@ -889,6 +884,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                              objectId: UInt64,
                              sequenceNumber: UInt64,
                              presentation: CMTime) throws -> DecimusVideoFrame? {
+        #if DEBUG
+        guard self.config.codec != .mock else {
+            return try self.mockedFrame(data: data,
+                                        presentation: presentation,
+                                        groupId: groupId,
+                                        objectId: objectId)
+        }
+        #endif
+
         let helpers: VideoHelpers = try {
             switch self.config.codec {
             case .h264:
@@ -954,12 +958,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
 
     #if DEBUG
-    private func mockedFrame(data: Data, timestamp: Date, groupId: UInt64, objectId: UInt64) throws -> DecimusVideoFrame {
+    private func mockedFrame(data: Data,
+                             presentation: CMTime,
+                             groupId: UInt64,
+                             objectId: UInt64) throws -> DecimusVideoFrame {
         var copy = data
         let sample = try copy.withUnsafeMutableBytes { bytes in
             let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                              presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
-                                                                           timescale: 1_000_000),
+                                              presentationTimeStamp: presentation,
                                               decodeTimeStamp: .invalid)
             return try CMSampleBuffer(dataBuffer: try .init(buffer: bytes) { _, _ in },
                                       formatDescription: nil,

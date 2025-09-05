@@ -46,7 +46,8 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         // Parse.
         let participantId: ParticipantId
         do {
-            let extracted = try LowOverheadContainer.parse(participantIdextension)
+            let extracted = try LowOverheadContainer.parse(participantIdextension,
+                                                           field: AppHeaderRegistry.participantId.rawValue)
             participantId = ParticipantId(UInt32(extracted))
         } catch {
             self.logger.error("Failed to extract participant ID: \(error.localizedDescription)")

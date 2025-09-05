@@ -6,11 +6,20 @@ import Foundation
 let microsecondsPerSecond: TimeInterval = 1_000_000
 
 /// Possible errors thrown by ``LowOverheadContainer``.
-enum LowOverheadContainerError: Error {
+enum LowOverheadContainerError: LocalizedError {
     /// The container was missing a mandatory field.
-    case missingField
+    case missingField(NSNumber)
     /// A field's value could not be parsed.
-    case unparsableField
+    case unparsableField(NSNumber)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingField(let field):
+            return "Missing mandatory field \(field)"
+        case .unparsableField(let field):
+            return "Could not parse field \(field)"
+        }
+    }
 }
 
 /// Representation of https://datatracker.ietf.org/doc/draft-mzanaty-moq-loc/
@@ -78,19 +87,19 @@ class LowOverheadContainer {
     init(from extensions: [NSNumber: Data]) throws {
         self.extensions = extensions
         guard let timestampData = extensions[self.timestampKey] else {
-            throw LowOverheadContainerError.missingField
+            throw LowOverheadContainerError.missingField(self.timestampKey)
         }
 
-        let timestamp = try Self.parse(timestampData)
+        let timestamp = try Self.parse(timestampData, field: self.timestampKey)
         self.timestamp = .init(timeIntervalSince1970: Double(timestamp) / microsecondsPerSecond)
         if let sequenceData = extensions[self.sequenceKey] {
-            self.sequence = UInt64(try Self.parse(sequenceData))
+            self.sequence = UInt64(try Self.parse(sequenceData, field: self.sequenceKey))
         } else {
             self.sequence = nil
         }
     }
 
-    static func parse(_ data: Data) throws -> any BinaryInteger {
+    static func parse(_ data: Data, field: NSNumber) throws -> any BinaryInteger {
         switch data.count {
         case MemoryLayout<UInt64>.size:
             data.withUnsafeBytes {
@@ -109,7 +118,7 @@ class LowOverheadContainer {
                 $0.loadUnaligned(as: UInt8.self)
             }
         default:
-            throw LowOverheadContainerError.unparsableField
+            throw LowOverheadContainerError.unparsableField(field)
         }
     }
 }

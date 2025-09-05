@@ -93,7 +93,7 @@ struct VideoMetadata: WireEncodable {
     }
 
     /// Initialize Metadata from video sample input
-    init(sample: CMSampleBuffer, sequence: UInt64, date: Date) throws {
+    init(sample: CMSampleBuffer, sequence: UInt64, date: Date?) throws {
         // Validate we can represent this sample.
         guard sample.presentationTimeStamp.value >= 0,
               sample.decodeTimeStamp.value >= 0,
@@ -117,8 +117,16 @@ struct VideoMetadata: WireEncodable {
         self.ptsTimestamp = .init(pts.value)
         self.dtsTimestamp = .init(dts.value)
         self.timebase = .init(timescale)
-        self.duration = .init(duration != nil ? duration!.value : 0)
-        self.wallClock = .init(UInt64(date.timeIntervalSince1970 * 1000))
+        if let duration {
+            self.duration = .init(duration.value)
+        } else {
+            self.duration = 0
+        }
+        if let date {
+            self.wallClock = .init(UInt64(date.timeIntervalSince1970 * 1000))
+        } else {
+            self.wallClock = 0
+        }
     }
 
     /// Serialize Metadata to varint encodded byte array

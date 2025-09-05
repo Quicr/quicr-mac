@@ -191,7 +191,8 @@ class CallState: ObservableObject, Equatable {
                                                         verbose: self.verbose,
                                                         keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                         startingGroup: self.audioStartingGroup,
-                                                        sframeContext: self.sendContext)
+                                                        sframeContext: self.sendContext,
+                                                        mediaInterop: self.mediaInterop)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()

@@ -57,7 +57,8 @@ class FakeH264Publication: H264Publication {
                        stagger: stagger,
                        verbose: verbose,
                        keyFrameOnUpdate: keyFrameOnUpdate,
-                       sframeContext: nil)
+                       sframeContext: nil,
+                       mediaInterop: false)
     }
 
     required init(profile: Profile,
@@ -72,9 +73,10 @@ class FakeH264Publication: H264Publication {
                   stagger: Bool,
                   verbose: Bool,
                   keyFrameOnUpdate: Bool,
-                  sframeContext: SendSFrameContext?) throws {
+                  sframeContext: SendSFrameContext?,
+                  mediaInterop: Bool) throws {
         // swiftlint:disable:next line_length
-        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:) has not been implemented")
+        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:) has not been implemented")
     }
 
     override func publish(groupId: UInt64,
@@ -134,7 +136,8 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                      stagger: stagger,
                      verbose: true,
                      keyFrameOnUpdate: false,
-                     sframeContext: nil)
+                     sframeContext: nil,
+                     mediaInterop: false)
 }
 
 final class TestVideoPublication: XCTestCase {

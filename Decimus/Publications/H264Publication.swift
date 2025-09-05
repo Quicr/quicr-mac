@@ -41,6 +41,7 @@ class H264Publication: Publication, FrameListener {
     private let emitStartCodes = false
     private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
+    private let mediaInterop: Bool
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -53,6 +54,7 @@ class H264Publication: Publication, FrameListener {
         var extensions = HeaderExtensions()
 
         // Prepend format data.
+        let extradata: Data?
         let idr = sample.isIDR()
         if idr {
             // SPS + PPS.
@@ -61,13 +63,12 @@ class H264Publication: Publication, FrameListener {
                 return
             }
 
-            // append SPS/PPS to beginning of buffer
             let totalSize = parameterSets.reduce(0) { current, set in
                 current + set.count + publication.startCode.count
             }
 
-            var extradata = Data(count: totalSize)
-            extradata.withUnsafeMutableBytes { parameterDestination in
+            var workingExtradata = Data(count: totalSize)
+            workingExtradata.withUnsafeMutableBytes { parameterDestination in
                 var offset = 0
                 for set in parameterSets {
                     // Copy either start code or UInt32 length.
@@ -92,12 +93,31 @@ class H264Publication: Publication, FrameListener {
                 }
             }
 
-            // Set the parameter sets to the extradata header.
-            do {
-                try extensions.setHeader(.videoH264AVCCExtradata(extradata))
-            } catch {
-                publication.logger.error("Failed to set extradata extension: \(error.localizedDescription)")
+            if publication.mediaInterop {
+                // Set the parameter sets to the extradata header.
+                do {
+                    try extensions.setHeader(.videoH264AVCCExtradata(workingExtradata))
+                } catch {
+                    publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
+                }
             }
+            extradata = workingExtradata
+        } else {
+            extradata = nil
+        }
+
+        // Per frame extensions.
+        if publication.mediaInterop {
+            do {
+                try extensions.setHeader(.videoH264AVCCMetadata(.init(sample: sample,
+                                                                      sequence: publication.sequence,
+                                                                      date: presentationDate)))
+            } catch {
+                publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
+            }
+        } else {
+            let loc = LowOverheadContainer(timestamp: presentationDate, sequence: publication.sequence)
+            extensions = loc.extensions
         }
 
         let buffer = sample.dataBuffer!
@@ -143,20 +163,19 @@ class H264Publication: Publication, FrameListener {
             thisObjectId = 0
         }
 
-        do {
-            try extensions.setHeader(.videoH264AVCCMetadata(.init(sample: sample,
-                                                                  sequence: publication.sequence,
-                                                                  date: presentationDate)))
-        } catch {
-            publication.logger.error("Failed to set header extensions: \(error.localizedDescription)")
-        }
-
         // Publish.
         var protected: Data?
         let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
-            let data = Data(bytesNoCopy: .init(mutating: ptr.baseAddress!),
-                            count: ptr.count,
-                            deallocator: .none)
+            let data: Data
+            if let extradata {
+                let sampleData = Data(bytes: ptr.baseAddress!, count: ptr.count)
+                data = extradata + sampleData
+            } else {
+                data = .init(bytesNoCopy: .init(mutating: ptr.baseAddress!),
+                             count: ptr.count,
+                             deallocator: .none)
+            }
+
             let protected: Data
             if let sframeContext = publication.sframeContext {
                 do {
@@ -222,7 +241,8 @@ class H264Publication: Publication, FrameListener {
                   stagger: Bool,
                   verbose: Bool,
                   keyFrameOnUpdate: Bool,
-                  sframeContext: SendSFrameContext?) throws {
+                  sframeContext: SendSFrameContext?,
+                  mediaInterop: Bool) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -241,6 +261,7 @@ class H264Publication: Publication, FrameListener {
         self.verbose = verbose
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.sframeContext = sframeContext
+        self.mediaInterop = mediaInterop
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         guard let defaultPriority = profile.priorities?.first,

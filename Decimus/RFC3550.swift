@@ -3,7 +3,7 @@
 
 /// Calculates interarrival jitter according to RFC 3550.
 class RFC3550Jitter {
-    private var transit: TimeInterval = 0
+    private var transit: TimeInterval?
     /// Current jitter value.
     private(set) var jitter: TimeInterval = 0
     /// Exponentially smoothed value.
@@ -19,13 +19,18 @@ class RFC3550Jitter {
             return
         }
         self.measurement = .init(measurement: .init(namespace: identifier),
-                                                    submitter: submitter)
+                                 submitter: submitter)
     }
 
-    func record(timestamp: Date, arrival: Date) {
+    func record(timestamp: TimeInterval, arrival: Date) {
         // Calculation.
-        let transit = arrival.timeIntervalSince1970 - timestamp.timeIntervalSince1970
-        var d = transit - self.transit // swiftlint:disable:this identifier_name
+        let transit = arrival.timeIntervalSince1970 - timestamp
+        guard let lastTransit = self.transit else {
+            self.transit = transit
+            return
+        }
+
+        var d = transit - lastTransit // swiftlint:disable:this identifier_name
         self.transit = transit
         if d < 0 {
             d = -d

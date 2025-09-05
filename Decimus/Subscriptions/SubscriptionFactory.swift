@@ -406,7 +406,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                         playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
                                         slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
-                                        config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive),
+                                        config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive,
+                                                      mediaInterop: self.mediaInterop),
                                         statusChanged: unregister)
         } else if config is TextCodecConfig {
             return try MultipleCallbackSubscription(profile: profile,

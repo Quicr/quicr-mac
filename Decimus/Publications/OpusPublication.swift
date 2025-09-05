@@ -27,6 +27,7 @@ class OpusPublication: Publication, AudioPublication {
     private let publish: Atomic<Bool>
     private let incrementing: Incrementing
     private let sframeContext: SendSFrameContext?
+    private let mediaInterop: Bool
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -41,6 +42,7 @@ class OpusPublication: Publication, AudioPublication {
          startActive: Bool,
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
+         mediaInterop: Bool,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -55,6 +57,7 @@ class OpusPublication: Publication, AudioPublication {
         self.granularMetrics = granularMetrics
         self.incrementing = incrementing
         self.sframeContext = sframeContext
+        self.mediaInterop = mediaInterop
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -94,7 +97,9 @@ class OpusPublication: Publication, AudioPublication {
                         var encodePassCount = 0
                         while let data = try self.encode() {
                             encodePassCount += 1
-                            self.publish(data: data.encodedData, metadata: data.metadata, decibel: data.decibelLevel)
+                            self.publish(data: data.encodedData,
+                                         extensions: data.extensions,
+                                         decibel: data.decibelLevel)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -125,7 +130,24 @@ class OpusPublication: Publication, AudioPublication {
         self.publish.store(active, ordering: .releasing)
     }
 
-    private func publish(data: Data, metadata: AudioBitstreamData, decibel: Int) {
+    private func getExtensions(wallClock: Date, dequeuedTimestamp: AudioTimeStamp) throws -> HeaderExtensions {
+        if self.mediaInterop {
+            var extensions = HeaderExtensions()
+            let metadata = AudioBitstreamData(seqId: self.currentGroupId,
+                                              ptsTimestamp: dequeuedTimestamp.mHostTime,
+                                              timebase: 1_000_000_000, sampleFreq: UInt64(self.pcm.format.sampleRate),
+                                              numChannels: UInt64(self.pcm.format.channelCount),
+                                              duration: UInt64(self.opusWindowSize.rawValue * 1_000_000_000.0),
+                                              wallClock: UInt64(wallClock.timeIntervalSince1970 * 1000))
+            try extensions.setHeader(.audioOpusBitstreamData(metadata))
+            return extensions
+        } else {
+            let loc = LowOverheadContainer(timestamp: wallClock, sequence: self.currentGroupId)
+            return loc.extensions
+        }
+    }
+
+    private func publish(data: Data, extensions: HeaderExtensions, decibel: Int) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -137,22 +159,8 @@ class OpusPublication: Publication, AudioPublication {
             Self.logger.warning("Not published due to status: \(self.getStatus())")
             return
         }
-        var extensions = HeaderExtensions()
-        /*
-         let seqId: VarInt
-         let ptsTimestamp: VarInt
-         let timebase: VarInt
-         let sampleFreq: VarInt
-         let numChannels: VarInt
-         let duration: VarInt
-         let wallClock: VarInt
-         */
 
-        do {
-            try extensions.setHeader(.audioOpusBitstreamData(metadata))
-        } catch {
-            OpusPublication.logger.error("Failed to set opusBitstream header extensions: \(error.localizedDescription)")
-        }
+        var extensions = extensions
 
         var priority = self.getPriority(0)
         var ttl = self.getTTL(0)
@@ -161,7 +169,8 @@ class OpusPublication: Publication, AudioPublication {
         let energyLevelValue = adjusted | mask
         extensions[AppHeaderRegistry.energyLevel.rawValue] = Data([energyLevelValue])
         var participantId = self.participantId.aggregate
-        extensions[AppHeaderRegistry.participantId.rawValue] = Data(bytes: &participantId, count: MemoryLayout<UInt32>.size)
+        extensions[AppHeaderRegistry.participantId.rawValue] = Data(bytes: &participantId,
+                                                                    count: MemoryLayout<UInt32>.size)
 
         let protected: Data
         if let sframeContext {
@@ -207,7 +216,7 @@ class OpusPublication: Publication, AudioPublication {
     struct EncodeResult {
         let encodedData: Data
         let decibelLevel: Int
-        let metadata: AudioBitstreamData
+        let extensions: HeaderExtensions
     }
 
     private func encode() throws -> EncodeResult? {
@@ -239,13 +248,8 @@ class OpusPublication: Publication, AudioPublication {
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
-        let metadata = AudioBitstreamData(seqId: self.currentGroupId,
-                                          ptsTimestamp: dequeued.timestamp.mHostTime,
-                                          timebase: 1_000_000_000, sampleFreq: UInt64(self.pcm.format.sampleRate),
-                                          numChannels: UInt64(self.pcm.format.channelCount),
-                                          duration: UInt64(self.opusWindowSize.rawValue * 1_000_000_000.0),
-                                          wallClock: UInt64(wallClock.timeIntervalSince1970 * 1000))
-        return .init(encodedData: encoded, decibelLevel: decibel, metadata: metadata)
+        let extensions = try self.getExtensions(wallClock: wallClock, dequeuedTimestamp: dequeued.timestamp)
+        return .init(encodedData: encoded, decibelLevel: decibel, extensions: extensions)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

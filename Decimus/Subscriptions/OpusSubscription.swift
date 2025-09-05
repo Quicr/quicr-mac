@@ -9,6 +9,7 @@ class OpusSubscription: Subscription {
 
     struct Config {
         let adaptive: Bool
+        let mediaInterop: Bool
     }
 
     private let profile: Profile
@@ -144,17 +145,36 @@ class OpusSubscription: Subscription {
             return
         }
 
-        let metadata: AudioBitstreamData
+        let sequence: UInt64
+        let timestamp: Date
         do {
-            metadata = switch try extensions.getHeader(.audioOpusBitstreamData) {
-            case .audioOpusBitstreamData(let metadata):
-                metadata
-            default:
-                throw "Missing expected interop extension"
+            if self.config.mediaInterop {
+                let metadata: AudioBitstreamData
+
+                metadata = switch try extensions.getHeader(.audioOpusBitstreamData) {
+                case .audioOpusBitstreamData(let metadata):
+                    metadata
+                default:
+                    throw "Missing expected interop extension"
+                }
+                sequence = metadata.seqId.value
+                timestamp = .init(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+            } else {
+                let loc = try LowOverheadContainer(from: extensions)
+                sequence = loc.sequence ?? objectHeaders.groupId
+                timestamp = loc.timestamp
             }
         } catch {
-            Self.logger.error("Couldn't parse metadata")
+            Self.logger.error("Failed to parse extensions: \(error.localizedDescription)")
             return
+        }
+
+        if let activeSpeakerStats = self.activeSpeakerStats,
+           let participantId = extensions[AppHeaderRegistry.participantId.rawValue] {
+            Task(priority: .utility) {
+                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+            }
         }
 
         // Unprotect.
@@ -171,7 +191,6 @@ class OpusSubscription: Subscription {
         }
 
         // TODO: Handle sequence rollover.
-        let sequence = metadata.seqId.value
         if sequence > self.seq {
             let missing = sequence - self.seq - 1
             let currentSeq = self.seq
@@ -216,15 +235,6 @@ class OpusSubscription: Subscription {
             Self.logger.error("Failed to recreate audio handler")
             return
         }
-
-        let timestamp = Date(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
-        //        if let activeSpeakerStats = self.activeSpeakerStats,
-        //           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
-        //            Task(priority: .utility) {
-        //                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-        //                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
-        //            }
-        //        }
 
         do {
             try handler.submitEncodedAudio(data: unprotected,
