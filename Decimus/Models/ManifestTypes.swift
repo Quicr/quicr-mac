@@ -92,14 +92,13 @@ struct Profile: Codable {
     let priorities: [Int]?
     /// The namespace this publication/subscription is for.
     let namespace: [String]
-    /// The name this publication is for.
+    /// The name this publication/subscription is for.
     let name: String?
     let channel: Int?
 
     enum CodingKeys: String, CodingKey {
-        case qualityProfile, expiry, priorities, channel
-        case namespace = "trackNamespace"
-        case name = "trackName"
+        case qualityProfile, expiry, priorities, channel, name
+        case namespace = "quicrNamespace"
     }
 
     /// Ctreate a new quality profile from its parts.
