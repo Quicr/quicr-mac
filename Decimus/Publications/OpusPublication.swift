@@ -144,7 +144,6 @@ class OpusPublication: Publication, AudioPublication {
             try extensions.setHeader(.audioOpusBitstreamData(metadata))
         } else {
             // LOC.
-            var extensions = HeaderExtensions()
             try extensions.setHeader(.captureTimestamp(wallClock))
             let sequence = self.incrementing == .group ? self.currentGroupId : self.currentObjectId
             try extensions.setHeader(.sequenceNumber(sequence))
