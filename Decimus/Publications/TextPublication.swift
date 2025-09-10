@@ -4,7 +4,7 @@
 /// Publishes text messages.
 class TextPublication: Publication {
     private let incrementing: Incrementing
-    private let participantId: Data
+    private let participantId: ParticipantId
     private let logger = DecimusLogger(TextPublication.self)
     private let sframeContext: SendSFrameContext?
 
@@ -21,7 +21,7 @@ class TextPublication: Publication {
          relayId: String,
          sframeContext: SendSFrameContext?,
          startingGroupId: UInt64) throws {
-        self.participantId = withUnsafeBytes(of: participantId.aggregate) { Data($0) }
+        self.participantId = participantId
         self.incrementing = incrementing
         guard let priority = profile.priorities?.first,
               let ttl = profile.expiry?.first else {
@@ -61,10 +61,11 @@ class TextPublication: Publication {
                                      payloadLength: UInt64(data.count),
                                      priority: nil,
                                      ttl: nil)
-
+        var extensions = HeaderExtensions()
+        try? extensions.setHeader(.participantId(self.participantId))
         let status = self.publishObject(headers,
                                         data: data,
-                                        extensions: [AppHeaderRegistry.participantId.rawValue: self.participantId])
+                                        extensions: extensions)
         switch status {
         case .ok:
             break

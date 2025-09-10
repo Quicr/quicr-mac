@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
 import AVFoundation
 import Synchronization
 
@@ -109,6 +111,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     struct Config {
         /// True to calculate end-to-end latency.
         let calculateLatency: Bool
+        /// True to use MoQ MI
+        let mediaInterop: Bool
     }
 
     /// Create a new video handler.
@@ -275,7 +279,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     /// - Parameter when: Date when the object was received.
     /// - Parameter cached: True if this object is from the cache (not live).
     /// - Parameter drop: True if this object should be dropped.
-    func objectReceived(_ objectHeaders: QObjectHeaders,
+    func objectReceived(_ objectHeaders: QObjectHeaders, // swiftlint:disable:this cyclomatic_complexity function_body_length
                         data: Data,
                         extensions: [NSNumber: Data]?,
                         when: Date,
@@ -317,35 +321,78 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             return
         }
 
+        // Video needs extensions to be present.
+        guard let extensions = extensions else {
+            self.logger.error("Missing expected header extensions")
+            return
+        }
+
+        let encoded: Data
+        let presentationTimestamp: CMTime
+        let sequence: UInt64
         do {
-            // Pull LOC data out of headers.
-            guard let extensions = extensions else {
-                self.logger.warning("Missing expected LOC headers")
-                return
+            if self.handlerConfig.mediaInterop {
+                let metadata = switch try extensions.getHeader(.videoH264AVCCMetadata) {
+                case .videoH264AVCCMetadata(let metadata):
+                    metadata
+                default:
+                    throw "Bad header extension"
+                }
+                presentationTimestamp = .init(value: CMTimeValue(metadata.ptsTimestamp.value),
+                                              timescale: CMTimeScale(metadata.timebase.value))
+                sequence = metadata.seqId.value
+
+                let extradata: Data? = switch try extensions.getHeader(.videoH264AVCCExtradata) {
+                case .videoH264AVCCExtradata(let data):
+                    data
+                case nil:
+                    nil
+                default:
+                    throw "Bad header extension"
+                }
+
+                if let extradata = extradata {
+                    encoded = extradata + data
+                } else {
+                    encoded = data
+                }
+            } else {
+                // Data.
+                encoded = data
+
+                // Sequence number.
+                guard let sequenceData = try? extensions.getHeader(.sequenceNumber),
+                      case .sequenceNumber(let seq) = sequenceData else {
+                    self.logger.error("Video needs LOC sequence number set")
+                    return
+                }
+                sequence = seq
+
+                // Timestamp.
+                guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
+                      case .captureTimestamp(let timestamp) = presentationTimestampData else {
+                    self.logger.error("Video needs LOC timestamp set")
+                    return
+                }
+                presentationTimestamp = .init(value: .init(timestamp.timeIntervalSince1970 * microsecondsPerSecond),
+                                              timescale: CMTimeScale(microsecondsPerSecond))
             }
-            let loc = try LowOverheadContainer(from: extensions)
-            guard let sequence = loc.sequence else {
-                self.logger.error("Video needs LOC sequence number set")
-                return
-            }
+
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
-                                                   data: data,
+                                                   data: encoded,
                                                    groupId: objectHeaders.groupId,
                                                    objectId: objectHeaders.objectId,
                                                    sequenceNumber: sequence,
-                                                   timestamp: loc.timestamp) else {
-                self.logger.warning("No video data in object")
+                                                   presentation: presentationTimestamp) else {
+                self.logger.error("Failed to depacketize video frame")
                 return
             }
 
-            guard let timestamp = frame.samples.first?.presentationTimeStamp.seconds else {
-                self.logger.error("Missing expected timestamp")
-                return
-            }
+            let presentationInterval = presentationTimestamp.seconds
 
             // Drive base target depth from smoothed RFC3550 jitter.
             if self.jitterBufferConfig.adaptive {
-                self.jitterCalculation.record(timestamp: loc.timestamp, arrival: when)
+                self.jitterCalculation.record(timestamp: presentationInterval, arrival: when)
                 let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
                 if let jitterBuffer = self.jitterBuffer {
                     let existing = jitterBuffer.getBaseTargetDepth()
@@ -359,22 +406,21 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if let measurement = self.measurement?.measurement,
                self.granularMetrics {
                 Task(priority: .utility) {
-                    await measurement.timestamp(timestamp: timestamp, when: when, cached: cached)
+                    await measurement.timestamp(timestamp: presentationInterval, when: when, cached: cached)
                 }
             }
 
             let publishTimestamp: Date?
-            if let publishTimestampData = loc.get(key: .publishTimestamp) {
-                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
-                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
-                publishTimestamp = .init(timeIntervalSince1970: interval)
+            if let publishTimestampDate = try? extensions.getHeader(.publishTimestamp),
+               case .publishTimestamp(let extracted) = publishTimestampDate {
+                publishTimestamp = extracted
             } else {
                 publishTimestamp = nil
             }
 
             // Notify interested parties of this object.
             let toCall: [ObjectReceivedCallback] = self.callbacks.withLock { Array($0.callbacks.values) }
-            let details = ObjectReceived(timestamp: timestamp,
+            let details = ObjectReceived(timestamp: presentationInterval,
                                          when: when,
                                          cached: cached,
                                          headers: objectHeaders,
@@ -846,10 +892,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                              groupId: UInt64,
                              objectId: UInt64,
                              sequenceNumber: UInt64,
-                             timestamp: Date) throws -> DecimusVideoFrame? {
+                             presentation: CMTime) throws -> DecimusVideoFrame? {
         #if DEBUG
         guard self.config.codec != .mock else {
-            return try self.mockedFrame(data: data, timestamp: timestamp, groupId: groupId, objectId: objectId)
+            return try self.mockedFrame(data: data,
+                                        presentation: presentation,
+                                        groupId: groupId,
+                                        objectId: objectId)
         }
         #endif
 
@@ -896,8 +945,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
         guard let buffers = buffers else { return nil }
         let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                          presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
-                                                                       timescale: 1_000_000),
+                                          presentationTimeStamp: presentation,
                                           decodeTimeStamp: .invalid)
 
         var samples: [CMSampleBuffer] = []
@@ -919,12 +967,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
 
     #if DEBUG
-    private func mockedFrame(data: Data, timestamp: Date, groupId: UInt64, objectId: UInt64) throws -> DecimusVideoFrame {
+    private func mockedFrame(data: Data,
+                             presentation: CMTime,
+                             groupId: UInt64,
+                             objectId: UInt64) throws -> DecimusVideoFrame {
         var copy = data
         let sample = try copy.withUnsafeMutableBytes { bytes in
             let timeInfo = CMSampleTimingInfo(duration: .invalid,
-                                              presentationTimeStamp: .init(value: CMTimeValue(timestamp.timeIntervalSince1970 * 1_000_000),
-                                                                           timescale: 1_000_000),
+                                              presentationTimeStamp: presentation,
                                               decodeTimeStamp: .invalid)
             return try CMSampleBuffer(dataBuffer: try .init(buffer: bytes) { _, _ in },
                                       formatDescription: nil,

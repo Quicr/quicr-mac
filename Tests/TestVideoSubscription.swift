@@ -61,7 +61,8 @@ struct TestVideoSubscription {
                                      cleanupTime: 1.5,
                                      subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                  newGroupUpperThreshold: ngThreshold),
-                                                               calculateLatency: false),
+                                                               calculateLatency: false,
+                                                               mediaInterop: false),
                                      sframeContext: nil,
                                      wifiScanDetector: nil,
                                      callback: { callback?($0) },
@@ -220,7 +221,10 @@ struct TestVideoSubscription {
         var sequence: UInt64 = 0
         func loc() -> [NSNumber: Data] {
             sequence += 1
-            return LowOverheadContainer(timestamp: .now, sequence: sequence).extensions
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
         }
 
         // Get into waiting for new group state.

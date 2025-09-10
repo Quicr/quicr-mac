@@ -72,8 +72,13 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
     quicr::ObjectHeaders headers = from(objectHeaders, extensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
     quicr::BytesSpan span { ptr, data.length };
-    auto status = handlerPtr->PublishObject(headers, span);
-    return static_cast<QPublishObjectStatus>(status);
+    try {
+        auto status = handlerPtr->PublishObject(headers, span);
+        return static_cast<QPublishObjectStatus>(status);
+    } catch (const std::exception& e) {
+        std::cerr << "Exception in publishObject: " << e.what() << std::endl;
+        return kQPublishObjectStatusInternalError;
+    }
 }
 
 -(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nullable) extensions {

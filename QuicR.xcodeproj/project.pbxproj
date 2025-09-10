@@ -86,6 +86,10 @@
 		9B4A44E92DEAFB810058F5CD /* AppRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
 		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
+		9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC6812D85976D009A2872 /* LOCRegistry.swift */; };
+		9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */; };
+		9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68C2D85B926009A2872 /* VarInt.swift */; };
+		9B5EC68F2D85C003009A2872 /* TestVarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68E2D85C000009A2872 /* TestVarInt.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
@@ -123,7 +127,6 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
-		9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
 		9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB707AB2E40B51700C697B6 /* RFC3550.swift */; };
 		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
@@ -307,6 +310,10 @@
 		9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRecorder.swift; sourceTree = "<group>"; };
 		9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
 		9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAligned.swift; sourceTree = "<group>"; };
+		9B5EC6812D85976D009A2872 /* LOCRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LOCRegistry.swift; sourceTree = "<group>"; };
+		9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMediaInterop.swift; sourceTree = "<group>"; };
+		9B5EC68C2D85B926009A2872 /* VarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarInt.swift; sourceTree = "<group>"; };
+		9B5EC68E2D85C000009A2872 /* TestVarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarInt.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
@@ -360,7 +367,6 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
-		9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowOverheadContainer.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
 		9BB707AB2E40B51700C697B6 /* RFC3550.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFC3550.swift; sourceTree = "<group>"; };
 		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
@@ -578,6 +584,8 @@
 		9B85951C29F04521008C813C /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				9B5EC68E2D85C000009A2872 /* TestVarInt.swift */,
+				9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */,
 				9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */,
 				9B6C9F102DE629720041B9C1 /* TestAudioUtilities.swift */,
 				9B7C91DC2DA67060008F1DDB /* TestActiveSpeakerStats.swift */,
@@ -634,7 +642,6 @@
 				9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */,
 				9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */,
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
-				9BB0C7F72C871A6D005899B9 /* LowOverheadContainer.swift */,
 			);
 			path = libquicr;
 			sourceTree = "<group>";
@@ -665,6 +672,8 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9B5EC68C2D85B926009A2872 /* VarInt.swift */,
+				9B5EC6812D85976D009A2872 /* LOCRegistry.swift */,
 				9BB707AB2E40B51700C697B6 /* RFC3550.swift */,
 				9B75E4882E323D3A007A30A4 /* WiFi */,
 				9B15FA852DF2DB2900756DF7 /* AppHeaderRegistry.swift */,
@@ -1083,9 +1092,11 @@
 				9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */,
 				9B6C9F112DE629720041B9C1 /* TestAudioUtilities.swift in Sources */,
 				9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */,
+				9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */,
 				9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
 				9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */,
+				9B5EC68F2D85C003009A2872 /* TestVarInt.swift in Sources */,
 				9B9665172DFAE41E007CC380 /* TestAudioHandler.swift in Sources */,
 				187DE36D2C997A180090FB68 /* TestCallController.swift in Sources */,
 				9B8B9D532BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift in Sources */,
@@ -1170,11 +1181,11 @@
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
+				9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
 				FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */,
 				9BDD5B182996A86500C01D54 /* LibOpusDecoder.swift in Sources */,
-				9BB0C7F82C871A6D005899B9 /* LowOverheadContainer.swift in Sources */,
 				9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */,
 				1867635F2B2B6BE600339421 /* OpusSubscription+Measurement.swift in Sources */,
 				9B1246362CD90B03004C020C /* PublicationPopover.swift in Sources */,
@@ -1215,6 +1226,7 @@
 				9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */,
 				18C89A3E2A13D315005B333B /* Measurement.swift in Sources */,
 				9B165A1529840B610017079F /* CallController.swift in Sources */,
+				9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* VideoSubscriptionSet.swift in Sources */,
 				9B379A2A2DF31B2800BB060A /* TextPublication.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,

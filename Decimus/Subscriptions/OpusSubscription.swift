@@ -6,9 +6,10 @@ import Synchronization
 
 class OpusSubscription: Subscription {
     private static let logger = DecimusLogger(OpusSubscription.self)
-    
+
     struct Config {
         let adaptive: Bool
+        let mediaInterop: Bool
     }
 
     private let profile: Profile
@@ -139,6 +140,31 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now : nil
 
+        guard let extensions = extensions else {
+            Self.logger.warning("Missing expected extensions")
+            return
+        }
+
+        let sequence: UInt64
+        let timestamp: Date
+        do {
+            let (seq, time) = try self.parseExtensionHeaders(extensions)
+            sequence = seq ?? objectHeaders.groupId
+            timestamp = time
+        } catch {
+            Self.logger.error("Failed to parse extensions: \(error.localizedDescription)")
+            return
+        }
+
+        // Active speaker metric.
+        if let activeSpeakerStats = self.activeSpeakerStats,
+           let participantId = try? extensions.getHeader(.participantId),
+           case .participantId(let id) = participantId {
+            Task(priority: .utility) {
+                await activeSpeakerStats.audioDetected(id, when: now)
+            }
+        }
+
         // Unprotect.
         let unprotected: Data
         if let sframeContext {
@@ -152,14 +178,7 @@ class OpusSubscription: Subscription {
             unprotected = data
         }
 
-        guard let extensions = extensions,
-              let loc = try? LowOverheadContainer(from: extensions) else {
-            Self.logger.warning("Missing expected LOC headers")
-            return
-        }
-
         // TODO: Handle sequence rollover.
-        let sequence = loc.sequence ?? objectHeaders.objectId
         if sequence > self.seq {
             let missing = sequence - self.seq - 1
             let currentSeq = self.seq
@@ -205,21 +224,41 @@ class OpusSubscription: Subscription {
             return
         }
 
-        if let activeSpeakerStats = self.activeSpeakerStats,
-           let participantId = loc.get(key: AppHeaderRegistry.participantId.rawValue) {
-            Task(priority: .utility) {
-                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
-            }
-        }
-
         do {
             try handler.submitEncodedAudio(data: unprotected,
                                            sequence: sequence,
                                            date: now,
-                                           timestamp: loc.timestamp)
+                                           timestamp: timestamp)
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
+    }
+
+    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, Date) {
+        let sequence: UInt64?
+        let timestamp: Date
+        if self.config.mediaInterop {
+            guard let data = try? extensions.getHeader(.audioOpusBitstreamData),
+                  case .audioOpusBitstreamData(let metadata) = data else {
+                throw "Missing expected interop extension"
+            }
+            sequence = metadata.seqId.value
+            timestamp = .init(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+        } else {
+            if let data = try? extensions.getHeader(.sequenceNumber),
+               case .sequenceNumber(let seq) = data {
+                sequence = seq
+            } else {
+                sequence = nil
+            }
+
+            // Timestamp.
+            guard let data = try? extensions.getHeader(.captureTimestamp),
+                  case .captureTimestamp(let captureTimestamp) = data else {
+                throw "Bad timestamp header"
+            }
+            timestamp = captureTimestamp
+        }
+        return (sequence, timestamp)
     }
 }

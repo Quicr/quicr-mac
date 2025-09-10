@@ -33,6 +33,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let keyFrameOnUpdate: Bool
     private let startingGroup: UInt64?
     private let sframeContext: SendSFrameContext?
+    private let mediaInterop: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -46,7 +47,8 @@ class PublicationFactoryImpl: PublicationFactory {
          verbose: Bool,
          keyFrameOnUpdate: Bool,
          startingGroup: UInt64?,
-         sframeContext: SendSFrameContext?) {
+         sframeContext: SendSFrameContext?,
+         mediaInterop: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -60,6 +62,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.startingGroup = startingGroup
         self.sframeContext = sframeContext
+        self.mediaInterop = mediaInterop
     }
 
     func create(publication: ManifestPublication,
@@ -135,7 +138,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   stagger: self.stagger,
                                                   verbose: self.verbose,
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
-                                                  sframeContext: self.sframeContext)
+                                                  sframeContext: self.sframeContext,
+                                                  mediaInterop: self.mediaInterop)
             try captureManager.addInput(publication)
             return publication
         case .opus:
@@ -157,7 +161,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        relayId: relayId,
                                        startActive: true,
                                        incrementing: .group,
-                                       sframeContext: self.sframeContext)
+                                       sframeContext: self.sframeContext,
+                                       mediaInterop: self.mediaInterop)
         case .text:
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,

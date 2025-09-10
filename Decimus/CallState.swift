@@ -80,6 +80,9 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
+    @AppStorage(SettingsView.mediaInteropKey)
+    private(set) var mediaInterop = false
+
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
@@ -188,7 +191,8 @@ class CallState: ObservableObject, Equatable {
                                                         verbose: self.verbose,
                                                         keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                         startingGroup: self.audioStartingGroup,
-                                                        sframeContext: self.sendContext)
+                                                        sframeContext: self.sendContext,
+                                                        mediaInterop: self.mediaInterop)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController()
@@ -207,7 +211,8 @@ class CallState: ObservableObject, Equatable {
                                                           startingGroup: startingGroupId,
                                                           manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
                                                           sframeContext: self.receiveContext,
-                                                          calculateLatency: self.showLabels)
+                                                          calculateLatency: self.showLabels,
+                                                          mediaInterop: self.mediaInterop)
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 

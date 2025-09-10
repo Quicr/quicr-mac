@@ -37,19 +37,15 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     /// - Parameter extensions: The extensions for the object, if any.
     func receivedObject(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
         // Extract the client ID from the header.
-        guard let extensions = extensions,
-              let participantIdextension = extensions[AppHeaderRegistry.participantId.rawValue] else {
-            self.logger.error("Missing expected client ID extension")
+        guard let extensions = extensions else {
+            self.logger.error("Missing expected extensions")
             return
         }
 
         // Parse.
-        let participantId: ParticipantId
-        do {
-            let extracted = try LowOverheadContainer.parse(participantIdextension)
-            participantId = ParticipantId(UInt32(extracted))
-        } catch {
-            self.logger.error("Failed to extract participant ID: \(error.localizedDescription)")
+        guard let participantIdExtension = try? extensions.getHeader(AppHeadersRegistry.participantId),
+              case .participantId(let participantId) = participantIdExtension else {
+            self.logger.error("Missing participant ID extension")
             return
         }
         if let ourParticipantId = self.ourParticipantId,
@@ -97,14 +93,19 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Decode the LOC here.
+        guard let captureTimestampExtension = try? extensions.getHeader(.captureTimestamp),
+              case .captureTimestamp(let captureTimestamp) = captureTimestampExtension else {
+            self.logger.error("Missing capture timestamp extension")
+            return
+        }
+
         do {
-            let loc = try LowOverheadContainer(from: extensions)
             try media.submitEncodedAudio(data: data,
                                          sequence: headers.groupId,
                                          date: now,
-                                         timestamp: loc.timestamp)
+                                         timestamp: captureTimestamp)
         } catch {
-            self.logger.error("Failed to decode LOC: \(error.localizedDescription)")
+            self.logger.error("Failed to handle audio: \(error.localizedDescription)")
         }
     }
 }

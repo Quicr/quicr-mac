@@ -21,6 +21,8 @@ class VideoSubscription: Subscription {
         let joinConfig: JoinConfig<UInt64>
         /// Whether to calculate/display latency metrics.
         let calculateLatency: Bool
+        /// True for media interop mode.
+        let mediaInterop: Bool
     }
 
     private let fullTrackName: FullTrackName
@@ -157,6 +159,8 @@ class VideoSubscription: Subscription {
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
+        let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
+                                                mediaInterop: self.subscriptionConfig.mediaInterop)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -171,7 +175,7 @@ class VideoSubscription: Subscription {
                                        subscribeDate: self.creationDate,
                                        joinDate: joinDate,
                                        activeSpeakerStats: self.activeSpeakerStats,
-                                       handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency),
+                                       handlerConfig: handlerConfig,
                                        wifiDetector: self.wifiScanDetector)
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
@@ -381,6 +385,8 @@ class VideoSubscription: Subscription {
             if let unwrapped = lockedHandler {
                 handler = unwrapped
             } else {
+                let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
+                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
                 let recreated = try VideoHandler(fullTrackName: self.fullTrackName,
                                                  config: self.config,
                                                  participants: self.participants,
@@ -395,7 +401,7 @@ class VideoSubscription: Subscription {
                                                  subscribeDate: self.creationDate,
                                                  joinDate: self.joinDate,
                                                  activeSpeakerStats: self.activeSpeakerStats,
-                                                 handlerConfig: .init(calculateLatency: self.subscriptionConfig.calculateLatency),
+                                                 handlerConfig: config,
                                                  wifiDetector: self.wifiScanDetector)
                 self.token = recreated.registerCallback(self.callback)
                 lockedHandler = recreated

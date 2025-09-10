@@ -214,7 +214,7 @@ class AudioHandler: TimeAlignable {
 
             // Jitter calculation.
             if self.config.adaptive {
-                self.jitterCalculation.record(timestamp: timestamp, arrival: date)
+                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date)
                 let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
                                     (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
                 if let jitterBuffer = self.jitterBuffer {

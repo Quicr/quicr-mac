@@ -182,6 +182,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let sframeContext: SFrameContext?
     private let calculateLatency: Bool
     private let wifiScanDetector: WiFiScanDetector?
+    private let mediaInterop: Bool
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -196,7 +197,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          startingGroup: UInt64?,
          manualActiveSpeaker: Bool,
          sframeContext: SFrameContext?,
-         calculateLatency: Bool) {
+         calculateLatency: Bool,
+         mediaInterop: Bool) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -216,6 +218,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         } else {
             self.wifiScanDetector = nil
         }
+        self.mediaInterop = mediaInterop
     }
 
     func create(subscription: ManifestSubscription,
@@ -367,7 +370,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          verbose: self.verbose,
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig,
-                                                                   calculateLatency: self.calculateLatency),
+                                                                   calculateLatency: self.calculateLatency,
+                                                                   mediaInterop: self.mediaInterop),
                                          sframeContext: self.sframeContext,
                                          wifiScanDetector: self.wifiScanDetector,
                                          callback: { [weak set] details in
@@ -402,7 +406,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         maxPlcThreshold: self.subscriptionConfig.audioPlcLimit,
                                         playoutBufferTime: self.subscriptionConfig.playoutBufferTime,
                                         slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
-                                        config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive),
+                                        config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive,
+                                                      mediaInterop: self.mediaInterop),
                                         statusChanged: unregister)
         } else if config is TextCodecConfig {
             return try MultipleCallbackSubscription(profile: profile,

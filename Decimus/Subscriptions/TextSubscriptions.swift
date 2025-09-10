@@ -39,12 +39,13 @@ class TextSubscriptions {
     }
 
     private func callback(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+        // Try and get participant ID.
         let participantId: ParticipantId?
         if let extensions,
-           let participantIdData = extensions[AppHeaderRegistry.participantId.rawValue] {
-            participantId = ParticipantId(participantIdData.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) })
+           let participantIdData = try? extensions.getHeader(.participantId),
+           case .participantId(let id) = participantIdData {
+            participantId = id
         } else {
-            self.logger.warning("Missing participant ID in text message")
             participantId = nil
         }
 
