@@ -142,8 +142,10 @@ class OpusPublication: Publication, AudioPublication {
             try extensions.setHeader(.audioOpusBitstreamData(metadata))
             return extensions
         } else {
-            let loc = LowOverheadContainer(timestamp: wallClock, sequence: self.currentGroupId)
-            return loc.extensions
+            var extensions = HeaderExtensions()
+            try extensions.setHeader(.captureTimestamp(wallClock))
+            try extensions.setHeader(.sequenceNumber(self.currentGroupId))
+            return extensions
         }
     }
 
@@ -167,10 +169,8 @@ class OpusPublication: Publication, AudioPublication {
         let adjusted = UInt8(abs(decibel))
         let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
         let energyLevelValue = adjusted | mask
-        extensions[AppHeaderRegistry.energyLevel.rawValue] = Data([energyLevelValue])
-        var participantId = self.participantId.aggregate
-        extensions[AppHeaderRegistry.participantId.rawValue] = Data(bytes: &participantId,
-                                                                    count: MemoryLayout<UInt32>.size)
+        try? extensions.setHeader(.energyLevel(energyLevelValue))
+        try? extensions.setHeader(.participantId(self.participantId))
 
         let protected: Data
         if let sframeContext {

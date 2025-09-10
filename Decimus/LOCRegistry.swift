@@ -4,6 +4,8 @@
 import CoreMedia
 import Foundation
 
+let microsecondsPerSecond: TimeInterval = 1_000_000
+
 // Dictionary of header extension keys to values
 typealias HeaderExtensions = [NSNumber: Data]
 
@@ -23,10 +25,37 @@ extension HeaderExtensions {
             data = try metadata.toWireFormat()
         case .audioAACLCMPEG4BitstreamData(let metadata):
             data = try metadata.toWireFormat()
+        case .videoConfig(let extradata):
+            data = extradata
+        case .videoFrameMarking(let frameMarking):
+            data = frameMarking
+        case .audioLevel(let level):
+            data = Data([level])
+        case .captureTimestamp(let date):
+            let microseconds = UInt64(date.timeIntervalSince1970 * microsecondsPerSecond)
+            data = withUnsafeBytes(of: microseconds) { Data($0) }
         }
         self[mediaExtension.extensionKey.rawValue] = data
     }
 
+    mutating func setHeader(_ extensionsKey: UInt64, data: HeaderType) throws {
+        let toSet: Data
+        switch data {
+        case .bytes(let bytes):
+            guard extensionsKey % 2 != 0 else {
+                throw "Byte extensions must have odd keys"
+            }
+            toSet = bytes
+        case .value(var value):
+            guard extensionsKey % 2 == 0 else {
+                throw "Value extensions must have even keys"
+            }
+            toSet = withUnsafeBytes(of: &value) { Data($0) }
+        }
+        self[.init(value: extensionsKey)] = toSet
+    }
+
+    // swiftlint:disable:next cyclomatic_complexity
     func getHeader(_ extensionKey: MediaTypeHeaderExtensionValue) throws -> MediaTypeHeaderExtension? {
         guard let data = self[extensionKey.rawValue] else {
             return nil
@@ -59,6 +88,74 @@ extension HeaderExtensions {
 
         case .audioAACLCMPEG4BitstreamData:
             return .audioAACLCMPEG4BitstreamData(try .init(data))
+
+        case .videoConfig:
+            return .videoConfig(data)
+
+        case .videoFrameMarking:
+            return .videoFrameMarking(data)
+
+        case .audioLevel:
+            guard data.count == 1,
+                  let audioLevel = data.first,
+                  audioLevel < 128 else {
+                throw "Bad audio level"
+            }
+            return .audioLevel(UInt8(audioLevel))
+
+        case .captureTimestamp:
+            guard let timestampUs = data.parseInteger() as? UInt64 else {
+                throw "Bad timestamp"
+            }
+            let interval = TimeInterval(timestampUs) / microsecondsPerSecond
+            return .captureTimestamp(.init(timeIntervalSince1970: interval))
+        }
+    }
+
+    enum HeaderType {
+        case bytes(Data)
+        case value(any BinaryInteger)
+    }
+
+    func getHeader(_ extensionKey: UInt64) throws -> HeaderType? {
+        guard let data = self[.init(value: extensionKey)] else {
+            return nil
+        }
+
+        guard extensionKey % 2 == 0 else {
+            // Odd key is byte array.
+            return .bytes(data)
+        }
+
+        // Even key is expanded varint value.
+        guard let parsed = data.parseInteger() else {
+            throw "Failed to parse value in even extension: \(extensionKey)"
+        }
+        return .value(parsed)
+    }
+}
+
+extension Data {
+    func parseInteger() -> (any BinaryInteger)? {
+        switch self.count {
+        case MemoryLayout<UInt64>.size:
+            self.withUnsafeBytes {
+                $0.loadUnaligned(as: UInt64.self)
+            }
+        case MemoryLayout<UInt32>.size:
+            self.withUnsafeBytes {
+                $0.loadUnaligned(as: UInt32.self)
+            }
+        case MemoryLayout<UInt16>.size:
+            self.withUnsafeBytes {
+                $0.loadUnaligned(as: UInt16.self)
+            }
+        case MemoryLayout<UInt8>.size:
+            self.withUnsafeBytes {
+                $0.loadUnaligned(as: UInt8.self)
+            }
+        default:
+            nil
         }
     }
 }
@@ -207,21 +304,35 @@ enum MediaType: VarInt {
 }
 
 enum MediaTypeHeaderExtensionValue: NSNumber {
+    // MoQMI.
     case mediaType = 0x0A
     case videoH264AVCCMetadata = 0x0B
     case videoH264AVCCExtradata = 0x0D
     case audioOpusBitstreamData = 0x0F
     case utf8Text = 0x11
     case audioAACLCMPEG4BitstreamData = 0x13
+
+    // LOC.
+    case captureTimestamp = 2
+    case videoConfig = 16
+    case videoFrameMarking = 4
+    case audioLevel = 6
 }
 
 enum MediaTypeHeaderExtension {
+    // MoQMI Types.
     case mediaType(MediaType)
     case videoH264AVCCMetadata(VideoMetadata)
     case videoH264AVCCExtradata(Data)
     case audioOpusBitstreamData(AudioBitstreamData)
     case utf8Text(UTF8Text)
     case audioAACLCMPEG4BitstreamData(AudioBitstreamData)
+
+    // LOC Types.
+    case captureTimestamp(Date)
+    case videoConfig(Data)
+    case videoFrameMarking(Data) // TODO: Implement FrameMarking structure.
+    case audioLevel(UInt8)
 
     var extensionKey: MediaTypeHeaderExtensionValue {
         switch self {
@@ -237,6 +348,14 @@ enum MediaTypeHeaderExtension {
             MediaTypeHeaderExtensionValue.utf8Text
         case .audioAACLCMPEG4BitstreamData:
             MediaTypeHeaderExtensionValue.audioAACLCMPEG4BitstreamData
+        case .captureTimestamp:
+            MediaTypeHeaderExtensionValue.captureTimestamp
+        case .videoConfig:
+            MediaTypeHeaderExtensionValue.videoConfig
+        case .videoFrameMarking:
+            MediaTypeHeaderExtensionValue.videoFrameMarking
+        case .audioLevel:
+            MediaTypeHeaderExtensionValue.audioLevel
         }
     }
 }

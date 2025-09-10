@@ -107,17 +107,17 @@ class H264Publication: Publication, FrameListener {
         }
 
         // Per frame extensions.
-        if publication.mediaInterop {
-            do {
+        do {
+            if publication.mediaInterop {
                 try extensions.setHeader(.videoH264AVCCMetadata(.init(sample: sample,
                                                                       sequence: publication.sequence,
                                                                       date: presentationDate)))
-            } catch {
-                publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
+            } else {
+                try extensions.setHeader(.captureTimestamp(presentationDate))
+                try extensions.setHeader(.sequenceNumber(publication.sequence))
             }
-        } else {
-            let loc = LowOverheadContainer(timestamp: presentationDate, sequence: publication.sequence)
-            extensions = loc.extensions
+        } catch {
+            publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
         }
 
         let buffer = sample.dataBuffer!

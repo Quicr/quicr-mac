@@ -357,15 +357,25 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     encoded = data
                 }
             } else {
-                let loc = try LowOverheadContainer(from: extensions)
-                guard let locSeq = loc.sequence else {
+                // Data.
+                encoded = data
+
+                // Sequence number.
+                guard let sequenceData = try? extensions.getHeader(.sequenceNumber),
+                      case .sequenceNumber(let seq) = sequenceData else {
                     self.logger.error("Video needs LOC sequence number set")
                     return
                 }
-                encoded = data
-                presentationTimestamp = .init(value: .init(loc.timestamp.timeIntervalSince1970 * microsecondsPerSecond),
+                sequence = seq
+
+                // Timestamp.
+                guard let presentationTimestampData = try? extensions.getHeader(.captureTimestamp),
+                      case .captureTimestamp(let timestamp) = presentationTimestampData else {
+                    self.logger.error("Video needs LOC timestamp set")
+                    return
+                }
+                presentationTimestamp = .init(value: .init(timestamp.timeIntervalSince1970 * microsecondsPerSecond),
                                               timescale: CMTimeScale(microsecondsPerSecond))
-                sequence = locSeq
             }
 
             guard let frame = try self.depacketize(fullTrackName: self.fullTrackName,
@@ -401,10 +411,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             }
 
             let publishTimestamp: Date?
-            if let publishTimestampData = extensions[AppHeaderRegistry.publishTimestamp.rawValue] {
-                let uint64 = publishTimestampData.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) }
-                let interval = TimeInterval(uint64) / 1_000.0 // Convert from milliseconds to seconds.
-                publishTimestamp = .init(timeIntervalSince1970: interval)
+            if let publishTimestampDate = try? extensions.getHeader(.publishTimestamp),
+               case .publishTimestamp(let extracted) = publishTimestampDate {
+                publishTimestamp = extracted
             } else {
                 publishTimestamp = nil
             }

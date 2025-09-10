@@ -148,32 +148,20 @@ class OpusSubscription: Subscription {
         let sequence: UInt64
         let timestamp: Date
         do {
-            if self.config.mediaInterop {
-                let metadata: AudioBitstreamData
-
-                metadata = switch try extensions.getHeader(.audioOpusBitstreamData) {
-                case .audioOpusBitstreamData(let metadata):
-                    metadata
-                default:
-                    throw "Missing expected interop extension"
-                }
-                sequence = metadata.seqId.value
-                timestamp = .init(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
-            } else {
-                let loc = try LowOverheadContainer(from: extensions)
-                sequence = loc.sequence ?? objectHeaders.groupId
-                timestamp = loc.timestamp
-            }
+            let (seq, time) = try self.parseExtensionHeaders(extensions)
+            sequence = seq ?? objectHeaders.groupId
+            timestamp = time
         } catch {
             Self.logger.error("Failed to parse extensions: \(error.localizedDescription)")
             return
         }
 
+        // Active speaker metric.
         if let activeSpeakerStats = self.activeSpeakerStats,
-           let participantId = extensions[AppHeaderRegistry.participantId.rawValue] {
+           let participantId = try? extensions.getHeader(.participantId),
+           case .participantId(let id) = participantId {
             Task(priority: .utility) {
-                let participantId = participantId.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-                await activeSpeakerStats.audioDetected(.init(participantId), when: now)
+                await activeSpeakerStats.audioDetected(id, when: now)
             }
         }
 
@@ -244,5 +232,33 @@ class OpusSubscription: Subscription {
         } catch {
             Self.logger.error("Failed to handle encoded audio: \(error.localizedDescription)")
         }
+    }
+
+    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, Date) {
+        let sequence: UInt64?
+        let timestamp: Date
+        if self.config.mediaInterop {
+            guard let data = try? extensions.getHeader(.audioOpusBitstreamData),
+                  case .audioOpusBitstreamData(let metadata) = data else {
+                throw "Missing expected interop extension"
+            }
+            sequence = metadata.seqId.value
+            timestamp = .init(timeIntervalSince1970: TimeInterval(metadata.wallClock.value) / 1000)
+        } else {
+            if let data = try? extensions.getHeader(.sequenceNumber),
+               case .sequenceNumber(let seq) = data {
+                sequence = seq
+            } else {
+                sequence = nil
+            }
+
+            // Timestamp.
+            guard let data = try? extensions.getHeader(.captureTimestamp),
+                  case .captureTimestamp(let captureTimestamp) = data else {
+                throw "Bad timestamp header"
+            }
+            timestamp = captureTimestamp
+        }
+        return (sequence, timestamp)
     }
 }

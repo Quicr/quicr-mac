@@ -221,7 +221,10 @@ struct TestVideoSubscription {
         var sequence: UInt64 = 0
         func loc() -> [NSNumber: Data] {
             sequence += 1
-            return LowOverheadContainer(timestamp: .now, sequence: sequence).extensions
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
         }
 
         // Get into waiting for new group state.
