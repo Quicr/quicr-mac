@@ -129,7 +129,9 @@ class OpusPublication: Publication, AudioPublication {
         self.publish.store(active, ordering: .releasing)
     }
 
-    private func getExtensions(wallClock: Date, dequeuedTimestamp: AudioTimeStamp, decibel: Int) throws -> HeaderExtensions {
+    private func getExtensions(wallClock: Date,
+                               dequeuedTimestamp: AudioTimeStamp,
+                               decibel: Int) throws -> HeaderExtensions {
         var extensions = HeaderExtensions()
         if self.mediaInterop {
             // MoQ MI.
@@ -144,7 +146,8 @@ class OpusPublication: Publication, AudioPublication {
             // LOC.
             var extensions = HeaderExtensions()
             try extensions.setHeader(.captureTimestamp(wallClock))
-            try extensions.setHeader(.sequenceNumber(self.currentGroupId))
+            let sequence = self.incrementing == .group ? self.currentGroupId : self.currentObjectId
+            try extensions.setHeader(.sequenceNumber(sequence))
         }
 
         // App.
@@ -206,7 +209,7 @@ class OpusPublication: Publication, AudioPublication {
                          ttl: UnsafePointer<UInt16>?,
                          extensions: HeaderExtensions) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId,
-                                     objectId: 0,
+                                     objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
