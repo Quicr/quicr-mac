@@ -10,7 +10,26 @@ enum FullTrackNameError: Error {
 /// A MoQ full track name identifies a track within a namespace.
 class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
     var description: String {
-        "\(self.nameSpace.compactMap { String(data: $0, encoding: .utf8) }.joined(separator: "/")):\(String(data: self.name, encoding: .utf8)!)"
+        var namespace: [String] = []
+        for element in self.nameSpace {
+            if let str = String(data: element, encoding: .utf8) {
+                namespace.append(str)
+            } else {
+                namespace.append("<invalid utf8>")
+            }
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        let encoded = try? encoder.encode(namespace)
+        let desc = if let encoded {
+            String(data: encoded, encoding: .utf8) ?? "<invalid utf8>"
+        } else {
+            "<encoding error>"
+        }
+
+        guard self.name.count > 0 else { return desc }
+        let name = String(data: self.name, encoding: .utf8) ?? "<invalid utf8>"
+        return "\(desc):\(name)"
     }
 
     static func == (lhs: FullTrackName, rhs: FullTrackName) -> Bool {

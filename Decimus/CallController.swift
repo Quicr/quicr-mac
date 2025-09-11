@@ -220,17 +220,9 @@ class MoqCallController: QClientCallbacks {
                 let original = profile
                 let profile: Profile
                 if let overrideNamespace {
-                    let namespace = overrideNamespace.map { $0.replacingOccurrences(of: CallState.namespaceSourcePlaceholder,
-                                                                                    with: set.sourceId) }
-                    let config = CodecFactoryImpl().makeCodecConfig(from: original.qualityProfile,
-                                                                    bitrateType: .average)
-                    let name = "\(config.codec)_\(count)"
-                    profile = .init(qualityProfile: original.qualityProfile,
-                                    expiry: original.expiry,
-                                    priorities: original.priorities,
-                                    namespace: namespace,
-                                    channel: original.channel,
-                                    name: name)
+                    profile = original.transformNamespace(overrideNamespace: overrideNamespace,
+                                                          sourceId: set.sourceId,
+                                                          count: count)
                 } else {
                     profile = original
                 }
@@ -395,5 +387,21 @@ class MoqCallController: QClientCallbacks {
     /// - Returns: List of subscription sets.
     func getSubscriptionsByParticipant(_ participantId: ParticipantId) throws -> [SubscriptionSet] {
         self.subscriptions.values.filter { $0.participantId == participantId }
+    }
+}
+
+extension Profile {
+    func transformNamespace(overrideNamespace: [String], sourceId: SourceIDType, count: Int) -> Profile {
+        let namespace = overrideNamespace.map { $0.replacingOccurrences(of: CallState.namespaceSourcePlaceholder,
+                                                                        with: sourceId) }
+        let config = CodecFactoryImpl().makeCodecConfig(from: self.qualityProfile,
+                                                        bitrateType: .average)
+        let name = "\(config.codec)_\(count)"
+        return .init(qualityProfile: self.qualityProfile,
+                     expiry: self.expiry,
+                     priorities: self.priorities,
+                     namespace: namespace,
+                     channel: self.channel,
+                     name: name)
     }
 }
