@@ -5,10 +5,10 @@ import SwiftUI
 
 struct SubscriptionPopover: View {
     private let controller: MoqCallController
-    private let manifest: Manifest
+    private let manifest: [ManifestSubscription]
     private let factory: SubscriptionFactory
 
-    init(_ controller: MoqCallController, manifest: Manifest, factory: SubscriptionFactory) {
+    init(_ controller: MoqCallController, manifest: [ManifestSubscription], factory: SubscriptionFactory) {
         self.controller = controller
         self.manifest = manifest
         self.factory = factory
@@ -16,7 +16,7 @@ struct SubscriptionPopover: View {
 
     private var observables: [SourceIDType: ObservableSubscriptionSet] {
         let result: [SourceIDType: ObservableSubscriptionSet] = [:]
-        return self.manifest.subscriptions.reduce(into: result) { partialResult, manifestSubscription in
+        return self.manifest.reduce(into: result) { partialResult, manifestSubscription in
             let set = self.controller.getSubscriptionSet(manifestSubscription.sourceID) as? ObservableSubscriptionSet
             partialResult[manifestSubscription.sourceID] = set
         }
@@ -29,7 +29,7 @@ struct SubscriptionPopover: View {
 
             ScrollView {
                 LazyVStack {
-                    ForEach(self.manifest.subscriptions) { manifestSubscriptionSet in
+                    ForEach(self.manifest) { manifestSubscriptionSet in
                         if let set = self.observables[manifestSubscriptionSet.sourceID] {
                             ObservableSubscriptionSetDetails(observable: set,
                                                              manifestSubscriptionSet: manifestSubscriptionSet,

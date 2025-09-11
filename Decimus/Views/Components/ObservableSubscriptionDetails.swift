@@ -16,13 +16,25 @@ struct ObservableSubscriptionSetDetails: View {
         if !self.manifestSubscriptionSet.profileSet.profiles.isEmpty {
             VStack {
                 Text(self.observable.sourceId)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .frame(alignment: .leading)
                 ForEach(self.manifestSubscriptionSet.profileSet.profiles, id: \.namespace) { manifestSubscription in
                     if let manifestFtn = try? manifestSubscription.getFullTrackName() {
-                        // Profile label.
-                        Text(manifestSubscription.qualityProfile)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                            .frame(alignment: .leading)
+                        LabeledContent("Quality") {
+                            HStack {
+                                TextField("Quality", text: .constant(manifestSubscription.qualityProfile))
+                                Spacer()
+                            }
+                        }
+                        .bold()
+
+                        LabeledContent("Full Track Name") {
+                            HStack {
+                                TextField("Full Track Name", text: .constant(manifestFtn.description))
+                                Spacer()
+                            }
+                        }
 
                         // Toggle for subscribe state.
                         LabeledToggle("Subscribed",

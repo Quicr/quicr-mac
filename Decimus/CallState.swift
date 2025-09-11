@@ -85,6 +85,7 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.overrideNamespaceKey)
     private(set) var overrideNamespaceJSON: String = ""
     nonisolated static let namespaceSourcePlaceholder = "{s}"
+    private var resolvedNamespace: [String]?
 
     // Recording.
     @AppStorage(SettingsView.recordingKey)
@@ -197,6 +198,7 @@ class CallState: ObservableObject, Equatable {
         } else {
             overrideNamespace = nil
         }
+        self.resolvedNamespace = overrideNamespace
 
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
@@ -503,6 +505,30 @@ class CallState: ObservableObject, Equatable {
         } catch {
             return (nil, "Namespace must be valid JSON array with \(CallState.namespaceSourcePlaceholder) placeholder")
         }
+    }
+
+    func getManifestSubscriptions() -> [ManifestSubscription] {
+        guard let currentManifest else { return [] }
+        guard let resolvedNamespace else { return currentManifest.subscriptions }
+
+        var subscriptions: [ManifestSubscription] = []
+        for sub in currentManifest.subscriptions {
+            var newProfiles: [Profile] = []
+            var count = 0
+            for profile in sub.profileSet.profiles {
+                newProfiles.append(profile.transformNamespace(overrideNamespace: resolvedNamespace,
+                                                              sourceId: sub.sourceID,
+                                                              count: count))
+                count += 1
+            }
+            subscriptions.append(.init(mediaType: sub.mediaType,
+                                       sourceName: sub.sourceName,
+                                       sourceID: sub.sourceID,
+                                       label: sub.label,
+                                       participantId: sub.participantId,
+                                       profileSet: .init(type: sub.profileSet.type, profiles: newProfiles)))
+        }
+        return subscriptions
     }
 }
 
