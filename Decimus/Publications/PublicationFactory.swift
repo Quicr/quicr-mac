@@ -78,16 +78,10 @@ class PublicationFactoryImpl: PublicationFactory {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
             var profile = profile
             if let overrideNamespace = self.overrideNamespace {
-                let templatedNamespace = overrideNamespace.map { $0.replacingOccurrences(of: CallState.namespaceSourcePlaceholder,
-                                                                                         with: publication.sourceID) }
-                let name = "\(config.codec)_\(count)"
+                profile = profile.transformNamespace(overrideNamespace: overrideNamespace,
+                                                     sourceId: publication.sourceID,
+                                                     count: count)
                 count += 1
-                profile = .init(qualityProfile: profile.qualityProfile,
-                                expiry: profile.expiry,
-                                priorities: profile.priorities,
-                                namespace: templatedNamespace,
-                                channel: profile.channel,
-                                name: name)
             }
             let fullTrackName = try profile.getFullTrackName()
             do {
@@ -99,7 +93,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   relayId: relayId)
                 publications.append((fullTrackName, publication))
             } catch {
-                self.logger.warning("[\(fullTrackName)] Couldn't create publication: \(error.localizedDescription)", alert: true)
+                self.logger.warning("[\(fullTrackName)] Couldn't create publication: \(error.localizedDescription)",
+                                    alert: true)
             }
         }
         return publications
