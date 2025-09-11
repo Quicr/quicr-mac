@@ -23,6 +23,12 @@ struct SettingsView: View {
     @AppStorage(Self.mediaInteropKey)
     private var mediaInterop: Bool = false
 
+    static let overrideNamespaceKey = "overrideNamespace"
+    @AppStorage(Self.overrideNamespaceKey)
+    private var overrideNamespace: String = "[\"moq://decimus.webex.com/v1/\", \"media-interop\", \"{s}\"]"
+
+    @State private var overrideError: String?
+
     var body: some View {
         // Reset all.
         HStack {
@@ -48,6 +54,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -71,6 +78,28 @@ struct SettingsView: View {
 
             Section("Debug") {
                 LabeledToggle("Media Interop", isOn: self.$mediaInterop)
+                if self.mediaInterop {
+                    LabeledContent("Override Namespace") {
+                        VStack {
+                            TextField("Override Namespace",
+                                      text: self.$overrideNamespace)
+                                .autocorrectionDisabled()
+                                .keyboardType(.asciiCapable)
+                            if let overrideError {
+                                Text(overrideError)
+                                    .foregroundStyle(.red)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .onChange(of: self.overrideNamespace) {
+                        if let error = CallState.validateNamespace(self.overrideNamespace).error {
+                            self.overrideError = error
+                        } else {
+                            self.overrideError = nil
+                        }
+                    }
+                }
                 LabeledToggle("Verbose Logging", isOn: self.$verbose)
                 #if canImport(ScreenCaptureKit)
                 LabeledToggle("Record Call", isOn: self.$recordCall)
