@@ -9,28 +9,7 @@ enum FullTrackNameError: Error {
 
 /// A MoQ full track name identifies a track within a namespace.
 class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
-    var description: String {
-        var namespace: [String] = []
-        for element in self.nameSpace {
-            if let str = String(data: element, encoding: .utf8) {
-                namespace.append(str)
-            } else {
-                namespace.append("<invalid utf8>")
-            }
-        }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .withoutEscapingSlashes
-        let encoded = try? encoder.encode(namespace)
-        let desc = if let encoded {
-            String(data: encoded, encoding: .utf8) ?? "<invalid utf8>"
-        } else {
-            "<encoding error>"
-        }
-
-        guard self.name.count > 0 else { return desc }
-        let name = String(data: self.name, encoding: .utf8) ?? "<invalid utf8>"
-        return "\(desc):\(name)"
-    }
+    let description: String
 
     static func == (lhs: FullTrackName, rhs: FullTrackName) -> Bool {
         lhs.nameSpace == rhs.nameSpace && lhs.name == rhs.name
@@ -54,20 +33,47 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
             components.append(bytes)
         }
         self.nameSpace = components
-        guard let name = name.data(using: .utf8) else {
+        guard let nameData = name.data(using: .utf8) else {
             throw FullTrackNameError.parseError
         }
-        self.name = name
+        self.name = nameData
+        self.description = Self.resolveDescription(inNamespace: namespace, inName: name)
     }
 
     init(_ ftn: QFullTrackName) {
         self.nameSpace = ftn.nameSpace
         self.name = ftn.name
+        self.description = Self.resolveDescription(inNamespace: self.nameSpace, inName: self.name)
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(self.name)
         hasher.combine(self.nameSpace)
+    }
+
+    private static func resolveDescription(inNamespace: [Data], inName: Data) -> String {
+        var namespace: [String] = []
+        for element in inNamespace {
+            if let str = String(data: element, encoding: .utf8) {
+                namespace.append(str)
+            } else {
+                namespace.append("<invalid utf8>")
+            }
+        }
+        let name = String(data: inName, encoding: .utf8) ?? "<invalid utf8>"
+        return Self.resolveDescription(inNamespace: namespace, inName: name)
+    }
+
+    private static func resolveDescription(inNamespace: [String], inName: String) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .withoutEscapingSlashes
+        let encoded = try? encoder.encode(inNamespace)
+        let desc = if let encoded {
+            String(data: encoded, encoding: .utf8) ?? "<invalid utf8>"
+        } else {
+            "<encoding error>"
+        }
+        return inName.isEmpty ? desc : "\(desc):\(inName)"
     }
 }
 
