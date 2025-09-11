@@ -495,8 +495,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
                     let namespace = "\(self.fullTrackName)"
-                    self.description = self.labelFromSample(namespace: namespace,
-                                                            format: format,
+                    self.description = self.labelFromSample(format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)
                     guard let participant = self.participant.get() else { return }
@@ -882,9 +881,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         }
     }
 
-    private func labelFromSample(namespace: String, format: CMFormatDescription, fps: UInt16, participantId: ParticipantId) -> String {
+    private func labelFromSample(format: CMFormatDescription, fps: UInt16, participantId: ParticipantId) -> String {
         let size = format.dimensions
-        return "\(namespace): \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps \(participantId)"
+        return "\(self.fullTrackName) \(String(describing: config.codec)) \(size.width)x\(size.height) \(fps)fps \(Float(config.bitrate) / pow(10, 6))Mbps \(participantId)"
     }
 
     private func depacketize(fullTrackName: FullTrackName,
