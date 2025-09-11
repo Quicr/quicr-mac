@@ -34,6 +34,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let startingGroup: UInt64?
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let overrideNamespace: [String]?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -48,7 +49,8 @@ class PublicationFactoryImpl: PublicationFactory {
          keyFrameOnUpdate: Bool,
          startingGroup: UInt64?,
          sframeContext: SendSFrameContext?,
-         mediaInterop: Bool) {
+         mediaInterop: Bool,
+         overrideNamespace: [String]?) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -63,6 +65,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.startingGroup = startingGroup
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.overrideNamespace = overrideNamespace
     }
 
     func create(publication: ManifestPublication,
@@ -70,8 +73,22 @@ class PublicationFactoryImpl: PublicationFactory {
                 endpointId: String,
                 relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
         var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
+        var count = 0
         for profile in publication.profileSet.profiles {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
+            var profile = profile
+            if let overrideNamespace = self.overrideNamespace {
+                let templatedNamespace = overrideNamespace.map { $0.replacingOccurrences(of: CallState.namespaceSourcePlaceholder,
+                                                                                         with: publication.sourceID) }
+                let name = "\(config.codec)_\(count)"
+                count += 1
+                profile = .init(qualityProfile: profile.qualityProfile,
+                                expiry: profile.expiry,
+                                priorities: profile.priorities,
+                                namespace: templatedNamespace,
+                                channel: profile.channel,
+                                name: name)
+            }
             let fullTrackName = try profile.getFullTrackName()
             do {
                 let publication = try self.create(profile,

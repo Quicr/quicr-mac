@@ -12,7 +12,7 @@ enum CodecError: Error {
 }
 
 /// Codec type mappings.
-enum CodecType: UInt8, CaseIterable {
+enum CodecType: UInt8, CaseIterable, CustomStringConvertible {
     case unknown
 
     // Video
@@ -30,6 +30,19 @@ enum CodecType: UInt8, CaseIterable {
 
     // Text.
     case text
+
+    var description: String {
+        switch self {
+        case .unknown: "unknown"
+        case .h264: "h264"
+        case .av1: "av1"
+        case .opus: "opus"
+        case .xcodec: "xcodec"
+        case .hevc: "hevc"
+        case .mock: "mock"
+        case .text: "text"
+        }
+    }
 }
 
 /// Abstract configuration for initialising codecs.

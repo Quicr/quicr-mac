@@ -82,6 +82,9 @@ class CallState: ObservableObject, Equatable {
 
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
+    @AppStorage(SettingsView.overrideNamespaceKey)
+    private(set) var overrideNamespaceJSON: String = ""
+    nonisolated static let namespaceSourcePlaceholder = "{s}"
 
     // Recording.
     @AppStorage(SettingsView.recordingKey)
@@ -177,6 +180,24 @@ class CallState: ObservableObject, Equatable {
 
         self.textSubscriptions = .init(sframeContext: self.receiveContext)
 
+        // Are we overriding publication namespaces?
+        let overrideNamespace: [String]?
+        if self.mediaInterop {
+            let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON)
+            if let namespaceError {
+                Self.logger.error("Bad override namespace: \(namespaceError)")
+                return false
+            }
+            guard let override else {
+                assert(false)
+                Self.logger.error("Bad namespace override")
+                return false
+            }
+            overrideNamespace = override
+        } else {
+            overrideNamespace = nil
+        }
+
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
@@ -192,10 +213,11 @@ class CallState: ObservableObject, Equatable {
                                                         keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                         startingGroup: self.audioStartingGroup,
                                                         sframeContext: self.sendContext,
-                                                        mediaInterop: self.mediaInterop)
+                                                        mediaInterop: self.mediaInterop,
+                                                        overrideNamespace: overrideNamespace)
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
-        let controller = self.makeCallController()
+        let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
         let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
@@ -331,7 +353,7 @@ class CallState: ObservableObject, Equatable {
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
     }
 
-    private func makeCallController() -> MoqCallController {
+    private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
         let address: String
         if let ipv6 = IPv6Address(self.config.address) {
             address = "[\(self.config.address)]"
@@ -378,7 +400,8 @@ class CallState: ObservableObject, Equatable {
             }
             return .init(endpointUri: endpointId,
                          client: client,
-                         submitter: self.submitter) { [weak self] in
+                         submitter: self.submitter,
+                         overrideNamespace: overrideNamespace) { [weak self] in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
                     self.onLeave()
@@ -462,6 +485,23 @@ class CallState: ObservableObject, Equatable {
                     try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
                 }
             }
+        }
+    }
+
+    static func validateNamespace(_ namespace: String) -> (namespace: [String]?, error: String?) {
+        do {
+            let decoded = try JSONDecoder().decode([String].self,
+                                                   from: .init(namespace.utf8))
+            var found = false
+            for item in decoded {
+                found = found || item.contains(CallState.namespaceSourcePlaceholder)
+            }
+            guard found else {
+                return (nil, "Namespace must contain \(CallState.namespaceSourcePlaceholder) placeholder")
+            }
+            return (decoded, nil)
+        } catch {
+            return (nil, "Namespace must be valid JSON array with \(CallState.namespaceSourcePlaceholder) placeholder")
         }
     }
 }

@@ -51,7 +51,8 @@ class MoqCallController: QClientCallbacks {
     private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
-    private let callEnded: () -> Void
+    private let callEnded: (() -> Void)?
+    private let overrideNamespace: [String]?
 
     /// The identifier of the connected server, or nil if not connected.
     public private(set) var serverId: String?
@@ -65,7 +66,8 @@ class MoqCallController: QClientCallbacks {
     init(endpointUri: String,
          client: MoqClient,
          submitter: MetricsSubmitter?,
-         callEnded: @escaping () -> Void) {
+         overrideNamespace: [String]? = nil,
+         callEnded: (() -> Void)?) {
         self.endpointUri = endpointUri
         self.client = client
         self.metricsSubmitter = submitter
@@ -76,6 +78,7 @@ class MoqCallController: QClientCallbacks {
         } else {
             self.measurement = nil
         }
+        self.overrideNamespace = overrideNamespace
         self.client.setCallbacks(self)
     }
 
@@ -212,9 +215,29 @@ class MoqCallController: QClientCallbacks {
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
         if subscribe {
+            var count = 0
             for profile in details.profileSet.profiles {
+                let original = profile
+                let profile: Profile
+                if let overrideNamespace {
+                    let namespace = overrideNamespace.map { $0.replacingOccurrences(of: CallState.namespaceSourcePlaceholder,
+                                                                                    with: set.sourceId) }
+                    let config = CodecFactoryImpl().makeCodecConfig(from: original.qualityProfile,
+                                                                    bitrateType: .average)
+                    let name = "\(config.codec)_\(count)"
+                    profile = .init(qualityProfile: original.qualityProfile,
+                                    expiry: original.expiry,
+                                    priorities: original.priorities,
+                                    namespace: namespace,
+                                    channel: original.channel,
+                                    name: name)
+                } else {
+                    profile = original
+                }
+
                 do {
                     _ = try self.subscribe(set: set, profile: profile, factory: factory)
+                    count += 1
                 } catch let error as PubSubFactoryError {
                     self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
                                             "\(error.localizedDescription)",
@@ -319,7 +342,7 @@ class MoqCallController: QClientCallbacks {
             self.connected = false
             guard let connection = self.connectionContinuation else {
                 self.logger.error("Disconnected from relay")
-                self.callEnded()
+                self.callEnded?()
                 return
             }
             self.connectionContinuation = nil
