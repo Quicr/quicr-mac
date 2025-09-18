@@ -5,7 +5,10 @@ import Testing
 @testable import QuicR
 
 extension VideoSubscription {
-    func mockObject(groupId: UInt64, objectId: UInt64, extensions: [NSNumber: Data]? = nil) {
+    func mockObject(groupId: UInt64,
+                    objectId: UInt64,
+                    extensions: HeaderExtensions? = nil,
+                    immutableExtensions: HeaderExtensions? = nil) {
         let priority: UInt8 = 0
         let ttl: UInt16 = 0
         withUnsafePointer(to: priority) { priorityPtr in
@@ -16,7 +19,8 @@ extension VideoSubscription {
                                           priority: priorityPtr,
                                           ttl: ttlPtr),
                                     data: Data([0x01]),
-                                    extensions: extensions)
+                                    extensions: extensions,
+                                    immutableExtensions: immutableExtensions)
             }
         }
     }

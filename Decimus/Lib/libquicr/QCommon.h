@@ -5,9 +5,6 @@
 #define QCommon_h
 
 #import <Foundation/Foundation.h>
-#ifdef __cplusplus
-#include <quicr/track_name.h>
-#endif
 
 typedef NS_ENUM(uint8_t, QGroupOrder) {
     kQGroupOrderOriginalPublisherOrder,
@@ -38,5 +35,21 @@ typedef struct QObjectHeaders {
     const uint8_t* priority;
     const uint16_t* ttl;
 } QObjectHeaders;
+
+#ifdef __cplusplus
+#include <quicr/detail/messages.h>
+static NSMutableDictionary<NSNumber*, NSData*>* convertExtensions(const std::optional<quicr::Extensions>& extensions) {
+    NSMutableDictionary<NSNumber*, NSData*>* result = [NSMutableDictionary dictionary];
+    if (!extensions.has_value()) {
+        return nil;
+    }
+    for (const auto& kvp : *extensions) {
+        NSNumber* key = @(kvp.first);
+        NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data()  length:kvp.second.size() deallocator:nil];
+        [result setObject:data forKey:key];
+    }
+    return result;
+}
+#endif
 
 #endif

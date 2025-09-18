@@ -133,7 +133,10 @@ class OpusSubscription: Subscription {
         Self.logger.debug("Deinit")
     }
 
-    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    override func objectReceived(_ objectHeaders: QObjectHeaders,
+                                 data: Data,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?) {
         let now: Date = .now
         self.lastUpdateTime.withLock { $0 = now }
 

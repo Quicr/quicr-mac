@@ -3,7 +3,10 @@
 
 /// A subscription that provides received objects via a callback.
 class CallbackSubscription: Subscription {
-    typealias SubscriptionCallback = (QObjectHeaders, Data, [NSNumber: Data]?) -> Void
+    typealias SubscriptionCallback = (_ headers: QObjectHeaders,
+                                      _ data: Data,
+                                      _ extensions: HeaderExtensions?,
+                                      _ immutableExtensions: HeaderExtensions?) -> Void
     private let callback: SubscriptionCallback
 
     init(profile: Profile,
@@ -26,7 +29,10 @@ class CallbackSubscription: Subscription {
                        statusCallback: statusCallback)
     }
 
-    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        self.callback(objectHeaders, data, extensions)
+    override func objectReceived(_ objectHeaders: QObjectHeaders,
+                                 data: Data,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?) {
+        self.callback(objectHeaders, data, extensions, immutableExtensions)
     }
 }

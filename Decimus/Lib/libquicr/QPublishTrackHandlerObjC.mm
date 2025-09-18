@@ -27,7 +27,26 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
+std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
+    std::optional<quicr::Extensions> moqExtensions;
+    if (extensions == nil || extensions.count == 0) {
+        moqExtensions = std::nullopt;
+    } else {
+        quicr::Extensions built;
+        for (NSNumber* number in extensions) {
+            NSData* value = extensions[number];
+            const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
+            built[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
+        }
+        // TODO: Move?
+        moqExtensions = built;
+    }
+    return moqExtensions;
+}
+
+quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
+                          NSDictionary<NSNumber*, NSData*>* _Nullable extensions,
+                          NSDictionary<NSNumber*, NSData*>* _Nullable immutable_extensions) {
     std::optional<std::uint8_t> priority;
     if (objectHeaders.priority != nullptr) {
         priority = *objectHeaders.priority;
@@ -42,34 +61,24 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
         ttl = std::nullopt;
     }
 
-    std::optional<quicr::Extensions> moqExtensions;
-    if (extensions == nil || extensions.count == 0) {
-        moqExtensions = std::nullopt;
-    } else {
-        quicr::Extensions built;
-        for (NSNumber* number in extensions) {
-            NSData* value = extensions[number];
-            const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
-            built[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
-        }
-        // TODO: Move?
-        moqExtensions = built;
-    }
-
     return quicr::ObjectHeaders {
         .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
         .priority = priority,
         .ttl = ttl,
         .payload_length = objectHeaders.payloadLength,
-        .extensions = moqExtensions
+        .extensions = from(extensions),
+        .immutable_extensions = from(immutable_extensions)
     };
 }
 
--(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*> * _Nullable)extensions
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
+                                data: (NSData* _Nonnull) data
+                          extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
+                 immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions
 {
     assert(handlerPtr);
-    quicr::ObjectHeaders headers = from(objectHeaders, extensions);
+    quicr::ObjectHeaders headers = from(objectHeaders, extensions, immutableExtensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
     quicr::BytesSpan span { ptr, data.length };
     try {
@@ -81,9 +90,12 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders, NSDictionary<NSNumber*, 
     }
 }
 
--(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions:(NSDictionary<NSNumber *,NSData *> * _Nullable) extensions {
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders
+                                       data: (NSData* _Nonnull) data
+                                 extensions:(NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
+                        immutableExtensions:(NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions {
     assert(handlerPtr);
-    quicr::ObjectHeaders headers = from(objectHeaders, extensions);
+    quicr::ObjectHeaders headers = from(objectHeaders, extensions, immutableExtensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
     quicr::BytesSpan span { ptr, data.length };
     // TODO: PublishPartialObject is not implemented in libquicr!

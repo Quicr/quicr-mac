@@ -35,7 +35,10 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     /// - Parameter headers: The headers for the object.
     /// - Parameter data: The encoded audio data.
     /// - Parameter extensions: The extensions for the object, if any.
-    func receivedObject(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    func receivedObject(headers: QObjectHeaders,
+                        data: Data,
+                        extensions: HeaderExtensions?,
+                        immutableExtensions: HeaderExtensions?) {
         // Extract the client ID from the header.
         guard let extensions = extensions else {
             self.logger.error("Missing expected extensions")

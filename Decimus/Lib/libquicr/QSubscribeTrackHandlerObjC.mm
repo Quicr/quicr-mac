@@ -115,16 +115,10 @@ void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_h
         };
 
         // Convert extensions.
-        NSMutableDictionary<NSNumber*, NSData*>* extensions = [NSMutableDictionary dictionary];
-        if (object_headers.extensions.has_value()) {
-            for (const auto& kvp : *object_headers.extensions) {
-                NSNumber* key = @(kvp.first);
-                NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data()  length:kvp.second.size() deallocator:nil];
-                [extensions setObject:data forKey:key];
-            }
-        }
+        auto extensions = convertExtensions(object_headers.extensions);
+        auto immutable = convertExtensions(object_headers.immutable_extensions);
         NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
-        [_callbacks objectReceived:headers data:nsData extensions: extensions];
+        [_callbacks objectReceived:headers data:nsData extensions: extensions immutableExtensions: immutable];
     }
 }
 
@@ -149,18 +143,11 @@ void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& o
             .ttl = ttl
         };
 
-        // Convert extensions.
-        NSMutableDictionary<NSNumber*, NSData*>* extensions = [NSMutableDictionary dictionary];
-        if (object_headers.extensions.has_value()) {
-            for (const auto& kvp : *object_headers.extensions) {
-                NSNumber* key = @(kvp.first);
-                NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.second.data()  length:kvp.second.size() deallocator:nil];
-                [extensions setObject:data forKey:key];
-            }
-        }
+        const auto extensions = convertExtensions(object_headers.extensions);
+        const auto immutable = convertExtensions(object_headers.immutable_extensions);
 
         NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
-        [_callbacks partialObjectReceived:headers data:nsData extensions:extensions];
+        [_callbacks partialObjectReceived:headers data:nsData extensions:extensions immutableExtensions:immutable];
     }
 }
 

@@ -65,7 +65,8 @@ class TextPublication: Publication {
         try? extensions.setHeader(.participantId(self.participantId))
         let status = self.publishObject(headers,
                                         data: data,
-                                        extensions: extensions)
+                                        extensions: extensions,
+                                        immutableExtensions: nil)
         switch status {
         case .ok:
             break
