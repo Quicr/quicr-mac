@@ -326,7 +326,10 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             groupOrder: .originalPublisherOrder,
                                             filterType: .latestObject,
                                             callback: { [weak set] in
-                                                set?.receivedObject(headers: $0, data: $1, extensions: $2)
+                                                set?.receivedObject(headers: $0,
+                                                                    data: $1,
+                                                                    extensions: $2,
+                                                                    immutableExtensions: $3)
                                             },
                                             statusCallback: unregister)
         }

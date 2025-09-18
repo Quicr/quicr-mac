@@ -61,8 +61,14 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 
 -(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
--(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
--(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders data: (NSData* _Nonnull) data extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions;
+-(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
+                                data: (NSData* _Nonnull) data
+                          extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
+                 immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
+-(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders
+                                       data: (NSData* _Nonnull) data
+                                 extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
+                        immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void) setDefaultPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;

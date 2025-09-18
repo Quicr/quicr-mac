@@ -198,7 +198,9 @@ class H264Publication: Publication, FrameListener {
                                         data: protected,
                                         priority: &priority,
                                         ttl: &ttl,
-                                        extensions: extensions), protected.count)
+                                        extensions: extensions,
+                                        immutableExtensions: nil),
+                    protected.count)
         }
         switch status.0 {
         case .ok:
@@ -286,13 +288,14 @@ class H264Publication: Publication, FrameListener {
                           data: Data,
                           priority: UnsafePointer<UInt8>?,
                           ttl: UnsafePointer<UInt16>?,
-                          extensions: [NSNumber: Data]) -> QPublishObjectStatus {
+                          extensions: HeaderExtensions?,
+                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: groupId,
                                      objectId: objectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions)
+        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
     }
 
     deinit {

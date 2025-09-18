@@ -54,8 +54,14 @@ class CallbackFetch: Fetch {
         self.statusChanged?(status)
     }
 
-    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
-        super.objectReceived(objectHeaders, data: data, extensions: extensions)
-        self.objectReceived?(objectHeaders, data, extensions)
+    override func objectReceived(_ objectHeaders: QObjectHeaders,
+                                 data: Data,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?) {
+        super.objectReceived(objectHeaders,
+                             data: data,
+                             extensions: extensions,
+                             immutableExtensions: immutableExtensions)
+        self.objectReceived?(objectHeaders, data, extensions, immutableExtensions)
     }
 }

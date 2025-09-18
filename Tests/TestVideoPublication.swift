@@ -84,14 +84,16 @@ class FakeH264Publication: H264Publication {
                           data: Data,
                           priority: UnsafePointer<UInt8>?,
                           ttl: UnsafePointer<UInt16>?,
-                          extensions: [NSNumber: Data]) -> QPublishObjectStatus {
+                          extensions: HeaderExtensions?,
+                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         self.publishNotify(groupId, objectId)
         return super.publish(groupId: groupId,
                              objectId: objectId,
                              data: data,
                              priority: priority,
                              ttl: ttl,
-                             extensions: extensions)
+                             extensions: extensions,
+                             immutableExtensions: immutableExtensions)
     }
 
     override func statusChanged(_ status: QPublishTrackHandlerStatus) {

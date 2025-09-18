@@ -60,12 +60,18 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
         self.logger.debug("Status changed: \(status)")
     }
 
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    func objectReceived(_ objectHeaders: QObjectHeaders,
+                        data: Data,
+                        extensions: HeaderExtensions?,
+                        immutableExtensions: HeaderExtensions?) {
         guard self.verbose else { return }
         self.logger.debug("Object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }
 
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders,
+                               data: Data,
+                               extensions: HeaderExtensions?,
+                               immutableExtensions: HeaderExtensions?) {
         guard self.verbose else { return }
         self.logger.debug("Partial object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }

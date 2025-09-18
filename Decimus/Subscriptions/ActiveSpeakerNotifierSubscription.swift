@@ -34,7 +34,10 @@ class ActiveSpeakerNotifierSubscription: Subscription,
         self.callbacks.removeValue(forKey: token)
     }
 
-    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    override func objectReceived(_ objectHeaders: QObjectHeaders,
+                                 data: Data,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?) {
         // Parse out the active speaker list.
         let participants: [ParticipantId]
         do {

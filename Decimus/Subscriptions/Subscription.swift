@@ -83,14 +83,22 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     ///   - objectHeaders: The headers for this object.
     ///   - data: Object payload bytes.
     ///   - extensions: Header extensions, if any.
-    func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {}
+    ///   - immutableExtensions: Immutable header extensions, if any.
+    func objectReceived(_ objectHeaders: QObjectHeaders,
+                        data: Data,
+                        extensions: HeaderExtensions?,
+                        immutableExtensions: HeaderExtensions?) {}
 
     /// Fires when a partial object has been received.
     /// - Parameters:
     ///   - objectHeaders: The headers for this object.
     ///   - data: Object payload bytes.
     ///   - extensions: Header extensions, if any.
-    func partialObjectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {}
+    ///   - immutableExtensions: Immutable header extensions, if any.
+    func partialObjectReceived(_ objectHeaders: QObjectHeaders,
+                               data: Data,
+                               extensions: HeaderExtensions?,
+                               immutableExtensions: HeaderExtensions?) {}
 
     /// Fires when the underlying handler produces metrics.
     /// The default implementation submits these metrics through the provided submitter, if any.

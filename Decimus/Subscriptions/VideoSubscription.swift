@@ -307,7 +307,10 @@ class VideoSubscription: Subscription {
         return start ? .normal(true) : action
     }
 
-    override func objectReceived(_ objectHeaders: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    override func objectReceived(_ objectHeaders: QObjectHeaders,
+                                 data: Data,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?) {
         // Record the time this arrived.
         let now = Date.now
         self.lastUpdateTime = now
@@ -435,11 +438,12 @@ class VideoSubscription: Subscription {
                                         self.logger.warning(message)
                                     }
                                   },
-                                  objectReceived: {[weak self] headers, data, extensions in
+                                  objectReceived: {[weak self] headers, data, extensions, immutableExtensions in
                                     guard let self = self else { return }
                                     self.onFetchedObject(headers: headers,
                                                          data: data,
                                                          extensions: extensions,
+                                                         immutableExtensions: immutableExtensions,
                                                          currentGroup: currentGroup,
                                                          currentObject: currentObject)
                                   })
@@ -449,7 +453,8 @@ class VideoSubscription: Subscription {
 
     private func onFetchedObject(headers: QObjectHeaders,
                                  data: Data,
-                                 extensions: [NSNumber: Data]?,
+                                 extensions: HeaderExtensions?,
+                                 immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
         // Got an object from fetch.

@@ -98,7 +98,8 @@ class OpusPublication: Publication, AudioPublication {
                         while let data = try self.encode() {
                             encodePassCount += 1
                             self.publish(data: data.encodedData,
-                                         extensions: data.extensions)
+                                         extensions: data.extensions,
+                                         immutableExtensions: data.immutableExtensions)
                         }
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement {
@@ -158,7 +159,7 @@ class OpusPublication: Publication, AudioPublication {
         return extensions
     }
 
-    private func publish(data: Data, extensions: HeaderExtensions) {
+    private func publish(data: Data, extensions: HeaderExtensions?, immutableExtensions: HeaderExtensions?) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
             Task(priority: .utility) {
@@ -189,7 +190,11 @@ class OpusPublication: Publication, AudioPublication {
         } else {
             protected = data
         }
-        let published = self.publish(data: protected, priority: &priority, ttl: &ttl, extensions: extensions)
+        let published = self.publish(data: protected,
+                                     priority: &priority,
+                                     ttl: &ttl,
+                                     extensions: extensions,
+                                     immutableExtensions: immutableExtensions)
         switch published {
         case .ok:
             switch self.incrementing {
@@ -206,18 +211,20 @@ class OpusPublication: Publication, AudioPublication {
     private func publish(data: Data,
                          priority: UnsafePointer<UInt8>?,
                          ttl: UnsafePointer<UInt16>?,
-                         extensions: HeaderExtensions) -> QPublishObjectStatus {
+                         extensions: HeaderExtensions?,
+                         immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions)
+        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
     }
 
     struct EncodeResult {
         let encodedData: Data
-        let extensions: HeaderExtensions
+        let extensions: HeaderExtensions?
+        let immutableExtensions: HeaderExtensions?
     }
 
     private func encode() throws -> EncodeResult? {
@@ -252,7 +259,7 @@ class OpusPublication: Publication, AudioPublication {
         let extensions = try self.getExtensions(wallClock: wallClock,
                                                 dequeuedTimestamp: dequeued.timestamp,
                                                 decibel: decibel)
-        return .init(encodedData: encoded, extensions: extensions)
+        return .init(encodedData: encoded, extensions: extensions, immutableExtensions: nil)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

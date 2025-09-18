@@ -34,11 +34,16 @@ class TextSubscriptions {
     /// Add a subscription to track.
     /// - Parameter subscription: The subscription to add.
     func addSubscription(_ subscription: MultipleCallbackSubscription) {
-        let token = subscription.addCallback { [weak self] in self?.callback(headers: $0, data: $1, extensions: $2) }
+        let token = subscription.addCallback { [weak self] in
+            self?.callback(headers: $0, data: $1, extensions: $2, immutableExtensions: $3)
+        }
         self.registrations[subscription] = token
     }
 
-    private func callback(headers: QObjectHeaders, data: Data, extensions: [NSNumber: Data]?) {
+    private func callback(headers: QObjectHeaders,
+                          data: Data,
+                          extensions: HeaderExtensions?,
+                          immutableExtensions: HeaderExtensions?) {
         // Try and get participant ID.
         let participantId: ParticipantId?
         if let extensions,
