@@ -306,7 +306,7 @@ enum MediaType: VarInt {
 enum MediaTypeHeaderExtensionValue: NSNumber {
     // MoQMI.
     case mediaType = 0x0A
-    case videoH264AVCCMetadata = 0x0B
+    case videoH264AVCCMetadata = 0x15
     case videoH264AVCCExtradata = 0x0D
     case audioOpusBitstreamData = 0x0F
     case utf8Text = 0x11
