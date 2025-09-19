@@ -259,7 +259,7 @@ class OpusPublication: Publication, AudioPublication {
         let extensions = try self.getExtensions(wallClock: wallClock,
                                                 dequeuedTimestamp: dequeued.timestamp,
                                                 decibel: decibel)
-        return .init(encodedData: encoded, extensions: extensions, immutableExtensions: nil)
+        return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

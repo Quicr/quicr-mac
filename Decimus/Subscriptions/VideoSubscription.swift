@@ -364,7 +364,7 @@ class VideoSubscription: Subscription {
         func notify(drop: Bool) {
             handler.objectReceived(objectHeaders,
                                    data: unprotected,
-                                   extensions: extensions,
+                                   extensions: immutableExtensions,
                                    when: now,
                                    cached: false,
                                    drop: drop)

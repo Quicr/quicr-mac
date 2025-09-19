@@ -198,8 +198,8 @@ class H264Publication: Publication, FrameListener {
                                         data: protected,
                                         priority: &priority,
                                         ttl: &ttl,
-                                        extensions: extensions,
-                                        immutableExtensions: nil),
+                                        extensions: nil,
+                                        immutableExtensions: extensions),
                     protected.count)
         }
         switch status.0 {

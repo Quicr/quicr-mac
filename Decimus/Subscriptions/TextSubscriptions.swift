@@ -46,8 +46,8 @@ class TextSubscriptions {
                           immutableExtensions: HeaderExtensions?) {
         // Try and get participant ID.
         let participantId: ParticipantId?
-        if let extensions,
-           let participantIdData = try? extensions.getHeader(.participantId),
+        if let immutableExtensions,
+           let participantIdData = try? immutableExtensions.getHeader(.participantId),
            case .participantId(let id) = participantIdData {
             participantId = id
         } else {

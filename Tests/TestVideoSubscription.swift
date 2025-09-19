@@ -232,7 +232,7 @@ struct TestVideoSubscription {
         }
 
         // Get into waiting for new group state.
-        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: nil, immutableExtensions: loc())
         #expect(shouldDrop == true)
         #expect(gotGroupId == sentGroupId)
         #expect(gotObjectId == sendObjectId)
@@ -240,7 +240,7 @@ struct TestVideoSubscription {
         // We want to validate that when we're waiting for a new group,
         // we drop middle of group objects.
         sendObjectId += 1
-        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: nil, immutableExtensions: loc())
         #expect(shouldDrop == true)
         #expect(gotGroupId == sentGroupId)
         #expect(gotObjectId == sendObjectId)
@@ -248,7 +248,7 @@ struct TestVideoSubscription {
         // When a new group does arrive, we use it.
         sentGroupId += 1
         sendObjectId = 0
-        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: loc())
+        subscription.mockObject(groupId: sentGroupId, objectId: sendObjectId, extensions: nil, immutableExtensions: loc())
         #expect(shouldDrop == false)
         #expect(gotGroupId == sentGroupId)
         #expect(gotObjectId == sendObjectId)
