@@ -40,13 +40,13 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
                         extensions: HeaderExtensions?,
                         immutableExtensions: HeaderExtensions?) {
         // Extract the client ID from the header.
-        guard let extensions = extensions else {
+        guard let immutableExtensions else {
             self.logger.error("Missing expected extensions")
             return
         }
 
         // Parse.
-        guard let participantIdExtension = try? extensions.getHeader(AppHeadersRegistry.participantId),
+        guard let participantIdExtension = try? immutableExtensions.getHeader(AppHeadersRegistry.participantId),
               case .participantId(let participantId) = participantIdExtension else {
             self.logger.error("Missing participant ID extension")
             return
@@ -96,7 +96,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Decode the LOC here.
-        guard let captureTimestampExtension = try? extensions.getHeader(.captureTimestamp),
+        guard let captureTimestampExtension = try? immutableExtensions.getHeader(.captureTimestamp),
               case .captureTimestamp(let captureTimestamp) = captureTimestampExtension else {
             self.logger.error("Missing capture timestamp extension")
             return
