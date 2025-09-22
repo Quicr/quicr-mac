@@ -35,6 +35,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private var count: Int?
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
+    private let pauseResume: Bool
 
     // For current state reporting.
     private(set) var lastRenderedSpeakers: OrderedSet<ParticipantId> = []
@@ -52,7 +53,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
          videoSubscriptions: [ManifestSubscription],
          factory: SubscriptionFactory,
          participantId: ParticipantId,
-         activeSpeakerStats: ActiveSpeakerStats?) throws {
+         activeSpeakerStats: ActiveSpeakerStats?,
+         pauseResume: Bool) throws {
         self.notifier = notifier
         self.controller = controller
         guard videoSubscriptions.allSatisfy({ $0.mediaType == ManifestMediaTypes.video.rawValue }) else {
@@ -64,6 +66,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                                     .map({$0.participantId}))
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        self.pauseResume = pauseResume
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
             self?.onActiveSpeakersChanged(activeSpeakers)
         }
@@ -129,6 +132,10 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             guard existingSets[manifestSet.sourceID] == nil else {
                 // We already have this set, what state is it in?
                 let existingSet = existingSets[manifestSet.sourceID]!
+                if self.pauseResume && existingSet.isPaused {
+                    // If it's paused, it should be resumed.
+                    existingSet.resume()
+                }
                 guard existingSet.getMediaState() != .rendered else {
                     // Already displaying, count it.
                     self.logger.debug("[ActiveSpeakers] Already displaying: \(id)")
@@ -178,7 +185,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
 
         // Everything new is now setup. At this point, we should be rechecking our subscriptions from scratch.
         // If there are more active subscriptions than live subscriptions, we need to unsubscribe from them.
-        if existingSets.count > desiredSlots {
+        let inPlay = self.pauseResume ? existingSets.filter { !$0.value.isPaused }.count : existingSets.count
+        if inPlay > desiredSlots {
             // Remove one.
             self.unsubscribe(real: real, when: when)
             self.recheck(real: real, desiredSlots: desiredSlots, when: when)
@@ -189,22 +197,35 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     }
 
     private func unsubscribe(real: Bool, when: Date) {
+        let filter: (any SubscriptionSet) -> Bool = {
+            $0 is VideoSubscriptionSet && !self.lastRenderedSpeakers.contains($0.participantId)
+        }
+        let filterWithPause: (any SubscriptionSet) -> Bool = { !$0.isPaused && filter($0) }
+
         // Unsubscribe 1 video for any speakers that are no longer active.
         let existing = self.controller.getSubscriptionSets()
         if let toUnsub = existing
-            .filter({ $0 is VideoSubscriptionSet && !self.lastRenderedSpeakers.contains($0.participantId) })
+            .filter(self.pauseResume ? filterWithPause : filter)
             .sorted(by: { $0.participantId < $1.participantId })
             .first {
-            do {
-                self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(toUnsub.participantId)")
-                try self.controller.unsubscribeToSet(toUnsub.sourceId)
-                if let stats = self.activeSpeakerStats {
-                    Task(priority: .utility) {
-                        await stats.remove(toUnsub.participantId, when: when)
+            if self.pauseResume {
+                // Pause.
+                self.logger.debug("[ActiveSpeakers] Pausing : \(toUnsub.participantId)")
+                toUnsub.pause()
+            } else {
+                // Unsubscribe.
+                do {
+                    self.logger.debug("[ActiveSpeakers] Unsubscribing from: \(toUnsub.participantId)")
+                    try self.controller.unsubscribeToSet(toUnsub.sourceId)
+                    if let stats = self.activeSpeakerStats {
+                        Task(priority: .utility) {
+                            await stats.remove(toUnsub.participantId, when: when)
+                        }
                     }
+                } catch {
+                    self.logger.error(
+                        "Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
                 }
-            } catch {
-                self.logger.error("Failed to unsubscribe from: \(toUnsub.participantId): \(error.localizedDescription)")
             }
         }
     }

@@ -73,6 +73,18 @@
     handlerPtr->SetDeliveryTimeout(std::chrono::milliseconds(timeout));
 }
 
+-(void) pause
+{
+    assert(handlerPtr);
+    handlerPtr->Pause();
+}
+
+-(void) resume
+{
+    assert(handlerPtr);
+    handlerPtr->Resume();
+}
+
 @end
 
 // C++
