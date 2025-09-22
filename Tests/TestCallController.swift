@@ -130,6 +130,20 @@ final class TestCallController: XCTestCase {
                            statusCallback: nil)
         }
 
+        // Pause/resume handling.
+        private var internalPause = false
+        override func pause() {
+            super.pause()
+            self.internalPause = true
+        }
+        override func resume() {
+            super.resume()
+            self.internalPause = false
+        }
+        override var isPaused: Bool {
+            self.internalPause
+        }
+
         // Display notification.
         private let callbacks = Mutex<DisplayCallbacks>(.init())
         func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {

@@ -33,6 +33,8 @@
 -(void) requestNewGroup;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void)setDeliveryTimeout:(uint64_t) timeout;
+-(void)pause;
+-(void)resume;
 typedef void (*NewGroupCallback)(void* _Nonnull);
 
 @end

@@ -196,7 +196,7 @@ class MoqCallController: QClientCallbacks {
     /// Get all active subscriptions in the given set.
     /// - Parameter set: The set to query.
     /// - Returns: List of active track handlers.
-    public func getSubscriptions(_ set: SubscriptionSet) -> [QSubscribeTrackHandlerObjC] {
+    public func getSubscriptions(_ set: SubscriptionSet) -> [Subscription] {
         return Array(set.getHandlers().values)
     }
 
