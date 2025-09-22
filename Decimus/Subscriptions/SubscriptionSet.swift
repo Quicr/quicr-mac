@@ -26,6 +26,15 @@ protocol SubscriptionSet: AnyObject {
 
     /// Should fire whenever a managed track handler changes it's status.
     func statusChanged(_ ftn: FullTrackName, status: QSubscribeTrackHandlerStatus)
+
+    // Pause all subscriptions in this set.
+    func pause()
+
+    // Resume all subscriptions in this set.
+    func resume()
+
+    // Is the set paused?
+    var isPaused: Bool { get }
 }
 
 import Synchronization
@@ -93,5 +102,21 @@ class ObservableSubscriptionSet: SubscriptionSet {
         default:
             break
         }
+    }
+
+    func pause() {
+        for handler in self.handlers.get() {
+            handler.value.pause()
+        }
+    }
+
+    func resume() {
+        for handler in self.handlers.get() {
+            handler.value.resume()
+        }
+    }
+
+    var isPaused: Bool {
+        self.handlers.get().allSatisfy { $0.value.isPaused }
     }
 }

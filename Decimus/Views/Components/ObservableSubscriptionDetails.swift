@@ -41,6 +41,10 @@ struct ObservableSubscriptionSetDetails: View {
                                       isOn: self.makeSubscribeBinding(manifestSubscription,
                                                                       manifestFtn: manifestFtn))
 
+                        // Toggle for pause state.
+                        LabeledToggle("Paused",
+                                      isOn: self.makePauseBinding(manifestFtn))
+
                         // Buffer inspection.
                         if let subscription = handlers[manifestFtn] {
                             if let subscription = subscription as? VideoSubscription {
@@ -103,6 +107,21 @@ struct ObservableSubscriptionSetDetails: View {
                 } catch {
                     self.logger.error("Failed to unsubscribe: \(error.localizedDescription)")
                 }
+            }
+        })
+    }
+
+    private func makePauseBinding(_ manifestFtn: FullTrackName) -> Binding<Bool> {
+        guard let subscription = self.observable.getHandlers()[manifestFtn] else {
+            return .constant(false)
+        }
+        return .init(get: {
+            subscription.getStatus() == .paused
+        }, set: { isOn in
+            if isOn {
+                subscription.pause()
+            } else {
+                subscription.resume()
             }
         })
     }

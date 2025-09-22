@@ -110,4 +110,8 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
             }
         }
     }
+
+    var isPaused: Bool {
+        self.getStatus() == .paused
+    }
 }

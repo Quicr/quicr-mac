@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import XCTest
+import Testing
 import OrderedCollections
 @testable import QuicR
 
-final class TestActiveSpeaker: XCTestCase {
+struct TestActiveSpeaker {
     class MockVideoSubscriptionFactory: TestCallController.GenericMockSubscriptionFactory<VideoSubscriptionSet, TestCallController.MockSubscription> {
         var participants: VideoParticipants?
         override init(_ callback: @escaping SubscriptionCreated) {
@@ -89,7 +89,8 @@ final class TestActiveSpeaker: XCTestCase {
     }
 
     func testActiveSpeaker(clamp: Int?, // swiftlint:disable:this function_body_length
-                           ourself: ParticipantId) async throws {
+                           ourself: ParticipantId,
+                           pauseResume: Bool) async throws {
         // Given a list of active speakers, the controller's subscriptions should change
         // to reflect the list.
 
@@ -139,8 +140,8 @@ final class TestActiveSpeaker: XCTestCase {
                 ftnToParticipantId[try profile.getFullTrackName()] = subscription.participantId
             }
         }
-        var subbed: [QSubscribeTrackHandlerObjC] = []
-        var unsubbed: [QSubscribeTrackHandlerObjC] = []
+        var subbed: [Subscription] = []
+        var unsubbed: [Subscription] = []
         let sub: MockClient.SubscribeTrackCallback = { subbed.append($0) }
         let unsub: MockClient.SubscribeTrackCallback = { unsubbed.append($0) }
 
@@ -175,12 +176,12 @@ final class TestActiveSpeaker: XCTestCase {
         if ourself != manifestSubscription1.participantId {
             setOne = try controller.subscribeToSet(details: manifestSubscription1,
                                                    factory: MockVideoSubscriptionFactory({
-                                                    XCTAssertEqual($0.sourceId, manifestSubscription1.sourceID)
+                                                    #expect($0.sourceId == manifestSubscription1.sourceID)
                                                    }), subscribe: true) as! VideoSubscriptionSet? // swiftlint:disable:this force_cast
         }
         let setTwo = try controller.subscribeToSet(details: manifestSubscription2,
                                                    factory: MockVideoSubscriptionFactory({
-                                                    XCTAssertEqual($0.sourceId, manifestSubscription2.sourceID)
+                                                    #expect($0.sourceId == manifestSubscription2.sourceID)
                                                    }), subscribe: true) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
 
         // 1 and 2 should be created and subscribed to.
@@ -191,7 +192,7 @@ final class TestActiveSpeaker: XCTestCase {
         } else {
             expected = [manifestSubscriptionOther, manifestSubscription1, manifestSubscription2]
         }
-        XCTAssertEqual(initialSubscriptionSets.map { $0.sourceId }.sorted(), expected.map { $0.sourceID }.sorted())
+        #expect(initialSubscriptionSets.map { $0.sourceId }.sorted() == expected.map { $0.sourceID }.sorted())
         let handlers = initialSubscriptionSets.reduce(into: []) { $0.append(contentsOf: $1.getHandlers().values) }
         let sortedHandlers = handlers.sorted(by: {
             let aFtn = FullTrackName($0.getFullTrackName())
@@ -202,7 +203,7 @@ final class TestActiveSpeaker: XCTestCase {
             }
             return lhs < rhs
         })
-        XCTAssertEqual(Set(handlers), Set(subbed))
+        #expect(Set(handlers) == Set(subbed))
 
         // Mark 1 and 2 as in displaying state.
         if let setOne {
@@ -220,17 +221,19 @@ final class TestActiveSpeaker: XCTestCase {
         let notifier = MockActiveSpeakerNotifier()
         var created: [SubscriptionSet] = []
         let factory = MockVideoSubscriptionFactory { created.append($0) }
-        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
-                                                                                                  controller: controller,
-                                                                                                  videoSubscriptions: manifestSubscriptions,
-                                                                                                  factory: factory,
-                                                                                                  participantId: ourself,
-                                                                                                  activeSpeakerStats: nil)
+        let activeSpeakerController: ActiveSpeakerApply<TestCallController.MockSubscription>
+        activeSpeakerController = try .init(notifier: notifier,
+                                            controller: controller,
+                                            videoSubscriptions: manifestSubscriptions,
+                                            factory: factory,
+                                            participantId: ourself,
+                                            activeSpeakerStats: nil,
+                                            pauseResume: pauseResume)
 
         // Test state clear.
-        XCTAssert(created.isEmpty)
-        XCTAssert(subbed.isEmpty)
-        XCTAssert(unsubbed.isEmpty)
+        #expect(created.isEmpty)
+        #expect(subbed.isEmpty)
+        #expect(unsubbed.isEmpty)
 
         // Mock active speaker change.
         if let clamp = clamp {
@@ -243,94 +246,120 @@ final class TestActiveSpeaker: XCTestCase {
             // In this case, there is no clamping. Our response should
             // match the received active speaker list exactly.
             // 1 and 2 were speaking, now 1 and 3 are.
-            // Excpect a subscribe to 3, and a unsubscribe to 2.
+            // Excpect a subscribe/resume to 3, and a unsubscribe/pause to 2.
 
             // Factory should have created subscription 3.
-            XCTAssertEqual(created.count, 1)
-            XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+            #expect(created.count == 1)
+            #expect(created.map { $0.sourceId }.sorted() == [manifestSubscription3].map { $0.sourceID }.sorted())
+            #expect(created.allSatisfy { !$0.isPaused })
             // Controller should have subscribed to 3.
-            XCTAssertEqual(subbed.count, 1)
-            XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+            #expect(subbed.count == 1)
+            #expect(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+            #expect(subbed.allSatisfy { !$0.isPaused })
 
-            // We won't yet have unsubscribed from non-active speaker 2,
+            // We won't yet have unsubscribed/paused from non-active speaker 2,
             // until we have a frame to display from new speaker 3.
-            XCTAssertEqual(unsubbed.count, 0)
+            #expect(unsubbed.count == 0)
+            if pauseResume {
+                #expect(!setTwo.isPaused)
+            }
 
             // Mock a frame displaying from 3.
             let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
             three.fireDisplayCallbacks()
 
-            // Should now have unsubscribed from 2.
-            XCTAssertEqual(unsubbed.count, 1)
-            XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+            if pauseResume {
+                // Should now have paused 2.
+                #expect(setTwo.isPaused)
+                #expect(unsubbed.count == 0)
+            } else {
+                // Should now have unsubscribed from 2.
+                #expect(unsubbed.count == 1)
+                #expect(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+            }
         case 1:
             // We're only showing one participant. 1 and 2 were speaking, now 1 and 3.
             if ourself == speakerOne {
                 // In this case, the top active speaker is us, so the next (3) should be subscribed.
-                XCTAssertEqual(created.map { $0.sourceId }.sorted(),
-                               [manifestSubscription3].map { $0.sourceID }.sorted())
-                XCTAssertEqual(subbed.count, 1)
-                XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+                #expect(created.map { $0.sourceId }.sorted() == [manifestSubscription3].map { $0.sourceID }.sorted())
+                #expect(created.allSatisfy { !$0.isPaused })
+                #expect(subbed.count == 1)
+                #expect(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+                #expect(subbed.allSatisfy { !$0.isPaused })
 
-                // 2 should not yet be unsubscribed until we get a frame from 3.
-                XCTAssertEqual(unsubbed.count, 0)
+                // 2 should not yet be unsubscribed/paused until we get a frame from 3.
+                #expect(unsubbed.count == 0)
+                #expect(!setTwo.isPaused)
 
                 // Mock a frame displaying from 3.
                 let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
                 three.fireDisplayCallbacks()
 
                 // Now 2 should have gone away.
-                XCTAssertEqual(unsubbed.count, 1)
-                XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+                if pauseResume {
+                    #expect(setTwo.isPaused)
+                    #expect(unsubbed.count == 0)
+                } else {
+                    #expect(unsubbed.count == 1)
+                    #expect(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+                }
             } else {
                 // Subscription 3 shouldn't be subscribed because of the clamping, only 1 (which already exists).
-                XCTAssertEqual(created.map { $0.sourceId }, [])
-                XCTAssertEqual(subbed.map { FullTrackName($0.getFullTrackName()) }, [])
+                if pauseResume {
+                    #expect(created.count == 0)
+                } else {
+                    #expect(created.map { $0.sourceId } == [])
+                    #expect(subbed.map { FullTrackName($0.getFullTrackName()) } == [])
+                }
 
-                // In this case, 1 is already displaying, so 2 should immediately be unsubscribed.
-                XCTAssertEqual(unsubbed.count, 1)
-                XCTAssert(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+                // In this case, 1 is already displaying, so 2 should immediately be unsubscribed/paused.
+                if pauseResume {
+                    #expect(setTwo.isPaused)
+                    #expect(unsubbed.count == 0)
+                } else {
+                    #expect(unsubbed.count == 1)
+                    #expect(unsubbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerTwo })
+                }
             }
         case 10:
             // Factory should have created subscription for new speaker 3.
-            XCTAssertEqual(created.count, 1)
-            XCTAssertEqual(created.map { $0.sourceId }.sorted(), [manifestSubscription3].map { $0.sourceID }.sorted())
+            #expect(created.count == 1)
+            #expect(created.map { $0.sourceId }.sorted() == [manifestSubscription3].map { $0.sourceID }.sorted())
+            #expect(created.allSatisfy { !$0.isPaused })
             // Controller should have subscribed to new speaker 3.
-            XCTAssertEqual(subbed.count, 1)
-            XCTAssert(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+            #expect(subbed.count == 1)
+            #expect(subbed.allSatisfy { ftnToParticipantId[.init($0.getFullTrackName())] == speakerThree })
+            #expect(subbed.allSatisfy { !$0.isPaused })
             // Should NOT have unsubscribed from 2 because we're
             // expanding out to previous due to clamp > speakers.count.
-            XCTAssert(unsubbed.isEmpty)
+            #expect(unsubbed.isEmpty)
+            #expect(!setTwo.isPaused)
 
             // Even if a frame arrives from 3.
             let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
             three.fireDisplayCallbacks()
-            XCTAssert(unsubbed.isEmpty)
+            #expect(unsubbed.isEmpty)
+            #expect(!setTwo.isPaused)
         default:
-            XCTFail("Unhandled case")
+            Issue.record("Unhandled case")
         }
 
         // 1 should still be present regardless of clamping, as long as it isn't us.
         if ourself != speakerOne {
             let active = try controller.getSubscriptionsByParticipant(speakerOne)
-            XCTAssertEqual(active.count, 1)
-            XCTAssertEqual(active[0].participantId, speakerOne)
+            #expect(active.count == 1)
+            #expect(active[0].participantId == speakerOne)
+            #expect(!active[0].isPaused)
         }
     }
 
-    func testActiveSpeaker() async throws {
-        try await self.testActiveSpeaker(clamp: nil, ourself: .init(4))
+    @Test("Active speaker handling", arguments: [nil, 1, 10], [true, false])
+    func testActiveSpeaker(clamp: Int?, pauseResume: Bool) async throws {
+        try await self.testActiveSpeaker(clamp: clamp, ourself: .init(4), pauseResume: pauseResume)
     }
 
-    func testActiveSpeakerClamped() async throws {
-        try await self.testActiveSpeaker(clamp: 1, ourself: .init(4))
-    }
-
-    func testActiveSpeakerExpanded() async throws {
-        try await self.testActiveSpeaker(clamp: 10, ourself: .init(4))
-    }
-
-    func testIgnoreOurselves() async throws {
-        try await self.testActiveSpeaker(clamp: 1, ourself: .init(1))
+    @Test("Active speaker ignoring ourselves", arguments: [true, false])
+    func testIgnoreOurselves(_ pauseResume: Bool) async throws {
+        try await self.testActiveSpeaker(clamp: 1, ourself: .init(1), pauseResume: pauseResume)
     }
 }

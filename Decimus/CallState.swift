@@ -313,7 +313,8 @@ class CallState: ObservableObject, Equatable {
                                                    videoSubscriptions: videoSubscriptions,
                                                    factory: subscriptionFactory,
                                                    participantId: manifest.participantId,
-                                                   activeSpeakerStats: self.activeSpeakerStats)
+                                                   activeSpeakerStats: self.activeSpeakerStats,
+                                                   pauseResume: self.subscriptionConfig.value.pauseResume)
                 } catch {
                     Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                 }
