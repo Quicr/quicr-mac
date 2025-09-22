@@ -20,60 +20,57 @@ struct ManifestSettingsView: View {
 
     var body: some View {
         Section("Manifest") {
-            Form {
-                LabeledContent("Scheme") {
-                    Picker("Scheme", selection: $manifestConfig.value.scheme) {
-                        ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
-                            Text(scheme.rawValue)
-                        }
+            LabeledContent("Scheme") {
+                Picker("Scheme", selection: $manifestConfig.value.scheme) {
+                    ForEach(URLScheme.allCases, id: \.rawValue) { scheme in
+                        Text(scheme.rawValue)
                     }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+            }
+
+            LabeledContent("Address") {
+                TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
+                    #if canImport(UIKit)
+                    .keyboardType(.URL)
+                    #endif
                     .labelsHidden()
-                    .pickerStyle(.segmented)
-                }
+            }
 
-                LabeledContent("Address") {
-                    TextField("manifest_address", text: $manifestConfig.value.url, prompt: Text("127.0.0.1"))
-                        #if canImport(UIKit)
-                        .keyboardType(.URL)
-                        #endif
-                        .labelsHidden()
-                }
+            LabeledContent("Port") {
+                NumberView(value: $manifestConfig.value.port,
+                           formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                           name: "Port")
+            }
 
-                LabeledContent("Port") {
-                    NumberView(value: $manifestConfig.value.port,
-                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                               name: "Port")
-                }
-
-                HStack {
-                    Picker("Config", selection: $manifestConfig.value.config) {
-                        ForEach(self.configs, id: \.self) { config in
-                            Text(config)
-                        }
-                    }
-                    Spacer()
-                    Button {
-                        Task {
-                            self.configs = await self.getConfigs()
-                        }
-                    } label: {
-                        if self.showProgressView {
-                            ProgressView()
-                        } else {
-                            Text("Refresh")
-                        }
+            HStack {
+                Picker("Config", selection: $manifestConfig.value.config) {
+                    ForEach(self.configs, id: \.self) { config in
+                        Text(config)
                     }
                 }
-                if let error = self.error {
-                    HStack {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.footnote)
-                        Spacer()
+                Spacer()
+                Button {
+                    Task {
+                        self.configs = await self.getConfigs()
+                    }
+                } label: {
+                    if self.showProgressView {
+                        ProgressView()
+                    } else {
+                        Text("Refresh")
                     }
                 }
             }
-            .formStyle(.columns)
+            if let error = self.error {
+                HStack {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.footnote)
+                    Spacer()
+                }
+            }
         }
         .task {
             self.configs = await getConfigs()

@@ -31,64 +31,63 @@ struct InfluxSettingsView: View {
                     LabeledToggle("Realtime",
                                   isOn: $influxConfig.value.realtime)
                 }
+            }.formStyle(.columns)
 
-                LabeledContent("Interval (s)") {
-                    NumberView(value: $influxConfig.value.intervalSecs,
-                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                               name: "Interval (s)")
-                }
+            LabeledContent("Interval (s)") {
+                NumberView(value: $influxConfig.value.intervalSecs,
+                           formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                           name: "Interval (s)")
+            }
 
-                LabeledContent("URL") {
-                    TextField("URL", text: $influxConfig.value.url)
+            LabeledContent("URL") {
+                TextField("URL", text: $influxConfig.value.url)
+                    .labelsHidden()
+            }
+
+            LabeledContent("Bucket") {
+                TextField("Bucket", text: $influxConfig.value.bucket)
+                    .labelsHidden()
+            }
+
+            LabeledContent("Org") {
+                TextField("Org", text: $influxConfig.value.org)
+                    .labelsHidden()
+            }
+
+            LabeledContent("Token") {
+                VStack {
+                    SecureField("Token", text: self.$token)
                         .labelsHidden()
-                }
-
-                LabeledContent("Bucket") {
-                    TextField("Bucket", text: $influxConfig.value.bucket)
-                        .labelsHidden()
-                }
-
-                LabeledContent("Org") {
-                    TextField("Org", text: $influxConfig.value.org)
-                        .labelsHidden()
-                }
-
-                LabeledContent("Token") {
-                    VStack {
-                        SecureField("Token", text: self.$token)
-                            .labelsHidden()
-                        Text(self.tokenError)
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                    }
+                    Text(self.tokenError)
+                        .foregroundStyle(.red)
+                        .font(.footnote)
                 }
             }
-            .formStyle(.columns)
-            .onAppear {
-                do {
-                    if let token = try Self.tokenStorage.retrieve() {
-                        self.token = token
-                    } else {
-                        self.token = try Self.tokenFromPlist()
-                        self.logger.debug("Restored influx token from plist")
-                        self.tokenError = ""
-                    }
-                } catch {
-                    let message = "Error fetching influx token: \(error.localizedDescription)"
-                    self.tokenError = message
-                    self.logger.warning(message)
-                }
-            }
-            .onChange(of: self.token) {
-                guard !self.token.isEmpty else { return }
-                do {
-                    try Self.tokenStorage.store(self.token)
+        }
+        .onAppear {
+            do {
+                if let token = try Self.tokenStorage.retrieve() {
+                    self.token = token
+                } else {
+                    self.token = try Self.tokenFromPlist()
+                    self.logger.debug("Restored influx token from plist")
                     self.tokenError = ""
-                } catch {
-                    let message = "Error storing influx token: \(error.localizedDescription)"
-                    self.tokenError = message
-                    self.logger.warning(message)
                 }
+            } catch {
+                let message = "Error fetching influx token: \(error.localizedDescription)"
+                self.tokenError = message
+                self.logger.warning(message)
+            }
+        }
+        .onChange(of: self.token) {
+            guard !self.token.isEmpty else { return }
+            do {
+                try Self.tokenStorage.store(self.token)
+                self.tokenError = ""
+            } catch {
+                let message = "Error storing influx token: \(error.localizedDescription)"
+                self.tokenError = message
+                self.logger.warning(message)
             }
         }
     }

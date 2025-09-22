@@ -29,191 +29,194 @@ struct SubscriptionSettingsView: View {
 
     var body: some View {
         Section("Subscription Config") {
-            Form {
-                LabeledToggle("Show Labels",
-                              isOn: self.$showLabels)
+            LabeledToggle("Show Labels",
+                          isOn: self.$showLabels)
 
-                VideoJitterBufferSettingsView(config: $subscriptionConfig.value.videoJitterBuffer)
+            VideoJitterBufferSettingsView(config: $subscriptionConfig.value.videoJitterBuffer)
 
-                LabeledContent("Jitter Target Depth (s)") {
-                    TextField(
-                        "Depth (s)",
-                        value: $subscriptionConfig.value.jitterDepthTime,
-                        format: .number)
-                        .labelsHidden()
-                        .onChange(of: subscriptionConfig.value.jitterDepthTime) { _, new in
-                            subscriptionConfig.value.videoJitterBuffer.minDepth = new
-                            subscriptionConfig.value.jitterMaxTime = new
-                        }
-                }
-                LabeledContent("Video Jitter Capacity (s)") {
-                    TextField(
-                        "Capacity (s)",
-                        value: $subscriptionConfig.value.videoJitterBuffer.capacity,
-                        format: .number)
-                        .labelsHidden()
-                }
-                LabeledContent("Jitter Sample Window (s)") {
-                    TextField(
-                        "Window (s)",
-                        value: self.$subscriptionConfig.value.videoJitterBuffer.window,
-                        format: .number)
-                        .labelsHidden()
-                }
-                LabeledToggle("Adaptive Jitter Buffer",
-                              isOn: self.$subscriptionConfig.value.videoJitterBuffer.adaptive)
-                LabeledToggle("Experimental WiFi Adaptation",
-                              isOn: self.$subscriptionConfig.value.videoJitterBuffer.spikePrediction)
-                LabeledToggle("New Audio Buffer",
-                              isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
-                if self.subscriptionConfig.value.useNewJitterBuffer {
-                    LabeledContent("Playout Buffer Size (s)") {
-                        TextField("Playout Buffer Size (s)",
-                                  value: self.$subscriptionConfig.value.playoutBufferTime,
-                                  format: .number)
-                            .labelsHidden()
-                    }
-                }
-                LabeledToggle("Key Frame on Update",
-                              isOn: self.$subscriptionConfig.value.keyFrameOnSubscribeUpdate)
-                if self.subscriptionConfig.value.keyFrameOnSubscribeUpdate {
-                    Text("I hope you know what you're doing 😅")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                LabeledContent("Fetch before (s)") {
-                    TextField(
-                        "Fetch (s)",
-                        value: self.$subscriptionConfig.value.joinConfig.fetchUpperThreshold,
-                        format: .number)
-                        .labelsHidden()
-                }
-                LabeledContent("Wait after (s)") {
-                    TextField(
-                        "Wait (s)",
-                        value: self.$subscriptionConfig.value.joinConfig.newGroupUpperThreshold,
-                        format: .number)
-                        .labelsHidden()
-                }
-
-                Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
-                    ForEach(OpusWindowSize.allCases) {
-                        Text(String(describing: $0))
-                    }
-                }
-                LabeledContent("Audio PLC Upper Limit (pkts)") {
-                    TextField("Audio PLC Upper Limit (pkts)",
-                              value: self.$subscriptionConfig.value.audioPlcLimit,
-                              format: .number)
-                        .labelsHidden()
-                }
-                LabeledContent("Video behaviour") {
-                    Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
-                        ForEach(VideoBehaviour.allCases) {
-                            Text(String(describing: $0))
-                        }
-                    }
-                    .pickerStyle(.segmented)
+            LabeledContent("Jitter Target Depth (s)") {
+                TextField(
+                    "Depth (s)",
+                    value: $subscriptionConfig.value.jitterDepthTime,
+                    format: .number)
                     .labelsHidden()
-                }
-
-                LabeledContent("Encoder bitrate") {
-                    Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {
-                        ForEach(BitrateType.allCases) {
-                            Text(String(describing: $0))
-                        }
+                    .onChange(of: subscriptionConfig.value.jitterDepthTime) { _, new in
+                        subscriptionConfig.value.videoJitterBuffer.minDepth = new
+                        subscriptionConfig.value.jitterMaxTime = new
                     }
-                    .pickerStyle(.segmented)
+            }
+            LabeledContent("Video Jitter Capacity (s)") {
+                TextField(
+                    "Capacity (s)",
+                    value: $subscriptionConfig.value.videoJitterBuffer.capacity,
+                    format: .number)
                     .labelsHidden()
-                }
-
-                LabeledContent("Encoder Key Frame Interval (s)") {
-                    TextField("Interval (s)",
-                              value: self.$subscriptionConfig.value.keyFrameInterval,
+            }
+            LabeledContent("Jitter Sample Window (s)") {
+                TextField(
+                    "Window (s)",
+                    value: self.$subscriptionConfig.value.videoJitterBuffer.window,
+                    format: .number)
+                    .labelsHidden()
+            }
+            LabeledToggle("Adaptive Jitter Buffer",
+                          isOn: self.$subscriptionConfig.value.videoJitterBuffer.adaptive)
+            LabeledToggle("Experimental WiFi Adaptation",
+                          isOn: self.$subscriptionConfig.value.videoJitterBuffer.spikePrediction)
+            LabeledToggle("New Audio Buffer",
+                          isOn: self.$subscriptionConfig.value.useNewJitterBuffer)
+            if self.subscriptionConfig.value.useNewJitterBuffer {
+                LabeledContent("Playout Buffer Size (s)") {
+                    TextField("Playout Buffer Size (s)",
+                              value: self.$subscriptionConfig.value.playoutBufferTime,
                               format: .number)
-                        .labelsHidden()
-                }
-
-                LabeledToggle("Stagger Video Qualities",
-                              isOn: self.$subscriptionConfig.value.stagger)
-
-                if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
-                    LabeledContent("Preferred Camera") {
-                        Picker("Preferred Camera", selection: $preferredCamera) {
-                            Text("None").tag("None")
-                            ForEach(devices.cameras, id: \.uniqueID) {
-                                Text($0.localizedName)
-                                    .tag($0.uniqueID)
-                            }.onChange(of: preferredCamera) {
-                                guard self.preferredCamera != self.noPreference else {
-                                    AVCaptureDevice.userPreferredCamera = nil
-                                    return
-                                }
-
-                                for camera in devices.cameras where camera.uniqueID == preferredCamera {
-                                    AVCaptureDevice.userPreferredCamera = camera
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
-
-                LabeledToggle("Single Publication",
-                              isOn: $subscriptionConfig.value.isSingleOrderedPub)
-
-                LabeledToggle("Single Subscription",
-                              isOn: $subscriptionConfig.value.isSingleOrderedSub)
-
-                LabeledContent("Simulreceive") {
-                    Picker("Simulreceive", selection: $subscriptionConfig.value.simulreceive) {
-                        ForEach(SimulreceiveMode.allCases) {
-                            if subscriptionConfig.value.videoJitterBuffer.mode == .layer && $0 != .none {
-                                EmptyView()
-                            } else {
-                                Text(String(describing: $0))
-                            }
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: subscriptionConfig.value.videoJitterBuffer.mode) { _, new in
-                        if new == .layer && subscriptionConfig.value.simulreceive != .none {
-                            subscriptionConfig.value.simulreceive = .none
-                        }
-                    }
-                    .onAppear {
-                        if subscriptionConfig.value.videoJitterBuffer.mode == .layer,
-                           subscriptionConfig.value.simulreceive != .none {
-                            subscriptionConfig.value.simulreceive = .none
-                        }
-                    }
-                }
-
-                LabeledContent("Quality miss threshold (frames)") {
-                    NumberView(value: self.$subscriptionConfig.value.qualityMissThreshold,
-                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                               name: "Threshold")
-                }
-
-                LabeledToggle("Do Pause/Resunme",
-                              isOn: $subscriptionConfig.value.pauseResume)
-
-                LabeledContent("Pause miss threshold (frames)") {
-                    NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
-                               formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
-                               name: "Threshold")
-                }
-
-                LabeledContent("Cleanup Time (s)") {
-                    TextField(
-                        "Cleanup Time (s)",
-                        value: self.$subscriptionConfig.value.cleanupTime,
-                        format: .number)
                         .labelsHidden()
                 }
             }
-            .formStyle(.columns)
+            VStack {
+                LabeledToggle("Key Frame on Update",
+                              isOn: self.$subscriptionConfig.value.keyFrameOnSubscribeUpdate)
+                if self.subscriptionConfig.value.keyFrameOnSubscribeUpdate {
+                    HStack {
+                        Text("I hope you know what you're doing 😅")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+            }
+
+            LabeledContent("Fetch before (s)") {
+                TextField(
+                    "Fetch (s)",
+                    value: self.$subscriptionConfig.value.joinConfig.fetchUpperThreshold,
+                    format: .number)
+                    .labelsHidden()
+            }
+            LabeledContent("Wait after (s)") {
+                TextField(
+                    "Wait (s)",
+                    value: self.$subscriptionConfig.value.joinConfig.newGroupUpperThreshold,
+                    format: .number)
+                    .labelsHidden()
+            }
+
+            Picker("Opus Window Size (s)", selection: $subscriptionConfig.value.opusWindowSize) {
+                ForEach(OpusWindowSize.allCases) {
+                    Text(String(describing: $0))
+                }
+            }
+            LabeledContent("Audio PLC Upper Limit (pkts)") {
+                TextField("Audio PLC Upper Limit (pkts)",
+                          value: self.$subscriptionConfig.value.audioPlcLimit,
+                          format: .number)
+                    .labelsHidden()
+            }
+            LabeledContent("Video behaviour") {
+                Picker("Video behaviour", selection: $subscriptionConfig.value.videoBehaviour) {
+                    ForEach(VideoBehaviour.allCases) {
+                        Text(String(describing: $0))
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            LabeledContent("Encoder bitrate") {
+                Picker("Encoder bitrate", selection: $subscriptionConfig.value.bitrateType) {
+                    ForEach(BitrateType.allCases) {
+                        Text(String(describing: $0))
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            LabeledContent("Encoder Key Frame Interval (s)") {
+                TextField("Interval (s)",
+                          value: self.$subscriptionConfig.value.keyFrameInterval,
+                          format: .number)
+                    .labelsHidden()
+            }
+
+            LabeledToggle("Stagger Video Qualities",
+                          isOn: self.$subscriptionConfig.value.stagger)
+
+            if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
+                LabeledContent("Preferred Camera") {
+                    Picker("Preferred Camera", selection: $preferredCamera) {
+                        Text("None").tag("None")
+                        ForEach(devices.cameras, id: \.uniqueID) {
+                            Text($0.localizedName)
+                                .tag($0.uniqueID)
+                        }.onChange(of: preferredCamera) {
+                            guard self.preferredCamera != self.noPreference else {
+                                AVCaptureDevice.userPreferredCamera = nil
+                                return
+                            }
+
+                            for camera in devices.cameras where camera.uniqueID == preferredCamera {
+                                AVCaptureDevice.userPreferredCamera = camera
+                                break
+                            }
+                        }
+                    }
+                    .labelsHidden()
+                }
+            }
+
+            LabeledToggle("Single Publication",
+                          isOn: $subscriptionConfig.value.isSingleOrderedPub)
+
+            LabeledToggle("Single Subscription",
+                          isOn: $subscriptionConfig.value.isSingleOrderedSub)
+
+            LabeledContent("Simulreceive") {
+                Picker("Simulreceive", selection: $subscriptionConfig.value.simulreceive) {
+                    ForEach(SimulreceiveMode.allCases) {
+                        if subscriptionConfig.value.videoJitterBuffer.mode == .layer && $0 != .none {
+                            EmptyView()
+                        } else {
+                            Text(String(describing: $0))
+                        }
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: subscriptionConfig.value.videoJitterBuffer.mode) { _, new in
+                    if new == .layer && subscriptionConfig.value.simulreceive != .none {
+                        subscriptionConfig.value.simulreceive = .none
+                    }
+                }
+                .onAppear {
+                    if subscriptionConfig.value.videoJitterBuffer.mode == .layer,
+                       subscriptionConfig.value.simulreceive != .none {
+                        subscriptionConfig.value.simulreceive = .none
+                    }
+                }
+            }
+
+            LabeledContent("Quality miss threshold (frames)") {
+                NumberView(value: self.$subscriptionConfig.value.qualityMissThreshold,
+                           formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                           name: "Threshold")
+            }
+
+            LabeledToggle("Do Pause/Resume",
+                          isOn: $subscriptionConfig.value.pauseResume)
+
+            LabeledContent("Pause miss threshold (frames)") {
+                NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
+                           formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                           name: "Threshold")
+            }
+
+            LabeledContent("Cleanup Time (s)") {
+                TextField(
+                    "Cleanup Time (s)",
+                    value: self.$subscriptionConfig.value.cleanupTime,
+                    format: .number)
+                    .labelsHidden()
+            }
         }
         Section("Reliability") {
             HStack {

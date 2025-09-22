@@ -84,7 +84,9 @@ struct SettingsView: View {
                             TextField("Override Namespace",
                                       text: self.$overrideNamespace)
                                 .autocorrectionDisabled()
+                                #if !os(macOS)
                                 .keyboardType(.asciiCapable)
+                            #endif
                             if let overrideError {
                                 Text(overrideError)
                                     .foregroundStyle(.red)
@@ -113,6 +115,7 @@ struct SettingsView: View {
             PlaytimeSettingsView()
                 .decimusTextStyle()
         }
+        .formStyle(.grouped)
     }
 }
 
