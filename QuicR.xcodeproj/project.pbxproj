@@ -14,7 +14,6 @@
 		184912882A3A51FC00773D39 /* OpusSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184912872A3A51FC00773D39 /* OpusSubscription.swift */; };
 		1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; };
 		1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 184912892A3B560200773D39 /* clibjitter.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186397A02ADE0B9100FBF877 /* VideoDevices.swift */; };
 		186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */; };
 		186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763562B2B6B1100339421 /* CaptureManager+Measurement.swift */; };
 		186763592B2B6B3B00339421 /* JitterBuffer+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186763582B2B6B3B00339421 /* JitterBuffer+Measurement.swift */; };
@@ -128,6 +127,7 @@
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
 		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
+		9BB3C50C2E8D62FD000AB7C2 /* CameraPreferencePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB3C50B2E8D62FD000AB7C2 /* CameraPreferencePicker.swift */; };
 		9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB707AB2E40B51700C697B6 /* RFC3550.swift */; };
 		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
 		9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BBFF99C2DE751380093EA8E /* QLocation.mm */; };
@@ -244,7 +244,6 @@
 		184912872A3A51FC00773D39 /* OpusSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpusSubscription.swift; sourceTree = "<group>"; };
 		184912892A3B560200773D39 /* clibjitter.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = clibjitter.xcframework; path = dependencies/clibjitter.xcframework; sourceTree = "<group>"; };
 		185D628E29BF3C5A0011E634 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		186397A02ADE0B9100FBF877 /* VideoDevices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoDevices.swift; sourceTree = "<group>"; };
 		186763542B2B69FD00339421 /* VideoHandler+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoHandler+Measurement.swift"; sourceTree = "<group>"; };
 		186763562B2B6B1100339421 /* CaptureManager+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CaptureManager+Measurement.swift"; sourceTree = "<group>"; };
 		186763582B2B6B3B00339421 /* JitterBuffer+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "JitterBuffer+Measurement.swift"; sourceTree = "<group>"; };
@@ -368,6 +367,7 @@
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
 		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
+		9BB3C50B2E8D62FD000AB7C2 /* CameraPreferencePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreferencePicker.swift; sourceTree = "<group>"; };
 		9BB707AB2E40B51700C697B6 /* RFC3550.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFC3550.swift; sourceTree = "<group>"; };
 		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
 		9BBFF99B2DE750D80093EA8E /* QLocation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QLocation.h; sourceTree = "<group>"; };
@@ -522,6 +522,7 @@
 		18C89A472A14EF02005B333B /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				9BB3C50B2E8D62FD000AB7C2 /* CameraPreferencePicker.swift */,
 				9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */,
 				9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */,
 				18162CEC2AB1C28300A75199 /* TransportConfigSettings.swift */,
@@ -712,7 +713,6 @@
 				1848B86C2ABAE21B00275F71 /* DecimusAudioEngine.swift */,
 				1848B86E2ABAE51A00275F71 /* OSStatusError.swift */,
 				18B2F4092AC5B9C5008E3BFD /* VideoDequeuer.swift */,
-				186397A02ADE0B9100FBF877 /* VideoDevices.swift */,
 				9B131C682B7E476500B29D77 /* DecimusVideoFrame.swift */,
 				9B131E342B7E548700B29D77 /* CMSampleBuffer+Attachments.swift */,
 				9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */,
@@ -1181,6 +1181,7 @@
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
+				9BB3C50C2E8D62FD000AB7C2 /* CameraPreferencePicker.swift in Sources */,
 				9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
 				FF3B952C2A60C1EF00CE463F /* QJitterBuffer.mm in Sources */,
@@ -1195,7 +1196,6 @@
 				186763552B2B69FD00339421 /* VideoHandler+Measurement.swift in Sources */,
 				1867635D2B2B6BB000339421 /* H264Publication+Measurement.swift in Sources */,
 				FF2498B42A55E8CC00C6D66D /* SubscriptionFactory.swift in Sources */,
-				186397A12ADE0B9100FBF877 /* VideoDevices.swift in Sources */,
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */,
 				9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */,

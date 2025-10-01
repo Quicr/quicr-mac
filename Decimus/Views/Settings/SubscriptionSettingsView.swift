@@ -14,19 +14,6 @@ struct SubscriptionSettingsView: View {
     @AppStorage(Self.defaultsKey)
     private var subscriptionConfig: AppStorageWrapper<SubscriptionConfig> = .init(value: .init())
 
-    @StateObject private var devices = VideoDevices()
-    @State private var preferredCamera: String
-    private let noPreference = "None"
-
-    init() {
-        if #available(iOS 17.0, macOS 13.0, *) {
-            self.preferredCamera = AVCaptureDevice.userPreferredCamera?.uniqueID ?? self.noPreference
-        } else {
-            self.preferredCamera = self.noPreference
-        }
-        self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterDepthTime
-    }
-
     var body: some View {
         Section("Subscription Config") {
             LabeledToggle("Show Labels",
@@ -142,27 +129,9 @@ struct SubscriptionSettingsView: View {
             LabeledToggle("Stagger Video Qualities",
                           isOn: self.$subscriptionConfig.value.stagger)
 
-            if #available(iOS 17.0, macOS 13.0, tvOS 17.0, *) {
-                LabeledContent("Preferred Camera") {
-                    Picker("Preferred Camera", selection: $preferredCamera) {
-                        Text("None").tag("None")
-                        ForEach(devices.cameras, id: \.uniqueID) {
-                            Text($0.localizedName)
-                                .tag($0.uniqueID)
-                        }.onChange(of: preferredCamera) {
-                            guard self.preferredCamera != self.noPreference else {
-                                AVCaptureDevice.userPreferredCamera = nil
-                                return
-                            }
-
-                            for camera in devices.cameras where camera.uniqueID == preferredCamera {
-                                AVCaptureDevice.userPreferredCamera = camera
-                                break
-                            }
-                        }
-                    }
+            LabeledContent("Preferred Camera") {
+                CameraPreferencePicker()
                     .labelsHidden()
-                }
             }
 
             LabeledToggle("Single Publication",
@@ -255,6 +224,9 @@ struct SubscriptionSettingsView: View {
                                     enableQlog: $subscriptionConfig.value.enableQlog,
                                     quicPriorityLimit:
                                         $subscriptionConfig.value.quicPriorityLimit)
+        }
+        .onAppear {
+            self.subscriptionConfig.value.videoJitterBuffer.minDepth = self.subscriptionConfig.value.jitterDepthTime
         }
     }
 }
