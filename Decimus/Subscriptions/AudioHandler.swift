@@ -285,7 +285,7 @@ class AudioHandler: TimeAlignable {
         }
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [weak self] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [weak self] silence, timestamp, numFrames, data in
         guard let self = self else { return .zero }
         self.playing.store(true, ordering: .releasing)
         // Fill the buffers as best we can.
@@ -343,10 +343,9 @@ class AudioHandler: TimeAlignable {
                 var validThisPass = result.frames
 
                 // How early or late is this frame?
-                let dueDate = hostToDate(result.timestamp.mHostTime)
-
-                // TODO: Can we use the incoming render timestamp, rather than now()? Ideally we avoid a syscall.
-                let age = dueDate.timeIntervalSinceNow
+                let now = Int128(timestamp.pointee.mHostTime)
+                let due = Int128(result.timestamp.mHostTime)
+                let age = hostTimeToSeconds(now - due)
 
                 let lateThreshold: TimeInterval = self.config.playoutBufferTime
                 guard age < -lateThreshold else {

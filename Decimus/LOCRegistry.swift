@@ -4,8 +4,6 @@
 import CoreMedia
 import Foundation
 
-let microsecondsPerSecond: TimeInterval = 1_000_000
-
 // Dictionary of header extension keys to values
 typealias HeaderExtensions = [NSNumber: Data]
 
