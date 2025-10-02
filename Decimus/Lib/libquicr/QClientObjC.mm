@@ -9,24 +9,25 @@
 #include "TransportConfig.h"
 
 static quicr::TransportConfig convert(TransportConfig config) {
-    quicr::TransportConfig moq;
-    moq.debug = config.debug;
-    moq.idle_timeout_ms = config.idle_timeout_ms;
-    moq.pacing_decrease_threshold_bps = config.pacing_decrease_threshold_Bps;
-    moq.pacing_increase_threshold_bps = config.pacing_increase_threshold_Bps;
-    moq.quic_cwin_minimum = config.quic_cwin_minimum;
-    moq.quic_priority_limit = config.quic_priority_limit;
-    moq.quic_qlog_path = config.quic_qlog_path ? std::string(config.quic_qlog_path) : "";
-    moq.quic_wifi_shadow_rtt_us = config.quic_wifi_shadow_rtt_us;
-    moq.time_queue_bucket_interval = config.time_queue_bucket_interval;
-    moq.time_queue_init_queue_size = config.time_queue_init_queue_size;
-    moq.time_queue_max_duration = config.time_queue_max_duration;
-    moq.time_queue_rx_size = config.time_queue_rx_size;
-    moq.tls_cert_filename = config.tls_cert_filename ? std::string(config.tls_cert_filename) : "";
-    moq.tls_key_filename = config.tls_key_filename ? std::string(config.tls_key_filename)  : "";
-    moq.use_bbr = config.use_bbr;
-    moq.use_reset_wait_strategy = config.use_reset_wait_strategy;
-    return moq;
+    return {
+        .debug = config.debug,
+        .idle_timeout_ms = config.idle_timeout_ms,
+        .quic_cwin_minimum = config.quic_cwin_minimum,
+        .quic_priority_limit = config.quic_priority_limit,
+        .quic_qlog_path = config.quic_qlog_path ? std::string(config.quic_qlog_path) : "",
+        .quic_wifi_shadow_rtt_us = config.quic_wifi_shadow_rtt_us,
+        .time_queue_bucket_interval = config.time_queue_bucket_interval,
+        .time_queue_init_queue_size = config.time_queue_init_queue_size,
+        .time_queue_max_duration = config.time_queue_max_duration,
+        .time_queue_rx_size = config.time_queue_rx_size,
+        .tls_cert_filename = config.tls_cert_filename ? std::string(config.tls_cert_filename) : "",
+        .tls_key_filename = config.tls_key_filename ? std::string(config.tls_key_filename)  : "",
+        .use_bbr = config.use_bbr,
+        .use_reset_wait_strategy = config.use_reset_wait_strategy,
+        .max_connections = config.max_connections,
+        .ssl_keylog = config.ssl_keylog,
+        .socket_buffer_size = config.socket_buffer_size
+    };
 }
 
 @implementation QClientObjC : NSObject
