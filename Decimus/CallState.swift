@@ -382,13 +382,14 @@ class CallState: ObservableObject, Equatable {
                                           debug: true,
                                           quic_cwin_minimum: subConfig.quicCwinMinimumKiB * 1024,
                                           quic_wifi_shadow_rtt_us: 0,
-                                          pacing_decrease_threshold_Bps: 16000,
-                                          pacing_increase_threshold_Bps: 16000,
                                           idle_timeout_ms: 15000,
                                           use_reset_wait_strategy: subConfig.useResetWaitCC,
                                           use_bbr: subConfig.useBBR,
                                           quic_qlog_path: subConfig.enableQlog ? qLogPath : nil,
-                                          quic_priority_limit: subConfig.quicPriorityLimit)
+                                          quic_priority_limit: subConfig.quicPriorityLimit,
+                                          max_connections: 1,
+                                          ssl_keylog: false,
+                                          socket_buffer_size: 1_000_000)
             let config = ClientConfig(connectUri: connectUri,
                                       endpointUri: endpointId,
                                       transportConfig: tConfig,
