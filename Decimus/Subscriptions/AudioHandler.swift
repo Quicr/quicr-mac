@@ -345,7 +345,7 @@ class AudioHandler: TimeAlignable {
                 // How early or late is this frame?
                 let now = Int128(timestamp.pointee.mHostTime)
                 let due = Int128(result.timestamp.mHostTime)
-                let age = hostTimeToSeconds(now - due)
+                let age = (now - due).seconds
 
                 let lateThreshold: TimeInterval = self.config.playoutBufferTime
                 guard age < -lateThreshold else {
@@ -574,10 +574,9 @@ class AudioHandler: TimeAlignable {
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 let waitTime: TimeInterval
-                let now: Date
                 let windowSize: OpusWindowSize
                 if let self = self {
-                    now = Date.now
+                    let now = When()
                     // Get current window size / backup wait.
                     if let set = self.windowSize {
                         windowSize = set
@@ -617,25 +616,25 @@ class AudioHandler: TimeAlignable {
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now) else { continue }
+                    let now = When()
+                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now.date) else { continue }
 
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
                     if self.granularMetrics,
                        let measurement = self.measurement?.measurement {
-                        let now = Date.now
                         if let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
                                 // Adjust this time to reflect our deliberate early dequeue.
                                 let time = time - self.config.playoutBufferTime
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.date)
                             }
                         }
                     }
 
                     // Decode, conceal, enqueue for playout.
-                    self.checkForDiscontinuity(item, window: windowSize, when: now)
-                    self.decode(item, when: now)
+                    self.checkForDiscontinuity(item, window: windowSize, when: now.date)
+                    self.decode(item, when: now.date)
                 }
             }
         }
@@ -668,7 +667,7 @@ class AudioHandler: TimeAlignable {
         }
         let playout = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
         var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                       mHostTime: dateToHost(playout),
+                                       mHostTime: UInt64(playout),
                                        mRateScalar: 0,
                                        mWordClockTime: 0,
                                        mSMPTETime: .init(),
@@ -742,9 +741,10 @@ class AudioHandler: TimeAlignable {
                 lastUsedSequence += 1
                 self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
                 let backwards = packetsToGenerate - packet
-                let date = itemDate.addingTimeInterval(Double(backwards) * window.rawValue * -1)
+                let backwardsTicks = (TimeInterval(backwards) * window.rawValue).ticks
+                let date = itemDate &- backwardsTicks
                 var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                               mHostTime: dateToHost(date),
+                                               mHostTime: UInt64(date),
                                                mRateScalar: 0,
                                                mWordClockTime: 0,
                                                mSMPTETime: .init(),

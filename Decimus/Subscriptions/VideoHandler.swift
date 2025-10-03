@@ -669,15 +669,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 let waitTime: TimeInterval
-                let now: Date
+                let now: When
                 if let self = self {
-                    now = Date.now
+                    now = .init()
 
                     // Wait until we expect to have a frame available.
                     let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
                     if let pid = self.dequeueBehaviour as? PIDDequeuer {
                         pid.currentDepth = jitterBuffer.getDepth()
-                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
+                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now.date)
                     } else {
                         guard let duration = self.duration else {
                             self.logger.error("Missing duration")
@@ -699,12 +699,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue a frame.
-                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now) {
+                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.date) {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(item: item) {
+                           let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.date)
                             }
                         }
 
@@ -713,7 +713,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
-                            try self.decode(sample: frame, from: now)
+                            try self.decode(sample: frame, from: now.date)
                         } catch {
                             self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }

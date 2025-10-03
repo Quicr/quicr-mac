@@ -216,27 +216,26 @@ class JitterBuffer {
     /// - Parameter since: The start point of the media timeline.
     /// - Returns: The date at which this item should be played out.
     func getPlayoutDate(item: JitterItem,
-                        offset: TimeInterval,
-                        since: Date = .init(timeIntervalSince1970: 0)) -> Date {
-        let actualTargetDepth = self.getCurrentTargetDepth()
-        return Date(timeInterval: item.timestamp.seconds.advanced(by: offset), since: since) + actualTargetDepth
+                        offset: HostTimeOffset) -> Ticks {
+        let time = offset.toReceiverHost(item.timestamp.seconds)
+        let actualTargetDepth = self.getCurrentTargetDepth().ticks
+        return time &+ actualTargetDepth
     }
 
     /// Calculate the estimated time interval until this frame should be rendered.
     /// - Parameter frame: The frame to calculate the wait time for.
     /// - Parameter from: The time to calculate the time interval from.
     /// - Parameter offset: Offset from the start point at which media starts.
-    /// - Parameter since: The start point of the media timeline.
     /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(item: JitterItem,
-                           from: Date,
-                           offset: TimeInterval,
-                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval {
-        let targetDate = self.getPlayoutDate(item: item, offset: offset, since: since)
-        let waitTime = targetDate.timeIntervalSince(from)
+                           from: When,
+                           offset: HostTimeOffset) -> TimeInterval {
+        let targetDate = self.getPlayoutDate(item: item, offset: offset)
+        let waitTicks = Int128(targetDate) - Int128(from.ticks)
+        let waitTime = waitTicks.seconds
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.waitTime(value: waitTime, timestamp: from)
+                await measurement.measurement.waitTime(value: waitTime, timestamp: from.date)
             }
         }
         return waitTime
@@ -245,14 +244,11 @@ class JitterBuffer {
     /// Calculate the estimated time interval until the next frame should be rendered.
     /// - Parameter from: The time to calculate the time interval from.
     /// - Parameter offset: Offset from the start point at which media starts.
-    /// - Parameter since: The start point of the media timeline.
     /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: Date,
-                           offset: TimeInterval,
-                           since: Date = .init(timeIntervalSince1970: 0)) -> TimeInterval? {
+    func calculateWaitTime(from: When, offset: HostTimeOffset) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let item = peek as! JitterItem
-        return self.calculateWaitTime(item: item, from: from, offset: offset, since: since)
+        return self.calculateWaitTime(item: item, from: from, offset: offset)
     }
 
     // swiftlint:enable force_cast

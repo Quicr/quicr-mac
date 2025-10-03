@@ -272,7 +272,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             while !Task.isCancelled {
                 let duration: TimeInterval
                 if let self = self {
-                    let now = Date.now
+                    let now = When()
                     if self.getHandlers().isEmpty {
                         self.renderTask?.cancel()
                         duration = TimeInterval.nan
@@ -342,7 +342,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
 
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
-    private func makeSimulreceiveDecision(at: Date) throws -> TimeInterval {
+    private func makeSimulreceiveDecision(at: When) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
         let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
@@ -364,7 +364,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
 
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
-        let decisionTime = self.measurement == nil ? nil : at
+        let decisionTime = self.measurement == nil ? nil : at.date
         let decision = Self.makeSimulreceiveDecision(choices: &choices)
 
         guard let decision = decision else {
@@ -581,7 +581,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         let transform = handler.orientation?.toTransform(handler.verticalMirror)
                         try participant.enqueue(selectedSample,
                                                 transform: transform,
-                                                when: at,
+                                                when: at.date,
                                                 endToEndLatency: e2eLatency)
                         self.mediaState.withLock { existing in
                             assert(existing != .subscribed)
