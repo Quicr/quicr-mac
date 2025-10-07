@@ -6,10 +6,33 @@ import Testing
 import Numerics
 @testable import QuicR
 
+extension HostTimeOffset: @retroactive Equatable {
+    public static func == (lhs: HostTimeOffset, rhs: HostTimeOffset) -> Bool {
+        lhs.senderTimestamp == rhs.senderTimestamp &&
+        lhs.receiverHostTime == rhs.receiverHostTime
+    }
+}
+
+extension Ticks {
+    func addingTimeInterval(_ interval: TimeInterval) -> Ticks {
+        self + interval.ticks
+    }
+
+    mutating func addTimeInterval(_ interval: TimeInterval) {
+        self += interval.ticks
+    }
+}
+
 struct TestTimeDiff {
     @Test("Get/Set", arguments: [-100, -0.1, 0.1, 100])
     func getSetPositive(value: TimeInterval) {
         let diff = TimeDiff()
+
+        let senderTimestamp = 1000.0
+        let receiverHostTime = (1000.0 + value).ticks
+
+        let value = HostTimeOffset(senderTimestamp: senderTimestamp,
+                                   receiverHostTime: receiverHostTime)
         diff.setTimeDiff(diff: value)
         #expect(diff.getTimeDiff() == value)
     }
@@ -56,9 +79,9 @@ struct TestTimeAlignable {
     class JitterItemImpl: JitterBuffer.JitterItem {
         let sequenceNumber: UInt64
         let timestamp: CMTime
-        init(sequenceNumber: UInt64, timestamp: Date) {
+        init(sequenceNumber: UInt64, timestamp: Ticks) {
             self.sequenceNumber = sequenceNumber
-            let value = timestamp.timeIntervalSince1970 * microsecondsPerSecond
+            let value = timestamp.seconds * microsecondsPerSecond
             self.timestamp = .init(value: CMTimeValue(value), timescale: CMTimeScale(microsecondsPerSecond))
         }
     }
@@ -66,12 +89,12 @@ struct TestTimeAlignable {
     @Test("Alignment")
     func align() throws {
         let alignable = TimeAlignableImpl()
-        let now = Date.now
+        let now = Ticks.now
         let item = JitterItemImpl(sequenceNumber: 0, timestamp: now)
         let aligner = TimeAligner(windowLength: 5,
                                   capacity: 5) { [alignable] }
         aligner.doTimestampTimeDiff(item.timestamp.seconds, when: now, force: true)
-        try alignable.jitterBuffer!.write(item: item, from: now)
+        try alignable.jitterBuffer!.write(item: item, from: now.hostDate)
 
         // Now should be min wait time.
         let waitTime = alignable.calculateWaitTime(from: now)
@@ -91,9 +114,9 @@ struct TestTimeAlignable {
         let secondDelayedSampled = JitterItemImpl(sequenceNumber: 1,
                                                   timestamp: captureTime)
         let arrivalTime = now.addingTimeInterval(0.1) // 50ms later sample + 50ms delay.
-        try alignable.jitterBuffer!.write(item: secondDelayedSampled, from: arrivalTime)
+        try alignable.jitterBuffer!.write(item: secondDelayedSampled, from: arrivalTime.hostDate)
         aligner.doTimestampTimeDiff(secondDelayedSampled.timestamp.seconds, when: arrivalTime, force: true)
-        let _: JitterItemImpl? = alignable.jitterBuffer!.read(from: arrivalTime)
+        let _: JitterItemImpl? = alignable.jitterBuffer!.read(from: arrivalTime.hostDate)
         let waitTimeLate = alignable.calculateWaitTime(from: arrivalTime)
 
         #expect(waitTimeLate != nil)

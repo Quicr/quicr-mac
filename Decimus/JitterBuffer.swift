@@ -219,7 +219,7 @@ class JitterBuffer {
                         offset: HostTimeOffset) -> Ticks {
         let time = offset.toReceiverHost(item.timestamp.seconds)
         let actualTargetDepth = self.getCurrentTargetDepth().ticks
-        return time &+ actualTargetDepth
+        return time + actualTargetDepth
     }
 
     /// Calculate the estimated time interval until this frame should be rendered.
@@ -228,14 +228,14 @@ class JitterBuffer {
     /// - Parameter offset: Offset from the start point at which media starts.
     /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
     func calculateWaitTime(item: JitterItem,
-                           from: When,
+                           from: Ticks,
                            offset: HostTimeOffset) -> TimeInterval {
         let targetDate = self.getPlayoutDate(item: item, offset: offset)
-        let waitTicks = Int128(targetDate) - Int128(from.ticks)
+        let waitTicks = Int128(targetDate) - Int128(from)
         let waitTime = waitTicks.seconds
         if let measurement = self.measurement {
             Task(priority: .utility) {
-                await measurement.measurement.waitTime(value: waitTime, timestamp: from.date)
+                await measurement.measurement.waitTime(value: waitTime, timestamp: from.hostDate)
             }
         }
         return waitTime
@@ -245,7 +245,7 @@ class JitterBuffer {
     /// - Parameter from: The time to calculate the time interval from.
     /// - Parameter offset: Offset from the start point at which media starts.
     /// - Returns: The time to wait, or nil if no estimation can be made. (There is no next frame).
-    func calculateWaitTime(from: When, offset: HostTimeOffset) -> TimeInterval? {
+    func calculateWaitTime(from: Ticks, offset: HostTimeOffset) -> TimeInterval? {
         guard let peek = self.buffer.head else { return nil }
         let item = peek as! JitterItem
         return self.calculateWaitTime(item: item, from: from, offset: offset)

@@ -145,12 +145,12 @@ final class TestVideoSubscriptionSet: XCTestCase {
 }
 
 struct VideoSubscriptionSetTests {
-    static let now = Date.now
-    static let pastTimestamp = Self.now.addingTimeInterval(-10).timeIntervalSince1970
-    static let futureTimestamp = Self.now.addingTimeInterval(10).timeIntervalSince1970
+    static let now = Ticks.now
+    static let pastTimestamp = Self.now.hostDate.addingTimeInterval(-10).timeIntervalSince1970
+    static let futureTimestamp = Self.now.hostDate.addingTimeInterval(10).timeIntervalSince1970
 
     @MainActor
-    @Test("Test Timestamp Diff", arguments: [Self.now.timeIntervalSince1970,
+    @Test("Test Timestamp Diff", arguments: [Self.now.hostDate.timeIntervalSince1970,
                                              Self.pastTimestamp,
                                              Self.futureTimestamp])
     func testTimestampDiff(timestamp: TimeInterval) throws {

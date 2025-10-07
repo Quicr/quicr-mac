@@ -252,7 +252,7 @@ class OpusPublication: Publication, AudioPublication {
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
         // Get absolute time.
-        let wallClock = dequeued.timestamp.mHostTime.hostDate
+        let wallClock = Ticks(dequeued.timestamp.mHostTime).hostDate
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 

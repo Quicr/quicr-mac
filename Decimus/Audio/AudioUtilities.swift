@@ -5,19 +5,15 @@ import CoreAudio
 
 typealias Ticks = Int128
 
-extension TimeInterval {
-    /// Convert to host time ticks.
-    var ticks: Ticks {
-        Ticks(self / timebase)
+extension Ticks {
+    static var now: Ticks {
+        Ticks(mach_absolute_time())
     }
 
-    /// Convert host time seconds to Date.
-    var hostDate: Date {
-        bootDate.addingTimeInterval(self)
+    func timeIntervalSince(_ since: Ticks) -> TimeInterval {
+        (self - since).seconds
     }
-}
 
-extension BinaryInteger {
     var seconds: TimeInterval {
         TimeInterval(self) * timebase
     }
@@ -27,13 +23,15 @@ extension BinaryInteger {
     }
 }
 
-struct When {
-    let date: Date
-    let ticks: Ticks
+extension TimeInterval {
+    /// Convert to host time ticks.
+    var ticks: Ticks {
+        Ticks(self / timebase)
+    }
 
-    init() {
-        self.date = .now
-        self.ticks = Ticks(mach_absolute_time())
+    /// Convert host time seconds to Date.
+    var hostDate: Date {
+        bootDate.addingTimeInterval(self)
     }
 }
 

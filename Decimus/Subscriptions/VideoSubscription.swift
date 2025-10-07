@@ -46,7 +46,7 @@ class VideoSubscription: Subscription {
 
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
-    private var lastUpdateTime = Date.now
+    private let lastUpdateTime = Atomic<Ticks>(.now)
     private let participantId: ParticipantId
     private let creationDate: Date
     private let joinDate: Date
@@ -312,8 +312,8 @@ class VideoSubscription: Subscription {
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?) {
         // Record the time this arrived.
-        let now = Date.now
-        self.lastUpdateTime = now
+        let now = Ticks.now
+        self.lastUpdateTime.store(now, ordering: .releasing)
 
         // Per-frame logging.
         if self.verbose {
@@ -327,7 +327,8 @@ class VideoSubscription: Subscription {
                     let duration: TimeInterval
                     if let self = self {
                         duration = self.cleanupTimer
-                        if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                        let last = self.lastUpdateTime.load(ordering: .acquiring)
+                        if Ticks.now.timeIntervalSince(last) >= self.cleanupTimer {
                             self.cleanup()
                         }
                     } else {

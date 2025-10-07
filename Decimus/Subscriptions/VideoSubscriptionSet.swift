@@ -35,7 +35,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private var lastImage: AvailableImage?
     private let qualityMissThreshold: Int
     private var cleanupTask: Task<(), Never>?
-    private var lastUpdateTime = Date.now
+    private let lastUpdateTime = Atomic<Ticks>(.now)
     private let profiles: [FullTrackName: VideoCodecConfig]
     private let cleanupTimer: TimeInterval
     private var pauseMissCounts: [FullTrackName: Int] = [:]
@@ -161,7 +161,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                     let time: TimeInterval
                     if let self = self {
                         time = self.cleanupTimer
-                        if Date.now.timeIntervalSince(self.lastUpdateTime) >= self.cleanupTimer {
+                        let lastUpdate = self.lastUpdateTime.load(ordering: .acquiring)
+                        if Ticks.now.timeIntervalSince(lastUpdate) >= self.cleanupTimer {
                             self.participant.clear()
                         }
                     } else {
@@ -246,7 +247,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             }
 
             // Calculate switching set arrival variance.
-            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: details.when)
+            _ = self.variances.calculateSetVariance(timestamp: timestamp, now: details.when.hostDate)
         }
 
         // If we're responsible for rendering.
@@ -258,7 +259,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         }
 
         // Record the last time this updated.
-        self.lastUpdateTime = details.when
+        self.lastUpdateTime.store(details.when, ordering: .releasing)
 
         // Update our state.
         self.mediaState.withLock { existing in
@@ -272,7 +273,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             while !Task.isCancelled {
                 let duration: TimeInterval
                 if let self = self {
-                    let now = When()
+                    let now = Ticks.now
                     if self.getHandlers().isEmpty {
                         self.renderTask?.cancel()
                         duration = TimeInterval.nan
@@ -342,7 +343,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
 
     // swiftlint:disable cyclomatic_complexity
     // swiftlint:disable function_body_length
-    private func makeSimulreceiveDecision(at: When) throws -> TimeInterval {
+    private func makeSimulreceiveDecision(at: Ticks) throws -> TimeInterval {
         // Gather up what frames we have to choose from.
         var initialChoices: [SimulreceiveItem] = []
         let subscriptions = self.getHandlers().mapValues { $0 as! VideoSubscription } // swiftlint:disable:this force_cast
@@ -364,7 +365,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
 
         // Make a decision about which frame to use.
         var choices = initialChoices as any Collection<SimulreceiveItem>
-        let decisionTime = self.measurement == nil ? nil : at.date
+        let decisionTime = self.measurement == nil ? nil : at.hostDate
         let decision = Self.makeSimulreceiveDecision(choices: &choices)
 
         guard let decision = decision else {
@@ -533,64 +534,62 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             }
 
             // If we don't yet have a participant, make one.
-            Task { [weak self] in
+            let when = at.hostDate
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                await MainActor.run { [weak self] in
-                    guard let self = self else { return }
-                    let participant: VideoParticipant
-                    do {
-                        participant = try self.participant.withLock { lockedParticipant in
-                            if let existing = lockedParticipant {
-                                return existing
-                            }
-                            let created = try VideoParticipant(id: self.sourceId,
-                                                               startDate: self.joinDate,
-                                                               subscribeDate: self.subscribeDate,
-                                                               videoParticipants: self.participants,
-                                                               participantId: self.participantId,
-                                                               activeSpeakerStats: self.activeSpeakerStats,
-                                                               config: self.config.getVideoParticipantConfig(self))
-                            lockedParticipant = created
-                            return created
+                let participant: VideoParticipant
+                do {
+                    participant = try self.participant.withLock { lockedParticipant in
+                        if let existing = lockedParticipant {
+                            return existing
                         }
-                    } catch {
-                        Self.logger.warning("Failed to create participant: \(error.localizedDescription)")
-                        return
+                        let created = try VideoParticipant(id: self.sourceId,
+                                                           startDate: self.joinDate,
+                                                           subscribeDate: self.subscribeDate,
+                                                           videoParticipants: self.participants,
+                                                           participantId: self.participantId,
+                                                           activeSpeakerStats: self.activeSpeakerStats,
+                                                           config: self.config.getVideoParticipantConfig(self))
+                        lockedParticipant = created
+                        return created
                     }
+                } catch {
+                    Self.logger.warning("Failed to create participant: \(error.localizedDescription)")
+                    return
+                }
 
-                    if let dispatchLabel = dispatchLabel {
-                        participant.label = dispatchLabel
-                    }
-                    do {
-                        let e2eLatency: TimeInterval?
-                        if self.config.calculateLatency {
-                            let now = Date.now
-                            let presentationTime = selectedSample.presentationTimeStamp.seconds
-                            let presentationDate = Date(timeIntervalSince1970: presentationTime)
-                            let age = now.timeIntervalSince(presentationDate)
-                            if self.granularMetrics,
-                               let measurement = measurement?.measurement {
-                                Task(priority: .utility) {
-                                    await measurement.age(age, timestamp: now)
-                                }
+                if let dispatchLabel = dispatchLabel {
+                    participant.label = dispatchLabel
+                }
+                do {
+                    let e2eLatency: TimeInterval?
+                    if self.config.calculateLatency {
+                        let now = Date.now
+                        let presentationTime = selectedSample.presentationTimeStamp.seconds
+                        let presentationDate = Date(timeIntervalSince1970: presentationTime)
+                        let age = now.timeIntervalSince(presentationDate)
+                        if self.granularMetrics,
+                           let measurement = measurement?.measurement {
+                            Task(priority: .utility) {
+                                await measurement.age(age, timestamp: now)
                             }
-                            e2eLatency = age
-                        } else {
-                            e2eLatency = nil
                         }
-                        let transform = handler.orientation?.toTransform(handler.verticalMirror)
-                        try participant.enqueue(selectedSample,
-                                                transform: transform,
-                                                when: at.date,
-                                                endToEndLatency: e2eLatency)
-                        self.mediaState.withLock { existing in
-                            assert(existing != .subscribed)
-                            existing = .rendered
-                        }
-                        self.displayCallbacks.fire()
-                    } catch {
-                        Self.logger.error("Could not enqueue sample: \(error)")
+                        e2eLatency = age
+                    } else {
+                        e2eLatency = nil
                     }
+                    let transform = handler.orientation?.toTransform(handler.verticalMirror)
+                    try participant.enqueue(selectedSample,
+                                            transform: transform,
+                                            when: when,
+                                            endToEndLatency: e2eLatency)
+                    self.mediaState.withLock { existing in
+                        assert(existing != .subscribed)
+                        existing = .rendered
+                    }
+                    self.displayCallbacks.fire()
+                } catch {
+                    Self.logger.error("Could not enqueue sample: \(error)")
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
@@ -598,14 +597,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             if fullTrackName != self.lastHighlight {
                 Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
-                Task { [weak self] in
+                Task { @MainActor [weak self] in
                     guard let self = self else { return }
-                    await MainActor.run { [weak self] in
-                        guard let self = self else { return }
-                        for participant in self.participants.participants {
-                            guard let participant = participant.value else { continue }
-                            participant.highlight = participant.id == "\(fullTrackName)"
-                        }
+                    for participant in self.participants.participants {
+                        guard let participant = participant.value else { continue }
+                        participant.highlight = participant.id == "\(fullTrackName)"
                     }
                 }
             }

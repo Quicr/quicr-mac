@@ -127,22 +127,22 @@ class VideoParticipant: Identifiable {
         if let timestamp = details.timestamp,
            let receive = self.latencies?.receive {
             let presentationDate = Date(timeIntervalSince1970: timestamp)
-            receive.slidingWindow.add(timestamp: details.when,
-                                      value: details.when.timeIntervalSince(presentationDate))
+            receive.slidingWindow.add(timestamp: details.when.hostDate,
+                                      value: details.when.hostDate.timeIntervalSince(presentationDate))
         }
 
         if let publishTimestamp = details.publishTimestamp,
            let traversal = self.latencies?.traversal {
-            traversal.slidingWindow.add(timestamp: details.when,
-                                        value: details.when.timeIntervalSince(publishTimestamp))
+            traversal.slidingWindow.add(timestamp: details.when.hostDate,
+                                        value: details.when.hostDate.timeIntervalSince(publishTimestamp))
         }
 
         guard let stats = self.activeSpeakerStats else { return }
         Task { @MainActor in
             if details.usable {
-                await stats.dataReceived(self.participantId, when: details.when)
+                await stats.dataReceived(self.participantId, when: details.when.hostDate)
             } else {
-                await stats.dataDropped(self.participantId, when: details.when)
+                await stats.dataDropped(self.participantId, when: details.when.hostDate)
             }
         }
     }

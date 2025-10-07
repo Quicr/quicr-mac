@@ -194,7 +194,7 @@ class AudioHandler: TimeAlignable {
         return buffer
     }
 
-    func submitEncodedAudio(data: Data, sequence: UInt64, date: Date, timestamp: Date) throws {
+    func submitEncodedAudio(data: Data, sequence: UInt64, date: Ticks, timestamp: Date) throws {
         if self.config.useNewJitterBuffer {
             let jitterBuffer: JitterBuffer
             if let existing = self.jitterBuffer {
@@ -214,7 +214,7 @@ class AudioHandler: TimeAlignable {
 
             // Jitter calculation.
             if self.config.adaptive {
-                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date)
+                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date.hostDate)
                 let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
                                     (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
                 if let jitterBuffer = self.jitterBuffer {
@@ -235,7 +235,7 @@ class AudioHandler: TimeAlignable {
             let timestamp = CMTime(value: CMTimeValue(usSinceEpoch), timescale: CMTimeScale(microsecondsPerSecond))
             let item = AudioJitterItem(data: data, sequenceNumber: sequence, timestamp: timestamp)
             do {
-                try jitterBuffer.write(item: item, from: date)
+                try jitterBuffer.write(item: item, from: date.hostDate)
             } catch JitterBufferError.full {
                 Self.logger.warning("Didn't enqueue audio as jitter buffer is full")
             } catch JitterBufferError.old {
@@ -243,7 +243,7 @@ class AudioHandler: TimeAlignable {
             }
 
             if let measurement = self.measurement {
-                let metricsDate = self.granularMetrics ? date : nil
+                let metricsDate = self.granularMetrics ? date.hostDate : nil
                 Task(priority: .utility) {
                     await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
                                                             timestamp: metricsDate)
@@ -267,10 +267,10 @@ class AudioHandler: TimeAlignable {
 
         // Decode and queue for playout.
         let decoded = try decoder.write(data: data)
-        try self.queueDecodedAudio(buffer: decoded, timestamp: date, sequence: sequence)
+        try self.queueDecodedAudio(buffer: decoded, timestamp: date.hostDate, sequence: sequence)
 
         // Metrics.
-        let metricsDate = self.granularMetrics ? date : nil
+        let metricsDate = self.granularMetrics ? date.hostDate : nil
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
@@ -343,8 +343,8 @@ class AudioHandler: TimeAlignable {
                 var validThisPass = result.frames
 
                 // How early or late is this frame?
-                let now = Int128(timestamp.pointee.mHostTime)
-                let due = Int128(result.timestamp.mHostTime)
+                let now = Ticks(timestamp.pointee.mHostTime)
+                let due = Ticks(result.timestamp.mHostTime)
                 let age = (now - due).seconds
 
                 let lateThreshold: TimeInterval = self.config.playoutBufferTime
@@ -576,7 +576,7 @@ class AudioHandler: TimeAlignable {
                 let waitTime: TimeInterval
                 let windowSize: OpusWindowSize
                 if let self = self {
-                    let now = When()
+                    let now = Ticks.now
                     // Get current window size / backup wait.
                     if let set = self.windowSize {
                         windowSize = set
@@ -616,8 +616,8 @@ class AudioHandler: TimeAlignable {
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    let now = When()
-                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now.date) else { continue }
+                    let now = Ticks.now
+                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now.hostDate) else { continue }
 
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
@@ -627,14 +627,14 @@ class AudioHandler: TimeAlignable {
                             Task(priority: .utility) {
                                 // Adjust this time to reflect our deliberate early dequeue.
                                 let time = time - self.config.playoutBufferTime
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.date)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
                             }
                         }
                     }
 
                     // Decode, conceal, enqueue for playout.
-                    self.checkForDiscontinuity(item, window: windowSize, when: now.date)
-                    self.decode(item, when: now.date)
+                    self.checkForDiscontinuity(item, window: windowSize, when: now.hostDate)
+                    self.decode(item, when: now.hostDate)
                 }
             }
         }

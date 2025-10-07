@@ -58,11 +58,11 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
         }
 
         // Metrics.
-        let now = Date.now
+        let now = Ticks.now
         if let activeSpeakerStats = self.activeSpeakerStats {
             Task(priority: .utility) {
                 await activeSpeakerStats.audioDetected(participantId,
-                                                       when: now)
+                                                       when: now.hostDate)
             }
         }
 

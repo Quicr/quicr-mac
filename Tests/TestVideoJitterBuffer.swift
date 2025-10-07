@@ -209,7 +209,7 @@ final class TestVideoJitterBuffer: XCTestCase {
     }
 
     func testWaitTimeNoDate() throws {
-        let startTime: Date = .now
+        let startTime: Ticks = .now
         var waitTime: TimeInterval?
         let minDepth: TimeInterval = 0.2
         let buffer = try JitterBuffer(identifier: "",
@@ -219,12 +219,14 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       handlers: getHandler(sort: false))
 
         // No calculation possible with no frame available.
-        waitTime = buffer.calculateWaitTime(from: startTime, offset: 0)
+        waitTime = buffer.calculateWaitTime(from: startTime,
+                                            offset: .init(senderTimestamp: 0,
+                                                          receiverHostTime: 0))
         XCTAssertNil(waitTime)
     }
 
     func testWaitTimeMinDepth() throws {
-        let startTime: Date = .now
+        let startTime: Ticks = .now
         var waitTime: TimeInterval?
         let minDepth: TimeInterval = 0.2
         let buffer = try JitterBuffer(identifier: "",
@@ -234,8 +236,12 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       handlers: getHandler(sort: false))
 
         // At first write, and otherwise on time, we should wait the min depth.
-        let presentation = CMTime(value: CMTimeValue(Date.now.timeIntervalSince1970), timescale: 1)
-        let diff = startTime.timeIntervalSince1970 - presentation.seconds
+        let presentationTimestamp = startTime.hostDate.timeIntervalSince1970
+        let presentation = CMTime(seconds: presentationTimestamp,
+                                  preferredTimescale: CMTimeScale(microsecondsPerSecond))
+        let diff = HostTimeOffset(senderTimestamp: presentationTimestamp,
+                                  receiverHostTime: startTime)
+
         let sample = try CMSampleBuffer(dataBuffer: nil,
                                         formatDescription: nil,
                                         numSamples: 1,
@@ -260,20 +266,23 @@ final class TestVideoJitterBuffer: XCTestCase {
     }
 
     func testWaitTimeN() throws {
-        let startTime: Date = .now
+        let startTime: Ticks = .now
         let minDepth: TimeInterval = 0.2
         let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 2,
                                       handlers: getHandler(sort: false))
-        let presentation = CMTime(value: CMTimeValue(startTime.timeIntervalSince1970), timescale: 1)
-        var diff: TimeInterval?
+        let presentationTimestamp = startTime.hostDate.timeIntervalSince1970
+        let presentation = CMTime(seconds: presentationTimestamp,
+                                  preferredTimescale: CMTimeScale(microsecondsPerSecond))
+        var diff: HostTimeOffset?
         let duration = CMTime(value: 1, timescale: 30)
 
         for count in 0..<2 {
             if diff == nil {
-                diff = startTime.timeIntervalSince1970 - presentation.seconds
+                diff = .init(senderTimestamp: presentationTimestamp,
+                             receiverHostTime: startTime)
             }
             let adjust = CMTimeMultiply(duration, multiplier: Int32(count))
             let sample = try CMSampleBuffer(dataBuffer: nil,
@@ -339,8 +348,8 @@ final class TestVideoJitterBuffer: XCTestCase {
         let duration: TimeInterval = 1 / TimeInterval(fps)
 
         // A lot of frames will arrive now().
-        let firstArrival = Date.now
-        let nowInterval = firstArrival.timeIntervalSince1970
+        let firstArrival = Ticks.now
+        let nowInterval = firstArrival.hostDate.timeIntervalSince1970
 
         // We will start their presentation at some random value (before or after now).
         let range: Range<TimeInterval>
@@ -352,7 +361,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         var presentationTime: TimeInterval = .random(in: range)
 
         // Record the media start time from the first frame.
-        let diff = firstArrival.timeIntervalSince1970 - presentationTime
+        let diff = HostTimeOffset(senderTimestamp: presentationTime, receiverHostTime: firstArrival)
 
         // Burst arrive N frames all of duration and presentationTime += duration.
         for index in 0..<capacity {
