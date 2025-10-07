@@ -742,7 +742,7 @@ class AudioHandler: TimeAlignable {
                 self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
                 let backwards = packetsToGenerate - packet
                 let backwardsTicks = (TimeInterval(backwards) * window.rawValue).ticks
-                let date = itemDate &- backwardsTicks
+                let date = itemDate - backwardsTicks
                 var timestamp = AudioTimeStamp(mSampleTime: 0,
                                                mHostTime: UInt64(date),
                                                mRateScalar: 0,

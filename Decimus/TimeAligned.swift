@@ -52,9 +52,9 @@ struct TimeDiff: ~Copyable {
     ///   - senderTimestamp: Sender timestamp in Unix epoch seconds.
     ///   - receiverHostTime: Receiver mHostTime when packet arrived (ticks).
     func setTimeDiff(diff: HostTimeOffset) {
-        let senderUs = UInt(diff.senderTimestamp * microsecondsPerSecond)
-        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
-        self.atomicPair.store(.init(first: senderUs != 0 ? senderUs : 1,
+        let senderNs = UInt(diff.senderTimestamp * nanosecondsPerSecond)
+        // 0 is unset, so if we happen to get zero we'll just take the 1ns hit.
+        self.atomicPair.store(.init(first: senderNs != 0 ? senderNs : 1,
                                     second: UInt(diff.receiverHostTime)),
                               ordering: .releasing)
     }
@@ -63,11 +63,11 @@ struct TimeDiff: ~Copyable {
     /// - Returns: Offset struct if set, nil otherwise.
     func getTimeDiff() -> HostTimeOffset? {
         let pair = self.atomicPair.load(ordering: .acquiring)
-        let senderUs = pair.first
+        let senderNs = pair.first
         let receiverHost = pair.second
-        guard senderUs != 0 else { return nil }
-        let senderTimestamp = TimeInterval(senderUs) / microsecondsPerSecond
-        return HostTimeOffset(senderTimestamp: senderTimestamp, receiverHostTime: Int128(receiverHost))
+        guard senderNs != 0 else { return nil }
+        let senderTimestamp = TimeInterval(senderNs) / nanosecondsPerSecond
+        return HostTimeOffset(senderTimestamp: senderTimestamp, receiverHostTime: Ticks(receiverHost))
     }
 }
 
@@ -85,14 +85,15 @@ final class TimeAligner {
     }
 
     private func doWindowMaintenance(when: Ticks) -> HostTimeOffset? {
+        // Look at all the times in our window.
+        // The smallest diff between sender and receiver time is our best
+        // estimate of the correct offset, as live media cannot arrive early.
         self.hostTimeWindow.withLock { entries in
             entries.removeAll { when.timeIntervalSince($0.receiverHostTime) > self.windowLength }
-
             guard !entries.isEmpty else { return nil }
-
             return entries.min { lhs, rhs in
-                let lhsDiff = abs(lhs.receiverHostTime.hostDate.timeIntervalSince1970 - lhs.senderTimestamp)
-                let rhsDiff = abs(rhs.receiverHostTime.hostDate.timeIntervalSince1970 - rhs.senderTimestamp)
+                let lhsDiff = lhs.receiverHostTime.seconds - lhs.senderTimestamp
+                let rhsDiff = rhs.receiverHostTime.seconds - rhs.senderTimestamp
                 return lhsDiff < rhsDiff
             }
         }
