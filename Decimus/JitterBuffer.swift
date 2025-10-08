@@ -231,8 +231,7 @@ class JitterBuffer {
                            from: Ticks,
                            offset: HostTimeOffset) -> TimeInterval {
         let targetDate = self.getPlayoutDate(item: item, offset: offset)
-        let waitTicks = Int128(targetDate) - Int128(from)
-        let waitTime = waitTicks.seconds
+        let waitTime = targetDate.timeIntervalSince(from)
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.measurement.waitTime(value: waitTime, timestamp: from.hostDate)

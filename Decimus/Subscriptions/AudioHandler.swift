@@ -343,12 +343,12 @@ class AudioHandler: TimeAlignable {
                 var validThisPass = result.frames
 
                 // How early or late is this frame?
-                let now = Ticks(timestamp.pointee.mHostTime)
-                let due = Ticks(result.timestamp.mHostTime)
-                let age = (now - due).seconds
-
-                let lateThreshold: TimeInterval = self.config.playoutBufferTime
-                guard age < -lateThreshold else {
+                let now = timestamp.pointee.mHostTime
+                let dueAt = result.timestamp.mHostTime
+                let dueIn = SignedTicks(dueAt) - SignedTicks(now)
+                let lateThreshold = SignedTicks(self.config.playoutBufferTime.ticks)
+                // TODO: This doubling is a bit of a hack.
+                guard dueIn < (-lateThreshold * 2) else {
                     // This wasn't late, we're done.
                     copiedFrames += Int(validThisPass)
                     break
@@ -447,7 +447,7 @@ class AudioHandler: TimeAlignable {
                 #if DEBUG
                 let timeSaved = TimeInterval(removed) * (1.0 / self.asbd.pointee.mSampleRate) * 1000
                 // swiftlint:disable:next line_length
-                Self.logger.debug("Audio was late at playout: \(age * 1000)ms. Removed \(removed) (\(timeSaved)ms) silent frames. Took: \(iterations) iterations")
+                Self.logger.debug("Audio was late at playout: \(Ticks(abs(dueIn)).seconds * 1000)ms. Removed \(removed) (\(timeSaved)ms) silent frames. Took: \(iterations) iterations")
                 #endif
             }
         } else if let jitterBuffer = self.oldJitterBuffer {
@@ -667,7 +667,7 @@ class AudioHandler: TimeAlignable {
         }
         let playout = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
         var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                       mHostTime: UInt64(playout),
+                                       mHostTime: playout,
                                        mRateScalar: 0,
                                        mWordClockTime: 0,
                                        mSMPTETime: .init(),
@@ -744,7 +744,7 @@ class AudioHandler: TimeAlignable {
                 let backwardsTicks = (TimeInterval(backwards) * window.rawValue).ticks
                 let date = itemDate - backwardsTicks
                 var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                               mHostTime: UInt64(date),
+                                               mHostTime: date,
                                                mRateScalar: 0,
                                                mWordClockTime: 0,
                                                mSMPTETime: .init(),

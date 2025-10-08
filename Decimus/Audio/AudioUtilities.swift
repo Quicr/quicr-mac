@@ -3,7 +3,14 @@
 
 import CoreAudio
 
-typealias Ticks = Int128
+typealias Ticks = UInt64
+typealias SignedTicks = Int64
+
+private extension BinaryInteger {
+    var seconds: TimeInterval {
+        TimeInterval(self) * timebase
+    }
+}
 
 extension Ticks {
     static var now: Ticks {
@@ -11,7 +18,7 @@ extension Ticks {
     }
 
     func timeIntervalSince(_ since: Ticks) -> TimeInterval {
-        (self - since).seconds
+        (SignedTicks(self) - SignedTicks(since)).seconds
     }
 
     var seconds: TimeInterval {
@@ -24,6 +31,11 @@ extension Ticks {
 }
 
 extension TimeInterval {
+    /// Get this time interval in signed ticks.
+    var signedTicks: SignedTicks {
+        SignedTicks(self / timebase)
+    }
+
     /// Convert to host time ticks.
     var ticks: Ticks {
         Ticks(self / timebase)

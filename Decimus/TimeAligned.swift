@@ -40,7 +40,7 @@ struct HostTimeOffset {
     /// - Returns: Corresponding receiver host time.
     func toReceiverHost(_ senderTime: TimeInterval) -> Ticks {
         let deltaSender = senderTime - self.senderTimestamp
-        return self.receiverHostTime + deltaSender.ticks
+        return .init(SignedTicks(self.receiverHostTime) + deltaSender.signedTicks)
     }
 }
 
