@@ -11,13 +11,13 @@ class TimeAlignable {
     /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
-    func calculateWaitTime(from: Date) -> TimeInterval? {
+    func calculateWaitTime(from: Ticks) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else { return nil }
         guard let diff = self.timeDiff.getTimeDiff() else { return nil }
         return jitterBuffer.calculateWaitTime(from: from, offset: diff)
     }
 
-    func calculateWaitTime(item: JitterBuffer.JitterItem, from: Date = .now) -> TimeInterval? {
+    func calculateWaitTime(item: JitterBuffer.JitterItem, from: Ticks) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else {
             assert(false)
             self.logger.error("App misconfiguration, please report this")
@@ -28,53 +28,82 @@ class TimeAlignable {
     }
 }
 
+/// Represents the offset needed to convert sender timestamps to monotonic timeline.
+struct HostTimeOffset {
+    /// Reference point sender timestamp.
+    let senderTimestamp: TimeInterval
+    /// Receiver host at reference point.
+    let receiverHostTime: Ticks
+
+    /// Convert a sender timestamp to receiver host time.
+    /// - Parameter senderTime: Sender timestamp.
+    /// - Returns: Corresponding receiver host time.
+    func toReceiverHost(_ senderTime: TimeInterval) -> Ticks {
+        let deltaSender = senderTime - self.senderTimestamp
+        return .init(SignedTicks(self.receiverHostTime) + deltaSender.signedTicks)
+    }
+}
+
 struct TimeDiff: ~Copyable {
-    private let timestampTimeDiffUs = Atomic(Int128.zero)
+    private let atomicPair = Atomic<WordPair>(.init(first: 0, second: 0))
 
     /// Set the difference in time between incoming stream timestamps and wall clock.
-    /// - Parameter diff: Difference in time in seconds.
-    func setTimeDiff(diff: TimeInterval) {
-        // Get to an integer representation, in microseconds.
-        let diffUs = Int128(diff * microsecondsPerSecond)
-        // 0 is unset, so if we happen to get zero we'll just take the 1us hit.
-        self.timestampTimeDiffUs.store(diffUs != 0 ? diffUs : 1, ordering: .releasing)
+    /// - Parameters:
+    ///   - senderTimestamp: Sender timestamp in Unix epoch seconds.
+    ///   - receiverHostTime: Receiver mHostTime when packet arrived (ticks).
+    func setTimeDiff(diff: HostTimeOffset) {
+        let senderNs = UInt(diff.senderTimestamp * nanosecondsPerSecond)
+        // 0 is unset, so if we happen to get zero we'll just take the 1ns hit.
+        self.atomicPair.store(.init(first: senderNs != 0 ? senderNs : 1,
+                                    second: UInt(diff.receiverHostTime)),
+                              ordering: .releasing)
     }
 
-    func getTimeDiff() -> TimeInterval? {
-        let diffUs = self.timestampTimeDiffUs.load(ordering: .acquiring)
-        guard diffUs != 0 else { return nil }
-        return TimeInterval(diffUs) / microsecondsPerSecond
+    /// Get the monotonic time offset for converting sender timestamps.
+    /// - Returns: Offset struct if set, nil otherwise.
+    func getTimeDiff() -> HostTimeOffset? {
+        let pair = self.atomicPair.load(ordering: .acquiring)
+        let senderNs = pair.first
+        let receiverHost = pair.second
+        guard senderNs != 0 else { return nil }
+        let senderTimestamp = TimeInterval(senderNs) / nanosecondsPerSecond
+        return HostTimeOffset(senderTimestamp: senderTimestamp, receiverHostTime: Ticks(receiverHost))
     }
 }
 
 final class TimeAligner {
-    private let timestampTimeDiff = Atomic<Int128>(0)
-    private let diffWindow: SlidingTimeWindow<TimeInterval>
+    private let hostTimeWindow: Mutex<[HostTimeOffset]>
+    private let windowLength: TimeInterval
     private var windowMaintenance: Task<(), Never>?
     typealias GetAlignables = () -> [TimeAlignable]
     private let getAlignables: GetAlignables
 
     init(windowLength: TimeInterval, capacity: Int, alignables: @escaping GetAlignables) {
-        self.diffWindow = .init(length: windowLength, reserved: capacity)
+        self.hostTimeWindow = .init([])
+        self.windowLength = windowLength
         self.getAlignables = alignables
     }
 
-    private func doWindowMaintenance(when: Date) -> TimeInterval? {
-        let values = self.diffWindow.get(from: when)
-        guard let calculated = values.closestToZero() else {
-            self.timestampTimeDiff.store(0, ordering: .releasing)
-            return nil
+    private func doWindowMaintenance(when: Ticks) -> HostTimeOffset? {
+        // Look at all the times in our window.
+        // The smallest diff between sender and receiver time is our best
+        // estimate of the correct offset, as live media cannot arrive early.
+        self.hostTimeWindow.withLock { entries in
+            entries.removeAll { when.timeIntervalSince($0.receiverHostTime) > self.windowLength }
+            guard !entries.isEmpty else { return nil }
+            return entries.min { lhs, rhs in
+                let lhsDiff = lhs.receiverHostTime.seconds - lhs.senderTimestamp
+                let rhsDiff = rhs.receiverHostTime.seconds - rhs.senderTimestamp
+                return lhsDiff < rhsDiff
+            }
         }
-        self.timestampTimeDiff.store(Int128(calculated * microsecondsPerSecond), ordering: .releasing)
-        return calculated
     }
 
-    func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Date, force: Bool = false) {
-        // Record this diff.
-        let diff = when.timeIntervalSince1970 - timestamp
-        self.diffWindow.add(timestamp: when, value: diff)
+    func doTimestampTimeDiff(_ timestamp: TimeInterval, when: Ticks, force: Bool = false) {
+        let offset = HostTimeOffset(senderTimestamp: timestamp,
+                                    receiverHostTime: when)
+        self.hostTimeWindow.withLock { $0.append(offset) }
 
-        // Kick off a task for sliding window.
         if !force && self.windowMaintenance == nil {
             self.windowMaintenance = .init(priority: .utility) { [weak self] in
                 while !Task.isCancelled {
@@ -88,16 +117,16 @@ final class TimeAligner {
             }
         }
 
-        // If we have nothing, start with this.
-        if force || self.timestampTimeDiff.load(ordering: .acquiring) == 0 {
+        if force || self.hostTimeWindow.withLock({ $0.count == 1 }) {
             self.set(when)
         }
     }
 
-    private func set(_ date: Date) {
-        guard let value = self.doWindowMaintenance(when: date) else { return }
+    private func set(_ date: Ticks) {
+        guard let hostEntry = self.doWindowMaintenance(when: date) else { return }
+
         for alignable in self.getAlignables() {
-            alignable.timeDiff.setTimeDiff(diff: value)
+            alignable.timeDiff.setTimeDiff(diff: hostEntry)
         }
     }
 }

@@ -22,8 +22,8 @@ struct VideoHelpers {
 struct ObjectReceived {
     /// The timestamp of the object, if available.
     let timestamp: TimeInterval?
-    /// The date when the object was received.
-    let when: Date
+    /// The time when the object was received.
+    let when: Ticks
     /// True if the object is from the cache.
     let cached: Bool
     /// The headers of the object.
@@ -90,7 +90,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let participant = Mutex<VideoParticipant?>(nil)
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
-    private var lastReceived: Date?
+    private var lastReceived: Ticks?
     private let jitterCalculation: RFC3550Jitter
 
     // Wi-Fi scan jitter buffer ramping state.
@@ -282,7 +282,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     func objectReceived(_ objectHeaders: QObjectHeaders, // swiftlint:disable:this cyclomatic_complexity function_body_length
                         data: Data,
                         extensions: [NSNumber: Data]?,
-                        when: Date,
+                        when: Ticks,
                         cached: Bool,
                         drop: Bool) {
         if let lastReceived = self.lastReceived {
@@ -290,15 +290,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if let detector = self.detector {
                 detector.addIntervalMeasurement(interval: interval,
                                                 identifier: "\(self.fullTrackName)",
-                                                timestamp: when)
+                                                timestamp: when.hostDate)
             }
         }
         self.lastReceived = when
 
         // Spike prediction and jitter buffer ramping.
         if let detector = self.detector {
-            let prediction = detector.predictNextScan(from: when)
-            self.updateJitterBufferForWiFiScan(prediction: prediction, timestamp: when)
+            let prediction = detector.predictNextScan(from: when.hostDate)
+            self.updateJitterBufferForWiFiScan(prediction: prediction, timestamp: when.hostDate)
         }
 
         guard !drop else {
@@ -392,7 +392,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
             // Drive base target depth from smoothed RFC3550 jitter.
             if self.jitterBufferConfig.adaptive {
-                self.jitterCalculation.record(timestamp: presentationInterval, arrival: when)
+                self.jitterCalculation.record(timestamp: presentationInterval, arrival: when.hostDate)
                 let newTarget = max(self.jitterBufferConfig.minDepth, self.jitterCalculation.smoothed * 3)
                 if let jitterBuffer = self.jitterBuffer {
                     let existing = jitterBuffer.getBaseTargetDepth()
@@ -406,7 +406,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if let measurement = self.measurement?.measurement,
                self.granularMetrics {
                 Task(priority: .utility) {
-                    await measurement.timestamp(timestamp: presentationInterval, when: when, cached: cached)
+                    await measurement.timestamp(timestamp: presentationInterval, when: when.hostDate, cached: cached)
                 }
             }
 
@@ -470,14 +470,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         if let jitterBuffer = self.jitterBuffer {
             let item = try DecimusVideoFrameJitterItem(frame)
             do {
-                try jitterBuffer.write(item: item, from: details.when)
+                try jitterBuffer.write(item: item, from: details.when.hostDate)
             } catch JitterBufferError.full {
                 self.logger.warning("Didn't enqueue as queue was full")
             } catch JitterBufferError.old {
                 self.logger.warning("Didn't enqueue as frame was older than last read")
             }
         } else {
-            try decode(sample: frame, from: details.when)
+            try decode(sample: frame, from: details.when.hostDate)
         }
 
         // Do we need to update the label?
@@ -509,7 +509,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
         // Metrics.
         if let measurement = self.measurement {
-            let now: Date? = self.granularMetrics ? details.when : nil
+            let now: Date? = self.granularMetrics ? details.when.hostDate : nil
             Task(priority: .utility) {
                 if let now = now,
                    let presentationTime = frame.samples.first?.presentationTimeStamp {
@@ -669,15 +669,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 let waitTime: TimeInterval
-                let now: Date
+                let now: Ticks
                 if let self = self {
-                    now = Date.now
+                    now = .now
 
                     // Wait until we expect to have a frame available.
                     let jitterBuffer = self.jitterBuffer! // Jitter buffer must exist at this point.
                     if let pid = self.dequeueBehaviour as? PIDDequeuer {
                         pid.currentDepth = jitterBuffer.getDepth()
-                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now)
+                        waitTime = self.dequeueBehaviour!.calculateWaitTime(from: now.hostDate)
                     } else {
                         guard let duration = self.duration else {
                             self.logger.error("Missing duration")
@@ -699,12 +699,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue a frame.
-                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now) {
+                    if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.hostDate) {
                         if self.granularMetrics,
                            let measurement = self.measurement?.measurement,
-                           let time = self.calculateWaitTime(item: item) {
+                           let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
                             }
                         }
 
@@ -713,7 +713,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
                             let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
-                            try self.decode(sample: frame, from: now)
+                            try self.decode(sample: frame, from: now.hostDate)
                         } catch {
                             self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
                         }

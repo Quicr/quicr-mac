@@ -194,7 +194,7 @@ class AudioHandler: TimeAlignable {
         return buffer
     }
 
-    func submitEncodedAudio(data: Data, sequence: UInt64, date: Date, timestamp: Date) throws {
+    func submitEncodedAudio(data: Data, sequence: UInt64, date: Ticks, timestamp: Date) throws {
         if self.config.useNewJitterBuffer {
             let jitterBuffer: JitterBuffer
             if let existing = self.jitterBuffer {
@@ -214,7 +214,7 @@ class AudioHandler: TimeAlignable {
 
             // Jitter calculation.
             if self.config.adaptive {
-                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date)
+                self.jitterCalculation.record(timestamp: timestamp.timeIntervalSince1970, arrival: date.hostDate)
                 let newTarget = max(self.config.jitterDepth - self.config.playoutBufferTime,
                                     (self.jitterCalculation.smoothed * 3) - self.config.playoutBufferTime)
                 if let jitterBuffer = self.jitterBuffer {
@@ -235,7 +235,7 @@ class AudioHandler: TimeAlignable {
             let timestamp = CMTime(value: CMTimeValue(usSinceEpoch), timescale: CMTimeScale(microsecondsPerSecond))
             let item = AudioJitterItem(data: data, sequenceNumber: sequence, timestamp: timestamp)
             do {
-                try jitterBuffer.write(item: item, from: date)
+                try jitterBuffer.write(item: item, from: date.hostDate)
             } catch JitterBufferError.full {
                 Self.logger.warning("Didn't enqueue audio as jitter buffer is full")
             } catch JitterBufferError.old {
@@ -243,7 +243,7 @@ class AudioHandler: TimeAlignable {
             }
 
             if let measurement = self.measurement {
-                let metricsDate = self.granularMetrics ? date : nil
+                let metricsDate = self.granularMetrics ? date.hostDate : nil
                 Task(priority: .utility) {
                     await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
                                                             timestamp: metricsDate)
@@ -267,10 +267,10 @@ class AudioHandler: TimeAlignable {
 
         // Decode and queue for playout.
         let decoded = try decoder.write(data: data)
-        try self.queueDecodedAudio(buffer: decoded, timestamp: date, sequence: sequence)
+        try self.queueDecodedAudio(buffer: decoded, timestamp: date.hostDate, sequence: sequence)
 
         // Metrics.
-        let metricsDate = self.granularMetrics ? date : nil
+        let metricsDate = self.granularMetrics ? date.hostDate : nil
         if let measurement = self.measurement {
             Task(priority: .utility) {
                 await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
@@ -285,7 +285,7 @@ class AudioHandler: TimeAlignable {
         }
     }
 
-    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [weak self] silence, _, numFrames, data in
+    private lazy var renderBlock: AVAudioSourceNodeRenderBlock = { [weak self] silence, timestamp, numFrames, data in
         guard let self = self else { return .zero }
         self.playing.store(true, ordering: .releasing)
         // Fill the buffers as best we can.
@@ -343,13 +343,12 @@ class AudioHandler: TimeAlignable {
                 var validThisPass = result.frames
 
                 // How early or late is this frame?
-                let dueDate = hostToDate(result.timestamp.mHostTime)
-
-                // TODO: Can we use the incoming render timestamp, rather than now()? Ideally we avoid a syscall.
-                let age = dueDate.timeIntervalSinceNow
-
-                let lateThreshold: TimeInterval = self.config.playoutBufferTime
-                guard age < -lateThreshold else {
+                let now = timestamp.pointee.mHostTime
+                let dueAt = result.timestamp.mHostTime
+                let dueIn = SignedTicks(dueAt) - SignedTicks(now)
+                let lateThreshold = SignedTicks(self.config.playoutBufferTime.ticks)
+                // TODO: This doubling is a bit of a hack.
+                guard dueIn < (-lateThreshold * 2) else {
                     // This wasn't late, we're done.
                     copiedFrames += Int(validThisPass)
                     break
@@ -448,7 +447,7 @@ class AudioHandler: TimeAlignable {
                 #if DEBUG
                 let timeSaved = TimeInterval(removed) * (1.0 / self.asbd.pointee.mSampleRate) * 1000
                 // swiftlint:disable:next line_length
-                Self.logger.debug("Audio was late at playout: \(age * 1000)ms. Removed \(removed) (\(timeSaved)ms) silent frames. Took: \(iterations) iterations")
+                Self.logger.debug("Audio was late at playout: \(Ticks(abs(dueIn)).seconds * 1000)ms. Removed \(removed) (\(timeSaved)ms) silent frames. Took: \(iterations) iterations")
                 #endif
             }
         } else if let jitterBuffer = self.oldJitterBuffer {
@@ -575,10 +574,9 @@ class AudioHandler: TimeAlignable {
         self.dequeueTask = .init(priority: .high) { [weak self] in
             while !Task.isCancelled {
                 let waitTime: TimeInterval
-                let now: Date
                 let windowSize: OpusWindowSize
                 if let self = self {
-                    now = Date.now
+                    let now = Ticks.now
                     // Get current window size / backup wait.
                     if let set = self.windowSize {
                         windowSize = set
@@ -618,25 +616,25 @@ class AudioHandler: TimeAlignable {
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now) else { continue }
+                    let now = Ticks.now
+                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now.hostDate) else { continue }
 
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
                     if self.granularMetrics,
                        let measurement = self.measurement?.measurement {
-                        let now = Date.now
                         if let time = self.calculateWaitTime(item: item, from: now) {
                             Task(priority: .utility) {
                                 // Adjust this time to reflect our deliberate early dequeue.
                                 let time = time - self.config.playoutBufferTime
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now)
+                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
                             }
                         }
                     }
 
                     // Decode, conceal, enqueue for playout.
-                    self.checkForDiscontinuity(item, window: windowSize, when: now)
-                    self.decode(item, when: now)
+                    self.checkForDiscontinuity(item, window: windowSize, when: now.hostDate)
+                    self.decode(item, when: now.hostDate)
                 }
             }
         }
@@ -669,7 +667,7 @@ class AudioHandler: TimeAlignable {
         }
         let playout = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
         var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                       mHostTime: dateToHost(playout),
+                                       mHostTime: playout,
                                        mRateScalar: 0,
                                        mWordClockTime: 0,
                                        mSMPTETime: .init(),
@@ -743,9 +741,10 @@ class AudioHandler: TimeAlignable {
                 lastUsedSequence += 1
                 self.jitterBuffer!.updateLastSequenceRead(lastUsedSequence)
                 let backwards = packetsToGenerate - packet
-                let date = itemDate.addingTimeInterval(Double(backwards) * window.rawValue * -1)
+                let backwardsTicks = (TimeInterval(backwards) * window.rawValue).ticks
+                let date = itemDate - backwardsTicks
                 var timestamp = AudioTimeStamp(mSampleTime: 0,
-                                               mHostTime: dateToHost(date),
+                                               mHostTime: date,
                                                mRateScalar: 0,
                                                mWordClockTime: 0,
                                                mSMPTETime: .init(),

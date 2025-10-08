@@ -7,11 +7,25 @@ import Testing
 struct AudioUtilitiesTests {
     @Test("Test Host/Date Conversion")
     func hostDateConversion() {
-        let host = mach_absolute_time()
-        let hostDate = hostToDate(host)
-        let backToHost = dateToHost(hostDate)
-        let tickTolerance = 50
-        let diff = Int128(backToHost) - Int128(host)
-        #expect(diff <= tickTolerance, "Host time should match after conversion")
+        // Capture monotonic time
+        let now = Date.now
+        let ticks = Ticks.now
+
+        // Convert ticks to date
+        let hostDate = ticks.hostDate
+
+        // Ticks to date should be correct.
+        #expect(abs(hostDate.timeIntervalSince(now)) < 0.001)
+    }
+
+    @Test("Test Ticks TimeInterval Addition")
+    func ticksAddition() {
+        let start = Ticks.now
+        let interval: TimeInterval = 1.5
+        let end = start + interval.ticks
+
+        // Check ticks were advanced correctly
+        let tickDiff = (end - start).seconds
+        #expect(abs(tickDiff - interval) < 0.001, "Ticks should advance by \(interval)s")
     }
 }

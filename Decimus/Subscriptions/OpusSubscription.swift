@@ -137,11 +137,11 @@ class OpusSubscription: Subscription {
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?) {
-        let now: Date = .now
-        self.lastUpdateTime.withLock { $0 = now }
+        let now: Ticks = .now
+        self.lastUpdateTime.withLock { $0 = now.hostDate }
 
         // Metrics.
-        let date: Date? = self.granularMetrics ? now : nil
+        let date: Date? = self.granularMetrics ? now.hostDate : nil
 
         guard let immutableExtensions else {
             Self.logger.warning("Missing expected extensions")
@@ -164,7 +164,7 @@ class OpusSubscription: Subscription {
            let participantId = try? immutableExtensions.getHeader(.participantId),
            case .participantId(let id) = participantId {
             Task(priority: .utility) {
-                await activeSpeakerStats.audioDetected(id, when: now)
+                await activeSpeakerStats.audioDetected(id, when: now.hostDate)
             }
         }
 
