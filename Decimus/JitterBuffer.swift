@@ -180,7 +180,7 @@ class JitterBuffer {
             self.doReadMetrics(depth, underrun: true, when: from)
             return nil
         }
-        if let measurement = self.measurement {
+        if self.measurement != nil {
             self.doReadMetrics(depth, underrun: false, when: from)
         }
         let item = oldest as! T
@@ -254,15 +254,21 @@ class JitterBuffer {
 
     private func doReadMetrics(_ depth: TimeInterval?, underrun: Bool, when: Date) {
         if let measurement = self.measurement {
+            // swiftlint:disable line_length
+            let baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
+            let currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
+            // swiftlint:enable line_length
             Task(priority: .utility) {
-                self.currentDepth = depth!
-                // swiftlint:disable line_length
-                self.baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
-                self.currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
-                // swiftlint:enable line_length
+                await MainActor.run {
+                    self.currentDepth = depth!
+                    self.baseTargetDepth = baseTargetDepth
+                    self.currentAdjustmentDepth = currentAdjustmentDepth
+
+                }
                 await measurement.measurement.currentDepth(depth: depth!,
-                                                           target: self.baseTargetDepth,
-                                                           adjustment: self.currentAdjustmentDepth, timestamp: when)
+                                                           target: baseTargetDepth,
+                                                           adjustment: currentAdjustmentDepth,
+                                                           timestamp: when)
                 if underrun {
                     await measurement.measurement.underrun(timestamp: when)
                 } else {
