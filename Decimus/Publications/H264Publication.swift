@@ -295,7 +295,16 @@ class H264Publication: Publication, FrameListener {
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
+        // Stamp the publish timestamp just before we handoff.
+        let immutable: HeaderExtensions?
+        if self.measurement != nil {
+            var working = immutableExtensions ?? HeaderExtensions()
+            try? working.setHeader(.publishTimestamp(Ticks.now.hostDate))
+            immutable = working
+        } else {
+            immutable = immutableExtensions
+        }
+        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutable)
     }
 
     deinit {

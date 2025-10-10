@@ -149,6 +149,9 @@ class OpusPublication: Publication, AudioPublication {
             let sequence = self.incrementing == .group ? self.currentGroupId : self.currentObjectId
             try extensions.setHeader(.sequenceNumber(sequence))
         }
+        if self.measurement != nil {
+            try extensions.setHeader(.publishTimestamp(Ticks.now.hostDate))
+        }
 
         // App.
         let adjusted = UInt8(abs(decibel))

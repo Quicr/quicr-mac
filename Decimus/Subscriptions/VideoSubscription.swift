@@ -37,7 +37,7 @@ class VideoSubscription: Subscription {
     private let variances: VarianceCalculator
     private let callback: ObjectReceivedCallback
     private var token: Int = 0
-    private let logger = DecimusLogger(VideoSubscription.self)
+    private let logger: DecimusLogger
     private let verbose: Bool
     private let subscriptionConfig: Config
     private let joinConfig: JoinConfig<UInt64>
@@ -59,6 +59,23 @@ class VideoSubscription: Subscription {
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
+
+    private struct LatencyStats {
+        var count: Int = 0
+        var sum: TimeInterval = 0
+        var max: TimeInterval = 0
+
+        mutating func record(_ latency: TimeInterval) {
+            self.count += 1
+            self.sum += latency
+            self.max = Swift.max(self.max, latency)
+        }
+
+        var average: TimeInterval? {
+            self.count > 0 ? self.sum / TimeInterval(self.count) : nil
+        }
+    }
+    private var latencyStats: LatencyStats?
 
     // State machine.
     internal private(set) var stateMachine = StateMachine()
@@ -138,6 +155,7 @@ class VideoSubscription: Subscription {
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
+        self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         self.config = config
         self.participants = participants
         self.metricsSubmitter = metricsSubmitter
@@ -159,6 +177,11 @@ class VideoSubscription: Subscription {
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
+        if metricsSubmitter != nil {
+            self.latencyStats = .init()
+        } else {
+            self.latencyStats = nil
+        }
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
@@ -192,6 +215,15 @@ class VideoSubscription: Subscription {
     }
 
     deinit {
+        if let stats = self.latencyStats {
+            if stats.count == 0 {
+                self.logger.info("Latency Report: No samples")
+            } else {
+                let average = stats.average! * 1000
+                let max = stats.max * 1000
+                self.logger.info("Latency Report: avg: \(average.formatted())ms, max: \(max.formatted())ms")
+            }
+        }
         self.logger.debug("Deinit")
     }
 
@@ -314,6 +346,17 @@ class VideoSubscription: Subscription {
         // Record the time this arrived.
         let now = Ticks.now
         self.lastUpdateTime.store(now, ordering: .releasing)
+
+        // Report E2E latency.
+        if self.latencyStats != nil,
+           let publishTimestamp = try? immutableExtensions?.getHeader(.publishTimestamp),
+           case AppHeaders.publishTimestamp(let publishTimestamp) = publishTimestamp {
+            let latency = now.hostDate.timeIntervalSince(publishTimestamp)
+            self.latencyStats!.record(latency)
+            self.reportLatency(objectHeaders.groupId,
+                               objectId: objectHeaders.objectId,
+                               latencyMs: UInt64(latency * 1000))
+        }
 
         // Per-frame logging.
         if self.verbose {

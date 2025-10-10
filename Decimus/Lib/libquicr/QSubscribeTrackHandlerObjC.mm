@@ -85,6 +85,12 @@
     handlerPtr->Resume();
 }
 
+-(void) reportLatency: (uint64_t)groupId objectId:(uint64_t)objectId latencyMs:(uint64_t)latencyMs
+{
+    assert(handlerPtr);
+    handlerPtr->ReportLatency(groupId, objectId, std::chrono::milliseconds(latencyMs));
+}
+
 @end
 
 // C++

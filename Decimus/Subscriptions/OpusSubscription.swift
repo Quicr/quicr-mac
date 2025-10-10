@@ -35,6 +35,23 @@ class OpusSubscription: Subscription {
     private let slidingWindowTime: TimeInterval
     private let config: Config
 
+    private struct LatencyStats {
+        var count: Int = 0
+        var sum: TimeInterval = 0
+        var max: TimeInterval = 0
+
+        mutating func record(_ latency: TimeInterval) {
+            self.count += 1
+            self.sum += latency
+            self.max = Swift.max(self.max, latency)
+        }
+
+        var average: TimeInterval? {
+            self.count > 0 ? self.sum / TimeInterval(self.count) : nil
+        }
+    }
+    private var latencyStats = LatencyStats()
+
     init(profile: Profile,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
@@ -130,6 +147,15 @@ class OpusSubscription: Subscription {
     }
 
     deinit {
+        if self.measurement != nil {
+            if self.latencyStats.count == 0 {
+                Self.logger.info("Latency Report: No samples")
+            } else {
+                let average = self.latencyStats.average! * 1000
+                let max = self.latencyStats.max * 1000
+                Self.logger.info("Latency Report: avg: \(average.formatted())ms, max: \(max.formatted())ms")
+            }
+        }
         Self.logger.debug("Deinit")
     }
 
@@ -150,13 +176,23 @@ class OpusSubscription: Subscription {
 
         let sequence: UInt64
         let timestamp: Date
+        let publishTimestamp: Date?
         do {
-            let (seq, time) = try self.parseExtensionHeaders(immutableExtensions)
+            let (seq, time, publish) = try self.parseExtensionHeaders(immutableExtensions)
             sequence = seq ?? objectHeaders.groupId
             timestamp = time
+            publishTimestamp = publish
         } catch {
             Self.logger.error("Failed to parse extensions: \(error.localizedDescription)")
             return
+        }
+
+        if let publishTimestamp {
+            let latency = now.hostDate.timeIntervalSince(publishTimestamp)
+            self.latencyStats.record(latency)
+            self.reportLatency(objectHeaders.groupId,
+                               objectId: objectHeaders.objectId,
+                               latencyMs: UInt64(latency * 1000))
         }
 
         // Active speaker metric.
@@ -237,7 +273,7 @@ class OpusSubscription: Subscription {
         }
     }
 
-    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, Date) {
+    private func parseExtensionHeaders(_ extensions: HeaderExtensions) throws -> (UInt64?, Date, Date?) {
         let sequence: UInt64?
         let timestamp: Date
         if self.config.mediaInterop {
@@ -262,6 +298,14 @@ class OpusSubscription: Subscription {
             }
             timestamp = captureTimestamp
         }
-        return (sequence, timestamp)
+
+        let publishTimestamp: Date?
+        if let data = try? extensions.getHeader(.publishTimestamp),
+           case .publishTimestamp(let publish) = data {
+            publishTimestamp = publish
+        } else {
+            publishTimestamp = nil
+        }
+        return (sequence, timestamp, publishTimestamp)
     }
 }

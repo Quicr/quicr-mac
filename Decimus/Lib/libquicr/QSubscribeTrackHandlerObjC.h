@@ -35,6 +35,7 @@
 -(void)setDeliveryTimeout:(uint64_t) timeout;
 -(void)pause;
 -(void)resume;
+-(void) reportLatency: (uint64_t) groupId objectId: (uint64_t) objectId latencyMs: (uint64_t) latencyMs;
 typedef void (*NewGroupCallback)(void* _Nonnull);
 
 @end
