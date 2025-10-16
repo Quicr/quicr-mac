@@ -29,13 +29,13 @@ typedef struct QClientConfig {
 - (QClientStatus)disconnect;
 - (void)publishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
 - (void)unpublishTrackWithHandler:(QPublishTrackHandlerObjC * _Nonnull)handler;
-- (void)publishAnnounce:(NSData * _Nonnull)trackNamespace;
-- (void)publishUnannounce:(NSData * _Nonnull)trackNamespace;
+- (void)publishNamespace:(NSData * _Nonnull)trackNamespace;
+- (void)publishNamespaceDone:(NSData * _Nonnull)trackNamespace;
 - (void)subscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
 - (void)unsubscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
 - (void)fetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
 - (void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
-- (QPublishAnnounceStatus)getAnnounceStatus:(NSData * _Nonnull)trackNamespace;
+- (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
 @end
 

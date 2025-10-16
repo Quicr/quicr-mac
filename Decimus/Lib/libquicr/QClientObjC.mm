@@ -117,16 +117,16 @@ static quicr::TransportConfig convert(TransportConfig config) {
     }
 }
 
--(void) publishAnnounce: (QTrackNamespace) trackNamespace
+-(void) publishNamespace: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    qClientPtr->PublishAnnounce(nsConvert(trackNamespace));
+    qClientPtr->PublishNamespace(nsConvert(trackNamespace));
 }
 
--(void) publishUnannounce: (QTrackNamespace) trackNamespace
+-(void) publishNamespaceDone: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    qClientPtr->PublishUnannounce(nsConvert(trackNamespace));
+    qClientPtr->PublishNamespaceDone(nsConvert(trackNamespace));
 }
 
 -(void)setCallbacks: (id<QClientCallbacks>) callbacks
@@ -135,11 +135,11 @@ static quicr::TransportConfig convert(TransportConfig config) {
     qClientPtr->SetCallbacks(callbacks);
 }
 
--(QPublishAnnounceStatus) getAnnounceStatus: (QTrackNamespace) trackNamespace
+-(QPublishNamespaceStatus) getPublishNamespaceStatus: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    auto status = qClientPtr->GetAnnounceStatus(nsConvert(trackNamespace));
-    return static_cast<QPublishAnnounceStatus>(status);
+    auto status = qClientPtr->GetPublishNamespaceStatus(nsConvert(trackNamespace));
+    return static_cast<QPublishNamespaceStatus>(status);
 }
 
 // C++

@@ -358,11 +358,11 @@ class MoqCallController: QClientCallbacks {
         self.serverId = serverId
     }
 
-    /// quicr::Client announcement status changed in response to a publishAnnounce()
-    /// - Parameter namespace: The namespace the changed announcement was for.
-    /// - Parameter status: The new status the announcement has.
-    func announceStatusChanged(_ namespace: Data, status: QPublishAnnounceStatus) {
-        self.logger.info("Got announce status changed: \(status)")
+    /// quicr::Client publish namespace status changed in response to a publishNamespace()
+    /// - Parameter namespace: The namespace the changed publish was for.
+    /// - Parameter status: The new status the publish has.
+    func publishNamespaceStatusChanged(_ namespace: Data, status: QPublishNamespaceStatus) {
+        self.logger.info("Got publish namespace status changed: \(status)")
     }
 
     /// Create subscription tracks and owning object for a manifest entry.
