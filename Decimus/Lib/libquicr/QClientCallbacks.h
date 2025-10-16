@@ -16,13 +16,13 @@ typedef NS_ENUM(uint8_t, QClientStatus) {
     kQClientStatusClientPendingServerSetup
 };
 
-typedef NS_ENUM(uint8_t, QPublishAnnounceStatus) {
-    kQPublishAnnounceStatusOK,
-    kQPublishAnnounceStatusNotConnected,
-    kQPublishAnnounceStatusNotAnnounced,
-    kQPublishAnnounceStatusPendingAnnounceResponse,
-    kQPublishAnnounceStatusAnnounceNotAuthorized,
-    kQPublishAnnounceStatusSendingUnannounce
+typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
+    kQPublishNamespaceStatusOK,
+    kQPublishNamespaceStatusNotConnected,
+    kQPublishNamespaceStatusNotPublished,
+    kQPublishNamespaceStatusPendingResponse,
+    kQPublishNamespaceStatusPublishNotAuthorized,
+    kQPublishNamespaceStatusSendingDone
 };
 
 typedef struct QServerSetupAttributes {
@@ -61,6 +61,6 @@ typedef struct QConnectionMetrics {
 @protocol QClientCallbacks
 - (void) statusChanged: (QClientStatus) status;
 - (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
-- (void) announceStatusChanged: (NSData*) track_namespace status: (QPublishAnnounceStatus) status;
+- (void) publishNamespaceStatusChanged: (NSData*) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
 @end

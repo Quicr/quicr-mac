@@ -50,8 +50,8 @@ class MockClient: MoqClient {
         self.unpublish(handler as! Publication)
     }
 
-    func publishAnnounce(_ trackNamespace: Data) { }
-    func publishUnannounce(_ trackNamespace: Data) {}
+    func publishNamespace(_ trackNamespace: Data) { }
+    func publishNamespaceDone(_ trackNamespace: Data) {}
 
     func setCallbacks(_ callbacks: any QClientCallbacks) {
         self.callbacks = callbacks
@@ -73,7 +73,7 @@ class MockClient: MoqClient {
         self.fetchCancel(handler as! Fetch)
     }
 
-    func getAnnounceStatus(_ trackNamespace: Data) -> QPublishAnnounceStatus {
+    func getPublishNamespaceStatus(_ trackNamespace: Data) -> QPublishNamespaceStatus {
         .OK
     }
 }
