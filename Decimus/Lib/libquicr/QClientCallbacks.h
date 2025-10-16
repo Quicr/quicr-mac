@@ -17,12 +17,12 @@ typedef NS_ENUM(uint8_t, QClientStatus) {
 };
 
 typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
-    kQPublishAnnounceStatusOK,
-    kQPublishAnnounceStatusNotConnected,
-    kQPublishAnnounceStatusNotPublished,
-    kQPublishAnnounceStatusPendingResponse,
-    kQPublishAnnounceStatusPublishNotAuthorized,
-    kQPublishAnnounceStatusSendingDone
+    kQPublishNamespaceStatusOK,
+    kQPublishNamespaceStatusNotConnected,
+    kQPublishNamespaceStatusNotPublished,
+    kQPublishNamespaceStatusPendingResponse,
+    kQPublishNamespaceStatusPublishNotAuthorized,
+    kQPublishNamespaceStatusSendingDone
 };
 
 typedef struct QServerSetupAttributes {
