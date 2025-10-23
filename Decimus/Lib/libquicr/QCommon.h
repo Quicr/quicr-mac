@@ -46,8 +46,8 @@ static NSMutableDictionary<NSNumber*, NSData*>* convertExtensions(const std::opt
     NSMutableDictionary<NSNumber*, NSData*>* result = [NSMutableDictionary dictionary];
     for (const auto& kvps : *extensions) {
         NSNumber* key = @(kvps.first);
-        auto kvp = kvps.second[0];
-        NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.data()  length:kvp.size() deallocator:nil];
+        const std::vector<std::uint8_t>& kvp = kvps.second[0];
+        NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.data() length:kvp.size() deallocator:nil];
         [result setObject:data forKey:key];
     }
     return result;
