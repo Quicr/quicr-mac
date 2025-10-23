@@ -390,9 +390,9 @@ class AudioHandler: TimeAlignable {
                                        count: incrementBy)
                     if rms < silenceThreshold {
                         // Skip this entire silent chunk.
+                        guard removed + AVAudioFrameCount(incrementBy) <= remaining else { break }
                         removed += AVAudioFrameCount(incrementBy)
                         validThisPass -= AVAudioFrameCount(incrementBy)
-                        guard removed < remaining else { break }
                     } else {
                         // Keep this chunk.
                         if index != writeIndex {
