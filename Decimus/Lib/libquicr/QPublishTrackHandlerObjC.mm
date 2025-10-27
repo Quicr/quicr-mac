@@ -36,7 +36,7 @@ std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSData*>* _Nullabl
         for (NSNumber* number in extensions) {
             NSData* value = extensions[number];
             const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
-            built[number.unsignedLongLongValue] = std::vector<std::uint8_t>(ptr, ptr + value.length);
+            built[number.unsignedLongLongValue] = { std::vector<std::uint8_t>(ptr, ptr + value.length) };
         }
         // TODO: Move?
         moqExtensions = built;
