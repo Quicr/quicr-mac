@@ -106,6 +106,14 @@ extension QSubscribeTrackHandlerStatus: CustomStringConvertible {
             return "error"
         case .paused:
             return "paused"
+        case .newGroupRequested:
+            return "New Group Requested"
+        case .cancelled:
+            return "Cancelled"
+        case .doneByFin:
+            return "Done by FIN"
+        case .doneByReset:
+            return "Done by RESET"
         @unknown default:
             assert(false, "All QSubscribeTrackHandlerStatus cases MUST be mapped")
             return "unknown default"
