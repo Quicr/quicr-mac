@@ -27,6 +27,10 @@ struct SettingsView: View {
     @AppStorage(Self.overrideNamespaceKey)
     private var overrideNamespace: String = "[\"moq://decimus.webex.com/v1/\", \"media-interop\", \"{s}\"]"
 
+    static let moqRoleKey = "moqRole"
+    @AppStorage(Self.moqRoleKey)
+    private var moqRole: MoQRole = .both
+
     @State private var overrideError: String?
 
     var body: some View {
@@ -55,6 +59,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -77,6 +82,15 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             Section("Debug") {
+                LabeledContent("MoQ Role") {
+                    Picker("MoQ Role", selection: self.$moqRole) {
+                        ForEach(MoQRole.allCases) { role in
+                            Text(role.description).tag(role)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
                 LabeledToggle("Media Interop", isOn: self.$mediaInterop)
                 if self.mediaInterop {
                     LabeledContent("Override Namespace") {
