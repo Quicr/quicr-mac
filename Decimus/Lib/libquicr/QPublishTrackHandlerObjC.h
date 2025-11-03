@@ -75,6 +75,7 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(void) setDefaultTrackMode: (QTrackMode) trackMode;
 -(void) setUseAnnounce: (bool) use;
 -(QPublishTrackHandlerStatus) getStatus;
+-(bool) canPublish;
 -(QStreamHeaderType) getStreamMode;
 
 @end

@@ -81,36 +81,4 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
             }
         }
     }
-
-    /// Should this publication publish objects?
-    /// - Returns: `true` if the publication should publish objects, `false` otherwise
-    func shouldPublish() -> Bool { // swiftlint:disable:this cyclomatic_complexity
-        switch self.getStatus() {
-        case .ok:
-            return true
-        case .notConnected:
-            return false
-        case .notAnnounced:
-            return false
-        case .pendingAnnounceResponse:
-            return false
-        case .announceNotAuthorized:
-            return false
-        case .noSubscribers:
-            return false
-        case .sendingUnannounce:
-            return false
-        case .subscriptionUpdated:
-            return true
-        case .newGroupRequested:
-            return true
-        case .pendingPublishOk:
-            return true
-        case .paused:
-            return false
-        @unknown default:
-            assert(false, "All QPublishTrackHandlerStatus cases MUST be mapped")
-            return true
-        }
-    }
 }

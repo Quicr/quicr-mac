@@ -323,7 +323,7 @@ class H264Publication: Publication, FrameListener {
         }
 
         // If we're not in a state to be publishing, don't go any further.
-        guard self.shouldPublish() else {
+        guard self.canPublish() else {
             self.logger.debug("Didn't encode due to publication status: \(self.getStatus())")
             return
         }
