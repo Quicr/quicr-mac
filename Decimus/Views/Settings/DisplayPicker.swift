@@ -72,7 +72,5 @@ struct DisplayPicker: View {
             self.error = error
         }
     }
-    #else
-    var body: some View {}
     #endif
 }

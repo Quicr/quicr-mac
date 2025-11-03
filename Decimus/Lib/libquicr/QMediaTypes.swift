@@ -15,6 +15,19 @@ enum ProtocolType: UInt8, CaseIterable, Codable, Identifiable, Comparable {
     var id: UInt8 { rawValue }
 }
 
+/// MOQ Role type mappings
+enum MOQRoleType: UInt8, CaseIterable, Codable, Identifiable, Comparable {
+    static func < (lhs: MOQRoleType, rhs: MOQRoleType) -> Bool {
+        return lhs.id < rhs.id
+    }
+
+    case PUBLISHER = 0
+    case SUBSCRIBER = 1
+    case PUBSUB = 2
+    var id: UInt8 { rawValue }
+}
+
+
 extension QPublishObjectStatus: CustomStringConvertible {
     public var description: String {
         switch self {
