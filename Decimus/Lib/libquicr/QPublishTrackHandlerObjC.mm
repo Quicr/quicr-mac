@@ -125,6 +125,11 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     return static_cast<QPublishTrackHandlerStatus>(status);
 }
 
+-(bool) canPublish {
+    assert(handlerPtr);
+    return handlerPtr->CanPublish();
+}
+
 -(QStreamHeaderType) getStreamMode {
     assert(handlerPtr);
     auto mode = handlerPtr->GetStreamMode();

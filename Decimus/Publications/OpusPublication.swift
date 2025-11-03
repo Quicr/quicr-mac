@@ -167,7 +167,7 @@ class OpusPublication: Publication, AudioPublication {
             }
         }
 
-        guard self.shouldPublish() else {
+        guard self.canPublish() else {
             Self.logger.warning("Not published due to status: \(self.getStatus())")
             return
         }
