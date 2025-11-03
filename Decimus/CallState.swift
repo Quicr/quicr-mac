@@ -32,6 +32,21 @@ struct SFrameConfig: Codable {
     let secret: String
 }
 
+enum MoQRole: Int, CaseIterable, Identifiable, CustomStringConvertible {
+    case publisher
+    case subscriber
+    case both
+
+    var id: Int { self.rawValue }
+    var description: String {
+        switch self {
+        case .publisher: "Publisher"
+        case .subscriber: "Subscriber"
+        case .both: "Both"
+        }
+    }
+}
+
 @MainActor
 class CallState: ObservableObject, Equatable {
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
@@ -80,6 +95,8 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.verboseKey)
     private(set) var verbose = false
 
+    @AppStorage(SettingsView.moqRoleKey)
+    private(set) var role = MoQRole.both
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
     @AppStorage(SettingsView.overrideNamespaceKey)
@@ -202,41 +219,51 @@ class CallState: ObservableObject, Equatable {
 
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
-        let publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
-                                                        reliability: subConfig.mediaReliability,
-                                                        engine: self.engine,
-                                                        metricsSubmitter: self.submitter,
-                                                        granularMetrics: self.influxConfig.value.granular,
-                                                        captureManager: self.captureManager,
-                                                        participantId: manifest.participantId,
-                                                        keyFrameInterval: subConfig.keyFrameInterval,
-                                                        stagger: subConfig.stagger,
-                                                        verbose: self.verbose,
-                                                        keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
-                                                        startingGroup: self.audioStartingGroup,
-                                                        sframeContext: self.sendContext,
-                                                        mediaInterop: self.mediaInterop,
-                                                        overrideNamespace: overrideNamespace)
+        let publicationFactory: PublicationFactory?
+        if self.role != .subscriber {
+            publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
+                                                            reliability: subConfig.mediaReliability,
+                                                            engine: self.engine,
+                                                            metricsSubmitter: self.submitter,
+                                                            granularMetrics: self.influxConfig.value.granular,
+                                                            captureManager: self.captureManager,
+                                                            participantId: manifest.participantId,
+                                                            keyFrameInterval: subConfig.keyFrameInterval,
+                                                            stagger: subConfig.stagger,
+                                                            verbose: self.verbose,
+                                                            keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
+                                                            startingGroup: self.audioStartingGroup,
+                                                            sframeContext: self.sendContext,
+                                                            mediaInterop: self.mediaInterop,
+                                                            overrideNamespace: overrideNamespace)
+        } else {
+            publicationFactory = nil
+        }
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
-        let subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
-                                                          metricsSubmitter: self.submitter,
-                                                          subscriptionConfig: subConfig,
-                                                          granularMetrics: self.influxConfig.value.granular,
-                                                          engine: self.engine,
-                                                          participantId: ourParticipantId,
-                                                          joinDate: self.joinDate,
-                                                          activeSpeakerStats: self.activeSpeakerStats,
-                                                          controller: controller,
-                                                          verbose: self.verbose,
-                                                          startingGroup: startingGroupId,
-                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
-                                                          sframeContext: self.receiveContext,
-                                                          calculateLatency: self.showLabels,
-                                                          mediaInterop: self.mediaInterop)
+        let subscriptionFactory: SubscriptionFactoryImpl?
+        if self.role != .publisher {
+            subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
+                                                              metricsSubmitter: self.submitter,
+                                                              subscriptionConfig: subConfig,
+                                                              granularMetrics: self.influxConfig.value.granular,
+                                                              engine: self.engine,
+                                                              participantId: ourParticipantId,
+                                                              joinDate: self.joinDate,
+                                                              activeSpeakerStats: self.activeSpeakerStats,
+                                                              controller: controller,
+                                                              verbose: self.verbose,
+                                                              startingGroup: startingGroupId,
+                                                              manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
+                                                              sframeContext: self.receiveContext,
+                                                              calculateLatency: self.showLabels,
+                                                              mediaInterop: self.mediaInterop)
+        } else {
+            subscriptionFactory = nil
+        }
         self.publicationFactory = publicationFactory
         self.subscriptionFactory = subscriptionFactory
 
@@ -260,63 +287,67 @@ class CallState: ObservableObject, Equatable {
         // Inject the manifest in order to create publications & subscriptions.
         if make {
             // Publish.
-            for publication in manifest.publications {
-                do {
-                    let created = try controller.publish(details: publication,
-                                                         factory: publicationFactory,
-                                                         codecFactory: CodecFactoryImpl())
-                    for pub in created where pub.1 is TextPublication {
-                        self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+            if let publicationFactory {
+                for publication in manifest.publications {
+                    do {
+                        let created = try controller.publish(details: publication,
+                                                             factory: publicationFactory,
+                                                             codecFactory: CodecFactoryImpl())
+                        for pub in created where pub.1 is TextPublication {
+                            self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+                        }
+                    } catch {
+                        Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                     }
-                } catch {
-                    Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                 }
             }
 
             // Subscribe.
-            for subscription in manifest.subscriptions {
-                do {
-                    let set = try controller.subscribeToSet(details: subscription,
-                                                            factory: subscriptionFactory,
-                                                            subscribe: true)
-                    if subscription.mediaType == ManifestMediaTypes.text.rawValue {
-                        let handlers = set.getHandlers()
-                        precondition(handlers.count == 1,
-                                     "Text subscription should only have one handler")
-                        precondition(handlers.first?.1 is MultipleCallbackSubscription,
-                                     "Text subscription handler should be MultipleCallbackSubscription")
-                        // swiftlint:disable:next force_cast
-                        let sub = handlers.first!.1 as! MultipleCallbackSubscription
-                        self.textSubscriptions?.addSubscription(sub)
+            if let subscriptionFactory {
+                for subscription in manifest.subscriptions {
+                    do {
+                        let set = try controller.subscribeToSet(details: subscription,
+                                                                factory: subscriptionFactory,
+                                                                subscribe: true)
+                        if subscription.mediaType == ManifestMediaTypes.text.rawValue {
+                            let handlers = set.getHandlers()
+                            precondition(handlers.count == 1,
+                                         "Text subscription should only have one handler")
+                            precondition(handlers.first?.1 is MultipleCallbackSubscription,
+                                         "Text subscription handler should be MultipleCallbackSubscription")
+                            // swiftlint:disable:next force_cast
+                            let sub = handlers.first!.1 as! MultipleCallbackSubscription
+                            self.textSubscriptions?.addSubscription(sub)
+                        }
+                    } catch {
+                        Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                     }
-                } catch {
-                    Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                 }
-            }
-
-            // Active speaker handling.
-            let notifier: ActiveSpeakerNotifier?
-            if playtime.playtime && playtime.manualActiveSpeaker {
-                let manual = ManualActiveSpeaker()
-                self.manualActiveSpeaker = manual
-                notifier = manual
-            } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                notifier = real
-            } else {
-                notifier = nil
-            }
-            if let notifier = notifier {
-                let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
-                do {
-                    self.activeSpeaker = try .init(notifier: notifier,
-                                                   controller: controller,
-                                                   videoSubscriptions: videoSubscriptions,
-                                                   factory: subscriptionFactory,
-                                                   participantId: manifest.participantId,
-                                                   activeSpeakerStats: self.activeSpeakerStats,
-                                                   pauseResume: self.subscriptionConfig.value.pauseResume)
-                } catch {
-                    Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                
+                // Active speaker handling.
+                let notifier: ActiveSpeakerNotifier?
+                if playtime.playtime && playtime.manualActiveSpeaker {
+                    let manual = ManualActiveSpeaker()
+                    self.manualActiveSpeaker = manual
+                    notifier = manual
+                } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                    notifier = real
+                } else {
+                    notifier = nil
+                }
+                if let notifier = notifier {
+                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                    do {
+                        self.activeSpeaker = try .init(notifier: notifier,
+                                                       controller: controller,
+                                                       videoSubscriptions: videoSubscriptions,
+                                                       factory: subscriptionFactory,
+                                                       participantId: manifest.participantId,
+                                                       activeSpeakerStats: self.activeSpeakerStats,
+                                                       pauseResume: self.subscriptionConfig.value.pauseResume)
+                    } catch {
+                        Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                    }
                 }
             }
         }
@@ -324,18 +355,21 @@ class CallState: ObservableObject, Equatable {
         // Start audio media.
         if let engine = self.engine {
             do {
-                if make {
+                if make && self.role != .subscriber {
                     engine.setMicrophoneCapture(true)
                 }
                 try engine.start()
-                self.audioCapture = true
+                if self.role != .subscriber {
+                    self.audioCapture = true
+                }
             } catch {
                 Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
         }
 
         // Start video media.
-        if let captureManager = self.captureManager {
+        if let captureManager = self.captureManager,
+           self.role != .subscriber {
             do {
                 try captureManager.startCapturing()
                 self.videoCapture = true
