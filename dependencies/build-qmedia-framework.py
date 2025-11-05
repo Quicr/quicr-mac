@@ -58,7 +58,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "-DCMAKE_FRAMEWORK=TRUE",
         f"-DPLATFORM={platform.cmake_platform}",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
-        "-DDEPLOYMENT_TARGET=16.5",
+        "-DDEPLOYMENT_TARGET=15.0",
         "-DQUICR_BUILD_SHARED=ON",
         "-DENABLE_VISIBILITY=ON",
         "-DWITH_DTRACE=OFF",
@@ -267,9 +267,9 @@ def do_build(source_folder: str, identifier: str, target: str, target_path: str)
 
         # Patch plist with minimum version.
         if platform == PlatformType.IOS:
-            patch_plist(f"{framework_path}{target}.framework/Info.plist", "17.0")
+            patch_plist(f"{framework_path}{target}.framework/Info.plist", "18.2")
         elif platform == PlatformType.TVOS:
-            patch_plist(f"{framework_path}{target}.framework/Info.plist", "17.6")
+            patch_plist(f"{framework_path}{target}.framework/Info.plist", "18.0")
 
         # Generate dSYM.
         result, output, error = generate_dsym(framework_path, target)
