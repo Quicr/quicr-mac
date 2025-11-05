@@ -351,8 +351,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     throw "Bad header extension"
                 }
 
-                if let extradata = extradata {
-                    encoded = extradata + data
+                if let extradata {
+                    // Extradata needs to be extracted from AVCC record.
+                    let parameterSets = try H264Utilities.extractParameterSetsFromAVCC(extradata)
+                    encoded = parameterSets + data
                 } else {
                     encoded = data
                 }

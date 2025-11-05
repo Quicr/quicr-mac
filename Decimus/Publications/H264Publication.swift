@@ -63,45 +63,54 @@ class H264Publication: Publication, FrameListener {
                 return
             }
 
-            let totalSize = parameterSets.reduce(0) { current, set in
-                current + set.count + publication.startCode.count
-            }
-
-            var workingExtradata = Data(count: totalSize)
-            workingExtradata.withUnsafeMutableBytes { parameterDestination in
-                var offset = 0
-                for set in parameterSets {
-                    // Copy either start code or UInt32 length.
-                    if publication.emitStartCodes {
-                        publication.startCode.withUnsafeBytes {
-                            parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
-                                                                                              byteCount: $0.count)
-                            offset += $0.count
-                        }
-                    } else {
-                        let length = UInt32(set.count).bigEndian
-                        parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
-                        offset += MemoryLayout<UInt32>.size
-                    }
-
-                    // Copy the parameter data.
-                    let dest = parameterDestination.baseAddress!.advanced(by: offset)
-                    let destBuffer = UnsafeMutableRawBufferPointer(start: dest,
-                                                                   count: parameterDestination.count - offset)
-                    destBuffer.copyMemory(from: set)
-                    offset += set.count
-                }
-            }
-
             if publication.mediaInterop {
-                // Set the parameter sets to the extradata header.
-                do {
-                    try extensions.setHeader(.videoH264AVCCExtradata(workingExtradata))
-                } catch {
-                    publication.logger.error("Failed to set media extensions: \(error.localizedDescription)")
+                // For media interop, extradata is AVCDecoderConfigurationRecord.
+                let avccData: Data
+                guard let description = sample.formatDescription,
+                      let extracted = H264Utilities.extractAVCCAtom(from: description) else {
+                    publication.logger.error("Failed to parse AVCDecoderConfigurationRecord")
+                    return
                 }
+                avccData = extracted
+                do {
+                    try extensions.setHeader(.videoH264AVCCExtradata(avccData))
+                } catch {
+                    publication.logger.error("Failed to set extradata header: \(error.localizedDescription)")
+                    return
+                }
+                extradata = nil
+            } else {
+                let totalSize = parameterSets.reduce(0) { current, set in
+                    current + set.count + publication.startCode.count
+                }
+
+                var workingExtradata = Data(count: totalSize)
+                workingExtradata.withUnsafeMutableBytes { parameterDestination in
+                    var offset = 0
+                    for set in parameterSets {
+                        // Copy either start code or UInt32 length.
+                        if publication.emitStartCodes {
+                            publication.startCode.withUnsafeBytes {
+                                parameterDestination.baseAddress!.advanced(by: offset).copyMemory(from: $0.baseAddress!,
+                                                                                                  byteCount: $0.count)
+                                offset += $0.count
+                            }
+                        } else {
+                            let length = UInt32(set.count).bigEndian
+                            parameterDestination.storeBytes(of: length, toByteOffset: offset, as: UInt32.self)
+                            offset += MemoryLayout<UInt32>.size
+                        }
+
+                        // Copy the parameter data.
+                        let dest = parameterDestination.baseAddress!.advanced(by: offset)
+                        let destBuffer = UnsafeMutableRawBufferPointer(start: dest,
+                                                                       count: parameterDestination.count - offset)
+                        destBuffer.copyMemory(from: set)
+                        offset += set.count
+                    }
+                }
+                extradata = workingExtradata
             }
-            extradata = workingExtradata
         } else {
             extradata = nil
         }
