@@ -223,4 +223,103 @@ class H264Utilities: VideoUtilities {
         }
         return blockBuffer
     }
+
+    /// Attempts to extract the AVCDecoderConfigurationRecord (avcC atom) from a CMFormatDescription.
+    /// - Parameter formatDescription: The format description to extract from
+    /// - Returns: The avcC atom data if available, nil otherwise
+    static func extractAVCCAtom(from formatDescription: CMFormatDescription) -> Data? {
+        guard let extensions = CMFormatDescriptionGetExtensions(formatDescription) as? [String: Any],
+              let atoms = extensions["SampleDescriptionExtensionAtoms"] as? [String: Any],
+              let avcCData = atoms["avcC"] as? Data else {
+            return nil
+        }
+        return avcCData
+    }
+
+    /// Validates an AVCDecoderConfigurationRecord.
+    /// - Parameter avcc: The AVCDecoderConfigurationRecord data to validate
+    /// - Throws: If the record is invalid or lengthSizeMinusOne is not 3
+    static func validateAVCDecoderConfigurationRecord(_ avcc: Data) throws {
+        guard avcc.count >= 7 else {
+            throw "AVCDecoderConfigurationRecord too short (minimum 7 bytes)"
+        }
+
+        // Check configurationVersion
+        guard avcc[0] == 1 else {
+            throw "Invalid AVCDecoderConfigurationRecord version (expected 1, got \(avcc[0]))"
+        }
+
+        // Check lengthSizeMinusOne (byte 4, lower 2 bits)
+        let lengthSizeMinusOne = avcc[4] & 0x03
+        guard lengthSizeMinusOne == 3 else {
+            throw "Protocol violation: lengthSizeMinusOne must be 3 (got \(lengthSizeMinusOne))"
+        }
+    }
+
+    /// Extracts SPS/PPS NAL units from AVCDecoderConfigurationRecord and converts to length-prefixed format.
+    /// - Parameter avcc: The AVCDecoderConfigurationRecord data
+    /// - Returns: Data containing length-prefixed SPS and PPS NAL units (UInt32 big-endian length + NAL unit)
+    /// - Throws: If the record is invalid
+    static func extractParameterSetsFromAVCC(_ avcc: Data) throws -> Data {
+        try Self.validateAVCDecoderConfigurationRecord(avcc)
+
+        var offset = 5 // Skip version, profile, compatibility, level, and lengthSize
+
+        // Get number of SPS
+        let numSPS = Int(avcc[offset] & 0x1F)
+        offset += 1
+
+        var result = Data()
+
+        // Extract each SPS
+        for _ in 0..<numSPS {
+            guard offset + 2 <= avcc.count else {
+                throw "Invalid AVCDecoderConfigurationRecord: unexpected end reading SPS length"
+            }
+
+            // Read SPS length (2 bytes, big endian)
+            let spsLength = UInt16(avcc[offset]) << 8 | UInt16(avcc[offset + 1])
+            offset += 2
+
+            guard offset + Int(spsLength) <= avcc.count else {
+                throw "Invalid AVCDecoderConfigurationRecord: unexpected end reading SPS data"
+            }
+
+            // Write as UInt32 length prefix + NAL unit
+            let length32 = UInt32(spsLength).bigEndian
+            result.append(contentsOf: withUnsafeBytes(of: length32, Array.init))
+            result.append(avcc[offset..<offset + Int(spsLength)])
+            offset += Int(spsLength)
+        }
+
+        // Get number of PPS
+        guard offset < avcc.count else {
+            throw "Invalid AVCDecoderConfigurationRecord: unexpected end reading PPS count"
+        }
+        let numPPS = Int(avcc[offset])
+        offset += 1
+
+        // Extract each PPS
+        for _ in 0..<numPPS {
+            guard offset + 2 <= avcc.count else {
+                throw "Invalid AVCDecoderConfigurationRecord: unexpected end reading PPS length"
+            }
+
+            // Read PPS length (2 bytes, big endian)
+            let ppsLength = UInt16(avcc[offset]) << 8 | UInt16(avcc[offset + 1])
+            offset += 2
+
+            guard offset + Int(ppsLength) <= avcc.count else {
+                throw "Invalid AVCDecoderConfigurationRecord: unexpected end reading PPS data"
+            }
+
+            // Write as UInt32 length prefix + NAL unit
+            let length32 = UInt32(ppsLength).bigEndian
+            result.append(contentsOf: withUnsafeBytes(of: length32, Array.init))
+            result.append(avcc[offset..<offset + Int(ppsLength)])
+            offset += Int(ppsLength)
+        }
+
+        return result
+    }
 }
