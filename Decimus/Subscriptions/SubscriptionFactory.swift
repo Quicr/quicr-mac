@@ -88,6 +88,8 @@ struct SubscriptionConfig: Codable {
     var simulreceive: SimulreceiveMode
     /// The number of frames to miss in a row before stepping down in quality.
     var qualityMissThreshold: Int
+    /// The number of frames to hit in a row before stepping up in quality.
+    var qualityHitThreshold: Int
     /// The number of frames to miss in a row before pausing the subscription.
     var pauseMissThreshold: Int
     /// TTL for underlying libquicr time queue.
@@ -136,6 +138,7 @@ struct SubscriptionConfig: Codable {
         isSingleOrderedPub = false
         simulreceive = .enable
         qualityMissThreshold = 3
+        self.qualityHitThreshold = 3
         pauseMissThreshold = 30
         timeQueueTTL = 500
         chunkSize = 3000
@@ -289,7 +292,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             activeSpeakerStats: self.activeSpeakerStats,
                                             cleanupTime: self.subscriptionConfig.cleanupTime,
                                             slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
-                                            config: .init(calculateLatency: self.calculateLatency))
+                                            config: .init(calculateLatency: self.calculateLatency,
+                                                          qualityHitThreshold: self.subscriptionConfig.qualityHitThreshold))
         }
 
         if found.isSubset(of: opusCodecs) {

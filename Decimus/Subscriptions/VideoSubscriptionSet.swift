@@ -31,6 +31,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private let simulreceive: SimulreceiveMode
     private var lastTime: CMTime?
     private var qualityMisses = 0
+    private var qualityHits = 0
     private var last: FullTrackName?
     private var lastImage: AvailableImage?
     private let qualityMissThreshold: Int
@@ -59,6 +60,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     struct Config {
         /// True to calculate / display end-to-end latency.
         let calculateLatency: Bool
+        let qualityHitThreshold: Int
 
         /// Get a video participant config from this config.
         func getVideoParticipantConfig(_ set: VideoSubscriptionSet) -> VideoParticipant.Config {
@@ -399,32 +401,53 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             }
         }
 
-        let selected: SimulreceiveItem
+        var selected: SimulreceiveItem
         switch decision {
         case .highestRes(let out, _):
             selected = out
         case .onlyChoice(let out):
             selected = out
         }
-        let selectedSample = selected.image.image
 
-        // If we are going down in quality (resolution or to a discontinous image)
+        // If we are changing in quality (resolution or to a discontinuous image)
         // we will only do so after a few hits.
-        let incomingWidth = selectedSample.formatDescription!.dimensions.width
         var wouldStepDown = false
-        if let last = self.lastImage,
-           incomingWidth < last.image.formatDescription!.dimensions.width || selected.image.discontinous && !last.discontinous {
-            wouldStepDown = true
+        var wouldStepUp = false
+        if let last = self.lastImage {
+            let incomingWidth = selected.image.image.formatDescription!.dimensions.width
+            if incomingWidth < last.image.formatDescription!.dimensions.width || selected.image.discontinous && !last.discontinous {
+                wouldStepDown = true
+            } else if incomingWidth > last.image.formatDescription!.dimensions.width {
+                wouldStepUp = true
+            }
         }
 
         if wouldStepDown {
             self.qualityMisses += 1
         }
 
+        if wouldStepUp {
+            self.qualityHits += 1
+        }
+
+        // For step-up, continue rendering current quality during threshold period, if available.
+        if wouldStepUp && self.qualityHits < self.config.qualityHitThreshold,
+           let lastImage = self.lastImage {
+            let lastWidth = lastImage.image.formatDescription!.dimensions.width
+            if let currentQualityChoice = initialChoices.first(where: {
+                $0.image.image.formatDescription!.dimensions.width == lastWidth
+            }) {
+                selected = currentQualityChoice
+                wouldStepUp = false
+            }
+        }
+
+        let selectedSample = selected.image.image
+        let incomingWidth = selectedSample.formatDescription!.dimensions.width
+
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
         if self.pauseResume {
-            fatalError("Not supported")
             //            for pauseCandidateCount in self.pauseMissCounts {
             //                guard let pauseCandidate = self.videoHandlers[pauseCandidateCount.key],
             //                      pauseCandidate.config.width > incomingWidth,
@@ -454,7 +477,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             throw "Missing video hanler for namespace: \(selected.fullTrackName)"
         }
 
-        let qualitySkip = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
+        let qualitySkip = (wouldStepDown && self.qualityMisses < self.qualityMissThreshold) || (wouldStepUp && self.qualityHits < self.config.qualityHitThreshold)
         if let measurement = self.measurement,
            self.granularMetrics {
             var report: [VideoSubscriptionSet.SimulreceiveChoiceReport] = []
@@ -493,7 +516,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         }
 
         if qualitySkip {
-            // We only want to step down in quality if we've missed a few hits.
+            // We only want to change in quality if we've missed a few hits.
             if let duration = handler.calculateWaitTime(from: at) {
                 return duration
             }
@@ -512,6 +535,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
 
         // Proceed with rendering this frame.
         self.qualityMisses = 0
+        self.qualityHits = 0
         self.pauseMissCounts[handler.fullTrackName] = 0
         self.last = handler.fullTrackName
         self.lastImage = selected.image

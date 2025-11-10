@@ -169,6 +169,12 @@ struct SubscriptionSettingsView: View {
                            formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
                            name: "Threshold")
             }
+            
+            LabeledContent("Quality hit threshold (frames)") {
+                NumberView(value: self.$subscriptionConfig.value.qualityHitThreshold,
+                           formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
+                           name: "Threshold")
+            }
 
             LabeledToggle("Do Pause/Resume",
                           isOn: $subscriptionConfig.value.pauseResume)
