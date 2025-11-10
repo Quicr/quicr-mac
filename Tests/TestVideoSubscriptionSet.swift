@@ -181,7 +181,8 @@ struct VideoSubscriptionSetTests {
                                            activeSpeakerStats: nil,
                                            cleanupTime: 10,
                                            slidingWindowTime: 10,
-                                           config: .init(calculateLatency: false))
+                                           config: .init(calculateLatency: false,
+                                                         qualityHitThreshold: 1))
         let details = ObjectReceived(timestamp: timestamp,
                                      when: Self.now,
                                      cached: false,

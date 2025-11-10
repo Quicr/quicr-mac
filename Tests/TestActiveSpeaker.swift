@@ -37,7 +37,8 @@ struct TestActiveSpeaker {
                              activeSpeakerStats: nil,
                              cleanupTime: 30,
                              slidingWindowTime: 30,
-                             config: .init(calculateLatency: false))
+                             config: .init(calculateLatency: false,
+                                           qualityHitThreshold: 3))
         }
 
         override func make(set: VideoSubscriptionSet,
