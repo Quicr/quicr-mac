@@ -431,6 +431,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         }
 
         // For step-up, continue rendering current quality during threshold period, if available.
+        var continuingCurrentQuality = false
         if wouldStepUp && self.qualityHits < self.config.qualityHitThreshold,
            let lastImage = self.lastImage {
             let lastWidth = lastImage.image.formatDescription!.dimensions.width
@@ -439,11 +440,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             }) {
                 selected = currentQualityChoice
                 wouldStepUp = false
+                continuingCurrentQuality = true
             }
         }
 
         let selectedSample = selected.image.image
-        let incomingWidth = selectedSample.formatDescription!.dimensions.width
 
         // We want to record misses for qualities we have already stepped down from, and pause them
         // if they exceed this count.
@@ -477,32 +478,41 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             throw "Missing video hanler for namespace: \(selected.fullTrackName)"
         }
 
-        let qualitySkip = (wouldStepDown && self.qualityMisses < self.qualityMissThreshold) || (wouldStepUp && self.qualityHits < self.config.qualityHitThreshold)
+        let qualitySkip = (wouldStepDown && self.qualityMisses < self.qualityMissThreshold) || (wouldStepUp && self.qualityHits < self.config.qualityHitThreshold) || continuingCurrentQuality
         if let measurement = self.measurement,
            self.granularMetrics {
             var report: [VideoSubscriptionSet.SimulreceiveChoiceReport] = []
             for choice in choices {
+                let isSelectedForDisplay = choice.fullTrackName == selected.fullTrackName
                 switch decision {
                 case .highestRes(let item, let pristine):
                     if choice.fullTrackName == item.fullTrackName {
-                        assert(choice.fullTrackName == selected.fullTrackName)
+                        let reason = "Highest \(pristine ? "Pristine" : "Discontinous")"
                         report.append(.init(item: choice,
                                             selected: true,
-                                            reason: "Highest \(pristine ? "Pristine" : "Discontinous")",
-                                            displayed: !qualitySkip))
+                                            reason: reason,
+                                            displayed: isSelectedForDisplay && !qualitySkip))
                         continue
                     }
                 case .onlyChoice(let item):
                     if choice.fullTrackName == item.fullTrackName {
-                        assert(choice.fullTrackName == selected.fullTrackName)
                         report.append(.init(item: choice,
                                             selected: true,
                                             reason: "Only choice",
-                                            displayed: !qualitySkip))
+                                            displayed: isSelectedForDisplay && !qualitySkip))
+                        continue
                     }
-                    continue
                 }
-                report.append(.init(item: choice, selected: false, reason: "", displayed: false))
+
+                // Note the choice we're actually displaying even if we didn't select.
+                if isSelectedForDisplay && continuingCurrentQuality {
+                    report.append(.init(item: choice,
+                                        selected: false,
+                                        reason: "Continuing current quality during step-up threshold",
+                                        displayed: true))
+                } else {
+                    report.append(.init(item: choice, selected: false, reason: "", displayed: false))
+                }
             }
             let completedReport = report
             Task(priority: .utility) {
