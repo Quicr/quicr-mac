@@ -41,7 +41,8 @@ final class TestCallController: XCTestCase {
                                                       submitter: nil,
                                                       endpointId: "",
                                                       relayId: "",
-                                                      logger: DecimusLogger(TestPublication.self))
+                                                      logger: DecimusLogger(TestPublication.self),
+                                                      useAnnounce: false)
                 self.callback(publication)
                 pubs.append((ftn, publication))
             }
