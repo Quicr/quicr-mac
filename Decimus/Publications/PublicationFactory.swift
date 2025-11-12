@@ -35,6 +35,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let overrideNamespace: [String]?
+    private let useAnnounce: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -50,7 +51,8 @@ class PublicationFactoryImpl: PublicationFactory {
          startingGroup: UInt64?,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
-         overrideNamespace: [String]?) {
+         overrideNamespace: [String]?,
+         useAnnounce: Bool) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -66,6 +68,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
         self.overrideNamespace = overrideNamespace
+        self.useAnnounce = useAnnounce
     }
 
     func create(publication: ManifestPublication,
@@ -151,7 +154,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   verbose: self.verbose,
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
-                                                  mediaInterop: self.mediaInterop)
+                                                  mediaInterop: self.mediaInterop,
+                                                  useAnnounce: self.useAnnounce)
             try captureManager.addInput(publication)
             return publication
         case .opus:
@@ -174,7 +178,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        startActive: true,
                                        incrementing: .group,
                                        sframeContext: self.sframeContext,
-                                       mediaInterop: self.mediaInterop)
+                                       mediaInterop: self.mediaInterop,
+                                       useAnnounce: self.useAnnounce)
         case .text:
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,
@@ -184,6 +189,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        endpointId: endpointId,
                                        relayId: relayId,
                                        sframeContext: self.sframeContext,
+                                       useAnnounce: self.useAnnounce,
                                        startingGroupId: self.startingGroup ?? 0)
         default:
             throw CodecError.noCodecFound(config.codec)

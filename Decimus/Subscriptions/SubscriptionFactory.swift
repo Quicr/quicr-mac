@@ -116,6 +116,8 @@ struct SubscriptionConfig: Codable {
     var cleanupTime: TimeInterval
     /// Stream join time rules.
     var joinConfig: VideoSubscription.JoinConfig<TimeInterval>
+    /// True to use announce flow for publications.
+    var useAnnounce: Bool
 
     /// Create with default settings.
     init() {
@@ -149,6 +151,7 @@ struct SubscriptionConfig: Codable {
         self.keyFrameOnSubscribeUpdate = false
         self.cleanupTime = 1.5
         self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
+        self.useAnnounce = false
     }
 }
 

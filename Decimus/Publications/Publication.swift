@@ -20,7 +20,8 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
          submitter: MetricsSubmitter?,
          endpointId: String,
          relayId: String,
-         logger: DecimusLogger) throws {
+         logger: DecimusLogger,
+         useAnnounce: Bool) throws {
         self.profile = profile
         self.defaultPriority = defaultPriority
         self.defaultTTL = defaultTTL
@@ -39,7 +40,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
                    defaultPriority: defaultPriority,
                    defaultTTL: UInt32(defaultTTL))
         super.setCallbacks(self)
-        super.setUseAnnounce(false)
+        super.setUseAnnounce(useAnnounce)
     }
 
     internal func statusChanged(_ status: QPublishTrackHandlerStatus) {

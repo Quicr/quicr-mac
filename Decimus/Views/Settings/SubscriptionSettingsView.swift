@@ -173,6 +173,9 @@ struct SubscriptionSettingsView: View {
             LabeledToggle("Do Pause/Resume",
                           isOn: $subscriptionConfig.value.pauseResume)
 
+            LabeledToggle("Use Announce Flow",
+                          isOn: $subscriptionConfig.value.useAnnounce)
+
             LabeledContent("Pause miss threshold (frames)") {
                 NumberView(value: self.$subscriptionConfig.value.pauseMissThreshold,
                            formatStyle: IntegerFormatStyle<Int>.number.grouping(.never),
