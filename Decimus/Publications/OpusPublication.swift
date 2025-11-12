@@ -43,6 +43,7 @@ class OpusPublication: Publication, AudioPublication {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
+         useAnnounce: Bool,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -86,7 +87,8 @@ class OpusPublication: Publication, AudioPublication {
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
                        relayId: relayId,
-                       logger: Self.logger)
+                       logger: Self.logger,
+                       useAnnounce: useAnnounce)
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in

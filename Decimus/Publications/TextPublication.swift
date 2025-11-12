@@ -20,6 +20,7 @@ class TextPublication: Publication {
          endpointId: String,
          relayId: String,
          sframeContext: SendSFrameContext?,
+         useAnnounce: Bool,
          startingGroupId: UInt64) throws {
         self.participantId = participantId
         self.incrementing = incrementing
@@ -36,7 +37,8 @@ class TextPublication: Publication {
                        submitter: submitter,
                        endpointId: endpointId,
                        relayId: relayId,
-                       logger: self.logger)
+                       logger: self.logger,
+                       useAnnounce: useAnnounce)
     }
 
     func sendMessage(_ message: String) {

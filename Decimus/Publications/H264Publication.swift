@@ -253,7 +253,8 @@ class H264Publication: Publication, FrameListener {
                   verbose: Bool,
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
-                  mediaInterop: Bool) throws {
+                  mediaInterop: Bool,
+                  useAnnounce: Bool) throws {
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
@@ -287,7 +288,8 @@ class H264Publication: Publication, FrameListener {
                        submitter: metricsSubmitter,
                        endpointId: endpointId,
                        relayId: relayId,
-                       logger: self.logger)
+                       logger: self.logger,
+                       useAnnounce: useAnnounce)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }

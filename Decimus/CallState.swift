@@ -222,20 +222,21 @@ class CallState: ObservableObject, Equatable {
         let publicationFactory: PublicationFactory?
         if self.role != .subscriber {
             publicationFactory = PublicationFactoryImpl(opusWindowSize: subConfig.opusWindowSize,
-                                                            reliability: subConfig.mediaReliability,
-                                                            engine: self.engine,
-                                                            metricsSubmitter: self.submitter,
-                                                            granularMetrics: self.influxConfig.value.granular,
-                                                            captureManager: self.captureManager,
-                                                            participantId: manifest.participantId,
-                                                            keyFrameInterval: subConfig.keyFrameInterval,
-                                                            stagger: subConfig.stagger,
-                                                            verbose: self.verbose,
-                                                            keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
-                                                            startingGroup: self.audioStartingGroup,
-                                                            sframeContext: self.sendContext,
-                                                            mediaInterop: self.mediaInterop,
-                                                            overrideNamespace: overrideNamespace)
+                                                        reliability: subConfig.mediaReliability,
+                                                        engine: self.engine,
+                                                        metricsSubmitter: self.submitter,
+                                                        granularMetrics: self.influxConfig.value.granular,
+                                                        captureManager: self.captureManager,
+                                                        participantId: manifest.participantId,
+                                                        keyFrameInterval: subConfig.keyFrameInterval,
+                                                        stagger: subConfig.stagger,
+                                                        verbose: self.verbose,
+                                                        keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
+                                                        startingGroup: self.audioStartingGroup,
+                                                        sframeContext: self.sendContext,
+                                                        mediaInterop: self.mediaInterop,
+                                                        overrideNamespace: overrideNamespace,
+                                                        useAnnounce: subConfig.useAnnounce)
         } else {
             publicationFactory = nil
         }
@@ -247,20 +248,20 @@ class CallState: ObservableObject, Equatable {
         let subscriptionFactory: SubscriptionFactoryImpl?
         if self.role != .publisher {
             subscriptionFactory = SubscriptionFactoryImpl(videoParticipants: self.videoParticipants,
-                                                              metricsSubmitter: self.submitter,
-                                                              subscriptionConfig: subConfig,
-                                                              granularMetrics: self.influxConfig.value.granular,
-                                                              engine: self.engine,
-                                                              participantId: ourParticipantId,
-                                                              joinDate: self.joinDate,
-                                                              activeSpeakerStats: self.activeSpeakerStats,
-                                                              controller: controller,
-                                                              verbose: self.verbose,
-                                                              startingGroup: startingGroupId,
-                                                              manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
-                                                              sframeContext: self.receiveContext,
-                                                              calculateLatency: self.showLabels,
-                                                              mediaInterop: self.mediaInterop)
+                                                          metricsSubmitter: self.submitter,
+                                                          subscriptionConfig: subConfig,
+                                                          granularMetrics: self.influxConfig.value.granular,
+                                                          engine: self.engine,
+                                                          participantId: ourParticipantId,
+                                                          joinDate: self.joinDate,
+                                                          activeSpeakerStats: self.activeSpeakerStats,
+                                                          controller: controller,
+                                                          verbose: self.verbose,
+                                                          startingGroup: startingGroupId,
+                                                          manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
+                                                          sframeContext: self.receiveContext,
+                                                          calculateLatency: self.showLabels,
+                                                          mediaInterop: self.mediaInterop)
         } else {
             subscriptionFactory = nil
         }
@@ -323,7 +324,7 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                     }
                 }
-                
+
                 // Active speaker handling.
                 let notifier: ActiveSpeakerNotifier?
                 if playtime.playtime && playtime.manualActiveSpeaker {
