@@ -241,5 +241,19 @@ void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
     }
 }
 
+void QClient::SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& name_space,
+                                              std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
+                                              std::optional<quicr::messages::ReasonPhrase> reason)
+{
+    const auto nameSpace = nsConvert(name_space);
+    QSubscribeNamespaceErrorCode errorCode = QSubscribeNamespaceErrorCode::kQSubscribeNamespaceErrorCodeOK;
+    if (error_code.has_value()) {
+        errorCode = static_cast<QSubscribeNamespaceErrorCode>(*error_code);
+    }
+    if (_callbacks) {
+        [_callbacks subscribeNamespaceStatusChanged:nameSpace errorCode:errorCode];
+    }
+}
+
 @end
 

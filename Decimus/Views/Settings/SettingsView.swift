@@ -27,11 +27,25 @@ struct SettingsView: View {
     @AppStorage(Self.overrideNamespaceKey)
     private var overrideNamespace: String = "[\"moq://decimus.webex.com/v1/\", \"media-interop\", \"{s}\"]"
 
+    static let subscribeNamespaceEnabledKey = "subscribeNamespaceEnabled"
+    @AppStorage(Self.subscribeNamespaceEnabledKey)
+    private var subscribeNamespaceEnabled = false
+
+    static let subscribeNamespaceKey = "subscribeNamespace"
+    @AppStorage(Self.subscribeNamespaceKey)
+    private var subscribeNamespace = "[\"moq://decimus.webex.com/v1/\"]"
+
+    static let subscribeNamespaceAcceptKey = "subscribeNamespaceAccept"
+    @AppStorage(Self.subscribeNamespaceAcceptKey)
+    private var subscribeNamespaceAccept = "[\"moq://decimus.webex.com/v1/\", \"media-interop\"]"
+
     static let moqRoleKey = "moqRole"
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
     @State private var overrideError: String?
+    @State private var subscribeNamespaceError: String?
+    @State private var subscribeNamespaceAcceptError: String?
 
     var body: some View {
         // Reset all.
@@ -60,6 +74,8 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -109,13 +125,64 @@ struct SettingsView: View {
                         }
                     }
                     .onChange(of: self.overrideNamespace) {
-                        if let error = CallState.validateNamespace(self.overrideNamespace).error {
+                        if let error = CallState.validateNamespace(self.overrideNamespace, placeholder: true).error {
                             self.overrideError = error
                         } else {
                             self.overrideError = nil
                         }
                     }
                 }
+
+                LabeledToggle("Subscribe Namespace Prefix", isOn: self.$subscribeNamespaceEnabled)
+                if self.subscribeNamespaceEnabled {
+                    LabeledContent("Subscribe Namespace") {
+                        VStack {
+                            TextField("Subscribe Namespace",
+                                      text: self.$subscribeNamespace)
+                                .autocorrectionDisabled()
+                                #if !os(macOS)
+                                .keyboardType(.asciiCapable)
+                            #endif
+                            if let subscribeNamespaceError {
+                                Text(subscribeNamespaceError)
+                                    .foregroundStyle(.red)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .onChange(of: self.subscribeNamespace) {
+                        if let error = CallState.validateNamespace(self.subscribeNamespace, placeholder: false).error {
+                            self.subscribeNamespaceError = error
+                        } else {
+                            self.subscribeNamespaceError = nil
+                        }
+                    }
+
+                    LabeledContent("Prefix to Accept") {
+                        VStack {
+                            TextField("Subscribe Namespace Accept",
+                                      text: self.$subscribeNamespaceAccept)
+                                .autocorrectionDisabled()
+                                #if !os(macOS)
+                                .keyboardType(.asciiCapable)
+                            #endif
+                            if let subscribeNamespaceAcceptError {
+                                Text(subscribeNamespaceAcceptError)
+                                    .foregroundStyle(.red)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .onChange(of: self.subscribeNamespaceAccept) {
+                        if let error = CallState.validateNamespace(self.subscribeNamespaceAccept,
+                                                                   placeholder: false).error {
+                            self.subscribeNamespaceAcceptError = error
+                        } else {
+                            self.subscribeNamespaceAcceptError = nil
+                        }
+                    }
+                }
+
                 LabeledToggle("Verbose Logging", isOn: self.$verbose)
                 #if canImport(ScreenCaptureKit)
                 LabeledToggle("Record Call", isOn: self.$recordCall)

@@ -22,6 +22,10 @@ public:
                          unsigned long long,
                          const quicr::FullTrackName&,
                          const quicr::messages::PublishAttributes&) override;
+    void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
+                                         std::optional<quicr::messages::SubscribeNamespaceErrorCode>,
+                                         std::optional<quicr::messages::ReasonPhrase>) override;
+
 
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:

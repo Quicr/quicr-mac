@@ -104,6 +104,14 @@ class CallState: ObservableObject, Equatable {
     nonisolated static let namespaceSourcePlaceholder = "{s}"
     private var resolvedNamespace: [String]?
 
+    // Subscribe namespace.
+    @AppStorage(SettingsView.subscribeNamespaceEnabledKey)
+    private var subscribeNamespaceEnabled = false
+    @AppStorage(SettingsView.subscribeNamespaceKey)
+    private var subscribeNamespace: String = ""
+    @AppStorage(SettingsView.subscribeNamespaceAcceptKey)
+    private var subscribeNamespaceAccept: String = ""
+
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
@@ -201,7 +209,7 @@ class CallState: ObservableObject, Equatable {
         // Are we overriding publication namespaces?
         let overrideNamespace: [String]?
         if self.mediaInterop {
-            let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON)
+            let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON, placeholder: true)
             if let namespaceError {
                 Self.logger.error("Bad override namespace: \(namespaceError)")
                 return false
@@ -350,6 +358,17 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                     }
                 }
+            }
+        }
+
+        // Are we doing subscribe namespace?
+        if self.subscribeNamespaceEnabled {
+            do {
+                let namespaceTuple = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8))
+                controller.subscribeNamespace(namespaceTuple)
+                Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
+            } catch {
+                Self.logger.warning("Failed to parse subscribe namespace", alert: true)
             }
         }
 
@@ -527,10 +546,13 @@ class CallState: ObservableObject, Equatable {
         }
     }
 
-    static func validateNamespace(_ namespace: String) -> (namespace: [String]?, error: String?) {
+    static func validateNamespace(_ namespace: String, placeholder: Bool) -> (namespace: [String]?, error: String?) {
         do {
             let decoded = try JSONDecoder().decode([String].self,
                                                    from: .init(namespace.utf8))
+            guard placeholder else {
+                return (decoded, nil)
+            }
             var found = false
             for item in decoded {
                 found = found || item.contains(CallState.namespaceSourcePlaceholder)
@@ -540,6 +562,9 @@ class CallState: ObservableObject, Equatable {
             }
             return (decoded, nil)
         } catch {
+            guard placeholder else {
+                return (nil, "Namespace must be valid JSON array")
+            }
             return (nil, "Namespace must be valid JSON array with \(CallState.namespaceSourcePlaceholder) placeholder")
         }
     }

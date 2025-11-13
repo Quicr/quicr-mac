@@ -26,6 +26,10 @@ typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
     kQPublishNamespaceStatusSendingDone
 };
 
+typedef NS_ENUM(uint8_t, QSubscribeNamespaceErrorCode) {
+    kQSubscribeNamespaceErrorCodeOK,
+};
+
 typedef struct QServerSetupAttributes {
     uint64_t moqt_version;
     const char* server_id;
@@ -76,4 +80,5 @@ typedef struct QConnectionMetrics {
 - (void) publishNamespaceStatusChanged: (NSData*) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
 - (void) publishReceived: (uint64_t) requestId tfn: (id<QFullTrackName> _Nonnull) tfn attributes: (QPublishAttributes) attributes;
+- (void) subscribeNamespaceStatusChanged: (QTrackNamespace) tfn errorCode: (QSubscribeNamespaceErrorCode) errorCode;
 @end

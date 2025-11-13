@@ -393,6 +393,15 @@ class MoqCallController: QClientCallbacks {
     func publishReceived(_ requestId: UInt64, tfn: any QFullTrackName, attributes: QPublishAttributes) {
         self.logger.info("Got publish for: \(tfn)")
     }
+
+    func subscribeNamespace(_ prefix: [String]) {
+        self.client.subscribeNamespace(prefix.map { .init($0.utf8) })
+    }
+
+    func subscribeNamespaceStatusChanged(_ tfn: [Data], errorCode: QSubscribeNamespaceErrorCode) {
+        let namespace = tfn.compactMap { String(data: $0, encoding: .utf8) }
+        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(errorCode)")
+    }
 }
 
 extension Profile {
