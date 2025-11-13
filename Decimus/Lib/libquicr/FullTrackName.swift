@@ -51,6 +51,10 @@ class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
         hasher.combine(self.nameSpace)
     }
 
+    func matchesPrefix(prefix: [Data]) -> Bool {
+        self.nameSpace.starts(with: prefix)
+    }
+
     private static func resolveDescription(inNamespace: [Data], inName: Data) -> String {
         var namespace: [String] = []
         for element in inNamespace {

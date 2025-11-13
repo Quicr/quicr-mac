@@ -30,6 +30,24 @@ static quicr::TransportConfig convert(TransportConfig config) {
     };
 }
 
+static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attributes) {
+    quicr::messages::SubscribeAttributes converted{};
+    converted.priority = attributes.priority;
+    converted.forward = attributes.forward;
+    converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
+    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    converted.is_publisher_initiated = attributes.isPublisherInitiated;
+    converted.new_group_request_id = attributes.newGroupRequestId;
+    return converted;
+}
+
+static quicr::PublishResponse convert(QPublishResponse response) {
+    quicr::PublishResponse converted{};
+    converted.reason_code = response.ok ? quicr::PublishResponse::ReasonCode::kOk : quicr::PublishResponse::ReasonCode::kInternalError;
+    return converted;
+}
+
 @implementation QClientObjC : NSObject
 
 -(id)initWithConfig: (QClientConfig) config
@@ -148,6 +166,11 @@ static quicr::TransportConfig convert(TransportConfig config) {
     qClientPtr->SubscribeNamespace(nsConvert(trackNamespace));
 }
 
+-(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QSubscribeAttributes) attributes response: (QPublishResponse) response {
+    assert(qClientPtr);
+    qClientPtr->ResolvePublish(connectionHandle, requestId, convert(attributes), convert(response));
+}
+
 // C++
 
 std::shared_ptr<QClient> QClient::Create(quicr::ClientConfig config) {
@@ -237,7 +260,7 @@ void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
 {
 
     if (_callbacks) {
-        [_callbacks publishReceived:request_id tfn:ftnConvert(track_full_name) attributes:convert(publish_attributes)];
+        [_callbacks publishReceived:connection_handle requestId:request_id tfn:ftnConvert(track_full_name) attributes:convert(publish_attributes)];
     }
 }
 

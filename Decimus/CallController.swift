@@ -39,6 +39,11 @@ struct ClientConfig {
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
+    typealias PublishReceivedCallback = (_ connectionHandle: UInt64,
+                                         _ requestId: UInt64,
+                                         _ tfn: QFullTrackName,
+                                         _ attributes: QPublishAttributes) -> Void
+
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
     private let measurement: MeasurementRegistration<MoqCallControllerMeasurement>?
@@ -53,6 +58,7 @@ class MoqCallController: QClientCallbacks {
     private var connected = false
     private let callEnded: (() -> Void)?
     private let overrideNamespace: [String]?
+    private let publishReceivedCallback: PublishReceivedCallback?
 
     /// The identifier of the connected server, or nil if not connected.
     public private(set) var serverId: String?
@@ -67,6 +73,7 @@ class MoqCallController: QClientCallbacks {
          client: MoqClient,
          submitter: MetricsSubmitter?,
          overrideNamespace: [String]? = nil,
+         publishReceived: PublishReceivedCallback? = nil,
          callEnded: (() -> Void)?) {
         self.endpointUri = endpointUri
         self.client = client
@@ -79,6 +86,7 @@ class MoqCallController: QClientCallbacks {
             self.measurement = nil
         }
         self.overrideNamespace = overrideNamespace
+        self.publishReceivedCallback = publishReceived
         self.client.setCallbacks(self)
     }
 
@@ -390,8 +398,18 @@ class MoqCallController: QClientCallbacks {
     }
 
     /// Publish received (subscribe namespace).
-    func publishReceived(_ requestId: UInt64, tfn: any QFullTrackName, attributes: QPublishAttributes) {
-        self.logger.info("Got publish for: \(tfn)")
+    func publishReceived(_ connectionHandle: UInt64,
+                         requestId: UInt64,
+                         tfn: any QFullTrackName,
+                         attributes: QPublishAttributes) {
+        self.publishReceivedCallback?(connectionHandle, requestId, tfn, attributes)
+    }
+
+    func resolvePublish(connectionHandle: UInt64,
+                        requestId: UInt64,
+                        attributes: QSubscribeAttributes,
+                        response: QPublishResponse) {
+        self.client.resolvePublish(connectionHandle, requestId: requestId, attributes: attributes, response: response)
     }
 
     func subscribeNamespace(_ prefix: [String]) {

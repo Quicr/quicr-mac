@@ -111,6 +111,7 @@ class CallState: ObservableObject, Equatable {
     private var subscribeNamespace: String = ""
     @AppStorage(SettingsView.subscribeNamespaceAcceptKey)
     private var subscribeNamespaceAccept: String = ""
+    private var subscriptionNamespaceAcceptParsed: [Data]?
 
     // Recording.
     @AppStorage(SettingsView.recordingKey)
@@ -365,6 +366,8 @@ class CallState: ObservableObject, Equatable {
         if self.subscribeNamespaceEnabled {
             do {
                 let namespaceTuple = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8))
+                let acceptNamespace = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespaceAccept.utf8))
+                self.subscriptionNamespaceAcceptParsed = acceptNamespace.map { .init($0.utf8) }
                 controller.subscribeNamespace(namespaceTuple)
                 Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
             } catch {
@@ -456,10 +459,18 @@ class CallState: ObservableObject, Equatable {
                                               metricsSampleMs: config.metricsSampleMs))
                 }
             }
+            let publishReceived: MoqCallController.PublishReceivedCallback = { [weak self] connectionHandle, requestId, tfn, attributes in
+                guard let self = self else { return }
+                self.publishReceived(connectionHandle: connectionHandle,
+                                     requestId: requestId,
+                                     track: .init(tfn),
+                                     attributes: attributes)
+            }
             return .init(endpointUri: endpointId,
                          client: client,
                          submitter: self.submitter,
-                         overrideNamespace: overrideNamespace) { [weak self] in
+                         overrideNamespace: overrideNamespace,
+                         publishReceived: publishReceived) { [weak self] in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
                     self.onLeave()
@@ -591,6 +602,27 @@ class CallState: ObservableObject, Equatable {
                                        profileSet: .init(type: sub.profileSet.type, profiles: newProfiles)))
         }
         return subscriptions
+    }
+
+    private func publishReceived(connectionHandle: UInt64,
+                                 requestId: UInt64,
+                                 track: FullTrackName,
+                                 attributes: QPublishAttributes) {
+        Self.logger.info("Publish received")
+        guard let accept = self.subscriptionNamespaceAcceptParsed,
+              track.matchesPrefix(prefix: accept) else {
+            // Reject.
+            self.controller?.resolvePublish(connectionHandle: connectionHandle,
+                                            requestId: requestId,
+                                            attributes: .init(),
+                                            response: .init(ok: false))
+            return
+        }
+        // TODO: Attributes & handler.
+        self.controller?.resolvePublish(connectionHandle: connectionHandle,
+                                        requestId: requestId,
+                                        attributes: .init(),
+                                        response: .init(ok: true))
     }
 }
 

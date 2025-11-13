@@ -24,6 +24,20 @@ typedef struct QClientConfig {
     uint64_t metricsSampleMs;
 } QClientConfig;
 
+typedef struct QSubscribeAttributes {
+    uint8_t priority;
+    QGroupOrder groupOrder;
+    uint64_t deliveryTimeoutMs;
+    QFilterType filterType;
+    uint8_t forward;
+    uint64_t newGroupRequestId;
+    bool isPublisherInitiated;
+} QSubscribeAttributes;
+
+typedef struct QPublishResponse {
+    bool ok;
+} QPublishResponse;
+
 @protocol MoqClient
 - (QClientStatus)connect;
 - (QClientStatus)disconnect;
@@ -38,6 +52,7 @@ typedef struct QClientConfig {
 - (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
 - (void)subscribeNamespace:(QTrackNamespace _Nonnull)namespacePrefix;
+- (void)resolvePublish: (uint64_t)connectionHandle requestId: (uint64_t) requestId attributes: (QSubscribeAttributes) attributes response: (QPublishResponse) response;
 @end
 
 @interface QClientObjC : NSObject<MoqClient>
