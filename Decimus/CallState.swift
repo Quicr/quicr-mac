@@ -99,6 +99,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var role = MoQRole.both
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
+    @AppStorage(SettingsView.useOverrideNamespaceKey)
+    private(set) var useOverrideNamespace = false
     @AppStorage(SettingsView.overrideNamespaceKey)
     private(set) var overrideNamespaceJSON: String = ""
     nonisolated static let namespaceSourcePlaceholder = "{s}"
@@ -200,7 +202,7 @@ class CallState: ObservableObject, Equatable {
 
         // Are we overriding publication namespaces?
         let overrideNamespace: [String]?
-        if self.mediaInterop {
+        if self.useOverrideNamespace {
             let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON)
             if let namespaceError {
                 Self.logger.error("Bad override namespace: \(namespaceError)")

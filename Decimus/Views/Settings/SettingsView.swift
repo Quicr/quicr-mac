@@ -23,6 +23,10 @@ struct SettingsView: View {
     @AppStorage(Self.mediaInteropKey)
     private var mediaInterop: Bool = false
 
+    static let useOverrideNamespaceKey = "useOverrideNamespace"
+    @AppStorage(Self.useOverrideNamespaceKey)
+    private var useOverrideNamespace: Bool = false
+
     static let overrideNamespaceKey = "overrideNamespace"
     @AppStorage(Self.overrideNamespaceKey)
     private var overrideNamespace: String = "[\"moq://decimus.webex.com/v1/\", \"media-interop\", \"{s}\"]"
@@ -58,6 +62,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SubscriptionSettingsView.defaultsKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.verboseKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.mediaInteropKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.useOverrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
                 }
@@ -92,8 +97,9 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
                 LabeledToggle("Media Interop", isOn: self.$mediaInterop)
-                if self.mediaInterop {
-                    LabeledContent("Override Namespace") {
+                LabeledToggle("Override Namespace", isOn: self.$useOverrideNamespace)
+                if self.useOverrideNamespace {
+                    LabeledContent("Namespace") {
                         VStack {
                             TextField("Override Namespace",
                                       text: self.$overrideNamespace)
