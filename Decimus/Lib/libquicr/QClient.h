@@ -18,6 +18,10 @@ public:
     void StatusChanged(Status status) override;
     void ServerSetupReceived(const quicr::ServerSetupAttributes& serverSetupAttributes) override;
     void MetricsSampled(const quicr::ConnectionMetrics& metrics) override;
+    void PublishReceived(unsigned long long,
+                         unsigned long long,
+                         const quicr::FullTrackName&,
+                         const quicr::messages::PublishAttributes&) override;
 
     void SetCallbacks(id<QClientCallbacks> callbacks);
 private:

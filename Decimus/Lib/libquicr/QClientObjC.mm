@@ -142,6 +142,12 @@ static quicr::TransportConfig convert(TransportConfig config) {
     return static_cast<QPublishNamespaceStatus>(status);
 }
 
+-(void) subscribeNamespace: (QTrackNamespace) trackNamespace
+{
+    assert(qClientPtr);
+    qClientPtr->SubscribeNamespace(nsConvert(trackNamespace));
+}
+
 // C++
 
 std::shared_ptr<QClient> QClient::Create(quicr::ClientConfig config) {
@@ -161,6 +167,20 @@ static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metric
     static_assert(sizeof(quicr::QuicConnectionMetrics) == sizeof(QQuicConnectionMetrics));
     QQuicConnectionMetrics converted;
     memcpy(&converted, &metrics, sizeof(QQuicConnectionMetrics));
+    return converted;
+}
+
+static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
+{
+    QPublishAttributes converted;
+    converted.priority = attributes.priority;
+    converted.forward = attributes.forward;
+    converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
+    converted.filterType = static_cast<QFilterType>(attributes.filter_type);
+    converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
+    converted.isPublisherInitiated = attributes.is_publisher_initiated;
+    converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
+    converted.trackAlias = attributes.track_alias;
     return converted;
 }
 
@@ -208,6 +228,17 @@ void QClient::ServerSetupReceived(const quicr::ServerSetupAttributes& server_set
 void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
 {
     _callbacks = callbacks;
+}
+
+void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
+                              const std::uint64_t request_id,
+                              const quicr::FullTrackName& track_full_name,
+                              const quicr::messages::PublishAttributes& publish_attributes)
+{
+
+    if (_callbacks) {
+        [_callbacks publishReceived:request_id tfn:ftnConvert(track_full_name) attributes:convert(publish_attributes)];
+    }
 }
 
 @end

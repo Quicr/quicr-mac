@@ -388,6 +388,11 @@ class MoqCallController: QClientCallbacks {
     func getSubscriptionsByParticipant(_ participantId: ParticipantId) throws -> [SubscriptionSet] {
         self.subscriptions.values.filter { $0.participantId == participantId }
     }
+
+    /// Publish received (subscribe namespace).
+    func publishReceived(_ requestId: UInt64, tfn: any QFullTrackName, attributes: QPublishAttributes) {
+        self.logger.info("Got publish for: \(tfn)")
+    }
 }
 
 extension Profile {

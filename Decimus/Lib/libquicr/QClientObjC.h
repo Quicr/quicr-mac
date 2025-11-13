@@ -37,6 +37,7 @@ typedef struct QClientConfig {
 - (void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
 - (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
+- (void)subscribeNamespace:(QTrackNamespace _Nonnull)namespacePrefix;
 @end
 
 @interface QClientObjC : NSObject<MoqClient>
