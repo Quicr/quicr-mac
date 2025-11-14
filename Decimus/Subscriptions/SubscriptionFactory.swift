@@ -168,7 +168,8 @@ protocol SubscriptionFactory {
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> Subscription
+                relayId: String,
+                publisherInitiated: Bool) throws -> Subscription
 }
 
 class SubscriptionFactoryImpl: SubscriptionFactory {
@@ -311,7 +312,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                 profile: Profile,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> Subscription {
+                relayId: String,
+                publisherInitiated: Bool) throws -> Subscription {
         let ftn = try profile.getFullTrackName()
         // Ideally this wiring would be in CallController.
         let unregister: Subscription.StatusCallback = { [weak set] status in
@@ -332,6 +334,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             priority: 0,
                                             groupOrder: .originalPublisherOrder,
                                             filterType: .latestObject,
+                                            publisherInitiated: publisherInitiated,
                                             callback: { [weak set] in
                                                 set?.receivedObject(headers: $0,
                                                                     data: $1,
@@ -346,6 +349,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                                                endpointId: endpointId,
                                                                                relayId: relayId,
                                                                                submitter: self.metricsSubmitter,
+                                                                               publisherInitiated: publisherInitiated,
                                                                                statusChanged: unregister)
             return self.activeSpeakerNotifier!
         }
@@ -384,6 +388,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                                    mediaInterop: self.mediaInterop),
                                          sframeContext: self.sframeContext,
                                          wifiScanDetector: self.wifiScanDetector,
+                                         publisherInitiated: publisherInitiated,
                                          callback: { [weak set] details in
                                             guard let set = set else { return }
                                             set.receivedObject(ftn, details: details)
@@ -418,6 +423,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         slidingWindowTime: self.subscriptionConfig.videoJitterBuffer.window,
                                         config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive,
                                                       mediaInterop: self.mediaInterop),
+                                        publisherInitiated: publisherInitiated,
                                         statusChanged: unregister)
         } else if config is TextCodecConfig {
             return try MultipleCallbackSubscription(profile: profile,
@@ -427,6 +433,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                     priority: 0,
                                                     groupOrder: .originalPublisherOrder,
                                                     filterType: .latestObject,
+                                                    publisherInitiated: publisherInitiated,
                                                     statusCallback: {_ in})
         }
         throw CodecError.invalidCodecConfig(config)

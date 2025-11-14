@@ -39,6 +39,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     ///   - priority: Priority for the subscription.
     ///   - groupOrder: Subscription for group order.
     ///   - filterType: Filter type.
+    ///   - publisherInitiated: True if publisher initiated the subscribe.
     ///   - statusCallback: Fires when the subscription status changes (on the original callback thread).
     init(profile: Profile,
          endpointId: String,
@@ -47,6 +48,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
          priority: UInt8,
          groupOrder: QGroupOrder,
          filterType: QFilterType,
+         publisherInitiated: Bool,
          statusCallback: StatusCallback?) throws {
         if let submitter = metricsSubmitter {
             self.quicrMeasurement = .init(measurement: .init(type: .subscribe,
@@ -61,7 +63,8 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         super.init(fullTrackName: try profile.getFullTrackName(),
                    priority: priority,
                    groupOrder: groupOrder,
-                   filterType: filterType)
+                   filterType: filterType,
+                   publisherInitiated: publisherInitiated)
         super.setCallbacks(self)
         super.setDeliveryTimeout(UInt64(profile.expiry?.max() ?? 5000))
     }

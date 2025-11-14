@@ -604,25 +604,146 @@ class CallState: ObservableObject, Equatable {
         return subscriptions
     }
 
+    // swiftlint:disable:next function_body_length
     private func publishReceived(connectionHandle: UInt64,
                                  requestId: UInt64,
                                  track: FullTrackName,
                                  attributes: QPublishAttributes) {
-        Self.logger.info("Publish received")
-        guard let accept = self.subscriptionNamespaceAcceptParsed,
-              track.matchesPrefix(prefix: accept) else {
-            // Reject.
+        let controller = self.controller!
+        var responseAccept = false
+        var responseAttributes = QSubscribeAttributes()
+        // We MUST resolve one way or the other.
+        defer {
             self.controller?.resolvePublish(connectionHandle: connectionHandle,
                                             requestId: requestId,
-                                            attributes: .init(),
-                                            response: .init(ok: false))
+                                            attributes: responseAttributes,
+                                            response: .init(ok: responseAccept))
+        }
+
+        // FIXME: Guard spam for debugging, replace with single check.
+        guard self.subscriptionNamespaceAcceptParsed != nil else {
+            Self.logger.error("No accept ns")
             return
         }
-        // TODO: Attributes & handler.
-        self.controller?.resolvePublish(connectionHandle: connectionHandle,
-                                        requestId: requestId,
-                                        attributes: .init(),
-                                        response: .init(ok: true))
+        guard track.matchesPrefix(prefix: self.subscriptionNamespaceAcceptParsed!) else {
+            Self.logger.error("Doesn't match ")
+            return
+        }
+
+        // Collect everything we need.
+        let mediaIndex = 3
+        let endpointIndex = 4
+
+        guard track.nameSpace.count >= endpointIndex - 1 else {
+            Self.logger.error("Bad ns")
+            return
+        }
+
+        guard let accept = self.subscriptionNamespaceAcceptParsed else {
+            Self.logger.error("[\(track)] Declining offered publish: subscriptionNamespaceAcceptParsed is nil")
+            return
+        }
+
+        guard track.matchesPrefix(prefix: accept) else {
+            Self.logger.error("[\(track)] Declining offered publish: track does not match accept prefix")
+            return
+        }
+
+        guard track.nameSpace.count >= endpointIndex - 1 else {
+            Self.logger.error("[\(track)] Declining offered publish: namespace count \(track.nameSpace.count) < \(endpointIndex - 1)")
+            return
+        }
+
+        guard let mediaType = String(data: track.nameSpace[mediaIndex], encoding: .utf8) else {
+            Self.logger.error("[\(track)] Declining offered publish: failed to decode mediaType at index \(mediaIndex)")
+            return
+        }
+
+        guard let config = mediaType.firstMatch(of: #/\[(.*?)\]/#) else {
+            Self.logger.error("[\(track)] Declining offered publish: mediaType '\(mediaType)' does not match regex pattern")
+            return
+        }
+
+        guard let endpointIdString = String(data: track.nameSpace[endpointIndex], encoding: .utf8) else {
+            Self.logger.error("[\(track)] Declining offered publish: failed to decode endpointId at index \(endpointIndex)")
+            return
+        }
+
+        guard let endpointMatch = endpointIdString.firstMatch(of: #/endpoint=(\d+)/#) else {
+            Self.logger.error("[\(track)] Declining offered publish: endpointId '\(endpointIdString)' does not match 'endpoint=<value>' pattern")
+            return
+        }
+
+        guard let endpointId = Int(endpointMatch.1) else {
+            Self.logger.error("[\(track)] Declining offered publish: failed to parse endpointId '\(endpointMatch.1)' as Int")
+            return
+        }
+
+        guard let factory = self.subscriptionFactory else {
+            Self.logger.error("[\(track)] Declining offered publish: subscriptionFactory is nil")
+            return
+        }
+
+        // Build the profile from the namespace as best we can.
+        let qualityProfile = String(config.1)
+        let configParse = CodecFactoryImpl()
+        let codecConfig = configParse.makeCodecConfig(from: qualityProfile, bitrateType: .average)
+        let profile = Profile(qualityProfile: qualityProfile,
+                              expiry: nil,
+                              priorities: nil,
+                              namespace: track.nameSpace.compactMap { String(data: $0, encoding: .utf8) },
+                              channel: nil)
+        let sourceId = "\(endpointId)_\(codecConfig.codec)"
+        let manifestSubscription = ManifestSubscription(mediaType: "published",
+                                                        sourceName: "published",
+                                                        sourceID: sourceId,
+                                                        label: "Published",
+                                                        participantId: .init(UInt32(endpointId)),
+                                                        profileSet: .init(type: "video",
+                                                                          profiles: [profile]))
+
+        // We need a destination for this media, and we only have the FTN to work it out.
+        Self.logger.info("[\(track)] Accepting offered publish: \(profile)")
+
+        // Need a set for this if we don't have one already.
+        let set: SubscriptionSet
+        if let existing = controller.getSubscriptionSet(sourceId) {
+            set = existing
+        } else {
+            // Make one.
+            do {
+                set = try controller.subscribeToSet(details: manifestSubscription,
+                                                    factory: factory,
+                                                    subscribe: false)
+            } catch {
+                Self.logger.error("Failed to make set for handled published: \(error.localizedDescription)")
+                return
+            }
+        }
+
+        // TODO: We can do this in the subscribe to set call, if we add pub-initiated.
+
+        // Now that we have the set, we need to publish-initiated subscribe to it.
+        do {
+            _ = try controller.subscribe(set: set,
+                                         profile: profile,
+                                         factory: factory,
+                                         publisherInitiated: .init(trackAlias: attributes.trackAlias,
+                                                                   requestId: requestId))
+        } catch {
+            Self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
+            return
+        }
+
+        // Let defer block accept.
+        responseAccept = true
+        responseAttributes = .init(priority: UInt8(profile.priorities?.first ?? 0),
+                                   groupOrder: .originalPublisherOrder,
+                                   deliveryTimeoutMs: UInt64(profile.expiry?.first ?? 0),
+                                   filterType: .latestObject,
+                                   forward: 1,
+                                   newGroupRequestId: 0,
+                                   isPublisherInitiated: true)
     }
 }
 

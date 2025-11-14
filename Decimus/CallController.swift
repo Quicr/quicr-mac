@@ -236,7 +236,7 @@ class MoqCallController: QClientCallbacks {
                 }
 
                 do {
-                    _ = try self.subscribe(set: set, profile: profile, factory: factory)
+                    _ = try self.subscribe(set: set, profile: profile, factory: factory, publisherInitiated: nil)
                     count += 1
                 } catch let error as PubSubFactoryError {
                     self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
@@ -249,19 +249,32 @@ class MoqCallController: QClientCallbacks {
         return set
     }
 
+    struct PublisherInitiatedDetails {
+        let trackAlias: UInt64
+        let requestId: UInt64
+    }
+
     /// Subscribe to a specific track and add it to an existing subscription set.
     /// - Parameter set: The subscription set to add the track to.
     /// - Parameter profile: The profile to subscribe to.
     /// - Parameter factory: Factory to create subscription objects.
     /// - Returns: The created subscription.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws -> Subscription {
+    func subscribe(set: SubscriptionSet,
+                   profile: Profile,
+                   factory: SubscriptionFactory,
+                   publisherInitiated: PublisherInitiatedDetails?) throws -> Subscription {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let subscription = try factory.create(set: set,
                                               profile: profile,
                                               codecFactory: CodecFactoryImpl(),
                                               endpointId: self.endpointUri,
-                                              relayId: self.serverId!)
+                                              relayId: self.serverId!,
+                                              publisherInitiated: publisherInitiated != nil)
+        if let publisherInitiated {
+            subscription.setReceivedTrackAlias(publisherInitiated.trackAlias)
+            subscription.setRequestId(publisherInitiated.requestId)
+        }
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
         return subscription

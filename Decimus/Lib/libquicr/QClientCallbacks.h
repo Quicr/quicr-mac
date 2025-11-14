@@ -67,6 +67,7 @@ typedef struct QPublishAttributes {
     uint64_t newGroupRequestId;
     bool isPublisherInitiated;
     uint64_t trackAlias;
+    bool dynamicGroups;
 } QPublishAttributes;
 
 typedef struct QConnectionMetrics {

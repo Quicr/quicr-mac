@@ -22,7 +22,7 @@
 #endif
 }
 
--(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder filterType: (QFilterType) filterType;
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder filterType: (QFilterType) filterType publisherInitiated: (BOOL) publisherInitiated;
 -(QSubscribeTrackHandlerStatus) getStatus;
 -(void) setPriority: (uint8_t) priority;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
@@ -35,6 +35,8 @@
 -(void)setDeliveryTimeout:(uint64_t) timeout;
 -(void)pause;
 -(void)resume;
+-(void)setReceivedTrackAlias:(uint64_t) trackAlias;
+-(void)setRequestId:(uint64_t) requestId;
 typedef void (*NewGroupCallback)(void* _Nonnull);
 
 @end

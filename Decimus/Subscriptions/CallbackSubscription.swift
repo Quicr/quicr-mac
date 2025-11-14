@@ -16,6 +16,7 @@ class CallbackSubscription: Subscription {
          priority: UInt8,
          groupOrder: QGroupOrder,
          filterType: QFilterType,
+         publisherInitiated: Bool,
          callback: @escaping SubscriptionCallback,
          statusCallback: @escaping StatusCallback) throws {
         self.callback = callback
@@ -26,6 +27,7 @@ class CallbackSubscription: Subscription {
                        priority: priority,
                        groupOrder: groupOrder,
                        filterType: filterType,
+                       publisherInitiated: publisherInitiated,
                        statusCallback: statusCallback)
     }
 
