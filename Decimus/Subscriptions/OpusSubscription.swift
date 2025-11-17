@@ -53,6 +53,7 @@ class OpusSubscription: Subscription {
          playoutBufferTime: TimeInterval,
          slidingWindowTime: TimeInterval,
          config: Config,
+         publisherInitiated: Bool,
          statusChanged: @escaping StatusCallback) throws {
         self.profile = profile
         self.engine = engine
@@ -102,6 +103,7 @@ class OpusSubscription: Subscription {
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
+                       publisherInitiated: publisherInitiated,
                        statusCallback: statusChanged)
 
         // Make task for cleaning up audio handlers.

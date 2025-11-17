@@ -18,6 +18,7 @@ func testStatusCallback(_ status: QSubscribeTrackHandlerStatus) throws {
                                             priority: 0,
                                             groupOrder: .originalPublisherOrder,
                                             filterType: .none,
+                                            publisherInitiated: false,
                                             statusCallback: callback)
 
         // Mock status change.

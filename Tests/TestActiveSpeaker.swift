@@ -170,7 +170,7 @@ struct TestActiveSpeaker {
                                                              ]))
         var nonVideoSet = try controller.subscribeToSet(details: manifestSubscriptionOther,
                                                         factory: MockOtherSubscriptionFactory({ _ in}),
-                                                        subscribe: true)
+                                                        subscribeType: .subscribe)
 
         // Subscribe to 1 and 2.
         var setOne: VideoSubscriptionSet?
@@ -178,12 +178,12 @@ struct TestActiveSpeaker {
             setOne = try controller.subscribeToSet(details: manifestSubscription1,
                                                    factory: MockVideoSubscriptionFactory({
                                                     #expect($0.sourceId == manifestSubscription1.sourceID)
-                                                   }), subscribe: true) as! VideoSubscriptionSet? // swiftlint:disable:this force_cast
+                                                   }), subscribeType: .subscribe) as! VideoSubscriptionSet? // swiftlint:disable:this force_cast
         }
         let setTwo = try controller.subscribeToSet(details: manifestSubscription2,
                                                    factory: MockVideoSubscriptionFactory({
                                                     #expect($0.sourceId == manifestSubscription2.sourceID)
-                                                   }), subscribe: true) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+                                                   }), subscribeType: .subscribe) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
 
         // 1 and 2 should be created and subscribed to.
         let initialSubscriptionSets = controller.getSubscriptionSets()

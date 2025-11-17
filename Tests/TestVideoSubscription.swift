@@ -69,6 +69,7 @@ struct TestVideoSubscription {
                                                                mediaInterop: false),
                                      sframeContext: nil,
                                      wifiScanDetector: nil,
+                                     publisherInitiated: false,
                                      callback: { callback?($0) },
                                      statusChanged: ({_ in }))
     }

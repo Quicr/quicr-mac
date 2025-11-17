@@ -12,6 +12,7 @@ class ActiveSpeakerNotifierSubscription: Subscription,
          endpointId: String,
          relayId: String,
          submitter: MetricsSubmitter?,
+         publisherInitiated: Bool,
          statusChanged: StatusCallback?) throws {
         try super.init(profile: profile,
                        endpointId: endpointId,
@@ -20,6 +21,7 @@ class ActiveSpeakerNotifierSubscription: Subscription,
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestGroup,
+                       publisherInitiated: publisherInitiated,
                        statusCallback: statusChanged)
     }
 

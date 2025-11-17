@@ -108,7 +108,8 @@ final class TestCallController: XCTestCase {
                     profile: Profile,
                     codecFactory: CodecFactory,
                     endpointId: String,
-                    relayId: String) throws -> Subscription {
+                    relayId: String,
+                    publisherInitiated: Bool) throws -> Subscription {
             try self.make(set: set as! T, // swiftlint:disable:this force_cast
                           profile: profile,
                           codecFactory: codecFactory,
@@ -128,6 +129,7 @@ final class TestCallController: XCTestCase {
                            priority: 0,
                            groupOrder: .originalPublisherOrder,
                            filterType: .none,
+                           publisherInitiated: false,
                            statusCallback: nil)
         }
 
@@ -266,7 +268,7 @@ final class TestCallController: XCTestCase {
         // and subscribeTrack to be called on all contained subscriptions.
         let set = try controller.subscribeToSet(details: details,
                                                 factory: factory,
-                                                subscribe: true)
+                                                subscribeType: .subscribe)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: expectedFtn))
         XCTAssertEqual(set.sourceId, sourceID)
@@ -346,7 +348,7 @@ final class TestCallController: XCTestCase {
 
         // Subscribing to the set should cause a set to be created,
         // and subscribeTrack to be called on all contained subscriptions.
-        let set = try controller.subscribeToSet(details: details, factory: factory, subscribe: true)
+        let set = try controller.subscribeToSet(details: details, factory: factory, subscribeType: .subscribe)
         XCTAssertEqual(set.sourceId, sourceID)
         XCTAssertNotNil(factoryCreated)
         XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1, ftn2]))
@@ -376,7 +378,7 @@ final class TestCallController: XCTestCase {
         XCTAssertEqual(handlers.keys.first, ftn2)
 
         // Resubscribe.
-        try controller.subscribe(set: factoryCreated!, profile: profile1, factory: factory)
+        try controller.subscribe(set: factoryCreated!, profile: profile1, factory: factory, publisherInitiated: nil)
         // Subscribe track should have been called.
         XCTAssert(self.assertFtnEquality(subscribed, rhs: [ftn1]))
 
@@ -438,8 +440,8 @@ final class TestCallController: XCTestCase {
 
         try await callController.connect()
         let factory = MockSubscriptionFactory({ _ in })
-        let matchingSet = try callController.subscribeToSet(details: matchingSubscription, factory: factory, subscribe: true)
-        let nonMatchingSet = try callController.subscribeToSet(details: nonMatchingSubscription, factory: factory, subscribe: true)
+        let matchingSet = try callController.subscribeToSet(details: matchingSubscription, factory: factory, subscribeType: .subscribe)
+        let nonMatchingSet = try callController.subscribeToSet(details: nonMatchingSubscription, factory: factory, subscribeType: .subscribe)
         XCTAssertEqual(matchingSet.participantId, matchingParticipantId)
         XCTAssertEqual(nonMatchingSet.participantId, nonMatchingParticipantId)
         XCTAssertNotEqual(matchingSet.participantId, nonMatchingSet.participantId)

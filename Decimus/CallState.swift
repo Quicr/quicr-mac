@@ -106,6 +106,15 @@ class CallState: ObservableObject, Equatable {
     nonisolated static let namespaceSourcePlaceholder = "{s}"
     private var resolvedNamespace: [String]?
 
+    // Subscribe namespace.
+    @AppStorage(SettingsView.subscribeNamespaceEnabledKey)
+    private var subscribeNamespaceEnabled = false
+    @AppStorage(SettingsView.subscribeNamespaceKey)
+    private var subscribeNamespace: String = ""
+    @AppStorage(SettingsView.subscribeNamespaceAcceptKey)
+    private var subscribeNamespaceAccept: String = ""
+    private var subscriptionNamespaceAcceptParsed: [Data]?
+
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
@@ -202,8 +211,8 @@ class CallState: ObservableObject, Equatable {
 
         // Are we overriding publication namespaces?
         let overrideNamespace: [String]?
-        if self.useOverrideNamespace {
-            let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON)
+        if self.mediaInterop {
+            let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON, placeholder: true)
             if let namespaceError {
                 Self.logger.error("Bad override namespace: \(namespaceError)")
                 return false
@@ -311,7 +320,7 @@ class CallState: ObservableObject, Equatable {
                     do {
                         let set = try controller.subscribeToSet(details: subscription,
                                                                 factory: subscriptionFactory,
-                                                                subscribe: true)
+                                                                subscribeType: .subscribe)
                         if subscription.mediaType == ManifestMediaTypes.text.rawValue {
                             let handlers = set.getHandlers()
                             precondition(handlers.count == 1,
@@ -352,6 +361,19 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                     }
                 }
+            }
+        }
+
+        // Are we doing subscribe namespace?
+        if self.subscribeNamespaceEnabled {
+            do {
+                let namespaceTuple = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8))
+                let acceptNamespace = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespaceAccept.utf8))
+                self.subscriptionNamespaceAcceptParsed = acceptNamespace.map { .init($0.utf8) }
+                controller.subscribeNamespace(namespaceTuple)
+                Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
+            } catch {
+                Self.logger.warning("Failed to parse subscribe namespace", alert: true)
             }
         }
 
@@ -439,10 +461,18 @@ class CallState: ObservableObject, Equatable {
                                               metricsSampleMs: config.metricsSampleMs))
                 }
             }
+            let publishReceived: MoqCallController.PublishReceivedCallback = { [weak self] connectionHandle, requestId, tfn, attributes in
+                guard let self = self else { return }
+                self.publishReceived(connectionHandle: connectionHandle,
+                                     requestId: requestId,
+                                     track: .init(tfn),
+                                     attributes: attributes)
+            }
             return .init(endpointUri: endpointId,
                          client: client,
                          submitter: self.submitter,
-                         overrideNamespace: overrideNamespace) { [weak self] in
+                         overrideNamespace: overrideNamespace,
+                         publishReceived: publishReceived) { [weak self] in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
                     self.onLeave()
@@ -529,10 +559,13 @@ class CallState: ObservableObject, Equatable {
         }
     }
 
-    static func validateNamespace(_ namespace: String) -> (namespace: [String]?, error: String?) {
+    static func validateNamespace(_ namespace: String, placeholder: Bool) -> (namespace: [String]?, error: String?) {
         do {
             let decoded = try JSONDecoder().decode([String].self,
                                                    from: .init(namespace.utf8))
+            guard placeholder else {
+                return (decoded, nil)
+            }
             var found = false
             for item in decoded {
                 found = found || item.contains(CallState.namespaceSourcePlaceholder)
@@ -542,6 +575,9 @@ class CallState: ObservableObject, Equatable {
             }
             return (decoded, nil)
         } catch {
+            guard placeholder else {
+                return (nil, "Namespace must be valid JSON array")
+            }
             return (nil, "Namespace must be valid JSON array with \(CallState.namespaceSourcePlaceholder) placeholder")
         }
     }
@@ -568,6 +604,95 @@ class CallState: ObservableObject, Equatable {
                                        profileSet: .init(type: sub.profileSet.type, profiles: newProfiles)))
         }
         return subscriptions
+    }
+
+    // swiftlint:disable:next function_body_length
+    private func publishReceived(connectionHandle: UInt64,
+                                 requestId: UInt64,
+                                 track: FullTrackName,
+                                 attributes: QPublishAttributes) {
+        let controller = self.controller!
+        var responseAccept = false
+        var responseAttributes = QPublishAttributes()
+        // We MUST resolve one way or the other.
+        defer {
+            self.controller?.resolvePublish(connectionHandle: connectionHandle,
+                                            requestId: requestId,
+                                            attributes: responseAttributes,
+                                            tfn: track,
+                                            response: .init(ok: responseAccept))
+        }
+
+        // Collect everything we need.
+        let mediaIndex = 3
+        let endpointIndex = 4
+        guard let accept = self.subscriptionNamespaceAcceptParsed,
+              track.matchesPrefix(prefix: accept),
+              track.nameSpace.count >= endpointIndex - 1,
+              let mediaType = String(data: track.nameSpace[mediaIndex], encoding: .utf8),
+              let config = mediaType.firstMatch(of: #/\[(.*?)\]/#),
+              let endpointIdString = String(data: track.nameSpace[endpointIndex], encoding: .utf8),
+              let endpointMatch = endpointIdString.firstMatch(of: #/endpoint=(\d+)/#),
+              let endpointId = Int(endpointMatch.1),
+              let factory = self.subscriptionFactory else {
+            Self.logger.warning("[\(track)] Declining offered publish")
+            return
+        }
+
+        // Build the profile from the namespace as best we can.
+        // TODO: We need to source expiry and priority here.
+        let qualityProfile = String(config.1)
+        let configParse = CodecFactoryImpl()
+        let codecConfig = configParse.makeCodecConfig(from: qualityProfile, bitrateType: .average)
+        let profile = Profile(qualityProfile: qualityProfile,
+                              expiry: nil,
+                              priorities: nil,
+                              namespace: track.nameSpace.compactMap { String(data: $0, encoding: .utf8) },
+                              channel: nil)
+        let sourceId = "\(endpointId)_\(codecConfig.codec)"
+        let manifestSubscription = ManifestSubscription(mediaType: "published",
+                                                        sourceName: "published",
+                                                        sourceID: sourceId,
+                                                        label: "Published",
+                                                        participantId: .init(UInt32(endpointId)),
+                                                        profileSet: .init(type: "video",
+                                                                          profiles: [profile]))
+
+        // We need a destination for this media, and we only have the FTN to work it out.
+        Self.logger.info("[\(track)] Accepting offered publish: \(profile)")
+
+        // Need a set for this if we don't have one already.
+        let publisherInitiated = MoqCallController.PublisherInitiatedDetails(trackAlias: attributes.trackAlias,
+                                                                             requestId: requestId)
+
+        do {
+            if let existing = controller.getSubscriptionSet(sourceId) {
+                try controller.subscribe(set: existing,
+                                         profile: profile,
+                                         factory: factory,
+                                         publisherInitiated: publisherInitiated)
+            } else {
+                // Make one.
+                try controller.subscribeToSet(details: manifestSubscription,
+                                              factory: factory,
+                                              subscribeType: .publisherInitiated(publisherInitiated))
+            }
+        } catch {
+            Self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
+            return
+        }
+
+        // Let defer block accept.
+        responseAccept = true
+        responseAttributes = .init(priority: UInt8(profile.priorities?.first ?? 0),
+                                   groupOrder: .originalPublisherOrder,
+                                   deliveryTimeoutMs: UInt64(profile.expiry?.first ?? 0),
+                                   filterType: .latestObject,
+                                   forward: 1,
+                                   newGroupRequestId: 0,
+                                   isPublisherInitiated: true,
+                                   trackAlias: attributes.trackAlias,
+                                   dynamicGroups: attributes.dynamicGroups)
     }
 }
 

@@ -39,6 +39,11 @@ struct ClientConfig {
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
+    typealias PublishReceivedCallback = (_ connectionHandle: UInt64,
+                                         _ requestId: UInt64,
+                                         _ tfn: QFullTrackName,
+                                         _ attributes: QPublishAttributes) -> Void
+
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
     private let measurement: MeasurementRegistration<MoqCallControllerMeasurement>?
@@ -53,6 +58,7 @@ class MoqCallController: QClientCallbacks {
     private var connected = false
     private let callEnded: (() -> Void)?
     private let overrideNamespace: [String]?
+    private let publishReceivedCallback: PublishReceivedCallback?
 
     /// The identifier of the connected server, or nil if not connected.
     public private(set) var serverId: String?
@@ -67,6 +73,7 @@ class MoqCallController: QClientCallbacks {
          client: MoqClient,
          submitter: MetricsSubmitter?,
          overrideNamespace: [String]? = nil,
+         publishReceived: PublishReceivedCallback? = nil,
          callEnded: (() -> Void)?) {
         self.endpointUri = endpointUri
         self.client = client
@@ -79,6 +86,7 @@ class MoqCallController: QClientCallbacks {
             self.measurement = nil
         }
         self.overrideNamespace = overrideNamespace
+        self.publishReceivedCallback = publishReceived
         self.client.setCallbacks(self)
     }
 
@@ -200,20 +208,44 @@ class MoqCallController: QClientCallbacks {
         return Array(set.getHandlers().values)
     }
 
+    enum SubscribeType {
+        case setOnly
+        case subscribe
+        case publisherInitiated(PublisherInitiatedDetails)
+    }
+
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     /// - Parameter factory: Factory to create subscription handlers from.
     /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
+    /// - Parameter publisherInitiated: If publisher initiated, the details of that publish.
     /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
+    @discardableResult
     public func subscribeToSet(details: ManifestSubscription,
                                factory: SubscriptionFactory,
-                               subscribe: Bool) throws -> SubscriptionSet {
+                               subscribeType: SubscribeType) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      codecFactory: CodecFactoryImpl(),
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
+
+        // Determine what to do.
+        let pubDetails: PublisherInitiatedDetails?
+        let subscribe: Bool
+        switch subscribeType {
+        case .setOnly:
+            pubDetails = nil
+            subscribe = false
+        case .subscribe:
+            pubDetails = nil
+            subscribe = true
+        case .publisherInitiated(let value):
+            pubDetails = value
+            subscribe = true
+        }
+
         if subscribe {
             var count = 0
             for profile in details.profileSet.profiles {
@@ -228,7 +260,10 @@ class MoqCallController: QClientCallbacks {
                 }
 
                 do {
-                    _ = try self.subscribe(set: set, profile: profile, factory: factory)
+                    _ = try self.subscribe(set: set,
+                                           profile: profile,
+                                           factory: factory,
+                                           publisherInitiated: pubDetails)
                     count += 1
                 } catch let error as PubSubFactoryError {
                     self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
@@ -241,19 +276,33 @@ class MoqCallController: QClientCallbacks {
         return set
     }
 
+    struct PublisherInitiatedDetails {
+        let trackAlias: UInt64
+        let requestId: UInt64
+    }
+
     /// Subscribe to a specific track and add it to an existing subscription set.
     /// - Parameter set: The subscription set to add the track to.
     /// - Parameter profile: The profile to subscribe to.
     /// - Parameter factory: Factory to create subscription objects.
     /// - Returns: The created subscription.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
-    func subscribe(set: SubscriptionSet, profile: Profile, factory: SubscriptionFactory) throws -> Subscription {
+    @discardableResult
+    func subscribe(set: SubscriptionSet,
+                   profile: Profile,
+                   factory: SubscriptionFactory,
+                   publisherInitiated: PublisherInitiatedDetails?) throws -> Subscription {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let subscription = try factory.create(set: set,
                                               profile: profile,
                                               codecFactory: CodecFactoryImpl(),
                                               endpointId: self.endpointUri,
-                                              relayId: self.serverId!)
+                                              relayId: self.serverId!,
+                                              publisherInitiated: publisherInitiated != nil)
+        if let publisherInitiated {
+            subscription.setReceivedTrackAlias(publisherInitiated.trackAlias)
+            subscription.setRequestId(publisherInitiated.requestId)
+        }
         try set.addHandler(subscription)
         self.client.subscribeTrack(withHandler: subscription)
         return subscription
@@ -387,6 +436,35 @@ class MoqCallController: QClientCallbacks {
     /// - Returns: List of subscription sets.
     func getSubscriptionsByParticipant(_ participantId: ParticipantId) throws -> [SubscriptionSet] {
         self.subscriptions.values.filter { $0.participantId == participantId }
+    }
+
+    /// Publish received (subscribe namespace).
+    func publishReceived(_ connectionHandle: UInt64,
+                         requestId: UInt64,
+                         tfn: any QFullTrackName,
+                         attributes: QPublishAttributes) {
+        self.publishReceivedCallback?(connectionHandle, requestId, tfn, attributes)
+    }
+
+    func resolvePublish(connectionHandle: UInt64,
+                        requestId: UInt64,
+                        attributes: QPublishAttributes,
+                        tfn: FullTrackName,
+                        response: QPublishResponse) {
+        self.client.resolvePublish(connectionHandle,
+                                   requestId: requestId,
+                                   attributes: attributes,
+                                   tfn: tfn,
+                                   response: response)
+    }
+
+    func subscribeNamespace(_ prefix: [String]) {
+        self.client.subscribeNamespace(prefix.map { .init($0.utf8) })
+    }
+
+    func subscribeNamespaceStatusChanged(_ tfn: [Data], errorCode: QSubscribeNamespaceErrorCode) {
+        let namespace = tfn.compactMap { String(data: $0, encoding: .utf8) }
+        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(errorCode)")
     }
 }
 

@@ -18,6 +18,7 @@ class MultipleCallbackSubscription: Subscription {
          priority: UInt8,
          groupOrder: QGroupOrder,
          filterType: QFilterType,
+         publisherInitiated: Bool,
          statusCallback: @escaping StatusCallback) throws {
         try super.init(profile: profile,
                        endpointId: endpointId,
@@ -26,6 +27,7 @@ class MultipleCallbackSubscription: Subscription {
                        priority: priority,
                        groupOrder: groupOrder,
                        filterType: filterType,
+                       publisherInitiated: publisherInitiated,
                        statusCallback: statusCallback)
     }
 

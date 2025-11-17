@@ -97,7 +97,8 @@ struct ObservableSubscriptionSetDetails: View {
                 do {
                     _ = try self.controller.subscribe(set: self.observable,
                                                       profile: manifestSubscription,
-                                                      factory: self.factory)
+                                                      factory: self.factory,
+                                                      publisherInitiated: nil)
                 } catch {
                     self.logger.error("Failed to subscribe: \(error.localizedDescription)")
                 }

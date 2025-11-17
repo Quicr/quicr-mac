@@ -135,6 +135,7 @@ class VideoSubscription: Subscription {
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
          wifiScanDetector: WiFiScanDetector?,
+         publisherInitiated: Bool,
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
         self.fullTrackName = try profile.getFullTrackName()
@@ -188,6 +189,7 @@ class VideoSubscription: Subscription {
                        priority: 0,
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
+                       publisherInitiated: publisherInitiated,
                        statusCallback: statusChanged)
     }
 
