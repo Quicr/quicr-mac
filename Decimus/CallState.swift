@@ -99,6 +99,8 @@ class CallState: ObservableObject, Equatable {
     private(set) var role = MoQRole.both
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
+    @AppStorage(SettingsView.useOverrideNamespaceKey)
+    private(set) var useOverrideNamespace = false
     @AppStorage(SettingsView.overrideNamespaceKey)
     private(set) var overrideNamespaceJSON: String = ""
     nonisolated static let namespaceSourcePlaceholder = "{s}"
