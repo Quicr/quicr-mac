@@ -20,7 +20,6 @@ public:
     void MetricsSampled(const quicr::ConnectionMetrics& metrics) override;
     void PublishReceived(unsigned long long,
                          unsigned long long,
-                         const quicr::FullTrackName&,
                          const quicr::messages::PublishAttributes&) override;
     void SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& track_namespace,
                                          std::optional<quicr::messages::SubscribeNamespaceErrorCode>,

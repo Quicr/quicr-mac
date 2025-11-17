@@ -80,7 +80,8 @@ class MockClient: MoqClient {
     func subscribeNamespace(_ namespacePrefix: [Data]) {}
     func resolvePublish(_ connectionHandle: UInt64,
                         requestId: UInt64,
-                        attributes: QSubscribeAttributes,
+                        attributes: QPublishAttributes,
+                        tfn: any QFullTrackName,
                         response: QPublishResponse) {}
 }
 // swiftlint:enable force_cast

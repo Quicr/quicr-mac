@@ -613,12 +613,13 @@ class CallState: ObservableObject, Equatable {
                                  attributes: QPublishAttributes) {
         let controller = self.controller!
         var responseAccept = false
-        var responseAttributes = QSubscribeAttributes()
+        var responseAttributes = QPublishAttributes()
         // We MUST resolve one way or the other.
         defer {
             self.controller?.resolvePublish(connectionHandle: connectionHandle,
                                             requestId: requestId,
                                             attributes: responseAttributes,
+                                            tfn: track,
                                             response: .init(ok: responseAccept))
         }
 
@@ -689,7 +690,9 @@ class CallState: ObservableObject, Equatable {
                                    filterType: .latestObject,
                                    forward: 1,
                                    newGroupRequestId: 0,
-                                   isPublisherInitiated: true)
+                                   isPublisherInitiated: true,
+                                   trackAlias: attributes.trackAlias,
+                                   dynamicGroups: attributes.dynamicGroups)
     }
 }
 

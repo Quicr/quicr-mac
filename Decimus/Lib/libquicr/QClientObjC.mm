@@ -42,6 +42,21 @@ static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attribu
     return converted;
 }
 
+static quicr::messages::PublishAttributes convert(QPublishAttributes attributes, id<QFullTrackName> _Nonnull fullTrackName) {
+    quicr::messages::PublishAttributes converted{};
+    converted.dynamic_groups = attributes.dynamicGroups;
+    converted.track_alias = attributes.trackAlias;
+    converted.track_full_name = ftnConvert(fullTrackName);
+    converted.priority = attributes.priority;
+    converted.forward = attributes.forward;
+    converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
+    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    converted.is_publisher_initiated = attributes.isPublisherInitiated;
+    converted.new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt;
+    return converted;
+}
+
 static quicr::PublishResponse convert(QPublishResponse response) {
     quicr::PublishResponse converted{};
     converted.reason_code = response.ok ? quicr::PublishResponse::ReasonCode::kOk : quicr::PublishResponse::ReasonCode::kInternalError;
@@ -166,9 +181,9 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     qClientPtr->SubscribeNamespace(nsConvert(trackNamespace));
 }
 
--(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QSubscribeAttributes) attributes response: (QPublishResponse) response {
+-(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response {
     assert(qClientPtr);
-    qClientPtr->ResolvePublish(connectionHandle, requestId, convert(attributes), convert(response));
+    qClientPtr->ResolvePublish(connectionHandle, requestId, convert(attributes, tfn), convert(response));
 }
 
 // C++
@@ -255,12 +270,11 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
 
 void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
                               const std::uint64_t request_id,
-                              const quicr::FullTrackName& track_full_name,
                               const quicr::messages::PublishAttributes& publish_attributes)
 {
 
     if (_callbacks) {
-        [_callbacks publishReceived:connection_handle requestId:request_id tfn:ftnConvert(track_full_name) attributes:convert(publish_attributes)];
+        [_callbacks publishReceived:connection_handle requestId:request_id tfn:ftnConvert(publish_attributes.track_full_name) attributes:convert(publish_attributes)];
     }
 }
 

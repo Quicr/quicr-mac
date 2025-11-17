@@ -52,7 +52,7 @@ typedef struct QPublishResponse {
 - (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
 - (void)subscribeNamespace:(QTrackNamespace _Nonnull)namespacePrefix;
-- (void)resolvePublish: (uint64_t)connectionHandle requestId: (uint64_t) requestId attributes: (QSubscribeAttributes) attributes response: (QPublishResponse) response;
+- (void)resolvePublish: (uint64_t)connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response;
 @end
 
 @interface QClientObjC : NSObject<MoqClient>

@@ -448,9 +448,14 @@ class MoqCallController: QClientCallbacks {
 
     func resolvePublish(connectionHandle: UInt64,
                         requestId: UInt64,
-                        attributes: QSubscribeAttributes,
+                        attributes: QPublishAttributes,
+                        tfn: FullTrackName,
                         response: QPublishResponse) {
-        self.client.resolvePublish(connectionHandle, requestId: requestId, attributes: attributes, response: response)
+        self.client.resolvePublish(connectionHandle,
+                                   requestId: requestId,
+                                   attributes: attributes,
+                                   tfn: tfn,
+                                   response: response)
     }
 
     func subscribeNamespace(_ prefix: [String]) {
