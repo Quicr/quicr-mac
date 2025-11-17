@@ -76,5 +76,11 @@ class MockClient: MoqClient {
     func getPublishNamespaceStatus(_ trackNamespace: Data) -> QPublishNamespaceStatus {
         .OK
     }
+
+    func subscribeNamespace(_ namespacePrefix: [Data]) {}
+    func resolvePublish(_ connectionHandle: UInt64,
+                        requestId: UInt64,
+                        attributes: QSubscribeAttributes,
+                        response: QPublishResponse) {}
 }
 // swiftlint:enable force_cast

@@ -208,20 +208,44 @@ class MoqCallController: QClientCallbacks {
         return Array(set.getHandlers().values)
     }
 
+    enum SubscribeType {
+        case setOnly
+        case subscribe
+        case publisherInitiated(PublisherInitiatedDetails)
+    }
+
     /// Subscribe to a logically related set of subscriptions.
     /// - Parameter details: The details of the subscription set.
     /// - Parameter factory: Factory to create subscription handlers from.
     /// - Parameter subscribe: True to actually subscribe to the contained handlers. False to create a placeholder set.
+    /// - Parameter publisherInitiated: If publisher initiated, the details of that publish.
     /// - Returns: The created ``SubscriptionSet``.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
+    @discardableResult
     public func subscribeToSet(details: ManifestSubscription,
                                factory: SubscriptionFactory,
-                               subscribe: Bool) throws -> SubscriptionSet {
+                               subscribeType: SubscribeType) throws -> SubscriptionSet {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      codecFactory: CodecFactoryImpl(),
                                      endpointId: self.endpointUri,
                                      relayId: self.serverId!)
+
+        // Determine what to do.
+        let pubDetails: PublisherInitiatedDetails?
+        let subscribe: Bool
+        switch subscribeType {
+        case .setOnly:
+            pubDetails = nil
+            subscribe = false
+        case .subscribe:
+            pubDetails = nil
+            subscribe = true
+        case .publisherInitiated(let value):
+            pubDetails = value
+            subscribe = true
+        }
+
         if subscribe {
             var count = 0
             for profile in details.profileSet.profiles {
@@ -236,7 +260,10 @@ class MoqCallController: QClientCallbacks {
                 }
 
                 do {
-                    _ = try self.subscribe(set: set, profile: profile, factory: factory, publisherInitiated: nil)
+                    _ = try self.subscribe(set: set,
+                                           profile: profile,
+                                           factory: factory,
+                                           publisherInitiated: pubDetails)
                     count += 1
                 } catch let error as PubSubFactoryError {
                     self.logger.warning("[\(set.sourceId)] (\(profile.namespace)) Couldn't create subscription: " +
@@ -260,6 +287,7 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter factory: Factory to create subscription objects.
     /// - Returns: The created subscription.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
+    @discardableResult
     func subscribe(set: SubscriptionSet,
                    profile: Profile,
                    factory: SubscriptionFactory,

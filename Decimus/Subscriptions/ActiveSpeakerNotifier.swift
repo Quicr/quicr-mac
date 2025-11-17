@@ -162,7 +162,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             self.logger.debug("[ActiveSpeakers] Subscribing to: \(id)")
             guard let set = try? self.controller.subscribeToSet(details: manifestSet,
                                                                 factory: self.factory,
-                                                                subscribe: true) else {
+                                                                subscribeType: .subscribe) else {
                 self.logger.error("Couldn't subscribe to set")
                 continue
             }
