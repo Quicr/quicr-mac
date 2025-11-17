@@ -30,7 +30,7 @@ enum AppHeaders {
 
 extension HeaderExtensions {
     func getHeader(_ appHeader: AppHeadersRegistry) throws -> AppHeaders? {
-        guard let data = self[appHeader.nsKey] else { return nil }
+        guard let dataArray = self[appHeader.nsKey], let data = dataArray.first else { return nil }
         switch appHeader {
         case .energyLevel:
             guard let first = data.first else { throw "Invalid" }
@@ -48,15 +48,22 @@ extension HeaderExtensions {
     }
 
     mutating func setHeader(_ key: AppHeaders) throws {
-        self[key.value.nsKey] = switch key {
+        let data = switch key {
         case .energyLevel(let level):
-            .init([level])
+            Data([level])
         case .participantId(let id):
-            withUnsafeBytes(of: id.aggregate) { .init($0) }
+            withUnsafeBytes(of: id.aggregate) { Data($0) }
         case .sequenceNumber(let number):
-            withUnsafeBytes(of: number) { .init($0) }
+            withUnsafeBytes(of: number) { Data($0) }
         case .publishTimestamp(let date):
-            withUnsafeBytes(of: UInt64(date.timeIntervalSince1970 * TimeInterval(microsecondsPerSecond))) { .init($0) }
+            withUnsafeBytes(of: UInt64(date.timeIntervalSince1970 * TimeInterval(microsecondsPerSecond))) { Data($0) }
+        }
+        let nsKey = key.value.nsKey
+        if var existing = self[nsKey] {
+            existing.append(data)
+            self[nsKey] = existing
+        } else {
+            self[nsKey] = [data]
         }
     }
 }

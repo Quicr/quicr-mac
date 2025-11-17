@@ -63,12 +63,12 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(id<QFullTrackName> _Nonnull) getFullTrackName;
 -(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
                                 data: (NSData* _Nonnull) data
-                          extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-                 immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
+                          extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+                 immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
 -(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders
                                        data: (NSData* _Nonnull) data
-                                 extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-                        immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
+                                 extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+                        immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void) setDefaultPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;

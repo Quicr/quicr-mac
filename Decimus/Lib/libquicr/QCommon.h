@@ -38,20 +38,20 @@ typedef struct QObjectHeaders {
 
 #ifdef __cplusplus
 #include <quicr/detail/messages.h>
-static NSMutableDictionary<NSNumber*, NSData*>* convertExtensions(const std::optional<quicr::Extensions>& extensions) {
+static NSMutableDictionary<NSNumber*, NSArray<NSData*>*>* convertExtensions(const std::optional<quicr::Extensions>& extensions) {
     if (!extensions.has_value()) {
         return nil;
     }
 
-    NSMutableDictionary<NSNumber*, NSData*>* result = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSNumber*, NSArray<NSData*>*>* result = [NSMutableDictionary dictionary];
     for (const auto& kvps : *extensions) {
         NSNumber* key = @(kvps.first);
-        if (kvps.second.size() < 1) {
-            continue;
+        NSMutableArray<NSData*>* dataArray = [NSMutableArray arrayWithCapacity:kvps.second.size()];
+        for (const auto& kvp : kvps.second) {
+            NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.data() length:kvp.size() deallocator:nil];
+            [dataArray addObject:data];
         }
-        const auto& kvp = kvps.second[0];
-        NSData* data = [[NSData alloc] initWithBytesNoCopy:(void*)kvp.data()  length:kvp.size() deallocator:nil];
-        [result setObject:data forKey:key];
+        [result setObject:dataArray forKey:key];
     }
     return result;
 }

@@ -4,8 +4,8 @@
 import CoreMedia
 import Foundation
 
-// Dictionary of header extension keys to values
-typealias HeaderExtensions = [NSNumber: Data]
+// Dictionary of header extension keys to values (supports multiple values per key)
+typealias HeaderExtensions = [NSNumber: [Data]]
 
 extension HeaderExtensions {
     mutating func setHeader(_ mediaExtension: MediaTypeHeaderExtension) throws {
@@ -33,7 +33,13 @@ extension HeaderExtensions {
             let microseconds = UInt64(date.timeIntervalSince1970 * microsecondsPerSecond)
             data = withUnsafeBytes(of: microseconds) { Data($0) }
         }
-        self[mediaExtension.extensionKey.rawValue] = data
+        let key = mediaExtension.extensionKey.rawValue
+        if var existing = self[key] {
+            existing.append(data)
+            self[key] = existing
+        } else {
+            self[key] = [data]
+        }
     }
 
     mutating func setHeader(_ extensionsKey: UInt64, data: HeaderType) throws {
@@ -50,12 +56,18 @@ extension HeaderExtensions {
             }
             toSet = withUnsafeBytes(of: &value) { Data($0) }
         }
-        self[.init(value: extensionsKey)] = toSet
+        let key = NSNumber(value: extensionsKey)
+        if var existing = self[key] {
+            existing.append(toSet)
+            self[key] = existing
+        } else {
+            self[key] = [toSet]
+        }
     }
 
     // swiftlint:disable:next cyclomatic_complexity
     func getHeader(_ extensionKey: MediaTypeHeaderExtensionValue) throws -> MediaTypeHeaderExtension? {
-        guard let data = self[extensionKey.rawValue] else {
+        guard let dataArray = self[extensionKey.rawValue], let data = dataArray.first else {
             return nil
         }
 
@@ -116,7 +128,7 @@ extension HeaderExtensions {
     }
 
     func getHeader(_ extensionKey: UInt64) throws -> HeaderType? {
-        guard let data = self[.init(value: extensionKey)] else {
+        guard let dataArray = self[.init(value: extensionKey)], let data = dataArray.first else {
             return nil
         }
 

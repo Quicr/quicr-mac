@@ -281,7 +281,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     /// - Parameter drop: True if this object should be dropped.
     func objectReceived(_ objectHeaders: QObjectHeaders, // swiftlint:disable:this cyclomatic_complexity function_body_length
                         data: Data,
-                        extensions: [NSNumber: Data]?,
+                        extensions: HeaderExtensions?,
                         when: Ticks,
                         cached: Bool,
                         drop: Bool) {

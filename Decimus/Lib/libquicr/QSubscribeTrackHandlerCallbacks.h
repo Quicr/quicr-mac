@@ -28,11 +28,11 @@ typedef struct QSubscribeTrackMetrics {
 - (void) statusChanged: (QSubscribeTrackHandlerStatus) status;
 - (void) objectReceived: (QObjectHeaders) objectHeaders
                    data: (NSData* _Nonnull) data
-             extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-    immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
+             extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+    immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
 - (void) partialObjectReceived: (QObjectHeaders) objectHeaders
                           data: (NSData* _Nonnull) data
-                    extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-           immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions;
+                    extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+           immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
 - (void) metricsSampled: (QSubscribeTrackMetrics) metrics;
 @end
