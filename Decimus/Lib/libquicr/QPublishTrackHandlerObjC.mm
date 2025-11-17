@@ -27,16 +27,20 @@
     handlerPtr->SetCallbacks(callbacks);
 }
 
-std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSData*>* _Nullable extensions) {
+std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable extensions) {
     std::optional<quicr::Extensions> moqExtensions;
     if (extensions == nil || extensions.count == 0) {
         moqExtensions = std::nullopt;
     } else {
         quicr::Extensions built;
         for (NSNumber* number in extensions) {
-            NSData* value = extensions[number];
-            const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
-            built[number.unsignedLongLongValue] = { std::vector<std::uint8_t>(ptr, ptr + value.length) };
+            NSArray<NSData*>* values = extensions[number];
+            std::vector<std::vector<std::uint8_t>> dataValues;
+            for (NSData* value in values) {
+                const auto* ptr = reinterpret_cast<const std::uint8_t*>(value.bytes);
+                dataValues.push_back(std::vector<std::uint8_t>(ptr, ptr + value.length));
+            }
+            built[number.unsignedLongLongValue] = dataValues;
         }
         // TODO: Move?
         moqExtensions = built;
@@ -45,8 +49,8 @@ std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSData*>* _Nullabl
 }
 
 quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
-                          NSDictionary<NSNumber*, NSData*>* _Nullable extensions,
-                          NSDictionary<NSNumber*, NSData*>* _Nullable immutable_extensions) {
+                          NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable extensions,
+                          NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable immutable_extensions) {
     std::optional<std::uint8_t> priority;
     if (objectHeaders.priority != nullptr) {
         priority = *objectHeaders.priority;
@@ -74,8 +78,8 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 
 -(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
                                 data: (NSData* _Nonnull) data
-                          extensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-                 immutableExtensions: (NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions
+                          extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+                 immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions
 {
     assert(handlerPtr);
     quicr::ObjectHeaders headers = from(objectHeaders, extensions, immutableExtensions);
@@ -92,8 +96,8 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 
 -(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders
                                        data: (NSData* _Nonnull) data
-                                 extensions:(NSDictionary<NSNumber*, NSData*>* _Nullable) extensions
-                        immutableExtensions:(NSDictionary<NSNumber*, NSData*>* _Nullable) immutableExtensions {
+                                 extensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
+                        immutableExtensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions {
     assert(handlerPtr);
     quicr::ObjectHeaders headers = from(objectHeaders, extensions, immutableExtensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);

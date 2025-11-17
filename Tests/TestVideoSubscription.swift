@@ -224,7 +224,7 @@ struct TestVideoSubscription {
         var sendObjectId = ngThreshold
 
         var sequence: UInt64 = 0
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             sequence += 1
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(sequence))
