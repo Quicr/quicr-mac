@@ -234,7 +234,7 @@ class VideoSubscription: Subscription {
         }
 
         // When we pause, reset the state machine.
-        try! self.stateMachine.transition(to: .startup)
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
         super.pause()
         self.logger.info("Paused")
     }
