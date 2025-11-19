@@ -29,6 +29,7 @@ class FakeH264Publication: H264Publication {
     typealias PublishCallback = (_ groupId: UInt64,
                                  _ objectId: UInt64) -> Void
     private let publishNotify: PublishCallback
+    var mockCanPublish: Bool = false
     private var currentStatus: QPublishTrackHandlerStatus = .notConnected
 
     required init(profile: Profile,
@@ -96,6 +97,10 @@ class FakeH264Publication: H264Publication {
                              ttl: ttl,
                              extensions: extensions,
                              immutableExtensions: immutableExtensions)
+    }
+
+    override func canPublish() -> Bool {
+        self.mockCanPublish
     }
 
     override func statusChanged(_ status: QPublishTrackHandlerStatus) {
@@ -205,17 +210,9 @@ final class TestVideoPublication: XCTestCase {
     }
 }
 
-let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
-                                                   .announceNotAuthorized,
-                                                   .noSubscribers,
-                                                   .notAnnounced,
-                                                   .notConnected,
-                                                   .pendingAnnounceResponse,
-                                                   .sendingUnannounce]
-
 @Suite struct VideoPublicationTests {
-    @Test("Only encode on valid status", arguments: badStatuses)
-    func testEncodeWithStatus(_ status: QPublishTrackHandlerStatus?) async throws {
+    @Test("Only encode when canPublish is true")
+    func testEncodeWithCanPublish() async throws {
         guard let device = AVCaptureDevice.systemPreferredCamera else {
             _ = XCTSkip("Can't test without a camera")
             return
@@ -250,13 +247,13 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                                             sampleTimings: [],
                                             sampleSizes: [])
             let startDate = Date.now
-            if let status = status {
-                publication.statusChanged(status)
-            }
+            // When canPublish is false, onFrame should not encode
+            publication.mockCanPublish = false
             publication.onFrame(sample, timestamp: startDate)
-            publication.statusChanged(.ok)
+            // When canPublish is true, onFrame should encode (confirmation #1)
+            publication.mockCanPublish = true
             publication.onFrame(sample, timestamp: startDate)
-            publication.statusChanged(.subscriptionUpdated)
+            // Still true, should encode again (confirmation #2)
             publication.onFrame(sample, timestamp: startDate)
         }
     }
@@ -313,6 +310,9 @@ let badStatuses: [QPublishTrackHandlerStatus?] = [ nil,
                 }
                 lastObjectId = objectId
             }
+            // Enable publishing for all frames in this test
+            publication.mockCanPublish = true
+
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 1,
