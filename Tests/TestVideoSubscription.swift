@@ -254,4 +254,283 @@ struct TestVideoSubscription {
         #expect(gotGroupId == sentGroupId)
         #expect(gotObjectId == sendObjectId)
     }
+
+    @Test("Pause from running state")
+    @MainActor
+    func testPauseFromRunning() async throws {
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+        func loc() -> [NSNumber: Data] {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(0))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Get to running state
+        subscription.mockObject(groupId: 0, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Pause
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+    }
+
+    @Test("Pause from fetching state cancels fetch")
+    @MainActor
+    func testPauseFromFetching() async throws {
+        var fetchCancelled = false
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in fetchCancelled = true})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+
+        func loc() -> [NSNumber: Data] {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(0))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Get to fetching state
+        subscription.mockObject(groupId: 0, objectId: fetchThreshold - 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() != .running)
+
+        // Pause should cancel fetch
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+        #expect(fetchCancelled == true)
+    }
+
+    @Test("Pause from waitingForNewGroup state")
+    @MainActor
+    func testPauseFromWaitingForNewGroup() async throws {
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+
+        func loc() -> [NSNumber: Data] {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(0))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Get to waitingForNewGroup state
+        subscription.mockObject(groupId: 0, objectId: ngThreshold, extensions: nil, immutableExtensions: loc())
+        switch subscription.getCurrentState() {
+        case .waitingForNewGroup:
+            break
+        default:
+            #expect(Bool(false), "Expected waitingForNewGroup state")
+        }
+
+        // Pause
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+    }
+
+    @Test("Objects dropped while paused")
+    @MainActor
+    func testObjectsDroppedWhilePaused() async throws {
+        var callbackCount = 0
+        let callback: ObjectReceivedCallback = { _ in
+            callbackCount += 1
+        }
+
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           callback: callback)
+        var sequence: UInt64 = 0
+        func loc() -> [NSNumber: Data] {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Get to running state
+        subscription.mockObject(groupId: 0, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(callbackCount == 1)
+
+        // Pause
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+
+        // Send more objects - should be dropped
+        subscription.mockObject(groupId: 0, objectId: 1, extensions: nil, immutableExtensions: loc())
+        subscription.mockObject(groupId: 0, objectId: 2, extensions: nil, immutableExtensions: loc())
+
+        // Callback should not have been called for paused objects
+        #expect(callbackCount == 1)
+        #expect(subscription.getCurrentState() == .startup)
+    }
+
+    @Test("Resume after pause allows state transitions")
+    @MainActor
+    func testResumeAfterPause() async throws {
+        var callbackCount = 0
+        let callback: ObjectReceivedCallback = { _ in
+            callbackCount += 1
+        }
+
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           callback: callback)
+
+        var sequence: UInt64 = 0
+        func loc() -> [NSNumber: Data] {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Get to running state
+        subscription.mockObject(groupId: 0, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(callbackCount == 1)
+        #expect(subscription.getCurrentState() == .running)
+
+        // Pause
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+
+        // Send object while paused - should be dropped
+        subscription.mockObject(groupId: 0, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(callbackCount == 1)
+
+        // Resume
+        subscription.resume()
+
+        // Send new object - should be processed and transition to running
+        subscription.mockObject(groupId: 1, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(callbackCount == 2)
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Pause from startup state is valid")
+    @MainActor
+    func testPauseFromStartup() async throws {
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+        // Already in startup state
+        #expect(subscription.getCurrentState() == .startup)
+
+        // Pause should be valid (no-op for state, but sets paused flag)
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+
+        // Objects should still be dropped
+        func loc() -> [NSNumber: Data] {
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(0))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+        subscription.mockObject(groupId: 0, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .startup)
+    }
+
+    @Test("Pause during fetch prevents fetch completion transition")
+    @MainActor
+    func testPauseDuringFetchPreventsCompletion() async throws {
+        var fetch: Fetch?
+        var fetchCancelled = false
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: {_ in fetchCancelled = true})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+
+        var sequence: UInt64 = 0
+        func loc() -> [NSNumber: Data] {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Start fetch by arriving mid-group
+        let arrivedGroup: UInt64 = 0
+        let arrivedObject: UInt64 = fetchThreshold - 1
+        subscription.mockObject(groupId: arrivedGroup,
+                                objectId: arrivedObject,
+                                extensions: nil,
+                                immutableExtensions: loc())
+
+        switch subscription.getCurrentState() {
+        case .fetching:
+            break
+        default:
+            #expect(Bool(false), "Expected fetching state")
+        }
+
+        // Pause (should cancel fetch and go to startup)
+        subscription.pause()
+        #expect(subscription.getCurrentState() == .startup)
+        #expect(fetchCancelled == true)
+
+        // Simulate fetch completion callback arriving after pause
+        // This should be ignored due to paused check
+        if let fetch = fetch as? CallbackFetch {
+            // Simulate the last object of the fetch arriving
+            fetch.objectReceived(.init(groupId: arrivedGroup,
+                                       objectId: arrivedObject - 1,
+                                       payloadLength: 0,
+                                       priority: nil,
+                                       ttl: nil),
+                                 data: .init([0x01]),
+                                 extensions: nil,
+                                 immutableExtensions: loc())
+        }
+
+        // State should remain startup (not transition to running)
+        #expect(subscription.getCurrentState() == .startup)
+    }
 }

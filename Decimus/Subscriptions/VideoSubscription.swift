@@ -59,9 +59,10 @@ class VideoSubscription: Subscription {
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
+    private let paused = Atomic(false)
 
     // State machine.
-    internal private(set) var stateMachine = StateMachine()
+    internal let stateMachine = StateMachine(.startup)
 
     /// Possible states the video subscription can be in.
     internal enum State: Equatable {
@@ -78,39 +79,61 @@ class VideoSubscription: Subscription {
         case badTransition(_ from: State, _ to: State)
     }
     /// Models possible states and transitions for a video subscription.
-    internal struct StateMachine {
-        internal private(set) var state = State.startup
-        func transition(to newState: State) throws -> Self {
-            var result = self
-            var valid: Bool {
-                switch self.state {
-                case .startup:
-                    // Start->X is valid.
-                    return true
-                case .running:
-                    // Running->X is invalid.
-                    return false
-                case .fetching:
-                    switch newState {
-                    case .running:
-                        // Fetching->Running when FETCH complete or cancelled.
+    internal class StateMachine {
+        init(_ state: State) {
+            self.state.withLock { $0 = state }
+        }
+        private let state = Mutex(State.startup)
+
+        /// Get current state.
+        func get() -> State {
+            self.state.get()
+        }
+
+        // swiftlint:disable:next cyclomatic_complexity
+        func transition(to newState: State) throws {
+            try self.state.withLock { state in
+                var valid: Bool {
+                    switch state {
+                    case .startup:
+                        // Start->X is valid.
                         return true
-                    default:
-                        return false
-                    }
-                case .waitingForNewGroup:
-                    switch newState {
                     case .running:
-                        // WaitingForNewGroup->Running when NEWGROUP received.
-                        return true
-                    default:
-                        return false
+                        switch newState {
+                        case .startup:
+                            // Running->Startup on pause.
+                            return true
+                        default:
+                            // Running->X is invalid.
+                            return false
+                        }
+                    case .fetching:
+                        switch newState {
+                        case .running:
+                            // Fetching->Running when FETCH complete or cancelled.
+                            return true
+                        case .startup:
+                            // Fetching->Startup on pause.
+                            return true
+                        default:
+                            return false
+                        }
+                    case .waitingForNewGroup:
+                        switch newState {
+                        case .running:
+                            // WaitingForNewGroup->Running when NEWGROUP received.
+                            return true
+                        case .startup:
+                            // WaitingForNewGroup->Startup on pause.
+                            return true
+                        default:
+                            return false
+                        }
                     }
                 }
+                guard valid else { throw StateMachineError.badTransition(state, newState) }
+                state = newState
             }
-            guard valid else { throw StateMachineError.badTransition(self.state, newState) }
-            result.state = newState
-            return result
         }
     }
 
@@ -197,6 +220,34 @@ class VideoSubscription: Subscription {
         self.logger.debug("Deinit")
     }
 
+    override func pause() {
+        // Stop objects being delivered.
+        self.paused.store(true, ordering: .releasing)
+
+        // If there's an inprogress fetch, cancel it.
+        if case .fetching(let fetch) = self.getCurrentState() {
+            do {
+                try self.controller.cancelFetch(fetch)
+            } catch {
+                self.logger.warning("Failed to cancel in progress fetch")
+            }
+        }
+
+        // When we pause, reset the state machine.
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
+        super.pause()
+        self.logger.info("Paused")
+    }
+
+    override func resume() {
+        let exchange = self.paused.compareExchange(expected: true,
+                                                   desired: false,
+                                                   ordering: .acquiringAndReleasing)
+        assert(exchange.exchanged, "Resume called when not paused")
+        super.resume()
+        self.logger.info("Resumed")
+    }
+
     private func cleanup() {
         self.handler.withLock { lockedHandler in
             guard let handler = lockedHandler else { return }
@@ -217,12 +268,12 @@ class VideoSubscription: Subscription {
     }
 
     internal func getCurrentState() -> VideoSubscription.State {
-        self.stateMachine.state
+        self.stateMachine.get()
     }
 
     private func determineState(objectHeaders: QObjectHeaders) -> Result {
         // swiftlint:disable force_try
-        var getAction: Result { switch self.stateMachine.state {
+        var getAction: Result { switch self.getCurrentState() {
         case .running:
             // Process.
             return .normal(false)
@@ -235,7 +286,7 @@ class VideoSubscription: Subscription {
                 } catch {
                     self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
                 }
-                self.stateMachine = try! self.stateMachine.transition(to: .running)
+                try! self.stateMachine.transition(to: .running)
                 return .normal(true)
             }
             // Carry on, but don't play yet.
@@ -244,22 +295,22 @@ class VideoSubscription: Subscription {
             guard objectHeaders.objectId != 0 else {
                 // We started on a group, play.
                 self.logger.debug("No fetch needed")
-                self.stateMachine = try! self.stateMachine.transition(to: .running)
+                try! self.stateMachine.transition(to: .running)
                 return .normal(true)
             }
 
             guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
                 // Too far in, just wait.
-                self.logger.debug("Waiting for new group")
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+                self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Waiting for new group")
+                try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
 
             guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
                 // Not close enough to the start, new group and wait.
-                self.logger.debug("Requesting new group")
+                self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
                 self.requestNewGroup()
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(true))
+                try! self.stateMachine.transition(to: .waitingForNewGroup(true))
                 return .drop
             }
 
@@ -267,14 +318,14 @@ class VideoSubscription: Subscription {
             do {
                 let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
                                            currentObject: objectHeaders.objectId)
-                self.stateMachine = try! self.stateMachine.transition(to: .fetching(fetch))
+                try! self.stateMachine.transition(to: .fetching(fetch))
                 // Process, don't play.
                 return .normal(false)
             } catch {
                 // Fallback to waiting for new group behaviour.
                 self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
 
-                self.stateMachine = try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+                try! self.stateMachine.transition(to: .waitingForNewGroup(false))
                 return .drop
             }
         case .waitingForNewGroup:
@@ -287,7 +338,7 @@ class VideoSubscription: Subscription {
                 return .drop
             }
             // Start from this new group, play.
-            self.stateMachine = try! self.stateMachine.transition(to: .running)
+            try! self.stateMachine.transition(to: .running)
             return .normal(true)
         }
         }
@@ -313,6 +364,14 @@ class VideoSubscription: Subscription {
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?) {
+        // If we're paused, drop this.
+        guard !self.paused.load(ordering: .acquiring) else {
+            if self.verbose {
+                self.logger.debug("Dropping object while in app paused state: \(objectHeaders.groupId) \(objectHeaders.objectId)")
+            }
+            return
+        }
+
         // Record the time this arrived.
         let now = Ticks.now
         self.lastUpdateTime.store(now, ordering: .releasing)
@@ -371,6 +430,13 @@ class VideoSubscription: Subscription {
                                    when: now,
                                    cached: false,
                                    drop: drop)
+        }
+        // TODO: Maybe this should be a locked mutex, but it's a big lock.
+        guard !self.paused.load(ordering: .acquiring) else {
+            if self.verbose {
+                self.logger.info("Dropping object - paused before state determination")
+            }
+            return
         }
         switch self.determineState(objectHeaders: objectHeaders) {
         case .drop:
@@ -435,7 +501,7 @@ class VideoSubscription: Subscription {
                                     guard let self = self else { return }
                                     let message = "Fetch status changed: \(status)"
                                     if !status.isError || (status == .notConnected
-                                                            && self.stateMachine.state == .running) {
+                                                            && self.getCurrentState() == .running) {
                                         self.logger.info(message)
                                     } else {
                                         self.logger.warning(message)
@@ -460,6 +526,13 @@ class VideoSubscription: Subscription {
                                  immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
+        guard !self.paused.load(ordering: .acquiring) else {
+            if self.verbose {
+                self.logger.info("Dropping fetched object in paused state")
+            }
+            return
+        }
+
         // Got an object from fetch.
         if self.verbose {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
@@ -471,10 +544,17 @@ class VideoSubscription: Subscription {
         if headers.groupId == currentGroup,
            headers.objectId == currentObject - 1 {
             self.logger.info("Video Fetch complete")
-            switch self.stateMachine.state {
+            // Check paused again before transitioning state machine to prevent races with pause().
+            guard !self.paused.load(ordering: .acquiring) else {
+                if self.verbose {
+                    self.logger.info("Not completing fetch - paused")
+                }
+                return
+            }
+            switch self.getCurrentState() {
             case .fetching(let fetch):
                 do {
-                    self.stateMachine = try self.stateMachine.transition(to: .running)
+                    try self.stateMachine.transition(to: .running)
                     try self.controller.cancelFetch(fetch)
                 } catch {
                     self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
