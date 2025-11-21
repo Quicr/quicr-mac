@@ -267,7 +267,7 @@ struct TestVideoSubscription {
         let subscription = try await self.makeSubscription(mockClient,
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
@@ -297,7 +297,7 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
 
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
@@ -327,7 +327,7 @@ struct TestVideoSubscription {
                                                            fetchThreshold: fetchThreshold,
                                                            ngThreshold: ngThreshold)
 
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
@@ -367,7 +367,7 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold,
                                                            callback: callback)
         var sequence: UInt64 = 0
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             sequence += 1
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(sequence))
@@ -412,7 +412,7 @@ struct TestVideoSubscription {
                                                            callback: callback)
 
         var sequence: UInt64 = 0
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             sequence += 1
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(sequence))
@@ -462,7 +462,7 @@ struct TestVideoSubscription {
         #expect(subscription.getCurrentState() == .startup)
 
         // Objects should still be dropped
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(0))
             try? extensions.setHeader(.captureTimestamp(.now))
@@ -488,7 +488,7 @@ struct TestVideoSubscription {
                                                            ngThreshold: ngThreshold)
 
         var sequence: UInt64 = 0
-        func loc() -> [NSNumber: Data] {
+        func loc() -> HeaderExtensions {
             sequence += 1
             var extensions = HeaderExtensions()
             try? extensions.setHeader(.sequenceNumber(sequence))
