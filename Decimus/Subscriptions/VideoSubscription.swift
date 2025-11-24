@@ -538,7 +538,27 @@ class VideoSubscription: Subscription {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
         guard let handler = self.handler.get() else { return }
-        handler.objectReceived(headers, data: data, extensions: extensions, when: .now, cached: true, drop: false)
+
+        // Unprotect.
+        let unprotected: Data
+        if let sframeContext {
+            do {
+                unprotected = try sframeContext.mutex.withLock { try $0.unprotect(ciphertext: data) }
+            } catch {
+                self.logger.error("Unprotect failure: \(error.localizedDescription)")
+                return
+            }
+        } else {
+            unprotected = data
+        }
+
+        // Pass.
+        handler.objectReceived(headers,
+                               data: unprotected,
+                               extensions: immutableExtensions,
+                               when: .now,
+                               cached: true,
+                               drop: false)
 
         // Are we done?
         if headers.groupId == currentGroup,
