@@ -422,7 +422,10 @@ class CallState: ObservableObject, Equatable {
         } else {
             address = self.config.address
         }
-        let connectUri: String = "moq://\(address):\(config.port)"
+        var connectUri: String = "moq://\(address):\(config.port)";
+        if config.connectionProtocol == .WEBTRANSPORT {
+            connectUri = address
+        }
         let endpointId: String = config.email
         let qLogPath: URL
         #if targetEnvironment(macCatalyst) || os(macOS)
