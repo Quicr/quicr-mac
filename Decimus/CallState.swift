@@ -422,9 +422,12 @@ class CallState: ObservableObject, Equatable {
         } else {
             address = self.config.address
         }
-        var connectUri: String = "moq://\(address):\(config.port)";
-        if config.connectionProtocol == .WEBTRANSPORT {
-            connectUri = address
+        let connectUri: String
+        switch self.config.connectionProtocol {
+        case .webtransport:
+            connectUri = "https://\(address):\(self.config.port)"
+        case .QUIC:
+            connectUri = "moq://\(address):\(self.config.port)"
         }
         let endpointId: String = config.email
         let qLogPath: URL

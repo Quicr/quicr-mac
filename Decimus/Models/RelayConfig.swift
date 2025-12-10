@@ -3,7 +3,7 @@
 
 /// Default ports for each supported protocol.
 let defaultProtocolPorts: [ProtocolType: UInt16] = [
-    .WEBTRANSPORT: 33435,
+    .webtransport: 33435,
     .QUIC: 33437
 ]
 
