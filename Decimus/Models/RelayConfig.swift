@@ -1,20 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-/// Default ports for each supported protocol.
-let defaultProtocolPorts: [ProtocolType: UInt16] = [
-    .webtransport: 33435,
-    .QUIC: 33437
-]
-
 /// Connection details for a MoQ relay.
 struct RelayConfig: Codable {
     /// FQDN.
-    var address: String = "relay.quicr.ctgpoc.com"
-    /// Protocol to use for the connection.
-    var connectionProtocol: ProtocolType = .QUIC
-    /// Port to connect on.
-    var port: UInt16 = defaultProtocolPorts[.QUIC]!
+    var address: String = "moq://relay.quicr.ctgpoc.com:33437"
     /// mDNS Type for lookup.
     var mDNSType: String = "_laps._udp"
     /// True if we should use mDNS to fill relay info.
