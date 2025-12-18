@@ -4,7 +4,7 @@
 import SwiftUI
 
 struct RelaySettingsView: View {
-    static let defaultsKey = "relayConfig"
+    static let defaultsKey = "relayConfig1"
     private let logger = DecimusLogger(RelaySettingsView.self)
 
     @AppStorage(Self.defaultsKey)
@@ -29,30 +29,10 @@ struct RelaySettingsView: View {
             }
 
             LabeledContent("Address") {
-                TextField("relay_address", text: $relayConfig.value.address, prompt: Text("localhost"))
+                TextField("relay_address", text: $relayConfig.value.address, prompt: Text("moq://localhost:443"))
                     #if canImport(UIKit)
                     .keyboardType(.URL)
                     #endif
-                    .labelsHidden()
-            }
-
-            LabeledContent("Protocol") {
-                Picker("Protocol", selection: $relayConfig.value.connectionProtocol) {
-                    ForEach(ProtocolType.allCases) { prot in
-                        Text(String(describing: prot)).tag(prot)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .onChange(of: relayConfig.value.connectionProtocol) { _, newValue in
-                    relayConfig.value.port = defaultProtocolPorts[newValue] ?? relayConfig.value.port
-                }
-            }
-
-            LabeledContent("Port") {
-                NumberView(value: self.$relayConfig.value.port,
-                           formatStyle: IntegerFormatStyle<UInt16>.number.grouping(.never),
-                           name: "Port")
                     .labelsHidden()
             }
         }
@@ -78,8 +58,7 @@ struct RelaySettingsView: View {
                 return
             }
             self.dnsMessage = nil
-            self.relayConfig.value.address = lookup.0
-            self.relayConfig.value.port = lookup.1
+            self.relayConfig.value.address = "moq://\(lookup.0):\(lookup.1)"
         } catch {
             self.dnsMessage = "mDNS Failure: \(error.localizedDescription)"
         }
