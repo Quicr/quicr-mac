@@ -62,7 +62,7 @@ class VideoSubscription: Subscription {
     private let paused = Atomic(false)
 
     // State machine.
-    internal let stateMachine = StateMachine(.startup)
+    internal let stateMachine: StateMachine
 
     /// Possible states the video subscription can be in.
     internal enum State: Equatable {
@@ -80,10 +80,13 @@ class VideoSubscription: Subscription {
     }
     /// Models possible states and transitions for a video subscription.
     internal class StateMachine {
-        init(_ state: State) {
+        private let controller: MoqCallController
+        private let state = Mutex(State.startup)
+
+        init(_ state: State, controller: MoqCallController) {
+            self.controller = controller
             self.state.withLock { $0 = state }
         }
-        private let state = Mutex(State.startup)
 
         /// Get current state.
         func get() -> State {
@@ -132,6 +135,22 @@ class VideoSubscription: Subscription {
                     }
                 }
                 guard valid else { throw StateMachineError.badTransition(state, newState) }
+
+                // Cancel fetch.
+                switch state {
+                case .fetching(let fetch):
+                    if newState != .fetching(fetch) {
+                        // Cancel fetch if leaving fetching state.
+                        do {
+                            try self.controller.cancelFetch(fetch)
+                        } catch {
+                            print("Failed to cancel fetch during state transition: \(error.localizedDescription)")
+                        }
+                    }
+                default:
+                    break
+                }
+
                 state = newState
             }
         }
@@ -206,6 +225,7 @@ class VideoSubscription: Subscription {
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
+        self.stateMachine = .init(.startup, controller: self.controller)
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -224,15 +244,6 @@ class VideoSubscription: Subscription {
     override func pause() {
         // Stop objects being delivered.
         self.paused.store(true, ordering: .releasing)
-
-        // If there's an inprogress fetch, cancel it.
-        if case .fetching(let fetch) = self.getCurrentState() {
-            do {
-                try self.controller.cancelFetch(fetch)
-            } catch {
-                self.logger.warning("Failed to cancel in progress fetch")
-            }
-        }
 
         // When we pause, reset the state machine.
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
@@ -256,6 +267,7 @@ class VideoSubscription: Subscription {
             handler.unregisterCallback(self.token)
             self.token = 0
         }
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
         self.postCleanup.store(true, ordering: .releasing)
     }
 
@@ -278,15 +290,9 @@ class VideoSubscription: Subscription {
         case .running:
             // Process.
             return .normal(false)
-        case .fetching(let fetch):
+        case .fetching:
             if objectHeaders.objectId == 0 {
-                // The in-progress FETCH has been overrun, cancel it, play.
-                self.logger.debug("Cancelling in progress fetch")
-                do {
-                    try self.controller.cancelFetch(fetch)
-                } catch {
-                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
-                }
+                self.logger.debug("The fetch has been overrun")
                 try! self.stateMachine.transition(to: .running)
                 return .normal(true)
             }
@@ -505,8 +511,7 @@ class VideoSubscription: Subscription {
                                   statusChanged: { [weak self] status in
                                     guard let self = self else { return }
                                     let message = "Fetch status changed: \(status)"
-                                    if !status.isError || (status == .notConnected
-                                                            && self.getCurrentState() == .running) {
+                                    if !status.isError || (status == .notConnected) {
                                         self.logger.info(message)
                                     } else {
                                         self.logger.warning(message)
