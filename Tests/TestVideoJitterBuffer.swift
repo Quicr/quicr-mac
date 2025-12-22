@@ -502,4 +502,138 @@ struct JitterBufferTests {
         #expect(buffer.getBaseTargetDepth() == targetBase)
         #expect(buffer.getCurrentTargetDepth().isApproximatelyEqual(to: targetBase))
     }
+
+    @Test("Pause stops reads")
+    func testPause() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 2,
+                                      handlers: getHandler(sort: false),
+                                      playingFromStart: false)
+
+        // Write a frame.
+        let sample = try exampleSample(groupId: 0, objectId: 0, sequenceNumber: 0, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(sample), from: .now)
+
+        // Start playing, read should work.
+        buffer.startPlaying()
+        let sample2 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(sample2), from: .now)
+        var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(read != nil)
+
+        // Pause, read should return nil.
+        buffer.pause()
+        read = buffer.read(from: .now)
+        #expect(read == nil)
+
+        // Resume, read should work again.
+        buffer.startPlaying()
+        read = buffer.read(from: .now)
+        #expect(read != nil)
+    }
+
+    @Test("Reset sequence tracking allows older frames after read")
+    func testResetSequenceTracking() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 4,
+                                      handlers: getHandler(sort: true))
+
+        // Write and read a frame with sequence 10.
+        let sample10 = try exampleSample(groupId: 0, objectId: 10, sequenceNumber: 10, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(sample10), from: .now)
+        let read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(read != nil)
+
+        // Writing older frame (seq 5) should fail.
+        let sample5 = try exampleSample(groupId: 0, objectId: 5, sequenceNumber: 5, fps: 30)
+        #expect(throws: JitterBufferError.self) {
+            try buffer.write(item: DecimusVideoFrameJitterItem(sample5), from: .now)
+        }
+
+        // Reset sequence tracking.
+        buffer.resetSequenceTracking()
+
+        // Now older frame should be accepted.
+        try buffer.write(item: DecimusVideoFrameJitterItem(sample5), from: .now)
+        let readAfterReset: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(readAfterReset?.frame == sample5)
+    }
+
+    @Test("Pause and reset sequence tracking together simulates fetch preparation")
+    func testPauseAndResetForFetch() throws {
+        let buffer = try JitterBuffer(identifier: "",
+                                      metricsSubmitter: nil,
+                                      minDepth: 0,
+                                      capacity: 20,
+                                      handlers: getHandler(sort: true),
+                                      playingFromStart: false)
+
+        // Simulate normal playback: write and read some frames (seq 100-105).
+        for seq in 100..<106 {
+            let sample = try exampleSample(groupId: 0, objectId: UInt64(seq), sequenceNumber: UInt64(seq), fps: 30)
+            try buffer.write(item: DecimusVideoFrameJitterItem(sample), from: .now)
+        }
+        buffer.startPlaying()
+
+        // Read all frames (simulating playout until pause).
+        for _ in 0..<6 {
+            let read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+            #expect(read != nil)
+        }
+        // Last read was seq 105.
+
+        // Writing older frame should fail (without reset).
+        let oldSample = try exampleSample(groupId: 1, objectId: 0, sequenceNumber: 50, fps: 30)
+        #expect(throws: JitterBufferError.self) {
+            try buffer.write(item: DecimusVideoFrameJitterItem(oldSample), from: .now)
+        }
+
+        // Now simulate pause/resume with fetch.
+        buffer.pause()
+        var read: DecimusVideoFrameJitterItem? = buffer.read(from: .now)
+        #expect(read == nil)
+
+        // Reset sequence tracking allows older frames.
+        buffer.resetSequenceTracking()
+
+        // First live frame arrives (seq 60) - this triggers the fetch for 50-59.
+        let live60 = try exampleSample(groupId: 1, objectId: 10, sequenceNumber: 60, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(live60), from: .now)
+
+        // More live frames arrive during fetch.
+        let live61 = try exampleSample(groupId: 1, objectId: 11, sequenceNumber: 61, fps: 30)
+        let live62 = try exampleSample(groupId: 1, objectId: 12, sequenceNumber: 62, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(live61), from: .now)
+        try buffer.write(item: DecimusVideoFrameJitterItem(live62), from: .now)
+
+        // Fetched frames arrive (older sequence numbers, out of order with live).
+        let fetched50 = try exampleSample(groupId: 1, objectId: 0, sequenceNumber: 50, fps: 30)
+        let fetched51 = try exampleSample(groupId: 1, objectId: 1, sequenceNumber: 51, fps: 30)
+        let fetched52 = try exampleSample(groupId: 1, objectId: 2, sequenceNumber: 52, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(fetched50), from: .now)
+        try buffer.write(item: DecimusVideoFrameJitterItem(fetched51), from: .now)
+        try buffer.write(item: DecimusVideoFrameJitterItem(fetched52), from: .now)
+
+        // Even more live frames continue arriving.
+        let live63 = try exampleSample(groupId: 1, objectId: 13, sequenceNumber: 63, fps: 30)
+        try buffer.write(item: DecimusVideoFrameJitterItem(live63), from: .now)
+
+        // Resume playout.
+        buffer.startPlaying()
+
+        // Should read in sorted order: fetched first (50, 51, 52), then live (60, 61, 62, 63).
+        let expectedOrder: [UInt64] = [50, 51, 52, 60, 61, 62, 63]
+        for expected in expectedOrder {
+            read = buffer.read(from: .now)
+            #expect(read?.sequenceNumber == expected)
+        }
+
+        // Buffer should be empty now.
+        read = buffer.read(from: .now)
+        #expect(read == nil)
+    }
 }
