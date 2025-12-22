@@ -67,7 +67,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
     private let atomicOrientation = Atomic<UInt8>(0)
     private let atomicMirror = Atomic<Bool>(false)
-    private var currentFormat: CMFormatDescription?
+    private let currentFormat = Mutex<CMFormatDescription?>(nil)
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
@@ -721,10 +721,11 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                         // TODO: Thread-safety for current format.
                         let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
                         do {
-                            let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
+                            let format = self.currentFormat.withLock { $0 }
+                            let frame = okay ? item.frame : try self.regen(item.frame, format: format)
                             try self.decode(sample: frame, from: now.hostDate)
                         } catch {
-                            self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -734,7 +735,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
     /// Regenerate the frame to have the given format.
     private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription?) throws -> DecimusVideoFrame {
-        guard let format = format else { throw "Missing expected format" }
+        guard let format = format else { throw "Missing expected format on regen" }
+        self.logger.info("[\(frame.groupId):\(frame.objectId)] Regen format")
         let samples = try frame.samples.map { sample in
             try CMSampleBuffer(dataBuffer: sample.dataBuffer,
                                formatDescription: format,
@@ -935,11 +937,19 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
             }
         }
+
+        // Set the frame's format.
         let format: CMFormatDescription?
         if let extractedFormat = extractedFormat {
-            self.currentFormat = extractedFormat
+            self.currentFormat.withLock { $0 = extractedFormat }
+            format = extractedFormat
+        } else {
+            assert(objectId != 0)
+            if objectId == 0 {
+                self.logger.error("IDR didn't contain format?")
+            }
+            format = self.currentFormat.get()
         }
-        format = self.currentFormat
 
         let sei: ApplicationSEI?
         if seis.count == 0 {

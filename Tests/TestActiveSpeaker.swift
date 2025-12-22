@@ -363,4 +363,120 @@ struct TestActiveSpeaker {
     func testIgnoreOurselves(_ pauseResume: Bool) async throws {
         try await self.testActiveSpeaker(clamp: 1, ourself: .init(1), pauseResume: pauseResume)
     }
+
+    @Test("Resume from paused resets media state")
+    func testResumeFromPausedResetsMediaState() async throws {
+        // This test verifies that when a subscription is resumed from paused state,
+        // its mediaState is reset so that the old speaker isn't paused until the
+        // resumed speaker actually starts displaying frames again.
+
+        // Setup manifest subscriptions.
+        let manifestSubscription1 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
+                                                         sourceName: "1",
+                                                         sourceID: "1",
+                                                         label: "1",
+                                                         participantId: .init(1),
+                                                         profileSet: .init(type: "1", profiles: [
+                                                            .init(qualityProfile: "1",
+                                                                  expiry: nil,
+                                                                  priorities: nil,
+                                                                  namespace: ["1"])
+                                                         ]))
+        let manifestSubscription2 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
+                                                         sourceName: "2",
+                                                         sourceID: "2",
+                                                         label: "2",
+                                                         participantId: .init(2),
+                                                         profileSet: .init(type: "2", profiles: [
+                                                            .init(qualityProfile: "2",
+                                                                  expiry: nil,
+                                                                  priorities: nil,
+                                                                  namespace: ["2"])
+                                                         ]))
+        let manifestSubscription3 = ManifestSubscription(mediaType: ManifestMediaTypes.video.rawValue,
+                                                         sourceName: "3",
+                                                         sourceID: "3",
+                                                         label: "3",
+                                                         participantId: .init(3),
+                                                         profileSet: .init(type: "3", profiles: [
+                                                            .init(qualityProfile: "3",
+                                                                  expiry: nil,
+                                                                  priorities: nil,
+                                                                  namespace: ["3"])
+                                                         ]))
+        let manifestSubscriptions = [manifestSubscription1, manifestSubscription2, manifestSubscription3]
+
+        var subbed: [Subscription] = []
+        var unsubbed: [Subscription] = []
+        let client = MockClient(publish: { _ in },
+                                unpublish: { _ in },
+                                subscribe: { subbed.append($0) },
+                                unsubscribe: { unsubbed.append($0) },
+                                fetch: { _ in },
+                                fetchCancel: { _ in })
+        let controller = MoqCallController(endpointUri: "4", client: client, submitter: nil) { }
+        try await controller.connect()
+
+        // Subscribe to 1 and 2 initially.
+        var created: [SubscriptionSet] = []
+        let factory = MockVideoSubscriptionFactory { created.append($0) }
+        let setOne = try controller.subscribeToSet(details: manifestSubscription1,
+                                                   factory: factory,
+                                                   subscribeType: .subscribe) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+        let setTwo = try controller.subscribeToSet(details: manifestSubscription2,
+                                                   factory: factory,
+                                                   subscribeType: .subscribe) as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+
+        // Mark both as displaying.
+        setOne.fireDisplayCallbacks()
+        setTwo.fireDisplayCallbacks()
+        #expect(setOne.getMediaState() == .rendered)
+        #expect(setTwo.getMediaState() == .rendered)
+
+        // Setup active speaker controller with pauseResume enabled.
+        let notifier = MockActiveSpeakerNotifier()
+        created = []
+        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
+                                                                                                  controller: controller,
+                                                                                                  videoSubscriptions: manifestSubscriptions,
+                                                                                                  factory: factory,
+                                                                                                  participantId: .init(4),
+                                                                                                  activeSpeakerStats: nil,
+                                                                                                  pauseResume: true)
+
+        // First speaker change: [1, 3] - should subscribe to 3, eventually pause 2.
+        let speakerOne = ParticipantId(1)
+        let speakerTwo = ParticipantId(2)
+        let speakerThree = ParticipantId(3)
+        notifier.fire([speakerOne, speakerThree])
+
+        // 3 should be subscribed.
+        #expect(created.count == 1)
+        let setThree = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
+
+        // 2 should not be paused yet (waiting for 3 to display).
+        #expect(!setTwo.isPaused)
+
+        // 3 starts displaying.
+        setThree.fireDisplayCallbacks()
+
+        // Now 2 should be paused.
+        #expect(setTwo.isPaused)
+        #expect(setTwo.getMediaState() == .subscribed) // mediaState should be reset
+
+        // Second speaker change: [1, 2] - should resume 2, eventually pause 3.
+        notifier.fire([speakerOne, speakerTwo])
+
+        // 2 should be resumed.
+        #expect(!setTwo.isPaused)
+
+        // 3 should NOT be paused yet - must wait for 2 to display.
+        #expect(!setThree.isPaused)
+
+        // 2 starts displaying again.
+        setTwo.fireDisplayCallbacks()
+
+        // Now 3 should be paused.
+        #expect(setThree.isPaused)
+    }
 }
