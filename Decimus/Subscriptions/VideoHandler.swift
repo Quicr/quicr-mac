@@ -450,6 +450,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         buffer.startPlaying()
     }
 
+    // Pause playout.
+    func pause() {
+        guard let buffer = self.jitterBuffer else { return }
+        buffer.pause()
+        buffer.resetSequenceTracking()
+    }
+
     /// Pass an encoded video frame to this video handler.
     /// - Parameter frame: Encoded video frame.
     /// - Parameter details: Details about the received object.
@@ -755,6 +762,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                          lastObject: self.lastObject)
         guard gateResult || self.videoBehaviour != .freeze else {
             // If there's a discontinuity and we want to freeze, we're done.
+            self.logger.warning("Discontinuity. Got: (\(groupId), \(objectId)), had: (\(String(describing: self.lastGroup)), \(String(describing: self.lastObject)))")
             return
         }
 
