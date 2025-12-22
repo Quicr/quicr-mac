@@ -135,6 +135,16 @@ class JitterBuffer {
         self.play.store(true, ordering: .releasing)
     }
 
+    /// Pause playout from the buffer.
+    func pause() {
+        self.play.store(false, ordering: .releasing)
+    }
+
+    /// Reset last sequence number tracking.
+    func resetSequenceTracking() {
+        self.lastSequenceSet.store(false, ordering: .releasing)
+    }
+
     /// Write a video frame into the jitter buffer.
     /// Write should not be called concurrently with another write.
     /// - Parameter videoFrame: The sample to attempt to sort into the buffer.

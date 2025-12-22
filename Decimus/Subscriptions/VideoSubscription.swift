@@ -37,7 +37,7 @@ class VideoSubscription: Subscription {
     private let variances: VarianceCalculator
     private let callback: ObjectReceivedCallback
     private var token: Int = 0
-    private let logger = DecimusLogger(VideoSubscription.self)
+    private let logger: DecimusLogger
     private let verbose: Bool
     private let subscriptionConfig: Config
     private let joinConfig: JoinConfig<UInt64>
@@ -183,6 +183,7 @@ class VideoSubscription: Subscription {
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
+        self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
@@ -316,6 +317,10 @@ class VideoSubscription: Subscription {
 
             // Close to the start, FETCH.
             do {
+                // Pause the handler while fetching.
+                self.handler.get()?.pause()
+
+                // Fetch the missing data.
                 let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
                                            currentObject: objectHeaders.objectId)
                 try! self.stateMachine.transition(to: .fetching(fetch))
@@ -571,15 +576,9 @@ class VideoSubscription: Subscription {
                 }
                 return
             }
-            switch self.getCurrentState() {
-            case .fetching(let fetch):
-                do {
-                    try self.stateMachine.transition(to: .running)
-                    try self.controller.cancelFetch(fetch)
-                } catch {
-                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
-                }
-            default:
+            do {
+                try self.stateMachine.transition(to: .running)
+            } catch {
                 assert(false)
                 self.logger.warning("Subscription in invalid state", alert: true)
             }
