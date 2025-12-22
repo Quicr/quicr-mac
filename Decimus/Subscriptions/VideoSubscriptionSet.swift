@@ -618,7 +618,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                                             when: when,
                                             endToEndLatency: e2eLatency)
                     self.mediaState.withLock { existing in
-                        assert(existing != .subscribed)
                         existing = .rendered
                     }
                     self.displayCallbacks.fire()
@@ -659,6 +658,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     }
     // swiftlint:enable cyclomatic_complexity
     // swiftlint:enable function_body_length
+
+    override func pause() {
+        self.mediaState.withLock { $0 = .subscribed }
+        super.pause()
+    }
 
     // MARK: DisplayNotification implementation.
 
