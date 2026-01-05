@@ -139,8 +139,7 @@ class VideoSubscription: Subscription {
                 // Cancel fetch.
                 switch state {
                 case .fetching(let fetch):
-                    if newState != .fetching(fetch) {
-                        // Cancel fetch if leaving fetching state.
+                    if newState != .fetching(fetch) && !fetch.isComplete() {
                         do {
                             try self.controller.cancelFetch(fetch)
                         } catch {
@@ -536,6 +535,7 @@ class VideoSubscription: Subscription {
                                  immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
+        // TODO: Reduce duplication with objectReceived?
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
                 self.logger.info("Dropping fetched object in paused state")
@@ -547,7 +547,11 @@ class VideoSubscription: Subscription {
         if self.verbose {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
-        guard let handler = self.handler.get() else { return }
+        // TODO: This should be getCreate? Unsure if this would ever happen.
+        guard let handler = self.handler.get() else {
+            assert(false)
+            return
+        }
 
         // Unprotect.
         let unprotected: Data
