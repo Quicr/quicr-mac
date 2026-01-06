@@ -7,3 +7,6 @@
 [submodule "dependencies/libquicr"]
 	path = dependencies/libquicr
 	url = https://github.com/Quicr/libquicr.git
+[submodule "dependencies/moxygen"]
+	path = dependencies/moxygen
+	url = https://github.com/facebookexperimental/moxygen.git

@@ -416,6 +416,10 @@ class CallState: ObservableObject, Equatable {
     }
 
     private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
+        // Test moxygen integration
+        let moxygenStatus = MoxygenTest.testMoxygenIntegration()
+        Self.logger.info("Moxygen test: \(moxygenStatus)")
+
         let address: String
         if let ipv6 = IPv6Address(self.config.address) {
             address = "[\(self.config.address)]"

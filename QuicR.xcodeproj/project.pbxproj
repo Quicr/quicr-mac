@@ -137,6 +137,10 @@
 		9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */; };
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
 		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
+		9BC5C7EA2F0C497C0000B569 /* moxygen.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BC5C7E92F0C497C0000B569 /* moxygen.xcframework */; };
+		9BC5C7EB2F0C497C0000B569 /* moxygen.xcframework in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 9BC5C7E92F0C497C0000B569 /* moxygen.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9BC5C7EF2F0C50F70000B569 /* MoxygenTest.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5C7ED2F0C50F70000B569 /* MoxygenTest.mm */; };
+		9BC5C7F22F0D0AA50000B569 /* MoxygenClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5C7F12F0D0AA50000B569 /* MoxygenClient.mm */; };
 		9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCA87022C3423F500DA4F41 /* NumberView.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
 		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
@@ -228,6 +232,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
+				9BC5C7EB2F0C497C0000B569 /* moxygen.xcframework in Embed Libraries */,
 				9BDA15D42C7FF3E300494BFD /* quicr.xcframework in Embed Libraries */,
 				1849128B2A3B560200773D39 /* clibjitter.xcframework in Embed Libraries */,
 			);
@@ -378,6 +383,11 @@
 		9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarianceCalculator+Measurement.swift"; sourceTree = "<group>"; };
 		9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarianceCalculator.swift; sourceTree = "<group>"; };
 		9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApplicationSEIs.swift; sourceTree = "<group>"; };
+		9BC5C7E92F0C497C0000B569 /* moxygen.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = moxygen.xcframework; path = dependencies/moxygen.xcframework; sourceTree = "<group>"; };
+		9BC5C7EC2F0C50F70000B569 /* MoxygenTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MoxygenTest.h; sourceTree = "<group>"; };
+		9BC5C7ED2F0C50F70000B569 /* MoxygenTest.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MoxygenTest.mm; sourceTree = "<group>"; };
+		9BC5C7F02F0D0AA50000B569 /* MoxygenClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MoxygenClient.h; sourceTree = "<group>"; };
+		9BC5C7F12F0D0AA50000B569 /* MoxygenClient.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MoxygenClient.mm; sourceTree = "<group>"; };
 		9BCA87022C3423F500DA4F41 /* NumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberView.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
@@ -481,6 +491,7 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
+				9BC5C7EA2F0C497C0000B569 /* moxygen.xcframework in Frameworks */,
 				18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
@@ -575,6 +586,7 @@
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				9BC5C7E92F0C497C0000B569 /* moxygen.xcframework */,
 				9BDA15D22C7FF3E300494BFD /* quicr.xcframework */,
 				184912892A3B560200773D39 /* clibjitter.xcframework */,
 				D786194B2A290F1600EC0556 /* qmedia.xcframework */,
@@ -757,6 +769,17 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		9BC5C7EE2F0C50F70000B569 /* moxygen */ = {
+			isa = PBXGroup;
+			children = (
+				9BC5C7F02F0D0AA50000B569 /* MoxygenClient.h */,
+				9BC5C7F12F0D0AA50000B569 /* MoxygenClient.mm */,
+				9BC5C7EC2F0C50F70000B569 /* MoxygenTest.h */,
+				9BC5C7ED2F0C50F70000B569 /* MoxygenTest.mm */,
+			);
+			path = moxygen;
+			sourceTree = "<group>";
+		};
 		9BDE86892B70ECAD009467A7 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -833,6 +856,7 @@
 		FF3B952D2A60C77B00CE463F /* Lib */ = {
 			isa = PBXGroup;
 			children = (
+				9BC5C7EE2F0C50F70000B569 /* moxygen */,
 				9B8E14DA2C7E935E009D8C24 /* libquicr */,
 				9BDE86892B70ECAD009467A7 /* Utilities */,
 				D7D156352AD73DE600B4E4F2 /* EncodedBuffer */,
@@ -1073,7 +1097,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1146,6 +1170,7 @@
 				9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
 				9B3E44172C8F1FD60000B98D /* Publication.swift in Sources */,
+				9BC5C7EF2F0C50F70000B569 /* MoxygenTest.mm in Sources */,
 				9B15FA862DF2DB2F00756DF7 /* AppHeaderRegistry.swift in Sources */,
 				9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */,
 				18F7C4D82AB1C7AA005EDB88 /* JitterBuffer.swift in Sources */,
@@ -1157,6 +1182,7 @@
 				9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */,
 				9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */,
 				9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */,
+				9BC5C7F22F0D0AA50000B569 /* MoxygenClient.mm in Sources */,
 				9B6ADC5B2DEDB1AB009E9060 /* DisplayPicker.swift in Sources */,
 				18B2F40A2AC5B9C5008E3BFD /* VideoDequeuer.swift in Sources */,
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
@@ -1273,7 +1299,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1298,7 +1324,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1465,7 +1491,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1483,6 +1509,7 @@
 					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/moxygen.xcframework/macos-arm64/moxygen.framework/Headers",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1542,7 +1569,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1560,6 +1587,7 @@
 					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
+					"$(PROJECT_DIR)/dependencies/moxygen.xcframework/macos-arm64/moxygen.framework/Headers",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;

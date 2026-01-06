@@ -19,4 +19,7 @@
 #import "libquicr/QFetchTrackHandlerObjC.h"
 #import "libquicr/QLocation.h"
 
+#import "moxygen/MoxygenTest.h"
+#import "moxygen/MoxygenClient.h"
+
 #endif
