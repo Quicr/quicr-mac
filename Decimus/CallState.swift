@@ -47,6 +47,19 @@ enum MoQRole: Int, CaseIterable, Identifiable, CustomStringConvertible {
     }
 }
 
+enum MoQStack: Int, CaseIterable, Identifiable, CustomStringConvertible {
+    case libquicr
+    case moxygen
+
+    var id: Int { self.rawValue }
+    var description: String {
+        switch self {
+        case .libquicr: "libquicr"
+        case .moxygen: "moxygen"
+        }
+    }
+}
+
 @MainActor
 class CallState: ObservableObject, Equatable {
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {

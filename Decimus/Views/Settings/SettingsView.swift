@@ -47,6 +47,10 @@ struct SettingsView: View {
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
+    static let moqStackKey = "moqStack"
+    @AppStorage(Self.moqStackKey)
+    private var moqStack: MoQStack = .libquicr
+
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
@@ -79,6 +83,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.useOverrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.moqStackKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
                 }
@@ -103,6 +108,15 @@ struct SettingsView: View {
                 .decimusTextStyle()
 
             Section("Debug") {
+                LabeledContent("MoQ Stack") {
+                    Picker("MoQ Stack", selection: self.$moqStack) {
+                        ForEach(MoQStack.allCases) { stack in
+                            Text(stack.description).tag(stack)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
                 LabeledContent("MoQ Role") {
                     Picker("MoQ Role", selection: self.$moqRole) {
                         ForEach(MoQRole.allCases) { role in
