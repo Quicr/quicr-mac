@@ -139,10 +139,9 @@ class CallState: ObservableObject, Equatable {
 
         if influxConfig.value.submit {
             let tags: [String: String] = [
-                "relay": "\(config.address):\(config.port)",
+                "relay": config.address,
                 "email": config.email,
-                "conference": "\(config.conferenceID)",
-                "protocol": "\(config.connectionProtocol)"
+                "conference": "\(config.conferenceID)"
             ]
             self.doMetrics(tags)
         }
@@ -416,19 +415,6 @@ class CallState: ObservableObject, Equatable {
     }
 
     private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
-        let address: String
-        if let ipv6 = IPv6Address(self.config.address) {
-            address = "[\(self.config.address)]"
-        } else {
-            address = self.config.address
-        }
-        let connectUri: String
-        switch self.config.connectionProtocol {
-        case .webtransport:
-            connectUri = "https://\(address):\(self.config.port)"
-        case .QUIC:
-            connectUri = "moq://\(address):\(self.config.port)"
-        }
         let endpointId: String = config.email
         let qLogPath: URL
         #if targetEnvironment(macCatalyst) || os(macOS)
@@ -455,7 +441,7 @@ class CallState: ObservableObject, Equatable {
                                           max_connections: 1,
                                           ssl_keylog: false,
                                           socket_buffer_size: 1_000_000)
-            let config = ClientConfig(connectUri: connectUri,
+            let config = ClientConfig(connectUri: self.config.address,
                                       endpointUri: endpointId,
                                       transportConfig: tConfig,
                                       metricsSampleMs: 0)

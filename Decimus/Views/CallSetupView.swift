@@ -20,7 +20,7 @@ private struct LoginForm: View {
     @AppStorage("email")
     private var email: String = ""
 
-    @AppStorage("relayConfig")
+    @AppStorage(RelaySettingsView.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
     @AppStorage("manifestConfig")
@@ -154,8 +154,6 @@ private struct LoginForm: View {
     private func join(conference: UInt32) {
         let relay = self.relayConfig.value
         let config = CallConfig(address: relay.address,
-                                port: relay.port,
-                                connectionProtocol: relay.connectionProtocol,
                                 email: self.email,
                                 conferenceID: conference)
         self.logger.debug("Setting call config: \(config)")
@@ -248,6 +246,6 @@ struct CallSetupView: View {
 
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
-        CallSetupView(config: .constant(.init(address: "", port: 1234, connectionProtocol: .QUIC)))
+        CallSetupView(config: .constant(.init(address: "")))
     }
 }
