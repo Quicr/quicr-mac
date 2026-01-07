@@ -112,6 +112,8 @@ class CallState: ObservableObject, Equatable {
 
     @AppStorage(SettingsView.moqRoleKey)
     private(set) var role = MoQRole.both
+    @AppStorage(SettingsView.moqStackKey)
+    private(set) var moqStack = MoQStack.libquicr
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
     @AppStorage(SettingsView.useOverrideNamespaceKey)
@@ -267,19 +269,26 @@ class CallState: ObservableObject, Equatable {
         }
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
-        // Test moxygen connection
-        do {
+
+        // Branch based on MoQ stack selection
+        if self.moqStack == .moxygen {
             let moxygenConfig = MoxygenClientConfig()
-            moxygenConfig.connectURL = "https://127.0.0.1:4433/moq"
+            moxygenConfig.connectURL = self.config.address
             moxygenConfig.connectTimeout = 5
             let client = MoxygenClientObjC(config: moxygenConfig)
             let callbacks = MoxygenCallbackHandler()
             client.setCallbacks(callbacks)
             self.moxygenClient = client
             self.moxygenCallbacks = callbacks
-            Self.logger.info("Moxygen: Connecting to \(moxygenConfig.connectURL ?? "nil")")
+            Self.logger.info("Moxygen: Connecting to \(self.config.address)")
             client.connect()
+
+            // TODO: Implement full moxygen pub/sub integration
+            Self.logger.warning("Moxygen stack selected but full pub/sub not yet implemented")
+            return true
         }
+
+        // libquicr path
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
@@ -519,6 +528,13 @@ class CallState: ObservableObject, Equatable {
             }
         } catch {
             Self.logger.error("Error while stopping media: \(error)")
+        }
+
+        // Disconnect based on which stack is in use
+        if let moxygenClient = self.moxygenClient {
+            moxygenClient.disconnect()
+            self.moxygenClient = nil
+            self.moxygenCallbacks = nil
         }
 
         do {

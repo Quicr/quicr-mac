@@ -5,6 +5,8 @@
 
 #include <moxygen/MoQClient.h>
 #include <moxygen/MoQFramer.h>
+#include <moxygen/MoQConsumers.h>
+#include <moxygen/Subscriber.h>
 #include <moxygen/events/MoQFollyExecutorImpl.h>
 #include <moxygen/util/InsecureVerifierDangerousDoNotUseInProduction.h>
 #include <folly/init/Init.h>
@@ -43,20 +45,274 @@ private:
     }
 };
 
+// SubgroupConsumer that forwards data to Obj-C callback
+class ObjCSubgroupConsumer : public moxygen::SubgroupConsumer {
+public:
+    ObjCSubgroupConsumer(uint64_t groupId, uint64_t subgroupId,
+                         __weak id<MoxygenTrackCallback> callback)
+        : groupId_(groupId), subgroupId_(subgroupId), callback_(callback) {}
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> object(
+        uint64_t objectID,
+        moxygen::Payload payload,
+        moxygen::Extensions extensions = moxygen::noExtensions(),
+        bool finSubgroup = false) override {
+
+        id<MoxygenTrackCallback> strongCallback = callback_;
+        if (strongCallback && payload) {
+            NSData* data = [NSData dataWithBytes:payload->data()
+                                          length:payload->computeChainDataLength()];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [strongCallback onObjectReceived:groupId_
+                                      subgroupId:subgroupId_
+                                        objectId:objectID
+                                            data:data];
+            });
+        }
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> objectNotExists(
+        uint64_t objectID, bool finSubgroup = false) override {
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> beginObject(
+        uint64_t objectID, uint64_t length, moxygen::Payload initialPayload,
+        moxygen::Extensions extensions = moxygen::noExtensions()) override {
+        // For simplicity, treat beginObject + payload as single object
+        if (initialPayload) {
+            return object(objectID, std::move(initialPayload), std::move(extensions), false);
+        }
+        return folly::unit;
+    }
+
+    folly::Expected<moxygen::ObjectPublishStatus, moxygen::MoQPublishError> objectPayload(
+        moxygen::Payload payload, bool finSubgroup = false) override {
+        // Streaming object payload - we simplified this for now
+        return moxygen::ObjectPublishStatus::DONE;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> endOfGroup(
+        uint64_t endOfGroupObjectID) override {
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> endOfTrackAndGroup(
+        uint64_t endOfTrackObjectID) override {
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> endOfSubgroup() override {
+        return folly::unit;
+    }
+
+    void reset(moxygen::ResetStreamErrorCode error) override {}
+
+private:
+    uint64_t groupId_;
+    uint64_t subgroupId_;
+    __weak id<MoxygenTrackCallback> callback_;
+};
+
+// TrackConsumer that forwards to Obj-C callback
+class ObjCTrackConsumer : public moxygen::TrackConsumer {
+public:
+    explicit ObjCTrackConsumer(__weak id<MoxygenTrackCallback> callback)
+        : callback_(callback) {}
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> setTrackAlias(
+        moxygen::TrackAlias alias) override {
+        trackAlias_ = alias;
+        return folly::unit;
+    }
+
+    folly::Expected<std::shared_ptr<moxygen::SubgroupConsumer>, moxygen::MoQPublishError>
+    beginSubgroup(uint64_t groupID, uint64_t subgroupID, moxygen::Priority priority) override {
+        return std::make_shared<ObjCSubgroupConsumer>(groupID, subgroupID, callback_);
+    }
+
+    folly::Expected<folly::SemiFuture<folly::Unit>, moxygen::MoQPublishError>
+    awaitStreamCredit() override {
+        return folly::makeSemiFuture(folly::unit);
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> objectStream(
+        const moxygen::ObjectHeader& header, moxygen::Payload payload) override {
+        id<MoxygenTrackCallback> strongCallback = callback_;
+        if (strongCallback && payload) {
+            NSData* data = [NSData dataWithBytes:payload->data()
+                                          length:payload->computeChainDataLength()];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [strongCallback onObjectReceived:header.group
+                                      subgroupId:header.subgroup
+                                        objectId:header.id
+                                            data:data];
+            });
+        }
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> datagram(
+        const moxygen::ObjectHeader& header, moxygen::Payload payload) override {
+        return objectStream(header, std::move(payload));
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError>
+    groupNotExists(uint64_t groupID, uint64_t subgroup, moxygen::Priority pri) override {
+        return folly::unit;
+    }
+
+    folly::Expected<folly::Unit, moxygen::MoQPublishError> subscribeDone(
+        moxygen::SubscribeDone subDone) override {
+        id<MoxygenTrackCallback> strongCallback = callback_;
+        if (strongCallback) {
+            NSString* reason = [NSString stringWithUTF8String:subDone.reasonPhrase.c_str()];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [strongCallback onSubscribeStatus:MoxygenSubscribeStatusDone message:reason];
+            });
+        }
+        return folly::unit;
+    }
+
+private:
+    __weak id<MoxygenTrackCallback> callback_;
+    folly::Optional<moxygen::TrackAlias> trackAlias_;
+};
+
 } // namespace
+
+#pragma mark - MoxygenObjectHeader
+
+@implementation MoxygenObjectHeader
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _groupId = 0;
+        _subgroupId = 0;
+        _objectId = 0;
+        _priority = 128;
+    }
+    return self;
+}
+@end
+
+#pragma mark - MoxygenSubscribeRequest
+
+@implementation MoxygenSubscribeRequest
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _trackNamespace = @[];
+        _trackName = @"";
+        _priority = 128;
+        _groupOrder = MoxygenGroupOrderDefault;
+    }
+    return self;
+}
+@end
+
+#pragma mark - MoxygenClientConfig
 
 @implementation MoxygenClientConfig
 
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _connectURL = @"https://127.0.0.1:4433/relay";
+        _connectURL = @"https://127.0.0.1:4433/moq";
         _connectTimeout = 5.0;
     }
     return self;
 }
 
 @end
+
+#pragma mark - MoxygenPublisher
+
+@interface MoxygenPublisher () {
+    std::shared_ptr<moxygen::TrackConsumer> _trackConsumer;
+    std::shared_ptr<moxygen::SubgroupConsumer> _currentSubgroup;
+    uint64_t _currentGroupId;
+    uint64_t _currentSubgroupId;
+    folly::EventBase* _eventBase;
+}
+@end
+
+@implementation MoxygenPublisher
+
+- (instancetype)initWithTrackConsumer:(std::shared_ptr<moxygen::TrackConsumer>)consumer
+                            eventBase:(folly::EventBase*)eventBase {
+    self = [super init];
+    if (self) {
+        _trackConsumer = consumer;
+        _eventBase = eventBase;
+        _currentGroupId = UINT64_MAX;
+        _currentSubgroupId = UINT64_MAX;
+    }
+    return self;
+}
+
+- (BOOL)publishObject:(MoxygenObjectHeader *)header data:(NSData *)data {
+    if (!_trackConsumer) {
+        return NO;
+    }
+
+    bool success = false;
+
+    _eventBase->runInEventBaseThreadAndWait([self, header, data, &success]() {
+        // Check if we need a new subgroup
+        if (header.groupId != _currentGroupId || header.subgroupId != _currentSubgroupId) {
+            auto result = _trackConsumer->beginSubgroup(
+                header.groupId, header.subgroupId, header.priority);
+            if (result.hasError()) {
+                return;
+            }
+            _currentSubgroup = result.value();
+            _currentGroupId = header.groupId;
+            _currentSubgroupId = header.subgroupId;
+        }
+
+        if (!_currentSubgroup) {
+            return;
+        }
+
+        // Create payload from NSData
+        auto payload = folly::IOBuf::copyBuffer(data.bytes, data.length);
+
+        auto objResult = _currentSubgroup->object(
+            header.objectId,
+            std::move(payload),
+            moxygen::noExtensions(),
+            false);
+
+        success = !objResult.hasError();
+    });
+
+    return success ? YES : NO;
+}
+
+- (void)close {
+    if (_trackConsumer && _eventBase) {
+        _eventBase->runInEventBaseThreadAndWait([self]() {
+            if (_currentSubgroup) {
+                _currentSubgroup->endOfSubgroup();
+                _currentSubgroup.reset();
+            }
+            moxygen::SubscribeDone done;
+            done.statusCode = moxygen::SubscribeDoneStatusCode::SUBSCRIPTION_ENDED;
+            _trackConsumer->subscribeDone(done);
+            _trackConsumer.reset();
+        });
+    }
+}
+
+- (void)dealloc {
+    [self close];
+}
+
+@end
+
+#pragma mark - MoxygenClientObjC
 
 @interface MoxygenClientObjC () {
     std::unique_ptr<folly::EventBase> _eventBase;
@@ -203,6 +459,129 @@ private:
 
     self.status = MoxygenConnectionStatusDisconnected;
     [self notifyStatusChanged:MoxygenConnectionStatusDisconnected];
+}
+
+- (BOOL)subscribeWithRequest:(MoxygenSubscribeRequest *)request
+                    callback:(id<MoxygenTrackCallback>)callback {
+    if (_status != MoxygenConnectionStatusConnected || !_client || !_client->moqSession_) {
+        return NO;
+    }
+
+    // Build FullTrackName from request
+    std::vector<std::string> ns;
+    for (NSString* item in request.trackNamespace) {
+        ns.push_back([item UTF8String]);
+    }
+    moxygen::FullTrackName fullTrackName;
+    fullTrackName.trackNamespace = moxygen::TrackNamespace(std::move(ns));
+    fullTrackName.trackName = [request.trackName UTF8String];
+
+    // Create TrackConsumer
+    auto trackConsumer = std::make_shared<ObjCTrackConsumer>(callback);
+
+    // Build SubscribeRequest
+    auto subRequest = moxygen::SubscribeRequest::make(
+        fullTrackName,
+        request.priority,
+        static_cast<moxygen::GroupOrder>(request.groupOrder),
+        true,  // forward
+        moxygen::LocationType::LargestGroup
+    );
+
+    MoxygenClientObjC* __weak weakSelf = self;
+    __weak id<MoxygenTrackCallback> weakCallback = callback;
+
+    _eventBase->runInEventBaseThread([weakSelf, weakCallback, subRequest = std::move(subRequest),
+                                      trackConsumer]() mutable {
+        MoxygenClientObjC* selfPtr = weakSelf;
+        if (!selfPtr || !selfPtr->_client || !selfPtr->_client->moqSession_) {
+            return;
+        }
+
+        selfPtr->_client->moqSession_->subscribe(std::move(subRequest), trackConsumer)
+            .scheduleOn(selfPtr->_executor.get())
+            .start([weakCallback](folly::Try<moxygen::Publisher::SubscribeResult>&& result) {
+                id<MoxygenTrackCallback> strongCallback = weakCallback;
+                if (!strongCallback) return;
+
+                if (result.hasException()) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [strongCallback onSubscribeStatus:MoxygenSubscribeStatusError
+                                                  message:@"Subscribe failed"];
+                    });
+                } else {
+                    auto& subResult = result.value();
+                    if (subResult.hasError()) {
+                        NSString* msg = [NSString stringWithUTF8String:
+                            subResult.error().reasonPhrase.c_str()];
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [strongCallback onSubscribeStatus:MoxygenSubscribeStatusError
+                                                      message:msg];
+                        });
+                    } else {
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [strongCallback onSubscribeStatus:MoxygenSubscribeStatusOk
+                                                      message:nil];
+                        });
+                    }
+                }
+            });
+    });
+
+    return YES;
+}
+
+- (BOOL)announceNamespace:(NSArray<NSString *> *)trackNamespace {
+    // Announce is typically handled differently in moxygen (server-side)
+    // For now, this is a placeholder that could be implemented if needed
+    // The publish flow uses the Subscriber interface which doesn't require announce
+    NSLog(@"MoxygenClient: announceNamespace not yet implemented");
+    return YES;
+}
+
+- (MoxygenPublisher *)createPublisherWithNamespace:(NSArray<NSString *> *)trackNamespace
+                                         trackName:(NSString *)trackName
+                                        groupOrder:(MoxygenGroupOrder)groupOrder {
+    if (_status != MoxygenConnectionStatusConnected || !_client || !_client->moqSession_) {
+        return nil;
+    }
+
+    // Build FullTrackName
+    std::vector<std::string> ns;
+    for (NSString* item in trackNamespace) {
+        ns.push_back([item UTF8String]);
+    }
+    moxygen::FullTrackName fullTrackName;
+    fullTrackName.trackNamespace = moxygen::TrackNamespace(std::move(ns));
+    fullTrackName.trackName = [trackName UTF8String];
+
+    // Build PublishRequest
+    moxygen::PublishRequest pubRequest;
+    pubRequest.fullTrackName = fullTrackName;
+    pubRequest.groupOrder = static_cast<moxygen::GroupOrder>(groupOrder);
+
+    std::shared_ptr<moxygen::TrackConsumer> trackConsumer;
+    bool success = false;
+
+    _eventBase->runInEventBaseThreadAndWait([self, pubRequest = std::move(pubRequest),
+                                              &trackConsumer, &success]() mutable {
+        if (!self->_client || !self->_client->moqSession_) {
+            return;
+        }
+
+        auto result = self->_client->moqSession_->publish(std::move(pubRequest), nullptr);
+        if (result.hasValue() && result.value().consumer) {
+            trackConsumer = result.value().consumer;
+            success = true;
+        }
+    });
+
+    if (!success || !trackConsumer) {
+        return nil;
+    }
+
+    return [[MoxygenPublisher alloc] initWithTrackConsumer:trackConsumer
+                                                eventBase:_eventBase.get()];
 }
 
 - (void)notifyStatusChanged:(MoxygenConnectionStatus)status {
