@@ -186,7 +186,7 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         // Everything new is now setup. At this point, we should be rechecking our subscriptions from scratch.
         // If there are more active subscriptions than live subscriptions, we need to unsubscribe from them.
         let inPlay = self.pauseResume ? existingSets.filter { !$0.value.isPaused }.count : existingSets.count
-        if inPlay > desiredSlots {
+        if currentSlots == desiredSlots && inPlay > desiredSlots {
             // Remove one.
             self.unsubscribe(real: real, when: when)
             self.recheck(real: real, desiredSlots: desiredSlots, when: when)

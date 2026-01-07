@@ -67,7 +67,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
     private let atomicOrientation = Atomic<UInt8>(0)
     private let atomicMirror = Atomic<Bool>(false)
-    private var currentFormat: CMFormatDescription?
+    private let currentFormats = Mutex<[UInt64: CMFormatDescription]>([:])
     private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
@@ -450,6 +450,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         buffer.startPlaying()
     }
 
+    // Pause playout.
+    func pause() {
+        guard let buffer = self.jitterBuffer else { return }
+        buffer.pause()
+        buffer.resetSequenceTracking()
+    }
+
     /// Pass an encoded video frame to this video handler.
     /// - Parameter frame: Encoded video frame.
     /// - Parameter details: Details about the received object.
@@ -710,14 +717,30 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                             }
                         }
 
-                        // TODO: Cleanup the need for this regen.
-                        // TODO: Thread-safety for current format.
+                        // Because of ordering and FETCH, it's possible the sample
+                        // does not have a format set. At the point of dequeue, we should
+                        // apply the matching group's format if we have it, so that this sample
+                        // does has a format.
                         let okay = item.frame.samples.allSatisfy { $0.formatDescription != nil }
+                        let frame: DecimusVideoFrame
+                        if okay {
+                            frame = item.frame
+                        } else {
+                            guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
+                                self.logger.error("[\(item.frame.groupId):\(item.frame.objectId)] Unable to decode, no format for frame")
+                                return
+                            }
+                            do {
+                                frame = try self.regen(item.frame, format: format)
+                            } catch {
+                                self.logger.error("Failed to regen sample: \(error.localizedDescription)")
+                                return
+                            }
+                        }
                         do {
-                            let frame = okay ? item.frame : try self.regen(item.frame, format: self.currentFormat)
                             try self.decode(sample: frame, from: now.hostDate)
                         } catch {
-                            self.logger.warning("Failed to write to decoder: \(error.localizedDescription)")
+                            self.logger.error("[\(frame.groupId):\(frame.objectId)] Failed to write to decoder: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -726,8 +749,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     }
 
     /// Regenerate the frame to have the given format.
-    private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription?) throws -> DecimusVideoFrame {
-        guard let format = format else { throw "Missing expected format" }
+    private func regen(_ frame: DecimusVideoFrame, format: CMFormatDescription) throws -> DecimusVideoFrame {
+        self.logger.debug("[\(frame.groupId):\(frame.objectId)] Regen format")
         let samples = try frame.samples.map { sample in
             try CMSampleBuffer(dataBuffer: sample.dataBuffer,
                                formatDescription: format,
@@ -755,6 +778,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                          lastObject: self.lastObject)
         guard gateResult || self.videoBehaviour != .freeze else {
             // If there's a discontinuity and we want to freeze, we're done.
+            self.logger.warning("Discontinuity. Got: (\(groupId), \(objectId)), had: (\(String(describing: self.lastGroup)), \(String(describing: self.lastObject)))")
             return
         }
 
@@ -927,11 +951,30 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 self.logger.warning("Failed to parse custom SEI: \(error.localizedDescription)")
             }
         }
+
+        // Set the frame's format.
         let format: CMFormatDescription?
         if let extractedFormat = extractedFormat {
-            self.currentFormat = extractedFormat
+            // Store new and cleanup old formats.
+            self.currentFormats.withLock { formats in
+                for formatGroup in formats.keys {
+                    if formatGroup < groupId,
+                       let buffer = self.jitterBuffer,
+                       let first: DecimusVideoFrameJitterItem = buffer.peek(),
+                       formatGroup < first.frame.groupId {
+                        formats.removeValue(forKey: formatGroup)
+                    }
+                }
+                formats[groupId] = extractedFormat
+            }
+            format = extractedFormat
+        } else {
+            assert(objectId != 0)
+            if objectId == 0 {
+                self.logger.error("IDR didn't contain format?")
+            }
+            format = self.currentFormats.get()[groupId]
         }
-        format = self.currentFormat
 
         let sei: ApplicationSEI?
         if seis.count == 0 {

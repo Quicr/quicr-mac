@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
+
 /// Represents a MoQ Fetch operation.
 class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     private let logger = DecimusLogger(Fetch.self)
     private let verbose: Bool
     private let quicrMeasurement: MeasurementRegistration<TrackMeasurement>?
+    private let isCompleteInternal: Atomic<Bool> = .init(false)
 
     /// Create a new fetch handler.
     /// - Parameters:
@@ -56,6 +59,10 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
         super.setCallbacks(self)
     }
 
+    func isComplete() -> Bool {
+        self.isCompleteInternal.load(ordering: .acquiring)
+    }
+
     func statusChanged(_ status: QSubscribeTrackHandlerStatus) {
         self.logger.debug("Status changed: \(status)")
     }
@@ -64,8 +71,11 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
                         data: Data,
                         extensions: HeaderExtensions?,
                         immutableExtensions: HeaderExtensions?) {
+        if objectHeaders.groupId == self.getEndGroup() && objectHeaders.objectId + 1 == self.getEndObject() {
+            self.isCompleteInternal.store(true, ordering: .releasing)
+        }
         guard self.verbose else { return }
-        self.logger.debug("Object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+        self.logger.debug("Object fetched: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }
 
     func partialObjectReceived(_ objectHeaders: QObjectHeaders,
@@ -73,7 +83,7 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
                                extensions: HeaderExtensions?,
                                immutableExtensions: HeaderExtensions?) {
         guard self.verbose else { return }
-        self.logger.debug("Partial object received: \(objectHeaders.groupId):\(objectHeaders.objectId)")
+        self.logger.debug("Partial object fetched: \(objectHeaders.groupId):\(objectHeaders.objectId)")
     }
 
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {

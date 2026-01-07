@@ -37,7 +37,7 @@ class VideoSubscription: Subscription {
     private let variances: VarianceCalculator
     private let callback: ObjectReceivedCallback
     private var token: Int = 0
-    private let logger = DecimusLogger(VideoSubscription.self)
+    private let logger: DecimusLogger
     private let verbose: Bool
     private let subscriptionConfig: Config
     private let joinConfig: JoinConfig<UInt64>
@@ -62,7 +62,7 @@ class VideoSubscription: Subscription {
     private let paused = Atomic(false)
 
     // State machine.
-    internal let stateMachine = StateMachine(.startup)
+    internal let stateMachine: StateMachine
 
     /// Possible states the video subscription can be in.
     internal enum State: Equatable {
@@ -80,10 +80,13 @@ class VideoSubscription: Subscription {
     }
     /// Models possible states and transitions for a video subscription.
     internal class StateMachine {
-        init(_ state: State) {
+        private let controller: MoqCallController
+        private let state = Mutex(State.startup)
+
+        init(_ state: State, controller: MoqCallController) {
+            self.controller = controller
             self.state.withLock { $0 = state }
         }
-        private let state = Mutex(State.startup)
 
         /// Get current state.
         func get() -> State {
@@ -132,6 +135,21 @@ class VideoSubscription: Subscription {
                     }
                 }
                 guard valid else { throw StateMachineError.badTransition(state, newState) }
+
+                // Cancel fetch.
+                switch state {
+                case .fetching(let fetch):
+                    if newState != .fetching(fetch) && !fetch.isComplete() {
+                        do {
+                            try self.controller.cancelFetch(fetch)
+                        } catch {
+                            print("Failed to cancel fetch during state transition: \(error.localizedDescription)")
+                        }
+                    }
+                default:
+                    break
+                }
+
                 state = newState
             }
         }
@@ -183,6 +201,7 @@ class VideoSubscription: Subscription {
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
+        self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
@@ -205,6 +224,7 @@ class VideoSubscription: Subscription {
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
+        self.stateMachine = .init(.startup, controller: self.controller)
         try super.init(profile: profile,
                        endpointId: endpointId,
                        relayId: relayId,
@@ -223,15 +243,6 @@ class VideoSubscription: Subscription {
     override func pause() {
         // Stop objects being delivered.
         self.paused.store(true, ordering: .releasing)
-
-        // If there's an inprogress fetch, cancel it.
-        if case .fetching(let fetch) = self.getCurrentState() {
-            do {
-                try self.controller.cancelFetch(fetch)
-            } catch {
-                self.logger.warning("Failed to cancel in progress fetch")
-            }
-        }
 
         // When we pause, reset the state machine.
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
@@ -255,6 +266,7 @@ class VideoSubscription: Subscription {
             handler.unregisterCallback(self.token)
             self.token = 0
         }
+        try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
         self.postCleanup.store(true, ordering: .releasing)
     }
 
@@ -277,15 +289,9 @@ class VideoSubscription: Subscription {
         case .running:
             // Process.
             return .normal(false)
-        case .fetching(let fetch):
+        case .fetching:
             if objectHeaders.objectId == 0 {
-                // The in-progress FETCH has been overrun, cancel it, play.
-                self.logger.debug("Cancelling in progress fetch")
-                do {
-                    try self.controller.cancelFetch(fetch)
-                } catch {
-                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
-                }
+                self.logger.debug("The fetch has been overrun")
                 try! self.stateMachine.transition(to: .running)
                 return .normal(true)
             }
@@ -316,6 +322,10 @@ class VideoSubscription: Subscription {
 
             // Close to the start, FETCH.
             do {
+                // Pause the handler while fetching.
+                self.handler.get()?.pause()
+
+                // Fetch the missing data.
                 let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
                                            currentObject: objectHeaders.objectId)
                 try! self.stateMachine.transition(to: .fetching(fetch))
@@ -500,8 +510,7 @@ class VideoSubscription: Subscription {
                                   statusChanged: { [weak self] status in
                                     guard let self = self else { return }
                                     let message = "Fetch status changed: \(status)"
-                                    if !status.isError || (status == .notConnected
-                                                            && self.getCurrentState() == .running) {
+                                    if !status.isError || (status == .notConnected) {
                                         self.logger.info(message)
                                     } else {
                                         self.logger.warning(message)
@@ -526,6 +535,7 @@ class VideoSubscription: Subscription {
                                  immutableExtensions: HeaderExtensions?,
                                  currentGroup: UInt64,
                                  currentObject: UInt64) {
+        // TODO: Reduce duplication with objectReceived?
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
                 self.logger.info("Dropping fetched object in paused state")
@@ -537,7 +547,11 @@ class VideoSubscription: Subscription {
         if self.verbose {
             self.logger.debug("Fetched: \(headers.groupId):\(headers.objectId)")
         }
-        guard let handler = self.handler.get() else { return }
+        // TODO: This should be getCreate? Unsure if this would ever happen.
+        guard let handler = self.handler.get() else {
+            assert(false)
+            return
+        }
 
         // Unprotect.
         let unprotected: Data
@@ -571,15 +585,9 @@ class VideoSubscription: Subscription {
                 }
                 return
             }
-            switch self.getCurrentState() {
-            case .fetching(let fetch):
-                do {
-                    try self.stateMachine.transition(to: .running)
-                    try self.controller.cancelFetch(fetch)
-                } catch {
-                    self.logger.warning("Failed to cancel fetch: \(error.localizedDescription)")
-                }
-            default:
+            do {
+                try self.stateMachine.transition(to: .running)
+            } catch {
                 assert(false)
                 self.logger.warning("Subscription in invalid state", alert: true)
             }
