@@ -79,6 +79,8 @@ class CallState: ObservableObject, Equatable {
     let audioStartingGroup: UInt64?
     private var sendContext: SendSFrameContext?
     private var receiveContext: SFrameContext?
+    private var moxygenClient: MoxygenClientObjC?
+    private var moxygenCallbacks: MoxygenCallbackHandler?
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -252,6 +254,19 @@ class CallState: ObservableObject, Equatable {
         }
         let playtime = self.playtimeConfig.value
         let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+        // Test moxygen connection
+        do {
+            let moxygenConfig = MoxygenClientConfig()
+            moxygenConfig.connectURL = "https://127.0.0.1:4433/moq"
+            moxygenConfig.connectTimeout = 5
+            let client = MoxygenClientObjC(config: moxygenConfig)
+            let callbacks = MoxygenCallbackHandler()
+            client.setCallbacks(callbacks)
+            self.moxygenClient = client
+            self.moxygenCallbacks = callbacks
+            Self.logger.info("Moxygen: Connecting to \(moxygenConfig.connectURL ?? "nil")")
+            client.connect()
+        }
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
@@ -699,5 +714,26 @@ extension CallState {
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)
         }
+    }
+}
+
+// Moxygen callback handler
+class MoxygenCallbackHandler: NSObject, MoxygenClientCallbacks {
+    private static let logger = DecimusLogger(MoxygenCallbackHandler.self)
+
+    func onStatusChanged(_ status: MoxygenConnectionStatus) {
+        let statusString: String
+        switch status {
+        case .disconnected: statusString = "Disconnected"
+        case .connecting: statusString = "Connecting"
+        case .connected: statusString = "Connected"
+        case .failed: statusString = "Failed"
+        @unknown default: statusString = "Unknown"
+        }
+        Self.logger.info("Moxygen status: \(statusString)")
+    }
+
+    func onError(_ error: String) {
+        Self.logger.error("Moxygen error: \(error)")
     }
 }

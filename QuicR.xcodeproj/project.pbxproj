@@ -85,6 +85,8 @@
 		9B4A44E92DEAFB810058F5CD /* AppRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */; };
 		9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */; };
 		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
+		9B4EC0E02F0EA1AB00B5E740 /* MoxygenClientObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC0DF2F0EA1AB00B5E740 /* MoxygenClientObjC.mm */; };
+		9B4EC12F2F0EA33F00B5E740 /* Moxygen.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B4EC12E2F0EA33F00B5E740 /* Moxygen.framework */; };
 		9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC6812D85976D009A2872 /* LOCRegistry.swift */; };
 		9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */; };
 		9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68C2D85B926009A2872 /* VarInt.swift */; };
@@ -309,6 +311,83 @@
 		9B4A44E82DEAFB780058F5CD /* AppRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRecorder.swift; sourceTree = "<group>"; };
 		9B4D8D372D916E0200F4FE66 /* ActiveSpeakerStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveSpeakerStats.swift; sourceTree = "<group>"; };
 		9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAligned.swift; sourceTree = "<group>"; };
+		9B4EC0DB2F0EA0B900B5E740 /* libmoxygenwtclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoxygenwtclient.a; path = "dependencies/moxygen-install/lib/libmoxygenwtclient.a"; sourceTree = "<group>"; };
+		9B4EC0DD2F0EA17C00B5E740 /* MoxygenClientObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MoxygenClientObjC.h; sourceTree = "<group>"; };
+		9B4EC0DF2F0EA1AB00B5E740 /* MoxygenClientObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = MoxygenClientObjC.mm; sourceTree = "<group>"; };
+		9B4EC0E12F0EA1F900B5E740 /* libmoxygenclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoxygenclient.a; path = "dependencies/moxygen-install/lib/libmoxygenclient.a"; sourceTree = "<group>"; };
+		9B4EC0E52F0EA22300B5E740 /* libmvfst_round_robin.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_round_robin.a; path = "dependencies/moxygen-install/lib/libmvfst_round_robin.a"; sourceTree = "<group>"; };
+		9B4EC0E62F0EA22300B5E740 /* libmvfst_state_stream.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_stream.a; path = "dependencies/moxygen-install/lib/libmvfst_state_stream.a"; sourceTree = "<group>"; };
+		9B4EC0E72F0EA22300B5E740 /* libmvfst_batch_writer.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_batch_writer.a; path = "dependencies/moxygen-install/lib/libmvfst_batch_writer.a"; sourceTree = "<group>"; };
+		9B4EC0E82F0EA22300B5E740 /* libmvfst_observer.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_observer.a; path = "dependencies/moxygen-install/lib/libmvfst_observer.a"; sourceTree = "<group>"; };
+		9B4EC0E92F0EA22300B5E740 /* libmvfst_state_stream_functions.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_stream_functions.a; path = "dependencies/moxygen-install/lib/libmvfst_state_stream_functions.a"; sourceTree = "<group>"; };
+		9B4EC0EA2F0EA22300B5E740 /* libmvfst_codec.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec.a; path = "dependencies/moxygen-install/lib/libmvfst_codec.a"; sourceTree = "<group>"; };
+		9B4EC0EB2F0EA22300B5E740 /* libmvfst_datagram_flow_manager.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_datagram_flow_manager.a; path = "dependencies/moxygen-install/lib/libmvfst_datagram_flow_manager.a"; sourceTree = "<group>"; };
+		9B4EC0EC2F0EA22300B5E740 /* libproxygenhqserver.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygenhqserver.a; path = "dependencies/moxygen-install/lib/libproxygenhqserver.a"; sourceTree = "<group>"; };
+		9B4EC0ED2F0EA22300B5E740 /* libmvfst_async_udp_socket.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_async_udp_socket.a; path = "dependencies/moxygen-install/lib/libmvfst_async_udp_socket.a"; sourceTree = "<group>"; };
+		9B4EC0EE2F0EA22300B5E740 /* libquicwebtransport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libquicwebtransport.a; path = "dependencies/moxygen-install/lib/libquicwebtransport.a"; sourceTree = "<group>"; };
+		9B4EC0EF2F0EA22300B5E740 /* libmvfst_folly_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_folly_utils.a; path = "dependencies/moxygen-install/lib/libmvfst_folly_utils.a"; sourceTree = "<group>"; };
+		9B4EC0F02F0EA22300B5E740 /* libmoxygenserver.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoxygenserver.a; path = "dependencies/moxygen-install/lib/libmoxygenserver.a"; sourceTree = "<group>"; };
+		9B4EC0F12F0EA22300B5E740 /* libmoqmi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqmi.a; path = "dependencies/moxygen-install/lib/libmoqmi.a"; sourceTree = "<group>"; };
+		9B4EC0F22F0EA22300B5E740 /* libmvfst_state_simple_frame_functions.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_simple_frame_functions.a; path = "dependencies/moxygen-install/lib/libmvfst_state_simple_frame_functions.a"; sourceTree = "<group>"; };
+		9B4EC0F32F0EA22300B5E740 /* libmvfst_transport_knobs.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_transport_knobs.a; path = "dependencies/moxygen-install/lib/libmvfst_transport_knobs.a"; sourceTree = "<group>"; };
+		9B4EC0F42F0EA22300B5E740 /* libfolly_test_util.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfolly_test_util.a; path = "dependencies/moxygen-install/lib/libfolly_test_util.a"; sourceTree = "<group>"; };
+		9B4EC0F52F0EA22300B5E740 /* libmvfst_codec_pktbuilder.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec_pktbuilder.a; path = "dependencies/moxygen-install/lib/libmvfst_codec_pktbuilder.a"; sourceTree = "<group>"; };
+		9B4EC0F62F0EA22300B5E740 /* libfollybenchmark.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfollybenchmark.a; path = "dependencies/moxygen-install/lib/libfollybenchmark.a"; sourceTree = "<group>"; };
+		9B4EC0F72F0EA22300B5E740 /* libmlogger.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmlogger.a; path = "dependencies/moxygen-install/lib/libmlogger.a"; sourceTree = "<group>"; };
+		9B4EC0F82F0EA22300B5E740 /* libmvfst_fizz_handshake.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_fizz_handshake.a; path = "dependencies/moxygen-install/lib/libmvfst_fizz_handshake.a"; sourceTree = "<group>"; };
+		9B4EC0F92F0EA22300B5E740 /* libmvfst_constants.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_constants.a; path = "dependencies/moxygen-install/lib/libmvfst_constants.a"; sourceTree = "<group>"; };
+		9B4EC0FA2F0EA22300B5E740 /* libmvfst_exception.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_exception.a; path = "dependencies/moxygen-install/lib/libmvfst_exception.a"; sourceTree = "<group>"; };
+		9B4EC0FB2F0EA22300B5E740 /* libmvfst_state_pacing_functions.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_pacing_functions.a; path = "dependencies/moxygen-install/lib/libmvfst_state_pacing_functions.a"; sourceTree = "<group>"; };
+		9B4EC0FC2F0EA22300B5E740 /* libmvfst_xsk.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_xsk.a; path = "dependencies/moxygen-install/lib/libmvfst_xsk.a"; sourceTree = "<group>"; };
+		9B4EC0FD2F0EA22300B5E740 /* libmvfst_server.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_server.a; path = "dependencies/moxygen-install/lib/libmvfst_server.a"; sourceTree = "<group>"; };
+		9B4EC0FE2F0EA22300B5E740 /* libproxygen.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygen.a; path = "dependencies/moxygen-install/lib/libproxygen.a"; sourceTree = "<group>"; };
+		9B4EC0FF2F0EA22300B5E740 /* libmvfst_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_client.a; path = "dependencies/moxygen-install/lib/libmvfst_client.a"; sourceTree = "<group>"; };
+		9B4EC1002F0EA22300B5E740 /* libmvfst_codec_decode.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec_decode.a; path = "dependencies/moxygen-install/lib/libmvfst_codec_decode.a"; sourceTree = "<group>"; };
+		9B4EC1012F0EA22300B5E740 /* libproxygendeviousbaton.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygendeviousbaton.a; path = "dependencies/moxygen-install/lib/libproxygendeviousbaton.a"; sourceTree = "<group>"; };
+		9B4EC1022F0EA22300B5E740 /* libmoqrelaysession.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqrelaysession.a; path = "dependencies/moxygen-install/lib/libmoqrelaysession.a"; sourceTree = "<group>"; };
+		9B4EC1032F0EA22300B5E740 /* libfolly.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfolly.a; path = "dependencies/moxygen-install/lib/libfolly.a"; sourceTree = "<group>"; };
+		9B4EC1042F0EA22300B5E740 /* liblibhttperf2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = liblibhttperf2.a; path = "dependencies/moxygen-install/lib/liblibhttperf2.a"; sourceTree = "<group>"; };
+		9B4EC1052F0EA22300B5E740 /* libmvfst_transport_settings_functions.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_transport_settings_functions.a; path = "dependencies/moxygen-install/lib/libmvfst_transport_settings_functions.a"; sourceTree = "<group>"; };
+		9B4EC1062F0EA22300B5E740 /* libmoqcache.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqcache.a; path = "dependencies/moxygen-install/lib/libmoqcache.a"; sourceTree = "<group>"; };
+		9B4EC1072F0EA22300B5E740 /* libmvfst_state_ack_handler.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_ack_handler.a; path = "dependencies/moxygen-install/lib/libmvfst_state_ack_handler.a"; sourceTree = "<group>"; };
+		9B4EC1082F0EA22300B5E740 /* libmvfst_codec_packet_number_cipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec_packet_number_cipher.a; path = "dependencies/moxygen-install/lib/libmvfst_codec_packet_number_cipher.a"; sourceTree = "<group>"; };
+		9B4EC1092F0EA22300B5E740 /* libmvfst_state_functions.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_functions.a; path = "dependencies/moxygen-install/lib/libmvfst_state_functions.a"; sourceTree = "<group>"; };
+		9B4EC10A2F0EA22300B5E740 /* libfizz_test_support.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfizz_test_support.a; path = "dependencies/moxygen-install/lib/libfizz_test_support.a"; sourceTree = "<group>"; };
+		9B4EC10B2F0EA22300B5E740 /* libmvfst_state_datagram_handler.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_datagram_handler.a; path = "dependencies/moxygen-install/lib/libmvfst_state_datagram_handler.a"; sourceTree = "<group>"; };
+		9B4EC10C2F0EA22300B5E740 /* libmoqfollyexecutorimpl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqfollyexecutorimpl.a; path = "dependencies/moxygen-install/lib/libmoqfollyexecutorimpl.a"; sourceTree = "<group>"; };
+		9B4EC10D2F0EA22300B5E740 /* libmvfst_bufutil.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_bufutil.a; path = "dependencies/moxygen-install/lib/libmvfst_bufutil.a"; sourceTree = "<group>"; };
+		9B4EC10E2F0EA22300B5E740 /* libmvfst_cc_algo.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_cc_algo.a; path = "dependencies/moxygen-install/lib/libmvfst_cc_algo.a"; sourceTree = "<group>"; };
+		9B4EC10F2F0EA22300B5E740 /* libmvfst_handshake.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_handshake.a; path = "dependencies/moxygen-install/lib/libmvfst_handshake.a"; sourceTree = "<group>"; };
+		9B4EC1102F0EA22300B5E740 /* libwangle.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwangle.a; path = "dependencies/moxygen-install/lib/libwangle.a"; sourceTree = "<group>"; };
+		9B4EC1112F0EA22300B5E740 /* libmvfst_flowcontrol.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_flowcontrol.a; path = "dependencies/moxygen-install/lib/libmvfst_flowcontrol.a"; sourceTree = "<group>"; };
+		9B4EC1122F0EA22300B5E740 /* libmvfst_ack_scheduler.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_ack_scheduler.a; path = "dependencies/moxygen-install/lib/libmvfst_ack_scheduler.a"; sourceTree = "<group>"; };
+		9B4EC1132F0EA22400B5E740 /* libmvfst_qlogger.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_qlogger.a; path = "dependencies/moxygen-install/lib/libmvfst_qlogger.a"; sourceTree = "<group>"; };
+		9B4EC1142F0EA22400B5E740 /* libproxygenhttpserver.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygenhttpserver.a; path = "dependencies/moxygen-install/lib/libproxygenhttpserver.a"; sourceTree = "<group>"; };
+		9B4EC1152F0EA22400B5E740 /* libfizz.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfizz.a; path = "dependencies/moxygen-install/lib/libfizz.a"; sourceTree = "<group>"; };
+		9B4EC1162F0EA22400B5E740 /* libmoxygen.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoxygen.a; path = "dependencies/moxygen-install/lib/libmoxygen.a"; sourceTree = "<group>"; };
+		9B4EC1172F0EA22400B5E740 /* libmvfst_codec_pktrebuilder.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec_pktrebuilder.a; path = "dependencies/moxygen-install/lib/libmvfst_codec_pktrebuilder.a"; sourceTree = "<group>"; };
+		9B4EC1182F0EA22400B5E740 /* libmvfst_looper.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_looper.a; path = "dependencies/moxygen-install/lib/libmvfst_looper.a"; sourceTree = "<group>"; };
+		9B4EC1192F0EA22400B5E740 /* libproxygencurl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygencurl.a; path = "dependencies/moxygen-install/lib/libproxygencurl.a"; sourceTree = "<group>"; };
+		9B4EC11A2F0EA22400B5E740 /* libmvfst_codec_types.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_codec_types.a; path = "dependencies/moxygen-install/lib/libmvfst_codec_types.a"; sourceTree = "<group>"; };
+		9B4EC11B2F0EA22400B5E740 /* libmoqtest_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqtest_utils.a; path = "dependencies/moxygen-install/lib/libmoqtest_utils.a"; sourceTree = "<group>"; };
+		9B4EC11C2F0EA22400B5E740 /* libproxygenhqloggerhelper.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libproxygenhqloggerhelper.a; path = "dependencies/moxygen-install/lib/libproxygenhqloggerhelper.a"; sourceTree = "<group>"; };
+		9B4EC11D2F0EA22400B5E740 /* libmoqrelay.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmoqrelay.a; path = "dependencies/moxygen-install/lib/libmoqrelay.a"; sourceTree = "<group>"; };
+		9B4EC11E2F0EA22400B5E740 /* libflvparser.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libflvparser.a; path = "dependencies/moxygen-install/lib/libflvparser.a"; sourceTree = "<group>"; };
+		9B4EC11F2F0EA22400B5E740 /* libmvfst_server_async_tran.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_server_async_tran.a; path = "dependencies/moxygen-install/lib/libmvfst_server_async_tran.a"; sourceTree = "<group>"; };
+		9B4EC1202F0EA22400B5E740 /* libmvfst_happyeyeballs.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_happyeyeballs.a; path = "dependencies/moxygen-install/lib/libmvfst_happyeyeballs.a"; sourceTree = "<group>"; };
+		9B4EC1212F0EA22400B5E740 /* libwt_stream_manager.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libwt_stream_manager.a; path = "dependencies/moxygen-install/lib/libwt_stream_manager.a"; sourceTree = "<group>"; };
+		9B4EC1222F0EA22400B5E740 /* libmvfst_loss.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_loss.a; path = "dependencies/moxygen-install/lib/libmvfst_loss.a"; sourceTree = "<group>"; };
+		9B4EC1232F0EA22400B5E740 /* libmvfst_fizz_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_fizz_client.a; path = "dependencies/moxygen-install/lib/libmvfst_fizz_client.a"; sourceTree = "<group>"; };
+		9B4EC1242F0EA22400B5E740 /* libmvfst_transport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_transport.a; path = "dependencies/moxygen-install/lib/libmvfst_transport.a"; sourceTree = "<group>"; };
+		9B4EC1252F0EA22400B5E740 /* libmvfst_buf_accessor.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_buf_accessor.a; path = "dependencies/moxygen-install/lib/libmvfst_buf_accessor.a"; sourceTree = "<group>"; };
+		9B4EC1262F0EA22400B5E740 /* libmvfst_events.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_events.a; path = "dependencies/moxygen-install/lib/libmvfst_events.a"; sourceTree = "<group>"; };
+		9B4EC1272F0EA22400B5E740 /* libmvfst_contiguous_cursor.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_contiguous_cursor.a; path = "dependencies/moxygen-install/lib/libmvfst_contiguous_cursor.a"; sourceTree = "<group>"; };
+		9B4EC1282F0EA22400B5E740 /* libmvfst_http_priority_queue.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_http_priority_queue.a; path = "dependencies/moxygen-install/lib/libmvfst_http_priority_queue.a"; sourceTree = "<group>"; };
+		9B4EC1292F0EA22400B5E740 /* libmvfst_state_machine.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_state_machine.a; path = "dependencies/moxygen-install/lib/libmvfst_state_machine.a"; sourceTree = "<group>"; };
+		9B4EC12A2F0EA22400B5E740 /* libmvfst_server_state.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_server_state.a; path = "dependencies/moxygen-install/lib/libmvfst_server_state.a"; sourceTree = "<group>"; };
+		9B4EC12B2F0EA22400B5E740 /* libmvfst_string_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_string_utils.a; path = "dependencies/moxygen-install/lib/libmvfst_string_utils.a"; sourceTree = "<group>"; };
+		9B4EC12D2F0EA28000B5E740 /* moxygen.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = moxygen.xcconfig; sourceTree = "<group>"; };
+		9B4EC12E2F0EA33F00B5E740 /* Moxygen.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Moxygen.framework; path = dependencies/Moxygen.framework; sourceTree = "<group>"; };
 		9B5EC6812D85976D009A2872 /* LOCRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LOCRegistry.swift; sourceTree = "<group>"; };
 		9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMediaInterop.swift; sourceTree = "<group>"; };
 		9B5EC68C2D85B926009A2872 /* VarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarInt.swift; sourceTree = "<group>"; };
@@ -474,6 +553,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B4EC12F2F0EA33F00B5E740 /* Moxygen.framework in Frameworks */,
 				18C89A3A2A13D1E4005B333B /* InfluxDBSwift in Frameworks */,
 				9BDD5B13299697DE00C01D54 /* DequeModule in Frameworks */,
 				9B4A44E72DE8ECE00058F5CD /* SFrame in Frameworks */,
@@ -555,6 +635,15 @@
 			path = Codec;
 			sourceTree = "<group>";
 		};
+		9B4EC0DE2F0EA17C00B5E740 /* Moxygen */ = {
+			isa = PBXGroup;
+			children = (
+				9B4EC0DF2F0EA1AB00B5E740 /* MoxygenClientObjC.mm */,
+				9B4EC0DD2F0EA17C00B5E740 /* MoxygenClientObjC.h */,
+			);
+			path = Moxygen;
+			sourceTree = "<group>";
+		};
 		9B6C9F0A2DE5E8020041B9C1 /* Audio */ = {
 			isa = PBXGroup;
 			children = (
@@ -575,6 +664,80 @@
 		9B76FFE0298D5566006B5267 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				9B4EC12E2F0EA33F00B5E740 /* Moxygen.framework */,
+				9B4EC1152F0EA22400B5E740 /* libfizz.a */,
+				9B4EC10A2F0EA22300B5E740 /* libfizz_test_support.a */,
+				9B4EC11E2F0EA22400B5E740 /* libflvparser.a */,
+				9B4EC1032F0EA22300B5E740 /* libfolly.a */,
+				9B4EC0F42F0EA22300B5E740 /* libfolly_test_util.a */,
+				9B4EC0F62F0EA22300B5E740 /* libfollybenchmark.a */,
+				9B4EC1042F0EA22300B5E740 /* liblibhttperf2.a */,
+				9B4EC0F72F0EA22300B5E740 /* libmlogger.a */,
+				9B4EC1062F0EA22300B5E740 /* libmoqcache.a */,
+				9B4EC10C2F0EA22300B5E740 /* libmoqfollyexecutorimpl.a */,
+				9B4EC0F12F0EA22300B5E740 /* libmoqmi.a */,
+				9B4EC11D2F0EA22400B5E740 /* libmoqrelay.a */,
+				9B4EC1022F0EA22300B5E740 /* libmoqrelaysession.a */,
+				9B4EC11B2F0EA22400B5E740 /* libmoqtest_utils.a */,
+				9B4EC1162F0EA22400B5E740 /* libmoxygen.a */,
+				9B4EC0F02F0EA22300B5E740 /* libmoxygenserver.a */,
+				9B4EC1122F0EA22300B5E740 /* libmvfst_ack_scheduler.a */,
+				9B4EC0ED2F0EA22300B5E740 /* libmvfst_async_udp_socket.a */,
+				9B4EC0E72F0EA22300B5E740 /* libmvfst_batch_writer.a */,
+				9B4EC1252F0EA22400B5E740 /* libmvfst_buf_accessor.a */,
+				9B4EC10D2F0EA22300B5E740 /* libmvfst_bufutil.a */,
+				9B4EC10E2F0EA22300B5E740 /* libmvfst_cc_algo.a */,
+				9B4EC0FF2F0EA22300B5E740 /* libmvfst_client.a */,
+				9B4EC0EA2F0EA22300B5E740 /* libmvfst_codec.a */,
+				9B4EC1002F0EA22300B5E740 /* libmvfst_codec_decode.a */,
+				9B4EC1082F0EA22300B5E740 /* libmvfst_codec_packet_number_cipher.a */,
+				9B4EC0F52F0EA22300B5E740 /* libmvfst_codec_pktbuilder.a */,
+				9B4EC1172F0EA22400B5E740 /* libmvfst_codec_pktrebuilder.a */,
+				9B4EC11A2F0EA22400B5E740 /* libmvfst_codec_types.a */,
+				9B4EC0F92F0EA22300B5E740 /* libmvfst_constants.a */,
+				9B4EC1272F0EA22400B5E740 /* libmvfst_contiguous_cursor.a */,
+				9B4EC0EB2F0EA22300B5E740 /* libmvfst_datagram_flow_manager.a */,
+				9B4EC1262F0EA22400B5E740 /* libmvfst_events.a */,
+				9B4EC0FA2F0EA22300B5E740 /* libmvfst_exception.a */,
+				9B4EC1232F0EA22400B5E740 /* libmvfst_fizz_client.a */,
+				9B4EC0F82F0EA22300B5E740 /* libmvfst_fizz_handshake.a */,
+				9B4EC1112F0EA22300B5E740 /* libmvfst_flowcontrol.a */,
+				9B4EC0EF2F0EA22300B5E740 /* libmvfst_folly_utils.a */,
+				9B4EC10F2F0EA22300B5E740 /* libmvfst_handshake.a */,
+				9B4EC1202F0EA22400B5E740 /* libmvfst_happyeyeballs.a */,
+				9B4EC1282F0EA22400B5E740 /* libmvfst_http_priority_queue.a */,
+				9B4EC1182F0EA22400B5E740 /* libmvfst_looper.a */,
+				9B4EC1222F0EA22400B5E740 /* libmvfst_loss.a */,
+				9B4EC0E82F0EA22300B5E740 /* libmvfst_observer.a */,
+				9B4EC1132F0EA22400B5E740 /* libmvfst_qlogger.a */,
+				9B4EC0E52F0EA22300B5E740 /* libmvfst_round_robin.a */,
+				9B4EC0FD2F0EA22300B5E740 /* libmvfst_server.a */,
+				9B4EC11F2F0EA22400B5E740 /* libmvfst_server_async_tran.a */,
+				9B4EC12A2F0EA22400B5E740 /* libmvfst_server_state.a */,
+				9B4EC1072F0EA22300B5E740 /* libmvfst_state_ack_handler.a */,
+				9B4EC10B2F0EA22300B5E740 /* libmvfst_state_datagram_handler.a */,
+				9B4EC1092F0EA22300B5E740 /* libmvfst_state_functions.a */,
+				9B4EC1292F0EA22400B5E740 /* libmvfst_state_machine.a */,
+				9B4EC0FB2F0EA22300B5E740 /* libmvfst_state_pacing_functions.a */,
+				9B4EC0F22F0EA22300B5E740 /* libmvfst_state_simple_frame_functions.a */,
+				9B4EC0E62F0EA22300B5E740 /* libmvfst_state_stream.a */,
+				9B4EC0E92F0EA22300B5E740 /* libmvfst_state_stream_functions.a */,
+				9B4EC12B2F0EA22400B5E740 /* libmvfst_string_utils.a */,
+				9B4EC1242F0EA22400B5E740 /* libmvfst_transport.a */,
+				9B4EC0F32F0EA22300B5E740 /* libmvfst_transport_knobs.a */,
+				9B4EC1052F0EA22300B5E740 /* libmvfst_transport_settings_functions.a */,
+				9B4EC0FC2F0EA22300B5E740 /* libmvfst_xsk.a */,
+				9B4EC0FE2F0EA22300B5E740 /* libproxygen.a */,
+				9B4EC1192F0EA22400B5E740 /* libproxygencurl.a */,
+				9B4EC1012F0EA22300B5E740 /* libproxygendeviousbaton.a */,
+				9B4EC11C2F0EA22400B5E740 /* libproxygenhqloggerhelper.a */,
+				9B4EC0EC2F0EA22300B5E740 /* libproxygenhqserver.a */,
+				9B4EC1142F0EA22400B5E740 /* libproxygenhttpserver.a */,
+				9B4EC0EE2F0EA22300B5E740 /* libquicwebtransport.a */,
+				9B4EC1102F0EA22300B5E740 /* libwangle.a */,
+				9B4EC1212F0EA22400B5E740 /* libwt_stream_manager.a */,
+				9B4EC0E12F0EA1F900B5E740 /* libmoxygenclient.a */,
+				9B4EC0DB2F0EA0B900B5E740 /* libmoxygenwtclient.a */,
 				9BDA15D22C7FF3E300494BFD /* quicr.xcframework */,
 				184912892A3B560200773D39 /* clibjitter.xcframework */,
 				D786194B2A290F1600EC0556 /* qmedia.xcframework */,
@@ -658,6 +821,7 @@
 				9B85951C29F04521008C813C /* Tests */,
 				9BA27FC3297D7270007013B2 /* Products */,
 				9B76FFE0298D5566006B5267 /* Frameworks */,
+				9B4EC12D2F0EA28000B5E740 /* moxygen.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -833,6 +997,7 @@
 		FF3B952D2A60C77B00CE463F /* Lib */ = {
 			isa = PBXGroup;
 			children = (
+				9B4EC0DE2F0EA17C00B5E740 /* Moxygen */,
 				9B8E14DA2C7E935E009D8C24 /* libquicr */,
 				9BDE86892B70ECAD009467A7 /* Utilities */,
 				D7D156352AD73DE600B4E4F2 /* EncodedBuffer */,
@@ -937,7 +1102,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				9BAA26092DED9DA90085883C /* PBXTargetDependency */,
 			);
 			name = QuicR;
 			packageProductDependencies = (
@@ -1073,7 +1237,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1181,6 +1345,7 @@
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
+				9B4EC0E02F0EA1AB00B5E740 /* MoxygenClientObjC.mm in Sources */,
 				9BB3C50C2E8D62FD000AB7C2 /* CameraPreferencePicker.swift in Sources */,
 				9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
@@ -1255,10 +1420,6 @@
 			target = 9BA27FC1297D7270007013B2 /* QuicR */;
 			targetProxy = 9B85951F29F04521008C813C /* PBXContainerItemProxy */;
 		};
-		9BAA26092DED9DA90085883C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			productRef = 9BAA26082DED9DA90085883C /* SwiftLintBuildToolPlugin */;
-		};
 		9BC070D32D2C37AD00FE5B0E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			productRef = 9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */;
@@ -1273,7 +1434,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1298,7 +1459,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1465,10 +1626,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/dependencies";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
@@ -1483,6 +1644,9 @@
 					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
+					/opt/homebrew/include,
+					"$(PROJECT_DIR)/dependencies/moxygen-install/include",
+					"$(PROJECT_DIR)/dependencies/build-macos-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1506,11 +1670,13 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
+					"/opt/homebrew/lib/**",
+					"$(PROJECT_DIR)/dependencies/moxygen-install/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
@@ -1542,10 +1708,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/dependencies";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
@@ -1560,6 +1726,9 @@
 					"$(PROJECT_DIR)/dependencies/build-iossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-ios-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
+					/opt/homebrew/include,
+					"$(PROJECT_DIR)/dependencies/moxygen-install/include",
+					"$(PROJECT_DIR)/dependencies/build-macos-libquicr/include",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1583,11 +1752,13 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)",
+					"/opt/homebrew/lib/**",
+					"$(PROJECT_DIR)/dependencies/moxygen-install/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MARKETING_VERSION = "$(APP_VERSION)";
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "$(inherited)";
 				PRODUCT_BUNDLE_IDENTIFIER = com.cisco.quicr.decimus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = NO;
@@ -1732,11 +1903,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */;
 			productName = SFrame;
-		};
-		9BAA26082DED9DA90085883C /* SwiftLintBuildToolPlugin */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
-			productName = "plugin:SwiftLintBuildToolPlugin";
 		};
 		9BC070D22D2C37AD00FE5B0E /* SwiftLintBuildToolPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
