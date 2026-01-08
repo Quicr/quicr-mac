@@ -250,33 +250,27 @@ public:
 
         id<MoxygenTrackCallback> strongCallback = callback_;
         if (strongCallback && payload) {
-            // Capture receive time before async dispatch
             uint64_t receiveTicks = mach_absolute_time();
 
-            // Coalesce IOBuf chain into contiguous NSData
-            auto totalLen = payload->computeChainDataLength();
-            NSMutableData* data = [NSMutableData dataWithCapacity:totalLen];
-            for (auto& buf : *payload) {
-                [data appendBytes:buf.data() length:buf.size()];
-            }
+            // Coalesce IOBuf in place if chained, then zero-copy wrap for callback
+            payload->coalesce();
+            NSData* data = [NSData dataWithBytesNoCopy:(void*)payload->data()
+                                               length:payload->length()
+                                         freeWhenDone:NO];
 
             // Convert extensions
             NSDictionary* mutableExts = nil;
             NSDictionary* immutableExts = nil;
             convertMoxygenExtensions(extensions, &mutableExts, &immutableExts);
 
-            // Capture values by copy before async dispatch - object may be deallocated
-            uint64_t capturedGroupId = groupId_;
-            uint64_t capturedSubgroupId = subgroupId_;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [strongCallback onObjectReceived:capturedGroupId
-                                      subgroupId:capturedSubgroupId
-                                        objectId:objectID
-                                            data:data
-                                      extensions:mutableExts
-                            immutableExtensions:immutableExts
-                                    receiveTicks:receiveTicks];
-            });
+            // Call synchronously - Swift will copy what it needs
+            [strongCallback onObjectReceived:groupId_
+                                  subgroupId:subgroupId_
+                                    objectId:objectID
+                                        data:data
+                                  extensions:mutableExts
+                        immutableExtensions:immutableExts
+                                receiveTicks:receiveTicks];
         }
         return folly::unit;
     }
@@ -368,30 +362,27 @@ private:
     void deliverAccumulatedPayload(uint64_t objectID) {
         id<MoxygenTrackCallback> strongCallback = callback_;
         if (strongCallback && accumulatedPayload_) {
-            // Capture receive time before async dispatch
             uint64_t receiveTicks = mach_absolute_time();
 
-            // Coalesce the IOBuf chain into a single contiguous buffer
-            auto totalLen = accumulatedPayload_->computeChainDataLength();
-            NSMutableData* data = [NSMutableData dataWithCapacity:totalLen];
-            for (auto& buf : *accumulatedPayload_) {
-                [data appendBytes:buf.data() length:buf.size()];
-            }
-            // Capture values by copy before async dispatch - object may be deallocated
-            uint64_t capturedGroupId = groupId_;
-            uint64_t capturedSubgroupId = subgroupId_;
+            // Coalesce IOBuf in place if chained, then zero-copy wrap for callback
+            accumulatedPayload_->coalesce();
+            NSData* data = [NSData dataWithBytesNoCopy:(void*)accumulatedPayload_->data()
+                                               length:accumulatedPayload_->length()
+                                         freeWhenDone:NO];
+
             NSDictionary* mutableExts = currentMutableExtensions_;
             NSDictionary* immutableExts = currentImmutableExtensions_;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [strongCallback onObjectReceived:capturedGroupId
-                                      subgroupId:capturedSubgroupId
-                                        objectId:objectID
-                                            data:data
-                                      extensions:mutableExts
-                            immutableExtensions:immutableExts
-                                    receiveTicks:receiveTicks];
-            });
+
+            // Call synchronously - Swift will copy what it needs
+            [strongCallback onObjectReceived:groupId_
+                                  subgroupId:subgroupId_
+                                    objectId:objectID
+                                        data:data
+                                  extensions:mutableExts
+                        immutableExtensions:immutableExts
+                                receiveTicks:receiveTicks];
         }
+        // Clean up after callback returns
         accumulatedPayload_.reset();
         currentMutableExtensions_ = nil;
         currentImmutableExtensions_ = nil;
@@ -433,34 +424,27 @@ public:
         const moxygen::ObjectHeader& header, moxygen::Payload payload) override {
         id<MoxygenTrackCallback> strongCallback = callback_;
         if (strongCallback && payload) {
-            // Capture receive time before async dispatch
             uint64_t receiveTicks = mach_absolute_time();
 
-            // Coalesce IOBuf chain into contiguous NSData
-            auto totalLen = payload->computeChainDataLength();
-            NSMutableData* data = [NSMutableData dataWithCapacity:totalLen];
-            for (auto& buf : *payload) {
-                [data appendBytes:buf.data() length:buf.size()];
-            }
+            // Coalesce IOBuf in place if chained, then zero-copy wrap for callback
+            payload->coalesce();
+            NSData* data = [NSData dataWithBytesNoCopy:(void*)payload->data()
+                                               length:payload->length()
+                                         freeWhenDone:NO];
 
             // Convert extensions from header
             NSDictionary* mutableExts = nil;
             NSDictionary* immutableExts = nil;
             convertMoxygenExtensions(header.extensions, &mutableExts, &immutableExts);
 
-            // Capture header values before async dispatch
-            uint64_t group = header.group;
-            uint64_t subgroup = header.subgroup;
-            uint64_t objectId = header.id;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [strongCallback onObjectReceived:group
-                                      subgroupId:subgroup
-                                        objectId:objectId
-                                            data:data
-                                      extensions:mutableExts
-                            immutableExtensions:immutableExts
-                                    receiveTicks:receiveTicks];
-            });
+            // Call synchronously - Swift will copy what it needs
+            [strongCallback onObjectReceived:header.group
+                                  subgroupId:header.subgroup
+                                    objectId:header.id
+                                        data:data
+                                  extensions:mutableExts
+                        immutableExtensions:immutableExts
+                                receiveTicks:receiveTicks];
         }
         return folly::unit;
     }

@@ -24,6 +24,7 @@ class MoxygenVideoSubscription: NSObject, MoxygenTrackCallback {
     private let fullTrackName: FullTrackName
     private let profile: Profile
     private var objectCount: UInt64 = 0
+    private let timeAligner: TimeAligner
 
     /// Create a moxygen video subscription.
     /// - Parameters:
@@ -64,6 +65,16 @@ class MoxygenVideoSubscription: NSObject, MoxygenTrackCallback {
             handlerConfig: handlerConfig,
             wifiDetector: nil
         )
+
+        // Create a TimeAligner for this single handler.
+        // Capture handler in a local variable to avoid capturing self before super.init().
+        let capturedHandler = self.handler
+        self.timeAligner = .init(windowLength: subConfig.videoJitterBuffer.window,
+                                 capacity: Int(config.fps)) {
+            [weak capturedHandler] in
+            guard let handler = capturedHandler else { return [] }
+            return [handler]
+        }
 
         super.init()
 
@@ -111,6 +122,14 @@ class MoxygenVideoSubscription: NSObject, MoxygenTrackCallback {
             cached: false,
             drop: false
         )
+
+        // Set time alignment from capture timestamp in extensions.
+        // This enables proper jitter buffer timing calculations.
+        if let immutableExtensions = immutableExtensions,
+           let timestampData = try? immutableExtensions.getHeader(.captureTimestamp),
+           case .captureTimestamp(let timestamp) = timestampData {
+            timeAligner.doTimestampTimeDiff(timestamp.timeIntervalSince1970, when: receiveTicks)
+        }
 
         // Start playout on first keyframe
         if isKeyframe && objectCount == 1 {
