@@ -30,15 +30,29 @@ typedef NS_ENUM(NSInteger, MoxygenGroupOrder) {
 @protocol MoxygenClientCallbacks <NSObject>
 - (void)onStatusChanged:(MoxygenConnectionStatus)status;
 - (void)onError:(NSString *)error;
+@optional
+/// Called when a subscriber subscribes to one of our published tracks
+- (void)onSubscriberConnected:(NSArray<NSString *> *)trackNamespace
+                    trackName:(NSString *)trackName;
 @end
 
 /// Callback protocol for receiving track data from subscriptions
 @protocol MoxygenTrackCallback <NSObject>
 /// Called when an object is received on the subscription
+/// @param groupId The group ID
+/// @param subgroupId The subgroup ID
+/// @param objectId The object ID
+/// @param data The object payload
+/// @param extensions Mutable header extensions (may be nil)
+/// @param immutableExtensions Immutable header extensions (may be nil)
+/// @param receiveTicks The mach_absolute_time when the object was received
 - (void)onObjectReceived:(uint64_t)groupId
               subgroupId:(uint64_t)subgroupId
                 objectId:(uint64_t)objectId
-                    data:(NSData *)data;
+                    data:(NSData *)data
+              extensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable)extensions
+    immutableExtensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable)immutableExtensions
+            receiveTicks:(uint64_t)receiveTicks;
 
 /// Called when subscription status changes
 - (void)onSubscribeStatus:(MoxygenSubscribeStatus)status
@@ -109,6 +123,17 @@ typedef NS_ENUM(NSInteger, MoxygenGroupOrder) {
 /// @return YES if published successfully, NO on error
 - (BOOL)publishObject:(MoxygenObjectHeader *)header
                  data:(NSData *)data;
+
+/// Publish an object on this track with extensions
+/// @param header The object header (group, subgroup, object IDs)
+/// @param data The object payload
+/// @param extensions Mutable header extensions (may be nil)
+/// @param immutableExtensions Immutable header extensions (may be nil)
+/// @return YES if published successfully, NO on error
+- (BOOL)publishObject:(MoxygenObjectHeader *)header
+                 data:(NSData *)data
+           extensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable)extensions
+  immutableExtensions:(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable)immutableExtensions;
 
 /// Close this publisher
 - (void)close;

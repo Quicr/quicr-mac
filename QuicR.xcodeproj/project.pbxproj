@@ -87,11 +87,15 @@
 		9B4D8D3A2D95ACFE00F4FE66 /* TimeAligned.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4D8D392D95ACFC00F4FE66 /* TimeAligned.swift */; };
 		9B4EC0E02F0EA1AB00B5E740 /* MoxygenClientObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC0DF2F0EA1AB00B5E740 /* MoxygenClientObjC.mm */; };
 		9B4EC12F2F0EA33F00B5E740 /* Moxygen.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9B4EC12E2F0EA33F00B5E740 /* Moxygen.framework */; };
+		9B4EC1342F0EFF7E00B5E740 /* LibquicrVideoSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1312F0EFF7E00B5E740 /* LibquicrVideoSink.swift */; };
+		9B4EC1352F0EFF7E00B5E740 /* VideoPublishSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1332F0EFF7E00B5E740 /* VideoPublishSink.swift */; };
+		9B4EC1362F0EFF7E00B5E740 /* MoxygenVideoSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1322F0EFF7E00B5E740 /* MoxygenVideoSink.swift */; };
 		9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC6812D85976D009A2872 /* LOCRegistry.swift */; };
 		9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */; };
 		9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68C2D85B926009A2872 /* VarInt.swift */; };
 		9B5EC68F2D85C003009A2872 /* TestVarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68E2D85C000009A2872 /* TestVarInt.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
+		9B4EC1392F0F000000B5E740 /* MoxygenVideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
 		9B6ADC5B2DEDB1AB009E9060 /* DisplayPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */; };
@@ -388,11 +392,15 @@
 		9B4EC12B2F0EA22400B5E740 /* libmvfst_string_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmvfst_string_utils.a; path = "dependencies/moxygen-install/lib/libmvfst_string_utils.a"; sourceTree = "<group>"; };
 		9B4EC12D2F0EA28000B5E740 /* moxygen.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = moxygen.xcconfig; sourceTree = "<group>"; };
 		9B4EC12E2F0EA33F00B5E740 /* Moxygen.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Moxygen.framework; path = dependencies/Moxygen.framework; sourceTree = "<group>"; };
+		9B4EC1312F0EFF7E00B5E740 /* LibquicrVideoSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibquicrVideoSink.swift; sourceTree = "<group>"; };
+		9B4EC1322F0EFF7E00B5E740 /* MoxygenVideoSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoxygenVideoSink.swift; sourceTree = "<group>"; };
+		9B4EC1332F0EFF7E00B5E740 /* VideoPublishSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPublishSink.swift; sourceTree = "<group>"; };
 		9B5EC6812D85976D009A2872 /* LOCRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LOCRegistry.swift; sourceTree = "<group>"; };
 		9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMediaInterop.swift; sourceTree = "<group>"; };
 		9B5EC68C2D85B926009A2872 /* VarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarInt.swift; sourceTree = "<group>"; };
 		9B5EC68E2D85C000009A2872 /* TestVarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarInt.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
+		9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoxygenVideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
 		9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPicker.swift; sourceTree = "<group>"; };
@@ -951,6 +959,9 @@
 		FF2498AE2A534E5B00C6D66D /* Publications */ = {
 			isa = PBXGroup;
 			children = (
+				9B4EC1312F0EFF7E00B5E740 /* LibquicrVideoSink.swift */,
+				9B4EC1322F0EFF7E00B5E740 /* MoxygenVideoSink.swift */,
+				9B4EC1332F0EFF7E00B5E740 /* VideoPublishSink.swift */,
 				9B379A292DF31B2600BB060A /* TextPublication.swift */,
 				9B474D832DAD5D6F00EB6DE7 /* AudioPublication.swift */,
 				9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */,
@@ -981,6 +992,7 @@
 				FF2498B32A55E8CC00C6D66D /* SubscriptionFactory.swift */,
 				180E74632B0E4F5E0045B9D6 /* VideoHandler.swift */,
 				9B61384D2C904E25006E5E11 /* VideoSubscription.swift */,
+				9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */,
 			);
 			path = Subscriptions;
 			sourceTree = "<group>";
@@ -1364,6 +1376,7 @@
 				18C89A3C2A13D30B005B333B /* MetricsSubmitter.swift in Sources */,
 				9BDCEA832D2EB2C300FE301B /* ObservableSubscriptionDetails.swift in Sources */,
 				9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */,
+				9B4EC1392F0F000000B5E740 /* MoxygenVideoSubscription.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
 				9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */,
@@ -1380,6 +1393,9 @@
 				9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */,
 				9B474D802DAD5D3300EB6DE7 /* CallState.swift in Sources */,
 				9B1246322CD8EB83004C020C /* QFullTrackName.mm in Sources */,
+				9B4EC1342F0EFF7E00B5E740 /* LibquicrVideoSink.swift in Sources */,
+				9B4EC1352F0EFF7E00B5E740 /* VideoPublishSink.swift in Sources */,
+				9B4EC1362F0EFF7E00B5E740 /* MoxygenVideoSink.swift in Sources */,
 				9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */,
 				18C89A402A13D334005B333B /* InfluxMetricsSubmitter.swift in Sources */,
 				9B48066E297F19700040F5D4 /* CaptureManager.swift in Sources */,

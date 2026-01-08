@@ -230,7 +230,7 @@ class VideoSubscription: Subscription {
                        relayId: relayId,
                        metricsSubmitter: metricsSubmitter,
                        priority: 0,
-                       groupOrder: .originalPublisherOrder,
+                       groupOrder: .descending,
                        filterType: .latestObject,
                        publisherInitiated: publisherInitiated,
                        statusCallback: statusChanged)

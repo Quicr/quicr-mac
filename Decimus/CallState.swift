@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import AVFoundation
 import CryptoKit
 import SFrame
 import SwiftUI
@@ -94,6 +95,8 @@ class CallState: ObservableObject, Equatable {
     private var receiveContext: SFrameContext?
     private var moxygenClient: MoxygenClientObjC?
     private var moxygenCallbacks: MoxygenCallbackHandler?
+    private var moxygenVideoPublication: H264Publication?
+    private var moxygenVideoSubscriptions: [MoxygenVideoSubscription] = []
 
     @AppStorage(SubscriptionSettingsView.showLabelsKey)
     var showLabels: Bool = true
@@ -283,8 +286,204 @@ class CallState: ObservableObject, Equatable {
             Self.logger.info("Moxygen: Connecting to \(self.config.address)")
             client.connect()
 
-            // TODO: Implement full moxygen pub/sub integration
-            Self.logger.warning("Moxygen stack selected but full pub/sub not yet implemented")
+            // Await connection result
+            let connected = await callbacks.awaitConnection()
+            guard connected else {
+                let error = callbacks.getLastError() ?? "Unknown error"
+                Self.logger.error("Moxygen connection failed: \(error)")
+                return false
+            }
+            Self.logger.info("Moxygen: Connected successfully")
+
+            // Set up video publication if we have a camera
+            if self.role != .subscriber, let captureManager = self.captureManager {
+                do {
+                    // Find video publication from manifest
+                    guard let videoPublication = manifest.publications.first(where: {
+                        $0.mediaType == ManifestMediaTypes.video.rawValue
+                    }) else {
+                        Self.logger.warning("No video publication in manifest for moxygen")
+                        return true
+                    }
+
+                    // Get first video profile and codec config
+                    guard let profile = videoPublication.profileSet.profiles.first else {
+                        Self.logger.warning("No video profile in manifest")
+                        return true
+                    }
+
+                    let codecFactory = CodecFactoryImpl()
+                    guard let config = codecFactory.makeCodecConfig(from: profile.qualityProfile,
+                                                                     bitrateType: .average) as? VideoCodecConfig else {
+                        Self.logger.warning("Failed to create video codec config")
+                        return true
+                    }
+
+                    // Get camera device
+                    let device: AVCaptureDevice
+                    #if os(macOS)
+                    guard let externalCamera = AVCaptureDevice.default(.external, for: .video, position: .unspecified) else {
+                        Self.logger.warning("No camera available for moxygen video publication")
+                        return true
+                    }
+                    device = externalCamera
+                    #else
+                    if #available(iOS 17.0, tvOS 17.0, *) {
+                        guard let preferred = AVCaptureDevice.systemPreferredCamera else {
+                            Self.logger.warning("No camera available for moxygen video publication")
+                            return true
+                        }
+                        device = preferred
+                    } else {
+                        guard let preferred = AVCaptureDevice.default(for: .video) else {
+                            Self.logger.warning("No camera available for moxygen video publication")
+                            return true
+                        }
+                        device = preferred
+                    }
+                    #endif
+
+                    // Announce the namespace so the relay knows we can publish
+                    if !client.announceNamespace(profile.namespace) {
+                        Self.logger.warning("Moxygen: Failed to announce namespace - relay may not support announce")
+                    } else {
+                        Self.logger.info("Moxygen: Announced namespace \(profile.namespace)")
+                    }
+
+                    // Set up handler to create publisher when a subscriber connects
+                    // Moxygen uses a reactive model - publish only works when subscribers are connected
+                    let publisherNamespace = profile.namespace
+                    callbacks.onSubscriberConnectedHandler = { [weak self, weak client] namespace, trackName in
+                        guard let self = self,
+                              let client = client,
+                              trackName == "video",
+                              namespace == publisherNamespace,
+                              self.moxygenVideoPublication == nil else { return }
+
+                        Self.logger.info("Moxygen: Subscriber connected, creating publisher")
+
+                        guard let moxygenPublisher = client.createPublisher(withNamespace: namespace,
+                                                                             trackName: trackName,
+                                                                             groupOrder: .newestFirst) else {
+                            Self.logger.error("Moxygen: Failed to create publisher after subscriber connected")
+                            return
+                        }
+
+                        do {
+                            let sink = MoxygenVideoSink(publisher: moxygenPublisher)
+                            let keyFrameInterval = self.subscriptionConfig.value.keyFrameInterval
+                            let encoder = try VTEncoder(config: config,
+                                                        verticalMirror: device.position == .front,
+                                                        emitStartCodes: false,
+                                                        keyFrameInterval: keyFrameInterval)
+                            let publication = try H264Publication(profile: profile,
+                                                                  config: config,
+                                                                  metricsSubmitter: self.submitter,
+                                                                  granularMetrics: self.influxConfig.value.granular,
+                                                                  encoder: encoder,
+                                                                  device: device,
+                                                                  stagger: subConfig.stagger,
+                                                                  verbose: self.verbose,
+                                                                  sframeContext: self.sendContext,
+                                                                  mediaInterop: self.mediaInterop,
+                                                                  sink: sink)
+                            self.moxygenVideoPublication = publication
+
+                            try captureManager.addInput(publication)
+                            try captureManager.startCapturing()
+                            self.videoCapture = true
+                            Self.logger.info("Moxygen: Video publication started after subscriber connected")
+                        } catch {
+                            Self.logger.error("Moxygen: Failed to start publication: \(error.localizedDescription)")
+                        }
+                    }
+
+                    // Try to create publisher immediately (might fail if no subscribers yet)
+                    if let moxygenPublisher = client.createPublisher(withNamespace: profile.namespace,
+                                                                      trackName: "video",
+                                                                      groupOrder: .newestFirst) {
+                        // Create sink and publication
+                        let sink = MoxygenVideoSink(publisher: moxygenPublisher)
+                        let keyFrameInterval = self.subscriptionConfig.value.keyFrameInterval
+                        let encoder = try VTEncoder(config: config,
+                                                    verticalMirror: device.position == .front,
+                                                    emitStartCodes: false,
+                                                    keyFrameInterval: keyFrameInterval)
+                        let publication = try H264Publication(profile: profile,
+                                                              config: config,
+                                                              metricsSubmitter: self.submitter,
+                                                              granularMetrics: self.influxConfig.value.granular,
+                                                              encoder: encoder,
+                                                              device: device,
+                                                              stagger: subConfig.stagger,
+                                                              verbose: self.verbose,
+                                                              sframeContext: self.sendContext,
+                                                              mediaInterop: self.mediaInterop,
+                                                              sink: sink)
+                        self.moxygenVideoPublication = publication
+
+                        // Add to capture manager and start
+                        try captureManager.addInput(publication)
+                        try captureManager.startCapturing()
+                        self.videoCapture = true
+                        Self.logger.info("Moxygen: Video publication started")
+                    } else {
+                        Self.logger.info("Moxygen: No subscribers yet - will start publishing when subscriber connects")
+                    }
+                } catch {
+                    Self.logger.error("Failed to set up moxygen video publication: \(error.localizedDescription)")
+                }
+            }
+
+            // Set up video subscriptions for moxygen
+            if self.role != .publisher {
+                let factoryConfig = MoxygenVideoSubscriptionConfig(
+                    videoParticipants: self.videoParticipants,
+                    metricsSubmitter: self.submitter,
+                    subscriptionConfig: self.subscriptionConfig.value,
+                    granularMetrics: self.influxConfig.value.granular,
+                    joinDate: self.joinDate,
+                    activeSpeakerStats: self.activeSpeakerStats,
+                    verbose: self.verbose,
+                    calculateLatency: self.showLabels,
+                    mediaInterop: self.mediaInterop
+                )
+                let subscriptionFactory = MoxygenVideoSubscriptionFactory(config: factoryConfig)
+
+                for subscription in manifest.subscriptions where subscription.mediaType == ManifestMediaTypes.video.rawValue {
+                    // Create a shared variance calculator per subscription set
+                    let variances = try! VarianceCalculator(expectedOccurrences: 10) // swiftlint:disable force_try
+
+                    for profile in subscription.profileSet.profiles {
+                        let request = MoxygenSubscribeRequest()
+                        request.trackNamespace = profile.namespace
+                        request.trackName = "video"
+                        request.priority = 0
+                        request.groupOrder = .newestFirst
+
+                        let trackKey = profile.namespace.joined(separator: "/") + "/video"
+
+                        do {
+                            let videoSubscription = try subscriptionFactory.create(
+                                profile: profile,
+                                participantId: subscription.participantId,
+                                variances: variances
+                            )
+                            self.moxygenVideoSubscriptions.append(videoSubscription)
+
+                            Self.logger.info("Moxygen: Subscribing to \(trackKey)")
+                            if client.subscribe(with: request, callback: videoSubscription) {
+                                Self.logger.info("Moxygen: Subscribe request sent for \(trackKey)")
+                            } else {
+                                Self.logger.error("Moxygen: Failed to subscribe to \(trackKey)")
+                            }
+                        } catch {
+                            Self.logger.error("Moxygen: Failed to create subscription for \(trackKey): \(error)")
+                        }
+                    }
+                }
+            }
+
             return true
         }
 
@@ -746,9 +945,15 @@ extension CallState {
     }
 }
 
-// Moxygen callback handler
+// Moxygen callback handler with async connection support
 class MoxygenCallbackHandler: NSObject, MoxygenClientCallbacks {
     private static let logger = DecimusLogger(MoxygenCallbackHandler.self)
+
+    private var connectionContinuation: CheckedContinuation<Bool, Never>?
+    private var lastError: String?
+
+    /// Called when a subscriber connects to one of our published tracks
+    var onSubscriberConnectedHandler: (([String], String) -> Void)?
 
     func onStatusChanged(_ status: MoxygenConnectionStatus) {
         let statusString: String
@@ -760,9 +965,37 @@ class MoxygenCallbackHandler: NSObject, MoxygenClientCallbacks {
         @unknown default: statusString = "Unknown"
         }
         Self.logger.info("Moxygen status: \(statusString)")
+
+        // Resume continuation if waiting for connection result
+        if status == .connected {
+            connectionContinuation?.resume(returning: true)
+            connectionContinuation = nil
+        } else if status == .failed {
+            connectionContinuation?.resume(returning: false)
+            connectionContinuation = nil
+        }
     }
 
     func onError(_ error: String) {
         Self.logger.error("Moxygen error: \(error)")
+        lastError = error
+    }
+
+    func onSubscriberConnected(_ trackNamespace: [String], trackName: String) {
+        Self.logger.info("Moxygen: Subscriber connected to \(trackNamespace.joined(separator: "/"))/\(trackName)")
+        onSubscriberConnectedHandler?(trackNamespace, trackName)
+    }
+
+    /// Await connection result. Call this after calling connect() on the client.
+    func awaitConnection() async -> Bool {
+        await withCheckedContinuation { continuation in
+            self.connectionContinuation = continuation
+        }
+    }
+
+    /// Get the last error message, if any.
+    func getLastError() -> String? {
+        lastError
     }
 }
+

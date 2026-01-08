@@ -16,7 +16,8 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-class H264Publication: Publication, FrameListener {
+/// H264/HEVC video publication using a pluggable VideoPublishSink backend.
+class H264Publication: FrameListener, VideoPublishSinkDelegate {
     private let logger = DecimusLogger(H264Publication.self)
 
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
@@ -25,7 +26,6 @@ class H264Publication: Publication, FrameListener {
     let queue: DispatchQueue
 
     private var encoder: VideoEncoder
-    private let reliable: Bool
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
@@ -36,12 +36,19 @@ class H264Publication: Publication, FrameListener {
     private let stagger: Bool
     private let publishFailure = Atomic(false)
     private let verbose: Bool
-    private let keyFrameOnUpdate: Bool
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
     private let emitStartCodes = false
     private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+
+    // The publish sink (libquicr or moxygen)
+    let sink: VideoPublishSink
+
+    // Profile for priority/TTL values
+    private let profile: Profile
+    private let defaultPriority: UInt8
+    private let defaultTTL: UInt16
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -172,9 +179,8 @@ class H264Publication: Publication, FrameListener {
             thisObjectId = 0
         }
 
-        // Publish.
-        var protected: Data?
-        let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
+        // Publish via sink.
+        let result: (VideoPublishResult, Int) = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
             let data: Data
             if let extradata {
                 let sampleData = Data(bytes: ptr.baseAddress!, count: ptr.count)
@@ -195,30 +201,35 @@ class H264Publication: Publication, FrameListener {
                     }
                 } catch {
                     publication.logger.error("Failed to protect data: \(error.localizedDescription)")
-                    return (QPublishObjectStatus.internalError, 0)
+                    return (.error, 0)
                 }
             } else {
                 protected = data
             }
-            var priority = publication.getPriority(idr ? 0 : 1)
-            var ttl = publication.getTTL(idr ? 0 : 1)
-            return (publication.publish(groupId: thisGroupId,
-                                        objectId: thisObjectId,
-                                        data: protected,
-                                        priority: &priority,
-                                        ttl: &ttl,
-                                        extensions: nil,
-                                        immutableExtensions: extensions),
-                    protected.count)
+
+            let priority = publication.getPriority(idr ? 0 : 1)
+            let ttl = publication.getTTL(idr ? 0 : 1)
+            let publishResult = publication.sink.publish(groupId: thisGroupId,
+                                                         objectId: thisObjectId,
+                                                         data: protected,
+                                                         priority: priority,
+                                                         ttl: ttl,
+                                                         extensions: nil,
+                                                         immutableExtensions: extensions)
+            return (publishResult, protected.count)
         }
-        switch status.0 {
+
+        switch result.0 {
         case .ok:
             if publication.verbose {
                 publication.logger.debug("Published: \(thisGroupId): \(thisObjectId)")
             }
             publication.publishFailure.store(false, ordering: .releasing)
-        default:
-            publication.logger.warning("Failed to publish object: \(status)")
+        case .notReady:
+            publication.logger.debug("Sink not ready, skipping frame")
+            return
+        case .error:
+            publication.logger.warning("Failed to publish object")
             publication.publishFailure.store(true, ordering: .releasing)
             return
         }
@@ -230,7 +241,7 @@ class H264Publication: Publication, FrameListener {
 
         // Metrics.
         guard let measurement = publication.measurement else { return }
-        let bytes = status.1
+        let bytes = result.1
         let sent: Date? = publication.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
             await measurement.measurement.sentFrame(bytes: UInt64(bytes),
@@ -240,22 +251,19 @@ class H264Publication: Publication, FrameListener {
         }
     }
 
-    required init(profile: Profile,
-                  config: VideoCodecConfig,
-                  metricsSubmitter: MetricsSubmitter?,
-                  reliable: Bool,
-                  granularMetrics: Bool,
-                  encoder: VideoEncoder,
-                  device: AVCaptureDevice,
-                  endpointId: String,
-                  relayId: String,
-                  stagger: Bool,
-                  verbose: Bool,
-                  keyFrameOnUpdate: Bool,
-                  sframeContext: SendSFrameContext?,
-                  mediaInterop: Bool,
-                  useAnnounce: Bool) throws {
+    init(profile: Profile,
+         config: VideoCodecConfig,
+         metricsSubmitter: MetricsSubmitter?,
+         granularMetrics: Bool,
+         encoder: VideoEncoder,
+         device: AVCaptureDevice,
+         stagger: Bool,
+         verbose: Bool,
+         sframeContext: SendSFrameContext?,
+         mediaInterop: Bool,
+         sink: VideoPublishSink) throws {
         let namespace = profile.namespace.joined()
+        self.profile = profile
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {
@@ -266,59 +274,66 @@ class H264Publication: Publication, FrameListener {
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.reliable = reliable
         self.encoder = encoder
         self.device = device
         self.stagger = stagger
         self.verbose = verbose
-        self.keyFrameOnUpdate = keyFrameOnUpdate
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
-        self.logger.info("Registered H264 publication for namespace \(namespace)")
+        self.sink = sink
 
         guard let defaultPriority = profile.priorities?.first,
               let defaultTTL = profile.expiry?.first else {
             throw "Missing expected profile values"
         }
+        self.defaultPriority = UInt8(clamping: defaultPriority)
+        self.defaultTTL = UInt16(clamping: defaultTTL)
 
-        try super.init(profile: profile,
-                       trackMode: reliable ? .stream : .datagram,
-                       defaultPriority: UInt8(clamping: defaultPriority),
-                       defaultTTL: UInt16(clamping: defaultTTL),
-                       submitter: metricsSubmitter,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       logger: self.logger,
-                       useAnnounce: useAnnounce)
+        self.logger.info("Registered H264 publication for namespace \(namespace)")
+
+        // Set ourselves as the sink's delegate for key frame requests
+        sink.delegate = self
+
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }
 
-    internal func publish(groupId: UInt64,
-                          objectId: UInt64,
-                          data: Data,
-                          priority: UnsafePointer<UInt8>?,
-                          ttl: UnsafePointer<UInt16>?,
-                          extensions: HeaderExtensions?,
-                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
-        let headers = QObjectHeaders(groupId: groupId,
-                                     objectId: objectId,
-                                     payloadLength: UInt64(data.count),
-                                     priority: priority,
-                                     ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
-    }
-
     deinit {
         self.logger.debug("Deinit")
+        sink.close()
     }
 
-    override func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        super.statusChanged(status)
-        if (status == .subscriptionUpdated && self.keyFrameOnUpdate) || status == .newGroupRequested {
-            self.generateKeyFrame.store(true, ordering: .releasing)
+    /// Retrieve the priority value from this publications' priority array at
+    /// the given index, if one exists.
+    func getPriority(_ index: Int) -> UInt8 {
+        guard let priorities = profile.priorities,
+              index < priorities.count,
+              priorities[index] <= UInt8.max,
+              priorities[index] >= UInt8.min else {
+            return self.defaultPriority
         }
+        return UInt8(priorities[index])
     }
+
+    /// Retrieve the TTL / expiry value from this publications' expiry array at
+    /// the given index, if one exists.
+    func getTTL(_ index: Int) -> UInt16 {
+        guard let ttls = profile.expiry,
+              index < ttls.count,
+              ttls[index] <= UInt16.max,
+              ttls[index] >= UInt16.min else {
+            return self.defaultTTL
+        }
+        return UInt16(ttls[index])
+    }
+
+    // MARK: - VideoPublishSinkDelegate
+
+    func sinkRequestsKeyFrame() {
+        self.generateKeyFrame.store(true, ordering: .releasing)
+    }
+
+    // MARK: - FrameListener
 
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
@@ -334,8 +349,8 @@ class H264Publication: Publication, FrameListener {
         }
 
         // If we're not in a state to be publishing, don't go any further.
-        guard self.canPublish() else {
-            self.logger.debug("Didn't encode due to publication status: \(self.getStatus())")
+        guard self.sink.canPublish() else {
+            self.logger.debug("Didn't encode due to sink not ready")
             return
         }
 

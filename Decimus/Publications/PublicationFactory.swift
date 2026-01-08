@@ -141,23 +141,35 @@ class PublicationFactoryImpl: PublicationFactory {
                                         emitStartCodes: false,
                                         keyFrameInterval: self.keyFrameInterval)
 
+            // Create the libquicr sink
+            guard let defaultPriority = profile.priorities?.first,
+                  let defaultTTL = profile.expiry?.first else {
+                throw "Missing expected profile values"
+            }
+            let sink = try LibquicrVideoSink(profile: profile,
+                                             trackMode: reliability.video.publication ? .stream : .datagram,
+                                             defaultPriority: UInt8(clamping: defaultPriority),
+                                             defaultTTL: UInt16(clamping: defaultTTL),
+                                             submitter: metricsSubmitter,
+                                             endpointId: endpointId,
+                                             relayId: relayId,
+                                             useAnnounce: self.useAnnounce,
+                                             keyFrameOnUpdate: self.keyFrameOnUpdate)
+
+            // Create the publication with the sink
             let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
-                                                  reliable: reliability.video.publication,
                                                   granularMetrics: self.granularMetrics,
                                                   encoder: encoder,
                                                   device: device,
-                                                  endpointId: endpointId,
-                                                  relayId: relayId,
                                                   stagger: self.stagger,
                                                   verbose: self.verbose,
-                                                  keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
-                                                  useAnnounce: self.useAnnounce)
+                                                  sink: sink)
             try captureManager.addInput(publication)
-            return publication
+            return sink
         case .opus:
             guard let engine = self.engine else {
                 throw PubSubFactoryError.cannotCreate(noAudioError)
