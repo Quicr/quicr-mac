@@ -141,6 +141,19 @@ class PublicationFactoryImpl: PublicationFactory {
                                         emitStartCodes: false,
                                         keyFrameInterval: self.keyFrameInterval)
 
+            // Create the MoQSink for composition-based design
+            guard let defaultPriority = profile.priorities?.first,
+                  let defaultTTL = profile.expiry?.first else {
+                throw "Missing expected profile values for sink creation"
+            }
+            let sink = QPublishTrackHandlerSink(
+                fullTrackName: try profile.getFullTrackName(),
+                trackMode: reliability.video.publication ? .stream : .datagram,
+                defaultPriority: UInt8(clamping: defaultPriority),
+                defaultTTL: UInt32(defaultTTL),
+                useAnnounce: self.useAnnounce
+            )
+
             let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
@@ -155,9 +168,10 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
-                                                  useAnnounce: self.useAnnounce)
+                                                  sink: sink)
             try captureManager.addInput(publication)
-            return publication
+            // Return the underlying handler for CallController compatibility
+            return sink.underlyingHandler
         case .opus:
             guard let engine = self.engine else {
                 throw PubSubFactoryError.cannotCreate(noAudioError)
