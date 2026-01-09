@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Publishes text messages.
-class TextPublication: Publication {
+class TextPublication: PublicationInstance, MoQSinkDelegate {
     private let incrementing: Incrementing
     private let participantId: ParticipantId
     private let logger = DecimusLogger(TextPublication.self)
     private let sframeContext: SendSFrameContext?
+    let sink: MoQSink
+    private let defaults: PublicationDefaults
+    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
 
     private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
@@ -15,13 +18,12 @@ class TextPublication: Publication {
     init(participantId: ParticipantId,
          incrementing: Incrementing,
          profile: Profile,
-         trackMode: QTrackMode,
          submitter: (any MetricsSubmitter)?,
          endpointId: String,
          relayId: String,
          sframeContext: SendSFrameContext?,
-         useAnnounce: Bool,
-         startingGroupId: UInt64) throws {
+         startingGroupId: UInt64,
+         sink: MoQSink) throws {
         self.participantId = participantId
         self.incrementing = incrementing
         guard let priority = profile.priorities?.first,
@@ -30,15 +32,19 @@ class TextPublication: Publication {
         }
         self.sframeContext = sframeContext
         self.currentGroupId = startingGroupId
-        try super.init(profile: profile,
-                       trackMode: trackMode,
-                       defaultPriority: UInt8(priority),
-                       defaultTTL: UInt16(ttl),
-                       submitter: submitter,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       logger: self.logger,
-                       useAnnounce: useAnnounce)
+        self.defaults = .init(profile: profile,
+                              defaultPriority: UInt8(priority),
+                              defaultTTL: UInt16(ttl))
+        self.sink = sink
+        self.trackMeasurement = {
+            guard let submitter = submitter else { return nil }
+            let measurement = TrackMeasurement(type: .publish,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: profile.namespace.joined())
+            return .init(measurement: measurement, submitter: submitter)
+        }()
+        self.sink.delegate = self
     }
 
     func sendMessage(_ message: String) {
@@ -65,10 +71,10 @@ class TextPublication: Publication {
                                      ttl: nil)
         var extensions = HeaderExtensions()
         try? extensions.setHeader(.participantId(self.participantId))
-        let status = self.publishObject(headers,
-                                        data: data,
-                                        extensions: nil,
-                                        immutableExtensions: extensions)
+        let status = self.sink.publishObject(headers,
+                                             data: data,
+                                             extensions: nil,
+                                             immutableExtensions: extensions)
         switch status {
         case .ok:
             break
@@ -84,6 +90,20 @@ class TextPublication: Publication {
             self.currentGroupId += 1
         case .object:
             self.currentObjectId += 1
+        }
+    }
+
+    // MARK: - MoQSinkDelegate
+
+    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+        self.logger.info("[\(self.defaults.profile.namespace.joined())] Status changed to: \(status)")
+    }
+
+    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
+        if let measurement = self.trackMeasurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
         }
     }
 }

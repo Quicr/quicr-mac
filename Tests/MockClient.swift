@@ -5,7 +5,7 @@
 
 // swiftlint:disable force_cast
 class MockClient: MoqClient {
-    typealias PublishTrackCallback = (Publication) -> Void
+    typealias PublishTrackCallback = (QPublishTrackHandlerObjC) -> Void
     typealias SubscribeTrackCallback = (Subscription) -> Void
     typealias FetchTrackCallback = (Fetch) -> Void
     private let publish: PublishTrackCallback
@@ -43,11 +43,11 @@ class MockClient: MoqClient {
     }
 
     func publishTrack(withHandler handler: QPublishTrackHandlerObjC) {
-        self.publish(handler as! Publication)
+        self.publish(handler)
     }
 
     func unpublishTrack(withHandler handler: QPublishTrackHandlerObjC) {
-        self.unpublish(handler as! Publication)
+        self.unpublish(handler)
     }
 
     func publishNamespace(_ trackNamespace: Data) { }

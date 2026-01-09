@@ -23,26 +23,26 @@ final class TestFullTrackName: XCTestCase {
 final class TestCallController: XCTestCase {
 
     class MockPublicationFactory: PublicationFactory {
-        typealias PublicationCreated = (Publication) -> Void
+        typealias PublicationCreated = (MockPublication) -> Void
         private let callback: PublicationCreated
 
         init(_ created: @escaping PublicationCreated) {
             self.callback = created
         }
 
-        func create(publication: QuicR.ManifestPublication, codecFactory: CodecFactory, endpointId: String, relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
-            var pubs: [(FullTrackName, QPublishTrackHandlerObjC)] = []
+        func create(publication: QuicR.ManifestPublication,
+                    codecFactory: CodecFactory,
+                    endpointId: String,
+                    relayId: String) throws -> [(FullTrackName, any PublicationInstance)] {
+            var pubs: [(FullTrackName, any PublicationInstance)] = []
             for profile in publication.profileSet.profiles {
                 let ftn = try FullTrackName(namespace: profile.namespace, name: "")
-                let publication = try MockPublication(profile: profile,
-                                                      trackMode: .stream,
-                                                      defaultPriority: 0,
-                                                      defaultTTL: 0,
-                                                      submitter: nil,
-                                                      endpointId: "",
-                                                      relayId: "",
-                                                      logger: DecimusLogger(TestPublication.self),
-                                                      useAnnounce: false)
+                let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                    trackMode: .stream,
+                                                    defaultPriority: 0,
+                                                    defaultTTL: 0,
+                                                    useAnnounce: false)
+                let publication = MockPublication(sink: sink)
                 self.callback(publication)
                 pubs.append((ftn, publication))
             }
@@ -50,7 +50,13 @@ final class TestCallController: XCTestCase {
         }
     }
 
-    class MockPublication: Publication { }
+    class MockPublication: PublicationInstance {
+        let sink: MoQSink
+
+        init(sink: MoQSink) {
+            self.sink = sink
+        }
+    }
 
     class MockSubscriptionFactory: GenericMockSubscriptionFactory<ObservableSubscriptionSet, MockSubscription> {
         override func make(subscription: ManifestSubscription,
@@ -176,17 +182,21 @@ final class TestCallController: XCTestCase {
                                                                       priorities: nil,
                                                                       namespace: ["namespace"])]))
 
-        var factoryCreated: Publication?
+        var factoryCreated: MockPublication?
         let creationCallback: MockPublicationFactory.PublicationCreated = { factoryCreated = $0 }
 
         // Create controller.
         var published = false
         var unpublished = false
         let publish: MockClient.PublishTrackCallback = {
-            published = $0 == factoryCreated
+            // swiftlint:disable:next force_cast
+            let sink = factoryCreated?.sink as! QPublishTrackHandlerSink
+            published = $0 === sink.handler
         }
         let unpublish: MockClient.PublishTrackCallback = {
-            unpublished = $0 == factoryCreated
+            // swiftlint:disable:next force_cast
+            let sink = factoryCreated?.sink as! QPublishTrackHandlerSink
+            unpublished = $0 === sink.handler
         }
         let subscribe: MockClient.SubscribeTrackCallback = { _ in }
         let unsubscribe: MockClient.SubscribeTrackCallback = { _ in }
@@ -209,7 +219,7 @@ final class TestCallController: XCTestCase {
         var publications = controller.getPublications()
         let namespace = details.profileSet.profiles.first!.namespace
         let ftn = try FullTrackName(namespace: namespace, name: "")
-        XCTAssert(self.assertFtnEquality(publications.map { $0.getFullTrackName() }, rhs: [ftn]))
+        XCTAssert(self.assertFtnEquality(publications.map { FullTrackName($0.sink.fullTrackName) }, rhs: [ftn]))
 
         // Removing should unpublish.
         try controller.unpublish(ftn)
@@ -217,7 +227,7 @@ final class TestCallController: XCTestCase {
 
         // No publications should be left.
         publications = controller.getPublications()
-        XCTAssertEqual(publications, [])
+        XCTAssertTrue(publications.isEmpty)
     }
 
     func testSubscriptionSetAlter() async throws {
