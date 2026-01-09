@@ -7,10 +7,13 @@ import CoreAudio
 import Accelerate
 import Synchronization
 
-class OpusPublication: Publication, AudioPublication {
+class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private static let logger = DecimusLogger(OpusPublication.self)
     private static let silence: Int = 127
 
+    let sink: MoQSink
+    private let defaults: PublicationDefaults
+    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
     private let opusWindowSize: OpusWindowSize
@@ -28,6 +31,7 @@ class OpusPublication: Publication, AudioPublication {
     private let incrementing: Incrementing
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private var profile: Profile { self.defaults.profile }
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -80,14 +84,19 @@ class OpusPublication: Publication, AudioPublication {
         self.startingGroupId = groupId
         self.currentGroupId = groupId
 
-        super.init(profile: profile,
-                   sink: sink,
-                   defaultPriority: UInt8(clamping: defaultPriority),
-                   defaultTTL: UInt16(clamping: defaultTTL),
-                   submitter: metricsSubmitter,
-                   endpointId: endpointId,
-                   relayId: relayId,
-                   logger: Self.logger)
+        self.defaults = .init(profile: profile,
+                              defaultPriority: UInt8(clamping: defaultPriority),
+                              defaultTTL: UInt16(clamping: defaultTTL))
+        self.sink = sink
+        self.trackMeasurement = {
+            guard let metricsSubmitter = metricsSubmitter else { return nil }
+            let measurement = TrackMeasurement(type: .publish,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: namespace)
+            return .init(measurement: measurement, submitter: metricsSubmitter)
+        }()
+        self.sink.delegate = self
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
@@ -168,8 +177,8 @@ class OpusPublication: Publication, AudioPublication {
             }
         }
 
-        guard self.canPublish() else {
-            Self.logger.warning("Not published due to status: \(self.getStatus())")
+        guard self.sink.canPublish else {
+            Self.logger.warning("Not published due to status: \(self.sink.status)")
             return
         }
 
@@ -219,7 +228,7 @@ class OpusPublication: Publication, AudioPublication {
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
+        return self.sink.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
     }
 
     struct EncodeResult {
@@ -284,5 +293,29 @@ class OpusPublication: Publication, AudioPublication {
         decibel = min(decibel, maxAudioLevel)
         decibel = max(decibel, minAudioLevel)
         return Int(decibel.rounded())
+    }
+
+    // MARK: - Publication helpers
+
+    func getPriority(_ index: Int) -> UInt8 {
+        self.defaults.priority(at: index)
+    }
+
+    func getTTL(_ index: Int) -> UInt16 {
+        self.defaults.ttl(at: index)
+    }
+
+    // MARK: - MoQSinkDelegate
+
+    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+        Self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
+    }
+
+    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
+        if let measurement = self.trackMeasurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
+        }
     }
 }

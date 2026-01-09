@@ -9,45 +9,25 @@ final class TestPublication: XCTestCase {
         let expectedPriority: UInt8 = 1
         let expectedTTL: UInt16 = 2
         let profile = Profile(qualityProfile: "", expiry: nil, priorities: nil, namespace: ["namespace"])
-        let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                            trackMode: .datagram,
-                                            defaultPriority: expectedPriority,
-                                            defaultTTL: UInt32(expectedTTL),
-                                            useAnnounce: false)
-        let publication = Publication(profile: profile,
-                                      sink: sink,
-                                      defaultPriority: expectedPriority,
-                                      defaultTTL: expectedTTL,
-                                      submitter: nil,
-                                      endpointId: "",
-                                      relayId: "",
-                                      logger: DecimusLogger(TestPublication.self))
-        XCTAssertEqual(expectedPriority, publication.getPriority(.random(in: 0..<Int.max)))
-        XCTAssertEqual(expectedTTL, publication.getTTL(.random(in: 0..<Int.max)))
+        let defaults = PublicationDefaults(profile: profile,
+                                           defaultPriority: expectedPriority,
+                                           defaultTTL: expectedTTL)
+        XCTAssertEqual(expectedPriority, defaults.priority(at: .random(in: 0..<Int.max)))
+        XCTAssertEqual(expectedTTL, defaults.ttl(at: .random(in: 0..<Int.max)))
     }
 
     func testManifestExtractIndexPresent() throws {
         let expectedPriority: UInt8 = 1
         let expectedTTL: UInt16 = 2
         let profile = Profile(qualityProfile: "", expiry: [3, 4], priorities: [5, 6], namespace: ["namespace"])
-        let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                            trackMode: .datagram,
-                                            defaultPriority: expectedPriority,
-                                            defaultTTL: UInt32(expectedTTL),
-                                            useAnnounce: false)
-        let publication = Publication(profile: profile,
-                                      sink: sink,
-                                      defaultPriority: expectedPriority,
-                                      defaultTTL: expectedTTL,
-                                      submitter: nil,
-                                      endpointId: "",
-                                      relayId: "",
-                                      logger: DecimusLogger(TestPublication.self))
-        XCTAssertEqual(5, publication.getPriority(0))
-        XCTAssertEqual(6, publication.getPriority(1))
-        XCTAssertEqual(expectedPriority, publication.getPriority(3))
-        XCTAssertEqual(3, publication.getTTL(0))
-        XCTAssertEqual(4, publication.getTTL(1))
-        XCTAssertEqual(expectedTTL, publication.getTTL(3))
+        let defaults = PublicationDefaults(profile: profile,
+                                           defaultPriority: expectedPriority,
+                                           defaultTTL: expectedTTL)
+        XCTAssertEqual(5, defaults.priority(at: 0))
+        XCTAssertEqual(6, defaults.priority(at: 1))
+        XCTAssertEqual(expectedPriority, defaults.priority(at: 3))
+        XCTAssertEqual(3, defaults.ttl(at: 0))
+        XCTAssertEqual(4, defaults.ttl(at: 1))
+        XCTAssertEqual(expectedTTL, defaults.ttl(at: 3))
     }
 }

@@ -56,10 +56,10 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
     // MARK: - QPublishTrackHandlerCallbacks
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        delegate?.sinkStatusChanged(status)
+        self.delegate?.sinkStatusChanged(status)
     }
 
     func metricsSampled(_ metrics: QPublishTrackMetrics) {
-        delegate?.sinkMetricsSampled(metrics)
+        self.delegate?.sinkMetricsSampled(metrics)
     }
 }
