@@ -17,13 +17,22 @@ enum H264PublicationError: LocalizedError {
 }
 
 /// H264 video publication using composition with MoQSink.
-class H264Publication: MoQSinkDelegate, FrameListener {
+class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let logger = DecimusLogger(H264Publication.self)
 
     // MARK: - Composition: MoQSink instead of inheritance
 
     /// The MoQ sink for publishing objects.
     let sink: MoQSink
+
+    /// Mirror the legacy Publication API so tests can override publishing state.
+    func canPublish() -> Bool {
+        self.sink.canPublish
+    }
+
+    func getStatus() -> QPublishTrackHandlerStatus {
+        self.sink.status
+    }
 
     // MARK: - Configuration (previously from Publication base class)
 
@@ -391,6 +400,11 @@ class H264Publication: MoQSinkDelegate, FrameListener {
         }
     }
 
+    /// Backwards compat for older tests invoking libquicr callbacks directly.
+    func metricsSampled(_ metrics: QPublishTrackMetrics) {
+        self.sinkMetricsSampled(metrics)
+    }
+
     // MARK: - FrameListener
 
     /// This callback fires when a video frame arrives.
@@ -407,8 +421,8 @@ class H264Publication: MoQSinkDelegate, FrameListener {
         }
 
         // If we're not in a state to be publishing, don't go any further.
-        guard self.sink.canPublish else {
-            self.logger.debug("Didn't encode due to publication status: \(self.sink.status)")
+        guard self.canPublish() else {
+            self.logger.debug("Didn't encode due to publication status: \(self.getStatus())")
             return
         }
 

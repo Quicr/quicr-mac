@@ -44,7 +44,8 @@ class FakeH264Publication: H264Publication {
                   stagger: Bool,
                   verbose: Bool,
                   keyFrameOnUpdate: Bool,
-                  notify: @escaping PublishCallback) throws {
+                  notify: @escaping PublishCallback,
+                  sink: MoQSink) throws {
         self.publishNotify = notify
         try super.init(profile: profile,
                        config: config,
@@ -60,7 +61,7 @@ class FakeH264Publication: H264Publication {
                        keyFrameOnUpdate: keyFrameOnUpdate,
                        sframeContext: nil,
                        mediaInterop: false,
-                       useAnnounce: false)
+                       sink: sink)
     }
 
     required init(profile: Profile,
@@ -77,9 +78,9 @@ class FakeH264Publication: H264Publication {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
-                  useAnnounce: Bool) throws {
+                  sink: MoQSink) throws {
         // swiftlint:disable:next line_length
-        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:useAnnounce:) has not been implemented")
+        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:sink:) has not been implemented")
     }
 
     override func publish(groupId: UInt64,
@@ -103,13 +104,9 @@ class FakeH264Publication: H264Publication {
         self.mockCanPublish
     }
 
-    override func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        super.statusChanged(status)
+    override func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+        super.sinkStatusChanged(status)
         self.currentStatus = status
-    }
-
-    override func getStatus() -> QPublishTrackHandlerStatus {
-        self.currentStatus
     }
 }
 
@@ -130,10 +127,16 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                                   height: height,
                                   bitrateType: .average)
 
-    return try .init(profile: .init(qualityProfile: "",
-                                    expiry: [1, 2],
-                                    priorities: [1, 2],
-                                    namespace: [""]),
+    let profile = Profile(qualityProfile: "",
+                          expiry: [1, 2],
+                          priorities: [1, 2],
+                          namespace: [""])
+    let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                        trackMode: .stream,
+                                        defaultPriority: 1,
+                                        defaultTTL: 1,
+                                        useAnnounce: false)
+    return try .init(profile: profile,
                      config: config,
                      metricsSubmitter: nil,
                      reliable: true,
@@ -147,7 +150,7 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                      keyFrameOnUpdate: false,
                      sframeContext: nil,
                      mediaInterop: false,
-                     useAnnounce: false)
+                     sink: sink)
 }
 
 final class TestVideoPublication: XCTestCase {
@@ -225,10 +228,16 @@ final class TestVideoPublication: XCTestCase {
                                           width: 1920,
                                           height: 1920,
                                           bitrateType: .average)
-            let publication = try FakeH264Publication(profile: .init(qualityProfile: "",
-                                                                     expiry: [1, 2],
-                                                                     priorities: [1, 2],
-                                                                     namespace: [""]),
+            let profile = Profile(qualityProfile: "",
+                                  expiry: [1, 2],
+                                  priorities: [1, 2],
+                                  namespace: [""])
+            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                trackMode: .stream,
+                                                defaultPriority: 1,
+                                                defaultTTL: 1,
+                                                useAnnounce: false)
+            let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,
                                                       reliable: true,
@@ -240,7 +249,8 @@ final class TestVideoPublication: XCTestCase {
                                                       stagger: false,
                                                       verbose: false,
                                                       keyFrameOnUpdate: false,
-                                                      notify: ({_, _ in }))
+                                                      notify: ({_, _ in }),
+                                                      sink: sink)
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 1,
@@ -288,10 +298,16 @@ final class TestVideoPublication: XCTestCase {
                                           height: 1920,
                                           bitrateType: .average)
             var lastObjectId: UInt64?
-            let publication = try FakeH264Publication(profile: .init(qualityProfile: "",
-                                                                     expiry: [1, 2],
-                                                                     priorities: [1, 2],
-                                                                     namespace: [""]),
+            let profile = Profile(qualityProfile: "",
+                                  expiry: [1, 2],
+                                  priorities: [1, 2],
+                                  namespace: [""])
+            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                trackMode: .stream,
+                                                defaultPriority: 1,
+                                                defaultTTL: 1,
+                                                useAnnounce: false)
+            let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,
                                                       reliable: true,
@@ -302,14 +318,16 @@ final class TestVideoPublication: XCTestCase {
                                                       relayId: "",
                                                       stagger: false,
                                                       verbose: true,
-                                                      keyFrameOnUpdate: true) { _, objectId in
+                                                      keyFrameOnUpdate: true,
+                                                      notify: { _, objectId in
                 // When this is a key frame, object ID should be 0.
                 if status == toSet {
                     #expect(lastObjectId != 0)
                     #expect(objectId == 0)
                 }
                 lastObjectId = objectId
-            }
+            },
+                                                      sink: sink)
             // Enable publishing for all frames in this test
             publication.mockCanPublish = true
 
@@ -320,17 +338,17 @@ final class TestVideoPublication: XCTestCase {
                                             sampleSizes: [])
             // pframe.
             status = .ok
-            publication.statusChanged(status!)
+            publication.sinkStatusChanged(status!)
             publication.onFrame(sample, timestamp: .now)
 
             // key frame.
             status = toSet
-            publication.statusChanged(status!)
+            publication.sinkStatusChanged(status!)
             publication.onFrame(sample, timestamp: .now)
 
             // pframe.
             status = .ok
-            publication.statusChanged(status!)
+            publication.sinkStatusChanged(status!)
             publication.onFrame(sample, timestamp: .now)
         }
     }

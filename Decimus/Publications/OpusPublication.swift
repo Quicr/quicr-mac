@@ -43,7 +43,7 @@ class OpusPublication: Publication, AudioPublication {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
-         useAnnounce: Bool,
+         sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
         let namespace = profile.namespace.joined()
@@ -80,15 +80,14 @@ class OpusPublication: Publication, AudioPublication {
         self.startingGroupId = groupId
         self.currentGroupId = groupId
 
-        try super.init(profile: profile,
-                       trackMode: reliable ? .stream : .datagram,
-                       defaultPriority: UInt8(clamping: defaultPriority),
-                       defaultTTL: UInt16(clamping: defaultTTL),
-                       submitter: metricsSubmitter,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       logger: Self.logger,
-                       useAnnounce: useAnnounce)
+        super.init(profile: profile,
+                   sink: sink,
+                   defaultPriority: UInt8(clamping: defaultPriority),
+                   defaultTTL: UInt16(clamping: defaultTTL),
+                   submitter: metricsSubmitter,
+                   endpointId: endpointId,
+                   relayId: relayId,
+                   logger: Self.logger)
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in

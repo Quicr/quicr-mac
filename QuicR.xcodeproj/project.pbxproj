@@ -137,6 +137,9 @@
 		9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */; };
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
 		9BC53E0B2B84E0150056C154 /* TestApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */; };
+		9BC5C7F72F1011450000B569 /* MoQSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5C7F32F1011450000B569 /* MoQSink.swift */; };
+		9BC5C7F82F1011450000B569 /* MoQSinkDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5C7F42F1011450000B569 /* MoQSinkDelegate.swift */; };
+		9BC5C7F92F1011450000B569 /* QPublishTrackHandlerSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC5C7F52F1011450000B569 /* QPublishTrackHandlerSink.swift */; };
 		9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BCA87022C3423F500DA4F41 /* NumberView.swift */; };
 		9BD96EFD2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */; };
 		9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BDA15D02C7FD83700494BFD /* FullTrackName.swift */; };
@@ -378,6 +381,9 @@
 		9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarianceCalculator+Measurement.swift"; sourceTree = "<group>"; };
 		9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarianceCalculator.swift; sourceTree = "<group>"; };
 		9BC53E0A2B84E0150056C154 /* TestApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestApplicationSEIs.swift; sourceTree = "<group>"; };
+		9BC5C7F32F1011450000B569 /* MoQSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoQSink.swift; sourceTree = "<group>"; };
+		9BC5C7F42F1011450000B569 /* MoQSinkDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoQSinkDelegate.swift; sourceTree = "<group>"; };
+		9BC5C7F52F1011450000B569 /* QPublishTrackHandlerSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QPublishTrackHandlerSink.swift; sourceTree = "<group>"; };
 		9BCA87022C3423F500DA4F41 /* NumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberView.swift; sourceTree = "<group>"; };
 		9BCC0E7F2AB0713000BA97F6 /* TransportConfig.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TransportConfig.h; sourceTree = "<group>"; };
 		9BD96EFC2AC2DAA200EC794C /* VideoJitterBufferSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoJitterBufferSettingsView.swift; sourceTree = "<group>"; };
@@ -673,6 +679,7 @@
 		9BA27FC4297D7270007013B2 /* Decimus */ = {
 			isa = PBXGroup;
 			children = (
+				9BC5C7F62F1011450000B569 /* MoQSink */,
 				9B5EC68C2D85B926009A2872 /* VarInt.swift */,
 				9B5EC6812D85976D009A2872 /* LOCRegistry.swift */,
 				9BB707AB2E40B51700C697B6 /* RFC3550.swift */,
@@ -755,6 +762,16 @@
 				FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		9BC5C7F62F1011450000B569 /* MoQSink */ = {
+			isa = PBXGroup;
+			children = (
+				9BC5C7F32F1011450000B569 /* MoQSink.swift */,
+				9BC5C7F42F1011450000B569 /* MoQSinkDelegate.swift */,
+				9BC5C7F52F1011450000B569 /* QPublishTrackHandlerSink.swift */,
+			);
+			path = MoQSink;
 			sourceTree = "<group>";
 		};
 		9BDE86892B70ECAD009467A7 /* Utilities */ = {
@@ -1073,7 +1090,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1181,6 +1198,9 @@
 				9BDA15D12C7FD83E00494BFD /* FullTrackName.swift in Sources */,
 				9B807A662CF5FF75007C7E6E /* ActiveSpeakerSubscriptionSet.swift in Sources */,
 				9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */,
+				9BC5C7F72F1011450000B569 /* MoQSink.swift in Sources */,
+				9BC5C7F82F1011450000B569 /* MoQSinkDelegate.swift in Sources */,
+				9BC5C7F92F1011450000B569 /* QPublishTrackHandlerSink.swift in Sources */,
 				9BB3C50C2E8D62FD000AB7C2 /* CameraPreferencePicker.swift in Sources */,
 				9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */,
 				9B131E332B7E4A1C00B29D77 /* ApplicationHEVCSEIs.swift in Sources */,
@@ -1273,7 +1293,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1298,7 +1318,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1465,7 +1485,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1542,7 +1562,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

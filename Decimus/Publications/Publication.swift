@@ -1,7 +1,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
+/// Common interface for concrete publication types backed by a ``MoQSink``.
+protocol PublicationInstance: AnyObject {
+    /// The sink responsible for publishing media for this instance.
+    var sink: MoQSink { get }
+}
+
+class Publication: PublicationInstance, MoQSinkDelegate {
     enum Incrementing {
         case group
         case object
@@ -12,19 +18,20 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
     private let measurement: MeasurementRegistration<TrackMeasurement>?
     internal let defaultPriority: UInt8
     internal let defaultTTL: UInt16
+    internal let sink: MoQSink
 
     init(profile: Profile,
-         trackMode: QTrackMode,
+         sink: MoQSink,
          defaultPriority: UInt8,
          defaultTTL: UInt16,
          submitter: MetricsSubmitter?,
          endpointId: String,
          relayId: String,
-         logger: DecimusLogger,
-         useAnnounce: Bool) throws {
+         logger: DecimusLogger) {
         self.profile = profile
         self.defaultPriority = defaultPriority
         self.defaultTTL = defaultTTL
+        self.sink = sink
         self.logger = logger
         if let submitter = submitter {
             let measurement = TrackMeasurement(type: .publish,
@@ -35,19 +42,31 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         } else {
             self.measurement = nil
         }
-        super.init(fullTrackName: try profile.getFullTrackName(),
-                   trackMode: trackMode,
-                   defaultPriority: defaultPriority,
-                   defaultTTL: UInt32(defaultTTL))
-        super.setCallbacks(self)
-        super.setUseAnnounce(useAnnounce)
+        self.sink.delegate = self
     }
 
-    internal func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
+    /// Forward publish requests to the sink.
+    func publishObject(_ headers: QObjectHeaders,
+                       data: Data,
+                       extensions: HeaderExtensions?,
+                       immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
+        self.sink.publishObject(headers,
+                                data: data,
+                                extensions: extensions,
+                                immutableExtensions: immutableExtensions)
     }
 
-    /// Retrieve the priority value from this publications' priority array at
+    /// Whether the underlying handler can currently publish.
+    func canPublish() -> Bool {
+        self.sink.canPublish
+    }
+
+    /// Current status of the underlying handler.
+    func getStatus() -> QPublishTrackHandlerStatus {
+        self.sink.status
+    }
+
+    /// Retrieve the priority value from this publication's priority array at
     /// the given index, if one exists.
     /// - Parameter index: Offset into the priority array.
     /// - Returns: Priority value, or the default value.
@@ -61,7 +80,7 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         return UInt8(priorities[index])
     }
 
-    /// Retrieve the TTL / expiry value from this publications' expiry array at
+    /// Retrieve the TTL / expiry value from this publication's expiry array at
     /// the given index, if one exists.
     /// - Parameter index: Offset into the expiry array.
     /// - Returns: TTL/Expiry value, or the default value.
@@ -75,7 +94,11 @@ class Publication: QPublishTrackHandlerObjC, QPublishTrackHandlerCallbacks {
         return UInt16(ttls[index])
     }
 
-    func metricsSampled(_ metrics: QPublishTrackMetrics) {
+    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
+    }
+
+    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
         if let measurement = self.measurement?.measurement {
             Task(priority: .utility) {
                 await measurement.record(metrics)

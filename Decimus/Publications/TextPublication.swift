@@ -15,13 +15,12 @@ class TextPublication: Publication {
     init(participantId: ParticipantId,
          incrementing: Incrementing,
          profile: Profile,
-         trackMode: QTrackMode,
          submitter: (any MetricsSubmitter)?,
          endpointId: String,
          relayId: String,
          sframeContext: SendSFrameContext?,
-         useAnnounce: Bool,
-         startingGroupId: UInt64) throws {
+         startingGroupId: UInt64,
+         sink: MoQSink) throws {
         self.participantId = participantId
         self.incrementing = incrementing
         guard let priority = profile.priorities?.first,
@@ -30,15 +29,14 @@ class TextPublication: Publication {
         }
         self.sframeContext = sframeContext
         self.currentGroupId = startingGroupId
-        try super.init(profile: profile,
-                       trackMode: trackMode,
-                       defaultPriority: UInt8(priority),
-                       defaultTTL: UInt16(ttl),
-                       submitter: submitter,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       logger: self.logger,
-                       useAnnounce: useAnnounce)
+        super.init(profile: profile,
+                   sink: sink,
+                   defaultPriority: UInt8(priority),
+                   defaultTTL: UInt16(ttl),
+                   submitter: submitter,
+                   endpointId: endpointId,
+                   relayId: relayId,
+                   logger: self.logger)
     }
 
     func sendMessage(_ message: String) {
