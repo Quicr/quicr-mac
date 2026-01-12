@@ -201,9 +201,12 @@ struct InCallView: View {
                                 }
                             }
                             ScrollView {
-                                SubscriptionPopover(controller,
-                                                    manifest: self.viewModel.getManifestSubscriptions(),
-                                                    factory: self.viewModel.subscriptionFactory!)
+                                // Publisher role won't have subscriptions.
+                                if let factory = self.viewModel.subscriptionFactory {
+                                    SubscriptionPopover(controller,
+                                                        manifest: self.viewModel.getManifestSubscriptions(),
+                                                        factory: factory)
+                                }
                                 PublicationPopover(controller)
                             }
                         }
