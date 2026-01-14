@@ -90,12 +90,12 @@
 		9B4EC1342F0EFF7E00B5E740 /* LibquicrVideoSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1312F0EFF7E00B5E740 /* LibquicrVideoSink.swift */; };
 		9B4EC1352F0EFF7E00B5E740 /* VideoPublishSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1332F0EFF7E00B5E740 /* VideoPublishSink.swift */; };
 		9B4EC1362F0EFF7E00B5E740 /* MoxygenVideoSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC1322F0EFF7E00B5E740 /* MoxygenVideoSink.swift */; };
+		9B4EC1392F0F000000B5E740 /* MoxygenVideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */; };
 		9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC6812D85976D009A2872 /* LOCRegistry.swift */; };
 		9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */; };
 		9B5EC68D2D85B927009A2872 /* VarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68C2D85B926009A2872 /* VarInt.swift */; };
 		9B5EC68F2D85C003009A2872 /* TestVarInt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B5EC68E2D85C000009A2872 /* TestVarInt.swift */; };
 		9B61384E2C904E25006E5E11 /* VideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384D2C904E25006E5E11 /* VideoSubscription.swift */; };
-		9B4EC1392F0F000000B5E740 /* MoxygenVideoSubscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */; };
 		9B6138502C90893C006E5E11 /* TestPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B61384F2C90893C006E5E11 /* TestPublication.swift */; };
 		9B65D2CC2CE2398100901306 /* PlaytimeSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */; };
 		9B6ADC5B2DEDB1AB009E9060 /* DisplayPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */; };
@@ -395,12 +395,12 @@
 		9B4EC1312F0EFF7E00B5E740 /* LibquicrVideoSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibquicrVideoSink.swift; sourceTree = "<group>"; };
 		9B4EC1322F0EFF7E00B5E740 /* MoxygenVideoSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoxygenVideoSink.swift; sourceTree = "<group>"; };
 		9B4EC1332F0EFF7E00B5E740 /* VideoPublishSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPublishSink.swift; sourceTree = "<group>"; };
+		9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoxygenVideoSubscription.swift; sourceTree = "<group>"; };
 		9B5EC6812D85976D009A2872 /* LOCRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LOCRegistry.swift; sourceTree = "<group>"; };
 		9B5EC68A2D85B43C009A2872 /* TestMediaInterop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMediaInterop.swift; sourceTree = "<group>"; };
 		9B5EC68C2D85B926009A2872 /* VarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarInt.swift; sourceTree = "<group>"; };
 		9B5EC68E2D85C000009A2872 /* TestVarInt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarInt.swift; sourceTree = "<group>"; };
 		9B61384D2C904E25006E5E11 /* VideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSubscription.swift; sourceTree = "<group>"; };
-		9B4EC13A2F0F000000B5E740 /* MoxygenVideoSubscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoxygenVideoSubscription.swift; sourceTree = "<group>"; };
 		9B61384F2C90893C006E5E11 /* TestPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestPublication.swift; sourceTree = "<group>"; };
 		9B65D2CB2CE2397E00901306 /* PlaytimeSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaytimeSettingsView.swift; sourceTree = "<group>"; };
 		9B6ADC5A2DEDB1A7009E9060 /* DisplayPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayPicker.swift; sourceTree = "<group>"; };
@@ -1645,6 +1645,7 @@
 				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_ARCHS = x86_64;
 				FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/dependencies";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1727,6 +1728,7 @@
 				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
+				EXCLUDED_ARCHS = x86_64;
 				FRAMEWORK_SEARCH_PATHS = "$(PROJECT_DIR)/dependencies";
 				GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
