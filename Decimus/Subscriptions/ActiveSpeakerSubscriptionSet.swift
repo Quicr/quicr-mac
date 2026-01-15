@@ -14,6 +14,10 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
     private var handlers: [FullTrackName: QSubscribeTrackHandlerObjC] = [:]
     /// Per-client audio media objects.
     private var audioMediaObjects: [ParticipantId: AudioHandler] = [:]
+    /// Per-client measurement registration for subscription-level metrics.
+    private var measurements: [ParticipantId: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>] = [:]
+    /// Per-client last seen sequence for missing-sequence metrics.
+    private var lastSequences: [ParticipantId: UInt64] = [:]
 
     private let audioHandlerConfig: AudioHandler.Config
 
@@ -68,13 +72,19 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
 
         // Look up the media object for this client, or create one.
         let media: AudioHandler
+        let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
         if let existing = self.audioMediaObjects[participantId] {
             media = existing
+            measurement = self.measurements[participantId]
         } else {
             // Metrics.
-            let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
             if let submitter = self.metricsSubmitter {
-                measurement = .init(measurement: .init(namespace: "\(participantId)"), submitter: submitter)
+                let registration = MeasurementRegistration(
+                    measurement: OpusSubscription.OpusSubscriptionMeasurement(namespace: "\(participantId)"),
+                    submitter: submitter
+                )
+                measurement = registration
+                self.measurements[participantId] = registration
             } else {
                 measurement = nil
             }
@@ -95,6 +105,24 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
             }
         }
 
+        // Per participant subscription metrics
+        let sequence = headers.groupId
+        let metricsDate = self.audioHandlerConfig.granularMetrics ? now.hostDate : nil
+        let lastSequence = self.lastSequences[participantId] ?? 0
+        if sequence > lastSequence {
+            let missing = sequence - lastSequence - 1
+            if let measurement = measurement {
+                Task(priority: .utility) {
+                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: metricsDate)
+                    if missing > 0 {
+                        await measurement.measurement.missingSeq(missingCount: UInt64(missing),
+                                                                 timestamp: metricsDate)
+                    }
+                }
+            }
+            self.lastSequences[participantId] = sequence
+        }
+
         // Decode the LOC here.
         guard let captureTimestampExtension = try? immutableExtensions.getHeader(.captureTimestamp),
               case .captureTimestamp(let captureTimestamp) = captureTimestampExtension else {
@@ -104,7 +132,7 @@ class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
 
         do {
             try media.submitEncodedAudio(data: data,
-                                         sequence: headers.groupId,
+                                         sequence: sequence,
                                          date: now,
                                          timestamp: captureTimestamp)
         } catch {
