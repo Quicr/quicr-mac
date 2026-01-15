@@ -1,7 +1,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-import Foundation
+/// Delegate protocol for receiving status and metrics callbacks from a MoQSink.
+/// Publications conform to this protocol to receive notifications from the underlying MoQ stack.
+protocol MoQSinkDelegate: AnyObject {
+    /// Called when the publish track handler status changes.
+    /// - Parameter status: The new status.
+    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus)
+
+    /// Called when metrics are sampled from the underlying transport.
+    /// - Parameter metrics: The sampled metrics.
+    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics)
+}
 
 /// Protocol describing MoQ publish capability.
 protocol MoQSink: AnyObject {
@@ -9,7 +19,7 @@ protocol MoQSink: AnyObject {
     var delegate: MoQSinkDelegate? { get set }
 
     /// The full track name for this sink.
-    var fullTrackName: QFullTrackName { get }
+    var fullTrackName: FullTrackName { get }
 
     /// Current status of the publish track handler.
     var status: QPublishTrackHandlerStatus { get }

@@ -16,16 +16,12 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-/// H264 video publication using composition with MoQSink.
 class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let logger = DecimusLogger(H264Publication.self)
-
-    // MARK: - Composition: MoQSink instead of inheritance
 
     /// The MoQ sink for publishing objects.
     let sink: MoQSink
 
-    /// Mirror the legacy Publication API so tests can override publishing state.
     func canPublish() -> Bool {
         self.sink.canPublish
     }
@@ -34,15 +30,10 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.sink.status
     }
 
-    // MARK: - Configuration (previously from Publication base class)
-
     internal let profile: Profile
     internal let defaultPriority: UInt8
     internal let defaultTTL: UInt16
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
-
-    // MARK: - Publication-specific state
-
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
     let device: AVCaptureDevice
@@ -224,8 +215,11 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             } else {
                 protected = data
             }
-            var priority = publication.getPriority(idr ? 0 : 1)
-            var ttl = publication.getTTL(idr ? 0 : 1)
+            guard var priority = try? publication.profile.getPriority(index: idr ? 0 : 1),
+                  var ttl = try? publication.profile.getTTL(index: idr ? 0 : 1) else {
+                publication.logger.error("Malformed profile")
+                return (QPublishObjectStatus.internalError, 0)
+            }
             return (publication.publish(groupId: thisGroupId,
                                         objectId: thisObjectId,
                                         data: protected,
@@ -264,8 +258,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         }
     }
 
-    // MARK: - Initialization
-
     required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
@@ -281,7 +273,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
                   sink: MoQSink) throws {
-        // Store configuration (previously from Publication base class)
         self.profile = profile
         guard let defaultPriority = profile.priorities?.first,
               let defaultTTL = profile.expiry?.first else {
@@ -290,29 +281,22 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.defaultPriority = UInt8(clamping: defaultPriority)
         self.defaultTTL = UInt16(clamping: defaultTTL)
 
-        // Setup track measurement (previously from Publication base class)
+        let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
             let trackMeasurement = TrackMeasurement(type: .publish,
                                                     endpointId: endpointId,
                                                     relayId: relayId,
                                                     namespace: profile.namespace.joined())
             self.trackMeasurement = .init(measurement: trackMeasurement, submitter: metricsSubmitter)
-        } else {
-            self.trackMeasurement = nil
-        }
-
-        // Store the sink
-        self.sink = sink
-
-        let namespace = profile.namespace.joined()
-        self.granularMetrics = granularMetrics
-        self.codec = config
-        if let metricsSubmitter = metricsSubmitter {
             let measurement = H264Publication.VideoPublicationMeasurement(namespace: namespace)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
+            self.trackMeasurement = nil
             self.measurement = nil
         }
+
+        self.granularMetrics = granularMetrics
+        self.codec = config
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.reliable = reliable
@@ -325,14 +309,13 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.mediaInterop = mediaInterop
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
-        // Set self as delegate to receive callbacks from the sink
+        // Wire to MoQ.
+        self.sink = sink
         self.sink.delegate = self
 
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }
-
-    // MARK: - Publishing
 
     internal func publish(groupId: UInt64,
                           objectId: UInt64,
@@ -346,44 +329,15 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.sink.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
-    }
-
-    // MARK: - Priority/TTL Helpers (previously from Publication base class)
-
-    /// Retrieve the priority value from this publication's priority array at
-    /// the given index, if one exists.
-    /// - Parameter index: Offset into the priority array.
-    /// - Returns: Priority value, or the default value.
-    public func getPriority(_ index: Int) -> UInt8 {
-        guard let priorities = profile.priorities,
-              index < priorities.count,
-              priorities[index] <= UInt8.max,
-              priorities[index] >= UInt8.min else {
-            return self.defaultPriority
-        }
-        return UInt8(priorities[index])
-    }
-
-    /// Retrieve the TTL / expiry value from this publication's expiry array at
-    /// the given index, if one exists.
-    /// - Parameter index: Offset into the expiry array.
-    /// - Returns: TTL/Expiry value, or the default value.
-    public func getTTL(_ index: Int) -> UInt16 {
-        guard let ttls = profile.expiry,
-              index < ttls.count,
-              ttls[index] <= UInt16.max,
-              ttls[index] >= UInt16.min else {
-            return self.defaultTTL
-        }
-        return UInt16(ttls[index])
+        return self.sink.publishObject(headers,
+                                       data: data,
+                                       extensions: extensions,
+                                       immutableExtensions: immutableExtensions)
     }
 
     deinit {
         self.logger.debug("Deinit")
     }
-
-    // MARK: - MoQSinkDelegate
 
     func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
         self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
@@ -399,13 +353,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             }
         }
     }
-
-    /// Backwards compat for older tests invoking libquicr callbacks directly.
-    func metricsSampled(_ metrics: QPublishTrackMetrics) {
-        self.sinkMetricsSampled(metrics)
-    }
-
-    // MARK: - FrameListener
 
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
@@ -487,8 +434,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             }
         }
     }
-
-    // MARK: - Parameter Sets
 
     /// Returns the parameter sets contained within the sample's format, if any.
     /// - Parameter sample The sample to extract parameter sets from.

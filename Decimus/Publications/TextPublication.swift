@@ -5,10 +5,9 @@
 class TextPublication: PublicationInstance, MoQSinkDelegate {
     private let incrementing: Incrementing
     private let participantId: ParticipantId
-    private let logger = DecimusLogger(TextPublication.self)
+    private let logger: DecimusLogger
     private let sframeContext: SendSFrameContext?
     let sink: MoQSink
-    private let defaults: PublicationDefaults
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
 
     private var currentGroupId: UInt64
@@ -24,17 +23,11 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
          sframeContext: SendSFrameContext?,
          startingGroupId: UInt64,
          sink: MoQSink) throws {
+        self.logger = .init(TextPublication.self, prefix: "\(sink.fullTrackName)")
         self.participantId = participantId
         self.incrementing = incrementing
-        guard let priority = profile.priorities?.first,
-              let ttl = profile.expiry?.first else {
-            throw "Missing profile"
-        }
         self.sframeContext = sframeContext
         self.currentGroupId = startingGroupId
-        self.defaults = .init(profile: profile,
-                              defaultPriority: UInt8(priority),
-                              defaultTTL: UInt16(ttl))
         self.sink = sink
         self.trackMeasurement = {
             guard let submitter = submitter else { return nil }
@@ -96,7 +89,7 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
     // MARK: - MoQSinkDelegate
 
     func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
-        self.logger.info("[\(self.defaults.profile.namespace.joined())] Status changed to: \(status)")
+        self.logger.info("[\(self.sink.fullTrackName)] Status changed to: \(status)")
     }
 
     func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {

@@ -190,27 +190,6 @@ final class TestVideoPublication: XCTestCase {
         shouldFire = true
         publication.onFrame(sample, timestamp: advancedMoreThanHeight)
     }
-
-    func testMetrics() throws {
-        let minMax = QMinMaxAvg(min: 0, max: 1, avg: 2, value_sum: 3, value_count: 4)
-        let metrics = QPublishTrackMetrics(lastSampleTime: 1,
-                                           bytesPublished: 2,
-                                           objectsPublished: 3,
-                                           quic: .init(tx_buffer_drops: 0,
-                                                       tx_queue_discards: 1,
-                                                       tx_queue_expired: 2,
-                                                       tx_delayed_callback: 3,
-                                                       tx_reset_wait: 4,
-                                                       tx_queue_size: minMax,
-                                                       tx_callback_ms: minMax,
-                                                       tx_object_duration_us: minMax))
-
-        guard let publication = try? makePublication(.init({_, _, _ in}), height: 1080, stagger: false) else {
-            _ = XCTSkip("Can't test without a camera")
-            return
-        }
-        publication.metricsSampled(metrics)
-    }
 }
 
 @Suite struct VideoPublicationTests {
@@ -320,13 +299,13 @@ final class TestVideoPublication: XCTestCase {
                                                       verbose: true,
                                                       keyFrameOnUpdate: true,
                                                       notify: { _, objectId in
-                // When this is a key frame, object ID should be 0.
-                if status == toSet {
-                    #expect(lastObjectId != 0)
-                    #expect(objectId == 0)
-                }
-                lastObjectId = objectId
-            },
+                                                        // When this is a key frame, object ID should be 0.
+                                                        if status == toSet {
+                                                            #expect(lastObjectId != 0)
+                                                            #expect(objectId == 0)
+                                                        }
+                                                        lastObjectId = objectId
+                                                      },
                                                       sink: sink)
             // Enable publishing for all frames in this test
             publication.mockCanPublish = true

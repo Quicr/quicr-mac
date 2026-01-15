@@ -12,7 +12,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private static let silence: Int = 127
 
     let sink: MoQSink
-    private let defaults: PublicationDefaults
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
@@ -31,7 +30,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let incrementing: Incrementing
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
-    private var profile: Profile { self.defaults.profile }
+    private let profile: Profile
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -74,19 +73,11 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
         Self.logger.info("Created Opus Encoder")
-
-        guard let defaultPriority = profile.priorities?.first,
-              let defaultTTL = profile.expiry?.first else {
-            throw "Missing expected profile values"
-        }
         self.participantId = participantId
         self.publish = .init(startActive)
         self.startingGroupId = groupId
         self.currentGroupId = groupId
-
-        self.defaults = .init(profile: profile,
-                              defaultPriority: UInt8(clamping: defaultPriority),
-                              defaultTTL: UInt16(clamping: defaultTTL))
+        self.profile = profile
         self.sink = sink
         self.trackMeasurement = {
             guard let metricsSubmitter = metricsSubmitter else { return nil }
@@ -182,8 +173,11 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             return
         }
 
-        var priority = self.getPriority(0)
-        var ttl = self.getTTL(0)
+        guard var priority = try? self.profile.getPriority(index: 0),
+              var ttl = try? self.profile.getTTL(index: 0) else {
+            Self.logger.error("Bad profile")
+            return
+        }
 
         let protected: Data
         if let sframeContext {
@@ -294,18 +288,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         decibel = max(decibel, minAudioLevel)
         return Int(decibel.rounded())
     }
-
-    // MARK: - Publication helpers
-
-    func getPriority(_ index: Int) -> UInt8 {
-        self.defaults.priority(at: index)
-    }
-
-    func getTTL(_ index: Int) -> UInt16 {
-        self.defaults.ttl(at: index)
-    }
-
-    // MARK: - MoQSinkDelegate
 
     func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
         Self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")

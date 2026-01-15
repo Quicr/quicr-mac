@@ -10,8 +10,8 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
     /// The underlying libquicr handler.
     let handler: QPublishTrackHandlerObjC
 
-    var fullTrackName: QFullTrackName {
-        self.handler.getFullTrackName()
+    var fullTrackName: FullTrackName {
+        .init(self.handler.getFullTrackName())
     }
 
     var status: QPublishTrackHandlerStatus {
@@ -52,8 +52,6 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
                                    extensions: extensions,
                                    immutableExtensions: immutableExtensions)
     }
-
-    // MARK: - QPublishTrackHandlerCallbacks
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {
         self.delegate?.sinkStatusChanged(status)
