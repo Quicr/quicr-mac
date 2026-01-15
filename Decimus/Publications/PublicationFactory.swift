@@ -142,7 +142,6 @@ class PublicationFactoryImpl: PublicationFactory {
                                         emitStartCodes: false,
                                         keyFrameInterval: self.keyFrameInterval)
 
-            // Create the MoQSink for composition-based design
             let defaultPriority = try profile.getPriority(index: 0)
             let defaultTTL = try profile.getTTL(index: 0)
             let sink = QPublishTrackHandlerSink(
