@@ -143,15 +143,13 @@ class PublicationFactoryImpl: PublicationFactory {
                                         keyFrameInterval: self.keyFrameInterval)
 
             // Create the MoQSink for composition-based design
-            guard let defaultPriority = profile.priorities?.first,
-                  let defaultTTL = profile.expiry?.first else {
-                throw "Missing expected profile values for sink creation"
-            }
+            let defaultPriority = try profile.getPriority(index: 0)
+            let defaultTTL = try profile.getTTL(index: 0)
             let sink = QPublishTrackHandlerSink(
                 fullTrackName: try profile.getFullTrackName(),
-                trackMode: reliability.video.publication ? .stream : .datagram,
-                defaultPriority: UInt8(clamping: defaultPriority),
-                defaultTTL: UInt32(defaultTTL),
+                trackMode: self.reliability.video.publication ? .stream : .datagram,
+                defaultPriority: try profile.getPriority(index: 0),
+                defaultTTL: UInt32(try profile.getTTL(index: 0)),
                 useAnnounce: self.useAnnounce
             )
 
@@ -179,14 +177,10 @@ class PublicationFactoryImpl: PublicationFactory {
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
-            guard let defaultPriority = profile.priorities?.first,
-                  let defaultTTL = profile.expiry?.first else {
-                throw "Missing expected profile values for sink creation"
-            }
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: reliability.audio.publication ? .stream : .datagram,
-                                                defaultPriority: UInt8(clamping: defaultPriority),
-                                                defaultTTL: UInt32(defaultTTL),
+                                                defaultPriority: try profile.getPriority(index: 0),
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
                                                 useAnnounce: self.useAnnounce)
             return try OpusPublication(profile: profile,
                                        participantId: self.participantId,
@@ -204,14 +198,10 @@ class PublicationFactoryImpl: PublicationFactory {
                                        mediaInterop: self.mediaInterop,
                                        sink: sink)
         case .text:
-            guard let defaultPriority = profile.priorities?.first,
-                  let defaultTTL = profile.expiry?.first else {
-                throw "Missing expected profile values for sink creation"
-            }
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: .stream,
-                                                defaultPriority: UInt8(clamping: defaultPriority),
-                                                defaultTTL: UInt32(defaultTTL),
+                                                defaultPriority: try profile.getPriority(index: 0),
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
                                                 useAnnounce: self.useAnnounce)
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,

@@ -86,8 +86,6 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
         }
     }
 
-    // MARK: - MoQSinkDelegate
-
     func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
         self.logger.info("[\(self.sink.fullTrackName)] Status changed to: \(status)")
     }

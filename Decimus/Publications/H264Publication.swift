@@ -31,8 +31,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     }
 
     internal let profile: Profile
-    internal let defaultPriority: UInt8
-    internal let defaultTTL: UInt16
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
@@ -274,14 +272,9 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   mediaInterop: Bool,
                   sink: MoQSink) throws {
         self.profile = profile
-        guard let defaultPriority = profile.priorities?.first,
-              let defaultTTL = profile.expiry?.first else {
-            throw "Missing expected profile values"
-        }
-        self.defaultPriority = UInt8(clamping: defaultPriority)
-        self.defaultTTL = UInt16(clamping: defaultTTL)
-
         let namespace = profile.namespace.joined()
+        self.granularMetrics = granularMetrics
+        self.codec = config
         if let metricsSubmitter = metricsSubmitter {
             let trackMeasurement = TrackMeasurement(type: .publish,
                                                     endpointId: endpointId,
@@ -294,9 +287,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             self.trackMeasurement = nil
             self.measurement = nil
         }
-
-        self.granularMetrics = granularMetrics
-        self.codec = config
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
         self.reliable = reliable
