@@ -16,9 +16,22 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-class H264Publication: Publication, FrameListener {
+class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let logger = DecimusLogger(H264Publication.self)
 
+    /// The MoQ sink for publishing objects.
+    let sink: MoQSink
+
+    func canPublish() -> Bool {
+        self.sink.canPublish
+    }
+
+    func getStatus() -> QPublishTrackHandlerStatus {
+        self.sink.status
+    }
+
+    internal let profile: Profile
+    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
     private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
 
     let device: AVCaptureDevice
@@ -200,8 +213,11 @@ class H264Publication: Publication, FrameListener {
             } else {
                 protected = data
             }
-            var priority = publication.getPriority(idr ? 0 : 1)
-            var ttl = publication.getTTL(idr ? 0 : 1)
+            guard var priority = try? publication.profile.getPriority(index: idr ? 0 : 1),
+                  var ttl = try? publication.profile.getTTL(index: idr ? 0 : 1) else {
+                publication.logger.error("Malformed profile")
+                return (QPublishObjectStatus.internalError, 0)
+            }
             return (publication.publish(groupId: thisGroupId,
                                         objectId: thisObjectId,
                                         data: protected,
@@ -254,14 +270,21 @@ class H264Publication: Publication, FrameListener {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
-                  useAnnounce: Bool) throws {
+                  sink: MoQSink) throws {
+        self.profile = profile
         let namespace = profile.namespace.joined()
         self.granularMetrics = granularMetrics
         self.codec = config
         if let metricsSubmitter = metricsSubmitter {
+            let trackMeasurement = TrackMeasurement(type: .publish,
+                                                    endpointId: endpointId,
+                                                    relayId: relayId,
+                                                    namespace: profile.namespace.joined())
+            self.trackMeasurement = .init(measurement: trackMeasurement, submitter: metricsSubmitter)
             let measurement = H264Publication.VideoPublicationMeasurement(namespace: namespace)
             self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
         } else {
+            self.trackMeasurement = nil
             self.measurement = nil
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
@@ -276,20 +299,10 @@ class H264Publication: Publication, FrameListener {
         self.mediaInterop = mediaInterop
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
-        guard let defaultPriority = profile.priorities?.first,
-              let defaultTTL = profile.expiry?.first else {
-            throw "Missing expected profile values"
-        }
+        // Wire to MoQ.
+        self.sink = sink
+        self.sink.delegate = self
 
-        try super.init(profile: profile,
-                       trackMode: reliable ? .stream : .datagram,
-                       defaultPriority: UInt8(clamping: defaultPriority),
-                       defaultTTL: UInt16(clamping: defaultTTL),
-                       submitter: metricsSubmitter,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       logger: self.logger,
-                       useAnnounce: useAnnounce)
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
     }
@@ -306,17 +319,28 @@ class H264Publication: Publication, FrameListener {
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
                                      ttl: ttl)
-        return self.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
+        return self.sink.publishObject(headers,
+                                       data: data,
+                                       extensions: extensions,
+                                       immutableExtensions: immutableExtensions)
     }
 
     deinit {
         self.logger.debug("Deinit")
     }
 
-    override func statusChanged(_ status: QPublishTrackHandlerStatus) {
-        super.statusChanged(status)
+    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
         if (status == .subscriptionUpdated && self.keyFrameOnUpdate) || status == .newGroupRequested {
             self.generateKeyFrame.store(true, ordering: .releasing)
+        }
+    }
+
+    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
+        if let measurement = self.trackMeasurement?.measurement {
+            Task(priority: .utility) {
+                await measurement.record(metrics)
+            }
         }
     }
 

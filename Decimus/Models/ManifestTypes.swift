@@ -121,6 +121,31 @@ struct Profile: Codable {
         channel = try values.decodeIfPresent(Int.self, forKey: .channel)
         name = try values.decodeIfPresent(String.self, forKey: .name)
     }
+
+    enum ProfileError: Error {
+        case missingEntry(index: Int)
+        case invalidValue(index: Int, value: Int)
+    }
+
+    func getPriority(index: Int) throws -> UInt8 {
+        guard let extracted = self.priorities?[index] else {
+            throw ProfileError.missingEntry(index: index)
+        }
+        guard extracted >= 0 && extracted <= UInt8.max else {
+            throw ProfileError.invalidValue(index: index, value: extracted)
+        }
+        return .init(extracted)
+    }
+
+    func getTTL(index: Int) throws -> UInt16 {
+        guard let extracted = self.expiry?[index] else {
+            throw ProfileError.missingEntry(index: index)
+        }
+        guard extracted >= 0 && extracted <= UInt16.max else {
+            throw ProfileError.invalidValue(index: index, value: extracted)
+        }
+        return .init(extracted)
+    }
 }
 
 /// A conference is the joinable entity. A ``User`` joining a conference will receive a ``Manifest``.

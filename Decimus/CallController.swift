@@ -53,7 +53,7 @@ class MoqCallController: QClientCallbacks {
     private let client: MoqClient
     private let endpointUri: String
     private var connectionContinuation: CheckedContinuation<Void, Error>?
-    private var publications: [FullTrackName: QPublishTrackHandlerObjC] = [:]
+    private var publications: [FullTrackName: any PublicationInstance] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
     private var connected = false
     private let callEnded: (() -> Void)?
@@ -140,8 +140,8 @@ class MoqCallController: QClientCallbacks {
     // MARK: Pub/Sub Modification APIs.
 
     /// Return the list of actively managed publications.
-    /// - Returns: List of publish track handlers.
-    public func getPublications() -> [QPublishTrackHandlerObjC] {
+    /// - Returns: List of active publication instances.
+    public func getPublications() -> [any PublicationInstance] {
         Array(self.publications.values)
     }
 
@@ -149,19 +149,22 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter details: The details for the publication from the manifest.
     /// - Parameter factory: Factory to create publication objects.
     /// - Parameter codecFactory: Turns a quality profile into a codec configuration.
-    /// - Returns: List of created ``(FullTrackName, QPublishTrackHandlerObjC)``.
+    /// - Returns: List of created ``(FullTrackName, PublicationInstance)`` tuples.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected. Otherwise, error from factory.
     public func publish(details: ManifestPublication,
                         factory: PublicationFactory,
-                        codecFactory: CodecFactory) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
+                        codecFactory: CodecFactory) throws -> [(FullTrackName, any PublicationInstance)] {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
                                          codecFactory: codecFactory,
                                          endpointId: self.endpointUri,
                                          relayId: self.serverId!)
-        for (namespace, handler) in created {
-            self.publications[namespace] = handler
-            self.client.publishTrack(withHandler: handler)
+        for (namespace, publication) in created {
+            self.publications[namespace] = publication
+            guard let libquicrHandler = publication.sink as? QPublishTrackHandlerSink else {
+                throw "Type mismatch"
+            }
+            self.client.publishTrack(withHandler: libquicrHandler.handler)
         }
         return created
     }
@@ -175,7 +178,10 @@ class MoqCallController: QClientCallbacks {
         guard let publication = self.publications.removeValue(forKey: fullTrackName) else {
             throw MoqCallControllerError.publicationNotFound
         }
-        self.client.unpublishTrack(withHandler: publication)
+        guard let libquicrHandler = publication.sink as? QPublishTrackHandlerSink else {
+            throw "Type mismatch"
+        }
+        self.client.unpublishTrack(withHandler: libquicrHandler.handler)
     }
 
     public func fetch(_ fetch: Fetch) throws {
