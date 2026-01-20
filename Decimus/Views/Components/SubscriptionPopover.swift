@@ -23,11 +23,16 @@ struct SubscriptionPopover: View {
     }
 
     var body: some View {
-        VStack {
-            Text("Subscriptions")
-                .font(.title2)
+        ZStack {
+            // Rect needed for scrolling.
+            Rectangle()
+                .fill(Color.black.opacity(0.001))
 
-            ScrollView {
+            // Subscription details.
+            VStack {
+                Text("Subscriptions")
+                    .font(.title2)
+
                 LazyVStack {
                     ForEach(self.manifest) { manifestSubscriptionSet in
                         if let set = self.observables[manifestSubscriptionSet.sourceID] {
