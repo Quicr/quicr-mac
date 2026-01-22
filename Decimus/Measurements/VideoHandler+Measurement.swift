@@ -71,5 +71,9 @@ extension VideoHandler {
         func frameDelay(delay: TimeInterval, metricsTimestamp: Date) {
             record(field: "delay", value: delay, timestamp: metricsTimestamp)
         }
+
+        func moqTraversalTime(time: TimeInterval, metricsTimestamp: Date) {
+            self.record(field: "traversalTime", value: time, timestamp: metricsTimestamp)
+        }
     }
 }

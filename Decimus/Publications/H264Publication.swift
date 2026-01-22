@@ -218,6 +218,9 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 publication.logger.error("Malformed profile")
                 return (QPublishObjectStatus.internalError, 0)
             }
+            if publication.granularMetrics {
+                try extensions.setHeader(.publishTimestamp(.now))
+            }
             return (publication.publish(groupId: thisGroupId,
                                         objectId: thisObjectId,
                                         data: protected,
