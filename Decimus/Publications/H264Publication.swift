@@ -202,6 +202,9 @@ class H264Publication: Publication, FrameListener {
             }
             var priority = publication.getPriority(idr ? 0 : 1)
             var ttl = publication.getTTL(idr ? 0 : 1)
+            if publication.granularMetrics {
+                try extensions.setHeader(.publishTimestamp(.now))
+            }
             return (publication.publish(groupId: thisGroupId,
                                         objectId: thisObjectId,
                                         data: protected,
