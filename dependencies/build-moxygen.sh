@@ -92,11 +92,11 @@ fi
 
 # Query build paths
 get_build_dir() {
-    python3 "${GETDEPS}" --allow-system-packages show-build-dir --src-dir=. moxygen 2>/dev/null || echo ""
+    python3 "${GETDEPS}" show-build-dir --src-dir=. moxygen 2>/dev/null || echo ""
 }
 
 get_install_dir() {
-    python3 "${GETDEPS}" --allow-system-packages show-inst-dir --src-dir=. moxygen 2>/dev/null || echo ""
+    python3 "${GETDEPS}" show-inst-dir --src-dir=. moxygen 2>/dev/null || echo ""
 }
 
 # Show paths and exit if requested
@@ -126,7 +126,7 @@ echo "==================================="
 if [[ "${INSTALL_DEPS}" == "true" ]]; then
     echo ""
     echo "=== Installing system dependencies ==="
-    python3 "${GETDEPS}" --allow-system-packages install-system-deps --recursive moxygen
+    python3 "${GETDEPS}" install-system-deps --recursive moxygen
 fi
 
 # Clean if requested
@@ -143,7 +143,7 @@ echo "=== Building moxygen and dependencies ==="
 echo "This may take a while on first build..."
 echo ""
 
-python3 "${GETDEPS}" --allow-system-packages build \
+python3 "${GETDEPS}" build \
     --no-tests \
     --src-dir=. \
     moxygen \
@@ -152,7 +152,7 @@ python3 "${GETDEPS}" --allow-system-packages build \
 # Copy artifacts to install prefix (this handles moxygen itself)
 echo ""
 echo "=== Copying build artifacts ==="
-python3 "${GETDEPS}" --allow-system-packages fixup-dyn-deps \
+python3 "${GETDEPS}" fixup-dyn-deps \
     --src-dir=. \
     moxygen \
     "${INSTALL_PREFIX}" \
