@@ -416,6 +416,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             if let publishTimestampDate = try? extensions.getHeader(.publishTimestamp),
                case .publishTimestamp(let extracted) = publishTimestampDate {
                 publishTimestamp = extracted
+                if self.granularMetrics,
+                   let measurement = self.measurement?.measurement {
+                    let now = when.hostDate
+                    let traversal = now.timeIntervalSince(extracted)
+                    Task(priority: .utility) {
+                        await measurement.moqTraversalTime(time: traversal, metricsTimestamp: now)
+                    }
+                }
             } else {
                 publishTimestamp = nil
             }

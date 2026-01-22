@@ -209,6 +209,9 @@ class H264Publication: FrameListener, VideoPublishSinkDelegate {
 
             let priority = publication.getPriority(idr ? 0 : 1)
             let ttl = publication.getTTL(idr ? 0 : 1)
+            if publication.granularMetrics {
+                try extensions.setHeader(.publishTimestamp(.now))
+            }
             let publishResult = publication.sink.publish(groupId: thisGroupId,
                                                          objectId: thisObjectId,
                                                          data: protected,

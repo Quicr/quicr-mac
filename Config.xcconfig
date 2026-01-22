@@ -4,7 +4,7 @@
 // Configuration settings file format documentation can be found at:
 // https://help.apple.com/xcode/#/dev745c5c974
 
-APP_VERSION=8.7.0
+APP_VERSION=8.7.1
 
 // Homebrew dependencies for Moxygen.framework
 OTHER_LDFLAGS = $(inherited) -lglog -lgflags -ldouble-conversion -levent -levent_core -levent_pthreads -lboost_context -lboost_filesystem -lboost_program_options -lboost_regex -lboost_thread -lssl -lcrypto -lz -lzstd -llz4 -lsnappy -lsodium -lfmt -lc++ -framework Security -framework CoreFoundation -framework SystemConfiguration -framework CoreServices
