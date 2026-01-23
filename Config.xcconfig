@@ -4,7 +4,7 @@
 // Configuration settings file format documentation can be found at:
 // https://help.apple.com/xcode/#/dev745c5c974
 
-APP_VERSION=8.7.1
+APP_VERSION=8.8.1
 
 // Temp for moxygen deps - to be cleaned up.
 MOXYGEN_PREFIX = $(SRCROOT)/dependencies/moxygen-install

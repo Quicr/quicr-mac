@@ -318,6 +318,7 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.warning("Failed to create video codec config")
                         return true
                     }
+                    let fullTrackName = try profile.getFullTrackName()
 
                     // Get camera device
                     let device: AVCaptureDevice
@@ -370,7 +371,8 @@ class CallState: ObservableObject, Equatable {
                         }
 
                         do {
-                            let sink = MoxygenVideoSink(publisher: moxygenPublisher)
+                            let sink = MoxygenVideoSink(publisher: moxygenPublisher,
+                                                        fullTrackName: fullTrackName)
                             let keyFrameInterval = self.subscriptionConfig.value.keyFrameInterval
                             let encoder = try VTEncoder(config: config,
                                                         verticalMirror: device.position == .front,
@@ -379,11 +381,15 @@ class CallState: ObservableObject, Equatable {
                             let publication = try H264Publication(profile: profile,
                                                                   config: config,
                                                                   metricsSubmitter: self.submitter,
+                                                                  reliable: subConfig.mediaReliability.video.publication,
                                                                   granularMetrics: self.influxConfig.value.granular,
                                                                   encoder: encoder,
                                                                   device: device,
+                                                                  endpointId: self.config.email,
+                                                                  relayId: self.config.address,
                                                                   stagger: subConfig.stagger,
                                                                   verbose: self.verbose,
+                                                                  keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                                   sframeContext: self.sendContext,
                                                                   mediaInterop: self.mediaInterop,
                                                                   sink: sink)
@@ -403,7 +409,8 @@ class CallState: ObservableObject, Equatable {
                                                                       trackName: "video",
                                                                       groupOrder: .newestFirst) {
                         // Create sink and publication
-                        let sink = MoxygenVideoSink(publisher: moxygenPublisher)
+                        let sink = MoxygenVideoSink(publisher: moxygenPublisher,
+                                                    fullTrackName: fullTrackName)
                         let keyFrameInterval = self.subscriptionConfig.value.keyFrameInterval
                         let encoder = try VTEncoder(config: config,
                                                     verticalMirror: device.position == .front,
@@ -412,11 +419,15 @@ class CallState: ObservableObject, Equatable {
                         let publication = try H264Publication(profile: profile,
                                                               config: config,
                                                               metricsSubmitter: self.submitter,
+                                                              reliable: subConfig.mediaReliability.video.publication,
                                                               granularMetrics: self.influxConfig.value.granular,
                                                               encoder: encoder,
                                                               device: device,
+                                                              endpointId: self.config.email,
+                                                              relayId: self.config.address,
                                                               stagger: subConfig.stagger,
                                                               verbose: self.verbose,
+                                                              keyFrameOnUpdate: subConfig.keyFrameOnSubscribeUpdate,
                                                               sframeContext: self.sendContext,
                                                               mediaInterop: self.mediaInterop,
                                                               sink: sink)
@@ -998,4 +1009,3 @@ class MoxygenCallbackHandler: NSObject, MoxygenClientCallbacks {
         lastError
     }
 }
-

@@ -15,7 +15,7 @@ protocol PublicationFactory {
     func create(publication: ManifestPublication,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)]
+                relayId: String) throws -> [(FullTrackName, any PublicationInstance)]
 }
 
 class PublicationFactoryImpl: PublicationFactory {
@@ -74,8 +74,8 @@ class PublicationFactoryImpl: PublicationFactory {
     func create(publication: ManifestPublication,
                 codecFactory: CodecFactory,
                 endpointId: String,
-                relayId: String) throws -> [(FullTrackName, QPublishTrackHandlerObjC)] {
-        var publications: [(FullTrackName, QPublishTrackHandlerObjC)] = []
+                relayId: String) throws -> [(FullTrackName, any PublicationInstance)] {
+        var publications: [(FullTrackName, any PublicationInstance)] = []
         var count = 0
         for profile in publication.profileSet.profiles {
             let config = codecFactory.makeCodecConfig(from: profile.qualityProfile, bitrateType: .average)
@@ -103,12 +103,13 @@ class PublicationFactoryImpl: PublicationFactory {
         return publications
     }
 
+    // swiftlint:disable:next function_body_length
     func create(_ profile: Profile,
                 sourceID: SourceIDType,
                 config: CodecConfig,
                 metricsSubmitter: MetricsSubmitter?,
                 endpointId: String,
-                relayId: String) throws -> QPublishTrackHandlerObjC {
+                relayId: String) throws -> any PublicationInstance {
         switch config.codec {
         case .h264, .hevc:
             guard let captureManager = self.captureManager else {
@@ -141,35 +142,30 @@ class PublicationFactoryImpl: PublicationFactory {
                                         emitStartCodes: false,
                                         keyFrameInterval: self.keyFrameInterval)
 
-            // Create the libquicr sink
-            guard let defaultPriority = profile.priorities?.first,
-                  let defaultTTL = profile.expiry?.first else {
-                throw "Missing expected profile values"
-            }
-            let sink = try LibquicrVideoSink(profile: profile,
-                                             trackMode: reliability.video.publication ? .stream : .datagram,
-                                             defaultPriority: UInt8(clamping: defaultPriority),
-                                             defaultTTL: UInt16(clamping: defaultTTL),
-                                             submitter: metricsSubmitter,
-                                             endpointId: endpointId,
-                                             relayId: relayId,
-                                             useAnnounce: self.useAnnounce,
-                                             keyFrameOnUpdate: self.keyFrameOnUpdate)
-
-            // Create the publication with the sink
+            let defaultPriority = try profile.getPriority(index: 0)
+            let defaultTTL = try profile.getTTL(index: 0)
+            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                trackMode: self.reliability.video.publication ? .stream : .datagram,
+                                                defaultPriority: defaultPriority,
+                                                defaultTTL: UInt32(defaultTTL),
+                                                useAnnounce: self.useAnnounce)
             let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
+                                                  reliable: self.reliability.video.publication,
                                                   granularMetrics: self.granularMetrics,
                                                   encoder: encoder,
                                                   device: device,
+                                                  endpointId: endpointId,
+                                                  relayId: relayId,
                                                   stagger: self.stagger,
                                                   verbose: self.verbose,
+                                                  keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
                                                   sink: sink)
             try captureManager.addInput(publication)
-            return sink
+            return publication
         case .opus:
             guard let engine = self.engine else {
                 throw PubSubFactoryError.cannotCreate(noAudioError)
@@ -177,6 +173,11 @@ class PublicationFactoryImpl: PublicationFactory {
             guard let config = config as? AudioCodecConfig else {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
+            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                trackMode: reliability.audio.publication ? .stream : .datagram,
+                                                defaultPriority: try profile.getPriority(index: 0),
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
+                                                useAnnounce: self.useAnnounce)
             return try OpusPublication(profile: profile,
                                        participantId: self.participantId,
                                        metricsSubmitter: metricsSubmitter,
@@ -191,18 +192,22 @@ class PublicationFactoryImpl: PublicationFactory {
                                        incrementing: .group,
                                        sframeContext: self.sframeContext,
                                        mediaInterop: self.mediaInterop,
-                                       useAnnounce: self.useAnnounce)
+                                       sink: sink)
         case .text:
+            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
+                                                trackMode: .stream,
+                                                defaultPriority: try profile.getPriority(index: 0),
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
+                                                useAnnounce: self.useAnnounce)
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,
                                        profile: profile,
-                                       trackMode: .stream,
                                        submitter: metricsSubmitter,
                                        endpointId: endpointId,
                                        relayId: relayId,
                                        sframeContext: self.sframeContext,
-                                       useAnnounce: self.useAnnounce,
-                                       startingGroupId: self.startingGroup ?? 0)
+                                       startingGroupId: self.startingGroup ?? 0,
+                                       sink: sink)
         default:
             throw CodecError.noCodecFound(config.codec)
         }
