@@ -133,7 +133,7 @@ fi
 if [[ "${CLEAN}" == "true" ]]; then
     echo ""
     echo "=== Cleaning build artifacts ==="
-    python3 "${GETDEPS}" clean moxygen
+    python3 "${GETDEPS}" clean
     rm -rf "${INSTALL_PREFIX}"
 fi
 
@@ -167,26 +167,21 @@ if [[ -n "${BUILD_DIR}" && -d "${BUILD_DIR}" ]]; then
     echo "=== Copying client libraries ==="
     mkdir -p "${INSTALL_PREFIX}/lib"
 
-    # Copy client-related static libraries that CMake doesn't install
-    for lib in libmoxygenclient.a libmoxygenserver.a libmoxygenwtclient.a libmoqfollyexecutorimpl.a; do
-        if [[ -f "${BUILD_DIR}/moxygen/${lib}" ]]; then
-            cp "${BUILD_DIR}/moxygen/${lib}" "${INSTALL_PREFIX}/lib/"
-            echo "  Copied ${lib}"
-        fi
-    done
+    # Copy all moxygen static libraries from build directory
+    echo "  Copying moxygen libraries..."
+    find "${BUILD_DIR}/moxygen" -name "*.a" -exec cp {} "${INSTALL_PREFIX}/lib/" \;
+    ls "${INSTALL_PREFIX}/lib/"lib*.a 2>/dev/null | wc -l | xargs -I{} echo "  Copied {} moxygen libraries"
 
-    # Copy client headers
+    # Copy all moxygen headers (preserving directory structure)
+    echo "  Copying moxygen headers..."
     mkdir -p "${INSTALL_PREFIX}/include/moxygen"
-    for header in MoQClient.h MoQClientBase.h MoQWebTransportClient.h; do
-        if [[ -f "${MOXYGEN_DIR}/moxygen/${header}" ]]; then
-            cp "${MOXYGEN_DIR}/moxygen/${header}" "${INSTALL_PREFIX}/include/moxygen/"
-        fi
+    cd "${MOXYGEN_DIR}/moxygen"
+    find . -name "*.h" -type f | while read -r header; do
+        dir=$(dirname "$header")
+        mkdir -p "${INSTALL_PREFIX}/include/moxygen/${dir}"
+        cp "$header" "${INSTALL_PREFIX}/include/moxygen/${dir}/"
     done
-    # Copy util headers needed by client
-    mkdir -p "${INSTALL_PREFIX}/include/moxygen/util"
-    if [[ -f "${MOXYGEN_DIR}/moxygen/util/QuicConnector.h" ]]; then
-        cp "${MOXYGEN_DIR}/moxygen/util/QuicConnector.h" "${INSTALL_PREFIX}/include/moxygen/util/"
-    fi
+    cd "${MOXYGEN_DIR}"
 fi
 
 # Consolidate all Facebook dependencies into install prefix
@@ -195,17 +190,20 @@ echo "=== Consolidating dependencies ==="
 GETDEPS_INSTALLED=$(dirname "$(get_install_dir)")
 if [[ -d "${GETDEPS_INSTALLED}" ]]; then
     # List of dependencies to consolidate
-    DEPS="folly fizz wangle mvfst proxygen boost double-conversion fmt gflags glog libevent openssl zstd lz4 snappy libsodium"
+    DEPS="folly fizz wangle mvfst proxygen boost double-conversion fmt gflags glog libevent openssl zstd lz4 snappy libsodium liboqs"
 
     for dep in ${DEPS}; do
-        DEP_DIR="${GETDEPS_INSTALLED}/${dep}"
-        if [[ -d "${DEP_DIR}" ]]; then
-            # Copy libraries
+        # Find directory: exact match or with hash suffix
+        DEP_DIR=$(ls -d "${GETDEPS_INSTALLED}/${dep}" "${GETDEPS_INSTALLED}/${dep}"-* 2>/dev/null | head -1)
+        if [[ -n "${DEP_DIR}" && -d "${DEP_DIR}" ]]; then
+            # Copy libraries (static and dynamic, preserving symlinks)
             if [[ -d "${DEP_DIR}/lib" ]]; then
-                find "${DEP_DIR}/lib" -name "*.a" -exec cp {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
+                find "${DEP_DIR}/lib" -maxdepth 1 -name "*.a" -exec cp {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
+                find "${DEP_DIR}/lib" -maxdepth 1 \( -name "*.dylib" -o -name "*.so*" \) -exec cp -a {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
             fi
             if [[ -d "${DEP_DIR}/lib64" ]]; then
-                find "${DEP_DIR}/lib64" -name "*.a" -exec cp {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
+                find "${DEP_DIR}/lib64" -maxdepth 1 -name "*.a" -exec cp {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
+                find "${DEP_DIR}/lib64" -maxdepth 1 \( -name "*.dylib" -o -name "*.so*" \) -exec cp -a {} "${INSTALL_PREFIX}/lib/" \; 2>/dev/null || true
             fi
             # Copy headers
             if [[ -d "${DEP_DIR}/include" ]]; then
@@ -227,13 +225,44 @@ LIB_COUNT=$(find "${INSTALL_PREFIX}/lib" -name "*.a" 2>/dev/null | wc -l | tr -d
 echo "Static libraries: ${LIB_COUNT} .a files in ${INSTALL_PREFIX}/lib"
 echo ""
 
+# Generate library flags from installed .a and .dylib files
+echo "=== Generating library list ==="
+LIB_FLAGS=""
+# Add static libraries
+for lib in "${INSTALL_PREFIX}/lib/"lib*.a; do
+    if [[ -f "$lib" ]]; then
+        libname=$(basename "$lib" .a | sed 's/^lib//')
+        LIB_FLAGS="${LIB_FLAGS} -l${libname}"
+    fi
+done
+# Add dynamic libraries (exclude versioned duplicates like libfoo.0.dylib when libfoo.dylib exists)
+for lib in "${INSTALL_PREFIX}/lib/"lib*.dylib; do
+    if [[ -f "$lib" && ! -L "$lib" ]]; then
+        # Skip versioned dylibs (e.g., libglog.0.5.0.dylib)
+        basename_lib=$(basename "$lib")
+        if [[ ! "$basename_lib" =~ \.[0-9]+\.dylib$ && ! "$basename_lib" =~ \.[0-9]+\.[0-9]+\.dylib$ ]]; then
+            libname=$(basename "$lib" .dylib | sed 's/^lib//')
+            # Check if we already have this library from .a
+            if [[ ! "$LIB_FLAGS" =~ "-l${libname} " && ! "$LIB_FLAGS" =~ "-l${libname}$" ]]; then
+                LIB_FLAGS="${LIB_FLAGS} -l${libname}"
+            fi
+        fi
+    fi
+done
+
 # Generate Xcode configuration file
 XCODE_CONFIG="${INSTALL_PREFIX}/moxygen.xcconfig"
+
+# Compute relative path from SRCROOT (assumes project is parent of dependencies/)
+RELATIVE_INSTALL_PATH="dependencies/moxygen-install"
+
 cat > "${XCODE_CONFIG}" << XCEOF
 // Moxygen XCConfig - Generated by build-moxygen.sh
 // Add this to your Xcode project's build settings
 
-MOXYGEN_PREFIX = ${INSTALL_PREFIX}
+// Use SRCROOT-relative path for portability
+// Assumes Xcode project is at the same level as 'dependencies' folder
+MOXYGEN_PREFIX = \$(SRCROOT)/${RELATIVE_INSTALL_PATH}
 
 // Header Search Paths (add to existing)
 HEADER_SEARCH_PATHS = \$(inherited) \$(MOXYGEN_PREFIX)/include
@@ -241,9 +270,11 @@ HEADER_SEARCH_PATHS = \$(inherited) \$(MOXYGEN_PREFIX)/include
 // Library Search Paths (add to existing)
 LIBRARY_SEARCH_PATHS = \$(inherited) \$(MOXYGEN_PREFIX)/lib
 
-// Other Linker Flags - Core moxygen client libraries
-// Note: Order matters for static linking
-OTHER_LDFLAGS = \$(inherited) -lmoxygenclient -lmoxygen -lmlogger -lmoqfollyexecutorimpl -lproxygenhttpserver -lproxygen -lproxygenhttp3 -lquicwebtransport -lwangle -lmvfst_server -lmvfst_client -lmvfst_protocol -lmvfst_transport -lmvfst_codec -lmvfst_state_machine -lmvfst_fizz_handshake -lfizz -lfolly -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lz -lzstd -llz4 -lsnappy -lsodium -lboost_context -lboost_filesystem -lboost_program_options -lboost_regex -lboost_system -lboost_thread -lc++
+// Runtime Search Paths for dynamic libraries
+LD_RUNPATH_SEARCH_PATHS = \$(inherited) \$(MOXYGEN_PREFIX)/lib
+
+// Other Linker Flags - All installed static libraries
+OTHER_LDFLAGS = \$(inherited)${LIB_FLAGS} -lc++
 
 // System Frameworks
 OTHER_LDFLAGS = \$(inherited) -framework Security -framework CoreFoundation -framework SystemConfiguration -framework CoreServices
