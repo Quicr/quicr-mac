@@ -66,13 +66,16 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     }
 
     return quicr::ObjectHeaders {
-        .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
+        .subgroup_id = objectHeaders.subgroupId,
+        .object_id = objectHeaders.objectId,
         .priority = priority,
         .ttl = ttl,
         .payload_length = objectHeaders.payloadLength,
         .extensions = from(extensions),
-        .immutable_extensions = from(immutable_extensions)
+        .immutable_extensions = from(immutable_extensions),
+        .end_of_group = objectHeaders.endOfGroup,
+        .end_of_subgroup = objectHeaders.endOfSubgroup ? std::make_optional(quicr::ObjectHeaders::CloseStream::kFin) : std::nullopt
     };
 }
 

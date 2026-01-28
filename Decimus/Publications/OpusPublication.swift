@@ -217,12 +217,19 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                          ttl: UnsafePointer<UInt16>?,
                          extensions: HeaderExtensions?,
                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
+        let endOfGroup = self.incrementing == .group
         let headers = QObjectHeaders(groupId: self.currentGroupId,
+                                     subgroupId: 0,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
-                                     ttl: ttl)
-        return self.sink.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
+                                     ttl: ttl,
+                                     endOfSubgroup: endOfGroup,
+                                     endOfGroup: endOfGroup)
+        return self.sink.publishObject(headers,
+                                       data: data,
+                                       extensions: extensions,
+                                       immutableExtensions: immutableExtensions)
     }
 
     struct EncodeResult {
