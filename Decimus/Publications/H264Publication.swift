@@ -168,11 +168,16 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         // Determine group and object IDs.
         let thisGroupId: UInt64
         let thisObjectId: UInt64
+        var lastRealObjectId: UInt64?
         if let currentGroupId = publication.currentGroupId {
             if idr {
                 // Start new group on key frame.
                 thisGroupId = currentGroupId + 1
                 thisObjectId = 0
+                if publication.currentObjectId > 0 {
+                    // Store previous object ID.
+                    lastRealObjectId = publication.currentObjectId
+                }
             } else {
                 // Increment object ID in current GOP.
                 thisGroupId = currentGroupId
@@ -183,6 +188,26 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             assert(idr)
             thisGroupId = UInt64(Date.now.timeIntervalSince1970)
             thisObjectId = 0
+        }
+
+        // If we just rolled group, send end of group.
+        if let lastRealObjectId,
+           let currentGroupId = publication.currentGroupId {
+            publication.logger.debug("Sending end of group because group \(currentGroupId) complete")
+            let endOfGroup = publication.sink.publishObject(.init(groupId: currentGroupId,
+                                                                  subgroupId: 0,
+                                                                  objectId: lastRealObjectId + 1,
+                                                                  payloadLength: 0,
+                                                                  priority: nil,
+                                                                  ttl: nil,
+                                                                  endOfSubgroup: true,
+                                                                  endOfGroup: true),
+                                                            data: .init(),
+                                                            extensions: nil,
+                                                            immutableExtensions: nil)
+            if endOfGroup != .ok {
+                publication.logger.warning("Didn't send end of group successfully: \(endOfGroup)")
+            }
         }
 
         // Publish.
@@ -318,10 +343,13 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                           extensions: HeaderExtensions?,
                           immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: groupId,
+                                     subgroupId: 0,
                                      objectId: objectId,
                                      payloadLength: UInt64(data.count),
                                      priority: priority,
-                                     ttl: ttl)
+                                     ttl: ttl,
+                                     endOfSubgroup: false,
+                                     endOfGroup: false)
         return self.sink.publishObject(headers,
                                        data: data,
                                        extensions: extensions,

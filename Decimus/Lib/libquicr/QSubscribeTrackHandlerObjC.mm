@@ -135,11 +135,14 @@ void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_h
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
+            .endOfGroup = object_headers.end_of_group,
+            .endOfSubgroup = object_headers.end_of_subgroup.has_value()
         };
 
         // Convert extensions.
@@ -164,11 +167,14 @@ void QSubscribeTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& o
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
+            .endOfGroup = object_headers.end_of_group,
+            .endOfSubgroup = object_headers.end_of_subgroup.has_value()
         };
 
         const auto extensions = convertExtensions(object_headers.extensions);

@@ -29,11 +29,14 @@ typedef struct QMinMaxAvg {
 } QMinMaxAvg;
 
 typedef struct QObjectHeaders {
-    uint64_t groupId;
-    uint64_t objectId;
-    uint64_t payloadLength;
+    const uint64_t groupId;
+    const uint64_t subgroupId;
+    const uint64_t objectId;
+    const uint64_t payloadLength;
     const uint8_t* priority;
     const uint16_t* ttl;
+    const bool endOfSubgroup;
+    const bool endOfGroup;
 } QObjectHeaders;
 
 #ifdef __cplusplus

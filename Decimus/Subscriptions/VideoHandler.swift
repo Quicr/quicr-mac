@@ -321,6 +321,16 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             return
         }
 
+        guard !data.isEmpty else {
+            guard objectHeaders.endOfGroup else {
+                // This should be unexpected really, but libquicr is not sending status objects.
+                return
+            }
+            // End of group status update, do nothing.
+            self.logger.debug("Got end of group status")
+            return
+        }
+
         // Video needs extensions to be present.
         guard let extensions = extensions else {
             self.logger.error("Missing expected header extensions")
