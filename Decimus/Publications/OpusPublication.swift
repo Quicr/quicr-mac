@@ -203,6 +203,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         case .ok:
             switch self.incrementing {
             case .group:
+                self.sink.endSubgroup(groupId: self.currentGroupId, subgroupId: 0, completed: true)
                 self.currentGroupId += 1
             case .object:
                 self.currentObjectId += 1
@@ -217,15 +218,13 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                          ttl: UnsafePointer<UInt16>?,
                          extensions: HeaderExtensions?,
                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
-        let endOfGroup = self.incrementing == .group
         let headers = QObjectHeaders(groupId: self.currentGroupId,
                                      subgroupId: 0,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
+                                     status: .available,
                                      priority: priority,
-                                     ttl: ttl,
-                                     endOfSubgroup: endOfGroup,
-                                     endOfGroup: endOfGroup)
+                                     ttl: ttl)
         return self.sink.publishObject(headers,
                                        data: data,
                                        extensions: extensions,

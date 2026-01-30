@@ -322,12 +322,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         }
 
         guard !data.isEmpty else {
-            guard objectHeaders.endOfGroup else {
-                // This should be unexpected really, but libquicr is not sending status objects.
+            guard objectHeaders.status == .endOfSubGroup else {
+                self.logger.warning("Got unexpected empty object")
                 return
             }
-            // End of group status update, do nothing.
-            self.logger.debug("Got end of group status")
             return
         }
 

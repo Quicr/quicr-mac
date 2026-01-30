@@ -72,10 +72,9 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
         .priority = priority,
         .ttl = ttl,
         .payload_length = objectHeaders.payloadLength,
+        .status = static_cast<quicr::ObjectStatus>(objectHeaders.status),
         .extensions = from(extensions),
         .immutable_extensions = from(immutable_extensions),
-        .end_of_group = objectHeaders.endOfGroup,
-        .end_of_subgroup = objectHeaders.endOfSubgroup ? std::make_optional(quicr::ObjectHeaders::CloseStream::kFin) : std::nullopt
     };
 }
 
@@ -109,6 +108,13 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     abort();
     // auto status = handlerPtr->PublishPartialObject(headers, span);
     // return static_cast<QPublishObjectStatus>(status);
+}
+
+-(void) endSubgroup: (uint64_t) groupId
+         subgroupId: (uint64_t) subgroupId
+          completed: (bool)completed {
+    assert(handlerPtr);
+    handlerPtr->EndSubgroup(groupId, subgroupId, completed);
 }
 
 -(void) setDefaultPriority: (uint8_t) priority {

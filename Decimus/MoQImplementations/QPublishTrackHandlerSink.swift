@@ -53,6 +53,10 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
                                    immutableExtensions: immutableExtensions)
     }
 
+    func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool) {
+        self.handler.endSubgroup(groupId, subgroupId: subgroupId, completed: completed)
+    }
+
     func statusChanged(_ status: QPublishTrackHandlerStatus) {
         self.delegate?.sinkStatusChanged(status)
     }

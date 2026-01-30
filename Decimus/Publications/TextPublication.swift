@@ -57,15 +57,13 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
             data = Data(message.utf8)
         }
 
-        let endOfGroup = self.incrementing == .group
         let headers = QObjectHeaders(groupId: self.currentGroupId,
                                      subgroupId: 0,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
+                                     status: .available,
                                      priority: nil,
-                                     ttl: nil,
-                                     endOfSubgroup: endOfGroup,
-                                     endOfGroup: endOfGroup)
+                                     ttl: nil)
         var extensions = HeaderExtensions()
         try? extensions.setHeader(.participantId(self.participantId))
         let status = self.sink.publishObject(headers,
@@ -84,6 +82,7 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
 
         switch self.incrementing {
         case .group:
+            self.sink.endSubgroup(groupId: self.currentGroupId, subgroupId: 0, completed: true)
             self.currentGroupId += 1
         case .object:
             self.currentObjectId += 1
