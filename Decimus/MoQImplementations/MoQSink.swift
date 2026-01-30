@@ -38,4 +38,7 @@ protocol MoQSink: AnyObject {
                        data: Data,
                        extensions: HeaderExtensions?,
                        immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus
+
+    /// End the given subgroup.
+    func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool)
 }

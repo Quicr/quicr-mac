@@ -66,13 +66,15 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     }
 
     return quicr::ObjectHeaders {
-        .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
+        .subgroup_id = objectHeaders.subgroupId,
+        .object_id = objectHeaders.objectId,
         .priority = priority,
         .ttl = ttl,
         .payload_length = objectHeaders.payloadLength,
+        .status = static_cast<quicr::ObjectStatus>(objectHeaders.status),
         .extensions = from(extensions),
-        .immutable_extensions = from(immutable_extensions)
+        .immutable_extensions = from(immutable_extensions),
     };
 }
 
@@ -106,6 +108,13 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     abort();
     // auto status = handlerPtr->PublishPartialObject(headers, span);
     // return static_cast<QPublishObjectStatus>(status);
+}
+
+-(void) endSubgroup: (uint64_t) groupId
+         subgroupId: (uint64_t) subgroupId
+          completed: (bool)completed {
+    assert(handlerPtr);
+    handlerPtr->EndSubgroup(groupId, subgroupId, completed);
 }
 
 -(void) setDefaultPriority: (uint8_t) priority {

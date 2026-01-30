@@ -6,7 +6,9 @@
 #import "QClientObjC.h"
 #include <memory>
 #include <iostream>
+#include <map>
 #include "TransportConfig.h"
+#include "quicr/subscribe_namespace_handler.h"
 
 static quicr::TransportConfig convert(TransportConfig config) {
     return {
@@ -63,7 +65,40 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     return converted;
 }
 
-@implementation QClientObjC : NSObject
+// Custom SubscribeNamespaceHandler that bridges to Objective-C callbacks
+class QSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler {
+public:
+    static std::shared_ptr<QSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& prefix,
+                                                               __weak id<QClientCallbacks> callbacks) {
+        return std::shared_ptr<QSubscribeNamespaceHandler>(new QSubscribeNamespaceHandler(prefix, callbacks));
+    }
+
+    void StatusChanged(Status status) override {
+        if (_callbacks) {
+            QSubscribeNamespaceErrorCode errorCode = QSubscribeNamespaceErrorCode::kQSubscribeNamespaceErrorCodeOK;
+            if (status == Status::kError) {
+                // Map error status to error code
+                auto error = GetError();
+                if (error.has_value()) {
+                    errorCode = static_cast<QSubscribeNamespaceErrorCode>(error->first);
+                }
+            }
+            [_callbacks subscribeNamespaceStatusChanged:nsConvert(GetPrefix()) errorCode:errorCode];
+        }
+        quicr::SubscribeNamespaceHandler::StatusChanged(status);
+    }
+
+private:
+    QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix, __weak id<QClientCallbacks> callbacks)
+        : quicr::SubscribeNamespaceHandler(prefix), _callbacks(callbacks) {}
+
+    __weak id<QClientCallbacks> _callbacks;
+};
+
+@implementation QClientObjC : NSObject {
+    std::map<quicr::TrackNamespace, std::shared_ptr<QSubscribeNamespaceHandler>> _namespaceHandlers;
+}
+
 
 -(id)initWithConfig: (QClientConfig) config
 {
@@ -178,7 +213,16 @@ static quicr::PublishResponse convert(QPublishResponse response) {
 -(void) subscribeNamespace: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    qClientPtr->SubscribeNamespace(nsConvert(trackNamespace));
+    auto ns = nsConvert(trackNamespace);
+
+    // Create a custom handler that bridges to Objective-C callbacks
+    auto handler = QSubscribeNamespaceHandler::Create(ns, qClientPtr->GetCallbacks());
+
+    // Store the handler to keep it alive
+    _namespaceHandlers[ns] = handler;
+
+    // Subscribe using the handler
+    qClientPtr->SubscribeNamespace(handler);
 }
 
 -(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response {
@@ -275,20 +319,6 @@ void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
 
     if (_callbacks) {
         [_callbacks publishReceived:connection_handle requestId:request_id tfn:ftnConvert(publish_attributes.track_full_name) attributes:convert(publish_attributes)];
-    }
-}
-
-void QClient::SubscribeNamespaceStatusChanged(const quicr::TrackNamespace& name_space,
-                                              std::optional<quicr::messages::SubscribeNamespaceErrorCode> error_code,
-                                              std::optional<quicr::messages::ReasonPhrase> reason)
-{
-    const auto nameSpace = nsConvert(name_space);
-    QSubscribeNamespaceErrorCode errorCode = QSubscribeNamespaceErrorCode::kQSubscribeNamespaceErrorCodeOK;
-    if (error_code.has_value()) {
-        errorCode = static_cast<QSubscribeNamespaceErrorCode>(*error_code);
-    }
-    if (_callbacks) {
-        [_callbacks subscribeNamespaceStatusChanged:nameSpace errorCode:errorCode];
     }
 }
 

@@ -28,10 +28,20 @@ typedef struct QMinMaxAvg {
     uint64_t value_count;
 } QMinMaxAvg;
 
+typedef NS_ENUM(uint64_t, QObjectStatus) {
+    kQObjectStatusAvailable = 0x0,
+    kQObjectStatusDoesNotExist = 0x1,
+    kQObjectStatusEndOfGroup = 0x3,
+    kQObjectStatusEndOfTrack = 0x4,
+    kQObjectStatusEndOfSubGroup = 0x5,
+};
+
 typedef struct QObjectHeaders {
-    uint64_t groupId;
-    uint64_t objectId;
-    uint64_t payloadLength;
+    const uint64_t groupId;
+    const uint64_t subgroupId;
+    const uint64_t objectId;
+    const uint64_t payloadLength;
+    const QObjectStatus status;
     const uint8_t* priority;
     const uint16_t* ttl;
 } QObjectHeaders;

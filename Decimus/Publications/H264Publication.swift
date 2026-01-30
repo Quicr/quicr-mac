@@ -185,6 +185,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             thisObjectId = 0
         }
 
+        // If we just rolled group, send end of (sub)group.
+        if idr,
+           let currentGroupId = publication.currentGroupId {
+            publication.sink.endSubgroup(groupId: currentGroupId, subgroupId: 0, completed: true)
+        }
+
         // Publish.
         var protected: Data?
         let status = try! buffer.withContiguousStorage { ptr in // swiftlint:disable:this force_try
@@ -222,6 +228,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 try extensions.setHeader(.publishTimestamp(.now))
             }
             return (publication.publish(groupId: thisGroupId,
+                                        subgroupId: 0,
                                         objectId: thisObjectId,
                                         data: protected,
                                         priority: &priority,
@@ -311,6 +318,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     }
 
     internal func publish(groupId: UInt64,
+                          subgroupId: UInt64,
                           objectId: UInt64,
                           data: Data,
                           priority: UnsafePointer<UInt8>?,
@@ -318,8 +326,10 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                           extensions: HeaderExtensions?,
                           immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: groupId,
+                                     subgroupId: subgroupId,
                                      objectId: objectId,
                                      payloadLength: UInt64(data.count),
+                                     status: .available,
                                      priority: priority,
                                      ttl: ttl)
         return self.sink.publishObject(headers,
