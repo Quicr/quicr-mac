@@ -12,6 +12,7 @@
 #import "QCommon.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
 #import "QFullTrackName.h"
+#import "QLocation.h"
 
 @interface QFetchTrackHandlerObjC : NSObject
 {
@@ -28,10 +29,8 @@
                             endGroup: (uint64_t) endGroup
                          startObject: (uint64_t) startObject
                            endObject: (uint64_t) endObject;
--(uint64_t) getStartGroup;
--(uint64_t) getEndGroup;
--(uint64_t) getStartObject;
--(uint64_t) getEndObject;
+-(id<QLocation> _Nonnull) getStartLocation;
+-(id<QLocation> _Nonnull) getEndLocation;
 -(QSubscribeTrackHandlerStatus) getStatus;
 -(uint8_t) getPriority;
 -(QGroupOrder) getGroupOrder;

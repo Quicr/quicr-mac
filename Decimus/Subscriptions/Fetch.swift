@@ -71,7 +71,8 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
                         data: Data,
                         extensions: HeaderExtensions?,
                         immutableExtensions: HeaderExtensions?) {
-        if objectHeaders.groupId == self.getEndGroup() && objectHeaders.objectId + 1 == self.getEndObject() {
+        let endLocation = self.getEndLocation()
+        if objectHeaders.groupId == endLocation.group && objectHeaders.objectId == endLocation.object {
             self.isCompleteInternal.store(true, ordering: .releasing)
         }
         guard self.verbose else { return }

@@ -18,13 +18,19 @@
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    const quicr::messages::Location startLocation = {
+        .group = startGroup,
+        .object = startObject
+    };
+    const quicr::messages::FetchEndLocation endLocation = {
+        .group = endGroup,
+        .object = endObject
+    };
     handlerPtr = std::make_shared<QFetchTrackHandler>(fullTrackName,
                                                       priority,
                                                       order,
-                                                      startGroup,
-                                                      endGroup,
-                                                      startObject,
-                                                      endObject);
+                                                      startLocation,
+                                                      endLocation);
     return self;
 }
 
@@ -54,48 +60,39 @@
     return static_cast<QFilterType>(handlerPtr->GetFilterType());
 }
 
+-(id<QLocation> _Nonnull) getStartLocation {
+    assert(handlerPtr);
+    const auto& location = handlerPtr->GetStartLocation();
+    return [[QLocationImpl alloc] initWithGroup:location.group object:location.object];
+}
+
+-(id<QLocation> _Nonnull) getEndLocation {
+    assert(handlerPtr);
+    const auto& location = handlerPtr->GetEndLocation();
+    // FetchEndLocation has optional object - use 0 if not set
+    uint64_t object = location.object.has_value() ? location.object.value() : 0;
+    return [[QLocationImpl alloc] initWithGroup:location.group object:object];
+}
+
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
 {
     assert(handlerPtr);
     handlerPtr->SetCallbacks(callbacks);
 }
 
--(uint64_t) getStartGroup {
-    assert(handlerPtr);
-    return handlerPtr->GetStartGroup();
-}
-
--(uint64_t) getEndGroup {
-    assert(handlerPtr);
-    return handlerPtr->GetEndGroup();
-}
-
--(uint64_t) getStartObject {
-    assert(handlerPtr);
-    return handlerPtr->GetStartObject();
-}
-
--(uint64_t) getEndObject {
-    assert(handlerPtr);
-    return handlerPtr->GetEndObject();
-}
 @end
 
 // C++
 
 QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                                       quicr::messages::ObjectPriority priority,
+                                       quicr::messages::SubscriberPriority priority,
                                        quicr::messages::GroupOrder group_order,
-                                       quicr::messages::GroupId start_group,
-                                       quicr::messages::GroupId end_group,
-                                       quicr::messages::ObjectId start_object,
-                                       quicr::messages::ObjectId end_object) : quicr::FetchTrackHandler(full_track_name,
+                                       const quicr::messages::Location& start_location,
+                                       const quicr::messages::FetchEndLocation& end_location) : quicr::FetchTrackHandler(full_track_name,
                                                                                                         priority,
                                                                                                         group_order,
-                                                                                                        start_group,
-                                                                                                        end_group,
-                                                                                                        start_object,
-                                                                                                        end_object) {}
+                                                                                                        start_location,
+                                                                                                        end_location) {}
 
 void QFetchTrackHandler::StatusChanged(Status status)
 {
@@ -119,11 +116,13 @@ void QFetchTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_heade
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
+            .status = static_cast<QObjectStatus>(object_headers.status),
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
         };
 
         // Convert extensions.
@@ -149,11 +148,13 @@ void QFetchTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& objec
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
+            .status = static_cast<QObjectStatus>(object_headers.status),
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
         };
 
         // Convert extensions.
