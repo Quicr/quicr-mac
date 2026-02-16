@@ -146,12 +146,10 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 -(QStreamHeaderType) getStreamMode {
     assert(handlerPtr);
     auto mode = handlerPtr->GetStreamMode();
-    return static_cast<QStreamHeaderType>(mode);
-}
-
--(void) setUseAnnounce: (bool) use {
-    assert(handlerPtr);
-    handlerPtr->SetUseAnnounce(use);
+    if (mode.has_value()) {
+        return static_cast<QStreamHeaderType>(mode->GetType());
+    }
+    return static_cast<QStreamHeaderType>(0);
 }
 
 // C++
@@ -160,7 +158,7 @@ QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_trac
                                            quicr::TrackMode track_mode,
                                            std::uint8_t default_priority,
                                            std::uint32_t default_ttl,
-                                           std::optional<quicr::messages::StreamHeaderType> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
+                                           std::optional<quicr::messages::StreamHeaderProperties> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
 {
 }
 

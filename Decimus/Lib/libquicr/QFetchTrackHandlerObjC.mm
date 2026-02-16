@@ -11,21 +11,22 @@
 -(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name
                             priority: (uint8_t) priority
                           groupOrder: (QGroupOrder) groupOrder
-                          startGroup: (uint64_t) startGroup
-                            endGroup: (uint64_t) endGroup
-                         startObject: (uint64_t) startObject
-                           endObject: (uint64_t) endObject
+                       startLocation: (id<QLocation> _Nonnull) start_location
+                         endLocation: (id<QFetchEndLocation> _Nonnull) end_location
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
     const quicr::messages::Location startLocation = {
-        .group = startGroup,
-        .object = startObject
+        .group = start_location.group,
+        .object = start_location.object
     };
-    const quicr::messages::FetchEndLocation endLocation = {
-        .group = endGroup,
-        .object = endObject
+    quicr::messages::FetchEndLocation endLocation = {
+        .group = end_location.group,
+        .object = std::nullopt
     };
+    if (end_location.object != nil) {
+        endLocation.object = end_location.object.unsignedLongLongValue;
+    }
     handlerPtr = std::make_shared<QFetchTrackHandler>(fullTrackName,
                                                       priority,
                                                       order,
@@ -66,12 +67,11 @@
     return [[QLocationImpl alloc] initWithGroup:location.group object:location.object];
 }
 
--(id<QLocation> _Nonnull) getEndLocation {
+-(id<QFetchEndLocation> _Nonnull) getEndLocation {
     assert(handlerPtr);
     const auto& location = handlerPtr->GetEndLocation();
-    // FetchEndLocation has optional object - use 0 if not set
-    uint64_t object = location.object.has_value() ? location.object.value() : 0;
-    return [[QLocationImpl alloc] initWithGroup:location.group object:object];
+    NSNumber* object = location.object.has_value() ? @(location.object.value()) : nil;
+    return [[QFetchEndLocationImpl alloc] initWithGroup:location.group object:object];
 }
 
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
@@ -85,7 +85,7 @@
 // C++
 
 QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                                       quicr::messages::SubscriberPriority priority,
+                                       std::uint8_t priority,
                                        quicr::messages::GroupOrder group_order,
                                        const quicr::messages::Location& start_location,
                                        const quicr::messages::FetchEndLocation& end_location) : quicr::FetchTrackHandler(full_track_name,

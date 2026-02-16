@@ -25,12 +25,10 @@
 -(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name
                             priority: (uint8_t) priority
                           groupOrder: (QGroupOrder) groupOrder
-                          startGroup: (uint64_t) startGroup
-                            endGroup: (uint64_t) endGroup
-                         startObject: (uint64_t) startObject
-                           endObject: (uint64_t) endObject;
+                       startLocation: (id<QLocation> _Nonnull) startLocation
+                         endLocation: (id<QFetchEndLocation> _Nonnull) endLocation;
 -(id<QLocation> _Nonnull) getStartLocation;
--(id<QLocation> _Nonnull) getEndLocation;
+-(id<QFetchEndLocation> _Nonnull) getEndLocation;
 -(QSubscribeTrackHandlerStatus) getStatus;
 -(uint8_t) getPriority;
 -(QGroupOrder) getGroupOrder;

@@ -188,13 +188,13 @@ private:
 -(void) publishNamespace: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    qClientPtr->PublishNamespace(nsConvert(trackNamespace));
+    // TODO: Implement.
 }
 
 -(void) publishNamespaceDone: (QTrackNamespace) trackNamespace
 {
     assert(qClientPtr);
-    qClientPtr->PublishNamespaceDone(nsConvert(trackNamespace));
+    // TODO: Implement.
 }
 
 -(void)setCallbacks: (id<QClientCallbacks>) callbacks

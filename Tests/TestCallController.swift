@@ -40,8 +40,7 @@ final class TestCallController: XCTestCase {
                 let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                     trackMode: .stream,
                                                     defaultPriority: 0,
-                                                    defaultTTL: 0,
-                                                    useAnnounce: false)
+                                                    defaultTTL: 0)
                 let publication = MockPublication(sink: sink)
                 self.callback(publication)
                 pubs.append((ftn, publication))

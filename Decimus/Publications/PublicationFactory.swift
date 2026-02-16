@@ -148,8 +148,7 @@ class PublicationFactoryImpl: PublicationFactory {
                 fullTrackName: try profile.getFullTrackName(),
                 trackMode: self.reliability.video.publication ? .stream : .datagram,
                 defaultPriority: try profile.getPriority(index: 0),
-                defaultTTL: UInt32(try profile.getTTL(index: 0)),
-                useAnnounce: self.useAnnounce
+                defaultTTL: UInt32(try profile.getTTL(index: 0))
             )
 
             let publication = try H264Publication(profile: profile,
@@ -179,8 +178,7 @@ class PublicationFactoryImpl: PublicationFactory {
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: reliability.audio.publication ? .stream : .datagram,
                                                 defaultPriority: try profile.getPriority(index: 0),
-                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
-                                                useAnnounce: self.useAnnounce)
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)))
             return try OpusPublication(profile: profile,
                                        participantId: self.participantId,
                                        metricsSubmitter: metricsSubmitter,
@@ -200,8 +198,7 @@ class PublicationFactoryImpl: PublicationFactory {
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
                                                 trackMode: .stream,
                                                 defaultPriority: try profile.getPriority(index: 0),
-                                                defaultTTL: UInt32(try profile.getTTL(index: 0)),
-                                                useAnnounce: self.useAnnounce)
+                                                defaultTTL: UInt32(try profile.getTTL(index: 0)))
             return try TextPublication(participantId: self.participantId,
                                        incrementing: .object,
                                        profile: profile,

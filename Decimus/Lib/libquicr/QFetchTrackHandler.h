@@ -12,7 +12,7 @@ class QFetchTrackHandler : public quicr::FetchTrackHandler
 {
 public:
     QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                       quicr::messages::SubscriberPriority priority,
+                       std::uint8_t priority,
                        quicr::messages::GroupOrder group_order,
                        const quicr::messages::Location& start_location,
                        const quicr::messages::FetchEndLocation& end_location);
