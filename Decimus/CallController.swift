@@ -38,7 +38,7 @@ struct ClientConfig {
 
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
-class MoqCallController: QClientCallbacks {
+class MoqCallController: QClientCallbacks, MoQSubscribeNamespaceHandlerDelegate {
     typealias PublishReceivedCallback = (_ connectionHandle: UInt64,
                                          _ requestId: UInt64,
                                          _ tfn: QFullTrackName,
@@ -55,6 +55,7 @@ class MoqCallController: QClientCallbacks {
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: any PublicationInstance] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
+    private var namespaceHandlers: [String: any MoQSubscribeNamespaceHandler] = [:]
     private var connected = false
     private let callEnded: (() -> Void)?
     private let overrideNamespace: [String]?
@@ -135,6 +136,7 @@ class MoqCallController: QClientCallbacks {
         self.logger.info("[MoqCallController] Disconnected")
         self.publications.removeAll()
         self.subscriptions.removeAll()
+        self.namespaceHandlers.removeAll()
     }
 
     // MARK: Pub/Sub Modification APIs.
@@ -465,12 +467,18 @@ class MoqCallController: QClientCallbacks {
     }
 
     func subscribeNamespace(_ prefix: [String]) {
-        self.client.subscribeNamespace(prefix.map { .init($0.utf8) })
+        let namespacePrefix = prefix.map { Data($0.utf8) }
+        let handler = QSubscribeNamespaceHandler(namespacePrefix: namespacePrefix)
+        handler.delegate = self
+        self.namespaceHandlers[prefix.joined(separator: "/")] = handler
+        self.client.subscribeNamespace(withHandler: handler.handler)
     }
 
-    func subscribeNamespaceStatusChanged(_ tfn: [Data], errorCode: QSubscribeNamespaceErrorCode) {
-        let namespace = tfn.compactMap { String(data: $0, encoding: .utf8) }
-        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(errorCode)")
+    func statusChanged(_ status: QSubscribeNamespaceHandlerStatus,
+                                       errorCode: QSubscribeNamespaceErrorCode,
+                                       namespacePrefix: [Data]) {
+        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
+        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
     }
 }
 

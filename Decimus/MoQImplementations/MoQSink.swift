@@ -42,3 +42,23 @@ protocol MoQSink: AnyObject {
     /// End the given subgroup.
     func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool)
 }
+
+/// Delegate protocol for receiving callbacks from a namespace subscription handler.
+protocol MoQSubscribeNamespaceHandlerDelegate: AnyObject {
+    /// Called when the subscribe-namespace status changes.
+    func statusChanged(_ status: QSubscribeNamespaceHandlerStatus,
+                       errorCode: QSubscribeNamespaceErrorCode,
+                       namespacePrefix: [Data])
+}
+
+/// Protocol describing MoQ subscribe-namespace capability.
+protocol MoQSubscribeNamespaceHandler: AnyObject {
+    /// The delegate to receive status callbacks.
+    var delegate: MoQSubscribeNamespaceHandlerDelegate? { get set }
+
+    /// The namespace prefix this handler subscribes to.
+    var namespacePrefix: [Data] { get }
+
+    /// Current status of the namespace subscription.
+    var status: QSubscribeNamespaceHandlerStatus { get }
+}
