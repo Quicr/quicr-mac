@@ -84,6 +84,7 @@ class FakeH264Publication: H264Publication {
     }
 
     override func publish(groupId: UInt64,
+                          subgroupId: UInt64,
                           objectId: UInt64,
                           data: Data,
                           priority: UnsafePointer<UInt8>?,
@@ -92,6 +93,7 @@ class FakeH264Publication: H264Publication {
                           immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         self.publishNotify(groupId, objectId)
         return super.publish(groupId: groupId,
+                             subgroupId: subgroupId,
                              objectId: objectId,
                              data: data,
                              priority: priority,
