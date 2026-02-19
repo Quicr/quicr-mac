@@ -398,6 +398,28 @@ final class TestCallController: XCTestCase {
         XCTAssert(self.assertFtnEquality(ftns2, rhs: [ftn1, ftn2]))
     }
 
+    func testSubscribeNamespaceHandlerAlter() async throws {
+        let publish: MockClient.PublishTrackCallback = { _ in }
+        let unpublish: MockClient.PublishTrackCallback = { _ in }
+        let subscribe: MockClient.SubscribeTrackCallback = { _ in }
+        let unsubscribe: MockClient.SubscribeTrackCallback = { _ in }
+        let fetch: MockClient.FetchTrackCallback = { _ in }
+        var subscribedHandler: QSubscribeNamespaceHandlerObjC?
+        let client = MockClient(publish: publish,
+                                unpublish: unpublish,
+                                subscribe: subscribe,
+                                unsubscribe: unsubscribe,
+                                subscribeNamespace: { subscribedHandler = $0 },
+                                fetch: fetch,
+                                fetchCancel: fetch)
+        let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
+        try await controller.connect()
+
+        let handler = QSubscribeNamespaceHandler(namespacePrefix: [Data("namespace".utf8)])
+        try controller.subscribeNamespace(handler)
+        XCTAssert(subscribedHandler === handler.handler)
+    }
+
     func testAssertFtnEquality() throws {
         let lhs: [QFullTrackName] = [try FullTrackName(namespace: ["a"], name: "a")]
         let rhs: [QFullTrackName] = [try FullTrackName(namespace: ["b"], name: "b")]

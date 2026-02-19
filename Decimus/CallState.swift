@@ -365,14 +365,23 @@ class CallState: ObservableObject, Equatable {
 
         // Are we doing subscribe namespace?
         if self.subscribeNamespaceEnabled {
-            do {
-                let namespaceTuple = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8))
-                let acceptNamespace = try JSONDecoder().decode([String].self, from: Data(self.subscribeNamespaceAccept.utf8))
+            if let namespaceTuple = try? JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8)),
+               let acceptNamespace = try? JSONDecoder().decode([String].self,
+                                                               from: Data(self.subscribeNamespaceAccept.utf8)) {
                 self.subscriptionNamespaceAcceptParsed = acceptNamespace.map { .init($0.utf8) }
-                controller.subscribeNamespace(namespaceTuple)
-                Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
-            } catch {
-                Self.logger.warning("Failed to parse subscribe namespace", alert: true)
+                let handler = QSubscribeNamespaceHandler(namespacePrefix: namespaceTuple.map { .init($0.utf8) })
+                handler.statusChangedCallback = { status, errorCode, namespacePrefix in
+                    let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
+                    Self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                }
+                do {
+                    try controller.subscribeNamespace(handler)
+                    Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
+                } catch {
+                    Self.logger.error("Failed to subscribe to namespace: \(namespaceTuple): \(error.localizedDescription)")
+                }
+            } else {
+                Self.logger.error("Bad subscribe namespace tuple JSON in settings")
             }
         }
 

@@ -7,11 +7,13 @@
 class MockClient: MoqClient {
     typealias PublishTrackCallback = (QPublishTrackHandlerObjC) -> Void
     typealias SubscribeTrackCallback = (Subscription) -> Void
+    typealias SubscribeNamespaceCallback = (QSubscribeNamespaceHandlerObjC) -> Void
     typealias FetchTrackCallback = (Fetch) -> Void
     private let publish: PublishTrackCallback
     private let unpublish: PublishTrackCallback
     private let subscribe: SubscribeTrackCallback
     private let unsubscribe: SubscribeTrackCallback
+    private let subscribeNamespace: SubscribeNamespaceCallback
     private let fetch: FetchTrackCallback
     private let fetchCancel: FetchTrackCallback
     private var callbacks: QClientCallbacks?
@@ -20,12 +22,14 @@ class MockClient: MoqClient {
          unpublish: @escaping PublishTrackCallback,
          subscribe: @escaping SubscribeTrackCallback,
          unsubscribe: @escaping SubscribeTrackCallback,
+         subscribeNamespace: @escaping SubscribeNamespaceCallback = { _ in },
          fetch: @escaping FetchTrackCallback,
          fetchCancel: @escaping FetchTrackCallback) {
         self.publish = publish
         self.unpublish = unpublish
         self.subscribe = subscribe
         self.unsubscribe = unsubscribe
+        self.subscribeNamespace = subscribeNamespace
         self.fetch = fetch
         self.fetchCancel = fetchCancel
     }
@@ -77,7 +81,9 @@ class MockClient: MoqClient {
         .OK
     }
 
-    func subscribeNamespace(withHandler handler: QSubscribeNamespaceHandlerObjC) {}
+    func subscribeNamespace(withHandler handler: QSubscribeNamespaceHandlerObjC) {
+        self.subscribeNamespace(handler)
+    }
     func resolvePublish(_ connectionHandle: UInt64,
                         requestId: UInt64,
                         attributes: QPublishAttributes,

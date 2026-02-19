@@ -112,11 +112,11 @@
 		9B8E14DB2C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D62C7E935E009D8C24 /* QPublishTrackHandlerObjC.mm */; };
 		9B8E14DC2C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */; };
 		9B8E14DD2C7E935E009D8C24 /* QClientObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E14D32C7E935E009D8C24 /* QClientObjC.mm */; };
-		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
 		9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E45402CF4BFA7003C863A /* MockCodecFactory.swift */; };
 		9B9622DC2A7A669A00949234 /* QHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DB2A7A669A00949234 /* QHelpers.swift */; };
 		9B9622DE2A7A6A3A00949234 /* TestQHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */; };
 		9B9665172DFAE41E007CC380 /* TestAudioHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */; };
+		9B9A7EAF2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9A7EAE2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift */; };
 		9B9BD43D2A464A47008B30C4 /* OpusPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */; };
 		9BA1B2C42E38D4E600F1F2F3 /* TestManifestTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA1B2C32E38D4E500F1F2F3 /* TestManifestTypes.swift */; };
 		9BA27FC6297D7270007013B2 /* DecimusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FC5297D7270007013B2 /* DecimusApp.swift */; };
@@ -158,6 +158,7 @@
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
+		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
 		FF1C5C2D29DD110600887833 /* CallControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF1C5C2A29DD110600887833 /* CallControls.swift */; };
@@ -350,10 +351,6 @@
 		9B8E14D72C7E935E009D8C24 /* QSubscribeTrackHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandler.h; sourceTree = "<group>"; };
 		9B8E14D82C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeTrackHandlerObjC.h; sourceTree = "<group>"; };
 		9B8E14D92C7E935E009D8C24 /* QSubscribeTrackHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeTrackHandlerObjC.mm; sourceTree = "<group>"; };
-		A1B2C3D52F50000100AA1101 /* QSubscribeNamespaceHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerCallbacks.h; sourceTree = "<group>"; };
-		A1B2C3D62F50000100AA1101 /* QSubscribeNamespaceHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandler.h; sourceTree = "<group>"; };
-		A1B2C3D72F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerObjC.h; sourceTree = "<group>"; };
-		A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeNamespaceHandlerObjC.mm; sourceTree = "<group>"; };
 		9B8E14DE2C7E96F1009D8C24 /* QClientCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QClientCallbacks.h; sourceTree = "<group>"; };
 		9B8E14DF2C7E9885009D8C24 /* QCommon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QCommon.h; sourceTree = "<group>"; };
 		9B8E14E02C7E997A009D8C24 /* QPublishTrackHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QPublishTrackHandlerCallbacks.h; sourceTree = "<group>"; };
@@ -361,6 +358,7 @@
 		9B9622DB2A7A669A00949234 /* QHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QHelpers.swift; sourceTree = "<group>"; };
 		9B9622DD2A7A6A3A00949234 /* TestQHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestQHelpers.swift; sourceTree = "<group>"; };
 		9B9665162DFAE41C007CC380 /* TestAudioHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestAudioHandler.swift; sourceTree = "<group>"; };
+		9B9A7EAE2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QSubscribeNamespaceHandler.swift; sourceTree = "<group>"; };
 		9B9BD43C2A464A47008B30C4 /* OpusPublication.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OpusPublication.swift; sourceTree = "<group>"; };
 		9BA1B2C32E38D4E500F1F2F3 /* TestManifestTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestManifestTypes.swift; sourceTree = "<group>"; };
 		9BA27FC2297D7270007013B2 /* QuicR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuicR.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -408,6 +406,10 @@
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 		9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationInstance.swift; sourceTree = "<group>"; };
 		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
+		A1B2C3D52F50000100AA1101 /* QSubscribeNamespaceHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerCallbacks.h; sourceTree = "<group>"; };
+		A1B2C3D62F50000100AA1101 /* QSubscribeNamespaceHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandler.h; sourceTree = "<group>"; };
+		A1B2C3D72F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerObjC.h; sourceTree = "<group>"; };
+		A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeNamespaceHandlerObjC.mm; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
 		D786194B2A290F1600EC0556 /* qmedia.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = qmedia.xcframework; path = dependencies/qmedia.xcframework; sourceTree = "<group>"; };
 		D7D156362AD73DE600B4E4F2 /* ExtBufferAllocator.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ExtBufferAllocator.hh; sourceTree = "<group>"; };
@@ -776,6 +778,7 @@
 			children = (
 				9BC5C7F32F1011450000B569 /* MoQSink.swift */,
 				9BC5C7F52F1011450000B569 /* QPublishTrackHandlerSink.swift */,
+				9B9A7EAE2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift */,
 			);
 			path = MoQImplementations;
 			sourceTree = "<group>";
@@ -1254,6 +1257,7 @@
 				9B5EC6822D859775009A2872 /* LOCRegistry.swift in Sources */,
 				FF2498B72A55E95E00C6D66D /* VideoSubscriptionSet.swift in Sources */,
 				9B379A2A2DF31B2800BB060A /* TextPublication.swift in Sources */,
+				9B9A7EAF2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift in Sources */,
 				9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */,
 				18C89A442A13ED24005B333B /* MockSubmitter.swift in Sources */,
 				FF1C5C2E29DD110600887833 /* LeaveModal.swift in Sources */,

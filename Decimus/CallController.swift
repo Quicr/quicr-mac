@@ -15,6 +15,8 @@ enum MoqCallControllerError: Error {
     case subscriptionSetNotFound
     /// The specified subscription was not found in the set.
     case subscriptionNotFound
+    /// Unsupported handler type.
+    case unsupportedHandler
 }
 
 enum SubscriptionSetError: Error {
@@ -38,7 +40,7 @@ struct ClientConfig {
 
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
-class MoqCallController: QClientCallbacks, MoQSubscribeNamespaceHandlerDelegate {
+class MoqCallController: QClientCallbacks {
     typealias PublishReceivedCallback = (_ connectionHandle: UInt64,
                                          _ requestId: UInt64,
                                          _ tfn: QFullTrackName,
@@ -466,19 +468,20 @@ class MoqCallController: QClientCallbacks, MoQSubscribeNamespaceHandlerDelegate 
                                    response: response)
     }
 
-    func subscribeNamespace(_ prefix: [String]) {
-        let namespacePrefix = prefix.map { Data($0.utf8) }
-        let handler = QSubscribeNamespaceHandler(namespacePrefix: namespacePrefix)
-        handler.delegate = self
-        self.namespaceHandlers[prefix.joined(separator: "/")] = handler
-        self.client.subscribeNamespace(withHandler: handler.handler)
-    }
-
-    func statusChanged(_ status: QSubscribeNamespaceHandlerStatus,
-                                       errorCode: QSubscribeNamespaceErrorCode,
-                                       namespacePrefix: [Data]) {
-        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
-        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+    /// Subscribe to a namespace prefix.
+    /// - Parameter handler: Subscribe namespace handler.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
+    /// ``MoqCallControllerError/unsupportedSubscribeNamespaceHandler`` if handler implementation is unsupported.
+    func subscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
+            throw MoqCallControllerError.unsupportedHandler
+        }
+        let key = handler.namespacePrefix
+            .map { $0.base64EncodedString() }
+            .joined(separator: "/")
+        self.namespaceHandlers[key] = handler
+        self.client.subscribeNamespace(withHandler: libquicrHandler.handler)
     }
 }
 
