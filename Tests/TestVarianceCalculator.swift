@@ -6,7 +6,7 @@ import XCTest
 
 final class TestVarianceCalculator: XCTestCase {
     func testCalculator() throws {
-        let expectedOccurrences = Int.random(in: .zero ..< 1000)
+        let expectedOccurrences = Int.random(in: 1 ..< 1000)
         let calculator = try VarianceCalculator(expectedOccurrences: expectedOccurrences, max: 10)
         let timestamp: TimeInterval = 1
 
