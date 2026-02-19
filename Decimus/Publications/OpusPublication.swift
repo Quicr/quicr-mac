@@ -30,6 +30,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let profile: Profile
+    private let activityStateMachine: AudioActivityStateMachine?
+    private let sharedVoiceActivity: SharedVoiceActivityState?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -45,6 +47,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
+         demoEnabled: Bool = false,
+         sharedVoiceActivity: SharedVoiceActivityState? = nil,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
@@ -61,6 +65,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine() : nil
+        self.sharedVoiceActivity = sharedVoiceActivity
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -268,10 +274,23 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
-        let extensions = try self.getExtensions(wallClock: wallClock,
+        var extensions = try self.getExtensions(wallClock: wallClock,
                                                 dequeuedTimestamp: dequeued.timestamp,
                                                 decibel: decibel,
                                                 voiceActive: voiceActive)
+
+        // Audio activity indicator (demo mode).
+        if let stateMachine = self.activityStateMachine {
+            let action = stateMachine.update(voiceActive: voiceActive, now: wallClock)
+            switch action {
+            case .sendExtension(let value):
+                try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
+                self.sharedVoiceActivity?.postActivity(value)
+            case .none, .silent:
+                break
+            }
+        }
+
         return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)
     }
 

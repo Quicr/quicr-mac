@@ -47,6 +47,14 @@ struct SettingsView: View {
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
+    static let demoEnabledKey = "demoEnabled"
+    @AppStorage(Self.demoEnabledKey)
+    private var demoEnabled: Bool = false
+
+    static let demoMeetingIdKey = "demoMeetingId"
+    @AppStorage(Self.demoMeetingIdKey)
+    private var demoMeetingId: String = "demo-meeting-1"
+
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
@@ -81,6 +89,8 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMeetingIdKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -196,6 +206,20 @@ struct SettingsView: View {
                     DisplayPicker()
                 }
                 #endif
+            }
+            .decimusTextStyle()
+
+            Section("Demo") {
+                LabeledToggle("Audio Activity Demo", isOn: self.$demoEnabled)
+                if self.demoEnabled {
+                    LabeledContent("Meeting ID") {
+                        TextField("Meeting ID", text: self.$demoMeetingId)
+                            .autocorrectionDisabled()
+                            #if !os(macOS)
+                            .keyboardType(.asciiCapable)
+                        #endif
+                    }
+                }
             }
             .decimusTextStyle()
 

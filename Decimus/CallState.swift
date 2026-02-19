@@ -115,6 +115,13 @@ class CallState: ObservableObject, Equatable {
     private var subscribeNamespaceAccept: String = ""
     private var subscriptionNamespaceAcceptParsed: [Data]?
 
+    // Demo.
+    @AppStorage(SettingsView.demoEnabledKey)
+    private var demoEnabled = false
+    @AppStorage(SettingsView.demoMeetingIdKey)
+    private var demoMeetingId: String = "demo-meeting-1"
+    private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
+
     // Recording.
     @AppStorage(SettingsView.recordingKey)
     private(set) var recording = false
@@ -246,7 +253,8 @@ class CallState: ObservableObject, Equatable {
                                                         sframeContext: self.sendContext,
                                                         mediaInterop: self.mediaInterop,
                                                         overrideNamespace: overrideNamespace,
-                                                        useAnnounce: subConfig.useAnnounce)
+                                                        useAnnounce: subConfig.useAnnounce,
+                                                        demoEnabled: self.demoEnabled)
         } else {
             publicationFactory = nil
         }
@@ -297,67 +305,87 @@ class CallState: ObservableObject, Equatable {
 
         // Inject the manifest in order to create publications & subscriptions.
         if make {
-            // Publish.
-            if let publicationFactory {
-                for publication in manifest.publications {
-                    do {
-                        let created = try controller.publish(details: publication,
-                                                             factory: publicationFactory,
-                                                             codecFactory: CodecFactoryImpl())
-                        for pub in created where pub.1 is TextPublication {
-                            self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+            if self.demoEnabled {
+                // Demo mode: publish to hardcoded namespaces, skip manifest subscriptions.
+                if let publicationFactory {
+                    let meetingId = self.demoMeetingId
+                    let userId = "\(manifest.participantId.aggregate)"
+                    let demoPublications = Self.makeDemoPublications(meetingId: meetingId, userId: userId)
+                    for publication in demoPublications {
+                        do {
+                            _ = try controller.publish(details: publication,
+                                                       factory: publicationFactory,
+                                                       codecFactory: CodecFactoryImpl())
+                        } catch {
+                            Self.logger.warning("[demo] [\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
-                    } catch {
-                        Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                     }
                 }
-            }
-
-            // Subscribe.
-            if let subscriptionFactory {
-                for subscription in manifest.subscriptions {
-                    do {
-                        let set = try controller.subscribeToSet(details: subscription,
-                                                                factory: subscriptionFactory,
-                                                                subscribeType: .subscribe)
-                        if subscription.mediaType == ManifestMediaTypes.text.rawValue {
-                            let handlers = set.getHandlers()
-                            precondition(handlers.count == 1,
-                                         "Text subscription should only have one handler")
-                            precondition(handlers.first?.1 is MultipleCallbackSubscription,
-                                         "Text subscription handler should be MultipleCallbackSubscription")
-                            // swiftlint:disable:next force_cast
-                            let sub = handlers.first!.1 as! MultipleCallbackSubscription
-                            self.textSubscriptions?.addSubscription(sub)
+                // Subscriptions handled by namespace subscriptions below.
+            } else {
+                // Normal mode: publish and subscribe from manifest.
+                // Publish.
+                if let publicationFactory {
+                    for publication in manifest.publications {
+                        do {
+                            let created = try controller.publish(details: publication,
+                                                                 factory: publicationFactory,
+                                                                 codecFactory: CodecFactoryImpl())
+                            for pub in created where pub.1 is TextPublication {
+                                self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
+                            }
+                        } catch {
+                            Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
-                    } catch {
-                        Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                     }
                 }
 
-                // Active speaker handling.
-                let notifier: ActiveSpeakerNotifier?
-                if playtime.playtime && playtime.manualActiveSpeaker {
-                    let manual = ManualActiveSpeaker()
-                    self.manualActiveSpeaker = manual
-                    notifier = manual
-                } else if let real = subscriptionFactory.activeSpeakerNotifier {
-                    notifier = real
-                } else {
-                    notifier = nil
-                }
-                if let notifier = notifier {
-                    let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
-                    do {
-                        self.activeSpeaker = try .init(notifier: notifier,
-                                                       controller: controller,
-                                                       videoSubscriptions: videoSubscriptions,
-                                                       factory: subscriptionFactory,
-                                                       participantId: manifest.participantId,
-                                                       activeSpeakerStats: self.activeSpeakerStats,
-                                                       pauseResume: self.subscriptionConfig.value.pauseResume)
-                    } catch {
-                        Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                // Subscribe.
+                if let subscriptionFactory {
+                    for subscription in manifest.subscriptions {
+                        do {
+                            let set = try controller.subscribeToSet(details: subscription,
+                                                                    factory: subscriptionFactory,
+                                                                    subscribeType: .subscribe)
+                            if subscription.mediaType == ManifestMediaTypes.text.rawValue {
+                                let handlers = set.getHandlers()
+                                precondition(handlers.count == 1,
+                                             "Text subscription should only have one handler")
+                                precondition(handlers.first?.1 is MultipleCallbackSubscription,
+                                             "Text subscription handler should be MultipleCallbackSubscription")
+                                // swiftlint:disable:next force_cast
+                                let sub = handlers.first!.1 as! MultipleCallbackSubscription
+                                self.textSubscriptions?.addSubscription(sub)
+                            }
+                        } catch {
+                            Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
+                        }
+                    }
+
+                    // Active speaker handling.
+                    let notifier: ActiveSpeakerNotifier?
+                    if playtime.playtime && playtime.manualActiveSpeaker {
+                        let manual = ManualActiveSpeaker()
+                        self.manualActiveSpeaker = manual
+                        notifier = manual
+                    } else if let real = subscriptionFactory.activeSpeakerNotifier {
+                        notifier = real
+                    } else {
+                        notifier = nil
+                    }
+                    if let notifier = notifier {
+                        let videoSubscriptions = manifest.subscriptions.filter { $0.mediaType == ManifestMediaTypes.video.rawValue }
+                        do {
+                            self.activeSpeaker = try .init(notifier: notifier,
+                                                           controller: controller,
+                                                           videoSubscriptions: videoSubscriptions,
+                                                           factory: subscriptionFactory,
+                                                           participantId: manifest.participantId,
+                                                           activeSpeakerStats: self.activeSpeakerStats,
+                                                           pauseResume: self.subscriptionConfig.value.pauseResume)
+                        } catch {
+                            Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                        }
                     }
                 }
             }
@@ -393,6 +421,42 @@ class CallState: ObservableObject, Equatable {
                 }
             } else {
                 Self.logger.error("Bad subscribe namespace tuple JSON in settings")
+            }
+        }
+
+        // Demo namespace subscriptions.
+        if self.demoEnabled, let subscriptionFactory {
+            let meetingId = self.demoMeetingId
+            let ownClientId = "\(manifest.participantId.aggregate)"
+            let audioPrefix: [Data] = ["meetings.wbx.com", meetingId, "audio"].map { .init($0.utf8) }
+            let videoPrefix: [Data] = ["meetings.wbx.com", meetingId, "video"].map { .init($0.utf8) }
+
+            for (mediaType, prefix) in [("audio", audioPrefix), ("video", videoPrefix)] {
+                let handler = QSubscribeNamespaceHandler(
+                    namespacePrefix: prefix,
+                    statusChangedCallback: { status, errorCode, namespacePrefix in
+                        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
+                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")
+                    },
+                    trackAcceptableCallback: { [weak self] fullTrackName in
+                        guard self != nil else { return false }
+                        // Reject our own tracks.
+                        if fullTrackName.nameSpace.count >= 4,
+                           let remoteClientId = String(data: fullTrackName.nameSpace[3], encoding: .utf8),
+                           remoteClientId == ownClientId {
+                            Self.logger.info("[demo/\(mediaType)] Rejecting own track: \(fullTrackName)")
+                            return false
+                        }
+                        Self.logger.info("[demo/\(mediaType)] Accepting track: \(fullTrackName)")
+                        return true
+                    })
+                do {
+                    try controller.subscribeNamespace(handler)
+                    self.demoNamespaceHandlers.append(handler)
+                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix.compactMap { String(data: $0, encoding: .utf8) })")
+                } catch {
+                    Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
+                }
             }
         }
 
@@ -635,6 +699,83 @@ class CallState: ObservableObject, Equatable {
                                             response: .init(ok: responseAccept))
         }
 
+        // Demo namespace format: ["meetings.wbx.com", meetingId, "audio"|"video", userClientId]
+        if self.demoEnabled,
+           track.nameSpace.count >= 4,
+           let factory = self.subscriptionFactory {
+            let namespace = track.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
+            guard namespace.first == "meetings.wbx.com",
+                  namespace.count >= 4 else {
+                Self.logger.warning("[demo] [\(track)] Unexpected demo namespace format")
+                return
+            }
+            let mediaType = namespace[2] // "audio" or "video"
+            let remoteClientId = namespace[3]
+            let trackName = String(data: track.name, encoding: .utf8) ?? ""
+
+            let qualityProfile: String
+            let profileType: String
+            switch mediaType {
+            case "audio":
+                qualityProfile = "opus,br=24"
+                profileType = "audio"
+            case "video":
+                qualityProfile = "h264,width=1920,height=1080,fps=30,br=4000"
+                profileType = "video"
+            default:
+                Self.logger.warning("[demo] [\(track)] Unknown media type: \(mediaType)")
+                return
+            }
+
+            let profile = Profile(qualityProfile: qualityProfile,
+                                  expiry: nil,
+                                  priorities: nil,
+                                  namespace: namespace,
+                                  channel: nil)
+            let sourceId = "demo_\(remoteClientId)_\(mediaType)"
+            let participantHash = remoteClientId.hashValue
+            let manifestSubscription = ManifestSubscription(
+                mediaType: mediaType,
+                sourceName: trackName,
+                sourceID: sourceId,
+                label: "Demo \(mediaType) \(remoteClientId)",
+                participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
+                profileSet: .init(type: profileType, profiles: [profile]))
+
+            Self.logger.info("[demo] [\(track)] Accepting \(mediaType) publish from \(remoteClientId)")
+
+            let publisherInitiated = MoqCallController.PublisherInitiatedDetails(
+                trackAlias: attributes.trackAlias,
+                requestId: requestId)
+            do {
+                if let existing = controller.getSubscriptionSet(sourceId) {
+                    try controller.subscribe(set: existing,
+                                             profile: profile,
+                                             factory: factory,
+                                             publisherInitiated: publisherInitiated)
+                } else {
+                    try controller.subscribeToSet(details: manifestSubscription,
+                                                  factory: factory,
+                                                  subscribeType: .publisherInitiated(publisherInitiated))
+                }
+            } catch {
+                Self.logger.error("[demo] Failed to create subscription for publish: \(error.localizedDescription)")
+                return
+            }
+
+            responseAccept = true
+            responseAttributes = .init(priority: 0,
+                                       groupOrder: .originalPublisherOrder,
+                                       deliveryTimeoutMs: 0,
+                                       filterType: .latestObject,
+                                       forward: 1,
+                                       newGroupRequestId: 0,
+                                       isPublisherInitiated: true,
+                                       trackAlias: attributes.trackAlias,
+                                       dynamicGroups: attributes.dynamicGroups)
+            return
+        }
+
         // Collect everything we need.
         let mediaIndex = 3
         let endpointIndex = 4
@@ -705,6 +846,40 @@ class CallState: ObservableObject, Equatable {
                                    isPublisherInitiated: true,
                                    trackAlias: attributes.trackAlias,
                                    dynamicGroups: attributes.dynamicGroups)
+    }
+}
+
+// Demo publications.
+extension CallState {
+    /// Build synthetic ManifestPublication entries for demo mode.
+    static func makeDemoPublications(meetingId: String, userId: String) -> [ManifestPublication] {
+        let audioNamespace = ["meetings.wbx.com", meetingId, "audio", userId]
+        let audioProfile = Profile(qualityProfile: "opus,br=24",
+                                   expiry: [1000],
+                                   priorities: [0],
+                                   namespace: audioNamespace,
+                                   name: "opus_48khz")
+        let audioPublication = ManifestPublication(mediaType: "audio",
+                                                   sourceName: "microphone",
+                                                   sourceID: "demo_audio",
+                                                   label: "Demo Audio",
+                                                   profileSet: .init(type: "audio",
+                                                                     profiles: [audioProfile]))
+
+        let videoNamespace = ["meetings.wbx.com", meetingId, "video", userId]
+        let videoProfile = Profile(qualityProfile: "h264,width=1920,height=1080,fps=30,br=4000",
+                                   expiry: [1000, 200],
+                                   priorities: [0, 1],
+                                   namespace: videoNamespace,
+                                   name: "h264")
+        let videoPublication = ManifestPublication(mediaType: "video",
+                                                   sourceName: "camera",
+                                                   sourceID: "demo_video",
+                                                   label: "Demo Video",
+                                                   profileSet: .init(type: "video",
+                                                                     profiles: [videoProfile]))
+
+        return [audioPublication, videoPublication]
     }
 }
 
