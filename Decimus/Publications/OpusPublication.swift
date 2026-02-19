@@ -9,7 +9,6 @@ import Synchronization
 
 class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private static let logger = DecimusLogger(OpusPublication.self)
-    private static let silence: Int = 127
 
     let sink: MoQSink
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
@@ -133,7 +132,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
     private func getExtensions(wallClock: Date,
                                dequeuedTimestamp: AudioTimeStamp,
-                               decibel: Int) throws -> HeaderExtensions {
+                               decibel: Int,
+                               voiceActive: Bool) throws -> HeaderExtensions {
         var extensions = HeaderExtensions()
         if self.mediaInterop {
             // MoQ MI.
@@ -153,7 +153,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // App.
         let adjusted = UInt8(abs(decibel))
-        let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
+        let mask: UInt8 = voiceActive ? 0b10000000 : 0b00000000
         let energyLevelValue = adjusted | mask
         try? extensions.setHeader(.energyLevel(energyLevelValue))
         try? extensions.setHeader(.participantId(self.participantId))
@@ -261,6 +261,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
+        // Query the encoder's VAD state (must be checked after encode).
+        let voiceActive = self.encoder.voiceActive
         // Get absolute time.
         let wallClock = Ticks(dequeued.timestamp.mHostTime).hostDate
         // Get audio level.
@@ -268,7 +270,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         let extensions = try self.getExtensions(wallClock: wallClock,
                                                 dequeuedTimestamp: dequeued.timestamp,
-                                                decibel: decibel)
+                                                decibel: decibel,
+                                                voiceActive: voiceActive)
         return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)
     }
 

@@ -415,9 +415,21 @@ final class TestCallController: XCTestCase {
         let controller = MoqCallController(endpointUri: "1", client: client, submitter: nil) { }
         try await controller.connect()
 
-        let handler = QSubscribeNamespaceHandler(namespacePrefix: [Data("namespace".utf8)])
+        let handler = QSubscribeNamespaceHandler(namespacePrefix: [Data("namespace".utf8)],
+                                                 statusChangedCallback: { _, _, _ in },
+                                                 trackAcceptableCallback: { _ in false })
         try controller.subscribeNamespace(handler)
         XCTAssert(subscribedHandler === handler.handler)
+    }
+
+    func testSubscribeNamespaceHandlerTrackAcceptableRoundTrip() throws {
+        let acceptable = try FullTrackName(namespace: ["namespace", "allowed"], name: "video")
+        let rejected = try FullTrackName(namespace: ["namespace", "rejected"], name: "video")
+        let handler = QSubscribeNamespaceHandler(namespacePrefix: [Data("namespace".utf8)],
+                                                 statusChangedCallback: { _, _, _ in },
+                                                 trackAcceptableCallback: { offered in offered == acceptable })
+        XCTAssertTrue(handler.handler.isTrackAcceptable(acceptable))
+        XCTAssertFalse(handler.handler.isTrackAcceptable(rejected))
     }
 
     func testAssertFtnEquality() throws {

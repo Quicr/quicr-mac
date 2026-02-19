@@ -24,6 +24,14 @@ void QSubscribeNamespaceHandler::StatusChanged(Status status)
     quicr::SubscribeNamespaceHandler::StatusChanged(status);
 }
 
+bool QSubscribeNamespaceHandler::IsTrackAcceptable(const quicr::FullTrackName& name) const
+{
+    if (_callbacks) {
+        return [_callbacks isTrackAcceptable:ftnConvert(name)];
+    }
+    return quicr::SubscribeNamespaceHandler::IsTrackAcceptable(name);
+}
+
 void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;
@@ -47,6 +55,12 @@ void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallb
 {
     assert(handlerPtr);
     return static_cast<QSubscribeNamespaceHandlerStatus>(handlerPtr->GetStatus());
+}
+
+-(BOOL)isTrackAcceptable:(id<QFullTrackName>)fullTrackName
+{
+    assert(handlerPtr);
+    return handlerPtr->IsTrackAcceptable(ftnConvert(fullTrackName));
 }
 
 -(void)setCallbacks:(id<QSubscribeNamespaceHandlerCallbacks>)callbacks

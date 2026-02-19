@@ -32,6 +32,7 @@ class LibOpusEncoder {
     // Audio format.
     private let desiredWindowSize: OpusWindowSize
     private let format: AVAudioFormat
+    private let dtxSupported: Bool
 
     /// Create an opus encoder.
     /// - Parameter format: The format of the input data.
@@ -44,10 +45,29 @@ class LibOpusEncoder {
         let windowBytes: Int = framesPerWindow * Int(format.streamDescription.pointee.mBytesPerFrame)
         encoded = .allocate(byteCount: windowBytes, alignment: MemoryLayout<UInt8>.alignment)
         _ = try encoder.ctl(request: OPUS_SET_BITRATE_REQUEST, args: [bitrate])
+
+        // Enable DTX for VAD when using SILK layer (voip mode).
+        if appMode == .voip {
+            _ = try encoder.ctl(request: OPUS_SET_DTX_REQUEST, args: [1])
+            self.dtxSupported = true
+        } else {
+            self.dtxSupported = false
+        }
     }
 
     deinit {
         encoded.deallocate()
+    }
+
+    /// Whether the encoder detects voice activity in the most recently encoded frame.
+    /// Falls back to `true` when DTX is not supported (CELT-only mode).
+    var voiceActive: Bool {
+        guard dtxSupported else { return true }
+        var inDtx: Int32 = 0
+        withUnsafeMutablePointer(to: &inDtx) { ptr in
+            _ = try? encoder.ctl(request: OPUS_GET_IN_DTX_REQUEST, args: [ptr])
+        }
+        return inDtx == 0
     }
 
     func write(data: AVAudioPCMBuffer) throws -> Data {

@@ -13,6 +13,7 @@ public:
     explicit QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix);
 
     void StatusChanged(Status status) override;
+    bool IsTrackAcceptable(const quicr::FullTrackName& name) const override;
 
     void SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks);
 

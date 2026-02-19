@@ -6,6 +6,7 @@
 
 #import <Foundation/Foundation.h>
 #import "QClientCallbacks.h"
+#import "QFullTrackName.h"
 
 typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
     kQSubscribeNamespaceHandlerStatusOk,
@@ -16,6 +17,7 @@ typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
 @protocol QSubscribeNamespaceHandlerCallbacks
 - (void)statusChanged:(QSubscribeNamespaceHandlerStatus)status
             errorCode:(QSubscribeNamespaceErrorCode)errorCode;
+- (bool)isTrackAcceptable:(id<QFullTrackName> _Nonnull)fullTrackName;
 @end
 
 #endif /* QSubscribeNamespaceHandlerCallbacks_h */

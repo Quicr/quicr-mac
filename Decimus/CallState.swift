@@ -369,11 +369,22 @@ class CallState: ObservableObject, Equatable {
                let acceptNamespace = try? JSONDecoder().decode([String].self,
                                                                from: Data(self.subscribeNamespaceAccept.utf8)) {
                 self.subscriptionNamespaceAcceptParsed = acceptNamespace.map { .init($0.utf8) }
-                let handler = QSubscribeNamespaceHandler(namespacePrefix: namespaceTuple.map { .init($0.utf8) })
-                handler.statusChangedCallback = { status, errorCode, namespacePrefix in
-                    let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
-                    Self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
-                }
+                let handler = QSubscribeNamespaceHandler(namespacePrefix: namespaceTuple.map { .init($0.utf8) },
+                                                         statusChangedCallback: { status, errorCode, namespacePrefix in
+                                                            // Status changed.
+                                                            let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
+                                                            Self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                         }, trackAcceptableCallback: {[weak self] fullTrackName in
+                                                            // Do we want this track?
+                                                            guard let self,
+                                                                  let accept = self.subscriptionNamespaceAcceptParsed else {
+                                                                Self.logger.warning("[\(fullTrackName)] Declining offered track: missing accept prefix")
+                                                                return false
+                                                            }
+                                                            let acceptable = fullTrackName.matchesPrefix(prefix: accept)
+                                                            Self.logger.info("[\(fullTrackName)] Offered track acceptable: \(acceptable)")
+                                                            return acceptable
+                                                         })
                 do {
                     try controller.subscribeNamespace(handler)
                     Self.logger.info("Subscribed to namespace: \(namespaceTuple)")

@@ -42,19 +42,3 @@ protocol MoQSink: AnyObject {
     /// End the given subgroup.
     func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool)
 }
-
-typealias MoQSubscribeNamespaceStatusCallback = (_ status: QSubscribeNamespaceHandlerStatus,
-                                                 _ errorCode: QSubscribeNamespaceErrorCode,
-                                                 _ namespacePrefix: [Data]) -> Void
-
-/// Protocol describing MoQ subscribe-namespace capability.
-protocol MoQSubscribeNamespaceHandler: AnyObject {
-    /// Callback invoked when the subscribe-namespace status changes.
-    var statusChangedCallback: MoQSubscribeNamespaceStatusCallback? { get set }
-
-    /// The namespace prefix this handler subscribes to.
-    var namespacePrefix: [Data] { get }
-
-    /// Current status of the namespace subscription.
-    var status: QSubscribeNamespaceHandlerStatus { get }
-}
