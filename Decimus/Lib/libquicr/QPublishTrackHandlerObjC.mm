@@ -66,13 +66,15 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     }
 
     return quicr::ObjectHeaders {
-        .object_id = objectHeaders.objectId,
         .group_id = objectHeaders.groupId,
+        .subgroup_id = objectHeaders.subgroupId,
+        .object_id = objectHeaders.objectId,
         .priority = priority,
         .ttl = ttl,
         .payload_length = objectHeaders.payloadLength,
+        .status = static_cast<quicr::ObjectStatus>(objectHeaders.status),
         .extensions = from(extensions),
-        .immutable_extensions = from(immutable_extensions)
+        .immutable_extensions = from(immutable_extensions),
     };
 }
 
@@ -108,6 +110,13 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     // return static_cast<QPublishObjectStatus>(status);
 }
 
+-(void) endSubgroup: (uint64_t) groupId
+         subgroupId: (uint64_t) subgroupId
+          completed: (bool)completed {
+    assert(handlerPtr);
+    handlerPtr->EndSubgroup(groupId, subgroupId, completed);
+}
+
 -(void) setDefaultPriority: (uint8_t) priority {
     assert(handlerPtr);
     handlerPtr->SetDefaultPriority(priority);
@@ -137,12 +146,10 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
 -(QStreamHeaderType) getStreamMode {
     assert(handlerPtr);
     auto mode = handlerPtr->GetStreamMode();
-    return static_cast<QStreamHeaderType>(mode);
-}
-
--(void) setUseAnnounce: (bool) use {
-    assert(handlerPtr);
-    handlerPtr->SetUseAnnounce(use);
+    if (mode.has_value()) {
+        return static_cast<QStreamHeaderType>(mode->GetType());
+    }
+    return static_cast<QStreamHeaderType>(0);
 }
 
 // C++
@@ -151,7 +158,7 @@ QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_trac
                                            quicr::TrackMode track_mode,
                                            std::uint8_t default_priority,
                                            std::uint32_t default_ttl,
-                                           std::optional<quicr::messages::StreamHeaderType> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
+                                           std::optional<quicr::messages::StreamHeaderProperties> stream_mode) : quicr::PublishTrackHandler(full_track_name, track_mode, default_priority, default_ttl, stream_mode)
 {
 }
 

@@ -69,11 +69,13 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
                                        data: (NSData* _Nonnull) data
                                  extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
                         immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
+-(void) endSubgroup: (uint64_t) groupId
+         subgroupId: (uint64_t) subgroupId
+          completed: (bool) completed;
 -(void) setCallbacks: (id<QPublishTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void) setDefaultPriority: (uint8_t) priority;
 -(void) setDefaultTtl: (uint32_t) ttl;
 -(void) setDefaultTrackMode: (QTrackMode) trackMode;
--(void) setUseAnnounce: (bool) use;
 -(QPublishTrackHandlerStatus) getStatus;
 -(bool) canPublish;
 -(QStreamHeaderType) getStreamMode;

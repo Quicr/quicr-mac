@@ -321,6 +321,14 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             return
         }
 
+        guard !data.isEmpty else {
+            guard objectHeaders.status == .endOfSubGroup else {
+                self.logger.warning("Got unexpected empty object")
+                return
+            }
+            return
+        }
+
         // Video needs extensions to be present.
         guard let extensions = extensions else {
             self.logger.error("Missing expected header extensions")

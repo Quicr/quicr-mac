@@ -13,3 +13,13 @@
 }
 
 @end
+
+@implementation QFetchEndLocationImpl
+
+-(instancetype _Nonnull) initWithGroup:(uint64_t) group object:(NSNumber* _Nullable) object {
+    self.group = group;
+    self.object = object;
+    return self;
+}
+
+@end

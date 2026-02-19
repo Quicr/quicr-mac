@@ -14,8 +14,10 @@ extension VideoSubscription {
         withUnsafePointer(to: priority) { priorityPtr in
             withUnsafePointer(to: ttl) { ttlPtr in
                 self.objectReceived(.init(groupId: groupId,
+                                          subgroupId: 0,
                                           objectId: objectId,
                                           payloadLength: 0,
+                                          status: .available,
                                           priority: priorityPtr,
                                           ttl: ttlPtr),
                                     data: Data([0x01]),
@@ -132,10 +134,12 @@ struct TestVideoSubscription {
 
         switch subscription.getCurrentState() {
         case .fetching(let fetching):
-            #expect(fetching.getStartGroup() == arrivedGroup)
-            #expect(fetching.getEndGroup() == arrivedGroup)
-            #expect(fetching.getStartObject() == 0)
-            #expect(fetching.getEndObject() == arrivedObject)
+            let startLocation = fetching.getStartLocation()
+            let endLocation = fetching.getEndLocation()
+            #expect(startLocation.group == arrivedGroup)
+            #expect(startLocation.object == 0)
+            #expect(endLocation.group == arrivedGroup)
+            #expect(endLocation.object?.uint64Value == arrivedObject - 1)
             #expect(fetch == fetching)
         default:
             #expect(Bool(false), "Expected fetching state, got \(subscription.getCurrentState())")
@@ -521,8 +525,10 @@ struct TestVideoSubscription {
         if let fetch = fetch as? CallbackFetch {
             // Simulate the last object of the fetch arriving
             fetch.objectReceived(.init(groupId: arrivedGroup,
+                                       subgroupId: 0,
                                        objectId: arrivedObject - 1,
                                        payloadLength: 0,
+                                       status: .available,
                                        priority: nil,
                                        ttl: nil),
                                  data: .init([0x01]),

@@ -203,6 +203,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         case .ok:
             switch self.incrementing {
             case .group:
+                self.sink.endSubgroup(groupId: self.currentGroupId, subgroupId: 0, completed: true)
                 self.currentGroupId += 1
             case .object:
                 self.currentObjectId += 1
@@ -218,11 +219,16 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                          extensions: HeaderExtensions?,
                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         let headers = QObjectHeaders(groupId: self.currentGroupId,
+                                     subgroupId: 0,
                                      objectId: self.currentObjectId,
                                      payloadLength: UInt64(data.count),
+                                     status: .available,
                                      priority: priority,
                                      ttl: ttl)
-        return self.sink.publishObject(headers, data: data, extensions: extensions, immutableExtensions: immutableExtensions)
+        return self.sink.publishObject(headers,
+                                       data: data,
+                                       extensions: extensions,
+                                       immutableExtensions: immutableExtensions)
     }
 
     struct EncodeResult {

@@ -11,20 +11,27 @@
 -(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name
                             priority: (uint8_t) priority
                           groupOrder: (QGroupOrder) groupOrder
-                          startGroup: (uint64_t) startGroup
-                            endGroup: (uint64_t) endGroup
-                         startObject: (uint64_t) startObject
-                           endObject: (uint64_t) endObject
+                       startLocation: (id<QLocation> _Nonnull) start_location
+                         endLocation: (id<QFetchEndLocation> _Nonnull) end_location
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    const quicr::messages::Location startLocation = {
+        .group = start_location.group,
+        .object = start_location.object
+    };
+    quicr::messages::FetchEndLocation endLocation = {
+        .group = end_location.group,
+        .object = std::nullopt
+    };
+    if (end_location.object != nil) {
+        endLocation.object = end_location.object.unsignedLongLongValue;
+    }
     handlerPtr = std::make_shared<QFetchTrackHandler>(fullTrackName,
                                                       priority,
                                                       order,
-                                                      startGroup,
-                                                      endGroup,
-                                                      startObject,
-                                                      endObject);
+                                                      startLocation,
+                                                      endLocation);
     return self;
 }
 
@@ -54,48 +61,38 @@
     return static_cast<QFilterType>(handlerPtr->GetFilterType());
 }
 
+-(id<QLocation> _Nonnull) getStartLocation {
+    assert(handlerPtr);
+    const auto& location = handlerPtr->GetStartLocation();
+    return [[QLocationImpl alloc] initWithGroup:location.group object:location.object];
+}
+
+-(id<QFetchEndLocation> _Nonnull) getEndLocation {
+    assert(handlerPtr);
+    const auto& location = handlerPtr->GetEndLocation();
+    NSNumber* object = location.object.has_value() ? @(location.object.value()) : nil;
+    return [[QFetchEndLocationImpl alloc] initWithGroup:location.group object:object];
+}
+
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
 {
     assert(handlerPtr);
     handlerPtr->SetCallbacks(callbacks);
 }
 
--(uint64_t) getStartGroup {
-    assert(handlerPtr);
-    return handlerPtr->GetStartGroup();
-}
-
--(uint64_t) getEndGroup {
-    assert(handlerPtr);
-    return handlerPtr->GetEndGroup();
-}
-
--(uint64_t) getStartObject {
-    assert(handlerPtr);
-    return handlerPtr->GetStartObject();
-}
-
--(uint64_t) getEndObject {
-    assert(handlerPtr);
-    return handlerPtr->GetEndObject();
-}
 @end
 
 // C++
 
 QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                                       quicr::messages::ObjectPriority priority,
+                                       std::uint8_t priority,
                                        quicr::messages::GroupOrder group_order,
-                                       quicr::messages::GroupId start_group,
-                                       quicr::messages::GroupId end_group,
-                                       quicr::messages::ObjectId start_object,
-                                       quicr::messages::ObjectId end_object) : quicr::FetchTrackHandler(full_track_name,
+                                       const quicr::messages::Location& start_location,
+                                       const quicr::messages::FetchEndLocation& end_location) : quicr::FetchTrackHandler(full_track_name,
                                                                                                         priority,
                                                                                                         group_order,
-                                                                                                        start_group,
-                                                                                                        end_group,
-                                                                                                        start_object,
-                                                                                                        end_object) {}
+                                                                                                        start_location,
+                                                                                                        end_location) {}
 
 void QFetchTrackHandler::StatusChanged(Status status)
 {
@@ -119,11 +116,13 @@ void QFetchTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_heade
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
+            .status = static_cast<QObjectStatus>(object_headers.status),
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
         };
 
         // Convert extensions.
@@ -149,11 +148,13 @@ void QFetchTrackHandler::PartialObjectReceived(const quicr::ObjectHeaders& objec
             ttl = &*object_headers.ttl;
         }
         QObjectHeaders headers {
-            .objectId = object_headers.object_id,
             .groupId = object_headers.group_id,
+            .subgroupId = object_headers.subgroup_id,
+            .objectId = object_headers.object_id,
             .payloadLength = object_headers.payload_length,
+            .status = static_cast<QObjectStatus>(object_headers.status),
             .priority = priority,
-            .ttl = ttl
+            .ttl = ttl,
         };
 
         // Convert extensions.

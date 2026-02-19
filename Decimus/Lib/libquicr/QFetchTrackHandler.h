@@ -12,12 +12,10 @@ class QFetchTrackHandler : public quicr::FetchTrackHandler
 {
 public:
     QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
-                       quicr::messages::ObjectPriority priority,
+                       std::uint8_t priority,
                        quicr::messages::GroupOrder group_order,
-                       quicr::messages::GroupId start_group,
-                       quicr::messages::GroupId end_group,
-                       quicr::messages::ObjectId start_object,
-                       quicr::messages::ObjectId end_object);
+                       const quicr::messages::Location& start_location,
+                       const quicr::messages::FetchEndLocation& end_location);
 
     // Callbacks.
     void StatusChanged(Status status) override;

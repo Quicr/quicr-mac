@@ -15,10 +15,8 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     ///     - ftn: Full track name of the track to fetch.
     ///     - priority: The priority of the fetch operation.
     ///     - groupOrder: Requested delivery order of the fetched groups.
-    ///     - startGroup: The group ID to fetch from.
-    ///     - endGroup: The group ID to fetch up to and including.
-    ///     - startObject: The object ID in ``startGroup`` to fetch from.
-    ///     - endObject: The object ID in ``endGroup`` to fetch from, plus 1.
+    ///     - startLocation: The starting location of the fetch (group and object IDs).
+    ///     - endLocation: The ending location of the fetch (group ID, and optionally object ID for partial group).
     ///     - verbose: Verbose logging.
     ///     - metricsSubmitter: Optionally, submitter for metrics.
     ///     - endpointId: Endpoint ID for metrics.
@@ -26,10 +24,8 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     init(_ ftn: FullTrackName,
          priority: UInt8,
          groupOrder: QGroupOrder,
-         startGroup: UInt64,
-         endGroup: UInt64,
-         startObject: UInt64,
-         endObject: UInt64,
+         startLocation: QLocation,
+         endLocation: QFetchEndLocation,
          verbose: Bool,
          metricsSubmitter: MetricsSubmitter?,
          endpointId: String,
@@ -52,10 +48,8 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
         super.init(fullTrackName: ftn,
                    priority: priority,
                    groupOrder: groupOrder,
-                   startGroup: startGroup,
-                   endGroup: endGroup,
-                   startObject: startObject,
-                   endObject: endObject)
+                   start: startLocation,
+                   endLocation: endLocation)
         super.setCallbacks(self)
     }
 
@@ -71,7 +65,11 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
                         data: Data,
                         extensions: HeaderExtensions?,
                         immutableExtensions: HeaderExtensions?) {
-        if objectHeaders.groupId == self.getEndGroup() && objectHeaders.objectId + 1 == self.getEndObject() {
+        let endLocation = self.getEndLocation()
+        // TODO: Non absolute ranged groups won't complete like this.
+        if objectHeaders.groupId == endLocation.group,
+           let endObject = endLocation.object?.uint64Value,
+           objectHeaders.objectId == endObject {
             self.isCompleteInternal.store(true, ordering: .releasing)
         }
         guard self.verbose else { return }

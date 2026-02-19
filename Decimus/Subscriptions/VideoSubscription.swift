@@ -495,14 +495,15 @@ class VideoSubscription: Subscription {
 
     private func fetch(currentGroup: UInt64, currentObject: UInt64) throws -> Fetch {
         // TODO: What should the priority be?
-        self.logger.debug("Starting fetch for \(currentGroup):0->\(currentObject)")
+        assert(currentObject > 0, "Guard the overflow, should never fetch on 0th")
+        self.logger.debug("Starting fetch for \(currentGroup):0->\(currentObject - 1)")
+        let startLocation = QLocationImpl(group: currentGroup, object: 0)
+        let endLocation = QFetchEndLocationImpl(group: currentGroup, object: NSNumber(value: currentObject - 1))
         let fetch = CallbackFetch(ftn: self.fullTrackName,
                                   priority: 0,
                                   groupOrder: .originalPublisherOrder,
-                                  startGroup: currentGroup,
-                                  endGroup: currentGroup,
-                                  startObject: 0,
-                                  endObject: currentObject,
+                                  startLocation: startLocation,
+                                  endLocation: endLocation,
                                   verbose: self.verbose,
                                   metricsSubmitter: self.metricsSubmitter,
                                   endpointId: self.endpointId,

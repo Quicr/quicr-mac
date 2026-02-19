@@ -11,10 +11,8 @@ class CallbackFetch: Fetch {
     ///     - ftn: Full track name of the track to fetch.
     ///     - priority: The priority of the fetch operation.
     ///     - groupOrder: Requested delivery order of the fetched groups.
-    ///     - startGroup: The group ID to fetch from.
-    ///     - endGroup: The group ID to fetch up to and including.
-    ///     - startObject: The object ID in ``startGroup`` to fetch from.
-    ///     - endObject: The object ID in ``endGroup`` to fetch from, plus 1.
+    ///     - startLocation: The starting location of the fetch (group and object IDs).
+    ///     - endLocation: The ending location of the fetch (group ID, and optionally object ID for partial group).
     ///     - verbose: Verbose logging.
     ///     - metricsSubmitter: Optionally, submitter for metrics.
     ///     - endpointId: Endpoint ID for metrics.
@@ -24,10 +22,8 @@ class CallbackFetch: Fetch {
     init(ftn: FullTrackName,
          priority: UInt8,
          groupOrder: QGroupOrder,
-         startGroup: UInt64,
-         endGroup: UInt64,
-         startObject: UInt64,
-         endObject: UInt64,
+         startLocation: QLocation,
+         endLocation: QFetchEndLocation,
          verbose: Bool,
          metricsSubmitter: MetricsSubmitter?,
          endpointId: String,
@@ -39,10 +35,8 @@ class CallbackFetch: Fetch {
         super.init(ftn,
                    priority: priority,
                    groupOrder: groupOrder,
-                   startGroup: startGroup,
-                   endGroup: endGroup,
-                   startObject: startObject,
-                   endObject: endObject,
+                   startLocation: startLocation,
+                   endLocation: endLocation,
                    verbose: verbose,
                    metricsSubmitter: metricsSubmitter,
                    endpointId: endpointId,

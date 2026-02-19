@@ -28,19 +28,16 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
     ///   - trackMode: The track mode (datagram or stream).
     ///   - defaultPriority: Default priority for published objects.
     ///   - defaultTTL: Default TTL for published objects.
-    ///   - useAnnounce: Whether to use announce.
     init(fullTrackName: QFullTrackName,
          trackMode: QTrackMode,
          defaultPriority: UInt8,
-         defaultTTL: UInt32,
-         useAnnounce: Bool) {
+         defaultTTL: UInt32) {
         self.handler = .init(fullTrackName: fullTrackName,
                              trackMode: trackMode,
                              defaultPriority: defaultPriority,
                              defaultTTL: defaultTTL)
         super.init()
         self.handler.setCallbacks(self)
-        self.handler.setUseAnnounce(useAnnounce)
     }
 
     func publishObject(_ headers: QObjectHeaders,
@@ -51,6 +48,10 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
                                    data: data,
                                    extensions: extensions,
                                    immutableExtensions: immutableExtensions)
+    }
+
+    func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool) {
+        self.handler.endSubgroup(groupId, subgroupId: subgroupId, completed: completed)
     }
 
     func statusChanged(_ status: QPublishTrackHandlerStatus) {

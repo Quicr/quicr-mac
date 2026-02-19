@@ -84,6 +84,7 @@ class FakeH264Publication: H264Publication {
     }
 
     override func publish(groupId: UInt64,
+                          subgroupId: UInt64,
                           objectId: UInt64,
                           data: Data,
                           priority: UnsafePointer<UInt8>?,
@@ -92,6 +93,7 @@ class FakeH264Publication: H264Publication {
                           immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
         self.publishNotify(groupId, objectId)
         return super.publish(groupId: groupId,
+                             subgroupId: subgroupId,
                              objectId: objectId,
                              data: data,
                              priority: priority,
@@ -135,7 +137,7 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                                         trackMode: .stream,
                                         defaultPriority: 1,
                                         defaultTTL: 1,
-                                        useAnnounce: false)
+                                        )
     return try .init(profile: profile,
                      config: config,
                      metricsSubmitter: nil,
@@ -215,7 +217,7 @@ final class TestVideoPublication: XCTestCase {
                                                 trackMode: .stream,
                                                 defaultPriority: 1,
                                                 defaultTTL: 1,
-                                                useAnnounce: false)
+                                                )
             let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,
@@ -285,7 +287,7 @@ final class TestVideoPublication: XCTestCase {
                                                 trackMode: .stream,
                                                 defaultPriority: 1,
                                                 defaultTTL: 1,
-                                                useAnnounce: false)
+                                                )
             let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,

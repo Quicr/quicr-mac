@@ -16,7 +16,7 @@ public:
                          quicr::TrackMode track_mode,
                          std::uint8_t default_priority,
                          std::uint32_t default_ttl,
-                         std::optional<quicr::messages::StreamHeaderType> stream_mode = std::nullopt);
+                         std::optional<quicr::messages::StreamHeaderProperties> stream_mode = std::nullopt);
 
     void StatusChanged(Status status) override;
     void MetricsSampled(const quicr::PublishTrackMetrics&) override;
