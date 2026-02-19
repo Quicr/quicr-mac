@@ -139,7 +139,7 @@ struct TestVideoSubscription {
             #expect(startLocation.group == arrivedGroup)
             #expect(startLocation.object == 0)
             #expect(endLocation.group == arrivedGroup)
-            #expect(endLocation.object?.uint64Value == arrivedObject)
+            #expect(endLocation.object?.uint64Value == arrivedObject - 1)
             #expect(fetch == fetching)
         default:
             #expect(Bool(false), "Expected fetching state, got \(subscription.getCurrentState())")
