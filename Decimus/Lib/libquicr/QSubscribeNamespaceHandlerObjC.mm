@@ -3,6 +3,7 @@
 
 #import <Foundation/Foundation.h>
 #import "QSubscribeNamespaceHandlerObjC.h"
+#import "QSubscribeTrackHandlerObjC.h"
 
 QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix)
   : quicr::SubscribeNamespaceHandler(prefix)
@@ -30,6 +31,23 @@ bool QSubscribeNamespaceHandler::IsTrackAcceptable(const quicr::FullTrackName& n
         return [_callbacks isTrackAcceptable:ftnConvert(name)];
     }
     return quicr::SubscribeNamespaceHandler::IsTrackAcceptable(name);
+}
+
+std::shared_ptr<quicr::SubscribeTrackHandler>
+QSubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAttributes& attributes)
+{
+    if (_callbacks) {
+        QSubscribeTrackHandlerObjC* handler =
+            [_callbacks createHandler:ftnConvert(attributes.track_full_name)
+                           trackAlias:attributes.track_alias
+                             priority:attributes.priority
+                           groupOrder:static_cast<QGroupOrder>(attributes.group_order)
+                           filterType:static_cast<QFilterType>(attributes.filter_type)];
+        if (handler) {
+            return handler->handlerPtr;
+        }
+    }
+    return quicr::SubscribeNamespaceHandler::CreateHandler(attributes);
 }
 
 void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks)

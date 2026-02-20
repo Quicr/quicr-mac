@@ -303,6 +303,51 @@ class CallState: ObservableObject, Equatable {
             return false
         }
 
+        // Demo namespace subscriptions — registered before publications so the relay
+        // can match incoming publishes against the namespace prefix immediately.
+        if self.demoEnabled, self.subscriptionFactory != nil {
+            let meetingId = self.demoMeetingId
+            let ownClientId = "\(manifest.participantId.aggregate)"
+            let audioPrefix: [Data] = ["meetings.wbx.com", meetingId, "audio"].map { .init($0.utf8) }
+            let videoPrefix: [Data] = ["meetings.wbx.com", meetingId, "video"].map { .init($0.utf8) }
+
+            for (mediaType, prefix) in [("audio", audioPrefix), ("video", videoPrefix)] {
+                let handler = QSubscribeNamespaceHandler(
+                    namespacePrefix: prefix,
+                    statusChangedCallback: { status, errorCode, namespacePrefix in
+                        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
+                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")
+                    },
+                    trackAcceptableCallback: { [weak self] fullTrackName in
+                        guard self != nil else { return false }
+                        // Reject our own tracks.
+                        if fullTrackName.nameSpace.count >= 4,
+                           let remoteClientId = String(data: fullTrackName.nameSpace[3], encoding: .utf8),
+                           remoteClientId == ownClientId {
+                            Self.logger.info("[demo/\(mediaType)] Rejecting own track: \(fullTrackName)")
+                            return false
+                        }
+                        Self.logger.info("[demo/\(mediaType)] Accepting track: \(fullTrackName)")
+                        return true
+                    },
+                    createHandlerCallback: { [weak self] fullTrackName, trackAlias, priority, groupOrder, filterType in
+                        guard let self else { return nil }
+                        return self.demoCreateHandler(fullTrackName: fullTrackName,
+                                                      trackAlias: trackAlias,
+                                                      priority: priority,
+                                                      groupOrder: groupOrder,
+                                                      filterType: filterType)
+                    })
+                do {
+                    try controller.subscribeNamespace(handler)
+                    self.demoNamespaceHandlers.append(handler)
+                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix.compactMap { String(data: $0, encoding: .utf8) })")
+                } catch {
+                    Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
+                }
+            }
+        }
+
         // Inject the manifest in order to create publications & subscriptions.
         if make {
             if self.demoEnabled {
@@ -321,7 +366,6 @@ class CallState: ObservableObject, Equatable {
                         }
                     }
                 }
-                // Subscriptions handled by namespace subscriptions below.
             } else {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
@@ -421,42 +465,6 @@ class CallState: ObservableObject, Equatable {
                 }
             } else {
                 Self.logger.error("Bad subscribe namespace tuple JSON in settings")
-            }
-        }
-
-        // Demo namespace subscriptions.
-        if self.demoEnabled, let subscriptionFactory {
-            let meetingId = self.demoMeetingId
-            let ownClientId = "\(manifest.participantId.aggregate)"
-            let audioPrefix: [Data] = ["meetings.wbx.com", meetingId, "audio"].map { .init($0.utf8) }
-            let videoPrefix: [Data] = ["meetings.wbx.com", meetingId, "video"].map { .init($0.utf8) }
-
-            for (mediaType, prefix) in [("audio", audioPrefix), ("video", videoPrefix)] {
-                let handler = QSubscribeNamespaceHandler(
-                    namespacePrefix: prefix,
-                    statusChangedCallback: { status, errorCode, namespacePrefix in
-                        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
-                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")
-                    },
-                    trackAcceptableCallback: { [weak self] fullTrackName in
-                        guard self != nil else { return false }
-                        // Reject our own tracks.
-                        if fullTrackName.nameSpace.count >= 4,
-                           let remoteClientId = String(data: fullTrackName.nameSpace[3], encoding: .utf8),
-                           remoteClientId == ownClientId {
-                            Self.logger.info("[demo/\(mediaType)] Rejecting own track: \(fullTrackName)")
-                            return false
-                        }
-                        Self.logger.info("[demo/\(mediaType)] Accepting track: \(fullTrackName)")
-                        return true
-                    })
-                do {
-                    try controller.subscribeNamespace(handler)
-                    self.demoNamespaceHandlers.append(handler)
-                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix.compactMap { String(data: $0, encoding: .utf8) })")
-                } catch {
-                    Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
-                }
             }
         }
 
@@ -699,83 +707,6 @@ class CallState: ObservableObject, Equatable {
                                             response: .init(ok: responseAccept))
         }
 
-        // Demo namespace format: ["meetings.wbx.com", meetingId, "audio"|"video", userClientId]
-        if self.demoEnabled,
-           track.nameSpace.count >= 4,
-           let factory = self.subscriptionFactory {
-            let namespace = track.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
-            guard namespace.first == "meetings.wbx.com",
-                  namespace.count >= 4 else {
-                Self.logger.warning("[demo] [\(track)] Unexpected demo namespace format")
-                return
-            }
-            let mediaType = namespace[2] // "audio" or "video"
-            let remoteClientId = namespace[3]
-            let trackName = String(data: track.name, encoding: .utf8) ?? ""
-
-            let qualityProfile: String
-            let profileType: String
-            switch mediaType {
-            case "audio":
-                qualityProfile = "opus,br=24"
-                profileType = "audio"
-            case "video":
-                qualityProfile = "h264,width=1920,height=1080,fps=30,br=4000"
-                profileType = "video"
-            default:
-                Self.logger.warning("[demo] [\(track)] Unknown media type: \(mediaType)")
-                return
-            }
-
-            let profile = Profile(qualityProfile: qualityProfile,
-                                  expiry: nil,
-                                  priorities: nil,
-                                  namespace: namespace,
-                                  channel: nil)
-            let sourceId = "demo_\(remoteClientId)_\(mediaType)"
-            let participantHash = remoteClientId.hashValue
-            let manifestSubscription = ManifestSubscription(
-                mediaType: mediaType,
-                sourceName: trackName,
-                sourceID: sourceId,
-                label: "Demo \(mediaType) \(remoteClientId)",
-                participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
-                profileSet: .init(type: profileType, profiles: [profile]))
-
-            Self.logger.info("[demo] [\(track)] Accepting \(mediaType) publish from \(remoteClientId)")
-
-            let publisherInitiated = MoqCallController.PublisherInitiatedDetails(
-                trackAlias: attributes.trackAlias,
-                requestId: requestId)
-            do {
-                if let existing = controller.getSubscriptionSet(sourceId) {
-                    try controller.subscribe(set: existing,
-                                             profile: profile,
-                                             factory: factory,
-                                             publisherInitiated: publisherInitiated)
-                } else {
-                    try controller.subscribeToSet(details: manifestSubscription,
-                                                  factory: factory,
-                                                  subscribeType: .publisherInitiated(publisherInitiated))
-                }
-            } catch {
-                Self.logger.error("[demo] Failed to create subscription for publish: \(error.localizedDescription)")
-                return
-            }
-
-            responseAccept = true
-            responseAttributes = .init(priority: 0,
-                                       groupOrder: .originalPublisherOrder,
-                                       deliveryTimeoutMs: 0,
-                                       filterType: .latestObject,
-                                       forward: 1,
-                                       newGroupRequestId: 0,
-                                       isPublisherInitiated: true,
-                                       trackAlias: attributes.trackAlias,
-                                       dynamicGroups: attributes.dynamicGroups)
-            return
-        }
-
         // Collect everything we need.
         let mediaIndex = 3
         let endpointIndex = 4
@@ -849,8 +780,85 @@ class CallState: ObservableObject, Equatable {
     }
 }
 
-// Demo publications.
+// Demo.
 extension CallState {
+    /// Create a subscription handler for an accepted demo track via the namespace handler's CreateHandler.
+    func demoCreateHandler(fullTrackName: FullTrackName,
+                           trackAlias: UInt64,
+                           priority: UInt8,
+                           groupOrder: QGroupOrder,
+                           filterType: QFilterType) -> QSubscribeTrackHandlerObjC? {
+        guard let factory = self.subscriptionFactory,
+              let controller = self.controller,
+              let relayId = controller.serverId else { return nil }
+        let endpointId = self.config.email
+
+        let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
+        guard namespace.count >= 4, namespace.first == "meetings.wbx.com" else {
+            Self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
+            return nil
+        }
+
+        let mediaType = namespace[2]
+        let remoteClientId = namespace[3]
+
+        let qualityProfile: String
+        let profileType: String
+        switch mediaType {
+        case "audio":
+            qualityProfile = "opus,br=24"
+            profileType = "audio"
+        case "video":
+            qualityProfile = "h264,width=1920,height=1080,fps=30,br=4000"
+            profileType = "video"
+        default:
+            Self.logger.warning("[demo] Unknown media type in CreateHandler: \(mediaType)")
+            return nil
+        }
+
+        let profile = Profile(qualityProfile: qualityProfile,
+                              expiry: nil,
+                              priorities: nil,
+                              namespace: namespace,
+                              channel: nil)
+        let sourceId = "demo_\(remoteClientId)_\(mediaType)"
+        let participantHash = remoteClientId.hashValue
+        let manifestSubscription = ManifestSubscription(
+            mediaType: mediaType,
+            sourceName: String(data: fullTrackName.name, encoding: .utf8) ?? "",
+            sourceID: sourceId,
+            label: "Demo \(mediaType) \(remoteClientId)",
+            participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
+            profileSet: .init(type: profileType, profiles: [profile]))
+
+        do {
+            let set: SubscriptionSet
+            if let existing = controller.getSubscriptionSet(sourceId) {
+                set = existing
+            } else {
+                set = try factory.create(subscription: manifestSubscription,
+                                         codecFactory: CodecFactoryImpl(),
+                                         endpointId: endpointId,
+                                         relayId: relayId)
+                controller.storeSubscriptionSet(sourceId: sourceId, set: set)
+            }
+
+            let subscription = try factory.create(set: set,
+                                                  profile: profile,
+                                                  codecFactory: CodecFactoryImpl(),
+                                                  endpointId: endpointId,
+                                                  relayId: relayId,
+                                                  publisherInitiated: true)
+            try set.addHandler(subscription)
+            // Do NOT call controller.subscribeTrack — AcceptNewTrack handles transport registration.
+            Self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
+            return subscription
+        } catch {
+            Self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     /// Build synthetic ManifestPublication entries for demo mode.
     static func makeDemoPublications(meetingId: String, userId: String) -> [ManifestPublication] {
         let audioNamespace = ["meetings.wbx.com", meetingId, "audio", userId]

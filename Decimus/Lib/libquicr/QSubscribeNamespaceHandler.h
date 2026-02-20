@@ -5,6 +5,7 @@
 #define QSubscribeNamespaceHandler_h
 
 #include "quicr/subscribe_namespace_handler.h"
+#include "quicr/detail/attributes.h"
 #import "QSubscribeNamespaceHandlerCallbacks.h"
 
 class QSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
@@ -14,6 +15,7 @@ public:
 
     void StatusChanged(Status status) override;
     bool IsTrackAcceptable(const quicr::FullTrackName& name) const override;
+    std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(const quicr::messages::PublishAttributes& attributes) override;
 
     void SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks);
 

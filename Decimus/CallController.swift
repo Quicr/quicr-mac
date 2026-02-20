@@ -205,6 +205,11 @@ class MoqCallController: QClientCallbacks {
         self.subscriptions[sourceID]
     }
 
+    /// Store a subscription set externally created (e.g. by namespace handler CreateHandler).
+    public func storeSubscriptionSet(sourceId: SourceIDType, set: SubscriptionSet) {
+        self.subscriptions[sourceId] = set
+    }
+
     /// Get all managed subscription sets.
     /// - Returns: List of all sets.
     public func getSubscriptionSets() -> [SubscriptionSet] {
