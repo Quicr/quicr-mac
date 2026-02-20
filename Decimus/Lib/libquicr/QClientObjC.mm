@@ -6,7 +6,9 @@
 #import "QClientObjC.h"
 #include <memory>
 #include <iostream>
+#include <map>
 #include "TransportConfig.h"
+#include "quicr/subscribe_namespace_handler.h"
 
 static quicr::TransportConfig convert(TransportConfig config) {
     return {
@@ -64,7 +66,6 @@ static quicr::PublishResponse convert(QPublishResponse response) {
 }
 
 @implementation QClientObjC : NSObject
-
 
 -(id)initWithConfig: (QClientConfig) config
 {
@@ -179,9 +180,7 @@ static quicr::PublishResponse convert(QPublishResponse response) {
 -(void) subscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
 {
     assert(qClientPtr);
-    if (!handler->handlerPtr) {
-        return;
-    }
+    assert(handler->handlerPtr);
     qClientPtr->SubscribeNamespace(handler->handlerPtr);
 }
 
