@@ -9,7 +9,6 @@ import Synchronization
 
 class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private static let logger = DecimusLogger(OpusPublication.self)
-    private static let silence: Int = 127
 
     let sink: MoQSink
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
@@ -31,6 +30,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let profile: Profile
+    private let activityStateMachine: AudioActivityStateMachine?
+    private let sharedVoiceActivity: SharedVoiceActivityState?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -46,6 +47,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
+         demoEnabled: Bool = false,
+         sharedVoiceActivity: SharedVoiceActivityState? = nil,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
@@ -62,6 +65,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine() : nil
+        self.sharedVoiceActivity = sharedVoiceActivity
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -133,7 +138,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
     private func getExtensions(wallClock: Date,
                                dequeuedTimestamp: AudioTimeStamp,
-                               decibel: Int) throws -> HeaderExtensions {
+                               decibel: Int,
+                               voiceActive: Bool) throws -> HeaderExtensions {
         var extensions = HeaderExtensions()
         if self.mediaInterop {
             // MoQ MI.
@@ -153,7 +159,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // App.
         let adjusted = UInt8(abs(decibel))
-        let mask: UInt8 = adjusted == Self.silence ? 0b00000000 : 0b10000000
+        let mask: UInt8 = voiceActive ? 0b10000000 : 0b00000000
         let energyLevelValue = adjusted | mask
         try? extensions.setHeader(.energyLevel(energyLevelValue))
         try? extensions.setHeader(.participantId(self.participantId))
@@ -261,14 +267,30 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
+        // Query the encoder's VAD state (must be checked after encode).
+        let voiceActive = self.encoder.voiceActive
         // Get absolute time.
         let wallClock = Ticks(dequeued.timestamp.mHostTime).hostDate
         // Get audio level.
         let decibel = try self.getAudioLevel(self.pcm)
 
-        let extensions = try self.getExtensions(wallClock: wallClock,
+        var extensions = try self.getExtensions(wallClock: wallClock,
                                                 dequeuedTimestamp: dequeued.timestamp,
-                                                decibel: decibel)
+                                                decibel: decibel,
+                                                voiceActive: voiceActive)
+
+        // Audio activity indicator (demo mode).
+        if let stateMachine = self.activityStateMachine {
+            let action = stateMachine.update(voiceActive: voiceActive, now: wallClock)
+            switch action {
+            case .sendExtension(let value):
+                try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
+                self.sharedVoiceActivity?.postActivity(value)
+            case .none, .silent:
+                break
+            }
+        }
+
         return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)
     }
 

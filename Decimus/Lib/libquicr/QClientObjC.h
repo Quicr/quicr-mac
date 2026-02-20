@@ -11,6 +11,7 @@
 
 #import "QPublishTrackHandlerObjC.h"
 #import "QSubscribeTrackHandlerObjC.h"
+#import "QSubscribeNamespaceHandlerObjC.h"
 #import "QFetchTrackHandlerObjC.h"
 #import "QClientCallbacks.h"
 #import "TransportConfig.h"
@@ -51,7 +52,7 @@ typedef struct QPublishResponse {
 - (void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
 - (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
-- (void)subscribeNamespace:(QTrackNamespace _Nonnull)namespacePrefix;
+- (void)subscribeNamespaceWithHandler:(QSubscribeNamespaceHandlerObjC * _Nonnull)handler;
 - (void)resolvePublish: (uint64_t)connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response;
 @end
 

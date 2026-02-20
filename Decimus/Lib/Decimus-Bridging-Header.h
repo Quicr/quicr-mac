@@ -11,6 +11,7 @@
 #import "libquicr/QFullTrackName.h"
 #import "libquicr/QPublishTrackHandlerCallbacks.h"
 #import "libquicr/QSubscribeTrackHandlerCallbacks.h"
+#import "libquicr/QSubscribeNamespaceHandlerCallbacks.h"
 #import "libquicr/QCommon.h"
 #import "libquicr/QClientCallbacks.h"
 #import "libquicr/QClientObjC.h"

@@ -55,6 +55,8 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let sharedVoiceActivity: SharedVoiceActivityState?
+    private var currentSubgroupId: UInt64 = 0
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -188,7 +190,31 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         // If we just rolled group, send end of (sub)group.
         if idr,
            let currentGroupId = publication.currentGroupId {
-            publication.sink.endSubgroup(groupId: currentGroupId, subgroupId: 0, completed: true)
+            publication.sink.endSubgroup(groupId: currentGroupId,
+                                         subgroupId: publication.currentSubgroupId,
+                                         completed: true)
+            publication.currentSubgroupId = 0
+        }
+
+        // Check for voice activity state change (demo mode).
+        // TODO: Rolling subgroup seems to crash?? Possibly need defer close/empty
+        // TODO: for subgroups like we had with OG streams?
+        let thisSubgroupId = publication.currentSubgroupId
+        var activityExtensions: HeaderExtensions?
+        if let activityValue = publication.sharedVoiceActivity?.consumeActivity() {
+            //            // End current subgroup and roll to a new one.
+            //            if publication.currentGroupId != nil && !idr {
+            //                publication.sink.endSubgroup(groupId: thisGroupId,
+            //                                             subgroupId: thisSubgroupId,
+            //                                             completed: true)
+            //            }
+            //            if !idr {
+            //                thisSubgroupId += 1
+            //            }
+            // Build extension for this first object of the new subgroup.
+            var actExt = HeaderExtensions()
+            try? actExt.setHeader(.audioActivityIndicator(activityValue.rawValue))
+            activityExtensions = actExt
         }
 
         // Publish.
@@ -227,8 +253,14 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             if publication.granularMetrics {
                 try extensions.setHeader(.publishTimestamp(.now))
             }
+            // Merge activity extensions into immutable extensions if present.
+            if let activityExtensions {
+                for (key, value) in activityExtensions {
+                    extensions[key] = value
+                }
+            }
             return (publication.publish(groupId: thisGroupId,
-                                        subgroupId: 0,
+                                        subgroupId: thisSubgroupId,
                                         objectId: thisObjectId,
                                         data: protected,
                                         priority: &priority,
@@ -251,6 +283,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
 
         // Update IDs on success.
         publication.currentGroupId = thisGroupId
+        publication.currentSubgroupId = thisSubgroupId
         publication.currentObjectId = thisObjectId
         publication.sequence += 1
 
@@ -280,6 +313,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
+                  sharedVoiceActivity: SharedVoiceActivityState? = nil,
                   sink: MoQSink) throws {
         self.profile = profile
         let namespace = profile.namespace.joined()
@@ -307,6 +341,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.sharedVoiceActivity = sharedVoiceActivity
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         // Wire to MoQ.

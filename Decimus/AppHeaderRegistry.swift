@@ -6,6 +6,7 @@ enum AppHeadersRegistry: UInt64 {
     case energyLevel = 6
     case participantId = 8
     case publishTimestamp = 10
+    case audioActivityIndicator = 12
 
     var nsKey: NSNumber {
         .init(value: self.rawValue)
@@ -17,6 +18,7 @@ enum AppHeaders {
     case energyLevel(UInt8)
     case participantId(ParticipantId)
     case publishTimestamp(Date)
+    case audioActivityIndicator(UInt8)
 
     var value: AppHeadersRegistry {
         switch self {
@@ -24,6 +26,7 @@ enum AppHeaders {
         case .energyLevel: .energyLevel
         case .participantId: .participantId
         case .publishTimestamp: .publishTimestamp
+        case .audioActivityIndicator: .audioActivityIndicator
         }
     }
 }
@@ -44,6 +47,9 @@ extension HeaderExtensions {
         case .publishTimestamp:
             guard let microseconds = data.parseInteger() else { throw "Invalid" }
             return .publishTimestamp(Date(timeIntervalSince1970: TimeInterval(microseconds) / microsecondsPerSecond))
+        case .audioActivityIndicator:
+            guard let first = data.first else { throw "Invalid" }
+            return .audioActivityIndicator(first)
         }
     }
 
@@ -57,6 +63,8 @@ extension HeaderExtensions {
             withUnsafeBytes(of: number) { Data($0) }
         case .publishTimestamp(let date):
             withUnsafeBytes(of: UInt64(date.timeIntervalSince1970 * TimeInterval(microsecondsPerSecond))) { Data($0) }
+        case .audioActivityIndicator(let value):
+            Data([value])
         }
         let nsKey = key.value.nsKey
         if var existing = self[nsKey] {

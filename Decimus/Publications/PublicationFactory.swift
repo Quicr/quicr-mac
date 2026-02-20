@@ -36,6 +36,8 @@ class PublicationFactoryImpl: PublicationFactory {
     private let mediaInterop: Bool
     private let overrideNamespace: [String]?
     private let useAnnounce: Bool
+    private let demoEnabled: Bool
+    private let sharedVoiceActivity: SharedVoiceActivityState?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -52,7 +54,9 @@ class PublicationFactoryImpl: PublicationFactory {
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
          overrideNamespace: [String]?,
-         useAnnounce: Bool) {
+         useAnnounce: Bool,
+         demoEnabled: Bool = false,
+         sharedVoiceActivity: SharedVoiceActivityState? = nil) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -69,6 +73,8 @@ class PublicationFactoryImpl: PublicationFactory {
         self.mediaInterop = mediaInterop
         self.overrideNamespace = overrideNamespace
         self.useAnnounce = useAnnounce
+        self.demoEnabled = demoEnabled
+        self.sharedVoiceActivity = demoEnabled ? (sharedVoiceActivity ?? SharedVoiceActivityState()) : nil
     }
 
     func create(publication: ManifestPublication,
@@ -165,6 +171,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
+                                                  sharedVoiceActivity: self.sharedVoiceActivity,
                                                   sink: sink)
             try captureManager.addInput(publication)
             return publication
@@ -193,6 +200,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        incrementing: .group,
                                        sframeContext: self.sframeContext,
                                        mediaInterop: self.mediaInterop,
+                                       demoEnabled: self.demoEnabled,
+                                       sharedVoiceActivity: self.sharedVoiceActivity,
                                        sink: sink)
         case .text:
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
