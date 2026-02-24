@@ -319,9 +319,12 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")
                     },
                     trackAcceptableCallback: { [weak self] fullTrackName in
-                        guard self != nil else { return false }
-                        // Reject our own tracks.
-                        if fullTrackName.nameSpace.count >= 4,
+                        guard let self else { return false }
+                        guard fullTrackName.matchesPrefix(prefix: prefix) else {
+                            return false
+                        }
+                        if !self.playtimeConfig.value.echo,
+                           fullTrackName.nameSpace.count >= 4,
                            let remoteClientId = String(data: fullTrackName.nameSpace[3], encoding: .utf8),
                            remoteClientId == ownClientId {
                             Self.logger.info("[demo/\(mediaType)] Rejecting own track: \(fullTrackName)")
@@ -707,6 +710,25 @@ class CallState: ObservableObject, Equatable {
                                             response: .init(ok: responseAccept))
         }
 
+        // In demo mode, namespace handlers handle routing via AcceptNewTrack/CreateHandler.
+        // Accept so ResolvePublish dispatches to them, but reject our own tracks
+        // since the namespace handlers will also reject them and no subscribe handler
+        // would be created (resulting in "unknown subscribe track" for arriving data).
+        if self.demoEnabled {
+            let echo = self.playtimeConfig.value.echo
+            if !echo, let manifest = self.currentManifest {
+                let ownClientId = "\(manifest.participantId.aggregate)"
+                if track.nameSpace.count >= 4,
+                   let remoteClientId = String(data: track.nameSpace[3], encoding: .utf8),
+                   remoteClientId == ownClientId {
+                    Self.logger.info("[demo] Rejecting own publish: \(track)")
+                    return
+                }
+            }
+            responseAccept = true
+            return
+        }
+
         // Collect everything we need.
         let mediaIndex = 3
         let endpointIndex = 4
@@ -827,7 +849,7 @@ extension CallState {
             mediaType: mediaType,
             sourceName: String(data: fullTrackName.name, encoding: .utf8) ?? "",
             sourceID: sourceId,
-            label: "Demo \(mediaType) \(remoteClientId)",
+            label: qualityProfile,
             participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
             profileSet: .init(type: profileType, profiles: [profile]))
 
@@ -850,7 +872,6 @@ extension CallState {
                                                   relayId: relayId,
                                                   publisherInitiated: true)
             try set.addHandler(subscription)
-            // Do NOT call controller.subscribeTrack — AcceptNewTrack handles transport registration.
             Self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
             return subscription
         } catch {
