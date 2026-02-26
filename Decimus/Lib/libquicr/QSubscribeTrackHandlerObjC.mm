@@ -110,6 +110,7 @@ QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_
                                                                                                        priority,
                                                                                                        group_order,
                                                                                                        filter_type,
+                                                                                                       std::monostate{}, // TODO: Implement filters for regular subscribes.
                                                                                                        joining_fetch,
                                                                                                        publisher_initiated) {}
 

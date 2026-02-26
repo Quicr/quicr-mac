@@ -11,6 +11,7 @@
 
 #import <Foundation/Foundation.h>
 #import "QFullTrackName.h"
+#import "QTrackFilter.h"
 #import "QSubscribeNamespaceHandlerCallbacks.h"
 
 @interface QSubscribeNamespaceHandlerObjC : NSObject
@@ -21,7 +22,8 @@
 #endif
 }
 
-- (id _Nonnull)initWithNamespacePrefix:(QTrackNamespace _Nonnull)namespacePrefix;
+- (id _Nonnull)initWithNamespacePrefix:(QTrackNamespace _Nonnull)namespacePrefix
+                           trackFilter:(QTrackFilterObjC * _Nullable)trackFilter;
 - (QTrackNamespace _Nonnull)getNamespacePrefix;
 - (QSubscribeNamespaceHandlerStatus)getStatus;
 - (bool)isTrackAcceptable:(id<QFullTrackName> _Nonnull)fullTrackName;

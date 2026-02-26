@@ -115,11 +115,28 @@ class CallState: ObservableObject, Equatable {
     private var subscribeNamespaceAccept: String = ""
     private var subscriptionNamespaceAcceptParsed: [Data]?
 
-    // Demo.
+    // Audio activivty top N demo.
     @AppStorage(SettingsView.demoEnabledKey)
     private var demoEnabled = false
+
+    // Demo FTN prefix.
     @AppStorage(SettingsView.demoMeetingIdKey)
     private var demoMeetingId: String = "demo-meeting-1"
+
+    // Max concurent.
+    @AppStorage(SettingsView.demoMaxTracksSelectedKey)
+    private var demoMaxTracksSelected: Int = 3
+
+    // Max deselected means how many subscriptions remain in state, but inactive.
+    // For us we basically want this quite high.
+    @AppStorage(SettingsView.demoMaxTracksDeselectedKey)
+    private var demoMaxTracksDeselected: Int = 10
+
+    // Max time before deselecting.
+    @AppStorage(SettingsView.demoMaxTimeSelectedKey)
+    private var demoMaxTimeSelected: TimeInterval = 0.5
+
+    // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
     // Recording.
@@ -311,9 +328,16 @@ class CallState: ObservableObject, Equatable {
             let audioPrefix: [Data] = ["meetings.wbx.com", meetingId, "audio"].map { .init($0.utf8) }
             let videoPrefix: [Data] = ["meetings.wbx.com", meetingId, "video"].map { .init($0.utf8) }
 
+            // Track filter.
+            let trackFilter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                               maxTracksSelected: UInt64(self.demoMaxTracksSelected),
+                                               maxTracksDeselected: UInt64(self.demoMaxTracksDeselected),
+                                               maxTimeSelected: UInt64(self.demoMaxTimeSelected * 1000))
+
             for (mediaType, prefix) in [("audio", audioPrefix), ("video", videoPrefix)] {
                 let handler = QSubscribeNamespaceHandler(
                     namespacePrefix: prefix,
+                    trackFilter: trackFilter,
                     statusChangedCallback: { status, errorCode, namespacePrefix in
                         let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
                         Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")

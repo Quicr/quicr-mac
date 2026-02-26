@@ -4,9 +4,15 @@
 #import <Foundation/Foundation.h>
 #import "QSubscribeNamespaceHandlerObjC.h"
 #import "QSubscribeTrackHandlerObjC.h"
+#import "QTrackFilter.h"
 
-QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix)
-  : quicr::SubscribeNamespaceHandler(prefix)
+QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
+                                                       const std::optional<quicr::messages::TrackFilter>& track_filter)
+  : quicr::SubscribeNamespaceHandler(prefix,
+                                      quicr::messages::FilterType::kTrackFilter,
+                                      track_filter.has_value() ? quicr::messages::Filter{*track_filter}
+                                                               : quicr::messages::Filter{std::monostate{}})
+  , track_filter_(track_filter)
 {
 }
 
@@ -58,8 +64,13 @@ void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallb
 @implementation QSubscribeNamespaceHandlerObjC : NSObject
 
 -(id)initWithNamespacePrefix:(QTrackNamespace)namespacePrefix
+                 trackFilter:(QTrackFilterObjC *)trackFilter
 {
-    handlerPtr = std::make_shared<QSubscribeNamespaceHandler>(nsConvert(namespacePrefix));
+    std::optional<quicr::messages::TrackFilter> filter;
+    if (trackFilter) {
+        filter = trackFilterConvert(trackFilter);
+    }
+    handlerPtr = std::make_shared<QSubscribeNamespaceHandler>(nsConvert(namespacePrefix), filter);
     return self;
 }
 

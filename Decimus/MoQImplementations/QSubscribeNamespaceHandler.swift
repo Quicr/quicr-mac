@@ -53,10 +53,11 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
     /// Creates a new libquicr subscribe-namespace handler.
     /// - Parameter namespacePrefix: Namespace prefix to subscribe to.
     init(namespacePrefix: [Data],
+         trackFilter: QTrackFilterObjC? = nil,
          statusChangedCallback: @escaping StatusCallback,
          trackAcceptableCallback: @escaping TrackAcceptableCallback,
          createHandlerCallback: CreateHandlerCallback? = nil) {
-        self.handler = .init(namespacePrefix: namespacePrefix)
+        self.handler = .init(namespacePrefix: namespacePrefix, trackFilter: trackFilter)
         self.statusChangedCallback = statusChangedCallback
         self.trackAcceptableCallback = trackAcceptableCallback
         self.createHandlerCallback = createHandlerCallback
