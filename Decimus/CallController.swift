@@ -125,6 +125,10 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
         assert(Thread.isMainThread)
+        for (_, handler) in self.namespaceHandlers {
+            guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else { continue }
+            self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
+        }
         for publication in self.publications {
             try self.unpublish(publication.key)
         }

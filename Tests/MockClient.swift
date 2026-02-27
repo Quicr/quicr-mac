@@ -84,6 +84,10 @@ class MockClient: MoqClient {
     func subscribeNamespace(withHandler handler: QSubscribeNamespaceHandlerObjC) {
         self.subscribeNamespace(handler)
     }
+
+    func unsubscribeNamespace(withHandler handler: QSubscribeNamespaceHandlerObjC) {
+    }
+
     func resolvePublish(_ connectionHandle: UInt64,
                         requestId: UInt64,
                         attributes: QPublishAttributes,

@@ -184,6 +184,13 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     qClientPtr->SubscribeNamespace(handler->handlerPtr);
 }
 
+-(void) unsubscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
+{
+    assert(qClientPtr);
+    assert(handler->handlerPtr);
+    qClientPtr->UnsubscribeNamespace(handler->handlerPtr);
+}
+
 -(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response {
     assert(qClientPtr);
     qClientPtr->ResolvePublish(connectionHandle, requestId, convert(attributes, tfn), convert(response));
