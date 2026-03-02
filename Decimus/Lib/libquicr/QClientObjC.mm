@@ -37,7 +37,7 @@ static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attribu
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
-    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.filter = std::monostate{};
     converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId;
@@ -52,7 +52,7 @@ static quicr::messages::PublishAttributes convert(QPublishAttributes attributes,
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
-    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.filter = std::monostate{};
     converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt;
@@ -224,7 +224,6 @@ static QPublishAttributes convert(const quicr::messages::PublishAttributes& attr
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.filterType = static_cast<QFilterType>(attributes.filter_type);
     converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
     converted.isPublisherInitiated = attributes.is_publisher_initiated;
     converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;

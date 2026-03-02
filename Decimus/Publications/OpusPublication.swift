@@ -139,7 +139,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private func getExtensions(wallClock: Date,
                                dequeuedTimestamp: AudioTimeStamp,
                                decibel: Int,
-                               voiceActive: Bool) throws -> HeaderExtensions {
+                               voiceActive: Bool?) throws -> HeaderExtensions {
         var extensions = HeaderExtensions()
         if self.mediaInterop {
             // MoQ MI.
@@ -159,7 +159,12 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // App.
         let adjusted = UInt8(abs(decibel))
-        let mask: UInt8 = voiceActive ? 0b10000000 : 0b00000000
+        let mask: UInt8
+        if let voiceActive, voiceActive {
+            mask = 0b10000000
+        } else {
+            mask = 0b00000000
+        }
         let energyLevelValue = adjusted | mask
         try? extensions.setHeader(.energyLevel(energyLevelValue))
         try? extensions.setHeader(.participantId(self.participantId))
@@ -280,7 +285,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                                 voiceActive: voiceActive)
 
         // Audio activity indicator (demo mode).
-        if let stateMachine = self.activityStateMachine {
+        if let stateMachine = self.activityStateMachine, let voiceActive {
             let action = stateMachine.update(voiceActive: voiceActive, now: wallClock)
             switch action {
             case .sendExtension(let value):

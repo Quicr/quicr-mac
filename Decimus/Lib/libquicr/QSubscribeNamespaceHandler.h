@@ -12,7 +12,7 @@ class QSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
 {
 public:
     explicit QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
-                                        const std::optional<quicr::messages::TrackFilter>& track_filter = std::nullopt);
+                                        const std::optional<quicr::messages::Filter>& filter = std::nullopt);
 
     void StatusChanged(Status status) override;
     bool IsTrackAcceptable(const quicr::FullTrackName& name) const override;
@@ -20,11 +20,8 @@ public:
 
     void SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks);
 
-    std::optional<quicr::messages::TrackFilter> GetTrackFilter() const { return track_filter_; }
-
 private:
     __weak id<QSubscribeNamespaceHandlerCallbacks> _callbacks;
-    std::optional<quicr::messages::TrackFilter> track_filter_;
 };
 
 #endif /* QSubscribeNamespaceHandler_h */

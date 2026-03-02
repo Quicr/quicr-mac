@@ -29,7 +29,6 @@ typedef struct QSubscribeAttributes {
     uint8_t priority;
     QGroupOrder groupOrder;
     uint64_t deliveryTimeoutMs;
-    QFilterType filterType;
     uint8_t forward;
     uint64_t newGroupRequestId;
     bool isPublisherInitiated;

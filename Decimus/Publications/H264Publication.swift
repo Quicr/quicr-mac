@@ -56,7 +56,9 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let sharedVoiceActivity: SharedVoiceActivityState?
+    private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
     private var currentSubgroupId: UInt64 = 0
+    private let rollSubgroup: Atomic<Bool> = .init(false)
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -196,25 +198,27 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             publication.currentSubgroupId = 0
         }
 
-        // Check for voice activity state change (demo mode).
-        // TODO: Rolling subgroup seems to crash?? Possibly need defer close/empty
-        // TODO: for subgroups like we had with OG streams?
-        let thisSubgroupId = publication.currentSubgroupId
-        var activityExtensions: HeaderExtensions?
-        if let activityValue = publication.sharedVoiceActivity?.consumeActivity() {
-            //            // End current subgroup and roll to a new one.
-            //            if publication.currentGroupId != nil && !idr {
-            //                publication.sink.endSubgroup(groupId: thisGroupId,
-            //                                             subgroupId: thisSubgroupId,
-            //                                             completed: true)
-            //            }
-            //            if !idr {
-            //                thisSubgroupId += 1
-            //            }
-            // Build extension for this first object of the new subgroup.
-            var actExt = HeaderExtensions()
-            try? actExt.setHeader(.audioActivityIndicator(activityValue.rawValue))
-            activityExtensions = actExt
+        // Do we need to roll the subgroup?
+        let subgroup = publication.rollSubgroup.compareExchange(expected: true,
+                                                                desired: false,
+                                                                ordering: .acquiringAndReleasing)
+        let thisSubgroupId: UInt64
+        if subgroup.exchanged {
+            publication.sink.endSubgroup(groupId: thisGroupId,
+                                         subgroupId: publication.currentSubgroupId,
+                                         completed: true)
+            thisSubgroupId = publication.currentSubgroupId + 1
+        } else {
+            thisSubgroupId = publication.currentSubgroupId
+        }
+
+        // VAD header.
+        if let last = publication.lastVoiceActivityState.get() {
+            do {
+                try extensions.setHeader(.audioActivityIndicator(last.rawValue))
+            } catch {
+                publication.logger.error("Failed to set VAD header: \(error.localizedDescription)")
+            }
         }
 
         // Publish.
@@ -252,12 +256,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             }
             if publication.granularMetrics {
                 try extensions.setHeader(.publishTimestamp(.now))
-            }
-            // Merge activity extensions into immutable extensions if present.
-            if let activityExtensions {
-                for (key, value) in activityExtensions {
-                    extensions[key] = value
-                }
             }
             return (publication.publish(groupId: thisGroupId,
                                         subgroupId: thisSubgroupId,
@@ -442,8 +440,50 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                                                       ordering: .acquiringAndReleasing)
             if generate {
                 self.logger.debug("Forcing key frame - subscribe update")
+                return true
             }
-            return generate
+
+            // If VAD state went up, IDR / group.
+            // If VAD goes down, subgroup.
+            let rollGroup: Bool
+            let rollSubgroup: Bool
+            if let sharedVoiceActivity = self.sharedVoiceActivity,
+               let currentActivity = sharedVoiceActivity.consumeActivity() {
+                let lastVAD = self.lastVoiceActivityState.get()
+                if let last = lastVAD {
+                    if currentActivity > last {
+                        // Up, roll group.
+                        rollGroup = true
+                        rollSubgroup = false
+                    } else if currentActivity < last {
+                        // Down, roll subgroup.
+                        rollGroup = false
+                        rollSubgroup = true
+                    } else {
+                        // Same state, do nothing.
+                        rollGroup = false
+                        rollSubgroup = false
+                    }
+                } else {
+                    // New activity, roll.
+                    rollGroup = true
+                    rollSubgroup = false
+                }
+                self.lastVoiceActivityState.withLock { $0 = currentActivity }
+            } else {
+                // No activity, do nothing.
+                rollGroup = false
+                rollSubgroup = false
+            }
+            if rollGroup {
+                assert(!rollSubgroup)
+                self.logger.debug("Forcing key frame - VAD rise")
+                return true
+            }
+            if rollSubgroup {
+                self.rollSubgroup.store(true, ordering: .releasing)
+            }
+            return false
         }
 
         // Encode.

@@ -24,8 +24,7 @@ typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
 - (QSubscribeTrackHandlerObjC* _Nullable)createHandler:(id<QFullTrackName> _Nonnull)fullTrackName
                                             trackAlias:(uint64_t)trackAlias
                                               priority:(uint8_t)priority
-                                            groupOrder:(QGroupOrder)groupOrder
-                                            filterType:(QFilterType)filterType;
+                                            groupOrder:(QGroupOrder)groupOrder;
 @end
 
 #endif /* QSubscribeNamespaceHandlerCallbacks_h */

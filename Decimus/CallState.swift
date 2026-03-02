@@ -357,13 +357,12 @@ class CallState: ObservableObject, Equatable {
                         Self.logger.info("[demo/\(mediaType)] Accepting track: \(fullTrackName)")
                         return true
                     },
-                    createHandlerCallback: { [weak self] fullTrackName, trackAlias, priority, groupOrder, filterType in
+                    createHandlerCallback: { [weak self] fullTrackName, trackAlias, priority, groupOrder in
                         guard let self else { return nil }
                         return self.demoCreateHandler(fullTrackName: fullTrackName,
                                                       trackAlias: trackAlias,
                                                       priority: priority,
-                                                      groupOrder: groupOrder,
-                                                      filterType: filterType)
+                                                      groupOrder: groupOrder)
                     })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -832,8 +831,7 @@ extension CallState {
     func demoCreateHandler(fullTrackName: FullTrackName,
                            trackAlias: UInt64,
                            priority: UInt8,
-                           groupOrder: QGroupOrder,
-                           filterType: QFilterType) -> QSubscribeTrackHandlerObjC? {
+                           groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC? {
         guard let factory = self.subscriptionFactory,
               let controller = self.controller,
               let relayId = controller.serverId else { return nil }

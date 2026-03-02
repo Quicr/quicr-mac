@@ -7,12 +7,9 @@
 #import "QTrackFilter.h"
 
 QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
-                                                       const std::optional<quicr::messages::TrackFilter>& track_filter)
+                                                       const std::optional<quicr::messages::Filter>& filter)
   : quicr::SubscribeNamespaceHandler(prefix,
-                                      quicr::messages::FilterType::kTrackFilter,
-                                      track_filter.has_value() ? quicr::messages::Filter{*track_filter}
-                                                               : quicr::messages::Filter{std::monostate{}})
-  , track_filter_(track_filter)
+                                     filter.value_or(std::monostate{}))
 {
 }
 
@@ -48,8 +45,7 @@ QSubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAttribut
                 [_callbacks createHandler:ftnConvert(attributes.track_full_name)
                                trackAlias:attributes.track_alias
                                  priority:attributes.priority
-                               groupOrder:static_cast<QGroupOrder>(attributes.group_order)
-                               filterType:static_cast<QFilterType>(attributes.filter_type)];
+                               groupOrder:static_cast<QGroupOrder>(attributes.group_order)];
             if (handler) {
                 return handler->handlerPtr;
             }

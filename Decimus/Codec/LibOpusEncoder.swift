@@ -59,10 +59,9 @@ class LibOpusEncoder {
         encoded.deallocate()
     }
 
-    /// Whether the encoder detects voice activity in the most recently encoded frame.
-    /// Falls back to `true` when DTX is not supported (CELT-only mode).
-    var voiceActive: Bool {
-        guard dtxSupported else { return true }
+    /// Whether the encoder detects voice activity in the most recently encoded frame, if supported.
+    var voiceActive: Bool? {
+        guard self.dtxSupported else { return nil }
         var inDtx: Int32 = 0
         withUnsafeMutablePointer(to: &inDtx) { ptr in
             _ = try? encoder.ctl(request: OPUS_GET_IN_DTX_REQUEST, args: [ptr])

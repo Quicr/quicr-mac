@@ -12,8 +12,7 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
     typealias CreateHandlerCallback = (_ fullTrackName: FullTrackName,
                                        _ trackAlias: UInt64,
                                        _ priority: UInt8,
-                                       _ groupOrder: QGroupOrder,
-                                       _ filterType: QFilterType) -> QSubscribeTrackHandlerObjC?
+                                       _ groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC?
 
     /// Callback invoked when the subscribe-namespace status changes.
     var statusChangedCallback: StatusCallback { get }
@@ -79,8 +78,7 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
     func createHandler(_ fullTrackName: any QFullTrackName,
                        trackAlias: UInt64,
                        priority: UInt8,
-                       groupOrder: QGroupOrder,
-                       filterType: QFilterType) -> QSubscribeTrackHandlerObjC? {
-        return self.createHandlerCallback?(.init(fullTrackName), trackAlias, priority, groupOrder, filterType)
+                       groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC? {
+        return self.createHandlerCallback?(.init(fullTrackName), trackAlias, priority, groupOrder)
     }
 }

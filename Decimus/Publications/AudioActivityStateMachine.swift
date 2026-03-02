@@ -4,7 +4,11 @@
 import Foundation
 
 /// Values for the AudioActivityIndicator extension header.
-enum AudioActivityValue: UInt8 {
+enum AudioActivityValue: UInt8, Comparable {
+    static func < (lhs: AudioActivityValue, rhs: AudioActivityValue) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
     case speechEnd = 0
     case speechStart = 1
     case continuousSpeech = 2
