@@ -7,12 +7,11 @@
 
 @implementation QSubscribeTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder filterType:(QFilterType)filterType publisherInitiated:(BOOL)publisherInitiated
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder publisherInitiated:(BOOL)publisherInitiated
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
-    const auto filter = static_cast<quicr::messages::FilterType>(filterType);
-    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order, filter, std::nullopt, publisherInitiated);
+    handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order, std::nullopt, publisherInitiated);
     return self;
 }
 
@@ -104,12 +103,11 @@
 QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                                                quicr::messages::ObjectPriority priority,
                                                quicr::messages::GroupOrder group_order,
-                                               quicr::messages::FilterType filter_type,
                                                const std::optional<JoiningFetch>& joining_fetch,
                                                bool publisher_initiated): quicr::SubscribeTrackHandler(full_track_name,
                                                                                                        priority,
                                                                                                        group_order,
-                                                                                                       filter_type,
+                                                                                                       std::monostate{}, // TODO: Implement filters for regular subscribes.
                                                                                                        joining_fetch,
                                                                                                        publisher_initiated) {}
 

@@ -47,6 +47,29 @@ struct SettingsView: View {
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
+    // Audio demo settings.
+    // TODO: Probably smarten this up a bit.
+
+    static let demoEnabledKey = "demoEnabled"
+    @AppStorage(Self.demoEnabledKey)
+    private var demoEnabled: Bool = false
+
+    static let demoMeetingIdKey = "demoMeetingId"
+    @AppStorage(Self.demoMeetingIdKey)
+    private var demoMeetingId: String = "demo-meeting-1"
+
+    static let demoMaxTracksSelectedKey = "demoMaxTracksSelected"
+    @AppStorage(Self.demoMaxTracksSelectedKey)
+    private var demoMaxTracksSelected: Int = 3
+
+    static let demoMaxTracksDeselectedKey = "demoMaxTracksDeselected"
+    @AppStorage(Self.demoMaxTracksDeselectedKey)
+    private var demoMaxTracksDeselected: Int = 0
+
+    static let demoMaxTimeSelectedKey = "demoMaxTimeSelected"
+    @AppStorage(Self.demoMaxTimeSelectedKey)
+    private var demoMaxTimeSelected: TimeInterval = 0.5
+
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
@@ -81,6 +104,11 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMeetingIdKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -196,6 +224,38 @@ struct SettingsView: View {
                     DisplayPicker()
                 }
                 #endif
+            }
+            .decimusTextStyle()
+
+            Section("Demo") {
+                LabeledToggle("Audio Activity Demo", isOn: self.$demoEnabled)
+                if self.demoEnabled {
+                    LabeledContent("Meeting ID") {
+                        TextField("Meeting ID", text: self.$demoMeetingId)
+                            .autocorrectionDisabled()
+                            #if !os(macOS)
+                            .keyboardType(.asciiCapable)
+                        #endif
+                    }
+                    LabeledContent("Max Tracks Selected") {
+                        TextField("Max Tracks Selected", value: self.$demoMaxTracksSelected, format: .number)
+                            #if !os(macOS)
+                            .keyboardType(.numberPad)
+                        #endif
+                    }
+                    LabeledContent("Max Tracks Deselected") {
+                        TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
+                            #if !os(macOS)
+                            .keyboardType(.numberPad)
+                        #endif
+                    }
+                    LabeledContent("Max Time Selected (s)") {
+                        TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
+                            #if !os(macOS)
+                            .keyboardType(.decimalPad)
+                        #endif
+                    }
+                }
             }
             .decimusTextStyle()
 

@@ -63,7 +63,6 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
         super.init(fullTrackName: try profile.getFullTrackName(),
                    priority: priority,
                    groupOrder: groupOrder,
-                   filterType: filterType,
                    publisherInitiated: publisherInitiated)
         super.setCallbacks(self)
         super.setDeliveryTimeout(UInt64(profile.expiry?.max() ?? 5000))

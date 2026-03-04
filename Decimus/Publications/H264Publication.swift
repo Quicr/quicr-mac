@@ -55,6 +55,10 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let sharedVoiceActivity: SharedVoiceActivityState?
+    private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
+    private var currentSubgroupId: UInt64 = 0
+    private let rollSubgroup: Atomic<Bool> = .init(false)
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
@@ -188,7 +192,33 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         // If we just rolled group, send end of (sub)group.
         if idr,
            let currentGroupId = publication.currentGroupId {
-            publication.sink.endSubgroup(groupId: currentGroupId, subgroupId: 0, completed: true)
+            publication.sink.endSubgroup(groupId: currentGroupId,
+                                         subgroupId: publication.currentSubgroupId,
+                                         completed: true)
+            publication.currentSubgroupId = 0
+        }
+
+        // Do we need to roll the subgroup?
+        let subgroup = publication.rollSubgroup.compareExchange(expected: true,
+                                                                desired: false,
+                                                                ordering: .acquiringAndReleasing)
+        let thisSubgroupId: UInt64
+        if subgroup.exchanged {
+            publication.sink.endSubgroup(groupId: thisGroupId,
+                                         subgroupId: publication.currentSubgroupId,
+                                         completed: true)
+            thisSubgroupId = publication.currentSubgroupId + 1
+        } else {
+            thisSubgroupId = publication.currentSubgroupId
+        }
+
+        // VAD header.
+        if let last = publication.lastVoiceActivityState.get() {
+            do {
+                try extensions.setHeader(.audioActivityIndicator(last.rawValue))
+            } catch {
+                publication.logger.error("Failed to set VAD header: \(error.localizedDescription)")
+            }
         }
 
         // Publish.
@@ -228,7 +258,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 try extensions.setHeader(.publishTimestamp(.now))
             }
             return (publication.publish(groupId: thisGroupId,
-                                        subgroupId: 0,
+                                        subgroupId: thisSubgroupId,
                                         objectId: thisObjectId,
                                         data: protected,
                                         priority: &priority,
@@ -251,6 +281,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
 
         // Update IDs on success.
         publication.currentGroupId = thisGroupId
+        publication.currentSubgroupId = thisSubgroupId
         publication.currentObjectId = thisObjectId
         publication.sequence += 1
 
@@ -280,6 +311,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
+                  sharedVoiceActivity: SharedVoiceActivityState? = nil,
                   sink: MoQSink) throws {
         self.profile = profile
         let namespace = profile.namespace.joined()
@@ -307,6 +339,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.sharedVoiceActivity = sharedVoiceActivity
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         // Wire to MoQ.
@@ -407,8 +440,50 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                                                       ordering: .acquiringAndReleasing)
             if generate {
                 self.logger.debug("Forcing key frame - subscribe update")
+                return true
             }
-            return generate
+
+            // If VAD state went up, IDR / group.
+            // If VAD goes down, subgroup.
+            let rollGroup: Bool
+            let rollSubgroup: Bool
+            if let sharedVoiceActivity = self.sharedVoiceActivity,
+               let currentActivity = sharedVoiceActivity.consumeActivity() {
+                let lastVAD = self.lastVoiceActivityState.get()
+                if let last = lastVAD {
+                    if currentActivity > last {
+                        // Up, roll group.
+                        rollGroup = true
+                        rollSubgroup = false
+                    } else if currentActivity < last {
+                        // Down, roll subgroup.
+                        rollGroup = false
+                        rollSubgroup = true
+                    } else {
+                        // Same state, do nothing.
+                        rollGroup = false
+                        rollSubgroup = false
+                    }
+                } else {
+                    // New activity, roll.
+                    rollGroup = true
+                    rollSubgroup = false
+                }
+                self.lastVoiceActivityState.withLock { $0 = currentActivity }
+            } else {
+                // No activity, do nothing.
+                rollGroup = false
+                rollSubgroup = false
+            }
+            if rollGroup {
+                assert(!rollSubgroup)
+                self.logger.debug("Forcing key frame - VAD rise")
+                return true
+            }
+            if rollSubgroup {
+                self.rollSubgroup.store(true, ordering: .releasing)
+            }
+            return false
         }
 
         // Encode.

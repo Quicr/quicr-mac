@@ -22,7 +22,7 @@
 #endif
 }
 
--(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder filterType: (QFilterType) filterType publisherInitiated: (BOOL) publisherInitiated;
+-(id _Nonnull) initWithFullTrackName: (id<QFullTrackName> _Nonnull) full_track_name priority: (uint8_t) priority groupOrder: (QGroupOrder) groupOrder publisherInitiated: (BOOL) publisherInitiated;
 -(QSubscribeTrackHandlerStatus) getStatus;
 -(void) setPriority: (uint8_t) priority;
 -(id<QFullTrackName> _Nonnull) getFullTrackName;

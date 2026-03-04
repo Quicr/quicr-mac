@@ -15,6 +15,8 @@ enum MoqCallControllerError: Error {
     case subscriptionSetNotFound
     /// The specified subscription was not found in the set.
     case subscriptionNotFound
+    /// Unsupported handler type.
+    case unsupportedHandler
 }
 
 enum SubscriptionSetError: Error {
@@ -55,6 +57,7 @@ class MoqCallController: QClientCallbacks {
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: any PublicationInstance] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
+    private var namespaceHandlers: [NamespacePrefix: any MoQSubscribeNamespaceHandler] = [:]
     private var connected = false
     private let callEnded: (() -> Void)?
     private let overrideNamespace: [String]?
@@ -122,6 +125,10 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
         assert(Thread.isMainThread)
+        for (_, handler) in self.namespaceHandlers {
+            guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else { continue }
+            self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
+        }
         for publication in self.publications {
             try self.unpublish(publication.key)
         }
@@ -135,6 +142,7 @@ class MoqCallController: QClientCallbacks {
         self.logger.info("[MoqCallController] Disconnected")
         self.publications.removeAll()
         self.subscriptions.removeAll()
+        self.namespaceHandlers.removeAll()
     }
 
     // MARK: Pub/Sub Modification APIs.
@@ -199,6 +207,11 @@ class MoqCallController: QClientCallbacks {
     /// - Returns: The matching set, if any.
     public func getSubscriptionSet(_ sourceID: SourceIDType) -> SubscriptionSet? {
         self.subscriptions[sourceID]
+    }
+
+    /// Store a subscription set externally created (e.g. by namespace handler CreateHandler).
+    public func storeSubscriptionSet(sourceId: SourceIDType, set: SubscriptionSet) {
+        self.subscriptions[sourceId] = set
     }
 
     /// Get all managed subscription sets.
@@ -464,13 +477,17 @@ class MoqCallController: QClientCallbacks {
                                    response: response)
     }
 
-    func subscribeNamespace(_ prefix: [String]) {
-        self.client.subscribeNamespace(prefix.map { .init($0.utf8) })
-    }
-
-    func subscribeNamespaceStatusChanged(_ tfn: [Data], errorCode: QSubscribeNamespaceErrorCode) {
-        let namespace = tfn.compactMap { String(data: $0, encoding: .utf8) }
-        self.logger.info("[\(namespace)] Subscribe namespace status changed: \(errorCode)")
+    /// Subscribe to a namespace prefix.
+    /// - Parameter handler: Subscribe namespace handler.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
+    /// ``MoqCallControllerError/unsupportedSubscribeNamespaceHandler`` if handler implementation is unsupported.
+    func subscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
+            throw MoqCallControllerError.unsupportedHandler
+        }
+        self.namespaceHandlers[handler.namespacePrefix] = handler
+        self.client.subscribeNamespace(withHandler: libquicrHandler.handler)
     }
 }
 

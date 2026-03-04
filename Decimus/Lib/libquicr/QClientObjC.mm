@@ -37,7 +37,7 @@ static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attribu
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
-    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.filter = std::monostate{};
     converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId;
@@ -52,7 +52,7 @@ static quicr::messages::PublishAttributes convert(QPublishAttributes attributes,
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
-    converted.filter_type = static_cast<quicr::messages::FilterType>(attributes.filterType);
+    converted.filter = std::monostate{};
     converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt;
@@ -65,40 +65,7 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     return converted;
 }
 
-// Custom SubscribeNamespaceHandler that bridges to Objective-C callbacks
-class QSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler {
-public:
-    static std::shared_ptr<QSubscribeNamespaceHandler> Create(const quicr::TrackNamespace& prefix,
-                                                               __weak id<QClientCallbacks> callbacks) {
-        return std::shared_ptr<QSubscribeNamespaceHandler>(new QSubscribeNamespaceHandler(prefix, callbacks));
-    }
-
-    void StatusChanged(Status status) override {
-        if (_callbacks) {
-            QSubscribeNamespaceErrorCode errorCode = QSubscribeNamespaceErrorCode::kQSubscribeNamespaceErrorCodeOK;
-            if (status == Status::kError) {
-                // Map error status to error code
-                auto error = GetError();
-                if (error.has_value()) {
-                    errorCode = static_cast<QSubscribeNamespaceErrorCode>(error->first);
-                }
-            }
-            [_callbacks subscribeNamespaceStatusChanged:nsConvert(GetPrefix()) errorCode:errorCode];
-        }
-        quicr::SubscribeNamespaceHandler::StatusChanged(status);
-    }
-
-private:
-    QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix, __weak id<QClientCallbacks> callbacks)
-        : quicr::SubscribeNamespaceHandler(prefix), _callbacks(callbacks) {}
-
-    __weak id<QClientCallbacks> _callbacks;
-};
-
-@implementation QClientObjC : NSObject {
-    std::map<quicr::TrackNamespace, std::shared_ptr<QSubscribeNamespaceHandler>> _namespaceHandlers;
-}
-
+@implementation QClientObjC : NSObject
 
 -(id)initWithConfig: (QClientConfig) config
 {
@@ -210,19 +177,18 @@ private:
     return static_cast<QPublishNamespaceStatus>(status);
 }
 
--(void) subscribeNamespace: (QTrackNamespace) trackNamespace
+-(void) subscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
 {
     assert(qClientPtr);
-    auto ns = nsConvert(trackNamespace);
+    assert(handler->handlerPtr);
+    qClientPtr->SubscribeNamespace(handler->handlerPtr);
+}
 
-    // Create a custom handler that bridges to Objective-C callbacks
-    auto handler = QSubscribeNamespaceHandler::Create(ns, qClientPtr->GetCallbacks());
-
-    // Store the handler to keep it alive
-    _namespaceHandlers[ns] = handler;
-
-    // Subscribe using the handler
-    qClientPtr->SubscribeNamespace(handler);
+-(void) unsubscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
+{
+    assert(qClientPtr);
+    assert(handler->handlerPtr);
+    qClientPtr->UnsubscribeNamespace(handler->handlerPtr);
 }
 
 -(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response {
@@ -258,7 +224,6 @@ static QPublishAttributes convert(const quicr::messages::PublishAttributes& attr
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.filterType = static_cast<QFilterType>(attributes.filter_type);
     converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
     converted.isPublisherInitiated = attributes.is_publisher_initiated;
     converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
@@ -323,4 +288,3 @@ void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
 }
 
 @end
-

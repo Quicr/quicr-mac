@@ -14,7 +14,6 @@ public:
     QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                            quicr::messages::ObjectPriority priority,
                            quicr::messages::GroupOrder group_order,
-                           quicr::messages::FilterType filter_type,
                            const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                            bool publisher_initiated = false);
 
