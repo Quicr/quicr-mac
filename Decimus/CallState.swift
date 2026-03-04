@@ -113,7 +113,7 @@ class CallState: ObservableObject, Equatable {
     private var subscribeNamespace: String = ""
     @AppStorage(SettingsView.subscribeNamespaceAcceptKey)
     private var subscribeNamespaceAccept: String = ""
-    private var subscriptionNamespaceAcceptParsed: [Data]?
+    private var subscriptionNamespaceAcceptParsed: NamespacePrefix?
 
     // Audio activivty top N demo.
     @AppStorage(SettingsView.demoEnabledKey)
@@ -325,8 +325,8 @@ class CallState: ObservableObject, Equatable {
         if self.demoEnabled, self.subscriptionFactory != nil {
             let meetingId = self.demoMeetingId
             let ownClientId = "\(manifest.participantId.aggregate)"
-            let audioPrefix: [Data] = ["meetings.wbx.com", meetingId, "audio"].map { .init($0.utf8) }
-            let videoPrefix: [Data] = ["meetings.wbx.com", meetingId, "video"].map { .init($0.utf8) }
+            let audioPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "audio"])
+            let videoPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "video"])
 
             // Track filter.
             let trackFilter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
@@ -339,12 +339,11 @@ class CallState: ObservableObject, Equatable {
                     namespacePrefix: prefix,
                     trackFilter: trackFilter,
                     statusChangedCallback: { status, errorCode, namespacePrefix in
-                        let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
-                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespace)")
+                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     },
                     trackAcceptableCallback: { [weak self] fullTrackName in
                         guard let self else { return false }
-                        guard fullTrackName.matchesPrefix(prefix: prefix) else {
+                        guard fullTrackName.matchesPrefix(prefix) else {
                             return false
                         }
                         if !self.playtimeConfig.value.echo,
@@ -367,7 +366,7 @@ class CallState: ObservableObject, Equatable {
                 do {
                     try controller.subscribeNamespace(handler)
                     self.demoNamespaceHandlers.append(handler)
-                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix.compactMap { String(data: $0, encoding: .utf8) })")
+                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix)")
                 } catch {
                     Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
                 }
@@ -466,12 +465,10 @@ class CallState: ObservableObject, Equatable {
             if let namespaceTuple = try? JSONDecoder().decode([String].self, from: Data(self.subscribeNamespace.utf8)),
                let acceptNamespace = try? JSONDecoder().decode([String].self,
                                                                from: Data(self.subscribeNamespaceAccept.utf8)) {
-                self.subscriptionNamespaceAcceptParsed = acceptNamespace.map { .init($0.utf8) }
-                let handler = QSubscribeNamespaceHandler(namespacePrefix: namespaceTuple.map { .init($0.utf8) },
+                self.subscriptionNamespaceAcceptParsed = NamespacePrefix(acceptNamespace)
+                let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
                                                          statusChangedCallback: { status, errorCode, namespacePrefix in
-                                                            // Status changed.
-                                                            let namespace = namespacePrefix.compactMap { String(data: $0, encoding: .utf8) }
-                                                            Self.logger.info("[\(namespace)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                            Self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
                                                          }, trackAcceptableCallback: {[weak self] fullTrackName in
                                                             // Do we want this track?
                                                             guard let self,
@@ -479,7 +476,7 @@ class CallState: ObservableObject, Equatable {
                                                                 Self.logger.warning("[\(fullTrackName)] Declining offered track: missing accept prefix")
                                                                 return false
                                                             }
-                                                            let acceptable = fullTrackName.matchesPrefix(prefix: accept)
+                                                            let acceptable = fullTrackName.matchesPrefix(accept)
                                                             Self.logger.info("[\(fullTrackName)] Offered track acceptable: \(acceptable)")
                                                             return acceptable
                                                          })
@@ -756,7 +753,7 @@ class CallState: ObservableObject, Equatable {
         let mediaIndex = 3
         let endpointIndex = 4
         guard let accept = self.subscriptionNamespaceAcceptParsed,
-              track.matchesPrefix(prefix: accept),
+              track.matchesPrefix(accept),
               track.nameSpace.count >= endpointIndex - 1,
               let mediaType = String(data: track.nameSpace[mediaIndex], encoding: .utf8),
               let config = mediaType.firstMatch(of: #/\[(.*?)\]/#),

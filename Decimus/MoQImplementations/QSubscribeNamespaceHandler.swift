@@ -7,7 +7,7 @@ import Foundation
 protocol MoQSubscribeNamespaceHandler: AnyObject {
     typealias StatusCallback = (_ status: QSubscribeNamespaceHandlerStatus,
                                 _ errorCode: QSubscribeNamespaceErrorCode,
-                                _ namespacePrefix: [Data]) -> Void
+                                _ namespacePrefix: NamespacePrefix) -> Void
     typealias TrackAcceptableCallback = (_ fullTrackName: FullTrackName) -> Bool
     typealias CreateHandlerCallback = (_ fullTrackName: FullTrackName,
                                        _ trackAlias: UInt64,
@@ -26,7 +26,7 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
     var createHandlerCallback: CreateHandlerCallback? { get }
 
     /// The namespace prefix this handler subscribes to.
-    var namespacePrefix: [Data] { get }
+    var namespacePrefix: NamespacePrefix { get }
 
     /// Current status of the namespace subscription.
     var status: QSubscribeNamespaceHandlerStatus { get }
@@ -41,8 +41,8 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
     /// The underlying libquicr handler.
     let handler: QSubscribeNamespaceHandlerObjC
 
-    var namespacePrefix: [Data] {
-        self.handler.getNamespacePrefix()
+    var namespacePrefix: NamespacePrefix {
+        .init(self.handler.getNamespacePrefix())
     }
 
     var status: QSubscribeNamespaceHandlerStatus {
@@ -51,12 +51,12 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
 
     /// Creates a new libquicr subscribe-namespace handler.
     /// - Parameter namespacePrefix: Namespace prefix to subscribe to.
-    init(namespacePrefix: [Data],
+    init(namespacePrefix: NamespacePrefix,
          trackFilter: QTrackFilterObjC? = nil,
          statusChangedCallback: @escaping StatusCallback,
          trackAcceptableCallback: @escaping TrackAcceptableCallback,
          createHandlerCallback: CreateHandlerCallback? = nil) {
-        self.handler = .init(namespacePrefix: namespacePrefix, trackFilter: trackFilter)
+        self.handler = .init(namespacePrefix: namespacePrefix.elements, trackFilter: trackFilter)
         self.statusChangedCallback = statusChangedCallback
         self.trackAcceptableCallback = trackAcceptableCallback
         self.createHandlerCallback = createHandlerCallback

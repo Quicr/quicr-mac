@@ -57,7 +57,7 @@ class MoqCallController: QClientCallbacks {
     private var connectionContinuation: CheckedContinuation<Void, Error>?
     private var publications: [FullTrackName: any PublicationInstance] = [:]
     private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
-    private var namespaceHandlers: [String: any MoQSubscribeNamespaceHandler] = [:]
+    private var namespaceHandlers: [NamespacePrefix: any MoQSubscribeNamespaceHandler] = [:]
     private var connected = false
     private let callEnded: (() -> Void)?
     private let overrideNamespace: [String]?
@@ -486,10 +486,7 @@ class MoqCallController: QClientCallbacks {
         guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
             throw MoqCallControllerError.unsupportedHandler
         }
-        let key = handler.namespacePrefix
-            .map { $0.base64EncodedString() }
-            .joined(separator: "/")
-        self.namespaceHandlers[key] = handler
+        self.namespaceHandlers[handler.namespacePrefix] = handler
         self.client.subscribeNamespace(withHandler: libquicrHandler.handler)
     }
 }
