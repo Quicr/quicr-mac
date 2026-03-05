@@ -746,6 +746,15 @@ class CallState: ObservableObject, Equatable {
                 }
             }
             responseAccept = true
+            responseAttributes = .init(priority: attributes.priority,
+                                       groupOrder: attributes.groupOrder,
+                                       deliveryTimeoutMs: attributes.deliveryTimeoutMs,
+                                       filterType: .latestObject,
+                                       forward: 1,
+                                       newGroupRequestId: attributes.newGroupRequestId,
+                                       isPublisherInitiated: true,
+                                       trackAlias: attributes.trackAlias,
+                                       dynamicGroups: attributes.dynamicGroups)
             return
         }
 
@@ -903,8 +912,8 @@ extension CallState {
     static func makeDemoPublications(meetingId: String, userId: String) -> [ManifestPublication] {
         let audioNamespace = ["meetings.wbx.com", meetingId, "audio", userId]
         let audioProfile = Profile(qualityProfile: "opus,br=24",
-                                   expiry: [1000],
-                                   priorities: [0],
+                                   expiry: [120],
+                                   priorities: [1],
                                    namespace: audioNamespace,
                                    name: "opus_48khz")
         let audioPublication = ManifestPublication(mediaType: "audio",
@@ -916,8 +925,8 @@ extension CallState {
 
         let videoNamespace = ["meetings.wbx.com", meetingId, "video", userId]
         let videoProfile = Profile(qualityProfile: "h264,width=1920,height=1080,fps=30,br=4000",
-                                   expiry: [1000, 200],
-                                   priorities: [0, 1],
+                                   expiry: [5000, 5000],
+                                   priorities: [2, 3],
                                    namespace: videoNamespace,
                                    name: "h264")
         let videoPublication = ManifestPublication(mediaType: "video",
