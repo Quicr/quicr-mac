@@ -417,19 +417,27 @@ final class TestCallController: XCTestCase {
 
         let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(["namespace"]),
                                                  statusChangedCallback: { _, _, _ in },
-                                                 trackAcceptableCallback: { _ in false })
+                                                 trackReceivedCallback: { _, _ in nil })
         try controller.subscribeNamespace(handler)
         XCTAssert(subscribedHandler === handler.handler)
     }
 
-    func testSubscribeNamespaceHandlerTrackAcceptableRoundTrip() throws {
+    func testSubscribeNamespaceHandlerTrackReceivedRoundTrip() throws {
         let acceptable = try FullTrackName(namespace: ["namespace", "allowed"], name: "video")
         let rejected = try FullTrackName(namespace: ["namespace", "rejected"], name: "video")
+        var receivedTrack: FullTrackName?
         let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(["namespace"]),
                                                  statusChangedCallback: { _, _, _ in },
-                                                 trackAcceptableCallback: { offered in offered == acceptable })
-        XCTAssertTrue(handler.handler.isTrackAcceptable(acceptable))
-        XCTAssertFalse(handler.handler.isTrackAcceptable(rejected))
+                                                 trackReceivedCallback: { offered, _ in
+                                                    receivedTrack = offered
+                                                    return nil
+                                                 })
+        let defaultAttrs = QPublishAttributes()
+        XCTAssertNil(handler.newTrackReceived(acceptable, attributes: defaultAttrs))
+        XCTAssertEqual(receivedTrack, acceptable)
+        receivedTrack = nil
+        XCTAssertNil(handler.newTrackReceived(rejected, attributes: defaultAttrs))
+        XCTAssertEqual(receivedTrack, rejected)
     }
 
     func testAssertFtnEquality() throws {
