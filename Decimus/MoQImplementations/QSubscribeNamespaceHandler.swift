@@ -8,22 +8,15 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
     typealias StatusCallback = (_ status: QSubscribeNamespaceHandlerStatus,
                                 _ errorCode: QSubscribeNamespaceErrorCode,
                                 _ namespacePrefix: NamespacePrefix) -> Void
-    typealias TrackAcceptableCallback = (_ fullTrackName: FullTrackName) -> Bool
-    typealias CreateHandlerCallback = (_ fullTrackName: FullTrackName,
-                                       _ trackAlias: UInt64,
-                                       _ priority: UInt8,
-                                       _ groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC?
+    typealias TrackReceivedCallback = (_ fullTrackName: FullTrackName,
+                                       _ attributes: QPublishAttributes) -> Subscription?
 
     /// Callback invoked when the subscribe-namespace status changes.
     var statusChangedCallback: StatusCallback { get }
 
     /// Callback invoked when a track becomes available in the subscribed namespace.
     /// Return `true` to accept and subscribe the track, `false` to decline.
-    var trackAcceptableCallback: TrackAcceptableCallback { get }
-
-    /// Callback invoked to create a subscription handler for an accepted track.
-    /// Return nil to use the default handler.
-    var createHandlerCallback: CreateHandlerCallback? { get }
+    var trackReceivedCallback: TrackReceivedCallback { get }
 
     /// The namespace prefix this handler subscribes to.
     var namespacePrefix: NamespacePrefix { get }
@@ -35,8 +28,7 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
 /// MoQ subscribe-namespace handler using libquicr.
 final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, QSubscribeNamespaceHandlerCallbacks {
     let statusChangedCallback: StatusCallback
-    let trackAcceptableCallback: TrackAcceptableCallback
-    let createHandlerCallback: CreateHandlerCallback?
+    let trackReceivedCallback: TrackReceivedCallback
 
     /// The underlying libquicr handler.
     let handler: QSubscribeNamespaceHandlerObjC
@@ -54,12 +46,10 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
     init(namespacePrefix: NamespacePrefix,
          trackFilter: QTrackFilterObjC? = nil,
          statusChangedCallback: @escaping StatusCallback,
-         trackAcceptableCallback: @escaping TrackAcceptableCallback,
-         createHandlerCallback: CreateHandlerCallback? = nil) {
+         trackReceivedCallback: @escaping TrackReceivedCallback) {
         self.handler = .init(namespacePrefix: namespacePrefix.elements, trackFilter: trackFilter)
         self.statusChangedCallback = statusChangedCallback
-        self.trackAcceptableCallback = trackAcceptableCallback
-        self.createHandlerCallback = createHandlerCallback
+        self.trackReceivedCallback = trackReceivedCallback
         super.init()
         self.handler.setCallbacks(self)
     }
@@ -68,17 +58,7 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
         self.statusChangedCallback(status, errorCode, self.namespacePrefix)
     }
 
-    /// Callback for when notification of a matched track arrives.
-    /// - Returns True to accept this track and subscribe, false to ignore.
-    func isTrackAcceptable(_ fullTrackName: any QFullTrackName) -> Bool {
-        return self.trackAcceptableCallback(.init(fullTrackName))
-    }
-
-    /// Callback to create a subscription handler for an accepted track.
-    func createHandler(_ fullTrackName: any QFullTrackName,
-                       trackAlias: UInt64,
-                       priority: UInt8,
-                       groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC? {
-        return self.createHandlerCallback?(.init(fullTrackName), trackAlias, priority, groupOrder)
+    func newTrackReceived(_ tfn: QFullTrackName, attributes: QPublishAttributes) -> QSubscribeTrackHandlerObjC? {
+        self.trackReceivedCallback(.init(tfn), attributes)
     }
 }

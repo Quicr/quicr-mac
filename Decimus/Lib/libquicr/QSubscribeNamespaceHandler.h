@@ -15,8 +15,7 @@ public:
                                         const std::optional<quicr::messages::Filter>& filter = std::nullopt);
 
     void StatusChanged(Status status) override;
-    bool IsTrackAcceptable(const quicr::FullTrackName& name) const override;
-    std::shared_ptr<quicr::SubscribeTrackHandler> CreateHandler(const quicr::messages::PublishAttributes& attributes) override;
+    std::shared_ptr<quicr::SubscribeTrackHandler> NewTrackReceived(const quicr::messages::PublishAttributes& attributes) const override;
 
     void SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks);
 

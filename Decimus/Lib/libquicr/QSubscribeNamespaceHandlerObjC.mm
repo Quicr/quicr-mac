@@ -6,6 +6,19 @@
 #import "QSubscribeTrackHandlerObjC.h"
 #import "QTrackFilter.h"
 
+static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
+{
+    QPublishAttributes converted;
+    converted.priority = attributes.priority;
+    converted.forward = attributes.forward;
+    converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
+    converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
+    converted.isPublisherInitiated = attributes.is_publisher_initiated;
+    converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
+    converted.trackAlias = attributes.track_alias;
+    return converted;
+}
+
 QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
                                                        const std::optional<quicr::messages::Filter>& filter)
   : quicr::SubscribeNamespaceHandler(prefix,
@@ -28,30 +41,19 @@ void QSubscribeNamespaceHandler::StatusChanged(Status status)
     quicr::SubscribeNamespaceHandler::StatusChanged(status);
 }
 
-bool QSubscribeNamespaceHandler::IsTrackAcceptable(const quicr::FullTrackName& name) const
-{
-    if (_callbacks) {
-        return [_callbacks isTrackAcceptable:ftnConvert(name)];
-    }
-    return quicr::SubscribeNamespaceHandler::IsTrackAcceptable(name);
-}
-
-std::shared_ptr<quicr::SubscribeTrackHandler>
-QSubscribeNamespaceHandler::CreateHandler(const quicr::messages::PublishAttributes& attributes)
-{
+std::shared_ptr<quicr::SubscribeTrackHandler> QSubscribeNamespaceHandler::NewTrackReceived(const quicr::messages::PublishAttributes& attributes) const {
     @autoreleasepool {
         if (_callbacks) {
             QSubscribeTrackHandlerObjC* handler =
-                [_callbacks createHandler:ftnConvert(attributes.track_full_name)
-                               trackAlias:attributes.track_alias
-                                 priority:attributes.priority
-                               groupOrder:static_cast<QGroupOrder>(attributes.group_order)];
-            if (handler) {
-                return handler->handlerPtr;
+                [_callbacks newTrackReceived:ftnConvert(attributes.track_full_name)
+                                  attributes:convert(attributes) ];
+            if (!handler) {
+                return nullptr;
             }
+            return handler->handlerPtr;
         }
-        return quicr::SubscribeNamespaceHandler::CreateHandler(attributes);
     }
+    return nil;
 }
 
 void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks)
@@ -82,12 +84,6 @@ void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallb
 {
     assert(handlerPtr);
     return static_cast<QSubscribeNamespaceHandlerStatus>(handlerPtr->GetStatus());
-}
-
--(BOOL)isTrackAcceptable:(id<QFullTrackName>)fullTrackName
-{
-    assert(handlerPtr);
-    return handlerPtr->IsTrackAcceptable(ftnConvert(fullTrackName));
 }
 
 -(void)setCallbacks:(id<QSubscribeNamespaceHandlerCallbacks>)callbacks
