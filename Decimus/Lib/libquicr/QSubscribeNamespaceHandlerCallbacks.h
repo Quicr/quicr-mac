@@ -20,11 +20,8 @@ typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
 @protocol QSubscribeNamespaceHandlerCallbacks
 - (void)statusChanged:(QSubscribeNamespaceHandlerStatus)status
             errorCode:(QSubscribeNamespaceErrorCode)errorCode;
-- (bool)isTrackAcceptable:(id<QFullTrackName> _Nonnull)fullTrackName;
-- (QSubscribeTrackHandlerObjC* _Nullable)createHandler:(id<QFullTrackName> _Nonnull)fullTrackName
-                                            trackAlias:(uint64_t)trackAlias
-                                              priority:(uint8_t)priority
-                                            groupOrder:(QGroupOrder)groupOrder;
+- (QSubscribeTrackHandlerObjC* _Nullable) newTrackReceived:(id<QFullTrackName> _Nonnull) fullTrackName
+                                                attributes:(QPublishAttributes)attributes;
 @end
 
 #endif /* QSubscribeNamespaceHandlerCallbacks_h */

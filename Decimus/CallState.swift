@@ -341,27 +341,23 @@ class CallState: ObservableObject, Equatable {
                     statusChangedCallback: { status, errorCode, namespacePrefix in
                         Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     },
-                    trackAcceptableCallback: { [weak self] fullTrackName in
-                        guard let self else { return false }
-                        guard fullTrackName.matchesPrefix(prefix) else {
-                            return false
+                    trackReceivedCallback: { [weak self] fullTrackName, attributes in
+                        guard let self,
+                              fullTrackName.matchesPrefix(prefix) else {
+                            return nil
                         }
                         if !self.playtimeConfig.value.echo,
                            fullTrackName.nameSpace.count >= 4,
                            let remoteClientId = String(data: fullTrackName.nameSpace[3], encoding: .utf8),
                            remoteClientId == ownClientId {
                             Self.logger.info("[demo/\(mediaType)] Rejecting own track: \(fullTrackName)")
-                            return false
+                            return nil
                         }
                         Self.logger.info("[demo/\(mediaType)] Accepting track: \(fullTrackName)")
-                        return true
-                    },
-                    createHandlerCallback: { [weak self] fullTrackName, trackAlias, priority, groupOrder in
-                        guard let self else { return nil }
-                        return self.demoCreateHandler(fullTrackName: fullTrackName,
-                                                      trackAlias: trackAlias,
-                                                      priority: priority,
-                                                      groupOrder: groupOrder)
+                        return self.demoCreateHandler(fullTrackName: .init(fullTrackName),
+                                                      trackAlias: attributes.trackAlias,
+                                                      priority: attributes.priority,
+                                                      groupOrder: attributes.groupOrder)
                     })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -469,16 +465,14 @@ class CallState: ObservableObject, Equatable {
                 let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
                                                          statusChangedCallback: { status, errorCode, namespacePrefix in
                                                             Self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
-                                                         }, trackAcceptableCallback: {[weak self] fullTrackName in
-                                                            // Do we want this track?
+                                                         }, trackReceivedCallback: { [weak self] fullTrackName, _ in
                                                             guard let self,
-                                                                  let accept = self.subscriptionNamespaceAcceptParsed else {
-                                                                Self.logger.warning("[\(fullTrackName)] Declining offered track: missing accept prefix")
-                                                                return false
+                                                                  let accept = self.subscriptionNamespaceAcceptParsed,
+                                                                  fullTrackName.matchesPrefix(accept) else {
+                                                                return nil
                                                             }
-                                                            let acceptable = fullTrackName.matchesPrefix(accept)
-                                                            Self.logger.info("[\(fullTrackName)] Offered track acceptable: \(acceptable)")
-                                                            return acceptable
+                                                            // TODO: Create it.
+                                                            return nil
                                                          })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -720,7 +714,7 @@ class CallState: ObservableObject, Equatable {
                                  attributes: QPublishAttributes) {
         let controller = self.controller!
         var responseAccept = false
-        var responseAttributes = QPublishAttributes()
+        var responseAttributes = attributes
         // We MUST resolve one way or the other.
         defer {
             self.controller?.resolvePublish(connectionHandle: connectionHandle,
@@ -749,10 +743,13 @@ class CallState: ObservableObject, Equatable {
             responseAttributes = .init(priority: attributes.priority,
                                        groupOrder: attributes.groupOrder,
                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
+                                       expiresMs: attributes.expiresMs,
                                        filterType: .latestObject,
-                                       forward: 1,
+                                       forward: 1, // TODO: Forward?
                                        newGroupRequestId: attributes.newGroupRequestId,
                                        isPublisherInitiated: true,
+                                       startGroupId: attributes.startGroupId,
+                                       startObjectId: attributes.startObjectId,
                                        trackAlias: attributes.trackAlias,
                                        dynamicGroups: attributes.dynamicGroups)
             return
@@ -819,13 +816,18 @@ class CallState: ObservableObject, Equatable {
 
         // Let defer block accept.
         responseAccept = true
-        responseAttributes = .init(priority: UInt8(profile.priorities?.first ?? 0),
+        let priority = UInt8(profile.priorities?.first ?? 0)
+        let deliveryTimeout = UInt64(profile.expiry?.first ?? 0)
+        responseAttributes = .init(priority: priority,
                                    groupOrder: .originalPublisherOrder,
-                                   deliveryTimeoutMs: UInt64(profile.expiry?.first ?? 0),
+                                   deliveryTimeoutMs: deliveryTimeout,
+                                   expiresMs: attributes.expiresMs,
                                    filterType: .latestObject,
                                    forward: 1,
                                    newGroupRequestId: 0,
                                    isPublisherInitiated: true,
+                                   startGroupId: attributes.startGroupId,
+                                   startObjectId: attributes.startObjectId,
                                    trackAlias: attributes.trackAlias,
                                    dynamicGroups: attributes.dynamicGroups)
     }
@@ -837,7 +839,7 @@ extension CallState {
     func demoCreateHandler(fullTrackName: FullTrackName,
                            trackAlias: UInt64,
                            priority: UInt8,
-                           groupOrder: QGroupOrder) -> QSubscribeTrackHandlerObjC? {
+                           groupOrder: QGroupOrder) -> Subscription? {
         guard let factory = self.subscriptionFactory,
               let controller = self.controller,
               let relayId = controller.serverId else { return nil }

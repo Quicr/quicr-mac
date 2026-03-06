@@ -311,19 +311,13 @@ class DecimusAudioEngine {
         // Inputs
         if self.inputNodePresent,
            Self.format.channelCount <= session.maximumInputNumberOfChannels {
-            let preSetInput = session.inputNumberOfChannels
             try session.setPreferredInputNumberOfChannels(Int(Self.format.channelCount))
-            let postSetInput = session.inputNumberOfChannels
-            assert(preSetInput == postSetInput)
         }
 
         // Outputs
         if self.outputNodePresent,
            Self.format.channelCount <= session.maximumOutputNumberOfChannels {
-            let preSetOutput = session.outputNumberOfChannels
             try session.setPreferredOutputNumberOfChannels(Int(Self.format.channelCount))
-            let postSetOutput = session.outputNumberOfChannels
-            assert(preSetOutput == postSetOutput)
         }
         #endif
 

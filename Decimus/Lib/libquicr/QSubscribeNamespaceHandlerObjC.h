@@ -26,7 +26,6 @@
                            trackFilter:(QTrackFilterObjC * _Nullable)trackFilter;
 - (QTrackNamespace _Nonnull)getNamespacePrefix;
 - (QSubscribeNamespaceHandlerStatus)getStatus;
-- (bool)isTrackAcceptable:(id<QFullTrackName> _Nonnull)fullTrackName;
 - (void)setCallbacks:(id<QSubscribeNamespaceHandlerCallbacks> _Nonnull)callbacks;
 @end
 
