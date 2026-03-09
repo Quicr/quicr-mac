@@ -294,8 +294,9 @@ void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
 {
     if (_callbacks) {
         @autoreleasepool {
+            auto locked = sub_ns_handler.lock();
             QSubscribeNamespaceHandlerObjC* objcHandler = nil;
-            if (auto locked = sub_ns_handler.lock()) {
+            if (locked) {
                 auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
                 objcHandler = qHandler->GetObjCWrapper();
             }
