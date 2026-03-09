@@ -5,11 +5,27 @@
 #define QSubscribeNamespaceHandlerCallbacks_h
 
 #import <Foundation/Foundation.h>
-#import "QClientCallbacks.h"
 #import "QFullTrackName.h"
 #import "QCommon.h"
 
-@class QSubscribeTrackHandlerObjC;
+typedef struct QPublishAttributes {
+    uint8_t priority;
+    QGroupOrder groupOrder;
+    uint64_t deliveryTimeoutMs;
+    uint64_t expiresMs;
+    QFilterType filterType;
+    uint8_t forward;
+    uint64_t newGroupRequestId;
+    bool isPublisherInitiated;
+    uint64_t startGroupId;
+    uint64_t startObjectId;
+    uint64_t trackAlias;
+    bool dynamicGroups;
+} QPublishAttributes;
+
+typedef NS_ENUM(uint8_t, QSubscribeNamespaceErrorCode) {
+    kQSubscribeNamespaceErrorCodeOK,
+};
 
 typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
     kQSubscribeNamespaceHandlerStatusOk,
@@ -20,8 +36,6 @@ typedef NS_ENUM(uint8_t, QSubscribeNamespaceHandlerStatus) {
 @protocol QSubscribeNamespaceHandlerCallbacks
 - (void)statusChanged:(QSubscribeNamespaceHandlerStatus)status
             errorCode:(QSubscribeNamespaceErrorCode)errorCode;
-- (QSubscribeTrackHandlerObjC* _Nullable) newTrackReceived:(id<QFullTrackName> _Nonnull) fullTrackName
-                                                attributes:(QPublishAttributes)attributes;
 @end
 
 #endif /* QSubscribeNamespaceHandlerCallbacks_h */

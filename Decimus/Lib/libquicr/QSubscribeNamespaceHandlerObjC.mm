@@ -3,21 +3,7 @@
 
 #import <Foundation/Foundation.h>
 #import "QSubscribeNamespaceHandlerObjC.h"
-#import "QSubscribeTrackHandlerObjC.h"
 #import "QTrackFilter.h"
-
-static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
-{
-    QPublishAttributes converted;
-    converted.priority = attributes.priority;
-    converted.forward = attributes.forward;
-    converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
-    converted.isPublisherInitiated = attributes.is_publisher_initiated;
-    converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
-    converted.trackAlias = attributes.track_alias;
-    return converted;
-}
 
 QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
                                                        const std::optional<quicr::messages::Filter>& filter)
@@ -41,24 +27,20 @@ void QSubscribeNamespaceHandler::StatusChanged(Status status)
     quicr::SubscribeNamespaceHandler::StatusChanged(status);
 }
 
-std::shared_ptr<quicr::SubscribeTrackHandler> QSubscribeNamespaceHandler::NewTrackReceived(const quicr::messages::PublishAttributes& attributes) const {
-    @autoreleasepool {
-        if (_callbacks) {
-            QSubscribeTrackHandlerObjC* handler =
-                [_callbacks newTrackReceived:ftnConvert(attributes.track_full_name)
-                                  attributes:convert(attributes) ];
-            if (!handler) {
-                return nullptr;
-            }
-            return handler->handlerPtr;
-        }
-    }
-    return nil;
-}
 
 void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks)
 {
     _callbacks = callbacks;
+}
+
+void QSubscribeNamespaceHandler::SetObjCWrapper(QSubscribeNamespaceHandlerObjC* wrapper)
+{
+    _objcWrapper = wrapper;
+}
+
+QSubscribeNamespaceHandlerObjC* QSubscribeNamespaceHandler::GetObjCWrapper() const
+{
+    return _objcWrapper;
 }
 
 @implementation QSubscribeNamespaceHandlerObjC : NSObject
@@ -71,6 +53,7 @@ void QSubscribeNamespaceHandler::SetCallbacks(id<QSubscribeNamespaceHandlerCallb
         filter = trackFilterConvert(trackFilter);
     }
     handlerPtr = std::make_shared<QSubscribeNamespaceHandler>(nsConvert(namespacePrefix), filter);
+    handlerPtr->SetObjCWrapper(self);
     return self;
 }
 

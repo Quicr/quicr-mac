@@ -8,15 +8,9 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
     typealias StatusCallback = (_ status: QSubscribeNamespaceHandlerStatus,
                                 _ errorCode: QSubscribeNamespaceErrorCode,
                                 _ namespacePrefix: NamespacePrefix) -> Void
-    typealias TrackReceivedCallback = (_ fullTrackName: FullTrackName,
-                                       _ attributes: QPublishAttributes) -> Subscription?
 
     /// Callback invoked when the subscribe-namespace status changes.
     var statusChangedCallback: StatusCallback { get }
-
-    /// Callback invoked when a track becomes available in the subscribed namespace.
-    /// Return `true` to accept and subscribe the track, `false` to decline.
-    var trackReceivedCallback: TrackReceivedCallback { get }
 
     /// The namespace prefix this handler subscribes to.
     var namespacePrefix: NamespacePrefix { get }
@@ -28,7 +22,6 @@ protocol MoQSubscribeNamespaceHandler: AnyObject {
 /// MoQ subscribe-namespace handler using libquicr.
 final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, QSubscribeNamespaceHandlerCallbacks {
     let statusChangedCallback: StatusCallback
-    let trackReceivedCallback: TrackReceivedCallback
 
     /// The underlying libquicr handler.
     let handler: QSubscribeNamespaceHandlerObjC
@@ -45,20 +38,14 @@ final class QSubscribeNamespaceHandler: NSObject, MoQSubscribeNamespaceHandler, 
     /// - Parameter namespacePrefix: Namespace prefix to subscribe to.
     init(namespacePrefix: NamespacePrefix,
          trackFilter: QTrackFilterObjC? = nil,
-         statusChangedCallback: @escaping StatusCallback,
-         trackReceivedCallback: @escaping TrackReceivedCallback) {
+         statusChangedCallback: @escaping StatusCallback) {
         self.handler = .init(namespacePrefix: namespacePrefix.elements, trackFilter: trackFilter)
         self.statusChangedCallback = statusChangedCallback
-        self.trackReceivedCallback = trackReceivedCallback
         super.init()
         self.handler.setCallbacks(self)
     }
 
     func statusChanged(_ status: QSubscribeNamespaceHandlerStatus, errorCode: QSubscribeNamespaceErrorCode) {
         self.statusChangedCallback(status, errorCode, self.namespacePrefix)
-    }
-
-    func newTrackReceived(_ tfn: QFullTrackName, attributes: QPublishAttributes) -> QSubscribeTrackHandlerObjC? {
-        self.trackReceivedCallback(.init(tfn), attributes)
     }
 }

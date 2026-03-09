@@ -416,28 +416,91 @@ final class TestCallController: XCTestCase {
         try await controller.connect()
 
         let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(["namespace"]),
-                                                 statusChangedCallback: { _, _, _ in },
-                                                 trackReceivedCallback: { _, _ in nil })
+                                                 statusChangedCallback: { _, _, _ in })
         try controller.subscribeNamespace(handler)
         XCTAssert(subscribedHandler === handler.handler)
     }
 
-    func testSubscribeNamespaceHandlerTrackReceivedRoundTrip() throws {
-        let acceptable = try FullTrackName(namespace: ["namespace", "allowed"], name: "video")
-        let rejected = try FullTrackName(namespace: ["namespace", "rejected"], name: "video")
-        var receivedTrack: FullTrackName?
-        let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(["namespace"]),
-                                                 statusChangedCallback: { _, _, _ in },
-                                                 trackReceivedCallback: { offered, _ in
-                                                    receivedTrack = offered
-                                                    return nil
-                                                 })
-        let defaultAttrs = QPublishAttributes()
-        XCTAssertNil(handler.newTrackReceived(acceptable, attributes: defaultAttrs))
-        XCTAssertEqual(receivedTrack, acceptable)
-        receivedTrack = nil
-        XCTAssertNil(handler.newTrackReceived(rejected, attributes: defaultAttrs))
-        XCTAssertEqual(receivedTrack, rejected)
+    func testPublishReceivedResolvesNamespaceHandler() async throws {
+        let prefix = NamespacePrefix(["test", "namespace"])
+        let tfn = try FullTrackName(namespace: ["test", "namespace", "track"], name: "video")
+
+        // Track what the publishReceived callback receives.
+        var receivedTfn: FullTrackName?
+        var receivedHandler: (any MoQSubscribeNamespaceHandler)?
+
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+
+        let controller = MoqCallController(
+            endpointUri: "1",
+            client: client,
+            submitter: nil,
+            publishReceived: { callbackTfn, _, subNsHandler in
+                receivedTfn = FullTrackName(callbackTfn)
+                receivedHandler = subNsHandler
+                return .reject
+            },
+            callEnded: {})
+        try await controller.connect()
+
+        // Subscribe a namespace handler.
+        let nsHandler = QSubscribeNamespaceHandler(
+            namespacePrefix: prefix,
+            statusChangedCallback: { _, _, _ in })
+        try controller.subscribeNamespace(nsHandler)
+
+        // Simulate publishReceived from the "C++ side" with the ObjC handler.
+        let attrs = QPublishAttributes()
+        client.callbacks!.publishReceived(1,
+                                          requestId: 42,
+                                          tfn: tfn,
+                                          attributes: attrs,
+                                          subNsHandler: nsHandler.handler)
+
+        // The callback should have resolved to the Swift protocol handler.
+        XCTAssertTrue(receivedHandler === nsHandler)
+        XCTAssertEqual(receivedTfn, tfn)
+    }
+
+    func testPublishReceivedNilHandler() async throws {
+        var receivedHandler: (any MoQSubscribeNamespaceHandler)?
+        var callbackInvoked = false
+
+        let client = MockClient(
+            publish: { _ in },
+            unpublish: { _ in },
+            subscribe: { _ in },
+            unsubscribe: { _ in },
+            fetch: { _ in },
+            fetchCancel: { _ in })
+
+        let controller = MoqCallController(
+            endpointUri: "1",
+            client: client,
+            submitter: nil,
+            publishReceived: { _, _, subNsHandler in
+                callbackInvoked = true
+                receivedHandler = subNsHandler
+                return .reject
+            },
+            callEnded: {})
+        try await controller.connect()
+
+        let tfn = try FullTrackName(namespace: ["some", "track"], name: "audio")
+        client.callbacks!.publishReceived(1,
+                                          requestId: 1,
+                                          tfn: tfn,
+                                          attributes: QPublishAttributes(),
+                                          subNsHandler: nil)
+
+        XCTAssertTrue(callbackInvoked)
+        XCTAssertNil(receivedHandler)
     }
 
     func testAssertFtnEquality() throws {
