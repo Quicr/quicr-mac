@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
+// SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
@@ -14,66 +14,42 @@ enum AudioActivityValue: UInt8, Comparable {
     case continuousSpeech = 2
 }
 
-/// Action returned by the state machine on each update.
-enum AudioActivityAction {
-    /// Include the extension with this value on the current frame/object.
-    case sendExtension(AudioActivityValue)
-    /// Publish normally, no extension needed.
-    case none
-    /// No speech activity to report (silence).
-    case silent
-}
-
-/// Converts raw VAD booleans into timed AudioActivityIndicator signals.
+/// State machine for voice activity / active speaker.
 ///
-/// The state machine is media-agnostic. The caller decides what to do
-/// with subgroups (audio: no changes; video: roll subgroupId).
+/// Every call to `update` returns a value to include on the object.
+/// The value only changes at most every `minChangeInterval`.
 class AudioActivityStateMachine {
-    static let continuousInterval: TimeInterval = 0.3
-    static let endRepeatDuration: TimeInterval = 0.5
+    private let minChangeInterval: TimeInterval
 
-    private enum State {
-        case idle
-        case speaking(since: Date, lastContinuous: Date)
-        case endingSpeech(since: Date)
+    init(minChangeInterval: TimeInterval) {
+        self.minChangeInterval = minChangeInterval
     }
 
-    private var state: State = .idle
+    private var currentValue: AudioActivityValue = .speechEnd
+    private var lastChangeTime: Date?
 
-    /// Process a VAD sample and return the action to take.
-    func update(voiceActive: Bool, now: Date) -> AudioActivityAction {
-        switch self.state {
-        case .idle:
-            if voiceActive {
-                self.state = .speaking(since: now, lastContinuous: now)
-                return .sendExtension(.speechStart)
-            }
-            return .silent
-
-        case .speaking(let since, let lastContinuous):
-            if voiceActive {
-                let elapsed = now.timeIntervalSince(lastContinuous)
-                if elapsed >= Self.continuousInterval {
-                    self.state = .speaking(since: since, lastContinuous: now)
-                    return .sendExtension(.continuousSpeech)
-                }
-                return .none
-            } else {
-                self.state = .endingSpeech(since: now)
-                return .sendExtension(.speechEnd)
-            }
-
-        case .endingSpeech(let since):
-            if voiceActive {
-                self.state = .speaking(since: now, lastContinuous: now)
-                return .sendExtension(.speechStart)
-            }
-            let elapsed = now.timeIntervalSince(since)
-            if elapsed >= Self.endRepeatDuration {
-                self.state = .idle
-                return .silent
-            }
-            return .sendExtension(.speechEnd)
+    /// Process a VAD sample and return the value to send on this object.
+    func update(voiceActive: Bool, now: Date) -> AudioActivityValue {
+        let desired: AudioActivityValue
+        switch (voiceActive, self.currentValue) {
+        case (true, .speechEnd):
+            desired = .speechStart
+        case (true, _):
+            desired = .continuousSpeech
+        case (false, _):
+            desired = .speechEnd
         }
+
+        if desired != self.currentValue {
+            // Rate limit changes.
+            if let last = self.lastChangeTime,
+               now.timeIntervalSince(last) < self.minChangeInterval {
+                return self.currentValue
+            }
+            self.currentValue = desired
+            self.lastChangeTime = now
+        }
+
+        return self.currentValue
     }
 }
