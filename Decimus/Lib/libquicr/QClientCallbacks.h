@@ -4,6 +4,8 @@
 #import <Foundation/Foundation.h>
 #import "QCommon.h"
 #import "QFullTrackName.h"
+#import "QSubscribeNamespaceHandlerCallbacks.h"
+@class QSubscribeNamespaceHandlerObjC;
 
 typedef NS_ENUM(uint8_t, QClientStatus) {
     kQClientStatusReady,
@@ -24,10 +26,6 @@ typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
     kQPublishNamespaceStatusPendingResponse,
     kQPublishNamespaceStatusPublishNotAuthorized,
     kQPublishNamespaceStatusSendingDone
-};
-
-typedef NS_ENUM(uint8_t, QSubscribeNamespaceErrorCode) {
-    kQSubscribeNamespaceErrorCodeOK,
 };
 
 typedef struct QServerSetupAttributes {
@@ -58,21 +56,6 @@ typedef struct QQuicConnectionMetrics {
     uint64_t tx_dgram_drops;
 } QQuicConnectionMetrics;
 
-typedef struct QPublishAttributes {
-    uint8_t priority;
-    QGroupOrder groupOrder;
-    uint64_t deliveryTimeoutMs;
-    uint64_t expiresMs;
-    QFilterType filterType;
-    uint8_t forward;
-    uint64_t newGroupRequestId;
-    bool isPublisherInitiated;
-    uint64_t startGroupId;
-    uint64_t startObjectId;
-    uint64_t trackAlias;
-    bool dynamicGroups;
-} QPublishAttributes;
-
 typedef struct QConnectionMetrics {
     uint64_t last_sample_time_us;
     QQuicConnectionMetrics quic;
@@ -83,5 +66,9 @@ typedef struct QConnectionMetrics {
 - (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
 - (void) publishNamespaceStatusChanged: (NSData*) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
-- (void) publishReceived: (uint64_t) connectionHandle requestId: (uint64_t) requestId tfn: (id<QFullTrackName> _Nonnull) tfn attributes: (QPublishAttributes) attributes;
+- (void) publishReceived: (uint64_t) connectionHandle
+               requestId: (uint64_t) requestId
+                     tfn: (id<QFullTrackName> _Nonnull) tfn
+              attributes: (QPublishAttributes) attributes
+            subNsHandler: (QSubscribeNamespaceHandlerObjC* _Nullable) subNsHandler;
 @end

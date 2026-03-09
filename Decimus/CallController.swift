@@ -38,13 +38,17 @@ struct ClientConfig {
 // TODO: Threading here needs to be checked.
 // TODO: Possibly this can be an actor with non-isolated callbacks.
 
+enum PublishResponse {
+    case reject
+    case accept(QPublishAttributes, Subscription?)
+}
+
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
 class MoqCallController: QClientCallbacks {
-    typealias PublishReceivedCallback = (_ connectionHandle: UInt64,
-                                         _ requestId: UInt64,
-                                         _ tfn: QFullTrackName,
-                                         _ attributes: QPublishAttributes) -> Void
+    typealias PublishReceivedCallback = (_ tfn: QFullTrackName,
+                                         _ attributes: QPublishAttributes,
+                                         _ subNsHandler: (any MoQSubscribeNamespaceHandler)?) -> PublishResponse
 
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
@@ -461,20 +465,60 @@ class MoqCallController: QClientCallbacks {
     func publishReceived(_ connectionHandle: UInt64,
                          requestId: UInt64,
                          tfn: any QFullTrackName,
-                         attributes: QPublishAttributes) {
-        self.publishReceivedCallback?(connectionHandle, requestId, tfn, attributes)
+                         attributes: QPublishAttributes,
+                         subNsHandler: QSubscribeNamespaceHandlerObjC?) {
+        let handler: (any MoQSubscribeNamespaceHandler)? = if let subNsHandler {
+            self.namespaceHandlers[NamespacePrefix(subNsHandler.getNamespacePrefix())]
+        } else {
+            nil
+        }
+
+        // If no callback, reject.
+        guard let callback = self.publishReceivedCallback else {
+            self.resolvePublish(connectionHandle: connectionHandle,
+                                requestId: requestId,
+                                attributes: attributes,
+                                tfn: .init(tfn),
+                                response: .init(ok: false),
+                                handler: nil)
+            return
+        }
+
+        // Callback provides response.
+        let response = callback(tfn, attributes, handler)
+        let qResponse: QPublishResponse
+        let subscription: Subscription?
+        let responseAttributes: QPublishAttributes
+        switch response {
+        case .accept(let newAttributes, let newSubscription):
+            responseAttributes = newAttributes
+            subscription = newSubscription
+            qResponse = .init(ok: true)
+        case .reject:
+            responseAttributes = attributes
+            subscription = nil
+            qResponse = .init(ok: false)
+        }
+        self.resolvePublish(connectionHandle: connectionHandle,
+                            requestId: requestId,
+                            attributes: responseAttributes,
+                            tfn: .init(tfn),
+                            response: qResponse,
+                            handler: subscription)
     }
 
-    func resolvePublish(connectionHandle: UInt64,
-                        requestId: UInt64,
-                        attributes: QPublishAttributes,
-                        tfn: FullTrackName,
-                        response: QPublishResponse) {
+    private func resolvePublish(connectionHandle: UInt64,
+                                requestId: UInt64,
+                                attributes: QPublishAttributes,
+                                tfn: FullTrackName,
+                                response: QPublishResponse,
+                                handler: QSubscribeTrackHandlerObjC?) {
         self.client.resolvePublish(connectionHandle,
                                    requestId: requestId,
                                    attributes: attributes,
                                    tfn: tfn,
-                                   response: response)
+                                   response: response,
+                                   handler: handler)
     }
 
     /// Subscribe to a namespace prefix.

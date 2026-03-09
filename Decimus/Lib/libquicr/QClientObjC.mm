@@ -191,9 +191,19 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     qClientPtr->UnsubscribeNamespace(handler->handlerPtr);
 }
 
--(void) resolvePublish: (uint64_t) connectionHandle requestId: (uint64_t) requestId attributes: (QPublishAttributes) attributes tfn: (id<QFullTrackName> _Nonnull) tfn response: (QPublishResponse) response {
+-(void) resolvePublish: (uint64_t) connectionHandle
+             requestId: (uint64_t) requestId
+            attributes: (QPublishAttributes) attributes
+                   tfn: (id<QFullTrackName> _Nonnull) tfn
+              response: (QPublishResponse) response
+               handler: (QSubscribeTrackHandlerObjC* _Nullable) handler {
     assert(qClientPtr);
-    qClientPtr->ResolvePublish(connectionHandle, requestId, convert(attributes, tfn), convert(response));
+    
+    qClientPtr->ResolvePublish(connectionHandle,
+                               requestId,
+                               convert(attributes, tfn),
+                               convert(response),
+                               std::static_pointer_cast<quicr::SubscribeTrackHandler>(handler ? handler->handlerPtr : nullptr));
 }
 
 // C++
@@ -279,11 +289,23 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
 
 void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
                               const std::uint64_t request_id,
-                              const quicr::messages::PublishAttributes& publish_attributes)
+                              const quicr::messages::PublishAttributes& publish_attributes,
+                              std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler)
 {
-
     if (_callbacks) {
-        [_callbacks publishReceived:connection_handle requestId:request_id tfn:ftnConvert(publish_attributes.track_full_name) attributes:convert(publish_attributes)];
+        @autoreleasepool {
+            auto locked = sub_ns_handler.lock();
+            QSubscribeNamespaceHandlerObjC* objcHandler = nil;
+            if (locked) {
+                auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
+                objcHandler = qHandler->GetObjCWrapper();
+            }
+            [_callbacks publishReceived: connection_handle
+                              requestId:request_id
+                                    tfn:ftnConvert(publish_attributes.track_full_name)
+                             attributes:convert(publish_attributes)
+                           subNsHandler:objcHandler];
+        }
     }
 }
 

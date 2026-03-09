@@ -8,6 +8,8 @@
 #include "quicr/detail/attributes.h"
 #import "QSubscribeNamespaceHandlerCallbacks.h"
 
+@class QSubscribeNamespaceHandlerObjC;
+
 class QSubscribeNamespaceHandler : public quicr::SubscribeNamespaceHandler
 {
 public:
@@ -15,12 +17,14 @@ public:
                                         const std::optional<quicr::messages::Filter>& filter = std::nullopt);
 
     void StatusChanged(Status status) override;
-    std::shared_ptr<quicr::SubscribeTrackHandler> NewTrackReceived(const quicr::messages::PublishAttributes& attributes) const override;
 
     void SetCallbacks(id<QSubscribeNamespaceHandlerCallbacks> callbacks);
+    void SetObjCWrapper(QSubscribeNamespaceHandlerObjC* wrapper);
+    QSubscribeNamespaceHandlerObjC* GetObjCWrapper() const;
 
 private:
     __weak id<QSubscribeNamespaceHandlerCallbacks> _callbacks;
+    __weak QSubscribeNamespaceHandlerObjC* _objcWrapper;
 };
 
 #endif /* QSubscribeNamespaceHandler_h */
