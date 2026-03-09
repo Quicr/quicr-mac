@@ -38,6 +38,8 @@ class PublicationFactoryImpl: PublicationFactory {
     private let useAnnounce: Bool
     private let demoEnabled: Bool
     private let sharedVoiceActivity: SharedVoiceActivityState?
+    private let activityMinSendInterval: TimeInterval
+    private let vadRollSubgroup: Bool
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -56,7 +58,9 @@ class PublicationFactoryImpl: PublicationFactory {
          overrideNamespace: [String]?,
          useAnnounce: Bool,
          demoEnabled: Bool = false,
-         sharedVoiceActivity: SharedVoiceActivityState? = nil) {
+         sharedVoiceActivity: SharedVoiceActivityState? = nil,
+         activityMinSendInterval: TimeInterval = 0.3,
+         vadRollSubgroup: Bool = true) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -75,6 +79,8 @@ class PublicationFactoryImpl: PublicationFactory {
         self.useAnnounce = useAnnounce
         self.demoEnabled = demoEnabled
         self.sharedVoiceActivity = demoEnabled ? (sharedVoiceActivity ?? SharedVoiceActivityState()) : nil
+        self.activityMinSendInterval = activityMinSendInterval
+        self.vadRollSubgroup = vadRollSubgroup
     }
 
     func create(publication: ManifestPublication,
@@ -172,6 +178,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
                                                   sharedVoiceActivity: self.sharedVoiceActivity,
+                                                  vadRollSubgroup: self.vadRollSubgroup,
                                                   sink: sink)
             try captureManager.addInput(publication)
             return publication
@@ -202,6 +209,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        mediaInterop: self.mediaInterop,
                                        demoEnabled: self.demoEnabled,
                                        sharedVoiceActivity: self.sharedVoiceActivity,
+                                       activityMinSendInterval: self.activityMinSendInterval,
                                        sink: sink)
         case .text:
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),

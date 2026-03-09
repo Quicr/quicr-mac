@@ -56,6 +56,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let sharedVoiceActivity: SharedVoiceActivityState?
+    private let vadRollSubgroup: Bool
     private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
     private var currentSubgroupId: UInt64 = 0
     private let rollSubgroup: Atomic<Bool> = .init(false)
@@ -312,6 +313,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
                   sharedVoiceActivity: SharedVoiceActivityState? = nil,
+                  vadRollSubgroup: Bool = true,
                   sink: MoQSink) throws {
         self.profile = profile
         let namespace = profile.namespace.joined()
@@ -340,6 +342,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
         self.sharedVoiceActivity = sharedVoiceActivity
+        self.vadRollSubgroup = vadRollSubgroup
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         // Wire to MoQ.
@@ -453,10 +456,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 if let last = lastVAD {
                     if currentActivity > last {
                         // Up, roll group.
+                        self.logger.debug("VAD - Group")
                         rollGroup = true
                         rollSubgroup = false
                     } else if currentActivity < last {
                         // Down, roll subgroup.
+                        self.logger.debug("VAD - Subgroup")
                         rollGroup = false
                         rollSubgroup = true
                     } else {
@@ -466,6 +471,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                     }
                 } else {
                     // New activity, roll.
+                    self.logger.debug("VAD - New Activity")
                     rollGroup = true
                     rollSubgroup = false
                 }
@@ -480,7 +486,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 self.logger.debug("Forcing key frame - VAD rise")
                 return true
             }
-            if rollSubgroup {
+            if rollSubgroup && self.vadRollSubgroup {
                 self.rollSubgroup.store(true, ordering: .releasing)
             }
             return false

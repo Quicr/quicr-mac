@@ -70,6 +70,14 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
+    static let demoActivityMinSendIntervalKey = "demoActivityMinSendInterval"
+    @AppStorage(Self.demoActivityMinSendIntervalKey)
+    private var demoActivityMinSendInterval: TimeInterval = 0.3
+
+    static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
+    @AppStorage(Self.demoVadRollSubgroupKey)
+    private var demoVadRollSubgroup: Bool = true
+
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
@@ -109,6 +117,8 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoActivityMinSendIntervalKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -255,6 +265,13 @@ struct SettingsView: View {
                             .keyboardType(.decimalPad)
                         #endif
                     }
+                    LabeledContent("Activity Min Send Interval (s)") {
+                        TextField("Activity Min Send Interval (s)", value: self.$demoActivityMinSendInterval, format: .number)
+                            #if !os(macOS)
+                            .keyboardType(.decimalPad)
+                        #endif
+                    }
+                    LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
                 }
             }
             .decimusTextStyle()

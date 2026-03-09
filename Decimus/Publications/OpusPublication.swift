@@ -49,6 +49,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          mediaInterop: Bool,
          demoEnabled: Bool = false,
          sharedVoiceActivity: SharedVoiceActivityState? = nil,
+         activityMinSendInterval: TimeInterval = 0.3,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
@@ -65,7 +66,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
-        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine() : nil
+        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(minChangeInterval: activityMinSendInterval) : nil
         self.sharedVoiceActivity = sharedVoiceActivity
 
         // Create a buffer to hold raw data waiting for encode.
@@ -286,14 +287,9 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Audio activity indicator (demo mode).
         if let stateMachine = self.activityStateMachine, let voiceActive {
-            let action = stateMachine.update(voiceActive: voiceActive, now: wallClock)
-            switch action {
-            case .sendExtension(let value):
-                try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
-                self.sharedVoiceActivity?.postActivity(value)
-            case .none, .silent:
-                break
-            }
+            let value = stateMachine.update(voiceActive: voiceActive, now: wallClock)
+            try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
+            self.sharedVoiceActivity?.postActivity(value)
         }
 
         return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)

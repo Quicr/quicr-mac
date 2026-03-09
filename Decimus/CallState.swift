@@ -136,6 +136,12 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
+    @AppStorage(SettingsView.demoActivityMinSendIntervalKey)
+    private var demoActivityMinSendInterval: TimeInterval = 0.3
+
+    @AppStorage(SettingsView.demoVadRollSubgroupKey)
+    private var demoVadRollSubgroup: Bool = true
+
     // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
@@ -271,7 +277,9 @@ class CallState: ObservableObject, Equatable {
                                                         mediaInterop: self.mediaInterop,
                                                         overrideNamespace: overrideNamespace,
                                                         useAnnounce: subConfig.useAnnounce,
-                                                        demoEnabled: self.demoEnabled)
+                                                        demoEnabled: self.demoEnabled,
+                                                        activityMinSendInterval: self.demoActivityMinSendInterval,
+                                                        vadRollSubgroup: self.demoVadRollSubgroup)
         } else {
             publicationFactory = nil
         }
