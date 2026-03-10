@@ -539,4 +539,153 @@ struct TestVideoSubscription {
         // State should remain startup (not transition to running)
         #expect(subscription.getCurrentState() == .startup)
     }
+
+    /// Helper to get a subscription into running state.
+    @MainActor
+    private func makeRunningSubscription(_ mockClient: MockClient) async throws -> VideoSubscription {
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+        subscription.mockObject(groupId: 0, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+        return subscription
+    }
+
+    @Test("Missed IDR mid-stream triggers fetch when early in group")
+    @MainActor
+    func testMissedIDRFetch() async throws {
+        var fetch: Fetch?
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        // New group, early object — should trigger fetch.
+        subscription.mockObject(groupId: 1, objectId: fetchThreshold - 1)
+        switch subscription.getCurrentState() {
+        case .fetching(let fetching):
+            let startLocation = fetching.getStartLocation()
+            let endLocation = fetching.getEndLocation()
+            #expect(startLocation.group == 1)
+            #expect(startLocation.object == 0)
+            #expect(endLocation.group == 1)
+            #expect(endLocation.object?.uint64Value == fetchThreshold - 2)
+            #expect(fetch == fetching)
+        default:
+            #expect(Bool(false), "Expected fetching state, got \(subscription.getCurrentState())")
+        }
+    }
+
+    @Test("Missed IDR mid-stream requests new group when mid group")
+    @MainActor
+    func testMissedIDRNewGroup() async throws {
+        var fetch: Fetch?
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        // New group, past fetch threshold — should request new group.
+        subscription.mockObject(groupId: 1, objectId: fetchThreshold)
+        switch subscription.getCurrentState() {
+        case .waitingForNewGroup(let requested):
+            #expect(requested)
+        default:
+            #expect(Bool(false), "Expected waitingForNewGroup state, got \(subscription.getCurrentState())")
+        }
+        #expect(fetch == nil)
+    }
+
+    @Test("Missed IDR mid-stream waits for new group when late in group")
+    @MainActor
+    func testMissedIDRLate() async throws {
+        var fetch: Fetch?
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { fetch = $0 },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        // New group, past new group threshold — should wait without requesting.
+        subscription.mockObject(groupId: 1, objectId: ngThreshold)
+        switch subscription.getCurrentState() {
+        case .waitingForNewGroup(let requested):
+            #expect(!requested)
+        default:
+            #expect(Bool(false), "Expected waitingForNewGroup state, got \(subscription.getCurrentState())")
+        }
+        #expect(fetch == nil)
+    }
+
+    @Test("Same group objects while running do not trigger missed IDR")
+    @MainActor
+    func testSameGroupNoMissedIDR() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        var sequence: UInt64 = 100
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Same group, later objects — should stay running.
+        subscription.mockObject(groupId: 0, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+        subscription.mockObject(groupId: 0, objectId: 2, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("New group IDR received while running stays running")
+    @MainActor
+    func testNewGroupIDRReceived() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        var sequence: UInt64 = 100
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // New group starting with IDR — should stay running.
+        subscription.mockObject(groupId: 1, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Subsequent objects from that group should also be fine.
+        subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
 }

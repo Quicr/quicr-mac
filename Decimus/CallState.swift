@@ -826,6 +826,7 @@ extension CallState {
             Self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
             return nil
         }
+        let name = String(data: fullTrackName.name, encoding: .utf8)
 
         let mediaType = namespace[2]
         let remoteClientId = namespace[3]
@@ -848,7 +849,8 @@ extension CallState {
                               expiry: nil,
                               priorities: nil,
                               namespace: namespace,
-                              channel: nil)
+                              channel: nil,
+                              name: name)
         let sourceId = "demo_\(remoteClientId)_\(mediaType)"
         let participantHash = remoteClientId.hashValue
         let manifestSubscription = ManifestSubscription(

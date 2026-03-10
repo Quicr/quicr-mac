@@ -60,6 +60,7 @@ class VideoSubscription: Subscription {
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
     private let paused = Atomic(false)
+    private var lastSeenGroup: UInt64?
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -106,8 +107,13 @@ class VideoSubscription: Subscription {
                         case .startup:
                             // Running->Startup on pause.
                             return true
+                        case .fetching:
+                            // Running->Fetching on missed IDR.
+                            return true
+                        case .waitingForNewGroup:
+                            // Running->WaitingForNewGroup on missed IDR.
+                            return true
                         default:
-                            // Running->X is invalid.
                             return false
                         }
                     case .fetching:
@@ -283,16 +289,64 @@ class VideoSubscription: Subscription {
         self.stateMachine.get()
     }
 
+    /// Handle a missed IDR: decide whether to fetch, request a new group, or wait.
+    // swiftlint:disable force_try
+    private func handleMissedIDR(objectHeaders: QObjectHeaders) -> Result {
+        guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
+            // Too far in, just wait.
+            self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Waiting for new group")
+            try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+            return .drop
+        }
+
+        guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
+            // Not close enough to the start, new group and wait.
+            self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
+            self.requestNewGroup()
+            try! self.stateMachine.transition(to: .waitingForNewGroup(true))
+            return .drop
+        }
+
+        // Close to the start, FETCH.
+        do {
+            // Pause the handler while fetching.
+            self.handler.get()?.pause()
+
+            // Fetch the missing data.
+            let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
+                                       currentObject: objectHeaders.objectId)
+            try! self.stateMachine.transition(to: .fetching(fetch))
+            // Process, don't play.
+            return .normal(false)
+        } catch {
+            // Fallback to waiting for new group behaviour.
+            self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
+            try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+            return .drop
+        }
+    }
+    // swiftlint:enable force_try
+
     private func determineState(objectHeaders: QObjectHeaders) -> Result {
         // swiftlint:disable force_try
         var getAction: Result { switch self.getCurrentState() {
         case .running:
-            // Process.
+            if objectHeaders.objectId == 0 {
+                // IDR received, track the group.
+                self.lastSeenGroup = objectHeaders.groupId
+                return .normal(false)
+            }
+            if objectHeaders.groupId != self.lastSeenGroup {
+                // New group without its IDR — missed it.
+                self.logger.debug("Missed IDR for group \(objectHeaders.groupId)")
+                return self.handleMissedIDR(objectHeaders: objectHeaders)
+            }
             return .normal(false)
         case .fetching:
             if objectHeaders.objectId == 0 {
                 self.logger.debug("The fetch has been overrun")
                 try! self.stateMachine.transition(to: .running)
+                self.lastSeenGroup = objectHeaders.groupId
                 return .normal(true)
             }
             // Carry on, but don't play yet.
@@ -302,42 +356,10 @@ class VideoSubscription: Subscription {
                 // We started on a group, play.
                 self.logger.debug("No fetch needed")
                 try! self.stateMachine.transition(to: .running)
+                self.lastSeenGroup = objectHeaders.groupId
                 return .normal(true)
             }
-
-            guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
-                // Too far in, just wait.
-                self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Waiting for new group")
-                try! self.stateMachine.transition(to: .waitingForNewGroup(false))
-                return .drop
-            }
-
-            guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
-                // Not close enough to the start, new group and wait.
-                self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
-                self.requestNewGroup()
-                try! self.stateMachine.transition(to: .waitingForNewGroup(true))
-                return .drop
-            }
-
-            // Close to the start, FETCH.
-            do {
-                // Pause the handler while fetching.
-                self.handler.get()?.pause()
-
-                // Fetch the missing data.
-                let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
-                                           currentObject: objectHeaders.objectId)
-                try! self.stateMachine.transition(to: .fetching(fetch))
-                // Process, don't play.
-                return .normal(false)
-            } catch {
-                // Fallback to waiting for new group behaviour.
-                self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
-
-                try! self.stateMachine.transition(to: .waitingForNewGroup(false))
-                return .drop
-            }
+            return self.handleMissedIDR(objectHeaders: objectHeaders)
         case .waitingForNewGroup:
             guard objectHeaders.objectId == 0 else {
                 // Drop non-newgroup objects.
@@ -349,6 +371,7 @@ class VideoSubscription: Subscription {
             }
             // Start from this new group, play.
             try! self.stateMachine.transition(to: .running)
+            self.lastSeenGroup = objectHeaders.groupId
             return .normal(true)
         }
         }
@@ -592,6 +615,7 @@ class VideoSubscription: Subscription {
                 assert(false)
                 self.logger.warning("Subscription in invalid state", alert: true)
             }
+            self.lastSeenGroup = currentGroup
             self.logger.debug("Starting video playout - fetch")
             handler.play()
         }
