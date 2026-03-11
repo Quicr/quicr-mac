@@ -330,7 +330,12 @@ class CallState: ObservableObject, Equatable {
 
         // Demo namespace subscriptions — registered before publications so the relay
         // can match incoming publishes against the namespace prefix immediately.
+        // Start staleness detection for top-N data-flow-driven display.
+        self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+        self.videoParticipants.startStalenessChecks()
+
         if self.demoEnabled, self.subscriptionFactory != nil {
+            self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
             let meetingId = self.demoMeetingId
             let ownClientId = "\(manifest.participantId.aggregate)"
             let audioPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "audio"])
@@ -564,6 +569,8 @@ class CallState: ObservableObject, Equatable {
     }
 
     func leave() async {
+        self.videoParticipants.stopStalenessChecks()
+
         // Submit all pending metrics.
         await submitter?.submit()
 

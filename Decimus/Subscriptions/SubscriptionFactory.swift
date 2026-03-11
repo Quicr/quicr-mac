@@ -116,6 +116,8 @@ struct SubscriptionConfig: Codable {
     var keyFrameOnSubscribeUpdate: Bool
     /// Time to cleanup stale subscriptions for.
     var cleanupTime: TimeInterval
+    /// Time without a frame before a participant is considered stale for display purposes.
+    var stalenessThreshold: TimeInterval
     /// Stream join time rules.
     var joinConfig: VideoSubscription.JoinConfig<TimeInterval>
     /// True to use announce flow for publications.
@@ -153,6 +155,7 @@ struct SubscriptionConfig: Codable {
         stagger = true
         self.keyFrameOnSubscribeUpdate = false
         self.cleanupTime = 1.5
+        self.stalenessThreshold = 0.3
         self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
         self.useAnnounce = false
     }
