@@ -330,16 +330,15 @@ class CallState: ObservableObject, Equatable {
 
         // Demo namespace subscriptions — registered before publications so the relay
         // can match incoming publishes against the namespace prefix immediately.
-        // Start staleness detection for top-N data-flow-driven display.
-        self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
-        self.videoParticipants.startStalenessChecks()
-
         if self.demoEnabled, self.subscriptionFactory != nil {
+            // Prepare layout for dynamic switching.
             self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
-            let meetingId = self.demoMeetingId
-            let ownClientId = "\(manifest.participantId.aggregate)"
-            let audioPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "audio"])
-            let videoPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "video"])
+            self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+            self.videoParticipants.startStalenessChecks()
+
+            // Demo Namespaces.
+            let audioPrefix = NamespacePrefix(["meetings.wbx.com", self.demoMeetingId, "audio"])
+            let videoPrefix = NamespacePrefix(["meetings.wbx.com", self.demoMeetingId, "video"])
 
             // Track filter.
             let trackFilter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
