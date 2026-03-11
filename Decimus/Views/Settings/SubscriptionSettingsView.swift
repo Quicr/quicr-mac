@@ -195,6 +195,14 @@ struct SubscriptionSettingsView: View {
                     format: .number)
                     .labelsHidden()
             }
+
+            LabeledContent("Staleness Threshold (s)") {
+                TextField(
+                    "Staleness Threshold (s)",
+                    value: self.$subscriptionConfig.value.stalenessThreshold,
+                    format: .number)
+                    .labelsHidden()
+            }
         }
         Section("Reliability") {
             HStack {

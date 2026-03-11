@@ -14,12 +14,20 @@ struct VideoGrid: View {
     let restrictedCount: Int?
     @State var videoParticipants: VideoParticipants
     private var participants: [VideoParticipants.Weak<VideoParticipant>] {
-        let toDisplay = self.videoParticipants.participants.filter { $0.value != nil && $0.value!.display }
-        if let restrictedCount = self.restrictedCount {
-            return Array(toDisplay.prefix(restrictedCount))
-        } else {
-            return Array(toDisplay)
+        var toDisplay = self.videoParticipants.participants
+            .filter { $0.value != nil && $0.value!.display }
+            .sorted { ($0.value?.id ?? "") < ($1.value?.id ?? "") }
+
+        // Handle remote concurrent stream count.
+        if let max = self.videoParticipants.maxDisplayCount {
+            toDisplay = Array(toDisplay.prefix(max))
         }
+
+        // Handle local applied layout clamp.
+        if let restrictedCount = self.restrictedCount {
+            toDisplay = Array(toDisplay.prefix(restrictedCount))
+        }
+        return toDisplay
     }
 
     private func calcColumns() -> CGFloat {

@@ -331,10 +331,14 @@ class CallState: ObservableObject, Equatable {
         // Demo namespace subscriptions — registered before publications so the relay
         // can match incoming publishes against the namespace prefix immediately.
         if self.demoEnabled, self.subscriptionFactory != nil {
-            let meetingId = self.demoMeetingId
-            let ownClientId = "\(manifest.participantId.aggregate)"
-            let audioPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "audio"])
-            let videoPrefix = NamespacePrefix(["meetings.wbx.com", meetingId, "video"])
+            // Prepare layout for dynamic switching.
+            self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
+            self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+            self.videoParticipants.startStalenessChecks()
+
+            // Demo Namespaces.
+            let audioPrefix = NamespacePrefix(["meetings.wbx.com", self.demoMeetingId, "audio"])
+            let videoPrefix = NamespacePrefix(["meetings.wbx.com", self.demoMeetingId, "video"])
 
             // Track filter.
             let trackFilter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
@@ -564,6 +568,8 @@ class CallState: ObservableObject, Equatable {
     }
 
     func leave() async {
+        self.videoParticipants.stopStalenessChecks()
+
         // Submit all pending metrics.
         await submitter?.submit()
 

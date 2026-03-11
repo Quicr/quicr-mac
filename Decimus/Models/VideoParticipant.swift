@@ -25,6 +25,8 @@ class VideoParticipant: Identifiable {
     var highlight: Bool
     /// True if this video should be displayed.
     var display = false
+    /// Last time a frame was enqueued.
+    var lastEnqueueTime: Date?
     private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
 
@@ -177,6 +179,7 @@ class VideoParticipant: Identifiable {
         }
 
         // Enqueue the frame.
+        self.lastEnqueueTime = when
         self.display = true
         try self.view.enqueue(sampleBuffer, transform: transform)
     }
@@ -210,9 +213,47 @@ class VideoParticipants {
 
     private let logger = DecimusLogger(VideoParticipants.self)
 
+    /// How long without a frame before hiding a participant.
+    var stalenessThreshold: TimeInterval = 0.3
+
+    /// Maximum number of participants to display, nil for unlimited.
+    var maxDisplayCount: Int?
+
     /// All tracked participants by identifier.
     private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
     var participants: [Weak<VideoParticipant>] { Array(self.weakParticipants.values) }
+    private var stalenessTask: Task<Void, Never>?
+
+    /// Remove stale participants if we can replace them with live ones.
+    func startStalenessChecks() {
+        guard self.stalenessTask == nil else { return }
+        self.stalenessTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                try? await Task.sleep(for: .seconds(self.stalenessThreshold / 2))
+                let now = Date.now
+                let all = self.weakParticipants.values.compactMap { $0.value }
+                let displayed = all.filter { $0.display }
+                let freshCount = displayed.filter { participant in
+                    participant.lastEnqueueTime.map { now.timeIntervalSince($0) <= self.stalenessThreshold } ?? false
+                }.count
+                let target = self.maxDisplayCount ?? displayed.count
+                guard freshCount >= target else { continue }
+                for participant in displayed {
+                    if let last = participant.lastEnqueueTime,
+                       now.timeIntervalSince(last) > self.stalenessThreshold {
+                        participant.display = false
+                    }
+                }
+            }
+        }
+    }
+
+    /// Stop staleness checking.
+    func stopStalenessChecks() {
+        self.stalenessTask?.cancel()
+        self.stalenessTask = nil
+    }
 
     /// Add a participant.
     /// - Parameter videoParticipant: The participant to add.
