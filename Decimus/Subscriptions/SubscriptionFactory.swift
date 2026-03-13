@@ -193,6 +193,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
     private let calculateLatency: Bool
     private let wifiScanDetector: WiFiScanDetector?
     private let mediaInterop: Bool
+    private let switchLatencyMeasurement: SwitchLatencyMeasurement?
 
     init(videoParticipants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -208,7 +209,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
          manualActiveSpeaker: Bool,
          sframeContext: SFrameContext?,
          calculateLatency: Bool,
-         mediaInterop: Bool) {
+         mediaInterop: Bool,
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) {
         self.videoParticipants = videoParticipants
         self.metricsSubmitter = metricsSubmitter
         self.subscriptionConfig = subscriptionConfig
@@ -229,6 +231,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             self.wifiScanDetector = nil
         }
         self.mediaInterop = mediaInterop
+        self.switchLatencyMeasurement = switchLatencyMeasurement
     }
 
     func create(subscription: ManifestSubscription,
@@ -391,6 +394,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                                    mediaInterop: self.mediaInterop),
                                          sframeContext: self.sframeContext,
                                          wifiScanDetector: self.wifiScanDetector,
+                                         switchLatencyMeasurement: self.switchLatencyMeasurement,
                                          publisherInitiated: publisherInitiated,
                                          callback: { [weak set] details in
                                             guard let set = set else { return }

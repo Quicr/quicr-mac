@@ -68,6 +68,8 @@ class CallState: ObservableObject, Equatable {
     private let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
     private var measurement: MeasurementRegistration<_Measurement>?
+    private var switchLatencyMeasurement: MeasurementRegistration<SwitchLatencyMeasurement>?
+    private var activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
     private var submitter: MetricsSubmitter?
     private var audioCapture = false
     private var videoCapture = false
@@ -279,7 +281,8 @@ class CallState: ObservableObject, Equatable {
                                                         useAnnounce: subConfig.useAnnounce,
                                                         demoEnabled: self.demoEnabled,
                                                         activityMinSendInterval: self.demoActivityMinSendInterval,
-                                                        vadRollSubgroup: self.demoVadRollSubgroup)
+                                                        vadRollSubgroup: self.demoVadRollSubgroup,
+                                                        activityTransitionMeasurement: self.activityTransitionMeasurement?.measurement)
         } else {
             publicationFactory = nil
         }
@@ -304,7 +307,8 @@ class CallState: ObservableObject, Equatable {
                                                           manualActiveSpeaker: playtime.playtime && playtime.manualActiveSpeaker,
                                                           sframeContext: self.receiveContext,
                                                           calculateLatency: self.showLabels,
-                                                          mediaInterop: self.mediaInterop)
+                                                          mediaInterop: self.mediaInterop,
+                                                          switchLatencyMeasurement: self.switchLatencyMeasurement?.measurement)
         } else {
             subscriptionFactory = nil
         }
@@ -594,6 +598,9 @@ class CallState: ObservableObject, Equatable {
         } catch {
             Self.logger.error("Error while leaving call: \(error)")
         }
+
+        self.switchLatencyMeasurement = nil
+        self.activityTransitionMeasurement = nil
     }
 
     private func doMetrics(_ tags: [String: String]) {
@@ -628,6 +635,10 @@ class CallState: ObservableObject, Equatable {
         }
         let measurement = _Measurement()
         self.measurement = .init(measurement: measurement, submitter: influx)
+        let switchLatency = SwitchLatencyMeasurement()
+        self.switchLatencyMeasurement = .init(measurement: switchLatency, submitter: influx)
+        let activityTransition = ActivityTransitionMeasurement()
+        self.activityTransitionMeasurement = .init(measurement: activityTransition, submitter: influx)
         if influxConfig.value.realtime {
             // Application metrics timer.
             self.appMetricTimer = .init(priority: .utility) { [weak self] in

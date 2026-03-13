@@ -86,6 +86,8 @@ class VideoParticipant: Identifiable {
         let slidingWindowTime: TimeInterval
     }
 
+    private let switchLatencyMeasurement: SwitchLatencyMeasurement?
+
     /// Create a new participant for the given identifier.
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
@@ -93,13 +95,16 @@ class VideoParticipant: Identifiable {
     /// - Parameter videoParticipants: The holder to register against.
     /// - Parameter participantId: The participant ID of this participant.
     /// - Parameter activeSpeakerStats: Stats/metrics object.
+    /// - Parameter config: The configuration.
+    /// - Parameter switchLatencyMeasurement: Metrics for speaker switching.
     init(id: SourceIDType,
          startDate: Date,
          subscribeDate: Date,
          videoParticipants: VideoParticipants,
          participantId: ParticipantId,
          activeSpeakerStats: ActiveSpeakerStats?,
-         config: Config) throws {
+         config: Config,
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) throws {
         self.id = id
         self.label = id
         self.highlight = false
@@ -108,6 +113,7 @@ class VideoParticipant: Identifiable {
         self.videoParticipants = videoParticipants
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
+        self.switchLatencyMeasurement = switchLatencyMeasurement
         if config.calculateLatency {
             self.latencies = .init(config.slidingWindowTime)
             self.averagingTask = Task(priority: .utility) { [weak self] in
@@ -152,7 +158,9 @@ class VideoParticipant: Identifiable {
     func enqueue(_ sampleBuffer: CMSampleBuffer,
                  transform: CATransform3D?,
                  when: Date,
-                 endToEndLatency: TimeInterval?) throws {
+                 endToEndLatency: TimeInterval?,
+                 switchContext: SwitchContext? = nil,
+                 renderTime: Date? = nil) throws {
         // Stats.
         if let stats = self.activeSpeakerStats {
             Task { @MainActor in
@@ -171,6 +179,18 @@ class VideoParticipant: Identifiable {
         if self.joinToFirstFrame == nil {
             self.joinToFirstFrame = when.timeIntervalSince(self.startDate)
             self.subscribeToFirstFrame = when.timeIntervalSince(self.subscribeDate)
+        }
+
+        // If we have a switch, emit the corresponding metrics.
+        if let switchContext,
+           let renderTime,
+           let measurement = self.switchLatencyMeasurement {
+            let participantStr = "\(self.participantId.participantId)"
+            Task(priority: .utility) {
+                await measurement.record(context: switchContext,
+                                         renderTime: renderTime,
+                                         participant: participantStr)
+            }
         }
 
         if let endToEndLatency,
