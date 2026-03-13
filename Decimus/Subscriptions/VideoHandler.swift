@@ -88,8 +88,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
+    private let pendingSwitchContext = Mutex<SwitchContext?>(nil)
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
+    private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private var lastReceived: Ticks?
     private let jitterCalculation: RFC3550Jitter
 
@@ -128,7 +130,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
     ///     - handlerConfig: Configuration for this handler.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
-    init(fullTrackName: FullTrackName,
+    init(fullTrackName: FullTrackName, // swiftlint:disable:this function_body_length
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -143,7 +145,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
          joinDate: Date,
          activeSpeakerStats: ActiveSpeakerStats?,
          handlerConfig: Config,
-         wifiDetector: WiFiScanDetector?) throws {
+         wifiDetector: WiFiScanDetector?,
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) throws {
         if simulreceive != .none && jitterBufferConfig.mode == .layer {
             throw "Simulreceive and layer are not compatible"
         }
@@ -168,6 +171,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.activeSpeakerStats = activeSpeakerStats
         self.handlerConfig = handlerConfig
         self.detector = wifiDetector
+        self.switchLatencyMeasurement = switchLatencyMeasurement
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
@@ -178,21 +182,26 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         }
         if self.simulreceive != .enable {
             Task {
-                let participant = try await MainActor.run {
-                    let existing = self.participant.get()
-                    guard existing == nil else { return VideoParticipant?.none }
-                    return try VideoParticipant(id: "\(self.fullTrackName)",
-                                                startDate: joinDate,
-                                                subscribeDate: subscribeDate,
-                                                videoParticipants: self.participants,
-                                                participantId: self.participantId,
-                                                activeSpeakerStats: self.activeSpeakerStats,
-                                                config: .init(calculateLatency: self.handlerConfig.calculateLatency,
-                                                              slidingWindowTime: self.jitterBufferConfig.window))
+                do {
+                    let participant = try await MainActor.run {
+                        let existing = self.participant.get()
+                        guard existing == nil else { return VideoParticipant?.none }
+                        return try VideoParticipant(id: "\(self.fullTrackName)",
+                                                    startDate: joinDate,
+                                                    subscribeDate: subscribeDate,
+                                                    videoParticipants: self.participants,
+                                                    participantId: self.participantId,
+                                                    activeSpeakerStats: self.activeSpeakerStats,
+                                                    config: .init(calculateLatency: self.handlerConfig.calculateLatency,
+                                                                  slidingWindowTime: self.jitterBufferConfig.window),
+                                                    switchLatencyMeasurement: self.switchLatencyMeasurement)
 
+                    }
+                    guard let participant = participant else { return }
+                    self.participant.withLock { $0 = participant }
+                } catch {
+                    self.logger.error("Failed to create VideoParticipant: \(error)")
                 }
-                guard let participant = participant else { return }
-                self.participant.withLock { $0 = participant }
             }
         } else {
             self.participant.clear()
@@ -228,6 +237,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                                                 fps: UInt(self.config.fps),
                                                                 discontinous: sample.discontinous) }
                 }
+
+                // Consume pending switch context and record decode time.
+                let switchCtx = self.pendingSwitchContext.withLock { ctx in
+                    guard var captured = ctx else { return SwitchContext?.none }
+                    captured.decodeTime = now
+                    ctx = nil
+                    return captured
+                }
+
                 if let participant = self.participant.get() {
                     // Enqueue for rendering.
                     do {
@@ -236,7 +254,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                                verticalMirror: self.verticalMirror,
                                                from: now,
                                                participant: participant,
-                                               endToEndLatency: endToEndLatency)
+                                               endToEndLatency: endToEndLatency,
+                                               switchContext: switchCtx)
                     } catch {
                         self.logger.error("Failed to enqueue decoded sample: \(error)")
                     }
@@ -456,8 +475,16 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
 
     // MARK: Implementation.
 
+    /// Store a switch context for the next decode callback to consume.
+    func setPendingSwitchContext(_ context: SwitchContext) {
+        self.pendingSwitchContext.withLock { $0 = context }
+    }
+
     /// Allows frames to be played from the buffer.
-    func play() {
+    func play(switchContext: SwitchContext? = nil) {
+        if let switchContext {
+            self.pendingSwitchContext.withLock { $0 = switchContext }
+        }
         guard self.jitterBufferConfig.mode == .interval else { return }
         guard let buffer = self.jitterBuffer else {
             self.logger.error("Set play with no buffer")
@@ -849,7 +876,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                                verticalMirror: Bool?,
                                from: Date,
                                participant: VideoParticipant,
-                               endToEndLatency: TimeInterval?) throws {
+                               endToEndLatency: TimeInterval?,
+                               switchContext: SwitchContext? = nil) throws {
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? from : nil
@@ -875,10 +903,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     try self.setLayerStartTime(layer: participant.view.layer!, time: sample.presentationTimeStamp)
                     self.startTimeSet = true
                 }
+                let renderTime = switchContext != nil ? Date.now : nil
                 try participant.enqueue(sample,
                                         transform: orientation?.toTransform(verticalMirror!),
                                         when: from,
-                                        endToEndLatency: endToEndLatency)
+                                        endToEndLatency: endToEndLatency,
+                                        switchContext: switchContext,
+                                        renderTime: renderTime)
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds

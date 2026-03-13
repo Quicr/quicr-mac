@@ -41,5 +41,9 @@ extension H264Publication {
         func encoded(age: TimeInterval, timestamp: Date) {
             record(field: "encodedAge", value: age as AnyObject, timestamp: timestamp)
         }
+
+        func audioActivity(_ value: UInt8, timestamp: Date) {
+            record(field: "audioActivity", value: value as AnyObject, timestamp: timestamp)
+        }
     }
 }

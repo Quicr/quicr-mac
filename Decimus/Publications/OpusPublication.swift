@@ -32,6 +32,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let profile: Profile
     private let activityStateMachine: AudioActivityStateMachine?
     private let sharedVoiceActivity: SharedVoiceActivityState?
+    private let activityTransitionMeasurement: ActivityTransitionMeasurement?
+    private var lastActivityValue: AudioActivityValue = .speechEnd
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -50,6 +52,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          demoEnabled: Bool = false,
          sharedVoiceActivity: SharedVoiceActivityState? = nil,
          activityMinSendInterval: TimeInterval = 0.3,
+         activityTransitionMeasurement: ActivityTransitionMeasurement? = nil,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
@@ -68,6 +71,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.mediaInterop = mediaInterop
         self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(minChangeInterval: activityMinSendInterval) : nil
         self.sharedVoiceActivity = sharedVoiceActivity
+        self.activityTransitionMeasurement = activityTransitionMeasurement
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -290,6 +294,30 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             let value = stateMachine.update(voiceActive: voiceActive, now: wallClock)
             try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
             self.sharedVoiceActivity?.postActivity(value)
+
+            // Granular activity metric.
+            if self.granularMetrics, let measurement = self.measurement?.measurement {
+                let raw = value.rawValue
+                let ts = wallClock
+                Task(priority: .utility) { await measurement.audioActivity(raw, timestamp: ts) }
+            }
+
+            // Emit activity transition on active/inactive boundary crossings.
+            if let measurement = self.activityTransitionMeasurement {
+                let wasActive = self.lastActivityValue != .speechEnd
+                let isActive = value != .speechEnd
+                if wasActive != isActive {
+                    let direction = isActive ? "active" : "inactive"
+                    let participant = "\(self.participantId.participantId)"
+                    let timestamp = wallClock
+                    Task(priority: .utility) {
+                        await measurement.record(participant: participant,
+                                                 direction: direction,
+                                                 timestamp: timestamp)
+                    }
+                }
+                self.lastActivityValue = value
+            }
         }
 
         return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)

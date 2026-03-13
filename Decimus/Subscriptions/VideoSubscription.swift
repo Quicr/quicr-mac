@@ -43,6 +43,8 @@ class VideoSubscription: Subscription {
     private let joinConfig: JoinConfig<UInt64>
 
     let handler: Mutex<VideoHandler?>
+    private let switchContext = Mutex<SwitchContext?>(nil)
+    private var handlerCreatedOnce = false  // Only accessed inside handler.withLock
 
     private var cleanupTask: Task<(), Never>?
     private let cleanupTimer: TimeInterval
@@ -59,8 +61,10 @@ class VideoSubscription: Subscription {
     private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
+    private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let paused = Atomic(false)
     private var lastSeenGroup: UInt64?
+    private var lastReceived: (group: UInt64, object: UInt64)?
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -182,6 +186,7 @@ class VideoSubscription: Subscription {
          subscriptionConfig: Config,
          sframeContext: SFrameContext?,
          wifiScanDetector: WiFiScanDetector?,
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          publisherInitiated: Bool,
          callback: @escaping ObjectReceivedCallback,
          statusChanged: @escaping StatusChanged) throws {
@@ -207,6 +212,7 @@ class VideoSubscription: Subscription {
         self.cleanupTimer = cleanupTime
         self.subscriptionConfig = subscriptionConfig
         self.wifiScanDetector = wifiScanDetector
+        self.switchLatencyMeasurement = switchLatencyMeasurement
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
@@ -225,7 +231,8 @@ class VideoSubscription: Subscription {
                                        joinDate: joinDate,
                                        activeSpeakerStats: self.activeSpeakerStats,
                                        handlerConfig: handlerConfig,
-                                       wifiDetector: self.wifiScanDetector)
+                                       wifiDetector: self.wifiScanDetector,
+                                       switchLatencyMeasurement: self.switchLatencyMeasurement)
         self.token = handler.registerCallback(callback)
         self.handler = .init(handler)
         self.joinConfig = subscriptionConfig.joinConfig
@@ -296,6 +303,10 @@ class VideoSubscription: Subscription {
             // Too far in, just wait.
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Waiting for new group")
             try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+            self.switchContext.withLock { ctx in
+                ctx?.joinStrategy = .wait
+                ctx?.joinDecisionTime = .now
+            }
             return .drop
         }
 
@@ -304,6 +315,10 @@ class VideoSubscription: Subscription {
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
             self.requestNewGroup()
             try! self.stateMachine.transition(to: .waitingForNewGroup(true))
+            self.switchContext.withLock { ctx in
+                ctx?.joinStrategy = .newGroup
+                ctx?.joinDecisionTime = .now
+            }
             return .drop
         }
 
@@ -316,12 +331,20 @@ class VideoSubscription: Subscription {
             let fetch = try self.fetch(currentGroup: objectHeaders.groupId,
                                        currentObject: objectHeaders.objectId)
             try! self.stateMachine.transition(to: .fetching(fetch))
+            self.switchContext.withLock { ctx in
+                ctx?.joinStrategy = .fetch
+                ctx?.joinDecisionTime = .now
+            }
             // Process, don't play.
             return .normal(false)
         } catch {
             // Fallback to waiting for new group behaviour.
             self.logger.warning("Failed to start fetch: \(error.localizedDescription)")
             try! self.stateMachine.transition(to: .waitingForNewGroup(false))
+            self.switchContext.withLock { ctx in
+                ctx?.joinStrategy = .wait
+                ctx?.joinDecisionTime = .now
+            }
             return .drop
         }
     }
@@ -357,6 +380,11 @@ class VideoSubscription: Subscription {
                 self.logger.debug("No fetch needed")
                 try! self.stateMachine.transition(to: .running)
                 self.lastSeenGroup = objectHeaders.groupId
+                self.switchContext.withLock { ctx in
+                    ctx?.joinStrategy = .wait
+                    ctx?.joinDecisionTime = .now
+                    ctx?.joinCompleteTime = .now
+                }
                 return .normal(true)
             }
             return self.handleMissedIDR(objectHeaders: objectHeaders)
@@ -372,6 +400,9 @@ class VideoSubscription: Subscription {
             // Start from this new group, play.
             try! self.stateMachine.transition(to: .running)
             self.lastSeenGroup = objectHeaders.groupId
+            self.switchContext.withLock { ctx in
+                ctx?.joinCompleteTime = .now
+            }
             return .normal(true)
         }
         }
@@ -393,6 +424,7 @@ class VideoSubscription: Subscription {
         return start ? .normal(true) : action
     }
 
+    // swiftlint:disable:next function_body_length cyclomatic_complexity
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
@@ -407,6 +439,7 @@ class VideoSubscription: Subscription {
 
         // Record the time this arrived.
         let now = Ticks.now
+        let previousUpdateTime = self.lastUpdateTime.load(ordering: .acquiring)
         self.lastUpdateTime.store(now, ordering: .releasing)
 
         // Per-frame logging.
@@ -436,7 +469,64 @@ class VideoSubscription: Subscription {
         // Get a handler for video.
         let handler: VideoHandler
         do {
-            handler = try self.getCreateHandler()
+            let (created, activation) = try self.getCreateHandler()
+            handler = created
+
+            // If this looks like a switch, let's track the join.
+            let isSwitchEvent: Bool
+            switch activation {
+            case .newSubscription, .reactivation:
+                isSwitchEvent = true
+            case .existing:
+                if let last = self.lastReceived {
+                    if objectHeaders.groupId < last.group {
+                        isSwitchEvent = false
+                    } else {
+                        let continuous = objectHeaders.groupId == last.group
+                            && objectHeaders.objectId == last.object + 1
+                        isSwitchEvent = !continuous
+                    }
+                } else {
+                    isSwitchEvent = false
+                }
+            }
+
+            // Track what we received for continuity detection.
+            // Don't update for stale objects — it would corrupt future checks.
+            if let last = self.lastReceived,
+               objectHeaders.groupId < last.group {
+                // Skip.
+            } else {
+                // Update.
+                self.lastReceived = (objectHeaders.groupId, objectHeaders.objectId)
+            }
+
+            if isSwitchEvent {
+                self.logger.debug("Switch detected (\(activation.rawValue)), group depth \(objectHeaders.objectId)")
+                let ctx = SwitchContext(
+                    activationType: activation,
+                    activationTime: now,
+                    groupDepth: objectHeaders.objectId
+                )
+                switch activation {
+                case .newSubscription, .reactivation:
+                    // Handler was recreated, state machine is in .startup.
+                    // Store context for the join flow to populate.
+                    self.switchContext.withLock { $0 = ctx }
+                case .existing:
+                    if objectHeaders.objectId == 0 {
+                        // Clean start.
+                        var completed = ctx
+                        completed.joinStrategy = .idr
+                        completed.joinDecisionTime = now
+                        completed.joinCompleteTime = now
+                        handler.setPendingSwitchContext(completed)
+                    } else {
+                        // Mid-group — the state machine's missed-IDR path will handle join.
+                        self.switchContext.withLock { $0 = ctx }
+                    }
+                }
+            }
         } catch {
             self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
             return
@@ -479,40 +569,45 @@ class VideoSubscription: Subscription {
             notify(drop: false)
             if start {
                 self.logger.debug("Starting video playout - live")
-                handler.play()
+                let ctx = self.switchContext.withLock { ctx in
+                    let captured = ctx
+                    ctx = nil
+                    return captured
+                }
+                handler.play(switchContext: ctx)
             }
         }
     }
 
-    private func getCreateHandler() throws -> VideoHandler {
+    private func getCreateHandler() throws -> (handler: VideoHandler, activation: ActivationType) {
         try self.handler.withLock { lockedHandler in
-            let handler: VideoHandler
-            if let unwrapped = lockedHandler {
-                handler = unwrapped
-            } else {
-                let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
-                                                 mediaInterop: self.subscriptionConfig.mediaInterop)
-                let recreated = try VideoHandler(fullTrackName: self.fullTrackName,
-                                                 config: self.config,
-                                                 participants: self.participants,
-                                                 metricsSubmitter: self.metricsSubmitter,
-                                                 videoBehaviour: self.videoBehaviour,
-                                                 reliable: self.reliable,
-                                                 granularMetrics: self.granularMetrics,
-                                                 jitterBufferConfig: self.jitterBufferConfig,
-                                                 simulreceive: self.simulreceive,
-                                                 variances: self.variances,
-                                                 participantId: self.participantId,
-                                                 subscribeDate: self.creationDate,
-                                                 joinDate: self.joinDate,
-                                                 activeSpeakerStats: self.activeSpeakerStats,
-                                                 handlerConfig: config,
-                                                 wifiDetector: self.wifiScanDetector)
-                self.token = recreated.registerCallback(self.callback)
-                lockedHandler = recreated
-                handler = recreated
+            if let existing = lockedHandler {
+                return (existing, .existing)
             }
-            return handler
+            let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
+                                             mediaInterop: self.subscriptionConfig.mediaInterop)
+            let newHandler = try VideoHandler(fullTrackName: self.fullTrackName,
+                                              config: self.config,
+                                              participants: self.participants,
+                                              metricsSubmitter: self.metricsSubmitter,
+                                              videoBehaviour: self.videoBehaviour,
+                                              reliable: self.reliable,
+                                              granularMetrics: self.granularMetrics,
+                                              jitterBufferConfig: self.jitterBufferConfig,
+                                              simulreceive: self.simulreceive,
+                                              variances: self.variances,
+                                              participantId: self.participantId,
+                                              subscribeDate: self.creationDate,
+                                              joinDate: self.joinDate,
+                                              activeSpeakerStats: self.activeSpeakerStats,
+                                              handlerConfig: config,
+                                              wifiDetector: self.wifiScanDetector,
+                                              switchLatencyMeasurement: self.switchLatencyMeasurement)
+            self.token = newHandler.registerCallback(self.callback)
+            let activation: ActivationType = self.handlerCreatedOnce ? .reactivation : .newSubscription
+            self.handlerCreatedOnce = true
+            lockedHandler = newHandler
+            return (newHandler, activation)
         }
     }
 
@@ -616,8 +711,12 @@ class VideoSubscription: Subscription {
                 self.logger.warning("Subscription in invalid state", alert: true)
             }
             self.lastSeenGroup = currentGroup
+            self.switchContext.withLock { ctx in
+                ctx?.joinCompleteTime = .now
+                ctx?.fetchObjectCount = currentObject
+            }
             self.logger.debug("Starting video playout - fetch")
-            handler.play()
+            handler.play(switchContext: self.switchContext.consume())
         }
     }
 }

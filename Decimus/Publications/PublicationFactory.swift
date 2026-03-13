@@ -40,6 +40,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let sharedVoiceActivity: SharedVoiceActivityState?
     private let activityMinSendInterval: TimeInterval
     private let vadRollSubgroup: Bool
+    private let activityTransitionMeasurement: ActivityTransitionMeasurement?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -60,7 +61,8 @@ class PublicationFactoryImpl: PublicationFactory {
          demoEnabled: Bool = false,
          sharedVoiceActivity: SharedVoiceActivityState? = nil,
          activityMinSendInterval: TimeInterval = 0.3,
-         vadRollSubgroup: Bool = true) {
+         vadRollSubgroup: Bool = true,
+         activityTransitionMeasurement: ActivityTransitionMeasurement? = nil) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -81,6 +83,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.sharedVoiceActivity = demoEnabled ? (sharedVoiceActivity ?? SharedVoiceActivityState()) : nil
         self.activityMinSendInterval = activityMinSendInterval
         self.vadRollSubgroup = vadRollSubgroup
+        self.activityTransitionMeasurement = activityTransitionMeasurement
     }
 
     func create(publication: ManifestPublication,
@@ -210,6 +213,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        demoEnabled: self.demoEnabled,
                                        sharedVoiceActivity: self.sharedVoiceActivity,
                                        activityMinSendInterval: self.activityMinSendInterval,
+                                       activityTransitionMeasurement: self.activityTransitionMeasurement,
                                        sink: sink)
         case .text:
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),

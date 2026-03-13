@@ -15,4 +15,14 @@ extension Mutex where Value: ExpressibleByNilLiteral {
     public func clear() {
         self.withLock { $0 = nil }
     }
+
+    /// Consume the value of the mutex, setting it to nil.
+    /// - Returns The current value.
+    public func consume() -> Value {
+        self.withLock { locked in
+            let consumed = locked
+            locked = nil
+            return consumed
+        }
+    }
 }
