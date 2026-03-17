@@ -482,12 +482,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 return true
             }
 
-            // If we asked for key frame, make one (subscribe update).
+            // If we asked for key frame, make one.
             let (generate, _) = self.generateKeyFrame.compareExchange(expected: true,
                                                                       desired: false,
                                                                       ordering: .acquiringAndReleasing)
             if generate {
-                self.logger.debug("Forcing key frame - subscribe update")
+                self.logger.debug("Forcing key frame - new group request")
                 return true
             }
 

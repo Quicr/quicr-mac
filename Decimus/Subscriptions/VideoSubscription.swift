@@ -64,7 +64,8 @@ class VideoSubscription: Subscription {
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let paused = Atomic(false)
     private var lastSeenGroup: UInt64?
-    private var lastReceived: (group: UInt64, object: UInt64)?
+    private var lastReceived: QLocationImpl?
+    private var requestedNewGroup = false
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -287,7 +288,8 @@ class VideoSubscription: Subscription {
     enum Result {
         /// Process this object.
         /// ``start`` if playout should start as well.
-        case normal(_ start: Bool)
+        /// If a completed ``SwitchContext`` is attached, pass it through for measurement.
+        case normal(_ start: Bool, switchContext: SwitchContext? = nil)
         /// Drop this object.
         case drop
     }
@@ -296,9 +298,12 @@ class VideoSubscription: Subscription {
         self.stateMachine.get()
     }
 
-    /// Handle a missed IDR: decide whether to fetch, request a new group, or wait.
     // swiftlint:disable force_try
-    private func handleMissedIDR(objectHeaders: QObjectHeaders) -> Result {
+    /// Handle a missed IDR: decide whether to fetch, request a new group, or wait.
+    private func handleMissedIDR(objectHeaders: QObjectHeaders, switchContext: SwitchContext?) -> Result {
+        // Store the context for the async join flow to complete.
+        self.switchContext.withLock { $0 = switchContext }
+
         guard objectHeaders.objectId < self.joinConfig.newGroupUpperThreshold else {
             // Too far in, just wait.
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Waiting for new group")
@@ -311,9 +316,17 @@ class VideoSubscription: Subscription {
         }
 
         guard objectHeaders.objectId < self.joinConfig.fetchUpperThreshold else {
+            // Check new group supported.
+            guard self.isNewGroupRequestSupported() else {
+                self.logger.warning("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - No dynamic groups",
+                                    alert: true)
+                return .drop
+            }
             // Not close enough to the start, new group and wait.
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
+            self.logger.notice("New Group Request")
             self.requestNewGroup()
+            self.requestedNewGroup = true
             try! self.stateMachine.transition(to: .waitingForNewGroup(true))
             self.switchContext.withLock { ctx in
                 ctx?.joinStrategy = .newGroup
@@ -350,19 +363,37 @@ class VideoSubscription: Subscription {
     }
     // swiftlint:enable force_try
 
-    private func determineState(objectHeaders: QObjectHeaders) -> Result {
-        // swiftlint:disable force_try
+    // swiftlint:disable force_try cyclomatic_complexity
+    private func determineState(objectHeaders: QObjectHeaders,
+                                activation: ActivationType,
+                                isDiscontinuity: Bool,
+                                when: Ticks) -> Result {
+        func makeSwitchContext() -> SwitchContext {
+            .init(activationType: activation,
+                  activationTime: when,
+                  groupDepth: objectHeaders.objectId)
+        }
+
         var getAction: Result { switch self.getCurrentState() {
         case .running:
             if objectHeaders.objectId == 0 {
                 // IDR received, track the group.
                 self.lastSeenGroup = objectHeaders.groupId
+                if isDiscontinuity {
+                    // Perfect landing — switched and landed right on an IDR.
+                    var ctx = makeSwitchContext()
+                    ctx.joinStrategy = .idr
+                    ctx.joinDecisionTime = when
+                    ctx.joinCompleteTime = when
+                    return .normal(false, switchContext: ctx)
+                }
                 return .normal(false)
             }
             if objectHeaders.groupId != self.lastSeenGroup {
                 // New group without its IDR — missed it.
                 self.logger.debug("Missed IDR for group \(objectHeaders.groupId)")
-                return self.handleMissedIDR(objectHeaders: objectHeaders)
+                let ctx = isDiscontinuity ? makeSwitchContext() : nil
+                return self.handleMissedIDR(objectHeaders: objectHeaders, switchContext: ctx)
             }
             return .normal(false)
         case .fetching:
@@ -370,7 +401,14 @@ class VideoSubscription: Subscription {
                 self.logger.debug("The fetch has been overrun")
                 try! self.stateMachine.transition(to: .running)
                 self.lastSeenGroup = objectHeaders.groupId
-                return .normal(true)
+                // Complete the stored context from when the fetch started.
+                let ctx = self.switchContext.withLock { ctx in
+                    ctx?.joinCompleteTime = when
+                    let captured = ctx
+                    ctx = nil
+                    return captured
+                }
+                return .normal(true, switchContext: ctx)
             }
             // Carry on, but don't play yet.
             return .normal(false)
@@ -380,14 +418,13 @@ class VideoSubscription: Subscription {
                 self.logger.debug("No fetch needed")
                 try! self.stateMachine.transition(to: .running)
                 self.lastSeenGroup = objectHeaders.groupId
-                self.switchContext.withLock { ctx in
-                    ctx?.joinStrategy = .wait
-                    ctx?.joinDecisionTime = .now
-                    ctx?.joinCompleteTime = .now
-                }
-                return .normal(true)
+                var ctx = makeSwitchContext()
+                ctx.joinStrategy = .idr
+                ctx.joinDecisionTime = when
+                ctx.joinCompleteTime = when
+                return .normal(true, switchContext: ctx)
             }
-            return self.handleMissedIDR(objectHeaders: objectHeaders)
+            return self.handleMissedIDR(objectHeaders: objectHeaders, switchContext: makeSwitchContext())
         case .waitingForNewGroup:
             guard objectHeaders.objectId == 0 else {
                 // Drop non-newgroup objects.
@@ -400,19 +437,23 @@ class VideoSubscription: Subscription {
             // Start from this new group, play.
             try! self.stateMachine.transition(to: .running)
             self.lastSeenGroup = objectHeaders.groupId
-            self.switchContext.withLock { ctx in
-                ctx?.joinCompleteTime = .now
+            // Complete the stored context from when we started waiting.
+            let ctx = self.switchContext.withLock { ctx in
+                ctx?.joinCompleteTime = when
+                let captured = ctx
+                ctx = nil
+                return captured
             }
-            return .normal(true)
+            return .normal(true, switchContext: ctx)
         }
         }
-        // swiftlint:enable force_try
+        // swiftlint:enable force_try cyclomatic_complexity
 
         // Override playout to true if we cleaned up.
         let action = getAction
         var start: Bool {
             switch action {
-            case .normal(let start):
+            case .normal(let start, _):
                 guard !start else { return false }
                 return self.postCleanup.compareExchange(expected: true,
                                                         desired: false,
@@ -429,6 +470,15 @@ class VideoSubscription: Subscription {
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?) {
+        if objectHeaders.objectId == 0 {
+            guard self.requestedNewGroup else {
+                self.logger.notice("Unasked for new group")
+                return
+            }
+            self.requestedNewGroup = false
+            self.logger.notice("Got my new group")
+        }
+
         // If we're paused, drop this.
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
@@ -468,69 +518,29 @@ class VideoSubscription: Subscription {
 
         // Get a handler for video.
         let handler: VideoHandler
+        let activation: ActivationType
         do {
-            let (created, activation) = try self.getCreateHandler()
-            handler = created
-
-            // If this looks like a switch, let's track the join.
-            let isSwitchEvent: Bool
-            switch activation {
-            case .newSubscription, .reactivation:
-                isSwitchEvent = true
-            case .existing:
-                if let last = self.lastReceived {
-                    if objectHeaders.groupId < last.group {
-                        isSwitchEvent = false
-                    } else {
-                        let continuous = objectHeaders.groupId == last.group
-                            && objectHeaders.objectId == last.object + 1
-                        isSwitchEvent = !continuous
-                    }
-                } else {
-                    isSwitchEvent = false
-                }
-            }
-
-            // Track what we received for continuity detection.
-            // Don't update for stale objects — it would corrupt future checks.
-            if let last = self.lastReceived,
-               objectHeaders.groupId < last.group {
-                // Skip.
-            } else {
-                // Update.
-                self.lastReceived = (objectHeaders.groupId, objectHeaders.objectId)
-            }
-
-            if isSwitchEvent {
-                self.logger.debug("Switch detected (\(activation.rawValue)), group depth \(objectHeaders.objectId)")
-                let ctx = SwitchContext(
-                    activationType: activation,
-                    activationTime: now,
-                    groupDepth: objectHeaders.objectId
-                )
-                switch activation {
-                case .newSubscription, .reactivation:
-                    // Handler was recreated, state machine is in .startup.
-                    // Store context for the join flow to populate.
-                    self.switchContext.withLock { $0 = ctx }
-                case .existing:
-                    if objectHeaders.objectId == 0 {
-                        // Clean start.
-                        var completed = ctx
-                        completed.joinStrategy = .idr
-                        completed.joinDecisionTime = now
-                        completed.joinCompleteTime = now
-                        handler.setPendingSwitchContext(completed)
-                    } else {
-                        // Mid-group — the state machine's missed-IDR path will handle join.
-                        self.switchContext.withLock { $0 = ctx }
-                    }
-                }
-            }
+            (handler, activation) = try self.getCreateHandler()
         } catch {
             self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
             return
         }
+
+        // Discontinuity?
+        let isDiscontinuity: Bool
+        if let last = self.lastReceived,
+           objectHeaders.groupId >= last.group {
+            let continuous = objectHeaders.groupId == last.group
+                && objectHeaders.objectId == last.object + 1
+            isDiscontinuity = !continuous
+        } else {
+            isDiscontinuity = activation != .existing
+        }
+
+        // Track what we received for continuity detection.
+        let new = QLocationImpl(group: objectHeaders.groupId, object: objectHeaders.objectId)
+        assert(self.lastReceived == nil || new > self.lastReceived!)
+        self.lastReceived = new
 
         // Unprotect.
         let unprotected: Data
@@ -561,20 +571,21 @@ class VideoSubscription: Subscription {
             }
             return
         }
-        switch self.determineState(objectHeaders: objectHeaders) {
+        switch self.determineState(objectHeaders: objectHeaders,
+                                   activation: activation,
+                                   isDiscontinuity: isDiscontinuity,
+                                   when: now) {
         case .drop:
             notify(drop: true)
             return
-        case .normal(let start):
+        case .normal(let start, let switchContext):
             notify(drop: false)
-            if start {
+            if let switchContext, !start {
+                // Join decision.
+                handler.setPendingSwitchContext(switchContext)
+            } else if start {
                 self.logger.debug("Starting video playout - live")
-                let ctx = self.switchContext.withLock { ctx in
-                    let captured = ctx
-                    ctx = nil
-                    return captured
-                }
-                handler.play(switchContext: ctx)
+                handler.play(switchContext: switchContext)
             }
         }
     }
