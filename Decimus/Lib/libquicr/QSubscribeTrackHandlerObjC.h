@@ -32,6 +32,7 @@
 -(id<QLocation> _Nullable) getLatestLocation;
 -(void) requestNewGroup;
 -(bool)isNewGroupRequestSupported;
+-(void)supportNewGroupRequest:(bool) isSupported;
 -(void)setCallbacks: (id<QSubscribeTrackHandlerCallbacks> _Nonnull) callbacks;
 -(void)setDeliveryTimeout:(uint64_t) timeout;
 -(void)pause;

@@ -39,7 +39,7 @@ struct TestVideoSubscription {
                                            submitter: nil,
                                            callEnded: ({}))
         try await controller.connect()
-        return try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
+        let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
                                                     expiry: [1],
                                                     priorities: [1],
                                                     namespace: ["0"]),
@@ -74,6 +74,9 @@ struct TestVideoSubscription {
                                      publisherInitiated: false,
                                      callback: { callback?($0) },
                                      statusChanged: ({_ in }))
+        // Simulate the subscribe OK that would set this in production.
+        subscription.supportNewGroupRequest(true)
+        return subscription
     }
 
     @Test("Metrics")
