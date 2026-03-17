@@ -65,7 +65,6 @@ class VideoSubscription: Subscription {
     private let paused = Atomic(false)
     private var lastSeenGroup: UInt64?
     private var lastReceived: QLocationImpl?
-    private var requestedNewGroup = false
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -324,9 +323,7 @@ class VideoSubscription: Subscription {
             }
             // Not close enough to the start, new group and wait.
             self.logger.debug("Dropping \(objectHeaders.groupId):\(objectHeaders.objectId) - Requesting new group")
-            self.logger.notice("New Group Request")
             self.requestNewGroup()
-            self.requestedNewGroup = true
             try! self.stateMachine.transition(to: .waitingForNewGroup(true))
             self.switchContext.withLock { ctx in
                 ctx?.joinStrategy = .newGroup
@@ -470,15 +467,6 @@ class VideoSubscription: Subscription {
                                  data: Data,
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?) {
-        if objectHeaders.objectId == 0 {
-            guard self.requestedNewGroup else {
-                self.logger.notice("Unasked for new group")
-                return
-            }
-            self.requestedNewGroup = false
-            self.logger.notice("Got my new group")
-        }
-
         // If we're paused, drop this.
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
