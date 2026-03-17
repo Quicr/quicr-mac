@@ -60,7 +60,7 @@ struct SettingsView: View {
 
     static let demoMaxTracksSelectedKey = "demoMaxTracksSelected"
     @AppStorage(Self.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 3
+    private var demoMaxTracksSelected: Int = 1
 
     static let demoMaxTracksDeselectedKey = "demoMaxTracksDeselected"
     @AppStorage(Self.demoMaxTracksDeselectedKey)
