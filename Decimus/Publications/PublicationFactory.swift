@@ -38,7 +38,8 @@ class PublicationFactoryImpl: PublicationFactory {
     private let useAnnounce: Bool
     private let demoEnabled: Bool
     private let sharedVoiceActivity: SharedVoiceActivityState?
-    private let activityMinSendInterval: TimeInterval
+    private let speechStartInterval: TimeInterval
+    private let continuousSpeechInterval: TimeInterval
     private let vadRollSubgroup: Bool
     private let activityTransitionMeasurement: ActivityTransitionMeasurement?
 
@@ -60,7 +61,8 @@ class PublicationFactoryImpl: PublicationFactory {
          useAnnounce: Bool,
          demoEnabled: Bool = false,
          sharedVoiceActivity: SharedVoiceActivityState? = nil,
-         activityMinSendInterval: TimeInterval = 0.3,
+         speechStartInterval: TimeInterval = 0.3,
+         continuousSpeechInterval: TimeInterval = 0.3,
          vadRollSubgroup: Bool = true,
          activityTransitionMeasurement: ActivityTransitionMeasurement? = nil) {
         self.opusWindowSize = opusWindowSize
@@ -81,7 +83,8 @@ class PublicationFactoryImpl: PublicationFactory {
         self.useAnnounce = useAnnounce
         self.demoEnabled = demoEnabled
         self.sharedVoiceActivity = demoEnabled ? (sharedVoiceActivity ?? SharedVoiceActivityState()) : nil
-        self.activityMinSendInterval = activityMinSendInterval
+        self.speechStartInterval = speechStartInterval
+        self.continuousSpeechInterval = continuousSpeechInterval
         self.vadRollSubgroup = vadRollSubgroup
         self.activityTransitionMeasurement = activityTransitionMeasurement
     }
@@ -212,7 +215,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                        mediaInterop: self.mediaInterop,
                                        demoEnabled: self.demoEnabled,
                                        sharedVoiceActivity: self.sharedVoiceActivity,
-                                       activityMinSendInterval: self.activityMinSendInterval,
+                                       speechStartInterval: self.speechStartInterval,
+                                       continuousSpeechInterval: self.continuousSpeechInterval,
                                        activityTransitionMeasurement: self.activityTransitionMeasurement,
                                        sink: sink)
         case .text:

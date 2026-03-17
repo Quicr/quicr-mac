@@ -9,17 +9,17 @@ final class TestAudioActivityStateMachine: XCTestCase {
     // MARK: - State Machine Tests
 
     func testIdleReturnsSpeechEnd() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         XCTAssertEqual(sm.update(voiceActive: false, now: .now), .speechEnd)
     }
 
     func testIdleToSpeaking() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         XCTAssertEqual(sm.update(voiceActive: true, now: .now), .speechStart)
     }
 
     func testContinuousAfterInterval() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
         XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
 
@@ -31,31 +31,28 @@ final class TestAudioActivityStateMachine: XCTestCase {
     }
 
     func testSpeakingToEnd() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
         XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
 
-        // Within rate limit — value holds at speechStart.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.1)), .speechStart)
-
-        // After rate limit — changes to speechEnd.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.35)), .speechEnd)
+        // Drop to speechEnd is immediate (no rate limit on downward transition).
+        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.1)), .speechEnd)
     }
 
     func testEndResumesSpeaking() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
         XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
 
-        // Voice drops and changes after rate limit.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.35)), .speechEnd)
+        // Voice drops — immediate transition to speechEnd.
+        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.1)), .speechEnd)
 
-        // Voice resumes after another rate limit window.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.7)), .speechStart)
+        // Voice resumes after speechStart rate limit window from the drop.
+        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.45)), .speechStart)
     }
 
     func testMultipleContinuousCycles() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
         XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
 
@@ -67,23 +64,25 @@ final class TestAudioActivityStateMachine: XCTestCase {
     }
 
     func testRateLimitHoldsValueDuringRapidChanges() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
 
         // Start speaking.
         XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
 
-        // Rapid VAD flicker within 300ms — value stays speechStart.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.05)), .speechStart)
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.10)), .speechStart)
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.15)), .speechStart)
+        // Drop is immediate, then re-start is rate-limited.
+        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.05)), .speechEnd)
+        // Back to true but rate-limited (last change was at 0.05).
+        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.10)), .speechEnd)
+        // Still rate-limited.
+        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.15)), .speechEnd)
 
-        // After 300ms with voice off, change goes through.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.35)), .speechEnd)
+        // After 300ms from last change, speechStart goes through.
+        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.4)), .speechStart)
     }
 
     func testEveryObjectGetsAValue() {
-        let sm = AudioActivityStateMachine(minChangeInterval: 0.3)
+        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
         let start = Date.now
 
         // Every call returns a value — no nils, no "none".
@@ -94,8 +93,8 @@ final class TestAudioActivityStateMachine: XCTestCase {
 
         XCTAssertEqual(v1, .speechEnd)
         XCTAssertEqual(v2, .speechStart)
-        XCTAssertEqual(v3, .speechStart) // Not yet 300ms since change to start.
-        XCTAssertEqual(v4, .speechEnd)
+        XCTAssertEqual(v3, .speechStart) // Not yet 300ms since change to speechStart.
+        XCTAssertEqual(v4, .speechEnd)   // Immediate drop.
     }
 
     // MARK: - Header Round-Trip Tests

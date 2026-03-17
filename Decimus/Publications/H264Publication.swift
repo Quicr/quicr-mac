@@ -218,9 +218,10 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         }
 
         // VAD header.
-        if let last = publication.lastVoiceActivityState.get() {
+        let sentActivityValue = publication.lastVoiceActivityState.get()
+        if let sentActivityValue {
             do {
-                try extensions.setHeader(.audioActivityIndicator(last.rawValue))
+                try extensions.setHeader(.audioActivityIndicator(sentActivityValue.rawValue))
             } catch {
                 publication.logger.error("Failed to set VAD header: \(error.localizedDescription)")
             }
@@ -299,6 +300,11 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                                     timestamp: presentationDate.timeIntervalSince1970,
                                                     age: sent?.timeIntervalSince(presentationDate) ?? nil,
                                                     metricsTimestamp: sent)
+        }
+        if publication.granularMetrics, let sent, let sentActivityValue {
+            Task(priority: .utility) {
+                await measurement.measurement.audioActivity(sentActivityValue.rawValue, timestamp: sent)
+            }
         }
     }
 
@@ -518,7 +524,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
-        let activityValue: UInt8? = self.granularMetrics ? self.videoActivityValue.rawValue : nil
         Task(priority: .utility) {
             await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
             if let date = date {
@@ -527,9 +532,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 await measurement.measurement.age(age: age,
                                                   presentationTimestamp: timestamp.timeIntervalSince1970,
                                                   metricsTimestamp: date)
-            }
-            if let activityValue, let date {
-                await measurement.measurement.audioActivity(activityValue, timestamp: date)
             }
         }
     }

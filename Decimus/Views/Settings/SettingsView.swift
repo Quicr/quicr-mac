@@ -70,9 +70,13 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    static let demoActivityMinSendIntervalKey = "demoActivityMinSendInterval"
-    @AppStorage(Self.demoActivityMinSendIntervalKey)
-    private var demoActivityMinSendInterval: TimeInterval = 0.3
+    static let demoSpeechStartIntervalKey = "demoSpeechStartInterval"
+    @AppStorage(Self.demoSpeechStartIntervalKey)
+    private var demoSpeechStartInterval: TimeInterval = 0.3
+
+    static let demoContinuousSpeechIntervalKey = "demoContinuousSpeechInterval"
+    @AppStorage(Self.demoContinuousSpeechIntervalKey)
+    private var demoContinuousSpeechInterval: TimeInterval = 0.3
 
     static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
     @AppStorage(Self.demoVadRollSubgroupKey)
@@ -117,7 +121,8 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoActivityMinSendIntervalKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoSpeechStartIntervalKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoContinuousSpeechIntervalKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
                 }
             }
@@ -265,8 +270,14 @@ struct SettingsView: View {
                             .keyboardType(.decimalPad)
                         #endif
                     }
-                    LabeledContent("Activity Min Send Interval (s)") {
-                        TextField("Activity Min Send Interval (s)", value: self.$demoActivityMinSendInterval, format: .number)
+                    LabeledContent("Speech Start Interval (s)") {
+                        TextField("Speech Start Interval (s)", value: self.$demoSpeechStartInterval, format: .number)
+                            #if !os(macOS)
+                            .keyboardType(.decimalPad)
+                        #endif
+                    }
+                    LabeledContent("Continuous Speech Interval (s)") {
+                        TextField("Continuous Speech Interval (s)", value: self.$demoContinuousSpeechInterval, format: .number)
                             #if !os(macOS)
                             .keyboardType(.decimalPad)
                         #endif
