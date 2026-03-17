@@ -60,6 +60,16 @@
     handlerPtr->RequestNewGroup();
 }
 
+-(bool) isNewGroupRequestSupported {
+    assert(handlerPtr);
+    return handlerPtr->IsNewGroupRequestSupported();
+}
+
+-(void) supportNewGroupRequest:(bool) isSupported {
+    assert(handlerPtr);
+    handlerPtr->SupportNewGroupRequest(isSupported);
+}
+
 -(void) setCallbacks: (id<QSubscribeTrackHandlerCallbacks>) callbacks
 {
     assert(handlerPtr);

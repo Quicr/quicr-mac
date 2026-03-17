@@ -67,6 +67,7 @@
 		9B2807252F6425FF00A8CE36 /* SwitchContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2807242F6425FF00A8CE36 /* SwitchContext.swift */; };
 		9B2807272F64269F00A8CE36 /* SwitchLatencyMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2807262F64269F00A8CE36 /* SwitchLatencyMeasurement.swift */; };
 		9B2807292F64269F00A8CE36 /* ActivityTransitionMeasurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2807282F64269F00A8CE36 /* ActivityTransitionMeasurement.swift */; };
+		9B28072B2F67EB2F00A8CE36 /* Location.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B28072A2F67EB2E00A8CE36 /* Location.swift */; };
 		9B2B281A2D37CDBA00A80593 /* Fetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B28192D37CDB900A80593 /* Fetch.swift */; };
 		9B2B281E2D37D46500A80593 /* CallbackFetch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */; };
 		9B308B992CAAEE7400BF2361 /* LabeledToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */; };
@@ -304,6 +305,7 @@
 		9B2807242F6425FF00A8CE36 /* SwitchContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchContext.swift; sourceTree = "<group>"; };
 		9B2807262F64269F00A8CE36 /* SwitchLatencyMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchLatencyMeasurement.swift; sourceTree = "<group>"; };
 		9B2807282F64269F00A8CE36 /* ActivityTransitionMeasurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityTransitionMeasurement.swift; sourceTree = "<group>"; };
+		9B28072A2F67EB2E00A8CE36 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
 		9B2B28192D37CDB900A80593 /* Fetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fetch.swift; sourceTree = "<group>"; };
 		9B2B281D2D37D45E00A80593 /* CallbackFetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackFetch.swift; sourceTree = "<group>"; };
 		9B308B982CAAEE6F00BF2361 /* LabeledToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LabeledToggle.swift; sourceTree = "<group>"; };
@@ -798,6 +800,7 @@
 		9BC5C7F62F1011450000B569 /* MoQImplementations */ = {
 			isa = PBXGroup;
 			children = (
+				9B28072A2F67EB2E00A8CE36 /* Location.swift */,
 				9BC5C7F32F1011450000B569 /* MoQSink.swift */,
 				9BC5C7F52F1011450000B569 /* QPublishTrackHandlerSink.swift */,
 				9B9A7EAE2F475ADD00C201EE /* QSubscribeNamespaceHandler.swift */,
@@ -1125,7 +1128,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1198,6 +1201,7 @@
 				18BF45702B0CD632006E8E24 /* VTDecoder.swift in Sources */,
 				9B131C692B7E476500B29D77 /* DecimusVideoFrame.swift in Sources */,
 				9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */,
+				9B28072B2F67EB2F00A8CE36 /* Location.swift in Sources */,
 				9B15FA862DF2DB2F00756DF7 /* AppHeaderRegistry.swift in Sources */,
 				9B7B26992D36B21700A29CFA /* QFetchTrackHandlerObjC.mm in Sources */,
 				9B2807272F64269F00A8CE36 /* SwitchLatencyMeasurement.swift in Sources */,
@@ -1337,7 +1341,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1362,7 +1366,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1529,7 +1533,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1606,7 +1610,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";

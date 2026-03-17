@@ -51,7 +51,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          mediaInterop: Bool,
          demoEnabled: Bool = false,
          sharedVoiceActivity: SharedVoiceActivityState? = nil,
-         activityMinSendInterval: TimeInterval = 0.3,
+         speechStartInterval: TimeInterval = 0.3,
+         continuousSpeechInterval: TimeInterval = 0.3,
          activityTransitionMeasurement: ActivityTransitionMeasurement? = nil,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
@@ -69,7 +70,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
-        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(minChangeInterval: activityMinSendInterval) : nil
+        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(speechStartInterval: speechStartInterval,
+                                                                                continuousSpeechInterval: continuousSpeechInterval) : nil
         self.sharedVoiceActivity = sharedVoiceActivity
         self.activityTransitionMeasurement = activityTransitionMeasurement
 

@@ -17,12 +17,14 @@ enum AudioActivityValue: UInt8, Comparable {
 /// State machine for voice activity / active speaker.
 ///
 /// Every call to `update` returns a value to include on the object.
-/// The value only changes at most every `minChangeInterval`.
+/// Transitions are rate-limited by per-transition thresholds.
 class AudioActivityStateMachine {
-    private let minChangeInterval: TimeInterval
+    private let speechStartInterval: TimeInterval
+    private let continuousSpeechInterval: TimeInterval
 
-    init(minChangeInterval: TimeInterval) {
-        self.minChangeInterval = minChangeInterval
+    init(speechStartInterval: TimeInterval, continuousSpeechInterval: TimeInterval) {
+        self.speechStartInterval = speechStartInterval
+        self.continuousSpeechInterval = continuousSpeechInterval
     }
 
     private var currentValue: AudioActivityValue = .speechEnd
@@ -41,9 +43,13 @@ class AudioActivityStateMachine {
         }
 
         if desired != self.currentValue {
-            // Rate limit changes.
+            let interval: TimeInterval = switch desired {
+            case .speechStart: self.speechStartInterval
+            case .continuousSpeech: self.continuousSpeechInterval
+            case .speechEnd: 0
+            }
             if let last = self.lastChangeTime,
-               now.timeIntervalSince(last) < self.minChangeInterval {
+               now.timeIntervalSince(last) < interval {
                 return self.currentValue
             }
             self.currentValue = desired

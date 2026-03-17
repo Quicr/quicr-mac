@@ -218,9 +218,10 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         }
 
         // VAD header.
-        if let last = publication.lastVoiceActivityState.get() {
+        let sentActivityValue = publication.lastVoiceActivityState.get()
+        if let sentActivityValue {
             do {
-                try extensions.setHeader(.audioActivityIndicator(last.rawValue))
+                try extensions.setHeader(.audioActivityIndicator(sentActivityValue.rawValue))
             } catch {
                 publication.logger.error("Failed to set VAD header: \(error.localizedDescription)")
             }
@@ -299,6 +300,11 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                                     timestamp: presentationDate.timeIntervalSince1970,
                                                     age: sent?.timeIntervalSince(presentationDate) ?? nil,
                                                     metricsTimestamp: sent)
+        }
+        if publication.granularMetrics, let sent, let sentActivityValue {
+            Task(priority: .utility) {
+                await measurement.measurement.audioActivity(sentActivityValue.rawValue, timestamp: sent)
+            }
         }
     }
 
@@ -482,12 +488,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 return true
             }
 
-            // If we asked for key frame, make one (subscribe update).
+            // If we asked for key frame, make one.
             let (generate, _) = self.generateKeyFrame.compareExchange(expected: true,
                                                                       desired: false,
                                                                       ordering: .acquiringAndReleasing)
             if generate {
-                self.logger.debug("Forcing key frame - subscribe update")
+                self.logger.debug("Forcing key frame - new group request")
                 return true
             }
 

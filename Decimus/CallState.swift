@@ -138,8 +138,11 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    @AppStorage(SettingsView.demoActivityMinSendIntervalKey)
-    private var demoActivityMinSendInterval: TimeInterval = 0.3
+    @AppStorage(SettingsView.demoSpeechStartIntervalKey)
+    private var demoSpeechStartInterval: TimeInterval = 0.3
+
+    @AppStorage(SettingsView.demoContinuousSpeechIntervalKey)
+    private var demoContinuousSpeechInterval: TimeInterval = 0.3
 
     @AppStorage(SettingsView.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
@@ -280,7 +283,8 @@ class CallState: ObservableObject, Equatable {
                                                         overrideNamespace: overrideNamespace,
                                                         useAnnounce: subConfig.useAnnounce,
                                                         demoEnabled: self.demoEnabled,
-                                                        activityMinSendInterval: self.demoActivityMinSendInterval,
+                                                        speechStartInterval: self.demoSpeechStartInterval,
+                                                        continuousSpeechInterval: self.demoContinuousSpeechInterval,
                                                         vadRollSubgroup: self.demoVadRollSubgroup,
                                                         activityTransitionMeasurement: self.activityTransitionMeasurement?.measurement)
         } else {
