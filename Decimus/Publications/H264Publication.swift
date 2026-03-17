@@ -524,6 +524,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
+        let activityValue: UInt8? = self.granularMetrics ? self.videoActivityValue.rawValue : nil
         Task(priority: .utility) {
             await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
             if let date = date {
@@ -532,6 +533,9 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 await measurement.measurement.age(age: age,
                                                   presentationTimestamp: timestamp.timeIntervalSince1970,
                                                   metricsTimestamp: date)
+            }
+            if let activityValue, let date {
+                await measurement.measurement.audioActivity(activityValue, timestamp: date)
             }
         }
     }
