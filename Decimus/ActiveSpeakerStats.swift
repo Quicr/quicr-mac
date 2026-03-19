@@ -66,26 +66,26 @@ actor ActiveSpeakerStats {
     private var participants: [Identifier: Record] = [:]
     private let measurement: MeasurementRegistration<ActiveSpeakerStatsMeasurement>?
     private var currentState: [ParticipantId: CurrentState] = [:]
-    private var reportTask: Task<Void, Never>?
-
     init(_ submitter: MetricsSubmitter?) {
         guard let submitter = submitter else {
             self.measurement = nil
             return
         }
         self.measurement = .init(measurement: .init(), submitter: submitter)
-        self.reportTask = Task(priority: .utility) { [weak self] in
+        Task(priority: .utility) { [weak self] in
             while !Task.isCancelled {
-                let now = Date.now
-                if let self = self {
-                    for participant in await self.participants {
-                        await self.measurement?.measurement.record(identifier: participant.key,
-                                                                   timestamp: now,
-                                                                   event: participant.value.currentState)
-                    }
-                }
+                await self?.reportParticipants()
                 try? await Task.sleep(for: .seconds(1))
             }
+        }
+    }
+
+    private func reportParticipants() async {
+        let now = Date.now
+        for participant in self.participants {
+            await self.measurement?.measurement.record(identifier: participant.key,
+                                                       timestamp: now,
+                                                       event: participant.value.currentState)
         }
     }
 

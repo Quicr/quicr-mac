@@ -48,7 +48,6 @@ class JitterBuffer {
         var id: Self { self }
     }
 
-    private static let logger = DecimusLogger(JitterBuffer.self)
     private let baseTargetDepthUs: Atomic<UInt64>
     private let adjustmentTargetDepthUs: Atomic<UInt64>
     private var buffer: CMBufferQueue

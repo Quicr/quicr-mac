@@ -6,7 +6,7 @@ import VideoToolbox
 /// Provides hardware accelerated decoding.
 class VTDecoder {
     typealias DecodedFrameCallback = (CMSampleBuffer) -> Void
-    private static let logger = DecimusLogger(VTDecoder.self)
+    private let logger = DecimusLogger(VTDecoder.self)
 
     // Members.
     private var currentFormat: CMFormatDescription?
@@ -25,7 +25,7 @@ class VTDecoder {
         guard let session = self.session else { return }
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
-            Self.logger.warning("VTDecoder failed to flush frames: \(flush)", alert: true)
+            self.logger.warning("VTDecoder failed to flush frames: \(flush)", alert: true)
         }
         VTDecompressionSessionInvalidate(session)
     }
@@ -54,7 +54,7 @@ class VTDecoder {
         switch decodeError {
         case kVTFormatDescriptionChangeNotSupportedErr:
             // We need to recreate the decoder because of a format change.
-            Self.logger.info("Recreating due to format change")
+            self.logger.info("Recreating due to format change")
             session = try makeDecoder(format: format)
             try write(sample)
         case .zero:
@@ -107,10 +107,10 @@ class VTDecoder {
                        presentation: CMTime,
                        duration: CMTime) {
         // Check status code.
-        guard status == .zero else { Self.logger.error("Bad decode: \(status)"); return }
+        guard status == .zero else { self.logger.error("Bad decode: \(status)"); return }
 
         // Fire callback with the decoded image.
-        guard let image = image else { Self.logger.error("Missing image"); return }
+        guard let image = image else { self.logger.error("Missing image"); return }
         do {
             let created: CMVideoFormatDescription = try .init(imageBuffer: image)
             let sample: CMSampleBuffer = try .init(imageBuffer: image,
@@ -120,7 +120,7 @@ class VTDecoder {
                                                                        decodeTimeStamp: .invalid))
             callback(sample)
         } catch {
-            Self.logger.error("Couldn't create CMSampleBuffer: \(error)")
+            self.logger.error("Couldn't create CMSampleBuffer: \(error)")
         }
     }
 }

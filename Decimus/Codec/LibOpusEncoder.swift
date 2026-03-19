@@ -21,7 +21,7 @@ enum OpusWindowSize: TimeInterval, Codable, CaseIterable, Identifiable, CustomSt
 }
 
 class LibOpusEncoder {
-    private static let logger = DecimusLogger(LibOpusEncoder.self)
+    private let logger = DecimusLogger(LibOpusEncoder.self)
 
     private let encoder: Opus.Encoder
     private let encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
