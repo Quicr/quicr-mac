@@ -18,12 +18,9 @@ extension DecimusVideoFrame: @retroactive Equatable {
 }
 
 // swiftlint:disable force_cast
-private func getHandler(sort: Bool) -> CMBufferQueue.Handlers {
+private func getHandler() -> CMBufferQueue.Handlers {
     .init { builder in
         builder.compare {
-            if !sort {
-                return .compareLessThan
-            }
             let first = $0 as! DecimusVideoFrameJitterItem
             let second = $1 as! DecimusVideoFrameJitterItem
             let seq1 = first.sequenceNumber
@@ -79,64 +76,37 @@ private func exampleSample(groupId: UInt64,
 }
 
 final class TestVideoJitterBuffer: XCTestCase {
-
-    /// Nothing should be returned until the min depth has been exceeded.
-    func doTestPlayout() throws {
-        try testPlayout(sort: true)
-        try testPlayout(sort: false)
-    }
-
-    func testPlayout(sort: Bool) throws {
+    func testPlayout() throws {
         let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
-                                      minDepth: 1/30 * 2.5,
+                                      minDepth: 0,
                                       capacity: 4,
-                                      handlers: getHandler(sort: sort))
+                                      handlers: getHandler())
 
-        // Write 1, no play.
-        let frame1 = try exampleSample(groupId: 0,
-                                       objectId: 0,
-                                       sequenceNumber: 0,
-                                       fps: 30)
-        try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
-        try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
-        let read: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertNil(read)
+        let frame1 = try exampleSample(groupId: 0, objectId: 0, sequenceNumber: 0, fps: 30)
+        let frame2 = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 1, fps: 30)
+        let frame3 = try exampleSample(groupId: 0, objectId: 2, sequenceNumber: 2, fps: 30)
+        let frame4 = try exampleSample(groupId: 0, objectId: 3, sequenceNumber: 3, fps: 30)
 
-        // Write 2, no play.
-        let frame2 = try exampleSample(groupId: 0,
-                                       objectId: 1,
-                                       sequenceNumber: 1,
-                                       fps: 30)
+        // Write all frames.
+        try buffer.write(item: DecimusVideoFrameJitterItem(frame1), from: Date.now)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame2), from: Date.now)
-        let read2: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertNil(read2)
-
-        // Write 3, play, get 1.
-        let frame3 = try exampleSample(groupId: 0,
-                                       objectId: 2,
-                                       sequenceNumber: 2,
-                                       fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame3), from: Date.now)
-        let read3: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertEqual(frame1, read3?.frame)
-
-        // Write 4, get 2.
-        let frame4 = try exampleSample(groupId: 0,
-                                       objectId: 3,
-                                       sequenceNumber: 3,
-                                       fps: 30)
         try buffer.write(item: DecimusVideoFrameJitterItem(frame4), from: Date.now)
-        let read4: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertEqual(frame2, read4?.frame)
 
-        // Get 3, 4 and done.
+        // Read back in order.
+        let read1: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
+        XCTAssertEqual(frame1, read1?.frame)
+        let read2: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
+        XCTAssertEqual(frame2, read2?.frame)
+        let read3: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
+        XCTAssertEqual(frame3, read3?.frame)
+        let read4: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
+        XCTAssertEqual(frame4, read4?.frame)
+
+        // Buffer empty.
         let read5: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertEqual(frame3, read5?.frame)
-        let read6: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertEqual(frame4, read6?.frame)
-        let read7: DecimusVideoFrameJitterItem? = buffer.read(from: Date.now)
-        XCTAssertNil(read7)
+        XCTAssertNil(read5)
     }
 
     // Out of orders should go in order.
@@ -145,7 +115,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: true))
+                                      handlers: getHandler())
 
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
@@ -170,18 +140,12 @@ final class TestVideoJitterBuffer: XCTestCase {
         XCTAssertEqual(frame2, read2?.frame)
     }
 
-    // Out of orders should not be allowed past a read.
     func testOlderFrame() throws {
-        try testOlderFrame(true)
-        try testOlderFrame(false)
-    }
-
-    func testOlderFrame(_ sort: Bool) throws {
         let buffer = try JitterBuffer(identifier: "",
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: sort))
+                                      handlers: getHandler())
 
         // Write newer.
         let frame2 = try exampleSample(groupId: 0,
@@ -216,7 +180,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
-                                      handlers: getHandler(sort: false))
+                                      handlers: getHandler())
 
         // No calculation possible with no frame available.
         waitTime = buffer.calculateWaitTime(from: startTime,
@@ -233,7 +197,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 1,
-                                      handlers: getHandler(sort: false))
+                                      handlers: getHandler())
 
         // At first write, and otherwise on time, we should wait the min depth.
         let presentationTimestamp = startTime.hostDate.timeIntervalSince1970
@@ -272,7 +236,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: minDepth,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false))
+                                      handlers: getHandler())
         let presentationTimestamp = startTime.hostDate.timeIntervalSince1970
         let presentation = CMTime(seconds: presentationTimestamp,
                                   preferredTimescale: CMTimeScale(microsecondsPerSecond))
@@ -341,7 +305,7 @@ final class TestVideoJitterBuffer: XCTestCase {
         // Create jitter buffer.
         let capacity = 1000
         let targetDepth: TimeInterval = 0.2
-        let buffer = try JitterBuffer(identifier: "", metricsSubmitter: nil, minDepth: targetDepth, capacity: capacity, handlers: getHandler(sort: false))
+        let buffer = try JitterBuffer(identifier: "", metricsSubmitter: nil, minDepth: targetDepth, capacity: capacity, handlers: getHandler())
 
         // Frame characteristics.
         let fps = 30
@@ -419,7 +383,7 @@ final class TestVideoJitterBuffer: XCTestCase {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false))
+                                      handlers: getHandler())
 
         // 0 when empty.
         XCTAssertEqual(buffer.getDepth(), 0)
@@ -445,7 +409,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false),
+                                      handlers: getHandler(),
                                       playingFromStart: false)
         let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
         let item = try DecimusVideoFrameJitterItem(sample)
@@ -463,7 +427,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false),
+                                      handlers: getHandler(),
                                       playingFromStart: true)
         let sample = try exampleSample(groupId: 0, objectId: 1, sequenceNumber: 0, fps: 30)
         let item = try DecimusVideoFrameJitterItem(sample)
@@ -481,7 +445,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: startingDepth,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false))
+                                      handlers: getHandler())
 
         // Starting.
         #expect(buffer.getBaseTargetDepth() == startingDepth)
@@ -509,7 +473,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 2,
-                                      handlers: getHandler(sort: false),
+                                      handlers: getHandler(),
                                       playingFromStart: false)
 
         // Write a frame.
@@ -540,7 +504,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 4,
-                                      handlers: getHandler(sort: true))
+                                      handlers: getHandler())
 
         // Write and read a frame with sequence 10.
         let sample10 = try exampleSample(groupId: 0, objectId: 10, sequenceNumber: 10, fps: 30)
@@ -569,7 +533,7 @@ struct JitterBufferTests {
                                       metricsSubmitter: nil,
                                       minDepth: 0,
                                       capacity: 20,
-                                      handlers: getHandler(sort: true),
+                                      handlers: getHandler(),
                                       playingFromStart: false)
 
         // Simulate normal playback: write and read some frames (seq 100-105).
