@@ -207,15 +207,11 @@ struct SubscriptionSettingsView: View {
         Section("Reliability") {
             HStack {
                 LabeledToggle("Audio Publication",
-                              isOn: $subscriptionConfig.value.mediaReliability.audio.publication)
-                LabeledToggle("Audio Subscription",
-                              isOn: $subscriptionConfig.value.mediaReliability.audio.subscription)
+                              isOn: $subscriptionConfig.value.mediaReliability.audio)
             }
             HStack {
                 LabeledToggle("Video Publication",
-                              isOn: $subscriptionConfig.value.mediaReliability.video.publication)
-                LabeledToggle("Video Subscription",
-                              isOn: $subscriptionConfig.value.mediaReliability.video.subscription)
+                              isOn: $subscriptionConfig.value.mediaReliability.video)
             }
         }
         Section("Security") {

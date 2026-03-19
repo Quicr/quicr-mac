@@ -24,33 +24,16 @@ enum VideoBehaviour: CaseIterable, Identifiable, Codable {
     var id: Self { self }
 }
 
-/// Describes target reliable or unreliable transport mode for publications and subscriptions.
-struct Reliability: Codable {
-    /// Publication reliablility state.
-    var publication: Bool
-    /// Subscription reliability state.
-    var subscription: Bool
-
-    init(publication: Bool, subscription: Bool) {
-        self.publication = publication
-        self.subscription = subscription
-    }
-
-    init(both: Bool) {
-        self.init(publication: both, subscription: both)
-    }
-}
-
 /// Reliability structure breakout by media.
 struct MediaReliability: Codable {
     /// Target reliability state for audio.
-    var audio: Reliability
+    var audio: Bool
     /// Target reliability state for video.
-    var video: Reliability
+    var video: Bool
 
     init() {
-        audio = .init(both: false)
-        video = .init(both: true)
+        self.audio = false
+        self.video = true
     }
 }
 
@@ -285,7 +268,6 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             participants: self.videoParticipants,
                                             metricsSubmitter: self.metricsSubmitter,
                                             videoBehaviour: self.subscriptionConfig.videoBehaviour,
-                                            reliable: self.subscriptionConfig.mediaReliability.video.subscription,
                                             granularMetrics: self.granularMetrics,
                                             jitterBufferConfig: self.subscriptionConfig.videoJitterBuffer,
                                             simulreceive: self.subscriptionConfig.simulreceive,
@@ -376,7 +358,6 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          participants: self.videoParticipants,
                                          metricsSubmitter: self.metricsSubmitter,
                                          videoBehaviour: subConfig.videoBehaviour,
-                                         reliable: subConfig.mediaReliability.video.subscription,
                                          granularMetrics: self.granularMetrics,
                                          jitterBufferConfig: subConfig.videoJitterBuffer,
                                          simulreceive: subConfig.simulreceive,
@@ -417,7 +398,6 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
                                         jitterMax: jitterMax,
                                         opusWindowSize: self.subscriptionConfig.opusWindowSize,
-                                        reliable: self.subscriptionConfig.mediaReliability.audio.subscription,
                                         granularMetrics: self.granularMetrics,
                                         endpointId: endpointId,
                                         relayId: relayId,

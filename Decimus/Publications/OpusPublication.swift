@@ -15,7 +15,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let encoder: LibOpusEncoder
     private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
     private let opusWindowSize: OpusWindowSize
-    private let reliable: Bool
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
     private var encodeTask: Task<(), Never>?
@@ -39,7 +38,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          participantId: ParticipantId,
          metricsSubmitter: MetricsSubmitter?,
          opusWindowSize: OpusWindowSize,
-         reliable: Bool,
          engine: DecimusAudioEngine,
          granularMetrics: Bool,
          config: AudioCodecConfig,
@@ -65,7 +63,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             self.measurement = nil
         }
         self.opusWindowSize = opusWindowSize
-        self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.incrementing = incrementing
         self.sframeContext = sframeContext

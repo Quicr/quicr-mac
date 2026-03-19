@@ -15,7 +15,6 @@ class OpusSubscription: Subscription {
     private let profile: Profile
     private let engine: DecimusAudioEngine
     private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
-    private let reliable: Bool
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
     private let handler: Mutex<AudioHandler?>
@@ -41,7 +40,6 @@ class OpusSubscription: Subscription {
          jitterDepth: TimeInterval,
          jitterMax: TimeInterval,
          opusWindowSize: OpusWindowSize,
-         reliable: Bool,
          granularMetrics: Bool,
          endpointId: String,
          relayId: String,
@@ -67,7 +65,6 @@ class OpusSubscription: Subscription {
         self.jitterDepth = jitterDepth
         self.jitterMax = jitterMax
         self.opusWindowSize = opusWindowSize
-        self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.useNewJitterBuffer = useNewJitterBuffer
         self.cleanupTimer = cleanupTime

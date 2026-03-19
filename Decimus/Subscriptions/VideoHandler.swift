@@ -53,7 +53,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private var lastObject: UInt64?
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
-    private let reliable: Bool
     private let granularMetrics: Bool
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
@@ -124,7 +123,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     ///     - participants: Video participants dependency for rendering.
     ///     - metricsSubmitter: If present, a submitter to record metrics through.
     ///     - videoBehaviour: Behaviour mode used for making decisions about valid group/object values.
-    ///     - reliable: True if this stream should be considered to be reliable (in order, no loss).
     ///     - granularMetrics: True to record per frame / operation metrics at a performance cost.
     ///     - jitterBufferConfig: Requested configuration for jitter handling.
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
@@ -135,7 +133,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
-         reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
@@ -161,7 +158,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             self.measurement = nil
         }
         self.videoBehaviour = videoBehaviour
-        self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
@@ -509,7 +505,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
            self.jitterBufferConfig.mode != .layer,
            self.jitterBufferConfig.mode != .none {
             // Create the video jitter buffer.
-            try createJitterBuffer(frame: frame, reliable: self.reliable)
+            try self.createJitterBuffer(frame: frame)
             assert(self.dequeueTask == nil)
             createDequeueTask()
         }
@@ -653,7 +649,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         jitterBuffer.setTargetAdjustment(adjustment)
     }
 
-    private func createJitterBuffer(frame: DecimusVideoFrame, reliable: Bool) throws {
+    private func createJitterBuffer(frame: DecimusVideoFrame) throws {
         let remoteFPS: UInt16
         if let fps = frame.fps {
             remoteFPS = UInt16(fps)
