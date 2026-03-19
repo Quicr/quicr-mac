@@ -38,7 +38,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     let queue: DispatchQueue
 
     private var encoder: VideoEncoder
-    private let reliable: Bool
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
@@ -311,7 +310,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
-                  reliable: Bool,
                   granularMetrics: Bool,
                   encoder: VideoEncoder,
                   device: AVCaptureDevice,
@@ -344,7 +342,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.reliable = reliable
         self.encoder = encoder
         self.device = device
         self.stagger = stagger

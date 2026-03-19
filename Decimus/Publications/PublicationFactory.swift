@@ -164,7 +164,7 @@ class PublicationFactoryImpl: PublicationFactory {
             let defaultTTL = try profile.getTTL(index: 0)
             let sink = QPublishTrackHandlerSink(
                 fullTrackName: try profile.getFullTrackName(),
-                trackMode: self.reliability.video.publication ? .stream : .datagram,
+                trackMode: self.reliability.video ? .stream : .datagram,
                 defaultPriority: try profile.getPriority(index: 0),
                 defaultTTL: UInt32(try profile.getTTL(index: 0))
             )
@@ -172,7 +172,6 @@ class PublicationFactoryImpl: PublicationFactory {
             let publication = try H264Publication(profile: profile,
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
-                                                  reliable: reliability.video.publication,
                                                   granularMetrics: self.granularMetrics,
                                                   encoder: encoder,
                                                   device: device,
@@ -196,14 +195,13 @@ class PublicationFactoryImpl: PublicationFactory {
                 throw CodecError.invalidCodecConfig(type(of: config))
             }
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                                trackMode: reliability.audio.publication ? .stream : .datagram,
+                                                trackMode: self.reliability.audio ? .stream : .datagram,
                                                 defaultPriority: try profile.getPriority(index: 0),
                                                 defaultTTL: UInt32(try profile.getTTL(index: 0)))
             return try OpusPublication(profile: profile,
                                        participantId: self.participantId,
                                        metricsSubmitter: metricsSubmitter,
                                        opusWindowSize: opusWindowSize,
-                                       reliable: reliability.audio.publication,
                                        engine: engine,
                                        granularMetrics: self.granularMetrics,
                                        config: config,

@@ -23,7 +23,6 @@ struct TestActiveSpeaker {
                              participants: self.participants!,
                              metricsSubmitter: nil,
                              videoBehaviour: .freeze,
-                             reliable: true,
                              granularMetrics: true,
                              jitterBufferConfig: .init(),
                              simulreceive: .enable,

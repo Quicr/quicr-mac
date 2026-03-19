@@ -35,7 +35,6 @@ class FakeH264Publication: H264Publication {
     required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: (any MetricsSubmitter)?,
-                  reliable: Bool,
                   granularMetrics: Bool,
                   encoder: any VideoEncoder,
                   device: AVCaptureDevice,
@@ -50,7 +49,6 @@ class FakeH264Publication: H264Publication {
         try super.init(profile: profile,
                        config: config,
                        metricsSubmitter: metricsSubmitter,
-                       reliable: reliable,
                        granularMetrics: granularMetrics,
                        encoder: encoder,
                        device: device,
@@ -67,7 +65,6 @@ class FakeH264Publication: H264Publication {
     required init(profile: Profile,
                   config: VideoCodecConfig,
                   metricsSubmitter: (any MetricsSubmitter)?,
-                  reliable: Bool,
                   granularMetrics: Bool,
                   encoder: any VideoEncoder,
                   device: AVCaptureDevice,
@@ -83,7 +80,7 @@ class FakeH264Publication: H264Publication {
                   vadRiseThreshold: TimeInterval,
                   sink: MoQSink) throws {
         // swiftlint:disable:next line_length
-        fatalError("init(profile:config:metricsSubmitter:reliable:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:sharedVoiceActivity:vadRollSubgroup:vadRiseThreshold:sink:) has not been implemented")
+        fatalError("init(profile:config:metricsSubmitter:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:sharedVoiceActivity:vadRollSubgroup:vadRiseThreshold:sink:) has not been implemented")
     }
 
     override func publish(groupId: UInt64,
@@ -144,7 +141,6 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
     return try .init(profile: profile,
                      config: config,
                      metricsSubmitter: nil,
-                     reliable: true,
                      granularMetrics: false,
                      encoder: encoder,
                      device: device,
@@ -224,7 +220,6 @@ final class TestVideoPublication: XCTestCase {
             let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,
-                                                      reliable: true,
                                                       granularMetrics: false,
                                                       encoder: encoder,
                                                       device: device,
@@ -294,7 +289,6 @@ final class TestVideoPublication: XCTestCase {
             let publication = try FakeH264Publication(profile: profile,
                                                       config: config,
                                                       metricsSubmitter: nil,
-                                                      reliable: true,
                                                       granularMetrics: false,
                                                       encoder: encoder,
                                                       device: device,

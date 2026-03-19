@@ -24,7 +24,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private let participants: VideoParticipants
     private let submitter: MetricsSubmitter?
     private let videoBehaviour: VideoBehaviour
-    private let reliable: Bool
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
     private var renderTask: Task<(), Never>?
@@ -73,7 +72,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
-         reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
@@ -102,7 +100,6 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             self.measurement = nil
         }
         self.videoBehaviour = videoBehaviour
-        self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive

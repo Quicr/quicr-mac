@@ -30,7 +30,6 @@ class VideoSubscription: Subscription {
     private let participants: VideoParticipants
     private let metricsSubmitter: MetricsSubmitter?
     private let videoBehaviour: VideoBehaviour
-    private let reliable: Bool
     private let granularMetrics: Bool
     private let jitterBufferConfig: JitterBuffer.Config
     private let simulreceive: SimulreceiveMode
@@ -170,7 +169,6 @@ class VideoSubscription: Subscription {
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
          videoBehaviour: VideoBehaviour,
-         reliable: Bool,
          granularMetrics: Bool,
          jitterBufferConfig: JitterBuffer.Config,
          simulreceive: SimulreceiveMode,
@@ -195,7 +193,6 @@ class VideoSubscription: Subscription {
         self.participants = participants
         self.metricsSubmitter = metricsSubmitter
         self.videoBehaviour = videoBehaviour
-        self.reliable = reliable
         self.granularMetrics = granularMetrics
         self.jitterBufferConfig = jitterBufferConfig
         self.simulreceive = simulreceive
@@ -221,7 +218,6 @@ class VideoSubscription: Subscription {
                                        participants: participants,
                                        metricsSubmitter: metricsSubmitter,
                                        videoBehaviour: videoBehaviour,
-                                       reliable: reliable,
                                        granularMetrics: granularMetrics,
                                        jitterBufferConfig: jitterBufferConfig,
                                        simulreceive: simulreceive,
@@ -590,7 +586,6 @@ class VideoSubscription: Subscription {
                                               participants: self.participants,
                                               metricsSubmitter: self.metricsSubmitter,
                                               videoBehaviour: self.videoBehaviour,
-                                              reliable: self.reliable,
                                               granularMetrics: self.granularMetrics,
                                               jitterBufferConfig: self.jitterBufferConfig,
                                               simulreceive: self.simulreceive,

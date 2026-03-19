@@ -52,7 +52,6 @@ struct TestVideoSubscription {
                                      participants: .init(),
                                      metricsSubmitter: nil,
                                      videoBehaviour: .freeze,
-                                     reliable: true,
                                      granularMetrics: true,
                                      jitterBufferConfig: .init(),
                                      simulreceive: .none,
