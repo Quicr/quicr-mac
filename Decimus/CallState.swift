@@ -53,7 +53,7 @@ class CallState: ObservableObject, Equatable {
         false
     }
 
-    private static let logger = DecimusLogger(CallState.self)
+    private let logger = DecimusLogger(CallState.self)
 
     let engine: DecimusAudioEngine?
     private(set) var controller: MoqCallController?
@@ -168,7 +168,7 @@ class CallState: ObservableObject, Equatable {
         do {
             self.engine = try .init()
         } catch {
-            Self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
+            self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
             self.engine = nil
         }
 
@@ -185,7 +185,7 @@ class CallState: ObservableObject, Equatable {
             self.captureManager = try .init(metricsSubmitter: submitter,
                                             granularMetrics: influxConfig.value.granular)
         } catch {
-            Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
+            self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
         }
     }
 
@@ -198,7 +198,7 @@ class CallState: ObservableObject, Equatable {
                 self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif
             } catch {
-                Self.logger.error("Failed to start recording: \(error.localizedDescription)")
+                self.logger.error("Failed to start recording: \(error.localizedDescription)")
             }
         }
 
@@ -209,7 +209,7 @@ class CallState: ObservableObject, Equatable {
             manifest = try await mController.getManifest(confId: self.config.conferenceID,
                                                          email: self.config.email)
         } catch {
-            Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+            self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
             return false
         }
         self.currentManifest = manifest
@@ -237,7 +237,7 @@ class CallState: ObservableObject, Equatable {
                                          currentEpoch: epochId)
                 self.receiveContext = .init(recvContext)
             } catch {
-                Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
+                self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
             }
         }
 
@@ -248,12 +248,12 @@ class CallState: ObservableObject, Equatable {
         if self.mediaInterop {
             let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON, placeholder: true)
             if let namespaceError {
-                Self.logger.error("Bad override namespace: \(namespaceError)")
+                self.logger.error("Bad override namespace: \(namespaceError)")
                 return false
             }
             guard let override else {
                 assert(false)
-                Self.logger.error("Bad namespace override")
+                self.logger.error("Bad namespace override")
                 return false
             }
             overrideNamespace = override
@@ -326,13 +326,13 @@ class CallState: ObservableObject, Equatable {
         } catch let error as MoqCallControllerError {
             switch error {
             case .connectionFailure(let status):
-                Self.logger.error("Failed to connect relay: \(status)")
+                self.logger.error("Failed to connect relay: \(status)")
             default:
-                Self.logger.error("Unhandled MoqCallControllerError")
+                self.logger.error("Unhandled MoqCallControllerError")
             }
             return false
         } catch {
-            Self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
+            self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
             return false
         }
 
@@ -359,14 +359,14 @@ class CallState: ObservableObject, Equatable {
                     namespacePrefix: prefix,
                     trackFilter: trackFilter,
                     statusChangedCallback: { status, errorCode, namespacePrefix in
-                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
+                        self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     })
                 do {
                     try controller.subscribeNamespace(handler)
                     self.demoNamespaceHandlers.append(handler)
-                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix)")
+                    self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix)")
                 } catch {
-                    Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
+                    self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
                 }
             }
         }
@@ -385,7 +385,7 @@ class CallState: ObservableObject, Equatable {
                                                        factory: publicationFactory,
                                                        codecFactory: CodecFactoryImpl())
                         } catch {
-                            Self.logger.warning("[demo] [\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
+                            self.logger.warning("[demo] [\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -402,7 +402,7 @@ class CallState: ObservableObject, Equatable {
                                 self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
                             }
                         } catch {
-                            Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
+                            self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -425,7 +425,7 @@ class CallState: ObservableObject, Equatable {
                                 self.textSubscriptions?.addSubscription(sub)
                             }
                         } catch {
-                            Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
+                            self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                         }
                     }
 
@@ -451,7 +451,7 @@ class CallState: ObservableObject, Equatable {
                                                            activeSpeakerStats: self.activeSpeakerStats,
                                                            pauseResume: self.subscriptionConfig.value.pauseResume)
                         } catch {
-                            Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                            self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -466,16 +466,16 @@ class CallState: ObservableObject, Equatable {
                 self.subscriptionNamespaceAcceptParsed = NamespacePrefix(acceptNamespace)
                 let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
                                                          statusChangedCallback: { status, errorCode, namespacePrefix in
-                                                            Self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                            self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
                                                          })
                 do {
                     try controller.subscribeNamespace(handler)
-                    Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
+                    self.logger.info("Subscribed to namespace: \(namespaceTuple)")
                 } catch {
-                    Self.logger.error("Failed to subscribe to namespace: \(namespaceTuple): \(error.localizedDescription)")
+                    self.logger.error("Failed to subscribe to namespace: \(namespaceTuple): \(error.localizedDescription)")
                 }
             } else {
-                Self.logger.error("Bad subscribe namespace tuple JSON in settings")
+                self.logger.error("Bad subscribe namespace tuple JSON in settings")
             }
         }
 
@@ -490,7 +490,7 @@ class CallState: ObservableObject, Equatable {
                     self.audioCapture = true
                 }
             } catch {
-                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
+                self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
         }
 
@@ -501,7 +501,7 @@ class CallState: ObservableObject, Equatable {
                 try captureManager.startCapturing()
                 self.videoCapture = true
             } catch {
-                Self.logger.warning("Camera failure", alert: true)
+                self.logger.warning("Camera failure", alert: true)
             }
         }
         return true
@@ -511,7 +511,7 @@ class CallState: ObservableObject, Equatable {
         guard json.count > 0 else { return }
         guard let data = json.data(using: .ascii),
               let speakers = try? JSONDecoder().decode([ParticipantId].self, from: data) else {
-            Self.logger.error("Bad speaker JSON: \(json)")
+            self.logger.error("Bad speaker JSON: \(json)")
             return
         }
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
@@ -594,13 +594,13 @@ class CallState: ObservableObject, Equatable {
                 try await recorder.stopCapture()
             }
         } catch {
-            Self.logger.error("Error while stopping media: \(error)")
+            self.logger.error("Error while stopping media: \(error)")
         }
 
         do {
             try controller?.disconnect()
         } catch {
-            Self.logger.error("Error while leaving call: \(error)")
+            self.logger.error("Error while leaving call: \(error)")
         }
 
         self.switchLatencyMeasurement = nil
@@ -614,16 +614,16 @@ class CallState: ObservableObject, Equatable {
             let storage = TokenStorage(tag: InfluxSettingsView.defaultsKey)
             if let fetched = try storage.retrieve() {
                 token = fetched
-                Self.logger.debug("Resolved influx token from keychain")
+                self.logger.debug("Resolved influx token from keychain")
             } else {
                 // Fetch from plist in this case.
                 let defaultValue = try InfluxSettingsView.tokenFromPlist()
                 try storage.store(defaultValue)
                 token = defaultValue
-                Self.logger.debug("Resolved influx token from default")
+                self.logger.debug("Resolved influx token from default")
             }
         } catch {
-            Self.logger.warning("Failed to fetch metrics credentials", alert: true)
+            self.logger.warning("Failed to fetch metrics credentials", alert: true)
             return
         }
 
@@ -723,7 +723,7 @@ class CallState: ObservableObject, Equatable {
                 if track.nameSpace.count >= 4,
                    let remoteClientId = String(data: track.nameSpace[3], encoding: .utf8),
                    remoteClientId == ownClientId {
-                    Self.logger.info("[demo] Rejecting own publish: \(track)")
+                    self.logger.info("[demo] Rejecting own publish: \(track)")
                     return .reject
                 }
             }
@@ -749,7 +749,7 @@ class CallState: ObservableObject, Equatable {
         }
 
         // Otherwise it's regular sub ns, or maybe oob publish.
-        Self.logger.notice("Got non demo sub ns publish, ignoring")
+        self.logger.notice("Got non demo sub ns publish, ignoring")
         return .reject
 
         //        // Collect everything we need.
@@ -764,7 +764,7 @@ class CallState: ObservableObject, Equatable {
         //              let endpointMatch = endpointIdString.firstMatch(of: #/endpoint=(\d+)/#),
         //              let endpointId = Int(endpointMatch.1),
         //              let factory = self.subscriptionFactory else {
-        //            Self.logger.warning("[\(track)] Declining offered publish")
+        //            self.logger.warning("[\(track)] Declining offered publish")
         //            return
         //        }
 
@@ -788,7 +788,7 @@ class CallState: ObservableObject, Equatable {
         //                                                                          profiles: [profile]))
         //
         //        // We need a destination for this media, and we only have the FTN to work it out.
-        //        Self.logger.info("[\(track)] Accepting offered publish: \(profile)")
+        //        self.logger.info("[\(track)] Accepting offered publish: \(profile)")
         //
         //        // Need a set for this if we don't have one already.
         //        let publisherInitiated = MoqCallController.PublisherInitiatedDetails(trackAlias: attributes.trackAlias,
@@ -807,7 +807,7 @@ class CallState: ObservableObject, Equatable {
         //                                              subscribeType: .publisherInitiated(publisherInitiated))
         //            }
         //        } catch {
-        //            Self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
+        //            self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
         //            return
         //        }
         //
@@ -844,7 +844,7 @@ extension CallState {
 
         let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
         guard namespace.count >= 4, namespace.first == "meetings.wbx.com" else {
-            Self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
+            self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
             return nil
         }
         let name = String(data: fullTrackName.name, encoding: .utf8)
@@ -862,7 +862,7 @@ extension CallState {
             qualityProfile = "h264,width=1920,height=1080,fps=30,br=4000"
             profileType = "video"
         default:
-            Self.logger.warning("[demo] Unknown media type in CreateHandler: \(mediaType)")
+            self.logger.warning("[demo] Unknown media type in CreateHandler: \(mediaType)")
             return nil
         }
 
@@ -901,10 +901,10 @@ extension CallState {
                                                   relayId: relayId,
                                                   publisherInitiated: true)
             try set.addHandler(subscription)
-            Self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
+            self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
             return subscription
         } catch {
-            Self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
+            self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
             return nil
         }
     }

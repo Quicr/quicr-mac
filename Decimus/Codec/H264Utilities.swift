@@ -5,7 +5,7 @@ import CoreMedia
 
 /// Utility functions for working with H264 bitstreams.
 class H264Utilities: VideoUtilities {
-    private static let logger = DecimusLogger(H264Utilities.self)
+    private let logger = DecimusLogger(H264Utilities.self)
 
     // Bytes that precede every NALU.
     static let naluStartCode: [UInt8] = [0x00, 0x00, 0x00, 0x01]

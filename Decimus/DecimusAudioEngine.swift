@@ -12,7 +12,7 @@ class DecimusAudioEngine {
                                              channels: 1,
                                              interleaved: false)!
 
-    private static let logger: DecimusLogger = .init(DecimusAudioEngine.self)
+    private let logger: DecimusLogger = .init(DecimusAudioEngine.self)
 
     /// Microphone data in enqueued into this buffer.
     let microphoneBuffer: CircularBuffer?
@@ -30,11 +30,11 @@ class DecimusAudioEngine {
     #if !os(macOS)
     private lazy var reconfigure: (Notification) -> Void = { [weak self] _ in
         guard let self = self else { return }
-        Self.logger.debug("AVAudioEngineConfigurationChange")
+        self.logger.debug("AVAudioEngineConfigurationChange")
         do {
             try self.reconfigureAndRestart()
         } catch {
-            Self.logger.error("Failed to restart audio on config change. If you switched device, try again?")
+            self.logger.error("Failed to restart audio on config change. If you switched device, try again?")
         }
     }
 
@@ -49,7 +49,7 @@ class DecimusAudioEngine {
         switch type {
         case .began:
             // We got interupted.
-            Self.logger.warning("Audio interuption", alert: true)
+            self.logger.warning("Audio interuption", alert: true)
         case .ended:
             // Resume.
             guard let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
@@ -58,20 +58,20 @@ class DecimusAudioEngine {
                 do {
                     try AVAudioSession.sharedInstance().setActive(true)
                     try self.reconfigureAndRestart()
-                    Self.logger.notice("Audio resumed")
+                    self.logger.notice("Audio resumed")
                 } catch {
-                    Self.logger.error("Failed to resume audio session")
+                    self.logger.error("Failed to resume audio session")
                 }
             } else {
-                Self.logger.warning("Audio interuption ended, but didn't ask resume", alert: true)
+                self.logger.warning("Audio interuption ended, but didn't ask resume", alert: true)
             }
         @unknown default:
-            Self.logger.warning("Got unexpected audio interuption value")
+            self.logger.warning("Got unexpected audio interuption value")
         }
     }
 
     private lazy var reset: (Notification) -> Void = { _ in
-        Self.logger.warning("Media services reset. Report this.")
+        self.logger.warning("Media services reset. Report this.")
     }
 
     private lazy var routeChange: (Notification) -> Void = { [weak self] notification in
@@ -81,12 +81,12 @@ class DecimusAudioEngine {
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
             return
         }
-        Self.logger.debug("Route change: \(reason)")
+        self.logger.debug("Route change: \(reason)")
         if reason == .routeConfigurationChange {
             do {
                 try self.reconfigureAndRestart()
             } catch {
-                Self.logger.error("Failed to restart audio: \(error.localizedDescription)")
+                self.logger.error("Failed to restart audio: \(error.localizedDescription)")
             }
         }
     }
@@ -129,12 +129,12 @@ class DecimusAudioEngine {
         #endif
 
         if !self.inputNodePresent {
-            Self.logger.warning("Couldn't find a microphone to use", alert: true)
+            self.logger.warning("Couldn't find a microphone to use", alert: true)
         }
         let outputFormat = engine.outputNode.outputFormat(forBus: 0)
         self.outputNodePresent = outputFormat.sampleRate > 0 && outputFormat.channelCount > 0
         if !self.outputNodePresent {
-            Self.logger.warning("Couldn't find a speaker to use", alert: true)
+            self.logger.warning("Couldn't find a speaker to use", alert: true)
         }
 
         // Enable voice processing.
@@ -145,11 +145,11 @@ class DecimusAudioEngine {
                         do {
                             try engine.outputNode.setVoiceProcessingEnabled(true)
                         } catch {
-                            Self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
+                            self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
                         }
                     }
                 } catch {
-                    Self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
+                    self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
                 }
             }
         }
@@ -181,7 +181,7 @@ class DecimusAudioEngine {
                                                  frames: frames)
                     return .zero
                 } catch {
-                    Self.logger.warning("Couldn't enqueue microphone data: \(error.localizedDescription)")
+                    self.logger.warning("Couldn't enqueue microphone data: \(error.localizedDescription)")
                     return 1
                 }
             }
@@ -260,7 +260,7 @@ class DecimusAudioEngine {
         engine.connect(node, to: engine.mainMixerNode, format: Self.format)
         assert(node.numberOfOutputs == 1)
         assert(node.outputFormat(forBus: 0) == Self.format)
-        Self.logger.info("(\(identifier)) Attached node")
+        self.logger.info("(\(identifier)) Attached node")
         try self.elements.withLock { elements in
             guard elements[identifier] == nil else { throw "Add called for existing entry" }
             elements[identifier] = node
@@ -277,7 +277,7 @@ class DecimusAudioEngine {
             }
             engine.detach(element)
         }
-        Self.logger.info("(\(identifier)) Removed player node")
+        self.logger.info("(\(identifier)) Removed player node")
     }
 
     /// Is the microphone / input device currently muted?
@@ -332,7 +332,7 @@ class DecimusAudioEngine {
             engine.connect(engine.inputNode, to: sink, format: Self.format)
             assert(engine.inputNode.numberOfOutputs == 1)
             let inputOutputFormat = engine.inputNode.outputFormat(forBus: 0)
-            Self.logger.info("Connected microphone: \(inputOutputFormat)")
+            self.logger.info("Connected microphone: \(inputOutputFormat)")
             assert(inputOutputFormat == Self.format)
             assert(sink.numberOfInputs == 1)
             assert(sink.inputFormat(forBus: 0) == Self.format)
@@ -343,7 +343,7 @@ class DecimusAudioEngine {
             engine.connect(engine.mainMixerNode, to: engine.outputNode, format: Self.format)
             assert(engine.mainMixerNode.numberOfOutputs == 1)
             let mixerOutputFormat = engine.mainMixerNode.outputFormat(forBus: 0)
-            Self.logger.info("Connected mixer: \(mixerOutputFormat)")
+            self.logger.info("Connected mixer: \(mixerOutputFormat)")
             assert(mixerOutputFormat == Self.format)
 
             // Sanity check the output format.

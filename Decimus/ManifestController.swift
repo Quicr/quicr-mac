@@ -19,7 +19,7 @@ struct ManifestServerConfig: Codable, Equatable {
 class ManifestController {
     /// The shared ``ManifestController``.
     static let shared = ManifestController()
-    private static let logger = DecimusLogger(ManifestController.self)
+    private let logger = DecimusLogger(ManifestController.self)
 
     private var components: URLComponents = .init()
     private var currentConfig: String = ""

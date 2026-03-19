@@ -22,7 +22,7 @@ class VTEncoder: VideoEncoder {
         case unsupportedCodec(CodecType)
     }
 
-    private static let logger = DecimusLogger(VTEncoder.self)
+    private let logger = DecimusLogger(VTEncoder.self)
 
     var frameRate: Float64?
     private var callback: EncodedCallback?
@@ -76,7 +76,7 @@ class VTEncoder: VideoEncoder {
             throw VTEncoderError.unsupportedCodec(config.codec)
         }
 
-        let spec = try Self.makeEncoderSpecification(codec: codec) as CFDictionary
+        let spec = try self.makeEncoderSpecification(codec: codec) as CFDictionary
         let created = VTCompressionSessionCreate(allocator: nil,
                                                  width: config.width,
                                                  height: config.height,
@@ -203,7 +203,7 @@ class VTEncoder: VideoEncoder {
         let flushError = VTCompressionSessionCompleteFrames(encoder,
                                                             untilPresentationTimeStamp: .init())
         if flushError != .zero {
-            Self.logger.warning("Encoder failed to flush: \(flushError)", alert: true)
+            self.logger.warning("Encoder failed to flush: \(flushError)", alert: true)
         }
 
         VTCompressionSessionInvalidate(encoder)
@@ -247,15 +247,15 @@ class VTEncoder: VideoEncoder {
                  sample: CMSampleBuffer?) {
         // Check the callback data.
         guard status == .zero else {
-            Self.logger.error("Encode failure: \(status)")
+            self.logger.error("Encode failure: \(status)")
             return
         }
         guard !flags.contains(.frameDropped) else {
-            Self.logger.warning("Encoder dropped frame")
+            self.logger.warning("Encoder dropped frame")
             return
         }
         guard let sample = sample else {
-            Self.logger.error("Encoded sample was empty")
+            self.logger.error("Encoded sample was empty")
             return
         }
 
@@ -264,7 +264,7 @@ class VTEncoder: VideoEncoder {
         let bufferSize = sample.dataBuffer!.dataLength
         bufferAllocator.iosDeallocBuffer(nil) // SAH - just resets pointers
         guard let bufferPtr = bufferAllocator.iosAllocBuffer(bufferSize) else {
-            Self.logger.error("Failed to allocate ios buffer")
+            self.logger.error("Failed to allocate ios buffer")
             return
         }
         let rangedBufferPtr = UnsafeMutableRawBufferPointer(start: bufferPtr, count: bufferSize)
@@ -272,7 +272,7 @@ class VTEncoder: VideoEncoder {
             buffer = try .init(buffer: rangedBufferPtr, deallocator: { _, _ in })
             try sample.dataBuffer!.copyDataBytes(to: rangedBufferPtr)
         } catch {
-            Self.logger.error("Failed to copy data buffer: \(error.localizedDescription)")
+            self.logger.error("Failed to copy data buffer: \(error.localizedDescription)")
             return
         }
         #else
@@ -281,7 +281,7 @@ class VTEncoder: VideoEncoder {
 
         // Rebuild absolute timestamp.
         guard let frameRefCon = frameRefCon else {
-            Self.logger.error("Missing expected frameRefCon (timestamp)")
+            self.logger.error("Missing expected frameRefCon (timestamp)")
             return
         }
         let retrievedTimestamp = Unmanaged<NSValue>.fromOpaque(frameRefCon).takeUnretainedValue().timeValue
@@ -289,7 +289,7 @@ class VTEncoder: VideoEncoder {
         if let callback = self.callback {
             callback(absoluteTimestamp, sample, self.userData)
         } else {
-            Self.logger.warning("Received encoded frame but consumer callback unset")
+            self.logger.warning("Received encoded frame but consumer callback unset")
         }
     }
     // swiftlint:enable function_body_length
@@ -299,7 +299,7 @@ class VTEncoder: VideoEncoder {
         let bytes = TimestampSei(fps: fps).getBytes(self.seiData,
                                                     startCode: self.emitStartCodes)
         guard let timestampPtr = bufferAllocator.allocateBufferHeader(bytes.count) else {
-            Self.logger.error("Couldn't allocate timestamp buffer")
+            self.logger.error("Couldn't allocate timestamp buffer")
             return
         }
 
@@ -341,7 +341,7 @@ class VTEncoder: VideoEncoder {
 
     /// Try to build an encoder specification dictionary.
     /// Attempts to retrieve the info for a HW encoder, but failing that, defaults to LowLatency.
-    private static func makeEncoderSpecification(codec: CMVideoCodecType) throws -> [CFString: Any] {
+    private func makeEncoderSpecification(codec: CMVideoCodecType) throws -> [CFString: Any] {
         // We want low latency mode.
         let defaultSpec = [
             kVTVideoEncoderSpecification_EnableLowLatencyRateControl: kCFBooleanTrue as Any
@@ -353,7 +353,7 @@ class VTEncoder: VideoEncoder {
             VTCopyVideoEncoderList(nil, &availableEncodersPtr)
         }
         guard let availableEncoders = availableEncodersPtr as? [[CFString: Any]] else {
-            Self.logger.warning("Unable to get available encoders, fallback to default spec")
+            self.logger.warning("Unable to get available encoders, fallback to default spec")
             return defaultSpec
         }
 
@@ -365,7 +365,7 @@ class VTEncoder: VideoEncoder {
 
         // Try and find an available hardware encoder.
         let accelerated = codecEncoders.filter {
-            Self.logger.debug("Available encoder: \($0)")
+            self.logger.debug("Available encoder: \($0)")
             guard let encoderCodec = $0[kVTVideoEncoderList_CodecType] as? CMVideoCodecType else { return false }
             let isHardwareAccelerated = $0[kVTVideoEncoderList_IsHardwareAccelerated] != nil
             return encoderCodec == codec && isHardwareAccelerated
@@ -376,19 +376,19 @@ class VTEncoder: VideoEncoder {
 
         // If we got multiple, log.
         if accelerated.count > 1 {
-            Self.logger.info("Got multiple matching accelerated encoders")
+            self.logger.info("Got multiple matching accelerated encoders")
             for encoderSpec in accelerated {
-                Self.logger.debug("\(encoderSpec)")
+                self.logger.debug("\(encoderSpec)")
             }
         }
 
         // Ensure we can fetch the ID of the target encoder.
         guard let selectedId = selected[kVTVideoEncoderList_EncoderID] else {
-            Self.logger.warning("Failed to fetch ID for selected HW encoder: \(selected)")
+            self.logger.warning("Failed to fetch ID for selected HW encoder: \(selected)")
             return defaultSpec
         }
 
-        Self.logger.info("Requesting specific encoder: \(selected)")
+        self.logger.info("Requesting specific encoder: \(selected)")
         return [
             kVTVideoEncoderSpecification_EncoderID: selectedId
         ]

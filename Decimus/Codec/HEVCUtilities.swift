@@ -5,7 +5,7 @@ import CoreMedia
 
 /// Utility functions for working with HEVC bitstreams.
 class HEVCUtilities: VideoUtilities {
-    private static let logger = DecimusLogger(HEVCUtilities.self)
+    private let logger = DecimusLogger(HEVCUtilities.self)
 
     // Bytes that precede every NALU.
     static let naluStartCode: [UInt8] = [0x00, 0x00, 0x00, 0x01]

@@ -14,7 +14,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         }
     }
 
-    private static let logger = DecimusLogger(InfluxMetricsSubmitter.self)
+    private let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
     private var measurements: [UUID: WeakMeasurement] = [:]
@@ -34,7 +34,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         let updated = self.measurements.updateValue(.init(measurement), forKey: measurement.id)
         assert(updated == nil)
         guard updated == nil else {
-            Self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
+            self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
             return
         }
     }
@@ -43,7 +43,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         let removed = self.measurements.removeValue(forKey: id)
         assert(removed != nil)
         guard removed != nil else {
-            Self.logger.error("Shouldn't call unregister for non-existing ID: \(id)")
+            self.logger.error("Shouldn't call unregister for non-existing ID: \(id)")
             return
         }
     }
@@ -54,7 +54,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         for pair in self.measurements {
             let weakMeasurement = pair.value
             guard let measurement = weakMeasurement.measurement else {
-                Self.logger.warning("Removing dead measurement")
+                self.logger.warning("Removing dead measurement")
                 toRemove.append(weakMeasurement.id)
                 continue
             }
@@ -93,7 +93,7 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         do {
             try await client.makeWriteAPI().write(points: points, responseQueue: .global(qos: .utility))
         } catch {
-            Self.logger.warning("Failed to write metrics: \(error)")
+            self.logger.warning("Failed to write metrics: \(error)")
         }
     }
 
