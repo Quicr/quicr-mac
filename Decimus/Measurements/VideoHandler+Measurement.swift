@@ -1,19 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-extension VideoHandler {
-    actor VideoHandlerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoHandler"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+import Synchronization
 
-        private var frames: UInt64 = 0
-        private var bytes: UInt64 = 0
-        private var decoded: UInt64 = 0
+extension VideoHandler {
+    final class VideoHandlerMeasurement: MeasurementBase {
+        private let frames = Atomic<UInt64>(0)
+        private let bytes = Atomic<UInt64>(0)
+        private let decoded = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "VideoHandler", tags: ["namespace": namespace])
         }
 
         func timestamp(timestamp: TimeInterval, when: Date, cached: Bool) {
@@ -22,7 +19,7 @@ extension VideoHandler {
         }
 
         func receivedFrame(timestamp: Date?, idr: Bool, cached: Bool) {
-            self.frames += 1
+            let val = frames.wrappingAdd(1, ordering: .relaxed).newValue
             let tags: [String: String]?
             if timestamp != nil {
                 tags = ["idr": "\(idr)", "cached": "\(cached)"]
@@ -30,7 +27,7 @@ extension VideoHandler {
                 tags = nil
             }
             record(field: "receivedFrames",
-                   value: self.frames as AnyObject,
+                   value: val as AnyObject,
                    timestamp: timestamp,
                    tags: tags)
         }
@@ -49,19 +46,19 @@ extension VideoHandler {
         }
 
         func decodedFrame(timestamp: Date?) {
-            self.decoded += 1
-            record(field: "decodedFrames", value: self.decoded as AnyObject, timestamp: timestamp)
+            let val = decoded.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "decodedFrames", value: val as AnyObject, timestamp: timestamp)
         }
 
         func receivedBytes(received: Int, timestamp: Date?, cached: Bool) {
-            self.bytes += UInt64(received)
+            let val = bytes.wrappingAdd(UInt64(received), ordering: .relaxed).newValue
             let tags: [String: String]?
             if timestamp != nil {
                 tags = ["cached": "\(cached)"]
             } else {
                 tags = nil
             }
-            record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp, tags: tags)
+            record(field: "receivedBytes", value: val as AnyObject, timestamp: timestamp, tags: tags)
         }
 
         func enqueuedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date) {

@@ -52,7 +52,7 @@ class MoqCallController: QClientCallbacks {
 
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
-    private let measurement: MeasurementRegistration<MoqCallControllerMeasurement>?
+    private let measurement: MoqCallControllerMeasurement?
     private let logger = DecimusLogger(MoqCallController.self)
 
     // State.
@@ -88,7 +88,8 @@ class MoqCallController: QClientCallbacks {
         self.callEnded = callEnded
         if let metricsSubmitter = submitter {
             let measurement = MoqCallController.MoqCallControllerMeasurement(endpointId: endpointUri)
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -421,11 +422,7 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter setup: The set setup attributes received with the event.
     func serverSetupReceived(_ setup: QServerSetupAttributes) {
         let serverId = String(cString: setup.server_id)
-        if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.setRelayId(serverId)
-            }
-        }
+        self.measurement?.setRelayId(serverId)
         self.logger.debug("Got server setup received message from: \(serverId)")
         self.serverId = serverId
     }
@@ -447,11 +444,7 @@ class MoqCallController: QClientCallbacks {
     /// libquicr's metrics callback.
     /// - Parameter metrics: Object containing all metrics.
     func metricsSampled(_ metrics: QConnectionMetrics) {
-        if let measurement = self.measurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
+        self.measurement?.record(metrics)
     }
 
     /// Get all managed subscriptions originating from the given partiticpant.

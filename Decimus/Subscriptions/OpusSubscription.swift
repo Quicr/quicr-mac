@@ -14,7 +14,7 @@ class OpusSubscription: Subscription {
 
     private let profile: Profile
     private let engine: DecimusAudioEngine
-    private let measurement: MeasurementRegistration<OpusSubscriptionMeasurement>?
+    private let measurement: OpusSubscriptionMeasurement?
     private let granularMetrics: Bool
     private var seq: UInt64 = 0
     private let handler: Mutex<AudioHandler?>
@@ -58,7 +58,8 @@ class OpusSubscription: Subscription {
         self.metricsSubmitter = submitter
         if let submitter = submitter {
             let measurement = OpusSubscriptionMeasurement(namespace: profile.namespace.joined())
-            self.measurement = .init(measurement: measurement, submitter: submitter)
+            submitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -184,14 +185,10 @@ class OpusSubscription: Subscription {
         if sequence > self.seq {
             let missing = sequence - self.seq - 1
             let currentSeq = self.seq
-            if let measurement = measurement {
-                Task(priority: .utility) {
-                    await measurement.measurement.receivedBytes(received: UInt(data.count), timestamp: date)
-                    if missing > 0 {
-                        self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
-                        await measurement.measurement.missingSeq(missingCount: UInt64(missing), timestamp: date)
-                    }
-                }
+            measurement?.receivedBytes(received: UInt(data.count), timestamp: date)
+            if missing > 0 {
+                self.logger.warning("LOSS! \(missing) packets. Had: \(currentSeq), got: \(sequence)")
+                measurement?.missingSeq(missingCount: UInt64(missing), timestamp: date)
             }
             self.seq = sequence
         }

@@ -134,13 +134,13 @@
 		9BA27FF8297DCF3C007013B2 /* CallSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */; };
 		9BA27FFB297DD8D9007013B2 /* CallConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BA27FFA297DD8D9007013B2 /* CallConfig.swift */; };
 		9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */; };
-		9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */; };
 		9BB3C50C2E8D62FD000AB7C2 /* CameraPreferencePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB3C50B2E8D62FD000AB7C2 /* CameraPreferencePicker.swift */; };
 		9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB707AB2E40B51700C697B6 /* RFC3550.swift */; };
 		9BB7FA212D53FF8700E90AAD /* mDNSLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */; };
 		9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BBFF99C2DE751380093EA8E /* QLocation.mm */; };
 		9BC070D52D2D3A8B00FE5B0E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC070D42D2D3A8700FE5B0E /* Subscription.swift */; };
 		9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */; };
+		AA00000000000001DEADBEEF /* TestMeasurementBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000002DEADBEEF /* TestMeasurementBase.swift */; };
 		9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */; };
 		9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */; };
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
@@ -166,7 +166,6 @@
 		9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */; };
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
-		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		FF01709629C10013000E23A6 /* FormInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF01709529C10013000E23A6 /* FormInput.swift */; };
@@ -387,7 +386,6 @@
 		9BA27FF7297DCF3C007013B2 /* CallSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSetupView.swift; sourceTree = "<group>"; };
 		9BA27FFA297DD8D9007013B2 /* CallConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallConfig.swift; sourceTree = "<group>"; };
 		9BAD55BC29B0B77700D9B65F /* ErrorWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorWriter.swift; sourceTree = "<group>"; };
-		9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementRegistration.swift; sourceTree = "<group>"; };
 		9BB3C50B2E8D62FD000AB7C2 /* CameraPreferencePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreferencePicker.swift; sourceTree = "<group>"; };
 		9BB707AB2E40B51700C697B6 /* RFC3550.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RFC3550.swift; sourceTree = "<group>"; };
 		9BB7FA202D53FF8000E90AAD /* mDNSLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = mDNSLookup.swift; sourceTree = "<group>"; };
@@ -395,6 +393,7 @@
 		9BBFF99C2DE751380093EA8E /* QLocation.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QLocation.mm; sourceTree = "<group>"; };
 		9BC070D42D2D3A8700FE5B0E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
 		9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoPublication.swift; sourceTree = "<group>"; };
+		AA00000000000002DEADBEEF /* TestMeasurementBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementBase.swift; sourceTree = "<group>"; };
 		9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarianceCalculator.swift; sourceTree = "<group>"; };
 		9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarianceCalculator+Measurement.swift"; sourceTree = "<group>"; };
 		9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarianceCalculator.swift; sourceTree = "<group>"; };
@@ -424,7 +423,6 @@
 		9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
 		9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationInstance.swift; sourceTree = "<group>"; };
-		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
 		A1B2C3D52F50000100AA1101 /* QSubscribeNamespaceHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerCallbacks.h; sourceTree = "<group>"; };
 		A1B2C3D62F50000100AA1101 /* QSubscribeNamespaceHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandler.h; sourceTree = "<group>"; };
 		A1B2C3D72F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerObjC.h; sourceTree = "<group>"; };
@@ -533,7 +531,6 @@
 				1867635E2B2B6BE600339421 /* OpusSubscription+Measurement.swift */,
 				9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */,
 				9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */,
-				9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */,
 				9B2807262F64269F00A8CE36 /* SwitchLatencyMeasurement.swift */,
 				9B2807282F64269F00A8CE36 /* ActivityTransitionMeasurement.swift */,
 			);
@@ -642,8 +639,8 @@
 				9B4788D32B972F990056CE7E /* TestVideoSubscriptionSet.swift */,
 				9B8B9D522BF3A42C00F7AE34 /* TestDecimusVideoFrame.swift */,
 				9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */,
+				AA00000000000002DEADBEEF /* TestMeasurementBase.swift */,
 				9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */,
-				9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */,
 				9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */,
 				9B9A7EB42F47B8C000C201EE /* TestAudioActivityStateMachine.swift */,
 			);
@@ -1150,7 +1147,6 @@
 				9B5EC68B2D85B43F009A2872 /* TestMediaInterop.swift in Sources */,
 				9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */,
 				18B2F4082AC59582008E3BFD /* TestVideoJitterBuffer.swift in Sources */,
-				9BB0F71A2C29CAB500253A82 /* TestMeasurementRegistration.swift in Sources */,
 				9B5EC68F2D85C003009A2872 /* TestVarInt.swift in Sources */,
 				9BA1B2C42E38D4E600F1F2F3 /* TestManifestTypes.swift in Sources */,
 				9B9665172DFAE41E007CC380 /* TestAudioHandler.swift in Sources */,
@@ -1160,6 +1156,7 @@
 				187DE3712C997C7A0090FB68 /* TestVideoSubscription.swift in Sources */,
 				9B7F40042ACB5808003333C3 /* TestVideoUtilities.swift in Sources */,
 				9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */,
+				AA00000000000001DEADBEEF /* TestMeasurementBase.swift in Sources */,
 				9B7B26922D367B3F00A29CFA /* TestSubscription.swift in Sources */,
 				9B25D2112D9AA0B500FE8AB7 /* TestTimeAlign.swift in Sources */,
 				9B8E45412CF4BFA9003C863A /* MockCodecFactory.swift in Sources */,
@@ -1267,7 +1264,6 @@
 				9B7AD4E62F586C6700145A45 /* NamespacePrefix.swift in Sources */,
 				1848B86D2ABAE21B00275F71 /* DecimusAudioEngine.swift in Sources */,
 				18A108D02AA60DAB00FDC0A5 /* CpuUsage.swift in Sources */,
-				9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */,
 				186763572B2B6B1100339421 /* CaptureManager+Measurement.swift in Sources */,
 				FFB8CBE529C148B70093C623 /* ActionPicker.swift in Sources */,
 				D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */,

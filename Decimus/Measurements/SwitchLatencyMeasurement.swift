@@ -3,19 +3,11 @@
 
 import Foundation
 
-/// Measurement actor for switch_latency InfluxDB measurement.
-/// One point emitted per completed top-n switch event.
-actor SwitchLatencyMeasurement: Measurement {
-    let id = UUID()
-    var name: String = "switch_latency"
-    var fields: Fields = [:]
-    var tags: [String: String] = [:]
+final class SwitchLatencyMeasurement: MeasurementBase {
+    init() {
+        super.init(name: "switch_latency")
+    }
 
-    /// Record a completed switch event with all phase durations.
-    /// - Parameters:
-    ///   - context: The accumulated switch context with all phase timestamps.
-    ///   - renderTime: When the first frame was enqueued for display (captured on main thread).
-    ///   - participant: The participant ID string for the track.
     func record(context: SwitchContext, renderTime: Date, participant: String) {
         guard let joinStrategy = context.joinStrategy,
               let joinDecisionTime = context.joinDecisionTime,

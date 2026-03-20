@@ -41,7 +41,7 @@ class AudioHandler: TimeAlignable {
     private var node: AVAudioSourceNode?
     private var oldJitterBuffer: QJitterBuffer?
     private var playoutBuffer: CircularBuffer?
-    private let measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?
+    private let measurement: OpusSubscription.OpusSubscriptionMeasurement?
     private let underrun = Atomic<UInt64>(0)
     private let callbacks = Atomic<UInt64>(0)
     private let silenceRemoved = Atomic<UInt64>(0)
@@ -79,7 +79,7 @@ class AudioHandler: TimeAlignable {
     init(identifier: String,
          engine: DecimusAudioEngine,
          decoder: AudioDecoder,
-         measurement: MeasurementRegistration<OpusSubscription.OpusSubscriptionMeasurement>?,
+         measurement: OpusSubscription.OpusSubscriptionMeasurement?,
          metricsSubmitter: MetricsSubmitter?,
          config: Config) throws {
         self.identifier = identifier
@@ -245,14 +245,12 @@ class AudioHandler: TimeAlignable {
 
             if let measurement = self.measurement {
                 let metricsDate = self.granularMetrics ? date.hostDate : nil
-                Task(priority: .utility) {
-                    await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
-                                                            timestamp: metricsDate)
-                    await measurement.measurement.removedSilence(removed: self.silenceRemoved.load(ordering: .relaxed),
-                                                                 timestamp: metricsDate)
-                    await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
-                                                                 timestamp: metricsDate)
-                }
+                measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                      timestamp: metricsDate)
+                measurement.removedSilence(removed: self.silenceRemoved.load(ordering: .relaxed),
+                                           timestamp: metricsDate)
+                measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                           timestamp: metricsDate)
             }
             return
         }
@@ -273,15 +271,13 @@ class AudioHandler: TimeAlignable {
         // Metrics.
         let metricsDate = self.granularMetrics ? date.hostDate : nil
         if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
-                                                             timestamp: metricsDate)
-                await measurement.measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
-                                                        timestamp: metricsDate)
-                if let metricsDate = metricsDate {
-                    await measurement.measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
-                                                        timestamp: metricsDate)
-                }
+            measurement.framesUnderrun(underrun: self.underrun.load(ordering: .relaxed),
+                                       timestamp: metricsDate)
+            measurement.callbacks(callbacks: self.callbacks.load(ordering: .relaxed),
+                                  timestamp: metricsDate)
+            if let metricsDate = metricsDate {
+                measurement.depth(depthMs: jitterBuffer.getCurrentDepth(),
+                                  timestamp: metricsDate)
             }
         }
     }
@@ -522,10 +518,8 @@ class AudioHandler: TimeAlignable {
         if let measurement = handler.measurement {
             let constConcealed = concealed
             let timestamp: Date? = handler.granularMetrics ? .now : nil
-            Task(priority: .utility) {
-                await measurement.measurement.concealmentFrames(concealed: constConcealed,
-                                                                timestamp: timestamp)
-            }
+            measurement.concealmentFrames(concealed: constConcealed,
+                                          timestamp: timestamp)
         }
     }
 
@@ -559,14 +553,12 @@ class AudioHandler: TimeAlignable {
 
         let missing = copied < buffer.frameLength ? Int(buffer.frameLength) - copied : 0
         if let measurement = measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.receivedFrames(received: buffer.frameLength,
-                                                             timestamp: timestamp)
-                await measurement.measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
-                                                                     timestamp: timestamp)
-                await measurement.measurement.droppedFrames(dropped: missing,
-                                                            timestamp: timestamp)
-            }
+            measurement.receivedFrames(received: buffer.frameLength,
+                                       timestamp: timestamp)
+            measurement.recordLibJitterMetrics(metrics: jitterBuffer.getMetrics(),
+                                               timestamp: timestamp)
+            measurement.droppedFrames(dropped: missing,
+                                      timestamp: timestamp)
         }
     }
 
@@ -623,13 +615,11 @@ class AudioHandler: TimeAlignable {
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
                     if self.granularMetrics,
-                       let measurement = self.measurement?.measurement {
+                       let measurement = self.measurement {
                         if let time = self.calculateWaitTime(item: item, from: now) {
-                            Task(priority: .utility) {
-                                // Adjust this time to reflect our deliberate early dequeue.
-                                let time = time - self.config.playoutBufferTime
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
-                            }
+                            // Adjust this time to reflect our deliberate early dequeue.
+                            let adjusted = time - self.config.playoutBufferTime
+                            measurement.frameDelay(delay: -adjusted, metricsTimestamp: now.hostDate)
                         }
                     }
 
@@ -681,22 +671,16 @@ class AudioHandler: TimeAlignable {
             }
             let depth = playoutBuffer.peek().frames
             if self.granularMetrics,
-               let measurement = self.measurement?.measurement {
-                Task(priority: .utility) {
-                    let depthMs = TimeInterval(depth) / 48000 * 1000
-                    await measurement.depth(depthMs: Int(depthMs), timestamp: when)
-                }
+               let measurement = self.measurement {
+                let depthMs = TimeInterval(depth) / 48000 * 1000
+                measurement.depth(depthMs: Int(depthMs), timestamp: when)
             }
             try playoutBuffer.enqueue(buffer: &decoded.mutableAudioBufferList.pointee,
                                       timestamp: &timestamp,
                                       frames: nil)
         } catch {
             self.logger.warning("Failed to enqueue decoded audio to playout buffer: \(error.localizedDescription)")
-            if let measurement = self.measurement?.measurement {
-                Task(priority: .utility) {
-                    await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
-                }
-            }
+            self.measurement?.playoutFull(timestamp: self.granularMetrics ? when : nil)
         }
     }
 
@@ -757,11 +741,7 @@ class AudioHandler: TimeAlignable {
                                                     frames: nil)
                 } catch {
                     self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
-                    if let measurement = self.measurement?.measurement {
-                        Task(priority: .utility) {
-                            await measurement.playoutFull(timestamp: self.granularMetrics ? when : nil)
-                        }
-                    }
+                    self.measurement?.playoutFull(timestamp: self.granularMetrics ? when : nil)
                 }
             } catch {
                 self.logger.error("Failure generating PLC: \(error.localizedDescription)")

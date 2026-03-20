@@ -8,7 +8,7 @@ class RFC3550Jitter {
     private(set) var jitter: TimeInterval = 0
     /// Exponentially smoothed value.
     private(set) var smoothed: TimeInterval = 0
-    private let measurement: MeasurementRegistration<RFC3550JitterMeasurement>?
+    private let measurement: RFC3550JitterMeasurement?
 
     /// Alpha for exponential smoothing.
     private let alpha = 0.1
@@ -18,8 +18,9 @@ class RFC3550Jitter {
             self.measurement = nil
             return
         }
-        self.measurement = .init(measurement: .init(namespace: identifier),
-                                 submitter: submitter)
+        let measurement = RFC3550JitterMeasurement(namespace: identifier)
+        submitter.register(measurement: measurement)
+        self.measurement = measurement
     }
 
     func record(timestamp: TimeInterval, arrival: Date) {
@@ -41,24 +42,13 @@ class RFC3550Jitter {
         self.smoothed = self.alpha * self.jitter + (1 - self.alpha) * self.smoothed
 
         // Record metric.
-        if let measurement = self.measurement?.measurement {
-            let jitter = self.jitter
-            let smoothed = self.smoothed
-            Task(priority: .utility) {
-                await measurement.jitter(jitter: jitter, smoothed: smoothed, date: arrival)
-            }
-        }
+        self.measurement?.jitter(jitter: self.jitter, smoothed: self.smoothed, date: arrival)
     }
 }
 
-actor RFC3550JitterMeasurement: Measurement {
-    let id = UUID()
-    var name = "RFC3550"
-    var fields = Fields()
-    var tags: [String: String] = [:]
-
+final class RFC3550JitterMeasurement: MeasurementBase {
     init(namespace: QuicrNamespace) {
-        self.tags["namespace"] = namespace
+        super.init(name: "RFC3550", tags: ["namespace": namespace])
     }
 
     func jitter(jitter: TimeInterval, smoothed: TimeInterval, date: Date) {

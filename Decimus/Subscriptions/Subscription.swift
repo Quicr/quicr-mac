@@ -26,7 +26,7 @@ extension QSubscribeTrackHandlerStatus: Equatable, CaseIterable {
 /// Base implementation for a track handler, handling generic metrics and callbacks.
 class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     typealias StatusCallback = (QSubscribeTrackHandlerStatus) -> Void
-    private let quicrMeasurement: MeasurementRegistration<TrackMeasurement>?
+    private let quicrMeasurement: TrackMeasurement?
     private let logger = DecimusLogger(Subscription.self)
     private let statusCallback: StatusCallback?
 
@@ -51,11 +51,12 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
          publisherInitiated: Bool,
          statusCallback: StatusCallback?) throws {
         if let submitter = metricsSubmitter {
-            self.quicrMeasurement = .init(measurement: .init(type: .subscribe,
-                                                             endpointId: endpointId,
-                                                             relayId: relayId,
-                                                             namespace: profile.namespace.joined()),
-                                          submitter: submitter)
+            let measurement = TrackMeasurement(type: .subscribe,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: profile.namespace.joined())
+            submitter.register(measurement: measurement)
+            self.quicrMeasurement = measurement
         } else {
             self.quicrMeasurement = nil
         }
@@ -106,11 +107,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     /// The default implementation submits these metrics through the provided submitter, if any.
     /// - Parameter metrics: The produced track metrics.
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
-        if let quicrMeasurement = self.quicrMeasurement {
-            Task(priority: .utility) {
-                await quicrMeasurement.measurement.record(metrics)
-            }
-        }
+        self.quicrMeasurement?.record(metrics)
     }
 
     var isPaused: Bool {

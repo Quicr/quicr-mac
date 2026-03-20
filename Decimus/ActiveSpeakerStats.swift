@@ -64,7 +64,7 @@ actor ActiveSpeakerStats {
     typealias Identifier = ParticipantId
 
     private var participants: [Identifier: Record] = [:]
-    private let measurement: MeasurementRegistration<ActiveSpeakerStatsMeasurement>?
+    private let measurement: ActiveSpeakerStatsMeasurement?
     private var currentState: [ParticipantId: CurrentState] = [:]
     private var reportTask: Task<Void, Never>?
 
@@ -73,15 +73,17 @@ actor ActiveSpeakerStats {
             self.measurement = nil
             return
         }
-        self.measurement = .init(measurement: .init(), submitter: submitter)
+        let measurement = ActiveSpeakerStatsMeasurement()
+        submitter.register(measurement: measurement)
+        self.measurement = measurement
         self.reportTask = Task(priority: .utility) { [weak self] in
             while !Task.isCancelled {
                 let now = Date.now
                 if let self = self {
                     for participant in await self.participants {
-                        await self.measurement?.measurement.record(identifier: participant.key,
-                                                                   timestamp: now,
-                                                                   event: participant.value.currentState)
+                        await self.measurement?.record(identifier: participant.key,
+                                                       timestamp: now,
+                                                       event: participant.value.currentState)
                     }
                 }
                 try? await Task.sleep(for: .seconds(1))
@@ -233,9 +235,9 @@ actor ActiveSpeakerStats {
                 to
             }
         }
-        await self.measurement?.measurement.record(identifier: identifier,
-                                                   timestamp: when,
-                                                   event: result)
+        self.measurement?.record(identifier: identifier,
+                                 timestamp: when,
+                                 event: result)
         return result
     }
     // swiftlint:enable cyclomatic_complexity function_body_length

@@ -3,8 +3,9 @@
 
 import InfluxDBSwift
 import Foundation
+import Synchronization
 
-actor InfluxMetricsSubmitter: MetricsSubmitter {
+final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
     private class WeakMeasurement {
         weak var measurement: (any Measurement)?
         let id: UUID
@@ -17,11 +18,10 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     private let logger = DecimusLogger(InfluxMetricsSubmitter.self)
 
     private let client: InfluxDBClient
-    private var measurements: [UUID: WeakMeasurement] = [:]
-    private var tags: [String: String]
+    private let measurements = Mutex<[UUID: WeakMeasurement]>([:])
+    private let tags: [String: String]
 
     init(token: String, config: InfluxConfig, tags: [String: String]) {
-        // Create the influx API instance.
         client = .init(url: config.url,
                        token: token,
                        options: .init(bucket: config.bucket,
@@ -31,38 +31,35 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
     }
 
     func register(measurement: Measurement) {
-        let updated = self.measurements.updateValue(.init(measurement), forKey: measurement.id)
-        assert(updated == nil)
-        guard updated == nil else {
-            self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
-            return
-        }
-    }
-
-    func unregister(id: UUID) {
-        let removed = self.measurements.removeValue(forKey: id)
-        assert(removed != nil)
-        guard removed != nil else {
-            self.logger.error("Shouldn't call unregister for non-existing ID: \(id)")
-            return
+        measurements.withLock { dict in
+            let updated = dict.updateValue(.init(measurement), forKey: measurement.id)
+            assert(updated == nil)
+            guard updated == nil else {
+                self.logger.error("Shouldn't call register for existing measurement: \(measurement)")
+                return
+            }
         }
     }
 
     func submit() async {
+        // Snapshot measurements under lock, then release.
+        let snapshot: [UUID: WeakMeasurement] = measurements.withLock { $0 }
+
         var points: [InfluxDBClient.Point] = []
         var toRemove: [UUID] = []
-        for pair in self.measurements {
+        for pair in snapshot {
             let weakMeasurement = pair.value
             guard let measurement = weakMeasurement.measurement else {
                 self.logger.warning("Removing dead measurement")
                 toRemove.append(weakMeasurement.id)
                 continue
             }
-            let fields = await measurement.fields
-            await measurement.clear()
+            let fields = measurement.drain()
+            let name = measurement.name
+            let mTags = measurement.tags
             for timestampedDict in fields {
-                let point: InfluxDBClient.Point = .init(await measurement.name)
-                for tag in await measurement.tags {
+                let point: InfluxDBClient.Point = .init(name)
+                for tag in mTags {
                     point.addTag(key: tag.key, value: tag.value)
                 }
                 for tag in self.tags {
@@ -84,8 +81,12 @@ actor InfluxMetricsSubmitter: MetricsSubmitter {
         }
 
         // Clean up dead weak references.
-        for id in toRemove {
-            self.measurements.removeValue(forKey: id)
+        if !toRemove.isEmpty {
+            measurements.withLock { dict in
+                for id in toRemove {
+                    dict.removeValue(forKey: id)
+                }
+            }
         }
 
         guard !points.isEmpty else { return }

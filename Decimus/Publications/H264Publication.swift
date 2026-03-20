@@ -31,8 +31,8 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     }
 
     internal let profile: Profile
-    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
-    private let measurement: MeasurementRegistration<VideoPublicationMeasurement>?
+    private let trackMeasurement: TrackMeasurement?
+    private let measurement: VideoPublicationMeasurement?
 
     let device: AVCaptureDevice
     let queue: DispatchQueue
@@ -294,16 +294,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         guard let measurement = publication.measurement else { return }
         let bytes = status.1
         let sent: Date? = publication.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.measurement.sentFrame(bytes: UInt64(bytes),
-                                                    timestamp: presentationDate.timeIntervalSince1970,
-                                                    age: sent?.timeIntervalSince(presentationDate) ?? nil,
-                                                    metricsTimestamp: sent)
-        }
+        measurement.sentFrame(bytes: UInt64(bytes),
+                              timestamp: presentationDate.timeIntervalSince1970,
+                              age: sent?.timeIntervalSince(presentationDate) ?? nil,
+                              metricsTimestamp: sent)
         if publication.granularMetrics, let sent, let sentActivityValue {
-            Task(priority: .utility) {
-                await measurement.measurement.audioActivity(sentActivityValue.rawValue, timestamp: sent)
-            }
+            measurement.audioActivity(sentActivityValue.rawValue, timestamp: sent)
         }
     }
 
@@ -333,9 +329,11 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                                                     endpointId: endpointId,
                                                     relayId: relayId,
                                                     namespace: profile.namespace.joined())
-            self.trackMeasurement = .init(measurement: trackMeasurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: trackMeasurement)
+            self.trackMeasurement = trackMeasurement
             let measurement = H264Publication.VideoPublicationMeasurement(namespace: namespace)
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.trackMeasurement = nil
             self.measurement = nil
@@ -434,11 +432,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     }
 
     func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
-        if let measurement = self.trackMeasurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
+        self.trackMeasurement?.record(metrics)
     }
 
     /// This callback fires when a video frame arrives.
@@ -522,18 +516,16 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
         let activityValue: UInt8? = self.granularMetrics ? self.videoActivityValue.rawValue : nil
-        Task(priority: .utility) {
-            await measurement.measurement.sentPixels(sent: pixels, timestamp: date)
-            if let date = date {
-                // TODO: This age is probably useless.
-                let age = now.timeIntervalSince(timestamp)
-                await measurement.measurement.age(age: age,
-                                                  presentationTimestamp: timestamp.timeIntervalSince1970,
-                                                  metricsTimestamp: date)
-            }
-            if let activityValue, let date {
-                await measurement.measurement.audioActivity(activityValue, timestamp: date)
-            }
+        measurement.sentPixels(sent: pixels, timestamp: date)
+        if let date = date {
+            // TODO: This age is probably useless.
+            let age = now.timeIntervalSince(timestamp)
+            measurement.age(age: age,
+                            presentationTimestamp: timestamp.timeIntervalSince1970,
+                            metricsTimestamp: date)
+        }
+        if let activityValue, let date {
+            measurement.audioActivity(activityValue, timestamp: date)
         }
     }
 
