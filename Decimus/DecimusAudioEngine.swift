@@ -141,11 +141,11 @@ class DecimusAudioEngine {
         if self.outputNodePresent && self.inputNodePresent {
             if !engine.outputNode.isVoiceProcessingEnabled {
                 do {
-                    try SwiftInterop.catchException {
+                    try SwiftInterop.catchException { [logger] in
                         do {
                             try engine.outputNode.setVoiceProcessingEnabled(true)
                         } catch {
-                            self.logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
+                            logger.warning("Failed to enable voice processing: \(error.localizedDescription)")
                         }
                     }
                 } catch {
