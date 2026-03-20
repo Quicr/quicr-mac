@@ -99,8 +99,9 @@ class AudioHandler: TimeAlignable {
                                                  packetElements: Int(opusPacketSize),
                                                  clockRate: UInt(asbd.pointee.mSampleRate),
                                                  maxLengthMs: UInt(config.jitterMax * 1000),
-                                                 minLengthMs: UInt(config.jitterDepth * 1000)) { level, msg, alert in
-                self.logger.log(level: DecimusLogger.LogLevel(rawValue: level)!, msg!, alert: alert)
+                                                 minLengthMs: UInt(config.jitterDepth * 1000)) { _, msg, _ in
+                guard let msg else { return }
+                print(msg)
             }
             // Create the player node.
             self.node = .init(format: self.decoder.decodedFormat, renderBlock: self.renderBlock)
