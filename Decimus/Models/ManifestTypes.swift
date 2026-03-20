@@ -18,8 +18,8 @@ struct ParticipantId: Codable, Equatable, Hashable, CustomStringConvertible {
     }
 
     init(_ participantId: UInt32) {
-        self.conferenceId = UInt16((participantId >> 16) & 0x00FF)
-        self.participantId = UInt16(participantId & 0x00FF)
+        self.conferenceId = UInt16((participantId >> 16) & 0xFFFF)
+        self.participantId = UInt16(participantId & 0xFFFF)
     }
 
     init(from decoder: any Decoder) throws {

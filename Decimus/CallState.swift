@@ -161,7 +161,11 @@ class CallState: ObservableObject, Equatable {
     private var wlan: CoreWLANWiFiScanNotifier?
     #endif
 
+    // Temp flag for NAB demo.
+    private let nab: Bool
+
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
+        self.nab = config.conferenceID == .max
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
@@ -176,7 +180,7 @@ class CallState: ObservableObject, Equatable {
             let tags: [String: String] = [
                 "relay": config.address,
                 "email": config.email,
-                "conference": "\(config.conferenceID)"
+                "conference": self.nab ? "NAB" : "\(config.conferenceID)"
             ]
             self.doMetrics(tags)
         }
@@ -203,16 +207,29 @@ class CallState: ObservableObject, Equatable {
         }
 
         // Fetch the manifest from the conference server.
-        let manifest: Manifest
-        do {
-            let mController = ManifestController.shared
-            manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                         email: self.config.email)
-        } catch {
-            self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
-            return false
+        let localParticipantId: UInt32
+        if !self.nab {
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                return false
+            }
+            self.currentManifest = manifest
+            localParticipantId = manifest.participantId.aggregate
+        } else {
+            // NAB uses random ID.
+            guard let id = UInt32(self.config.email) else {
+                self.logger.error("Bad NAB ID: \(self.config.email)")
+                return false
+            }
+            localParticipantId = id
         }
-        self.currentManifest = manifest
+        let localTypedParticipantId = ParticipantId(localParticipantId)
+        self.logger.info("We will be participant: \(localTypedParticipantId)")
 
         let sframeSettings = self.subscriptionConfig.value.sframeSettings
         if sframeSettings.enable {
@@ -231,7 +248,7 @@ class CallState: ObservableObject, Equatable {
                 try recvContext.addEpoch(epochId: epochId,
                                          sframeEpochSecret: secret)
 
-                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                let senderId = self.audioStartingGroup ?? UInt64(localParticipantId)
                 self.sendContext = .init(sframe: sendContext,
                                          senderId: senderId,
                                          currentEpoch: epochId)
@@ -272,7 +289,7 @@ class CallState: ObservableObject, Equatable {
                                                         metricsSubmitter: self.submitter,
                                                         granularMetrics: self.influxConfig.value.granular,
                                                         captureManager: self.captureManager,
-                                                        participantId: manifest.participantId,
+                                                        participantId: localTypedParticipantId,
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
@@ -291,7 +308,7 @@ class CallState: ObservableObject, Equatable {
             publicationFactory = nil
         }
         let playtime = self.playtimeConfig.value
-        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : localTypedParticipantId
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
@@ -377,7 +394,7 @@ class CallState: ObservableObject, Equatable {
                 // Demo mode: publish to hardcoded namespaces, skip manifest subscriptions.
                 if let publicationFactory {
                     let meetingId = self.demoMeetingId
-                    let userId = "\(manifest.participantId.aggregate)"
+                    let userId = "\(localParticipantId)"
                     let demoPublications = Self.makeDemoPublications(meetingId: meetingId, userId: userId)
                     for publication in demoPublications {
                         do {
@@ -389,7 +406,10 @@ class CallState: ObservableObject, Equatable {
                         }
                     }
                 }
-            } else {
+            } else if self.nab {
+                // NAB mode: get from MSF catalog.
+                // TODO: Implement NAB PUB/SUB.
+            } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
                 if let publicationFactory {
