@@ -1,5 +1,5 @@
 {
-  "originHash" : "eed7039d1fed5e52504369e951b63dabecd93e917e45cac9cd7f29820c608915",
+  "originHash" : "aa38a57803b437102f56159d38bb28b0282ceda7d2da5824195a5ffefc3c906b",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -71,6 +71,15 @@
       "state" : {
         "revision" : "9cb486020ebf03bfa5b5df985387a14a98744537",
         "version" : "1.6.1"
+      }
+    },
+    {
+      "identity" : "swift-msf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RichLogan/swift-msf",
+      "state" : {
+        "branch" : "main",
+        "revision" : "90f1ad8cdbba2620992ac80a7717806c4ba2044c"
       }
     },
     {

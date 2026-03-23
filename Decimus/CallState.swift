@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
 import CryptoKit
 import SFrame
 import SwiftUI
 import Synchronization
 import Network
+import MSF
 
 class SFrameContext {
     let mutex: Mutex<MLS>
@@ -163,6 +166,8 @@ class CallState: ObservableObject, Equatable {
 
     // Temp flag for NAB demo.
     private let nab: Bool
+    private var catalogSubscription: CallbackSubscription?
+    private var catalogTracks: [MSF.Track] = []
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.nab = config.conferenceID == .max
@@ -353,6 +358,25 @@ class CallState: ObservableObject, Equatable {
             return false
         }
 
+        // If we're NAB, we need to subscribe to the catalog track.
+        if self.nab {
+            do {
+                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { result in
+                    switch result {
+                    case .success(let catalog):
+                        self.handleCatalogUpdate(catalog,
+                                                 controller: controller,
+                                                 publicationFactory: publicationFactory,
+                                                 codecFactory: CodecFactoryImpl())
+                    case .failure(let error):
+                        self.logger.error("Catalog parse failed: \(error.localizedDescription)")
+                    }
+                }
+            } catch {
+                self.logger.error("Failed to setup catalog track: \(error.localizedDescription)")
+            }
+        }
+
         // Demo namespace subscriptions — registered before publications so the relay
         // can match incoming publishes against the namespace prefix immediately.
         if self.demoEnabled, self.subscriptionFactory != nil {
@@ -407,8 +431,7 @@ class CallState: ObservableObject, Equatable {
                     }
                 }
             } else if self.nab {
-                // NAB mode: get from MSF catalog.
-                // TODO: Implement NAB PUB/SUB.
+                // NAB: Dynamic catalog updates handled in catalog callback at runtime.
             } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
@@ -535,6 +558,58 @@ class CallState: ObservableObject, Equatable {
             return
         }
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
+    }
+
+    private func handleCatalogUpdate(_ catalog: Catalog,
+                                     controller: MoqCallController,
+                                     publicationFactory: PublicationFactory?,
+                                     codecFactory: CodecFactory) {
+        self.logger.notice("Got catalog update")
+        self.catalogTracks = catalog.tracks
+        var namespaces: Set<[String]> = []
+
+        // Collect namespaces to subscribe to.
+        for track in catalog.tracks {
+            guard let namespace = track.namespace else {
+                self.logger.error("Missing namespace for catalog track")
+                continue
+            }
+            // TODO: MSF namespace isn't an array?
+            var tuples = namespace.split(separator: "/").map { String($0) }
+            // The last element will be participant ID, which we strip for subscription.
+            _ = tuples.popLast()
+            namespaces.insert(tuples)
+        }
+
+        // Now, we will subscribe namespace to all namespaces we found.
+        for namespace in namespaces {
+            let subNs = QSubscribeNamespaceHandler(namespacePrefix: .init(namespace.map { Data($0.utf8) }),
+                                                   trackFilter: nil) { status, errorCode, namespacePrefix in
+                self.logger.info("\(namespacePrefix) Status changed: \(status) \(errorCode)")
+            }
+            do {
+                try controller.subscribeNamespace(subNs)
+                self.logger.notice("Subscribed to namespace \(namespace)")
+            } catch {
+                self.logger.error("Failed to subscribe namespace: \(error.localizedDescription)")
+            }
+        }
+
+        // Create publications from the catalog if we have a factory.
+        if let publicationFactory {
+            let publications = catalog.toPublications(localParticipantId: "\(1234)")
+            for publication in publications {
+                DispatchQueue.main.async {
+                    do {
+                        _ = try controller.publish(details: publication,
+                                                   factory: publicationFactory,
+                                                   codecFactory: codecFactory)
+                    } catch {
+                        self.logger.error("Failed to create catalog publication: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 
     private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
@@ -768,6 +843,26 @@ class CallState: ObservableObject, Equatable {
             return .accept(responseAttributes, subscription)
         }
 
+        if self.nab {
+            let subscription = self.nabCreateHandler(fullTrackName: track,
+                                                     trackAlias: attributes.trackAlias,
+                                                     priority: attributes.priority,
+                                                     groupOrder: attributes.groupOrder)
+            let responseAttributes = QPublishAttributes(priority: attributes.priority,
+                                                        groupOrder: attributes.groupOrder,
+                                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
+                                                        expiresMs: attributes.expiresMs,
+                                                        filterType: .latestObject,
+                                                        forward: 1,
+                                                        newGroupRequestId: attributes.newGroupRequestId,
+                                                        isPublisherInitiated: true,
+                                                        startGroupId: attributes.startGroupId,
+                                                        startObjectId: attributes.startObjectId,
+                                                        trackAlias: attributes.trackAlias,
+                                                        dynamicGroups: attributes.dynamicGroups)
+            return .accept(responseAttributes, subscription)
+        }
+
         // Otherwise it's regular sub ns, or maybe oob publish.
         self.logger.notice("Got non demo sub ns publish, ignoring")
         return .reject
@@ -926,6 +1021,116 @@ extension CallState {
         } catch {
             self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    /// Create a subscription handler for an accepted NAB track, using the catalog for quality profile.
+    func nabCreateHandler(fullTrackName: FullTrackName,
+                          trackAlias: UInt64,
+                          priority: UInt8,
+                          groupOrder: QGroupOrder) -> Subscription? {
+        guard let factory = self.subscriptionFactory,
+              let controller = self.controller,
+              let relayId = controller.serverId else { return nil }
+        let endpointId = self.config.email
+
+        let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
+        let trackName = String(data: fullTrackName.name, encoding: .utf8) ?? ""
+
+        // NAB namespace: meeting/mediaType/participantId
+        let mediaTypeIndex = 1
+        guard namespace.count >= 3 else {
+            self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
+            return nil
+        }
+        let mediaType = namespace[mediaTypeIndex]
+        let remoteClientId = namespace.last!
+
+        // Look up the catalog track to get the quality profile.
+        guard let catalogTrack = self.catalogTracks.findMatch(name: trackName) else {
+            self.logger.warning("[nab] No catalog track matching name '\(trackName)'")
+            return nil
+        }
+
+        let profile = catalogTrack.toProfile(namespace: namespace)
+        let sourceId = "nab_\(remoteClientId)_\(mediaType)"
+        let participantHash = remoteClientId.hashValue
+        let manifestSubscription = ManifestSubscription(
+            mediaType: mediaType,
+            sourceName: trackName,
+            sourceID: sourceId,
+            label: catalogTrack.qualityProfile,
+            participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
+            profileSet: .init(type: mediaType, profiles: [profile]))
+
+        do {
+            let set: SubscriptionSet
+            if let existing = controller.getSubscriptionSet(sourceId) {
+                set = existing
+            } else {
+                set = try factory.create(subscription: manifestSubscription,
+                                         codecFactory: CodecFactoryImpl(),
+                                         endpointId: endpointId,
+                                         relayId: relayId)
+                controller.storeSubscriptionSet(sourceId: sourceId, set: set)
+            }
+
+            let subscription = try factory.create(set: set,
+                                                  profile: profile,
+                                                  codecFactory: CodecFactoryImpl(),
+                                                  endpointId: endpointId,
+                                                  relayId: relayId,
+                                                  publisherInitiated: true)
+            try set.addHandler(subscription)
+            self.logger.info("[nab] Created \(mediaType) subscription for \(remoteClientId)")
+            return subscription
+        } catch {
+            self.logger.error("[nab] Failed to create subscription: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    typealias CatalogUpdate = Result<Catalog, Error>
+    private func setupCatalogTrack(controller: MoqCallController,
+                                   callback: @escaping (CatalogUpdate) -> Void) async throws -> CallbackSubscription {
+        var continued = false
+        return try await withCheckedThrowingContinuation { continuation in
+            do {
+                nonisolated(unsafe) var subscription: CallbackSubscription!
+                subscription = try CallbackSubscription(fullTrackName: .init(namespace: ["catalog"],
+                                                                             name: "catalog"),
+                                                        endpointId: self.config.email,
+                                                        relayId: self.relayId ?? "Unknown",
+                                                        metricsSubmitter: self.submitter,
+                                                        priority: 128,
+                                                        groupOrder: .originalPublisherOrder,
+                                                        filterType: .latestObject,
+                                                        publisherInitiated: false,
+                                                        deliveryTimeout: nil) { _, data, _, _ in
+                    do {
+                        let catalog = try JSONDecoder().decode(MSF.Catalog.self, from: data)
+                        callback(.success(catalog))
+                        guard continued else {
+                            continued = true
+                            continuation.resume(returning: subscription)
+                            return
+                        }
+                    } catch {
+                        guard continued else {
+                            continued = true
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        callback(.failure(error))
+                    }
+                } statusCallback: { self.logger.info("Catalog status update: \($0)") }
+                try controller.subscribe(subscription)
+            } catch {
+                assert(!continued)
+                guard !continued else { return }
+                continued = true
+                continuation.resume(throwing: error)
+            }
         }
     }
 

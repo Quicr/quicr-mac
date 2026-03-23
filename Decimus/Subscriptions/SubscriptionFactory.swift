@@ -315,7 +315,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
         }
 
         if let set = set as? ActiveSpeakerSubscriptionSet {
-            return try CallbackSubscription(profile: profile,
+            return try CallbackSubscription(fullTrackName: profile.getFullTrackName(),
                                             endpointId: endpointId,
                                             relayId: relayId,
                                             metricsSubmitter: self.metricsSubmitter,
@@ -323,6 +323,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                             groupOrder: .originalPublisherOrder,
                                             filterType: .latestObject,
                                             publisherInitiated: publisherInitiated,
+                                            deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                                             callback: { [weak set] in
                                                 set?.receivedObject(headers: $0,
                                                                     data: $1,
@@ -392,7 +393,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
             let jitterMax = self.subscriptionConfig.useNewJitterBuffer ?
                 self.subscriptionConfig.videoJitterBuffer.capacity :
                 self.subscriptionConfig.jitterMaxTime
-            return try OpusSubscription(profile: profile,
+            return try OpusSubscription(fullTrackName: profile.getFullTrackName(),
                                         engine: engine,
                                         submitter: self.metricsSubmitter,
                                         jitterDepth: self.subscriptionConfig.jitterDepthTime,
@@ -411,9 +412,10 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                         config: .init(adaptive: self.subscriptionConfig.videoJitterBuffer.adaptive,
                                                       mediaInterop: self.mediaInterop),
                                         publisherInitiated: publisherInitiated,
+                                        deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                                         statusChanged: unregister)
         } else if config is TextCodecConfig {
-            return try MultipleCallbackSubscription(profile: profile,
+            return try MultipleCallbackSubscription(fullTrackName: profile.getFullTrackName(),
                                                     endpointId: endpointId,
                                                     relayId: relayId,
                                                     metricsSubmitter: self.metricsSubmitter,
@@ -421,6 +423,7 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                                     groupOrder: .originalPublisherOrder,
                                                     filterType: .latestObject,
                                                     publisherInitiated: publisherInitiated,
+                                                    deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                                                     statusCallback: {_ in})
         }
         throw CodecError.invalidCodecConfig(config)

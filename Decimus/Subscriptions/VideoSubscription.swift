@@ -234,7 +234,7 @@ class VideoSubscription: Subscription {
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
         self.stateMachine = .init(.startup, controller: self.controller)
-        try super.init(profile: profile,
+        try super.init(fullTrackName: profile.getFullTrackName(),
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: metricsSubmitter,
@@ -242,6 +242,7 @@ class VideoSubscription: Subscription {
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                        statusCallback: statusChanged)
     }
 
