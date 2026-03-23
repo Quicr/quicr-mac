@@ -18,6 +18,51 @@ final class TestFullTrackName: XCTestCase {
         XCTAssertEqual(swift.name, qftn.name)
         XCTAssertEqual(swift.nameSpace, qftn.nameSpace)
     }
+
+    /// RFC Section 1.5 example: example.net/team2/project_x track=report.
+    func testSerializationRFCExample() throws {
+        let ftn = try FullTrackName(namespace: ["example.net", "team2", "project_x"], name: "report")
+        XCTAssertEqual(ftn.description, "example.2enet-team2-project_x--report")
+    }
+
+    /// Round-trip: serialize then parse back, values must match.
+    func testSerializationRoundTrip() throws {
+        let original = try FullTrackName(namespace: ["hello", "world"], name: "track1")
+        let parsed = try FullTrackName(serialized: original.description)
+        XCTAssertEqual(original, parsed)
+    }
+
+    /// Binary data with non-ASCII bytes encodes and round-trips.
+    func testSerializationBinaryData() throws {
+        let ns1 = Data([0x00, 0xFF, 0x80])
+        let ns2 = Data([0x61, 0x62]) // "ab"
+        let name = Data([0x01, 0x02])
+        let ftn = FullTrackName(QFullTrackNameImpl(namespace: [ns1, ns2], name: name))
+        XCTAssertEqual(ftn.description, ".00.ff.80-ab--.01.02")
+        let parsed = try FullTrackName(serialized: ftn.description)
+        XCTAssertEqual(ftn, parsed)
+    }
+
+    /// Uppercase hex must be rejected.
+    func testDecodingRejectsUppercaseHex() {
+        XCTAssertThrowsError(try FullTrackName(serialized: "hello.2Enet--name"))
+    }
+
+    /// Redundant encoding of literal-safe bytes must be rejected.
+    func testDecodingRejectsRedundantEncoding() {
+        // .61 is 'a' — must be literal.
+        XCTAssertThrowsError(try FullTrackName(serialized: ".61bc--name"))
+    }
+
+    /// Trailing period with no hex digits must be rejected.
+    func testDecodingRejectsTrailingPeriod() {
+        XCTAssertThrowsError(try FullTrackName(serialized: "hello.--name"))
+    }
+
+    /// Missing "--" separator must be rejected.
+    func testDecodingRejectsMissingSeparator() {
+        XCTAssertThrowsError(try FullTrackName(serialized: "hello-name"))
+    }
 }
 
 final class TestCallController: XCTestCase {
@@ -127,7 +172,7 @@ final class TestCallController: XCTestCase {
         var mediaState = MediaState.subscribed
 
         init(profile: Profile) throws {
-            try super.init(profile: profile,
+            try super.init(fullTrackName: profile.getFullTrackName(),
                            endpointId: "1",
                            relayId: "2",
                            metricsSubmitter: nil,
@@ -135,6 +180,7 @@ final class TestCallController: XCTestCase {
                            groupOrder: .originalPublisherOrder,
                            filterType: .none,
                            publisherInitiated: false,
+                           deliveryTimeout: nil,
                            statusCallback: nil)
         }
 

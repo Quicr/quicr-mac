@@ -48,7 +48,7 @@ extension MSF.Catalog {
 
         for track in tracks {
             guard let namespace = track.namespace else { continue }
-            var tuples = namespace.split(separator: "/").map { String($0) }
+            var tuples = namespace.tuples
             // Pop remote participant, replace with local.
             _ = tuples.popLast()
             tuples.append(localParticipantId)

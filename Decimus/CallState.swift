@@ -564,7 +564,6 @@ class CallState: ObservableObject, Equatable {
                                      controller: MoqCallController,
                                      publicationFactory: PublicationFactory?,
                                      codecFactory: CodecFactory) {
-        self.logger.notice("Got catalog update")
         self.catalogTracks = catalog.tracks
         var namespaces: Set<[String]> = []
 
@@ -574,8 +573,7 @@ class CallState: ObservableObject, Equatable {
                 self.logger.error("Missing namespace for catalog track")
                 continue
             }
-            // TODO: MSF namespace isn't an array?
-            var tuples = namespace.split(separator: "/").map { String($0) }
+            var tuples = namespace.tuples
             // The last element will be participant ID, which we strip for subscription.
             _ = tuples.popLast()
             namespaces.insert(tuples)
@@ -589,7 +587,6 @@ class CallState: ObservableObject, Equatable {
             }
             do {
                 try controller.subscribeNamespace(subNs)
-                self.logger.notice("Subscribed to namespace \(namespace)")
             } catch {
                 self.logger.error("Failed to subscribe namespace: \(error.localizedDescription)")
             }
@@ -844,10 +841,7 @@ class CallState: ObservableObject, Equatable {
         }
 
         if self.nab {
-            let subscription = self.nabCreateHandler(fullTrackName: track,
-                                                     trackAlias: attributes.trackAlias,
-                                                     priority: attributes.priority,
-                                                     groupOrder: attributes.groupOrder)
+            let subscription = self.nabCreateHandler(fullTrackName: track)
             let responseAttributes = QPublishAttributes(priority: attributes.priority,
                                                         groupOrder: attributes.groupOrder,
                                                         deliveryTimeoutMs: attributes.deliveryTimeoutMs,
@@ -1025,10 +1019,7 @@ extension CallState {
     }
 
     /// Create a subscription handler for an accepted NAB track, using the catalog for quality profile.
-    func nabCreateHandler(fullTrackName: FullTrackName,
-                          trackAlias: UInt64,
-                          priority: UInt8,
-                          groupOrder: QGroupOrder) -> Subscription? {
+    func nabCreateHandler(fullTrackName: FullTrackName) -> Subscription? {
         guard let factory = self.subscriptionFactory,
               let controller = self.controller,
               let relayId = controller.serverId else { return nil }
@@ -1037,13 +1028,12 @@ extension CallState {
         let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
         let trackName = String(data: fullTrackName.name, encoding: .utf8) ?? ""
 
-        // NAB namespace: meeting/mediaType/participantId
-        let mediaTypeIndex = 1
-        guard namespace.count >= 3 else {
+        // NAB namespace: cisco.webex.com/nab/v1/{codec}/{participantId}
+        let codecIndex = 3
+        guard namespace.count >= 5 else {
             self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
             return nil
         }
-        let mediaType = namespace[mediaTypeIndex]
         let remoteClientId = namespace.last!
 
         // Look up the catalog track to get the quality profile.
@@ -1053,6 +1043,14 @@ extension CallState {
         }
 
         let profile = catalogTrack.toProfile(namespace: namespace)
+        // Derive the media type from the codec config, not the raw namespace.
+        let codecConfig = CodecFactoryImpl().makeCodecConfig(from: catalogTrack.qualityProfile, bitrateType: .average)
+        let mediaType: String
+        switch codecConfig {
+        case is VideoCodecConfig: mediaType = "video"
+        case is AudioCodecConfig: mediaType = "audio"
+        default: mediaType = namespace[codecIndex]
+        }
         let sourceId = "nab_\(remoteClientId)_\(mediaType)"
         let participantHash = remoteClientId.hashValue
         let manifestSubscription = ManifestSubscription(
@@ -1097,8 +1095,8 @@ extension CallState {
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 nonisolated(unsafe) var subscription: CallbackSubscription!
-                subscription = try CallbackSubscription(fullTrackName: .init(namespace: ["catalog"],
-                                                                             name: "catalog"),
+                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1--catalog")
+                subscription = try CallbackSubscription(fullTrackName: catalogTrack,
                                                         endpointId: self.config.email,
                                                         relayId: self.relayId ?? "Unknown",
                                                         metricsSubmitter: self.submitter,

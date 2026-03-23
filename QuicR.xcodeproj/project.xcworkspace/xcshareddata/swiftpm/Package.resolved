@@ -1,5 +1,5 @@
 {
-  "originHash" : "aa38a57803b437102f56159d38bb28b0282ceda7d2da5824195a5ffefc3c906b",
+  "originHash" : "e2cf0a8d1ccbe8f6e7a27639b4ddbe574d83f166f3a9e38779272918e3d0c721",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -79,7 +79,7 @@
       "location" : "https://github.com/RichLogan/swift-msf",
       "state" : {
         "branch" : "main",
-        "revision" : "90f1ad8cdbba2620992ac80a7717806c4ba2044c"
+        "revision" : "f09e10dc207bae349d521aaacc186bef68658cdb"
       }
     },
     {

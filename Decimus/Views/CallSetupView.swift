@@ -72,9 +72,6 @@ private struct LoginForm: View {
                         .tint(.blue)
                         Spacer()
                     }
-                    Text("Note: NAB pub/sub not implemented yet!")
-                        .foregroundStyle(.tint)
-                        .font(.footnote)
                 } else {
                     VStack(alignment: .leading) {
                         Text("Email")
