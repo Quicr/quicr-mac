@@ -14,7 +14,13 @@ class ActiveSpeakerNotifierSubscription: Subscription,
          submitter: MetricsSubmitter?,
          publisherInitiated: Bool,
          statusChanged: StatusCallback?) throws {
-        try super.init(profile: profile,
+        let deliveryTimeout: UInt64?
+        if let expiry = profile.expiry?.first {
+            deliveryTimeout = UInt64(expiry)
+        } else {
+            deliveryTimeout = nil
+        }
+        try super.init(fullTrackName: profile.getFullTrackName(),
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: submitter,
@@ -22,6 +28,7 @@ class ActiveSpeakerNotifierSubscription: Subscription,
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestGroup,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: deliveryTimeout,
                        statusCallback: statusChanged)
     }
 

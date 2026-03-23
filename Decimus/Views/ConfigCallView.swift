@@ -15,6 +15,11 @@ struct ConfigCallView: View {
     @State private var config: CallConfig?
     private let logger = DecimusLogger(ConfigCallView.self)
 
+    // NAB.
+    private static let nabKey = "nabDemo"
+    @AppStorage(Self.nabKey)
+    private var nab = false
+
     var body: some View {
         if let config = self.config {
             // We have config set, time to join.
@@ -28,8 +33,8 @@ struct ConfigCallView: View {
                                    alignment: .center)
                             .cornerRadius(12)
                             .padding([.horizontal, .bottom])
-                        #if os(tvOS)
-                        .ignoresSafeArea()
+                            #if os(tvOS)
+                            .ignoresSafeArea()
                         #endif
                         ProgressView()
                     }
@@ -57,9 +62,9 @@ struct ConfigCallView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
         } else {
-            CallSetupView(config: self.$config)
-            #if !os(tvOS) && !os(macOS)
-            .navigationBarTitleDisplayMode(.inline)
+            CallSetupView(config: self.$config, nab: self.$nab)
+                #if !os(tvOS) && !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
             #endif
         }
     }

@@ -8,10 +8,7 @@ import Testing
 @Test("Status Callback", arguments: QSubscribeTrackHandlerStatus.allCases)
 func testStatusCallback(_ status: QSubscribeTrackHandlerStatus) throws {
     func test(_ callback: Subscription.StatusCallback?) throws {
-        let subscription = try Subscription(profile: .init(qualityProfile: "",
-                                                           expiry: nil,
-                                                           priorities: nil,
-                                                           namespace: ["abc"]),
+        let subscription = try Subscription(fullTrackName: .init(namespace: ["abc"], name: "test"),
                                             endpointId: "1",
                                             relayId: "2",
                                             metricsSubmitter: nil,
@@ -19,6 +16,7 @@ func testStatusCallback(_ status: QSubscribeTrackHandlerStatus) throws {
                                             groupOrder: .originalPublisherOrder,
                                             filterType: .none,
                                             publisherInitiated: false,
+                                            deliveryTimeout: nil,
                                             statusCallback: callback)
 
         // Mock status change.
