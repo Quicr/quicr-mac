@@ -168,6 +168,7 @@ class CallState: ObservableObject, Equatable {
     private let nab: Bool
     private var catalogSubscription: CallbackSubscription?
     private var currentCatalog: Catalog?
+    private var nabNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.nab = config.conferenceID == .max
@@ -589,6 +590,7 @@ class CallState: ObservableObject, Equatable {
             }
             do {
                 try controller.subscribeNamespace(subNs)
+                self.nabNamespaceHandlers.append(subNs)
             } catch {
                 self.logger.error("Failed to subscribe namespace: \(error.localizedDescription)")
             }
@@ -1087,6 +1089,24 @@ extension CallState {
         } catch {
             self.logger.error("[nab] Failed to create subscription: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    /// Update the layout count for the NAB subscribe namespaces.
+    /// Sets the video grid display count and prepares a track filter for when libquicr supports filter updates.
+    func setLayoutCount(_ count: Int?) {
+        self.videoParticipants.maxDisplayCount = count
+
+        // Build the filter we'd apply to the subscribe namespace handlers.
+        // TODO: Apply this to nabNamespaceHandlers once libquicr supports SetFilter.
+        if let count {
+            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                          maxTracksSelected: UInt64(count),
+                                          maxTracksDeselected: UInt64(self.demoMaxTracksDeselected),
+                                          maxTimeSelected: UInt64(self.demoMaxTimeSelected * 1000))
+            self.logger.info("[nab] Layout count set to \(count), filter ready (maxTracksSelected: \(filter.maxTracksSelected))")
+        } else {
+            self.logger.info("[nab] Layout count cleared (unlimited)")
         }
     }
 
