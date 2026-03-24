@@ -164,10 +164,10 @@ class CallState: ObservableObject, Equatable {
     private var wlan: CoreWLANWiFiScanNotifier?
     #endif
 
-    // Temp flag for NAB demo.
+    // Temp fields for NAB demo.
     private let nab: Bool
     private var catalogSubscription: CallbackSubscription?
-    private var catalogTracks: [MSF.Track] = []
+    private var currentCatalog: Catalog?
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.nab = config.conferenceID == .max
@@ -564,10 +564,12 @@ class CallState: ObservableObject, Equatable {
                                      controller: MoqCallController,
                                      publicationFactory: PublicationFactory?,
                                      codecFactory: CodecFactory) {
-        self.catalogTracks = catalog.tracks
-        var namespaces: Set<[String]> = []
+        guard self.currentCatalog != catalog else { return }
+        self.currentCatalog = catalog
+        self.logger.debug("Received new catalog update")
 
         // Collect namespaces to subscribe to.
+        var namespaces: Set<[String]> = []
         for track in catalog.tracks {
             guard let namespace = track.namespace else {
                 self.logger.error("Missing namespace for catalog track")
@@ -1028,8 +1030,8 @@ extension CallState {
         let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
         let trackName = String(data: fullTrackName.name, encoding: .utf8) ?? ""
 
-        // NAB namespace: cisco.webex.com/nab/v1/{codec}/{participantId}
-        let codecIndex = 3
+        // NAB namespace: cisco.webex.com/nab/v1/{quality}/{participantId}
+        let qualityIndex = 3
         guard namespace.count >= 5 else {
             self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
             return nil
@@ -1037,7 +1039,7 @@ extension CallState {
         let remoteClientId = namespace.last!
 
         // Look up the catalog track to get the quality profile.
-        guard let catalogTrack = self.catalogTracks.findMatch(name: trackName) else {
+        guard let catalogTrack = self.currentCatalog?.tracks.findMatch(name: trackName) else {
             self.logger.warning("[nab] No catalog track matching name '\(trackName)'")
             return nil
         }
@@ -1049,7 +1051,7 @@ extension CallState {
         switch codecConfig {
         case is VideoCodecConfig: mediaType = "video"
         case is AudioCodecConfig: mediaType = "audio"
-        default: mediaType = namespace[codecIndex]
+        default: mediaType = namespace[qualityIndex]
         }
         let sourceId = "nab_\(remoteClientId)_\(mediaType)"
         let participantHash = remoteClientId.hashValue
