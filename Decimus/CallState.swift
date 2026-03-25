@@ -741,7 +741,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             self.logger.error("Error while stopping media: \(error)")
         }
 
-        // Unsubscribe the catalog track before disconnect (it's not in the controller's subscription dict).
         if let catalogSubscription = self.catalogSubscription {
             try? controller?.unsubscribe(catalogSubscription)
             self.catalogSubscription = nil
@@ -1139,7 +1138,7 @@ extension CallState {
                 controller.storeSubscriptionSet(sourceId: sourceId, set: set)
             }
 
-            // Track this subscription against its namespace prefix for catalog diff teardown.
+            // Store this subscription by its prefix.
             self.nabSubscriptionsByNamespace[namespacePrefix, default: []].append((sourceId: sourceId, ftn: fullTrackName))
 
             let subscription = try factory.create(set: set,
