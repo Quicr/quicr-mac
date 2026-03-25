@@ -148,8 +148,7 @@ struct InCallView: View {
                 }
                 .sheet(isPresented: self.$debugDetail) {
                     VStack {
-                        if let controller = self.viewModel.controller,
-                           let manifest = self.viewModel.currentManifest {
+                        if let controller = self.viewModel.controller {
                             Text("Debug Details").font(.title)
                             Form {
                                 HStack {
@@ -261,6 +260,7 @@ struct InCallView: View {
             if let activeSpeaker = self.viewModel.activeSpeaker {
                 activeSpeaker.setClampCount(self.layout.count)
             }
+            self.viewModel.setLayoutCount(self.layout.count)
         }
         .onTapGesture {
             // Show the preview when we tap.
