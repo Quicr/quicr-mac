@@ -616,7 +616,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
                                           maxTracksSelected: .init(self.demoMaxTracksSelected),
                                           maxTracksDeselected: .init(self.demoMaxTracksDeselected),
-                                          maxTimeSelected: .init(self.demoMaxTimeSelected))
+                                          maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
             let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
                                                      trackFilter: filter) { status, errorCode, namespacePrefix in
                 self.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
