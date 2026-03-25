@@ -57,7 +57,7 @@ enum CaptureManagerError: Error {
 
 /// Manages local video capture.
 class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    private static let logger = DecimusLogger(CaptureManager.self)
+    private let logger = DecimusLogger(CaptureManager.self)
 
     /// Describe events that can happen to devices.
     enum DeviceEvent { case added; case removed }
@@ -155,10 +155,10 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     private func onStartFailure(notification: Notification) {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else {
-            Self.logger.error("AVCaptureSession failed for unknown reason")
+            self.logger.error("AVCaptureSession failed for unknown reason")
             return
         }
-        Self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
+        self.logger.error("AVCaptureSession failure: \(error.localizedDescription)")
     }
 
     /// Stop capturing media.
@@ -266,7 +266,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             $0 == lossless420
         }) {
             output.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = lossless420
-            Self.logger.debug("[\(device.localizedName)] Using lossy compressed format")
+            self.logger.debug("[\(device.localizedName)] Using lossy compressed format")
         }
         #if !os(macOS)
         output.videoSettings[AVVideoColorPropertiesKey] = [
@@ -307,7 +307,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
     func addInput(_ listener: FrameListener) throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
-        Self.logger.info("Adding capture device: \(listener.device.localizedName)")
+        self.logger.info("Adding capture device: \(listener.device.localizedName)")
 
         #if !os(tvOS)
         if listener.device.deviceType == .microphone {
@@ -357,7 +357,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             outputs.removeValue(forKey: output.key)
         }
         session.commitConfiguration()
-        Self.logger.info("Removing input for \(device.localizedName)")
+        self.logger.info("Removing input for \(device.localizedName)")
     }
 
     /// Query the mute state of the target device.
@@ -435,7 +435,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let reason = CMGetAttachment(sampleBuffer,
                                      key: kCMSampleBufferAttachmentKey_DroppedFrameReason,
                                      attachmentModeOut: &mode)
-        Self.logger.warning("\(String(describing: reason))")
+        self.logger.warning("\(String(describing: reason))")
         guard let measurement = self.measurement else { return }
         let now: Date? = self.granularMetrics ? Date.now : nil
         Task(priority: .utility) {
@@ -462,24 +462,24 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         switch pressure.level {
         case .nominal:
-            Self.logger.debug("[\(device.localizedName)] Capture pressure nominal")
+            self.logger.debug("[\(device.localizedName)] Capture pressure nominal")
             level = 0
         case .fair:
-            Self.logger.info("[\(device.localizedName)] Capture pressure fair: \(factor)")
+            self.logger.info("[\(device.localizedName)] Capture pressure fair: \(factor)")
             level = 1
         case .serious:
-            Self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(factor)",
+            self.logger.warning("[\(device.localizedName)] Capture pressure serious: \(factor)",
                                 alert: true)
             level = 2
         case .critical:
-            Self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(factor)",
+            self.logger.warning("[\(device.localizedName)] Pressure pressure critical: \(factor)",
                                 alert: true)
             level = 3
         case .shutdown:
-            Self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(factor)")
+            self.logger.error("[\(device.localizedName)] Capture shutdown due to pressure: \(factor)")
             level = 4
         default:
-            Self.logger.info("[\(device.localizedName)] Unknown pressure state")
+            self.logger.info("[\(device.localizedName)] Unknown pressure state")
             level = -1
         }
 

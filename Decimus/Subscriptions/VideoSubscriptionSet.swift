@@ -18,7 +18,7 @@ struct AvailableImage {
 }
 
 class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
-    private static let logger = DecimusLogger(VideoSubscriptionSet.self)
+    private let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription
     private let participants: VideoParticipants
@@ -174,19 +174,19 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             }
         }
 
-        Self.logger.info("Subscribed to video stream")
+        self.logger.info("Subscribed to video stream")
     }
 
     deinit {
         self.cleanupTask?.cancel()
-        Self.logger.debug("Deinit")
+        self.logger.debug("Deinit")
     }
 
     override func removeHandler(_ ftn: FullTrackName) -> Subscription? {
         let result = super.removeHandler(ftn)
         if self.simulreceive == .enable,
            self.getHandlers().isEmpty {
-            Self.logger.debug("Destroying simulreceive render as no live subscriptions")
+            self.logger.debug("Destroying simulreceive render as no live subscriptions")
             self.renderTask?.cancel()
             self.participant.clear()
         }
@@ -280,7 +280,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         do {
                             duration = try self.makeSimulreceiveDecision(at: now)
                         } catch {
-                            Self.logger.error("Simulreceive failure: \(error.localizedDescription)")
+                            self.logger.error("Simulreceive failure: \(error.localizedDescription)")
                             self.renderTask?.cancel()
                             duration = TimeInterval.nan
                         }
@@ -455,10 +455,10 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             //                }
             //
             //                let newValue = pauseCandidateCount.value + 1
-            //                Self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+            //                self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
             //                if newValue >= self.pauseMissThreshold {
             //                    // Pause this subscription.
-            //                    Self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
+            //                    self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
             //                    callController.setSubscriptionState(pauseCandidate.namespace, transportMode: .pause)
             //                    self.pauseMissCounts[pauseCandidate.namespace] = 0
             //                } else {
@@ -517,7 +517,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                     try await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
                                                                                timestamp: decisionTime!)
                 } catch {
-                    Self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
+                    self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
                 }
             }
         }
@@ -552,7 +552,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             if selectedSample.sampleAttachments.count > 0 {
                 selectedSample.sampleAttachments[0][.displayImmediately] = true
             } else {
-                Self.logger.warning("Couldn't set display immediately attachment")
+                self.logger.warning("Couldn't set display immediately attachment")
             }
 
             // Enqueue the sample on the main thread.
@@ -585,7 +585,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         return created
                     }
                 } catch {
-                    Self.logger.warning("Failed to create participant: \(error.localizedDescription)")
+                    self.logger.warning("Failed to create participant: \(error.localizedDescription)")
                     return
                 }
 
@@ -619,13 +619,13 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                     }
                     self.displayCallbacks.fire()
                 } catch {
-                    Self.logger.error("Could not enqueue sample: \(error)")
+                    self.logger.error("Could not enqueue sample: \(error)")
                 }
             }
         } else if self.simulreceive == .visualizeOnly {
             let fullTrackName = handler.fullTrackName
             if fullTrackName != self.lastHighlight {
-                Self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
+                self.logger.debug("Updating highlight to: \(selectedSample.formatDescription!.dimensions.width)")
                 self.lastHighlight = fullTrackName
                 Task { @MainActor [weak self] in
                     guard let self = self else { return }

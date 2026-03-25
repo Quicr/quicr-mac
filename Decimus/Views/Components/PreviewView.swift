@@ -34,7 +34,7 @@ class PreviewUIView: VideoUIView, FrameListener {
 #if os(macOS)
 struct PreviewView: NSViewRepresentable {
 
-    private static let logger = DecimusLogger(PreviewView.self)
+    private let logger = DecimusLogger(PreviewView.self)
     let view: PreviewUIView
     private let captureManager: CaptureManager
 
@@ -49,7 +49,7 @@ struct PreviewView: NSViewRepresentable {
         do {
             try captureManager.addInput(self.view)
         } catch {
-            Self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
+            self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
         }
         return view
     }
@@ -57,16 +57,17 @@ struct PreviewView: NSViewRepresentable {
     func updateNSView(_ nsView: PreviewUIView, context: Context) {}
 
     static func dismantleNSView(_ nsView: PreviewUIView, coordinator: ()) {
+        let logger = DecimusLogger(PreviewView.self)
         do {
             try nsView.captureManager.removeInput(listener: nsView)
         } catch {
-            Self.logger.error("Failed to remove input for preview: \(error.localizedDescription)")
+            logger.error("Failed to remove input for preview: \(error.localizedDescription)")
         }
     }
 }
 #else
 struct PreviewView: UIViewRepresentable {
-    private static let logger = DecimusLogger(PreviewView.self)
+    private let logger = DecimusLogger(PreviewView.self)
     let view: PreviewUIView
     private let captureManager: CaptureManager
 
@@ -81,7 +82,7 @@ struct PreviewView: UIViewRepresentable {
         do {
             try captureManager.addInput(self.view)
         } catch {
-            Self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
+            self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
         }
         view.contentMode = .scaleAspectFit
         return view
@@ -90,10 +91,11 @@ struct PreviewView: UIViewRepresentable {
     func updateUIView(_ uiView: PreviewUIView, context: Context) {}
 
     static func dismantleUIView(_ uiView: PreviewUIView, coordinator: Self.Coordinator) {
+        let logger = DecimusLogger(PreviewView.self)
         do {
             try uiView.captureManager.removeInput(listener: uiView)
         } catch {
-            Self.logger.error("Failed to remove input for preview: \(error.localizedDescription)")
+            logger.error("Failed to remove input for preview: \(error.localizedDescription)")
         }
     }
 }

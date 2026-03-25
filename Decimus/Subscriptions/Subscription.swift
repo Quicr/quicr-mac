@@ -32,7 +32,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
 
     /// Create a new subscription for the given profile.
     /// - Parameters:
-    ///   - profile: Details of the track to subscribe to.
+    ///   - fullTrackName: Full track name.
     ///   - endpointId: Metrics identifier.
     ///   - relayId: Metrics identifier.
     ///   - metricsSubmitter: Optionally, submitter for metrics.
@@ -41,7 +41,7 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     ///   - filterType: Filter type.
     ///   - publisherInitiated: True if publisher initiated the subscribe.
     ///   - statusCallback: Fires when the subscription status changes (on the original callback thread).
-    init(profile: Profile,
+    init(fullTrackName: FullTrackName,
          endpointId: String,
          relayId: String,
          metricsSubmitter: MetricsSubmitter?,
@@ -49,23 +49,26 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
          groupOrder: QGroupOrder,
          filterType: QFilterType,
          publisherInitiated: Bool,
+         deliveryTimeout: UInt64?,
          statusCallback: StatusCallback?) throws {
         if let submitter = metricsSubmitter {
             self.quicrMeasurement = .init(measurement: .init(type: .subscribe,
                                                              endpointId: endpointId,
                                                              relayId: relayId,
-                                                             namespace: profile.namespace.joined()),
+                                                             namespace: "\(fullTrackName)"),
                                           submitter: submitter)
         } else {
             self.quicrMeasurement = nil
         }
         self.statusCallback = statusCallback
-        super.init(fullTrackName: try profile.getFullTrackName(),
+        super.init(fullTrackName: fullTrackName,
                    priority: priority,
                    groupOrder: groupOrder,
                    publisherInitiated: publisherInitiated)
         super.setCallbacks(self)
-        super.setDeliveryTimeout(UInt64(profile.expiry?.max() ?? 5000))
+        if let deliveryTimeout {
+            super.setDeliveryTimeout(deliveryTimeout)
+        }
     }
 
     /// Fires when the underlying subscription handler's status changes.

@@ -45,6 +45,7 @@
 		18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18EC340C2A69CFD6004FE2EE /* VideoView.swift */; };
 		18F7C4D82AB1C7AA005EDB88 /* JitterBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18F7C4D72AB1C7AA005EDB88 /* JitterBuffer.swift */; };
 		18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */; };
+		9B0A0E012F7F000000000001 /* MSFExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0A0E002F7F000000000001 /* MSFExtensions.swift */; };
 		9B0E0F1C2C4A9A0300F06D6E /* TestNumberView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */; };
 		9B1143BB2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */; };
 		9B1246322CD8EB83004C020C /* QFullTrackName.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9B1246312CD8EB7F004C020C /* QFullTrackName.mm */; };
@@ -165,6 +166,7 @@
 		9BE6B7C72C9D92940069FE9F /* TokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C62C9D92890069FE9F /* TokenStorage.swift */; };
 		9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */; };
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
+		9BF02E052F712EA800C9CC6F /* MSF in Frameworks */ = {isa = PBXBuildFile; productRef = 9BF02E042F712EA800C9CC6F /* MSF */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
@@ -284,6 +286,7 @@
 		18C89A4A2A14EF1F005B333B /* InfluxSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfluxSettingsView.swift; sourceTree = "<group>"; };
 		18EC340C2A69CFD6004FE2EE /* VideoView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoView.swift; sourceTree = "<group>"; };
 		18F7C4D72AB1C7AA005EDB88 /* JitterBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JitterBuffer.swift; sourceTree = "<group>"; };
+		9B0A0E002F7F000000000001 /* MSFExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MSFExtensions.swift; sourceTree = "<group>"; };
 		9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestNumberView.swift; sourceTree = "<group>"; };
 		9B1143BA2BADBC0A003A2D2D /* VideoSubscriptionSet+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VideoSubscriptionSet+Measurement.swift"; sourceTree = "<group>"; };
 		9B1246312CD8EB7F004C020C /* QFullTrackName.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QFullTrackName.mm; sourceTree = "<group>"; };
@@ -511,6 +514,7 @@
 				FFA0E8502A6F25A20027603B /* WrappingHStack in Frameworks */,
 				9BDA15D32C7FF3E300494BFD /* quicr.xcframework in Frameworks */,
 				188ABB562A792E9C00B31A6E /* Opus in Frameworks */,
+				9BF02E052F712EA800C9CC6F /* MSF in Frameworks */,
 				18F7C4DA2AB1C7BD005EDB88 /* OrderedCollections in Frameworks */,
 				1849128A2A3B560200773D39 /* clibjitter.xcframework in Frameworks */,
 			);
@@ -793,6 +797,7 @@
 				18C89A412A13EB1E005B333B /* InfluxConfig.swift */,
 				FFFF72D82A27FBEA00D4D5EE /* RelayConfig.swift */,
 				FF3333FF2AA77D8B00DDE4AD /* ManifestTypes.swift */,
+				9B0A0E002F7F000000000001 /* MSFExtensions.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -1003,6 +1008,7 @@
 				18F7C4D92AB1C7BD005EDB88 /* OrderedCollections */,
 				18BF45772B0E0F3D006E8E24 /* TPCircularBuffer */,
 				9B4A44E62DE8ECE00058F5CD /* SFrame */,
+				9BF02E042F712EA800C9CC6F /* MSF */,
 			);
 			productName = Decimus;
 			productReference = 9BA27FC2297D7270007013B2 /* QuicR.app */;
@@ -1046,6 +1052,7 @@
 				9B81EEBD2C6A578C003690F9 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				9B25D2122D9AAB9800FE8AB7 /* XCRemoteSwiftPackageReference "swift-numerics" */,
 				9B4A44E52DE8ECE00058F5CD /* XCRemoteSwiftPackageReference "swift-frame" */,
+				9BF02E032F712EA800C9CC6F /* XCRemoteSwiftPackageReference "swift-msf" */,
 			);
 			productRefGroup = 9BA27FC3297D7270007013B2 /* Products */;
 			projectDirPath = "";
@@ -1128,7 +1135,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1235,6 +1242,7 @@
 				9B1F2C102C946071007548D1 /* CallController+Measurement.swift in Sources */,
 				9BDCEA812D2EA43C00FE301B /* SubscriptionSet.swift in Sources */,
 				FF3334002AA77D8B00DDE4AD /* ManifestTypes.swift in Sources */,
+				9B0A0E012F7F000000000001 /* MSFExtensions.swift in Sources */,
 				FF6D6D752A01CCAE00B535DA /* ManifestController.swift in Sources */,
 				9B6C9F0C2DE5E80E0041B9C1 /* AudioUtilities.swift in Sources */,
 				9BCA87032C3423F500DA4F41 /* NumberView.swift in Sources */,
@@ -1341,7 +1349,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1366,7 +1374,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1533,7 +1541,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1610,7 +1618,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = R77C67VW87;
+				DEVELOPMENT_TEAM = "";
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1760,6 +1768,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		9BF02E032F712EA800C9CC6F /* XCRemoteSwiftPackageReference "swift-msf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RichLogan/swift-msf";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 		FFA0E84E2A6F25A20027603B /* XCRemoteSwiftPackageReference "WrappingHStack" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ksemianov/WrappingHStack";
@@ -1815,6 +1831,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9BDD5B11299697DE00C01D54 /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = DequeModule;
+		};
+		9BF02E042F712EA800C9CC6F /* MSF */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BF02E032F712EA800C9CC6F /* XCRemoteSwiftPackageReference "swift-msf" */;
+			productName = MSF;
 		};
 		FFA0E84F2A6F25A20027603B /* WrappingHStack */ = {
 			isa = XCSwiftPackageProductDependency;

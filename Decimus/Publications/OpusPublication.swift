@@ -8,7 +8,7 @@ import Accelerate
 import Synchronization
 
 class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
-    private static let logger = DecimusLogger(OpusPublication.self)
+    private let logger = DecimusLogger(OpusPublication.self)
 
     let sink: MoQSink
     private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
@@ -68,7 +68,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
         self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(speechStartInterval: speechStartInterval,
-                                                                                continuousSpeechInterval: continuousSpeechInterval) : nil
+                                                                            continuousSpeechInterval: continuousSpeechInterval) : nil
         self.sharedVoiceActivity = sharedVoiceActivity
         self.activityTransitionMeasurement = activityTransitionMeasurement
 
@@ -81,7 +81,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.pcm = pcm
 
         encoder = try .init(format: format, desiredWindowSize: opusWindowSize, bitrate: Int(config.bitrate))
-        Self.logger.info("Created Opus Encoder")
+        self.logger.info("Created Opus Encoder")
         self.participantId = participantId
         self.publish = .init(startActive)
         self.startingGroupId = groupId
@@ -119,7 +119,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                             }
                         }
                     } catch {
-                        Self.logger.error("Failed encode: \(error)")
+                        self.logger.error("Failed encode: \(error)")
                     }
                 }
                 try? await Task.sleep(for: .seconds(opusWindowSize.rawValue),
@@ -128,12 +128,12 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             }
         }
 
-        Self.logger.info("Registered OPUS publication for namespace \(namespace)")
+        self.logger.info("Registered OPUS publication for namespace \(namespace)")
     }
 
     deinit {
         self.encodeTask?.cancel()
-        Self.logger.debug("Deinit")
+        self.logger.debug("Deinit")
     }
 
     func togglePublishing(active: Bool) {
@@ -184,13 +184,13 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         }
 
         guard self.sink.canPublish else {
-            Self.logger.warning("Not published due to status: \(self.sink.status)")
+            self.logger.warning("Not published due to status: \(self.sink.status)")
             return
         }
 
         guard var priority = try? self.profile.getPriority(index: 0),
               var ttl = try? self.profile.getTTL(index: 0) else {
-            Self.logger.error("Bad profile")
+            self.logger.error("Bad profile")
             return
         }
 
@@ -203,7 +203,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                        plaintext: data)
                 }
             } catch {
-                Self.logger.error("Failed to protect: \(error.localizedDescription)")
+                self.logger.error("Failed to protect: \(error.localizedDescription)")
                 return
             }
         } else {
@@ -224,7 +224,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                 self.currentObjectId += 1
             }
         default:
-            Self.logger.warning("Failed to publish: \(published)")
+            self.logger.warning("Failed to publish: \(published)")
         }
     }
 
@@ -270,7 +270,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         let dequeued = buffer.dequeue(frames: self.windowFrames, buffer: &self.pcm.mutableAudioBufferList.pointee)
         self.pcm.frameLength = dequeued.frames
         guard dequeued.frames == self.windowFrames else {
-            Self.logger.warning("Dequeue only got: \(dequeued.frames)/\(self.windowFrames)")
+            self.logger.warning("Dequeue only got: \(dequeued.frames)/\(self.windowFrames)")
             return nil
         }
 
@@ -346,7 +346,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     }
 
     func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
-        Self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
+        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
     }
 
     func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {

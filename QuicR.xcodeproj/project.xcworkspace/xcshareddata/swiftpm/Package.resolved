@@ -1,5 +1,5 @@
 {
-  "originHash" : "eed7039d1fed5e52504369e951b63dabecd93e917e45cac9cd7f29820c608915",
+  "originHash" : "e2cf0a8d1ccbe8f6e7a27639b4ddbe574d83f166f3a9e38779272918e3d0c721",
   "pins" : [
     {
       "identity" : "csv.swift",
@@ -74,6 +74,15 @@
       }
     },
     {
+      "identity" : "swift-msf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/RichLogan/swift-msf",
+      "state" : {
+        "branch" : "main",
+        "revision" : "f09e10dc207bae349d521aaacc186bef68658cdb"
+      }
+    },
+    {
       "identity" : "swift-numerics",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-numerics.git",
@@ -96,8 +105,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SimplyDanny/SwiftLintPlugins",
       "state" : {
-        "revision" : "7c80ce6f142164b0201871e580b021d1b2c69804",
-        "version" : "0.57.0"
+        "revision" : "8a4640d14777685ba8f14e832373160498fbab92",
+        "version" : "0.63.2"
       }
     },
     {

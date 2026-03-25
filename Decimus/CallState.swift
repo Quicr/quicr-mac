@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
 import CryptoKit
 import SFrame
 import SwiftUI
 import Synchronization
 import Network
+import MSF
 
 class SFrameContext {
     let mutex: Mutex<MLS>
@@ -53,7 +56,7 @@ class CallState: ObservableObject, Equatable {
         false
     }
 
-    private static let logger = DecimusLogger(CallState.self)
+    private let logger = DecimusLogger(CallState.self)
 
     let engine: DecimusAudioEngine?
     private(set) var controller: MoqCallController?
@@ -161,14 +164,20 @@ class CallState: ObservableObject, Equatable {
     private var wlan: CoreWLANWiFiScanNotifier?
     #endif
 
+    // Temp fields for NAB demo.
+    private let nab: Bool
+    private var catalogSubscription: CallbackSubscription?
+    private var currentCatalog: Catalog?
+
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
+        self.nab = config.conferenceID == .max
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
         do {
             self.engine = try .init()
         } catch {
-            Self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
+            self.logger.error("Failed to create AudioEngine: \(error.localizedDescription)")
             self.engine = nil
         }
 
@@ -176,7 +185,7 @@ class CallState: ObservableObject, Equatable {
             let tags: [String: String] = [
                 "relay": config.address,
                 "email": config.email,
-                "conference": "\(config.conferenceID)"
+                "conference": self.nab ? "NAB" : "\(config.conferenceID)"
             ]
             self.doMetrics(tags)
         }
@@ -185,7 +194,7 @@ class CallState: ObservableObject, Equatable {
             self.captureManager = try .init(metricsSubmitter: submitter,
                                             granularMetrics: influxConfig.value.granular)
         } catch {
-            Self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
+            self.logger.error("Failed to create camera manager: \(error.localizedDescription)")
         }
     }
 
@@ -198,21 +207,34 @@ class CallState: ObservableObject, Equatable {
                 self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif
             } catch {
-                Self.logger.error("Failed to start recording: \(error.localizedDescription)")
+                self.logger.error("Failed to start recording: \(error.localizedDescription)")
             }
         }
 
         // Fetch the manifest from the conference server.
-        let manifest: Manifest
-        do {
-            let mController = ManifestController.shared
-            manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                         email: self.config.email)
-        } catch {
-            Self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
-            return false
+        let localParticipantId: UInt32
+        if !self.nab {
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                return false
+            }
+            self.currentManifest = manifest
+            localParticipantId = manifest.participantId.aggregate
+        } else {
+            // NAB uses random ID.
+            guard let id = UInt32(self.config.email) else {
+                self.logger.error("Bad NAB ID: \(self.config.email)")
+                return false
+            }
+            localParticipantId = id
         }
-        self.currentManifest = manifest
+        let localTypedParticipantId = ParticipantId(localParticipantId)
+        self.logger.info("We will be participant: \(localTypedParticipantId)")
 
         let sframeSettings = self.subscriptionConfig.value.sframeSettings
         if sframeSettings.enable {
@@ -231,13 +253,13 @@ class CallState: ObservableObject, Equatable {
                 try recvContext.addEpoch(epochId: epochId,
                                          sframeEpochSecret: secret)
 
-                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                let senderId = self.audioStartingGroup ?? UInt64(localParticipantId)
                 self.sendContext = .init(sframe: sendContext,
                                          senderId: senderId,
                                          currentEpoch: epochId)
                 self.receiveContext = .init(recvContext)
             } catch {
-                Self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
+                self.logger.error("Failed to create SFrame context: \(error.localizedDescription)")
             }
         }
 
@@ -248,12 +270,12 @@ class CallState: ObservableObject, Equatable {
         if self.mediaInterop {
             let (override, namespaceError) = Self.validateNamespace(self.overrideNamespaceJSON, placeholder: true)
             if let namespaceError {
-                Self.logger.error("Bad override namespace: \(namespaceError)")
+                self.logger.error("Bad override namespace: \(namespaceError)")
                 return false
             }
             guard let override else {
                 assert(false)
-                Self.logger.error("Bad namespace override")
+                self.logger.error("Bad namespace override")
                 return false
             }
             overrideNamespace = override
@@ -272,7 +294,7 @@ class CallState: ObservableObject, Equatable {
                                                         metricsSubmitter: self.submitter,
                                                         granularMetrics: self.influxConfig.value.granular,
                                                         captureManager: self.captureManager,
-                                                        participantId: manifest.participantId,
+                                                        participantId: localTypedParticipantId,
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
@@ -291,7 +313,7 @@ class CallState: ObservableObject, Equatable {
             publicationFactory = nil
         }
         let playtime = self.playtimeConfig.value
-        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : localTypedParticipantId
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
@@ -326,14 +348,33 @@ class CallState: ObservableObject, Equatable {
         } catch let error as MoqCallControllerError {
             switch error {
             case .connectionFailure(let status):
-                Self.logger.error("Failed to connect relay: \(status)")
+                self.logger.error("Failed to connect relay: \(status)")
             default:
-                Self.logger.error("Unhandled MoqCallControllerError")
+                self.logger.error("Unhandled MoqCallControllerError")
             }
             return false
         } catch {
-            Self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
+            self.logger.error("MoqCallController failed due to unknown error: \(error.localizedDescription)")
             return false
+        }
+
+        // If we're NAB, we need to subscribe to the catalog track.
+        if self.nab {
+            do {
+                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { result in
+                    switch result {
+                    case .success(let catalog):
+                        self.handleCatalogUpdate(catalog,
+                                                 controller: controller,
+                                                 publicationFactory: publicationFactory,
+                                                 codecFactory: CodecFactoryImpl())
+                    case .failure(let error):
+                        self.logger.error("Catalog parse failed: \(error.localizedDescription)")
+                    }
+                }
+            } catch {
+                self.logger.error("Failed to setup catalog track: \(error.localizedDescription)")
+            }
         }
 
         // Demo namespace subscriptions — registered before publications so the relay
@@ -359,14 +400,14 @@ class CallState: ObservableObject, Equatable {
                     namespacePrefix: prefix,
                     trackFilter: trackFilter,
                     statusChangedCallback: { status, errorCode, namespacePrefix in
-                        Self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
+                        self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     })
                 do {
                     try controller.subscribeNamespace(handler)
                     self.demoNamespaceHandlers.append(handler)
-                    Self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix)")
+                    self.logger.info("[demo] Subscribed to \(mediaType) namespace prefix: \(prefix)")
                 } catch {
-                    Self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
+                    self.logger.error("[demo] Failed to subscribe to \(mediaType) namespace: \(error.localizedDescription)")
                 }
             }
         }
@@ -377,7 +418,7 @@ class CallState: ObservableObject, Equatable {
                 // Demo mode: publish to hardcoded namespaces, skip manifest subscriptions.
                 if let publicationFactory {
                     let meetingId = self.demoMeetingId
-                    let userId = "\(manifest.participantId.aggregate)"
+                    let userId = "\(localParticipantId)"
                     let demoPublications = Self.makeDemoPublications(meetingId: meetingId, userId: userId)
                     for publication in demoPublications {
                         do {
@@ -385,11 +426,13 @@ class CallState: ObservableObject, Equatable {
                                                        factory: publicationFactory,
                                                        codecFactory: CodecFactoryImpl())
                         } catch {
-                            Self.logger.warning("[demo] [\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
+                            self.logger.warning("[demo] [\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
                     }
                 }
-            } else {
+            } else if self.nab {
+                // NAB: Dynamic catalog updates handled in catalog callback at runtime.
+            } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
                 if let publicationFactory {
@@ -402,7 +445,7 @@ class CallState: ObservableObject, Equatable {
                                 self.textPublication = (pub.1 as! TextPublication) // swiftlint:disable:this force_cast
                             }
                         } catch {
-                            Self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
+                            self.logger.warning("[\(publication.sourceID)] Couldn't create publication: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -425,7 +468,7 @@ class CallState: ObservableObject, Equatable {
                                 self.textSubscriptions?.addSubscription(sub)
                             }
                         } catch {
-                            Self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
+                            self.logger.warning("[\(subscription.sourceID)] Couldn't create subscription: \(error.localizedDescription)")
                         }
                     }
 
@@ -451,7 +494,7 @@ class CallState: ObservableObject, Equatable {
                                                            activeSpeakerStats: self.activeSpeakerStats,
                                                            pauseResume: self.subscriptionConfig.value.pauseResume)
                         } catch {
-                            Self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
+                            self.logger.error("Failed to create active speaker controller: \(error.localizedDescription)")
                         }
                     }
                 }
@@ -466,16 +509,16 @@ class CallState: ObservableObject, Equatable {
                 self.subscriptionNamespaceAcceptParsed = NamespacePrefix(acceptNamespace)
                 let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
                                                          statusChangedCallback: { status, errorCode, namespacePrefix in
-                                                            Self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                            self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
                                                          })
                 do {
                     try controller.subscribeNamespace(handler)
-                    Self.logger.info("Subscribed to namespace: \(namespaceTuple)")
+                    self.logger.info("Subscribed to namespace: \(namespaceTuple)")
                 } catch {
-                    Self.logger.error("Failed to subscribe to namespace: \(namespaceTuple): \(error.localizedDescription)")
+                    self.logger.error("Failed to subscribe to namespace: \(namespaceTuple): \(error.localizedDescription)")
                 }
             } else {
-                Self.logger.error("Bad subscribe namespace tuple JSON in settings")
+                self.logger.error("Bad subscribe namespace tuple JSON in settings")
             }
         }
 
@@ -490,7 +533,7 @@ class CallState: ObservableObject, Equatable {
                     self.audioCapture = true
                 }
             } catch {
-                Self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
+                self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
         }
 
@@ -501,7 +544,7 @@ class CallState: ObservableObject, Equatable {
                 try captureManager.startCapturing()
                 self.videoCapture = true
             } catch {
-                Self.logger.warning("Camera failure", alert: true)
+                self.logger.warning("Camera failure", alert: true)
             }
         }
         return true
@@ -511,10 +554,61 @@ class CallState: ObservableObject, Equatable {
         guard json.count > 0 else { return }
         guard let data = json.data(using: .ascii),
               let speakers = try? JSONDecoder().decode([ParticipantId].self, from: data) else {
-            Self.logger.error("Bad speaker JSON: \(json)")
+            self.logger.error("Bad speaker JSON: \(json)")
             return
         }
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
+    }
+
+    private func handleCatalogUpdate(_ catalog: Catalog,
+                                     controller: MoqCallController,
+                                     publicationFactory: PublicationFactory?,
+                                     codecFactory: CodecFactory) {
+        guard self.currentCatalog != catalog else { return }
+        self.currentCatalog = catalog
+        self.logger.debug("Received new catalog update")
+
+        // Collect namespaces to subscribe to.
+        var namespaces: Set<[String]> = []
+        for track in catalog.tracks {
+            guard let namespace = track.namespace else {
+                self.logger.error("Missing namespace for catalog track")
+                continue
+            }
+            var tuples = namespace.tuples
+            // The last element will be participant ID, which we strip for subscription.
+            _ = tuples.popLast()
+            namespaces.insert(tuples)
+        }
+
+        // Now, we will subscribe namespace to all namespaces we found.
+        for namespace in namespaces {
+            let subNs = QSubscribeNamespaceHandler(namespacePrefix: .init(namespace.map { Data($0.utf8) }),
+                                                   trackFilter: nil) { status, errorCode, namespacePrefix in
+                self.logger.info("\(namespacePrefix) Status changed: \(status) \(errorCode)")
+            }
+            do {
+                try controller.subscribeNamespace(subNs)
+            } catch {
+                self.logger.error("Failed to subscribe namespace: \(error.localizedDescription)")
+            }
+        }
+
+        // Create publications from the catalog if we have a factory.
+        if let publicationFactory {
+            let publications = catalog.toPublications(localParticipantId: "\(1234)")
+            for publication in publications {
+                DispatchQueue.main.async {
+                    do {
+                        _ = try controller.publish(details: publication,
+                                                   factory: publicationFactory,
+                                                   codecFactory: codecFactory)
+                    } catch {
+                        self.logger.error("Failed to create catalog publication: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
     }
 
     private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
@@ -594,13 +688,13 @@ class CallState: ObservableObject, Equatable {
                 try await recorder.stopCapture()
             }
         } catch {
-            Self.logger.error("Error while stopping media: \(error)")
+            self.logger.error("Error while stopping media: \(error)")
         }
 
         do {
             try controller?.disconnect()
         } catch {
-            Self.logger.error("Error while leaving call: \(error)")
+            self.logger.error("Error while leaving call: \(error)")
         }
 
         self.switchLatencyMeasurement = nil
@@ -614,16 +708,16 @@ class CallState: ObservableObject, Equatable {
             let storage = TokenStorage(tag: InfluxSettingsView.defaultsKey)
             if let fetched = try storage.retrieve() {
                 token = fetched
-                Self.logger.debug("Resolved influx token from keychain")
+                self.logger.debug("Resolved influx token from keychain")
             } else {
                 // Fetch from plist in this case.
                 let defaultValue = try InfluxSettingsView.tokenFromPlist()
                 try storage.store(defaultValue)
                 token = defaultValue
-                Self.logger.debug("Resolved influx token from default")
+                self.logger.debug("Resolved influx token from default")
             }
         } catch {
-            Self.logger.warning("Failed to fetch metrics credentials", alert: true)
+            self.logger.warning("Failed to fetch metrics credentials", alert: true)
             return
         }
 
@@ -723,7 +817,7 @@ class CallState: ObservableObject, Equatable {
                 if track.nameSpace.count >= 4,
                    let remoteClientId = String(data: track.nameSpace[3], encoding: .utf8),
                    remoteClientId == ownClientId {
-                    Self.logger.info("[demo] Rejecting own publish: \(track)")
+                    self.logger.info("[demo] Rejecting own publish: \(track)")
                     return .reject
                 }
             }
@@ -748,8 +842,25 @@ class CallState: ObservableObject, Equatable {
             return .accept(responseAttributes, subscription)
         }
 
+        if self.nab {
+            let subscription = self.nabCreateHandler(fullTrackName: track)
+            let responseAttributes = QPublishAttributes(priority: attributes.priority,
+                                                        groupOrder: attributes.groupOrder,
+                                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
+                                                        expiresMs: attributes.expiresMs,
+                                                        filterType: .latestObject,
+                                                        forward: 1,
+                                                        newGroupRequestId: attributes.newGroupRequestId,
+                                                        isPublisherInitiated: true,
+                                                        startGroupId: attributes.startGroupId,
+                                                        startObjectId: attributes.startObjectId,
+                                                        trackAlias: attributes.trackAlias,
+                                                        dynamicGroups: attributes.dynamicGroups)
+            return .accept(responseAttributes, subscription)
+        }
+
         // Otherwise it's regular sub ns, or maybe oob publish.
-        Self.logger.notice("Got non demo sub ns publish, ignoring")
+        self.logger.notice("Got non demo sub ns publish, ignoring")
         return .reject
 
         //        // Collect everything we need.
@@ -764,7 +875,7 @@ class CallState: ObservableObject, Equatable {
         //              let endpointMatch = endpointIdString.firstMatch(of: #/endpoint=(\d+)/#),
         //              let endpointId = Int(endpointMatch.1),
         //              let factory = self.subscriptionFactory else {
-        //            Self.logger.warning("[\(track)] Declining offered publish")
+        //            self.logger.warning("[\(track)] Declining offered publish")
         //            return
         //        }
 
@@ -788,7 +899,7 @@ class CallState: ObservableObject, Equatable {
         //                                                                          profiles: [profile]))
         //
         //        // We need a destination for this media, and we only have the FTN to work it out.
-        //        Self.logger.info("[\(track)] Accepting offered publish: \(profile)")
+        //        self.logger.info("[\(track)] Accepting offered publish: \(profile)")
         //
         //        // Need a set for this if we don't have one already.
         //        let publisherInitiated = MoqCallController.PublisherInitiatedDetails(trackAlias: attributes.trackAlias,
@@ -807,7 +918,7 @@ class CallState: ObservableObject, Equatable {
         //                                              subscribeType: .publisherInitiated(publisherInitiated))
         //            }
         //        } catch {
-        //            Self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
+        //            self.logger.error("Failed to create subscription handler for publish: \(error.localizedDescription)")
         //            return
         //        }
         //
@@ -844,7 +955,7 @@ extension CallState {
 
         let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
         guard namespace.count >= 4, namespace.first == "meetings.wbx.com" else {
-            Self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
+            self.logger.warning("[demo] Unexpected namespace format in CreateHandler: \(fullTrackName)")
             return nil
         }
         let name = String(data: fullTrackName.name, encoding: .utf8)
@@ -862,7 +973,7 @@ extension CallState {
             qualityProfile = "h264,width=1920,height=1080,fps=30,br=4000"
             profileType = "video"
         default:
-            Self.logger.warning("[demo] Unknown media type in CreateHandler: \(mediaType)")
+            self.logger.warning("[demo] Unknown media type in CreateHandler: \(mediaType)")
             return nil
         }
 
@@ -901,11 +1012,125 @@ extension CallState {
                                                   relayId: relayId,
                                                   publisherInitiated: true)
             try set.addHandler(subscription)
-            Self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
+            self.logger.info("[demo] Created \(mediaType) subscription for \(remoteClientId) via CreateHandler")
             return subscription
         } catch {
-            Self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
+            self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    /// Create a subscription handler for an accepted NAB track, using the catalog for quality profile.
+    func nabCreateHandler(fullTrackName: FullTrackName) -> Subscription? {
+        guard let factory = self.subscriptionFactory,
+              let controller = self.controller,
+              let relayId = controller.serverId else { return nil }
+        let endpointId = self.config.email
+
+        let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
+        let trackName = String(data: fullTrackName.name, encoding: .utf8) ?? ""
+
+        // NAB namespace: cisco.webex.com/nab/v1/{quality}/{participantId}
+        let qualityIndex = 3
+        guard namespace.count >= 5 else {
+            self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
+            return nil
+        }
+        let remoteClientId = namespace.last!
+
+        // Look up the catalog track to get the quality profile.
+        guard let catalogTrack = self.currentCatalog?.tracks.findMatch(name: trackName) else {
+            self.logger.warning("[nab] No catalog track matching name '\(trackName)'")
+            return nil
+        }
+
+        let profile = catalogTrack.toProfile(namespace: namespace)
+        // Derive the media type from the codec config, not the raw namespace.
+        let codecConfig = CodecFactoryImpl().makeCodecConfig(from: catalogTrack.qualityProfile, bitrateType: .average)
+        let mediaType: String
+        switch codecConfig {
+        case is VideoCodecConfig: mediaType = "video"
+        case is AudioCodecConfig: mediaType = "audio"
+        default: mediaType = namespace[qualityIndex]
+        }
+        let sourceId = "nab_\(remoteClientId)_\(mediaType)"
+        let participantHash = remoteClientId.hashValue
+        let manifestSubscription = ManifestSubscription(
+            mediaType: mediaType,
+            sourceName: trackName,
+            sourceID: sourceId,
+            label: catalogTrack.qualityProfile,
+            participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
+            profileSet: .init(type: mediaType, profiles: [profile]))
+
+        do {
+            let set: SubscriptionSet
+            if let existing = controller.getSubscriptionSet(sourceId) {
+                set = existing
+            } else {
+                set = try factory.create(subscription: manifestSubscription,
+                                         codecFactory: CodecFactoryImpl(),
+                                         endpointId: endpointId,
+                                         relayId: relayId)
+                controller.storeSubscriptionSet(sourceId: sourceId, set: set)
+            }
+
+            let subscription = try factory.create(set: set,
+                                                  profile: profile,
+                                                  codecFactory: CodecFactoryImpl(),
+                                                  endpointId: endpointId,
+                                                  relayId: relayId,
+                                                  publisherInitiated: true)
+            try set.addHandler(subscription)
+            self.logger.info("[nab] Created \(mediaType) subscription for \(remoteClientId)")
+            return subscription
+        } catch {
+            self.logger.error("[nab] Failed to create subscription: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    typealias CatalogUpdate = Result<Catalog, Error>
+    private func setupCatalogTrack(controller: MoqCallController,
+                                   callback: @escaping (CatalogUpdate) -> Void) async throws -> CallbackSubscription {
+        var continued = false
+        return try await withCheckedThrowingContinuation { continuation in
+            do {
+                nonisolated(unsafe) var subscription: CallbackSubscription!
+                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1--catalog")
+                subscription = try CallbackSubscription(fullTrackName: catalogTrack,
+                                                        endpointId: self.config.email,
+                                                        relayId: self.relayId ?? "Unknown",
+                                                        metricsSubmitter: self.submitter,
+                                                        priority: 128,
+                                                        groupOrder: .originalPublisherOrder,
+                                                        filterType: .latestObject,
+                                                        publisherInitiated: false,
+                                                        deliveryTimeout: nil) { _, data, _, _ in
+                    do {
+                        let catalog = try JSONDecoder().decode(MSF.Catalog.self, from: data)
+                        callback(.success(catalog))
+                        guard continued else {
+                            continued = true
+                            continuation.resume(returning: subscription)
+                            return
+                        }
+                    } catch {
+                        guard continued else {
+                            continued = true
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        callback(.failure(error))
+                    }
+                } statusCallback: { self.logger.info("Catalog status update: \($0)") }
+                try controller.subscribe(subscription)
+            } catch {
+                assert(!continued)
+                guard !continued else { return }
+                continued = true
+                continuation.resume(throwing: error)
+            }
         }
     }
 

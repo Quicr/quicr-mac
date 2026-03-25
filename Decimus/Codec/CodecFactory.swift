@@ -89,7 +89,7 @@ protocol CodecFactory {
 }
 
 class CodecFactoryImpl: CodecFactory {
-    private static let logger = DecimusLogger(CodecFactory.self)
+    private let logger = DecimusLogger(CodecFactory.self)
 
     /// Create a codec config from a quality profile string.
     /// - Parameter qualityProfile The quality profile string provided by the manifest.
@@ -100,7 +100,7 @@ class CodecFactoryImpl: CodecFactory {
         guard let codec = CodecType.allCases.first(where: {
             String(describing: $0) == elements[0]
         }) else {
-            Self.logger.warning("Unknown codec provided from quality profile: \(qualityProfile)", alert: true)
+            self.logger.warning("Unknown codec provided from quality profile: \(qualityProfile)", alert: true)
             return UnknownCodecConfig()
         }
 
@@ -130,7 +130,7 @@ class CodecFactoryImpl: CodecFactory {
                 return UnknownCodecConfig()
             }
         } catch {
-            Self.logger.error("Failed to create codec config: \(error)")
+            self.logger.error("Failed to create codec config: \(error)")
             return UnknownCodecConfig()
         }
     }
