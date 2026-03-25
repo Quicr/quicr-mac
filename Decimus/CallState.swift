@@ -613,8 +613,12 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Add new namespace handlers.
         for prefix in newNamespaces.subtracting(oldNamespaces) {
+            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                          maxTracksSelected: .init(self.demoMaxTracksSelected),
+                                          maxTracksDeselected: .init(self.demoMaxTracksDeselected),
+                                          maxTimeSelected: .init(self.demoMaxTimeSelected))
             let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
-                                                     trackFilter: nil) { status, errorCode, namespacePrefix in
+                                                     trackFilter: filter) { status, errorCode, namespacePrefix in
                 self.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
             }
             do {
