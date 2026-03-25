@@ -690,4 +690,44 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
         #expect(subscription.getCurrentState() == .running)
     }
+
+    @Test("Late objects from prior group do not trigger missed IDR")
+    @MainActor
+    func testOutOfOrderGroupDelivery() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        var sequence: UInt64 = 100
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Receive some objects from group 0.
+        subscription.mockObject(groupId: 0, objectId: 1, extensions: nil, immutableExtensions: loc())
+        subscription.mockObject(groupId: 0, objectId: 2, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Group 1 IDR arrives before group 0 finishes.
+        subscription.mockObject(groupId: 1, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Late objects from group 0 arrive — should not trigger missed IDR.
+        subscription.mockObject(groupId: 0, objectId: 3, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+        subscription.mockObject(groupId: 0, objectId: 4, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Group 1 continues normally.
+        subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
 }
