@@ -133,6 +133,7 @@ class MoqCallController: QClientCallbacks {
             guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else { continue }
             self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
         }
+        self.namespaceHandlers.removeAll()
         for publication in self.publications {
             try self.unpublish(publication.key)
         }
@@ -146,7 +147,6 @@ class MoqCallController: QClientCallbacks {
         self.logger.info("[MoqCallController] Disconnected")
         self.publications.removeAll()
         self.subscriptions.removeAll()
-        self.namespaceHandlers.removeAll()
     }
 
     // MARK: Pub/Sub Modification APIs.
@@ -524,7 +524,7 @@ class MoqCallController: QClientCallbacks {
     /// Subscribe to a namespace prefix.
     /// - Parameter handler: Subscribe namespace handler.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
-    /// ``MoqCallControllerError/unsupportedSubscribeNamespaceHandler`` if handler implementation is unsupported.
+    /// ``MoqCallControllerError/unsupportedHandler`` if handler implementation is unsupported.
     func subscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
@@ -532,6 +532,19 @@ class MoqCallController: QClientCallbacks {
         }
         self.namespaceHandlers[handler.namespacePrefix] = handler
         self.client.subscribeNamespace(withHandler: libquicrHandler.handler)
+    }
+
+    /// Unsubscribe from a namespace prefix.
+    /// - Parameter handler: The subscribe namespace handler to remove.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
+    /// ``MoqCallControllerError/unsupportedHandler`` if handler implementation is unsupported.
+    func unsubscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
+            throw MoqCallControllerError.unsupportedHandler
+        }
+        self.namespaceHandlers.removeValue(forKey: handler.namespacePrefix)
+        self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
     }
 }
 

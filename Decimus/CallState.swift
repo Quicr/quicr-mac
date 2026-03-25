@@ -168,7 +168,9 @@ class CallState: ObservableObject, Equatable {
     private let nab: Bool
     private var catalogSubscription: CallbackSubscription?
     private var currentCatalog: Catalog?
-    private var nabNamespaceHandlers: [QSubscribeNamespaceHandler] = []
+    private var nabNamespaceHandlers: [NamespacePrefix: QSubscribeNamespaceHandler] = [:]
+    private var nabSubscriptionsByNamespace: [NamespacePrefix: [(sourceId: SourceIDType, ftn: FullTrackName)]] = [:]
+    private var nabPublications: [String: [FullTrackName]] = [:]
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
         self.nab = config.conferenceID == .max
@@ -365,10 +367,12 @@ class CallState: ObservableObject, Equatable {
                 self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { result in
                     switch result {
                     case .success(let catalog):
-                        self.handleCatalogUpdate(catalog,
-                                                 controller: controller,
-                                                 publicationFactory: publicationFactory,
-                                                 codecFactory: CodecFactoryImpl())
+                        DispatchQueue.main.async {
+                            self.handleCatalogUpdate(catalog,
+                                                     controller: controller,
+                                                     publicationFactory: publicationFactory,
+                                                     codecFactory: CodecFactoryImpl())
+                        }
                     case .failure(let error):
                         self.logger.error("Catalog parse failed: \(error.localizedDescription)")
                     }
@@ -567,47 +571,90 @@ class CallState: ObservableObject, Equatable {
                                      codecFactory: CodecFactory) {
         guard self.currentCatalog != catalog else { return }
         self.currentCatalog = catalog
-        self.logger.debug("Received new catalog update")
+        self.logger.debug("Received catalog update")
 
-        // Collect namespaces to subscribe to.
-        var namespaces: Set<[String]> = []
+        // Build new namespace set from catalog tracks.
+        var newNamespaces: Set<NamespacePrefix> = []
         for track in catalog.tracks {
             guard let namespace = track.namespace else {
                 self.logger.error("Missing namespace for catalog track")
                 continue
             }
             var tuples = namespace.tuples
-            // The last element will be participant ID, which we strip for subscription.
             _ = tuples.popLast()
-            namespaces.insert(tuples)
+            newNamespaces.insert(NamespacePrefix(tuples.map { Data($0.utf8) }))
         }
 
-        // Now, we will subscribe namespace to all namespaces we found.
-        for namespace in namespaces {
-            let subNs = QSubscribeNamespaceHandler(namespacePrefix: .init(namespace.map { Data($0.utf8) }),
-                                                   trackFilter: nil) { status, errorCode, namespacePrefix in
-                self.logger.info("\(namespacePrefix) Status changed: \(status) \(errorCode)")
+        let oldNamespaces = Set(self.nabNamespaceHandlers.keys)
+
+        // Remove stale namespace handlers and their subscriptions.
+        for prefix in oldNamespaces.subtracting(newNamespaces) {
+            if let handler = self.nabNamespaceHandlers.removeValue(forKey: prefix) {
+                do {
+                    try controller.unsubscribeNamespace(handler)
+                    self.logger.info("[nab] Unsubscribed namespace: \(prefix)")
+                } catch {
+                    self.logger.error("[nab] Failed to unsubscribe namespace: \(error.localizedDescription)")
+                }
+            }
+            // Tear down individual subscriptions created under this namespace.
+            if let entries = self.nabSubscriptionsByNamespace.removeValue(forKey: prefix) {
+                for entry in entries {
+                    do {
+                        try controller.unsubscribe(entry.sourceId, ftn: entry.ftn)
+                        self.logger.info("[nab] Removed subscription: \(entry.ftn) from set \(entry.sourceId)")
+                    } catch {
+                        self.logger.error("[nab] Failed to remove subscription \(entry.ftn): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+
+        // Add new namespace handlers.
+        for prefix in newNamespaces.subtracting(oldNamespaces) {
+            let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
+                                                     trackFilter: nil) { status, errorCode, namespacePrefix in
+                self.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
             }
             do {
-                try controller.subscribeNamespace(subNs)
-                self.nabNamespaceHandlers.append(subNs)
+                try controller.subscribeNamespace(handler)
+                self.nabNamespaceHandlers[prefix] = handler
+                self.logger.info("[nab] Subscribed namespace: \(prefix)")
             } catch {
-                self.logger.error("Failed to subscribe namespace: \(error.localizedDescription)")
+                self.logger.error("[nab] Failed to subscribe namespace: \(error.localizedDescription)")
             }
         }
 
-        // Create publications from the catalog if we have a factory.
+        // Diff publications.
         if let publicationFactory {
-            let publications = catalog.toPublications(localParticipantId: "\(1234)")
-            for publication in publications {
-                DispatchQueue.main.async {
-                    do {
-                        _ = try controller.publish(details: publication,
-                                                   factory: publicationFactory,
-                                                   codecFactory: codecFactory)
-                    } catch {
-                        self.logger.error("Failed to create catalog publication: \(error.localizedDescription)")
+            let newPubs = catalog.toPublications(localParticipantId: "\(1234)")
+            let newPubKeys = Set(newPubs.map { $0.sourceID })
+            let oldPubKeys = Set(self.nabPublications.keys)
+
+            // Remove stale publications.
+            for key in oldPubKeys.subtracting(newPubKeys) {
+                if let ftns = self.nabPublications.removeValue(forKey: key) {
+                    for ftn in ftns {
+                        do {
+                            try controller.unpublish(ftn)
+                            self.logger.info("[nab] Unpublished: \(key)")
+                        } catch {
+                            self.logger.error("[nab] Failed to unpublish \(key): \(error.localizedDescription)")
+                        }
                     }
+                }
+            }
+
+            // Add new publications.
+            for publication in newPubs where !oldPubKeys.contains(publication.sourceID) {
+                do {
+                    let created = try controller.publish(details: publication,
+                                                         factory: publicationFactory,
+                                                         codecFactory: codecFactory)
+                    self.nabPublications[publication.sourceID] = created.map { $0.0 }
+                    self.logger.info("[nab] Published: \(publication.sourceID)")
+                } catch {
+                    self.logger.error("[nab] Failed to publish \(publication.sourceID): \(error.localizedDescription)")
                 }
             }
         }
@@ -1040,6 +1087,10 @@ extension CallState {
         }
         let remoteClientId = namespace.last!
 
+        // Derive the namespace prefix (without participant ID) for tracking.
+        let prefixTuples = Array(namespace.dropLast())
+        let namespacePrefix = NamespacePrefix(prefixTuples.map { Data($0.utf8) })
+
         // Look up the catalog track to get the quality profile.
         guard let catalogTrack = self.currentCatalog?.tracks.findMatch(name: trackName) else {
             self.logger.warning("[nab] No catalog track matching name '\(trackName)'")
@@ -1076,6 +1127,9 @@ extension CallState {
                                          relayId: relayId)
                 controller.storeSubscriptionSet(sourceId: sourceId, set: set)
             }
+
+            // Track this subscription against its namespace prefix for catalog diff teardown.
+            self.nabSubscriptionsByNamespace[namespacePrefix, default: []].append((sourceId: sourceId, ftn: fullTrackName))
 
             let subscription = try factory.create(set: set,
                                                   profile: profile,
