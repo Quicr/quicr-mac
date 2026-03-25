@@ -51,7 +51,7 @@ enum MoQRole: Int, CaseIterable, Identifiable, CustomStringConvertible {
 }
 
 @MainActor
-class CallState: ObservableObject, Equatable {
+class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_body_length
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
         false
     }
@@ -364,7 +364,8 @@ class CallState: ObservableObject, Equatable {
         // If we're NAB, we need to subscribe to the catalog track.
         if self.nab {
             do {
-                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { result in
+                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { [weak self] result in
+                    guard let self else { return }
                     switch result {
                     case .success(let catalog):
                         DispatchQueue.main.async {
@@ -740,11 +741,21 @@ class CallState: ObservableObject, Equatable {
             self.logger.error("Error while stopping media: \(error)")
         }
 
+        // Unsubscribe the catalog track before disconnect (it's not in the controller's subscription dict).
+        if let catalogSubscription = self.catalogSubscription {
+            try? controller?.unsubscribe(catalogSubscription)
+            self.catalogSubscription = nil
+        }
+
         do {
             try controller?.disconnect()
         } catch {
             self.logger.error("Error while leaving call: \(error)")
         }
+        self.currentCatalog = nil
+        self.nabNamespaceHandlers.removeAll()
+        self.nabSubscriptionsByNamespace.removeAll()
+        self.nabPublications.removeAll()
 
         self.switchLatencyMeasurement = nil
         self.activityTransitionMeasurement = nil
@@ -1186,12 +1197,15 @@ extension CallState {
                         callback(.success(catalog))
                         guard continued else {
                             continued = true
-                            continuation.resume(returning: subscription)
+                            let sub = subscription!
+                            subscription = nil
+                            continuation.resume(returning: sub)
                             return
                         }
                     } catch {
                         guard continued else {
                             continued = true
+                            subscription = nil
                             continuation.resume(throwing: error)
                             return
                         }

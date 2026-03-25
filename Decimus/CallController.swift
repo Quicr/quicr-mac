@@ -332,11 +332,19 @@ class MoqCallController: QClientCallbacks {
     }
 
     /// Directly subscribe to a handler.
-    /// - Parameter: The handler to subscribe.
+    /// - Parameter handler: The handler to subscribe.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     func subscribe(_ handler: Subscription) throws {
         guard self.connected else { throw MoqCallControllerError.notConnected }
         self.client.subscribeTrack(withHandler: handler)
+    }
+
+    /// Directly unsubscribe a handler.
+    /// - Parameter handler: The handler to unsubscribe.
+    /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
+    func unsubscribe(_ handler: Subscription) throws {
+        guard self.connected else { throw MoqCallControllerError.notConnected }
+        self.client.unsubscribeTrack(withHandler: handler)
     }
 
     /// Unsubscribe to an entire subscription set.
