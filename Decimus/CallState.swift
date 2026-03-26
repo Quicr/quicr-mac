@@ -1195,7 +1195,7 @@ extension CallState {
         return try await withCheckedThrowingContinuation { continuation in
             do {
                 nonisolated(unsafe) var subscription: CallbackSubscription!
-                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1--catalog")
+                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1-catalog-publisher_0XCA1A109--catalog")
                 subscription = try CallbackSubscription(fullTrackName: catalogTrack,
                                                         endpointId: self.config.email,
                                                         relayId: self.relayId ?? "Unknown",
