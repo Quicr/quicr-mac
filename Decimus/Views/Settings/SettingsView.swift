@@ -252,38 +252,44 @@ struct SettingsView: View {
                             .keyboardType(.asciiCapable)
                         #endif
                     }
-                    LabeledContent("Max Tracks Selected") {
-                        TextField("Max Tracks Selected", value: self.$demoMaxTracksSelected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.numberPad)
-                        #endif
-                    }
-                    LabeledContent("Max Tracks Deselected") {
-                        TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.numberPad)
-                        #endif
-                    }
-                    LabeledContent("Max Time Selected (s)") {
-                        TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledContent("Speech Start Interval (s)") {
-                        TextField("Speech Start Interval (s)", value: self.$demoSpeechStartInterval, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledContent("Continuous Speech Interval (s)") {
-                        TextField("Continuous Speech Interval (s)", value: self.$demoContinuousSpeechInterval, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
                 }
+            }
+            .decimusTextStyle()
+
+            Section("Top-N Filtering") {
+                LabeledContent("Max Tracks Selected") {
+                    TextField("Max Tracks Selected", value: self.$demoMaxTracksSelected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.numberPad)
+                    #endif
+                }
+                LabeledContent("Max Tracks Deselected") {
+                    TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.numberPad)
+                    #endif
+                }
+                LabeledContent("Max Time Selected (s)") {
+                    TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Speech Start Interval (s)") {
+                    TextField("Speech Start Interval (s)", value: self.$demoSpeechStartInterval, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Continuous Speech Interval (s)") {
+                    TextField("Continuous Speech Interval (s)",
+                              value: self.$demoContinuousSpeechInterval,
+                              format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
             }
             .decimusTextStyle()
 
