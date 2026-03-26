@@ -26,8 +26,9 @@ extension OpusPublication {
             record(field: "encode", value: count as AnyObject, timestamp: timestamp)
         }
 
-        func audioActivity(_ value: UInt8, timestamp: Date) {
+        func audioActivity(_ value: UInt8, voiceActive: Bool, timestamp: Date) {
             record(field: "audioActivity", value: value as AnyObject, timestamp: timestamp)
+            record(field: "voiceActive", value: (voiceActive ? 1 : 0) as AnyObject, timestamp: timestamp)
         }
     }
 }

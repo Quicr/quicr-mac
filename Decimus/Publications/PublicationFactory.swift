@@ -18,6 +18,13 @@ protocol PublicationFactory {
                 relayId: String) throws -> [(FullTrackName, any PublicationInstance)]
 }
 
+struct VoiceActivityDependencies {
+    let sharedVoiceActivity: SharedVoiceActivityState
+    let speechStartInterval: TimeInterval
+    let continuousSpeechInterval: TimeInterval
+    let vadRollSubgroup: Bool
+}
+
 class PublicationFactoryImpl: PublicationFactory {
     private let opusWindowSize: OpusWindowSize
     private let reliability: MediaReliability
@@ -36,12 +43,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let mediaInterop: Bool
     private let overrideNamespace: [String]?
     private let useAnnounce: Bool
-    private let demoEnabled: Bool
-    private let sharedVoiceActivity: SharedVoiceActivityState?
-    private let speechStartInterval: TimeInterval
-    private let continuousSpeechInterval: TimeInterval
-    private let vadRollSubgroup: Bool
-    private let activityTransitionMeasurement: ActivityTransitionMeasurement?
+    private let voiceActivity: VoiceActivityDependencies?
 
     init(opusWindowSize: OpusWindowSize,
          reliability: MediaReliability,
@@ -59,12 +61,7 @@ class PublicationFactoryImpl: PublicationFactory {
          mediaInterop: Bool,
          overrideNamespace: [String]?,
          useAnnounce: Bool,
-         demoEnabled: Bool = false,
-         sharedVoiceActivity: SharedVoiceActivityState? = nil,
-         speechStartInterval: TimeInterval = 0.3,
-         continuousSpeechInterval: TimeInterval = 0.3,
-         vadRollSubgroup: Bool = true,
-         activityTransitionMeasurement: ActivityTransitionMeasurement? = nil) {
+         voiceActivity: VoiceActivityDependencies?) {
         self.opusWindowSize = opusWindowSize
         self.reliability = reliability
         self.engine = engine
@@ -81,12 +78,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.mediaInterop = mediaInterop
         self.overrideNamespace = overrideNamespace
         self.useAnnounce = useAnnounce
-        self.demoEnabled = demoEnabled
-        self.sharedVoiceActivity = demoEnabled ? (sharedVoiceActivity ?? SharedVoiceActivityState()) : nil
-        self.speechStartInterval = speechStartInterval
-        self.continuousSpeechInterval = continuousSpeechInterval
-        self.vadRollSubgroup = vadRollSubgroup
-        self.activityTransitionMeasurement = activityTransitionMeasurement
+        self.voiceActivity = voiceActivity
     }
 
     func create(publication: ManifestPublication,
@@ -182,8 +174,8 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
-                                                  sharedVoiceActivity: self.sharedVoiceActivity,
-                                                  vadRollSubgroup: self.vadRollSubgroup,
+                                                  sharedVoiceActivity: self.voiceActivity?.sharedVoiceActivity,
+                                                  vadRollSubgroup: self.voiceActivity?.vadRollSubgroup ?? false,
                                                   sink: sink)
             try captureManager.addInput(publication)
             return publication
@@ -211,11 +203,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        incrementing: .group,
                                        sframeContext: self.sframeContext,
                                        mediaInterop: self.mediaInterop,
-                                       demoEnabled: self.demoEnabled,
-                                       sharedVoiceActivity: self.sharedVoiceActivity,
-                                       speechStartInterval: self.speechStartInterval,
-                                       continuousSpeechInterval: self.continuousSpeechInterval,
-                                       activityTransitionMeasurement: self.activityTransitionMeasurement,
+                                       voiceActivity: self.voiceActivity,
                                        sink: sink)
         case .text:
             let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),

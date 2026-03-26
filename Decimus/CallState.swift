@@ -287,6 +287,17 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
         self.resolvedNamespace = overrideNamespace
 
+        // Are we doing audio activity?
+        let voiceActivity: VoiceActivityDependencies?
+        if self.demoEnabled || self.nab {
+            voiceActivity = .init(sharedVoiceActivity: .init(),
+                                  speechStartInterval: self.demoSpeechStartInterval,
+                                  continuousSpeechInterval: self.demoContinuousSpeechInterval,
+                                  vadRollSubgroup: self.demoVadRollSubgroup)
+        } else {
+            voiceActivity = nil
+        }
+
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory: PublicationFactory?
@@ -307,11 +318,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                         mediaInterop: self.mediaInterop,
                                                         overrideNamespace: overrideNamespace,
                                                         useAnnounce: subConfig.useAnnounce,
-                                                        demoEnabled: self.demoEnabled,
-                                                        speechStartInterval: self.demoSpeechStartInterval,
-                                                        continuousSpeechInterval: self.demoContinuousSpeechInterval,
-                                                        vadRollSubgroup: self.demoVadRollSubgroup,
-                                                        activityTransitionMeasurement: self.activityTransitionMeasurement?.measurement)
+                                                        voiceActivity: voiceActivity)
         } else {
             publicationFactory = nil
         }

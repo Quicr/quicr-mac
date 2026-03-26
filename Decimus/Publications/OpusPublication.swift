@@ -29,9 +29,9 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let profile: Profile
+    private let voiceActivity: VoiceActivityDependencies?
     private let activityStateMachine: AudioActivityStateMachine?
-    private let sharedVoiceActivity: SharedVoiceActivityState?
-    private let activityTransitionMeasurement: ActivityTransitionMeasurement?
+    private let activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
     private var lastActivityValue: AudioActivityValue = .speechEnd
 
     init(profile: Profile,
@@ -47,11 +47,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
-         demoEnabled: Bool = false,
-         sharedVoiceActivity: SharedVoiceActivityState? = nil,
-         speechStartInterval: TimeInterval = 0.3,
-         continuousSpeechInterval: TimeInterval = 0.3,
-         activityTransitionMeasurement: ActivityTransitionMeasurement? = nil,
+         voiceActivity: VoiceActivityDependencies?,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
         self.engine = engine
@@ -59,18 +55,23 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         if let metricsSubmitter = metricsSubmitter {
             self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
                                      submitter: metricsSubmitter)
+            self.activityTransitionMeasurement = .init(measurement: .init(),
+                                                       submitter: metricsSubmitter)
         } else {
             self.measurement = nil
+            self.activityTransitionMeasurement = nil
         }
         self.opusWindowSize = opusWindowSize
         self.granularMetrics = granularMetrics
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
-        self.activityStateMachine = demoEnabled ? AudioActivityStateMachine(speechStartInterval: speechStartInterval,
-                                                                            continuousSpeechInterval: continuousSpeechInterval) : nil
-        self.sharedVoiceActivity = sharedVoiceActivity
-        self.activityTransitionMeasurement = activityTransitionMeasurement
+        if let voiceActivity {
+            self.activityStateMachine = .init(speechStartInterval: voiceActivity.speechStartInterval,
+                                              continuousSpeechInterval: voiceActivity.continuousSpeechInterval)
+        } else {
+            self.activityStateMachine = nil
+        }
 
         // Create a buffer to hold raw data waiting for encode.
         let format = DecimusAudioEngine.format
@@ -87,6 +88,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.startingGroupId = groupId
         self.currentGroupId = groupId
         self.profile = profile
+        self.voiceActivity = voiceActivity
         self.sink = sink
         self.trackMeasurement = {
             guard let metricsSubmitter = metricsSubmitter else { return nil }
@@ -288,21 +290,30 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                                 decibel: decibel,
                                                 voiceActive: voiceActive)
 
-        // Audio activity indicator (demo mode).
-        if let stateMachine = self.activityStateMachine, let voiceActive {
+        // Audio activity indicator.
+        if let stateMachine = self.activityStateMachine,
+           let voiceActive {
+            // Determine the voice activity state given this value at this time.
+            assert(self.voiceActivity != nil)
             let value = stateMachine.update(voiceActive: voiceActive, now: wallClock)
             try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
-            self.sharedVoiceActivity?.postActivity(value)
+            self.voiceActivity!.sharedVoiceActivity.postActivity(value)
 
             // Granular activity metric.
-            if self.granularMetrics, let measurement = self.measurement?.measurement {
+            if self.granularMetrics,
+               let measurement = self.measurement?.measurement {
                 let raw = value.rawValue
-                let ts = wallClock
-                Task(priority: .utility) { await measurement.audioActivity(raw, timestamp: ts) }
+                let voiceActive = voiceActive
+                let timestamp = wallClock
+                Task(priority: .utility) {
+                    await measurement.audioActivity(raw,
+                                                    voiceActive: voiceActive,
+                                                    timestamp: timestamp)
+                }
             }
 
             // Emit activity transition on active/inactive boundary crossings.
-            if let measurement = self.activityTransitionMeasurement {
+            if let measurement = self.activityTransitionMeasurement?.measurement {
                 let wasActive = self.lastActivityValue != .speechEnd
                 let isActive = value != .speechEnd
                 if wasActive != isActive {
