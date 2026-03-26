@@ -71,6 +71,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         f"-DMACOSX_FRAMEWORK_SHORT_VERSION_STRING=1.0.{build_number}",
         f"-DBUILD_NUMBER={build_number}",
         f"-DUSE_MBEDTLS={mbedtls}",
+        "-DDISABLE_DEBUG_PRINTF=ON",
         "-Wno-dev"]
 
     env = os.environ.copy()
