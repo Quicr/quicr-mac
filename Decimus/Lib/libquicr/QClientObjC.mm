@@ -238,6 +238,7 @@ static QPublishAttributes convert(const quicr::messages::PublishAttributes& attr
     converted.isPublisherInitiated = attributes.is_publisher_initiated;
     converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
     converted.trackAlias = attributes.track_alias;
+    converted.dynamicGroups = attributes.dynamic_groups;
     return converted;
 }
 
