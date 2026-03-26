@@ -68,7 +68,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var currentManifest: Manifest?
     private(set) var textSubscriptions: TextSubscriptions?
     private(set) var textPublication: TextPublication?
-    private let config: CallConfig
+    let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
     private var measurement: MeasurementRegistration<_Measurement>?
     private var switchLatencyMeasurement: MeasurementRegistration<SwitchLatencyMeasurement>?
@@ -632,7 +632,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Diff publications.
         if let publicationFactory {
-            let newPubs = catalog.toPublications(localParticipantId: "\(1234)")
+            let newPubs = catalog.toPublications(localParticipantId: "publisher_\(self.config.email)")
             let newPubKeys = Set(newPubs.map { $0.sourceID })
             let oldPubKeys = Set(self.nabPublications.keys)
 
@@ -1091,10 +1091,8 @@ extension CallState {
         let endpointId = self.config.email
 
         let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
-        let trackName = String(data: fullTrackName.name, encoding: .utf8) ?? ""
 
-        // NAB namespace: cisco.webex.com/nab/v1/{quality}/{participantId}
-        let qualityIndex = 3
+        // NAB namespace: {domain}-nab-v1-{codec}-{resolution?}-{participantId}
         guard namespace.count >= 5 else {
             self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
             return nil
@@ -1105,26 +1103,31 @@ extension CallState {
         let prefixTuples = Array(namespace.dropLast())
         let namespacePrefix = NamespacePrefix(prefixTuples.map { Data($0.utf8) })
 
-        // Look up the catalog track to get the quality profile.
-        guard let catalogTrack = self.currentCatalog?.tracks.findMatch(name: trackName) else {
-            self.logger.warning("[nab] No catalog track matching name '\(trackName)'")
+        // Match the catalog track by namespace prefix (sans participant).
+        guard let catalogTrack = self.currentCatalog?.tracks.first(where: { track in
+            guard let trackNs = track.namespace else { return false }
+            var trackTuples = trackNs.tuples
+            _ = trackTuples.popLast()
+            return trackTuples == prefixTuples
+        }) else {
+            self.logger.warning("[nab] No catalog track matching namespace prefix: \(prefixTuples)")
             return nil
         }
 
         let profile = catalogTrack.toProfile(namespace: namespace)
-        // Derive the media type from the codec config, not the raw namespace.
+        // Derive the media type from the codec config.
         let codecConfig = CodecFactoryImpl().makeCodecConfig(from: catalogTrack.qualityProfile, bitrateType: .average)
         let mediaType: String
         switch codecConfig {
         case is VideoCodecConfig: mediaType = "video"
         case is AudioCodecConfig: mediaType = "audio"
-        default: mediaType = namespace[qualityIndex]
+        default: mediaType = catalogTrack.name ?? "unknown"
         }
         let sourceId = "nab_\(remoteClientId)_\(mediaType)"
         let participantHash = remoteClientId.hashValue
         let manifestSubscription = ManifestSubscription(
             mediaType: mediaType,
-            sourceName: trackName,
+            sourceName: catalogTrack.name ?? mediaType,
             sourceID: sourceId,
             label: catalogTrack.qualityProfile,
             participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
