@@ -40,8 +40,6 @@ extension MSF.Catalog {
     /// Convert this catalog into `ManifestPublication`s, grouped by namespace prefix.
     /// The `localParticipantId` is appended as the last namespace tuple for publications.
     func toPublications(localParticipantId: String) -> [ManifestPublication] {
-        let mediaTypeIndex = 1
-
         // Group tracks by their namespace prefix (without participant ID).
         var publications: [String: ManifestPublication] = [:]
         var profiles: [String: [Profile]] = [:]
@@ -54,7 +52,7 @@ extension MSF.Catalog {
             tuples.append(localParticipantId)
 
             let key = tuples.joined()
-            let mediaType = tuples[mediaTypeIndex]
+            let mediaType = track.name ?? "unknown"
 
             if publications[key] == nil {
                 publications[key] = .init(mediaType: mediaType,

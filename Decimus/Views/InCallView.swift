@@ -152,6 +152,10 @@ struct InCallView: View {
                             Text("Debug Details").font(.title)
                             Form {
                                 HStack {
+                                    Text("Identity")
+                                    Text(self.viewModel.config.email).monospaced()
+                                }
+                                HStack {
                                     Text("Relay")
                                     Text(controller.serverId ?? "Unknown").monospaced()
                                 }
