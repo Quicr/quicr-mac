@@ -32,7 +32,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let voiceActivity: VoiceActivityDependencies?
     private let activityStateMachine: AudioActivityStateMachine?
     private let activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
-    private var lastActivityValue: AudioActivityValue = .speechEnd
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -67,8 +66,10 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
         if let voiceActivity {
-            self.activityStateMachine = .init(speechStartInterval: voiceActivity.speechStartInterval,
-                                              continuousSpeechInterval: voiceActivity.continuousSpeechInterval)
+            self.activityStateMachine = .init(timeToSpeechStart: voiceActivity.timeToSpeechStart,
+                                              timeToContinuous: voiceActivity.timeToContinuous,
+                                              timeToDropStart: voiceActivity.timeToDropStart,
+                                              timeToDropContinuous: voiceActivity.timeToDropContinuous)
         } else {
             self.activityStateMachine = nil
         }
@@ -278,7 +279,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
-        // Query the encoder's VAD state (must be checked after encode).
+        // Query the encoder's VAD state.
         let voiceActive = self.encoder.voiceActive
         // Get absolute time.
         let wallClock = Ticks(dequeued.timestamp.mHostTime).hostDate
@@ -296,10 +297,12 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             // Determine the voice activity state given this value at this time.
             assert(self.voiceActivity != nil)
             let value = stateMachine.update(voiceActive: voiceActive, now: wallClock)
+            // Put the state in this audio packet header.
             try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
+            // Store the latest state for others.
             self.voiceActivity!.sharedVoiceActivity.postActivity(value)
 
-            // Granular activity metric.
+            // Report the metric of both current VAD and current state.
             if self.granularMetrics,
                let measurement = self.measurement?.measurement {
                 let raw = value.rawValue
@@ -310,23 +313,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                                     voiceActive: voiceActive,
                                                     timestamp: timestamp)
                 }
-            }
-
-            // Emit activity transition on active/inactive boundary crossings.
-            if let measurement = self.activityTransitionMeasurement?.measurement {
-                let wasActive = self.lastActivityValue != .speechEnd
-                let isActive = value != .speechEnd
-                if wasActive != isActive {
-                    let direction = isActive ? "active" : "inactive"
-                    let participant = "\(self.participantId.participantId)"
-                    let timestamp = wallClock
-                    Task(priority: .utility) {
-                        await measurement.record(participant: participant,
-                                                 direction: direction,
-                                                 timestamp: timestamp)
-                    }
-                }
-                self.lastActivityValue = value
             }
         }
 

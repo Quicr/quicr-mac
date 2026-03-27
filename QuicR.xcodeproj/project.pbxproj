@@ -167,6 +167,8 @@
 		9BE6B7C92C9D92C20069FE9F /* TestTokenStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */; };
 		9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */; };
 		9BF02E052F712EA800C9CC6F /* MSF in Frameworks */ = {isa = PBXBuildFile; productRef = 9BF02E042F712EA800C9CC6F /* MSF */; };
+		9BF02E072F76BC0F00C9CC6F /* VideoVADTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF02E062F76BC0F00C9CC6F /* VideoVADTransition.swift */; };
+		9BF02E092F76BC1000C9CC6F /* TestVideoVADTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF02E082F76BC1000C9CC6F /* TestVideoVADTransition.swift */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
@@ -426,6 +428,8 @@
 		9BE6B7C82C9D92BF0069FE9F /* TestTokenStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTokenStorage.swift; sourceTree = "<group>"; };
 		9BEC9D992B860DB800768EB6 /* ApplicationSEIs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationSEIs.swift; sourceTree = "<group>"; };
 		9BEFCC5029BB89F8001A780A /* ci_post_clone.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = ci_post_clone.sh; sourceTree = "<group>"; };
+		9BF02E062F76BC0F00C9CC6F /* VideoVADTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoVADTransition.swift; sourceTree = "<group>"; };
+		9BF02E082F76BC1000C9CC6F /* TestVideoVADTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoVADTransition.swift; sourceTree = "<group>"; };
 		9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationInstance.swift; sourceTree = "<group>"; };
 		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
 		A1B2C3D52F50000100AA1101 /* QSubscribeNamespaceHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerCallbacks.h; sourceTree = "<group>"; };
@@ -650,6 +654,7 @@
 				9BB0F7192C29CAB500253A82 /* TestMeasurementRegistration.swift */,
 				9B0E0F1B2C4A9A0300F06D6E /* TestNumberView.swift */,
 				9B9A7EB42F47B8C000C201EE /* TestAudioActivityStateMachine.swift */,
+				9BF02E082F76BC1000C9CC6F /* TestVideoVADTransition.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -852,6 +857,7 @@
 				FF2498B12A53575D00C6D66D /* PublicationFactory.swift */,
 				9B9A7EB02F47B7D100C201EE /* AudioActivityStateMachine.swift */,
 				9B9A7EB22F47B7F700C201EE /* SharedVoiceActivityState.swift */,
+				9BF02E062F76BC0F00C9CC6F /* VideoVADTransition.swift */,
 			);
 			path = Publications;
 			sourceTree = "<group>";
@@ -1135,7 +1141,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "$SRCROOT/dependencies/build-qmedia-framework.sh\n";
+			shellScript = "#$SRCROOT/dependencies/build-qmedia-framework.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1150,6 +1156,7 @@
 				187DE36F2C997AFE0090FB68 /* TestOpusPublication.swift in Sources */,
 				9B3726952D806F5800498550 /* TestMutex+Convenience.swift in Sources */,
 				187DE3732C997D2F0090FB68 /* TestOpusSubscription.swift in Sources */,
+				9BF02E092F76BC1000C9CC6F /* TestVideoVADTransition.swift in Sources */,
 				9B4788D42B972F990056CE7E /* TestVideoSubscriptionSet.swift in Sources */,
 				9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */,
 				9B6C9F112DE629720041B9C1 /* TestAudioUtilities.swift in Sources */,
@@ -1283,6 +1290,7 @@
 				18EC340D2A69CFD6004FE2EE /* VideoView.swift in Sources */,
 				9B4D8D382D916E0200F4FE66 /* ActiveSpeakerStats.swift in Sources */,
 				9BEC9D9A2B860DB800768EB6 /* ApplicationSEIs.swift in Sources */,
+				9BF02E072F76BC0F00C9CC6F /* VideoVADTransition.swift in Sources */,
 				FF2498B02A534E8E00C6D66D /* H264Publication.swift in Sources */,
 				9BAD55BD29B0B77700D9B65F /* ErrorWriter.swift in Sources */,
 				9B379A282DF2F77100BB060A /* ChatView.swift in Sources */,
@@ -1349,7 +1357,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1374,7 +1382,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -1541,7 +1549,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -1618,7 +1626,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"Decimus/Preview Content\"";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = R77C67VW87;
 				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
