@@ -141,11 +141,17 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage(SettingsView.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    @AppStorage(SettingsView.demoSpeechStartIntervalKey)
-    private var demoSpeechStartInterval: TimeInterval = 0.3
+    @AppStorage(SettingsView.demoTimeToSpeechStartKey)
+    private var demoTimeToSpeechStart: TimeInterval = 0.15
 
-    @AppStorage(SettingsView.demoContinuousSpeechIntervalKey)
-    private var demoContinuousSpeechInterval: TimeInterval = 0.3
+    @AppStorage(SettingsView.demoTimeToContinuousKey)
+    private var demoTimeToContinuous: TimeInterval = 0.5
+
+    @AppStorage(SettingsView.demoTimeToDropStartKey)
+    private var demoTimeToDropStart: TimeInterval = 0.25
+
+    @AppStorage(SettingsView.demoTimeToDropContinuousKey)
+    private var demoTimeToDropContinuous: TimeInterval = 0.6
 
     @AppStorage(SettingsView.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
@@ -291,8 +297,10 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         let voiceActivity: VoiceActivityDependencies?
         if self.demoEnabled || self.nab {
             voiceActivity = .init(sharedVoiceActivity: .init(),
-                                  speechStartInterval: self.demoSpeechStartInterval,
-                                  continuousSpeechInterval: self.demoContinuousSpeechInterval,
+                                  timeToSpeechStart: self.demoTimeToSpeechStart,
+                                  timeToContinuous: self.demoTimeToContinuous,
+                                  timeToDropStart: self.demoTimeToDropStart,
+                                  timeToDropContinuous: self.demoTimeToDropContinuous,
                                   vadRollSubgroup: self.demoVadRollSubgroup)
         } else {
             voiceActivity = nil
@@ -370,6 +378,10 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // If we're NAB, we need to subscribe to the catalog track.
         if self.nab {
+            // Clamp displayed videos to the top-N the relay delivers.
+            self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
+            self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+            self.videoParticipants.startStalenessChecks()
             do {
                 self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { [weak self] result in
                     guard let self else { return }
@@ -412,8 +424,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                 let handler = QSubscribeNamespaceHandler(
                     namespacePrefix: prefix,
                     trackFilter: trackFilter,
-                    statusChangedCallback: { status, errorCode, namespacePrefix in
-                        self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
+                    statusChangedCallback: { [weak self] status, errorCode, namespacePrefix in
+                        self?.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -625,8 +637,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                           maxTracksDeselected: .init(self.demoMaxTracksDeselected),
                                           maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
             let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
-                                                     trackFilter: filter) { status, errorCode, namespacePrefix in
-                self.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
+                                                     trackFilter: filter) { [weak self] status, errorCode, namespacePrefix in
+                self?.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
             }
             do {
                 try controller.subscribeNamespace(handler)

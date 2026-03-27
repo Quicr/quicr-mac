@@ -6,95 +6,140 @@ import XCTest
 
 final class TestAudioActivityStateMachine: XCTestCase {
 
-    // MARK: - State Machine Tests
-
-    func testIdleReturnsSpeechEnd() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        XCTAssertEqual(sm.update(voiceActive: false, now: .now), .speechEnd)
+    private func makeSM(timeToSpeechStart: TimeInterval = 0.15,
+                        timeToContinuous: TimeInterval = 0.5,
+                        timeToDropStart: TimeInterval = 0.25,
+                        timeToDropContinuous: TimeInterval = 0.6) -> AudioActivityStateMachine {
+        .init(timeToSpeechStart: timeToSpeechStart,
+              timeToContinuous: timeToContinuous,
+              timeToDropStart: timeToDropStart,
+              timeToDropContinuous: timeToDropContinuous)
     }
 
-    func testIdleToSpeaking() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        XCTAssertEqual(sm.update(voiceActive: true, now: .now), .speechStart)
+    // Use a small base to avoid floating point loss when adding intervals to Date.now.
+    private let start = Date(timeIntervalSinceReferenceDate: 0)
+    private func t(_ offset: TimeInterval) -> Date { self.start.addingTimeInterval(offset) }
+
+    // MARK: - Basic Transitions
+
+    func testSilenceStaysSpeechEnd() {
+        let sm = makeSM()
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(1.0)), .speechEnd)
     }
 
-    func testContinuousAfterInterval() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
-        XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
-
-        // Before interval: still speechStart (change rate-limited).
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.1)), .speechStart)
-
-        // After interval: transitions to continuousSpeech.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.35)), .continuousSpeech)
+    func testVoiceBeforeThresholdStaysSpeechEnd() {
+        let sm = makeSM()
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.10)), .speechEnd)
     }
 
-    func testSpeakingToEnd() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
-        XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
-
-        // Drop to speechEnd is immediate (no rate limit on downward transition).
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.1)), .speechEnd)
+    func testSustainedVoiceTransitionsToSpeechStart() {
+        let sm = makeSM()
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.16)), .speechStart)
     }
 
-    func testEndResumesSpeaking() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
-        XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
-
-        // Voice drops — immediate transition to speechEnd.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.1)), .speechEnd)
-
-        // Voice resumes after speechStart rate limit window from the drop.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.45)), .speechStart)
+    func testSustainedVoicePromotesToContinuous() {
+        let sm = makeSM()
+        // Rise to speechStart.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.16)), .speechStart)
+        // Not yet continuous.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.50)), .speechStart)
+        // Now continuous (0.5s+ after entering speechStart).
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.67)), .continuousSpeech)
     }
 
-    func testMultipleContinuousCycles() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
-        XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
+    // MARK: - Hangover (Falling Edge)
 
-        // First continuous.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.35)), .continuousSpeech)
+    func testSpeechStartHangover() {
+        let sm = makeSM()
+        // Get into speechStart.
+        sm.update(voiceActive: true, now: t(0))
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.16)), .speechStart)
 
-        // Second continuous — same value, no change needed, no rate limit.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.4)), .continuousSpeech)
+        // Silence starts — still speechStart during hangover.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.20)), .speechStart)
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.35)), .speechStart)
+        // After hangover from start (0.25s+ of silence), drops.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.46)), .speechEnd)
     }
 
-    func testRateLimitHoldsValueDuringRapidChanges() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
+    func testContinuousHangover() {
+        let sm = makeSM()
+        // Get into continuousSpeech.
+        sm.update(voiceActive: true, now: t(0))
+        sm.update(voiceActive: true, now: t(0.16))
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.67)), .continuousSpeech)
 
-        // Start speaking.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start), .speechStart)
-
-        // Drop is immediate, then re-start is rate-limited.
-        XCTAssertEqual(sm.update(voiceActive: false, now: start.addingTimeInterval(0.05)), .speechEnd)
-        // Back to true but rate-limited (last change was at 0.05).
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.10)), .speechEnd)
-        // Still rate-limited.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.15)), .speechEnd)
-
-        // After 300ms from last change, speechStart goes through.
-        XCTAssertEqual(sm.update(voiceActive: true, now: start.addingTimeInterval(0.4)), .speechStart)
+        // Silence — still continuous during hangover.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.70)), .continuousSpeech)
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(1.0)), .continuousSpeech)
+        // After hangover (0.6s+ of silence), drops to speechEnd.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(1.31)), .speechEnd)
     }
 
-    func testEveryObjectGetsAValue() {
-        let sm = AudioActivityStateMachine(speechStartInterval: 0.3, continuousSpeechInterval: 0.3)
-        let start = Date.now
+    func testContinuousHangoverResetByVoice() {
+        let sm = makeSM()
+        // Get into continuousSpeech.
+        sm.update(voiceActive: true, now: t(0))
+        sm.update(voiceActive: true, now: t(0.16))
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.67)), .continuousSpeech)
 
-        // Every call returns a value — no nils, no "none".
-        let v1 = sm.update(voiceActive: false, now: start)
-        let v2 = sm.update(voiceActive: true, now: start.addingTimeInterval(0.35))
-        let v3 = sm.update(voiceActive: true, now: start.addingTimeInterval(0.4))
-        let v4 = sm.update(voiceActive: false, now: start.addingTimeInterval(0.7))
+        // Brief silence then voice resumes — hangover resets.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.80)), .continuousSpeech)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.90)), .continuousSpeech)
+        // Even much later, still continuous because the hangover was reset.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(1.20)), .continuousSpeech)
+        // Now 0.6s+ of continuous silence from 1.20.
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(1.81)), .speechEnd)
+    }
 
-        XCTAssertEqual(v1, .speechEnd)
-        XCTAssertEqual(v2, .speechStart)
-        XCTAssertEqual(v3, .speechStart) // Not yet 300ms since change to speechStart.
-        XCTAssertEqual(v4, .speechEnd)   // Immediate drop.
+    // MARK: - Flicker Rejection
+
+    func testFlickerDuringRiseDoesNotStart() {
+        let sm = makeSM()
+        // Voice active, then drops before threshold.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.05)), .speechEnd)
+        // Restart — timer should have reset.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.10)), .speechEnd)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.20)), .speechEnd)
+        // Full threshold from the restart at 0.10.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.26)), .speechStart)
+    }
+
+    func testFlickerInSpeechStartResetsTimers() {
+        let sm = makeSM()
+        // Get into speechStart.
+        sm.update(voiceActive: true, now: t(0))
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.16)), .speechStart)
+
+        // Flicker: voice, silence, voice — neither promotion nor demotion should complete.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.20)), .speechStart)
+        XCTAssertEqual(sm.update(voiceActive: false, now: t(0.30)), .speechStart)
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.40)), .speechStart)
+        // Still speechStart — the silence reset the promotion timer, the voice reset the demotion timer.
+        XCTAssertEqual(sm.update(voiceActive: true, now: t(0.50)), .speechStart)
+    }
+
+    // MARK: - Every Update Returns a Value
+
+    func testEveryUpdateReturnsAValue() {
+        let sm = makeSM()
+        // Every call returns a valid value regardless of input pattern.
+        let values: [AudioActivityValue] = [
+            sm.update(voiceActive: false, now: t(0)),
+            sm.update(voiceActive: true, now: t(0.1)),
+            sm.update(voiceActive: true, now: t(0.3)),
+            sm.update(voiceActive: false, now: t(0.4)),
+            sm.update(voiceActive: true, now: t(1.0)),
+            sm.update(voiceActive: true, now: t(2.0))
+        ]
+        for value in values {
+            XCTAssertTrue([.speechEnd, .speechStart, .continuousSpeech].contains(value))
+        }
     }
 
     // MARK: - Header Round-Trip Tests
@@ -134,15 +179,15 @@ final class TestAudioActivityStateMachine: XCTestCase {
 
     // MARK: - SharedVoiceActivityState Tests
 
-    func testSharedStateProduceConsume() {
+    func testSharedStateLatestRead() {
         let state = SharedVoiceActivityState()
-        XCTAssertNil(state.consumeActivity())
+        XCTAssertNil(state.latestActivity())
 
         state.postActivity(.speechStart)
-        XCTAssertEqual(state.consumeActivity(), .speechStart)
+        XCTAssertEqual(state.latestActivity(), .speechStart)
 
-        // Consume-once: second consume should be nil.
-        XCTAssertNil(state.consumeActivity())
+        // Latest-value: repeated reads return the same value.
+        XCTAssertEqual(state.latestActivity(), .speechStart)
     }
 
     func testSharedStateOverwrite() {
@@ -151,7 +196,8 @@ final class TestAudioActivityStateMachine: XCTestCase {
         state.postActivity(.speechEnd)
 
         // Should get the latest value.
-        XCTAssertEqual(state.consumeActivity(), .speechEnd)
-        XCTAssertNil(state.consumeActivity())
+        XCTAssertEqual(state.latestActivity(), .speechEnd)
+        // Still there on re-read.
+        XCTAssertEqual(state.latestActivity(), .speechEnd)
     }
 }

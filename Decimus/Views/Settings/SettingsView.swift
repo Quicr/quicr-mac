@@ -70,13 +70,21 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    static let demoSpeechStartIntervalKey = "demoSpeechStartInterval"
-    @AppStorage(Self.demoSpeechStartIntervalKey)
-    private var demoSpeechStartInterval: TimeInterval = 0.3
+    static let demoTimeToSpeechStartKey = "demoTimeToSpeechStart"
+    @AppStorage(Self.demoTimeToSpeechStartKey)
+    private var demoTimeToSpeechStart: TimeInterval = 0.15
 
-    static let demoContinuousSpeechIntervalKey = "demoContinuousSpeechInterval"
-    @AppStorage(Self.demoContinuousSpeechIntervalKey)
-    private var demoContinuousSpeechInterval: TimeInterval = 0.3
+    static let demoTimeToContinuousKey = "demoTimeToContinuous"
+    @AppStorage(Self.demoTimeToContinuousKey)
+    private var demoTimeToContinuous: TimeInterval = 0.5
+
+    static let demoTimeToDropStartKey = "demoTimeToDropStart"
+    @AppStorage(Self.demoTimeToDropStartKey)
+    private var demoTimeToDropStart: TimeInterval = 0.25
+
+    static let demoTimeToDropContinuousKey = "demoTimeToDropContinuous"
+    @AppStorage(Self.demoTimeToDropContinuousKey)
+    private var demoTimeToDropContinuous: TimeInterval = 0.6
 
     static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
     @AppStorage(Self.demoVadRollSubgroupKey)
@@ -121,8 +129,10 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoSpeechStartIntervalKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoContinuousSpeechIntervalKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToSpeechStartKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToContinuousKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropContinuousKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
                 }
             }
@@ -275,16 +285,26 @@ struct SettingsView: View {
                         .keyboardType(.decimalPad)
                     #endif
                 }
-                LabeledContent("Speech Start Interval (s)") {
-                    TextField("Speech Start Interval (s)", value: self.$demoSpeechStartInterval, format: .number)
+                LabeledContent("Time to Speech Start (s)") {
+                    TextField("Time to Speech Start (s)", value: self.$demoTimeToSpeechStart, format: .number)
                         #if !os(macOS)
                         .keyboardType(.decimalPad)
                     #endif
                 }
-                LabeledContent("Continuous Speech Interval (s)") {
-                    TextField("Continuous Speech Interval (s)",
-                              value: self.$demoContinuousSpeechInterval,
-                              format: .number)
+                LabeledContent("Time to Continuous (s)") {
+                    TextField("Time to Continuous (s)", value: self.$demoTimeToContinuous, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Drop Start (s)") {
+                    TextField("Time to Drop Start (s)", value: self.$demoTimeToDropStart, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Drop Continuous (s)") {
+                    TextField("Time to Drop Continuous (s)", value: self.$demoTimeToDropContinuous, format: .number)
                         #if !os(macOS)
                         .keyboardType(.decimalPad)
                     #endif

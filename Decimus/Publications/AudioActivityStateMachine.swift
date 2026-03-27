@@ -10,52 +10,82 @@ enum AudioActivityValue: UInt8, Comparable {
     }
 
     case speechEnd = 0
-    case speechStart = 1
-    case continuousSpeech = 2
+    case speechStart = 2
+    case continuousSpeech = 1
 }
 
 /// State machine for voice activity / active speaker.
-///
-/// Every call to `update` returns a value to include on the object.
-/// Transitions are rate-limited by per-transition thresholds.
 class AudioActivityStateMachine {
-    private let speechStartInterval: TimeInterval
-    private let continuousSpeechInterval: TimeInterval
+    /// How long VAD must be continuously active before entering speechStart.
+    private let timeToSpeechStart: TimeInterval
+    /// How long VAD must be continuously active (while in speechStart) before promoting to continuousSpeech.
+    private let timeToContinuous: TimeInterval
+    /// How long VAD must be continuously silent before dropping from speechStart to speechEnd.
+    private let timeToDropStart: TimeInterval
+    /// How long VAD must be continuously silent before dropping from continuousSpeech to speechEnd.
+    private let timeToDropContinuous: TimeInterval
 
-    init(speechStartInterval: TimeInterval, continuousSpeechInterval: TimeInterval) {
-        self.speechStartInterval = speechStartInterval
-        self.continuousSpeechInterval = continuousSpeechInterval
+    init(timeToSpeechStart: TimeInterval,
+         timeToContinuous: TimeInterval,
+         timeToDropStart: TimeInterval,
+         timeToDropContinuous: TimeInterval) {
+        self.timeToSpeechStart = timeToSpeechStart
+        self.timeToContinuous = timeToContinuous
+        self.timeToDropStart = timeToDropStart
+        self.timeToDropContinuous = timeToDropContinuous
     }
 
-    private var currentValue: AudioActivityValue = .speechEnd
-    private var lastChangeTime: Date?
+    private var state: AudioActivityValue = .speechEnd
+    private var voiceOnset: Date?
+    private var silenceOnset: Date?
 
     /// Process a VAD sample and return the value to send on this object.
     func update(voiceActive: Bool, now: Date) -> AudioActivityValue {
-        let desired: AudioActivityValue
-        switch (voiceActive, self.currentValue) {
-        case (true, .speechEnd):
-            desired = .speechStart
-        case (true, _):
-            desired = .continuousSpeech
-        case (false, _):
-            desired = .speechEnd
+        // Track when the current run of voice/silence began.
+        if voiceActive {
+            // We're talking.
+            self.silenceOnset = nil
+            if self.voiceOnset == nil {
+                // We just started talking.
+                self.voiceOnset = now
+            }
+        } else {
+            // We're not talking.
+            self.voiceOnset = nil
+            if self.silenceOnset == nil {
+                // We just stopped talking.
+                self.silenceOnset = now
+            }
         }
 
-        if desired != self.currentValue {
-            let interval: TimeInterval = switch desired {
-            case .speechStart: self.speechStartInterval
-            case .continuousSpeech: self.continuousSpeechInterval
-            case .speechEnd: 0
+        switch self.state {
+        case .speechEnd:
+            if let onset = self.voiceOnset,
+               now.timeIntervalSince(onset) >= self.timeToSpeechStart {
+                // We weren't talking and now we are.
+                self.state = .speechStart
+                self.voiceOnset = now
             }
-            if let last = self.lastChangeTime,
-               now.timeIntervalSince(last) < interval {
-                return self.currentValue
+
+        case .speechStart:
+            if let onset = self.voiceOnset,
+               now.timeIntervalSince(onset) >= self.timeToContinuous {
+                // We'e been talking for a while.
+                self.state = .continuousSpeech
+            } else if let onset = self.silenceOnset,
+                      now.timeIntervalSince(onset) >= self.timeToDropStart {
+                // We were talking, but we've not been for a while.
+                self.state = .speechEnd
             }
-            self.currentValue = desired
-            self.lastChangeTime = now
+
+        case .continuousSpeech:
+            if let onset = self.silenceOnset,
+               now.timeIntervalSince(onset) >= self.timeToDropContinuous {
+                // We were talking, but we've not been for a while.
+                self.state = .speechEnd
+            }
         }
 
-        return self.currentValue
+        return self.state
     }
 }

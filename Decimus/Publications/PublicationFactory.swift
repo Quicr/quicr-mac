@@ -20,8 +20,10 @@ protocol PublicationFactory {
 
 struct VoiceActivityDependencies {
     let sharedVoiceActivity: SharedVoiceActivityState
-    let speechStartInterval: TimeInterval
-    let continuousSpeechInterval: TimeInterval
+    let timeToSpeechStart: TimeInterval
+    let timeToContinuous: TimeInterval
+    let timeToDropStart: TimeInterval
+    let timeToDropContinuous: TimeInterval
     let vadRollSubgroup: Bool
 }
 
