@@ -20,4 +20,6 @@
 #import "libquicr/QFetchTrackHandlerObjC.h"
 #import "libquicr/QLocation.h"
 
+#include "fvad.h"
+
 #endif

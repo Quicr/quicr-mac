@@ -156,6 +156,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage(SettingsView.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
 
+    @AppStorage(SettingsView.demoVadAggressivenessKey)
+    private var demoVadAggressiveness: Int = 2
+
     // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
@@ -301,7 +304,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                   timeToContinuous: self.demoTimeToContinuous,
                                   timeToDropStart: self.demoTimeToDropStart,
                                   timeToDropContinuous: self.demoTimeToDropContinuous,
-                                  vadRollSubgroup: self.demoVadRollSubgroup)
+                                  vadRollSubgroup: self.demoVadRollSubgroup,
+                                  vadAggressiveness: self.demoVadAggressiveness)
         } else {
             voiceActivity = nil
         }
