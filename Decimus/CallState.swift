@@ -157,7 +157,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private var demoVadRollSubgroup: Bool = true
 
     @AppStorage(SettingsView.demoVadAggressivenessKey)
-    private var demoVadAggressiveness: Int = 2
+    private var demoVadAggressiveness: Int = 3
 
     // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []

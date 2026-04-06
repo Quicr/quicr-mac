@@ -92,7 +92,7 @@ struct SettingsView: View {
 
     static let demoVadAggressivenessKey = "demoVadAggressiveness"
     @AppStorage(Self.demoVadAggressivenessKey)
-    private var demoVadAggressiveness: Int = 2
+    private var demoVadAggressiveness: Int = 3
 
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?

@@ -77,8 +77,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Create VAD detector for supported window sizes (10ms, 20ms).
         if let voiceActivity {
-            let frameDurationMs = opusWindowSize.rawValue * 1000
-            if frameDurationMs == 10 || frameDurationMs == 20 {
+            if opusWindowSize == .twentyMs || opusWindowSize == .tenMs {
                 self.vadDetector = FVADDetector(sampleRate: Int(DecimusAudioEngine.format.sampleRate),
                                                 mode: voiceActivity.vadAggressiveness)
             } else {
