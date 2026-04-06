@@ -7,3 +7,6 @@
 [submodule "dependencies/libquicr"]
 	path = dependencies/libquicr
 	url = https://github.com/Quicr/libquicr.git
+[submodule "dependencies/libfvad"]
+	path = dependencies/libfvad
+	url = https://github.com/dpirch/libfvad.git

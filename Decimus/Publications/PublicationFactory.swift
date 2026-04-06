@@ -25,6 +25,7 @@ struct VoiceActivityDependencies {
     let timeToDropStart: TimeInterval
     let timeToDropContinuous: TimeInterval
     let vadRollSubgroup: Bool
+    let vadAggressiveness: Int
 }
 
 class PublicationFactoryImpl: PublicationFactory {

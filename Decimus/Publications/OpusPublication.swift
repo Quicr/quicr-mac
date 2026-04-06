@@ -32,6 +32,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let voiceActivity: VoiceActivityDependencies?
     private let activityStateMachine: AudioActivityStateMachine?
     private let activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
+    private let vadDetector: FVADDetector?
 
     init(profile: Profile,
          participantId: ParticipantId,
@@ -72,6 +73,18 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                               timeToDropContinuous: voiceActivity.timeToDropContinuous)
         } else {
             self.activityStateMachine = nil
+        }
+
+        // Create VAD detector for supported window sizes (10ms, 20ms).
+        if let voiceActivity {
+            if opusWindowSize == .twentyMs || opusWindowSize == .tenMs {
+                self.vadDetector = FVADDetector(sampleRate: Int(DecimusAudioEngine.format.sampleRate),
+                                                mode: voiceActivity.vadAggressiveness)
+            } else {
+                self.vadDetector = nil
+            }
+        } else {
+            self.vadDetector = nil
         }
 
         // Create a buffer to hold raw data waiting for encode.
@@ -279,8 +292,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
 
         // Encode this data.
         let encoded = try self.encoder.write(data: self.pcm)
-        // Query the encoder's VAD state.
-        let voiceActive = self.encoder.voiceActive
+        let voiceActive = self.vadDetector?.process(self.pcm)
         // Get absolute time.
         let wallClock = Ticks(dequeued.timestamp.mHostTime).hostDate
         // Get audio level.

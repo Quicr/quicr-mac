@@ -90,6 +90,10 @@ struct SettingsView: View {
     @AppStorage(Self.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
 
+    static let demoVadAggressivenessKey = "demoVadAggressiveness"
+    @AppStorage(Self.demoVadAggressivenessKey)
+    private var demoVadAggressiveness: Int = 3
+
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
     @State private var subscribeNamespaceAcceptError: String?
@@ -134,6 +138,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropContinuousKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoVadAggressivenessKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -310,6 +315,15 @@ struct SettingsView: View {
                     #endif
                 }
                 LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
+                LabeledContent("VAD Aggressiveness") {
+                    Picker("VAD Aggressiveness", selection: self.$demoVadAggressiveness) {
+                        Text("Quality (0)").tag(0)
+                        Text("Low Bitrate (1)").tag(1)
+                        Text("Aggressive (2)").tag(2)
+                        Text("Very Aggressive (3)").tag(3)
+                    }
+                    .labelsHidden()
+                }
             }
             .decimusTextStyle()
 
