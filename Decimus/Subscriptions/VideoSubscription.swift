@@ -453,7 +453,8 @@ class VideoSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         // If we're paused, drop this.
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {

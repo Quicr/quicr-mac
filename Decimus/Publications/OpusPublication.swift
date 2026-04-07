@@ -259,7 +259,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         return self.sink.publishObject(headers,
                                        data: data,
                                        extensions: extensions,
-                                       immutableExtensions: immutableExtensions)
+                                       immutableExtensions: immutableExtensions,
+                                       streamHeaderProperties: nil)
     }
 
     struct EncodeResult {

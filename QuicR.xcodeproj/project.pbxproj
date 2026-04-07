@@ -178,6 +178,7 @@
 		9BF02E092F76BC1000C9CC6F /* TestVideoVADTransition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF02E082F76BC1000C9CC6F /* TestVideoVADTransition.swift */; };
 		9BF30F6F2F81A150004D1ECA /* TestFVADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF30F6E2F81A150004D1ECA /* TestFVADDetector.swift */; };
 		9BF30F712F81A150004D1ECA /* FVADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF30F702F81A150004D1ECA /* FVADDetector.swift */; };
+		9BF30F732F853365004D1ECA /* QCommon.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BF30F722F853365004D1ECA /* QCommon.m */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		9BFD6DF72C29709A00D6A1AE /* MeasurementRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
@@ -454,6 +455,7 @@
 		9BF02E082F76BC1000C9CC6F /* TestVideoVADTransition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoVADTransition.swift; sourceTree = "<group>"; };
 		9BF30F6E2F81A150004D1ECA /* TestFVADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFVADDetector.swift; sourceTree = "<group>"; };
 		9BF30F702F81A150004D1ECA /* FVADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FVADDetector.swift; sourceTree = "<group>"; };
+		9BF30F722F853365004D1ECA /* QCommon.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = QCommon.m; sourceTree = "<group>"; };
 		9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicationInstance.swift; sourceTree = "<group>"; };
 		9BFD6DF62C29709A00D6A1AE /* MeasurementRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasurementRegistration.swift; sourceTree = "<group>"; };
 		A1B2C3D52F50000100AA1101 /* QSubscribeNamespaceHandlerCallbacks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerCallbacks.h; sourceTree = "<group>"; };
@@ -732,6 +734,7 @@
 				9B48068B298301FD0040F5D4 /* QMediaTypes.swift */,
 				9BDAB24A2F5069C90064ED5A /* QTrackFilter.h */,
 				9BDAB24B2F5069C90064ED5A /* QTrackFilter.mm */,
+				9BF30F722F853365004D1ECA /* QCommon.m */,
 			);
 			path = libquicr;
 			sourceTree = "<group>";
@@ -1306,6 +1309,7 @@
 				1867635B2B2B6B8200339421 /* OpusPublication+Measurement.swift in Sources */,
 				18162CED2AB1C28300A75199 /* TransportConfigSettings.swift in Sources */,
 				9BB707AC2E40B51C00C697B6 /* RFC3550.swift in Sources */,
+				9BF30F732F853365004D1ECA /* QCommon.m in Sources */,
 				FF4DA06D29FAEF4F00A01E5D /* ViewExtensions.swift in Sources */,
 				9B15FA822DF2CB2F00756DF7 /* TextSubscriptions.swift in Sources */,
 				FFFF72D92A27FBEA00D4D5EE /* RelayConfig.swift in Sources */,

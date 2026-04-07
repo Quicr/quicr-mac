@@ -46,7 +46,8 @@ class ActiveSpeakerNotifierSubscription: Subscription,
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         // Parse out the active speaker list.
         let participants: [ParticipantId]
         do {

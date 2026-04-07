@@ -36,6 +36,23 @@ typedef NS_ENUM(uint64_t, QObjectStatus) {
     kQObjectStatusEndOfSubGroup = 0x5,
 };
 
+typedef NS_ENUM(uint8_t, QSubgroupIdMode) {
+    kQSubgroupIdModeIsZero,
+    kQSubgroupIdModeSetFromFirstObject,
+    kQSubgroupIdModeExplicit,
+};
+
+@interface QStreamHeaderProperties : NSObject
+@property (nonatomic, readonly) bool extensions;
+@property (nonatomic, readonly) QSubgroupIdMode subgroupIdMode;
+@property (nonatomic, readonly) bool endOfGroup;
+@property (nonatomic, readonly) bool defaultPriority;
+-(instancetype _Nonnull) initWithExtensions: (bool) extensions
+                             subgroupIdMode: (QSubgroupIdMode) subgroupIdMode
+                                 endOfGroup: (bool) endOfGroup
+                            defaultPriority: (bool) defaultPriority;
+@end
+
 typedef struct QObjectHeaders {
     const uint64_t groupId;
     const uint64_t subgroupId;
@@ -48,6 +65,24 @@ typedef struct QObjectHeaders {
 
 #ifdef __cplusplus
 #include <quicr/detail/messages.h>
+
+static QStreamHeaderProperties* _Nullable convertStreamHeaderProperties(const std::optional<quicr::messages::StreamHeaderProperties>& props) {
+    if (!props.has_value()) return nil;
+    return [[QStreamHeaderProperties alloc] initWithExtensions:props->extensions
+                                               subgroupIdMode:static_cast<QSubgroupIdMode>(props->subgroup_id_mode)
+                                                   endOfGroup:props->end_of_group
+                                              defaultPriority:props->default_priority];
+}
+
+static quicr::messages::StreamHeaderProperties convertStreamHeaderProperties(QStreamHeaderProperties* _Nonnull props) {
+    return quicr::messages::StreamHeaderProperties {
+        props.extensions,
+        static_cast<quicr::messages::SubgroupIdType>(props.subgroupIdMode),
+        props.endOfGroup,
+        props.defaultPriority,
+    };
+}
+
 static NSMutableDictionary<NSNumber*, NSArray<NSData*>*>* convertExtensions(const std::optional<quicr::Extensions>& extensions) {
     if (!extensions.has_value()) {
         return nil;

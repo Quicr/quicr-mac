@@ -134,7 +134,8 @@ class OpusSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         let now: Ticks = .now
         self.lastUpdateTime.withLock { $0 = now.hostDate }
 

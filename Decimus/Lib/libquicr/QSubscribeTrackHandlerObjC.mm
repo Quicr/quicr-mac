@@ -130,7 +130,8 @@ void QSubscribeTrackHandler::StatusChanged(Status status)
 }
 
 void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_headers,
-                                            quicr::BytesSpan data)
+                                            quicr::BytesSpan data,
+                                            std::optional<quicr::messages::StreamHeaderProperties> stream_mode)
 {
     if (_callbacks)
     {
@@ -156,7 +157,8 @@ void QSubscribeTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_h
         auto extensions = convertExtensions(object_headers.extensions);
         auto immutable = convertExtensions(object_headers.immutable_extensions);
         NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
-        [_callbacks objectReceived:headers data:nsData extensions: extensions immutableExtensions: immutable];
+
+        [_callbacks objectReceived:headers data:nsData extensions:extensions immutableExtensions:immutable streamHeaderProperties:convertStreamHeaderProperties(stream_mode)];
     }
 }
 

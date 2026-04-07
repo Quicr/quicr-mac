@@ -92,7 +92,8 @@ class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks 
     func objectReceived(_ objectHeaders: QObjectHeaders,
                         data: Data,
                         extensions: HeaderExtensions?,
-                        immutableExtensions: HeaderExtensions?) {}
+                        immutableExtensions: HeaderExtensions?,
+                        streamHeaderProperties: QStreamHeaderProperties?) {}
 
     /// Fires when a partial object has been received.
     /// - Parameters:
