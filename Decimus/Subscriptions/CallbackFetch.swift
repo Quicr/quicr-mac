@@ -51,11 +51,13 @@ class CallbackFetch: Fetch {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         super.objectReceived(objectHeaders,
                              data: data,
                              extensions: extensions,
-                             immutableExtensions: immutableExtensions)
+                             immutableExtensions: immutableExtensions,
+                             streamHeaderProperties: streamHeaderProperties)
         self.objectReceived?(objectHeaders, data, extensions, immutableExtensions)
     }
 }

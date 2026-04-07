@@ -375,7 +375,8 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         return self.sink.publishObject(headers,
                                        data: data,
                                        extensions: extensions,
-                                       immutableExtensions: immutableExtensions)
+                                       immutableExtensions: immutableExtensions,
+                                       streamHeaderProperties: nil)
     }
 
     /// Read the latest SM output and detect transitions.

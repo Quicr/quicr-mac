@@ -29,7 +29,8 @@ class MultipleCallbackSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         self.callbacks.withLock { locked in
             for callback in locked.callbacks.values {
                 callback(objectHeaders, data, extensions, immutableExtensions)

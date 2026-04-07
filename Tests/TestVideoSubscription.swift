@@ -22,7 +22,8 @@ extension VideoSubscription {
                                           ttl: ttlPtr),
                                     data: Data([0x01]),
                                     extensions: extensions,
-                                    immutableExtensions: immutableExtensions)
+                                    immutableExtensions: immutableExtensions,
+                                    streamHeaderProperties: nil)
             }
         }
     }
@@ -40,39 +41,39 @@ struct TestVideoSubscription {
                                            callEnded: ({}))
         try await controller.connect()
         let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
-                                                    expiry: [1],
-                                                    priorities: [1],
-                                                    namespace: ["0"]),
-                                     config: .init(codec: .mock,
-                                                   bitrate: 2000,
-                                                   fps: 30,
-                                                   width: 1920,
-                                                   height: 1080,
-                                                   bitrateType: .average),
-                                     participants: .init(),
-                                     metricsSubmitter: nil,
-                                     videoBehaviour: .freeze,
-                                     granularMetrics: true,
-                                     jitterBufferConfig: .init(),
-                                     simulreceive: .none,
-                                     variances: .init(expectedOccurrences: 0),
-                                     endpointId: "",
-                                     relayId: "",
-                                     participantId: .init(1),
-                                     joinDate: .now,
-                                     activeSpeakerStats: nil,
-                                     controller: controller,
-                                     verbose: true,
-                                     cleanupTime: 1.5,
-                                     subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
-                                                                                 newGroupUpperThreshold: ngThreshold),
-                                                               calculateLatency: false,
-                                                               mediaInterop: false),
-                                     sframeContext: nil,
-                                     wifiScanDetector: nil,
-                                     publisherInitiated: false,
-                                     callback: { callback?($0) },
-                                     statusChanged: ({_ in }))
+                                                                expiry: [1],
+                                                                priorities: [1],
+                                                                namespace: ["0"]),
+                                                 config: .init(codec: .mock,
+                                                               bitrate: 2000,
+                                                               fps: 30,
+                                                               width: 1920,
+                                                               height: 1080,
+                                                               bitrateType: .average),
+                                                 participants: .init(),
+                                                 metricsSubmitter: nil,
+                                                 videoBehaviour: .freeze,
+                                                 granularMetrics: true,
+                                                 jitterBufferConfig: .init(),
+                                                 simulreceive: .none,
+                                                 variances: .init(expectedOccurrences: 0),
+                                                 endpointId: "",
+                                                 relayId: "",
+                                                 participantId: .init(1),
+                                                 joinDate: .now,
+                                                 activeSpeakerStats: nil,
+                                                 controller: controller,
+                                                 verbose: true,
+                                                 cleanupTime: 1.5,
+                                                 subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
+                                                                                             newGroupUpperThreshold: ngThreshold),
+                                                                           calculateLatency: false,
+                                                                           mediaInterop: false),
+                                                 sframeContext: nil,
+                                                 wifiScanDetector: nil,
+                                                 publisherInitiated: false,
+                                                 callback: { callback?($0) },
+                                                 statusChanged: ({_ in }))
         // Simulate the subscribe OK that would set this in production.
         subscription.supportNewGroupRequest(true)
         return subscription
@@ -535,7 +536,8 @@ struct TestVideoSubscription {
                                        ttl: nil),
                                  data: .init([0x01]),
                                  extensions: nil,
-                                 immutableExtensions: loc())
+                                 immutableExtensions: loc(),
+                                 streamHeaderProperties: nil)
         }
 
         // State should remain startup (not transition to running)

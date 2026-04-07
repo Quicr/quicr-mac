@@ -29,7 +29,8 @@ typedef struct QSubscribeTrackMetrics {
 - (void) objectReceived: (QObjectHeaders) objectHeaders
                    data: (NSData* _Nonnull) data
              extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
-    immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
+    immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions
+              streamHeaderProperties: (QStreamHeaderProperties* _Nullable) streamHeaderProperties;
 - (void) partialObjectReceived: (QObjectHeaders) objectHeaders
                           data: (NSData* _Nonnull) data
                     extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions

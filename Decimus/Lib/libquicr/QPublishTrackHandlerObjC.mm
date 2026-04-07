@@ -82,13 +82,18 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
                                 data: (NSData* _Nonnull) data
                           extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
                  immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions
+              streamHeaderProperties: (QStreamHeaderProperties*) streamHeaderProperties
 {
     assert(handlerPtr);
     quicr::ObjectHeaders headers = from(objectHeaders, extensions, immutableExtensions);
     auto* ptr = reinterpret_cast<const std::uint8_t*>([data bytes]);
     quicr::BytesSpan span { ptr, data.length };
+    std::optional<quicr::messages::StreamHeaderProperties> streamMode;
+    if (streamHeaderProperties != nil) {
+        streamMode.emplace(convertStreamHeaderProperties(streamHeaderProperties));
+    }
     try {
-        auto status = handlerPtr->PublishObject(headers, span);
+        auto status = handlerPtr->PublishObject(headers, span, streamMode);
         return static_cast<QPublishObjectStatus>(status);
     } catch (const std::exception& e) {
         std::cerr << "Exception in publishObject: " << e.what() << std::endl;
@@ -143,13 +148,9 @@ quicr::ObjectHeaders from(QObjectHeaders objectHeaders,
     return handlerPtr->CanPublish();
 }
 
--(QStreamHeaderType) getStreamMode {
+-(QStreamHeaderProperties*) getStreamMode {
     assert(handlerPtr);
-    auto mode = handlerPtr->GetStreamMode();
-    if (mode.has_value()) {
-        return static_cast<QStreamHeaderType>(mode->GetType());
-    }
-    return static_cast<QStreamHeaderType>(0);
+    return convertStreamHeaderProperties(handlerPtr->GetStreamMode());
 }
 
 // C++
