@@ -130,7 +130,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     // Max concurent.
     @AppStorage(SettingsView.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 3
+    private var demoMaxTracksSelected: Int = 1
 
     // Max deselected means how many subscriptions remain in state, but inactive.
     // For us we basically want this quite high.
