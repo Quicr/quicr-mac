@@ -38,7 +38,9 @@ static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attribu
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
     converted.filter = std::monostate{};
-    converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    if (attributes.groupOrder != kQGroupOrderOriginalPublisherOrder) {
+        converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    }
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId;
     return converted;
@@ -53,7 +55,9 @@ static quicr::messages::PublishAttributes convert(QPublishAttributes attributes,
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
     converted.filter = std::monostate{};
-    converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    if (attributes.groupOrder != kQGroupOrderOriginalPublisherOrder) {
+        converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
+    }
     converted.is_publisher_initiated = attributes.isPublisherInitiated;
     converted.new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt;
     return converted;
@@ -234,7 +238,7 @@ static QPublishAttributes convert(const quicr::messages::PublishAttributes& attr
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.groupOrder = static_cast<QGroupOrder>(attributes.group_order);
+    converted.groupOrder = attributes.group_order.has_value() ? static_cast<QGroupOrder>(*attributes.group_order) : kQGroupOrderOriginalPublisherOrder;
     converted.isPublisherInitiated = attributes.is_publisher_initiated;
     converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
     converted.trackAlias = attributes.track_alias;

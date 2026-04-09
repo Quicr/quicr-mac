@@ -10,7 +10,10 @@
 -(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name priority:(uint8_t)priority groupOrder:(QGroupOrder)groupOrder publisherInitiated:(BOOL)publisherInitiated
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    std::optional<quicr::messages::GroupOrder> order;
+    if (groupOrder != kQGroupOrderOriginalPublisherOrder) {
+        order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    }
     handlerPtr = std::make_shared<QSubscribeTrackHandler>(fullTrackName, priority, order, std::nullopt, publisherInitiated);
     return self;
 }
@@ -38,7 +41,9 @@
 
 -(QGroupOrder) getGroupOrder {
     assert(handlerPtr);
-    return static_cast<QGroupOrder>(handlerPtr->GetGroupOrder());
+    const auto order = handlerPtr->GetGroupOrder();
+    if (!order.has_value()) return kQGroupOrderOriginalPublisherOrder;
+    return static_cast<QGroupOrder>(*order);
 }
 
 -(QFilterType) getFilterType {
@@ -112,7 +117,7 @@
 
 QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
                                                quicr::messages::ObjectPriority priority,
-                                               quicr::messages::GroupOrder group_order,
+                                               std::optional<quicr::messages::GroupOrder> group_order,
                                                const std::optional<JoiningFetch>& joining_fetch,
                                                bool publisher_initiated): quicr::SubscribeTrackHandler(full_track_name,
                                                                                                        priority,
