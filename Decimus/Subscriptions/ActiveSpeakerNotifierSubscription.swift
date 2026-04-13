@@ -14,7 +14,13 @@ class ActiveSpeakerNotifierSubscription: Subscription,
          submitter: MetricsSubmitter?,
          publisherInitiated: Bool,
          statusChanged: StatusCallback?) throws {
-        try super.init(profile: profile,
+        let deliveryTimeout: UInt64?
+        if let expiry = profile.expiry?.first {
+            deliveryTimeout = UInt64(expiry)
+        } else {
+            deliveryTimeout = nil
+        }
+        try super.init(fullTrackName: profile.getFullTrackName(),
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: submitter,
@@ -22,6 +28,7 @@ class ActiveSpeakerNotifierSubscription: Subscription,
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestGroup,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: deliveryTimeout,
                        statusCallback: statusChanged)
     }
 
@@ -39,7 +46,8 @@ class ActiveSpeakerNotifierSubscription: Subscription,
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         // Parse out the active speaker list.
         let participants: [ParticipantId]
         do {

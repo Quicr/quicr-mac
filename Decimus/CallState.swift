@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+// swiftlint:disable file_length
+
 import CryptoKit
 import SFrame
 import SwiftUI
 import Synchronization
 import Network
+import MSF
 
 class SFrameContext {
     let mutex: Mutex<MLS>
@@ -48,7 +51,7 @@ enum MoQRole: Int, CaseIterable, Identifiable, CustomStringConvertible {
 }
 
 @MainActor
-class CallState: ObservableObject, Equatable {
+class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_body_length
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
         false
     }
@@ -65,7 +68,7 @@ class CallState: ObservableObject, Equatable {
     private(set) var currentManifest: Manifest?
     private(set) var textSubscriptions: TextSubscriptions?
     private(set) var textPublication: TextPublication?
-    private let config: CallConfig
+    let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
     private var measurement: _Measurement?
     private var switchLatencyMeasurement: SwitchLatencyMeasurement?
@@ -127,7 +130,7 @@ class CallState: ObservableObject, Equatable {
 
     // Max concurent.
     @AppStorage(SettingsView.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 3
+    private var demoMaxTracksSelected: Int = 1
 
     // Max deselected means how many subscriptions remain in state, but inactive.
     // For us we basically want this quite high.
@@ -138,14 +141,23 @@ class CallState: ObservableObject, Equatable {
     @AppStorage(SettingsView.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    @AppStorage(SettingsView.demoSpeechStartIntervalKey)
-    private var demoSpeechStartInterval: TimeInterval = 0.3
+    @AppStorage(SettingsView.demoTimeToSpeechStartKey)
+    private var demoTimeToSpeechStart: TimeInterval = 0.15
 
-    @AppStorage(SettingsView.demoContinuousSpeechIntervalKey)
-    private var demoContinuousSpeechInterval: TimeInterval = 0.3
+    @AppStorage(SettingsView.demoTimeToContinuousKey)
+    private var demoTimeToContinuous: TimeInterval = 0.5
+
+    @AppStorage(SettingsView.demoTimeToDropStartKey)
+    private var demoTimeToDropStart: TimeInterval = 0.25
+
+    @AppStorage(SettingsView.demoTimeToDropContinuousKey)
+    private var demoTimeToDropContinuous: TimeInterval = 0.6
 
     @AppStorage(SettingsView.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
+
+    @AppStorage(SettingsView.demoVadAggressivenessKey)
+    private var demoVadAggressiveness: Int = 3
 
     // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
@@ -161,7 +173,16 @@ class CallState: ObservableObject, Equatable {
     private var wlan: CoreWLANWiFiScanNotifier?
     #endif
 
+    // Temp fields for NAB demo.
+    private let nab: Bool
+    private var catalogSubscription: CallbackSubscription?
+    private var currentCatalog: Catalog?
+    private var nabNamespaceHandlers: [NamespacePrefix: QSubscribeNamespaceHandler] = [:]
+    private var nabSubscriptionsByNamespace: [NamespacePrefix: [(sourceId: SourceIDType, ftn: FullTrackName)]] = [:]
+    private var nabPublications: [String: [FullTrackName]] = [:]
+
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
+        self.nab = config.conferenceID == .max
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
@@ -176,7 +197,7 @@ class CallState: ObservableObject, Equatable {
             let tags: [String: String] = [
                 "relay": config.address,
                 "email": config.email,
-                "conference": "\(config.conferenceID)"
+                "conference": self.nab ? "NAB" : "\(config.conferenceID)"
             ]
             self.doMetrics(tags)
         }
@@ -203,16 +224,29 @@ class CallState: ObservableObject, Equatable {
         }
 
         // Fetch the manifest from the conference server.
-        let manifest: Manifest
-        do {
-            let mController = ManifestController.shared
-            manifest = try await mController.getManifest(confId: self.config.conferenceID,
-                                                         email: self.config.email)
-        } catch {
-            self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
-            return false
+        let localParticipantId: UInt32
+        if !self.nab {
+            let manifest: Manifest
+            do {
+                let mController = ManifestController.shared
+                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                                                             email: self.config.email)
+            } catch {
+                self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
+                return false
+            }
+            self.currentManifest = manifest
+            localParticipantId = manifest.participantId.aggregate
+        } else {
+            // NAB uses random ID.
+            guard let id = UInt32(self.config.email) else {
+                self.logger.error("Bad NAB ID: \(self.config.email)")
+                return false
+            }
+            localParticipantId = id
         }
-        self.currentManifest = manifest
+        let localTypedParticipantId = ParticipantId(localParticipantId)
+        self.logger.info("We will be participant: \(localTypedParticipantId)")
 
         let sframeSettings = self.subscriptionConfig.value.sframeSettings
         if sframeSettings.enable {
@@ -231,7 +265,7 @@ class CallState: ObservableObject, Equatable {
                 try recvContext.addEpoch(epochId: epochId,
                                          sframeEpochSecret: secret)
 
-                let senderId = self.audioStartingGroup ?? UInt64(manifest.participantId.aggregate)
+                let senderId = self.audioStartingGroup ?? UInt64(localParticipantId)
                 self.sendContext = .init(sframe: sendContext,
                                          senderId: senderId,
                                          currentEpoch: epochId)
@@ -262,6 +296,20 @@ class CallState: ObservableObject, Equatable {
         }
         self.resolvedNamespace = overrideNamespace
 
+        // Are we doing audio activity?
+        let voiceActivity: VoiceActivityDependencies?
+        if self.demoEnabled || self.nab {
+            voiceActivity = .init(sharedVoiceActivity: .init(),
+                                  timeToSpeechStart: self.demoTimeToSpeechStart,
+                                  timeToContinuous: self.demoTimeToContinuous,
+                                  timeToDropStart: self.demoTimeToDropStart,
+                                  timeToDropContinuous: self.demoTimeToDropContinuous,
+                                  vadRollSubgroup: self.demoVadRollSubgroup,
+                                  vadAggressiveness: self.demoVadAggressiveness)
+        } else {
+            voiceActivity = nil
+        }
+
         // Create the factories now that we have the participant ID.
         let subConfig = self.subscriptionConfig.value
         let publicationFactory: PublicationFactory?
@@ -272,7 +320,7 @@ class CallState: ObservableObject, Equatable {
                                                         metricsSubmitter: self.submitter,
                                                         granularMetrics: self.influxConfig.value.granular,
                                                         captureManager: self.captureManager,
-                                                        participantId: manifest.participantId,
+                                                        participantId: localTypedParticipantId,
                                                         keyFrameInterval: subConfig.keyFrameInterval,
                                                         stagger: subConfig.stagger,
                                                         verbose: self.verbose,
@@ -282,16 +330,12 @@ class CallState: ObservableObject, Equatable {
                                                         mediaInterop: self.mediaInterop,
                                                         overrideNamespace: overrideNamespace,
                                                         useAnnounce: subConfig.useAnnounce,
-                                                        demoEnabled: self.demoEnabled,
-                                                        speechStartInterval: self.demoSpeechStartInterval,
-                                                        continuousSpeechInterval: self.demoContinuousSpeechInterval,
-                                                        vadRollSubgroup: self.demoVadRollSubgroup,
-                                                        activityTransitionMeasurement: self.activityTransitionMeasurement)
+                                                        voiceActivity: voiceActivity)
         } else {
             publicationFactory = nil
         }
         let playtime = self.playtimeConfig.value
-        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : manifest.participantId
+        let ourParticipantId = (playtime.playtime && playtime.echo) ? nil : localTypedParticipantId
         let controller = self.makeCallController(overrideNamespace: overrideNamespace)
         self.controller = controller
         let startingGroupId: UInt64? = playtime.echo ? nil : self.audioStartingGroup
@@ -336,6 +380,32 @@ class CallState: ObservableObject, Equatable {
             return false
         }
 
+        // If we're NAB, we need to subscribe to the catalog track.
+        if self.nab {
+            // Clamp displayed videos to the top-N the relay delivers.
+            self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
+            self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+            self.videoParticipants.startStalenessChecks()
+            do {
+                self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { [weak self] result in
+                    guard let self else { return }
+                    switch result {
+                    case .success(let catalog):
+                        DispatchQueue.main.async {
+                            self.handleCatalogUpdate(catalog,
+                                                     controller: controller,
+                                                     publicationFactory: publicationFactory,
+                                                     codecFactory: CodecFactoryImpl())
+                        }
+                    case .failure(let error):
+                        self.logger.error("Catalog parse failed: \(error.localizedDescription)")
+                    }
+                }
+            } catch {
+                self.logger.error("Failed to setup catalog track: \(error.localizedDescription)")
+            }
+        }
+
         // Demo namespace subscriptions — registered before publications so the relay
         // can match incoming publishes against the namespace prefix immediately.
         if self.demoEnabled, self.subscriptionFactory != nil {
@@ -358,8 +428,8 @@ class CallState: ObservableObject, Equatable {
                 let handler = QSubscribeNamespaceHandler(
                     namespacePrefix: prefix,
                     trackFilter: trackFilter,
-                    statusChangedCallback: { status, errorCode, namespacePrefix in
-                        self.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
+                    statusChangedCallback: { [weak self] status, errorCode, namespacePrefix in
+                        self?.logger.info("[demo/\(mediaType)] Subscribe namespace status: \(status), error: \(errorCode), prefix: \(namespacePrefix)")
                     })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -377,7 +447,7 @@ class CallState: ObservableObject, Equatable {
                 // Demo mode: publish to hardcoded namespaces, skip manifest subscriptions.
                 if let publicationFactory {
                     let meetingId = self.demoMeetingId
-                    let userId = "\(manifest.participantId.aggregate)"
+                    let userId = "\(localParticipantId)"
                     let demoPublications = Self.makeDemoPublications(meetingId: meetingId, userId: userId)
                     for publication in demoPublications {
                         do {
@@ -389,7 +459,9 @@ class CallState: ObservableObject, Equatable {
                         }
                     }
                 }
-            } else {
+            } else if self.nab {
+                // NAB: Dynamic catalog updates handled in catalog callback at runtime.
+            } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
                 // Publish.
                 if let publicationFactory {
@@ -465,8 +537,8 @@ class CallState: ObservableObject, Equatable {
                                                                from: Data(self.subscribeNamespaceAccept.utf8)) {
                 self.subscriptionNamespaceAcceptParsed = NamespacePrefix(acceptNamespace)
                 let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
-                                                         statusChangedCallback: { status, errorCode, namespacePrefix in
-                                                            self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                         statusChangedCallback: { [weak self] status, errorCode, namespacePrefix in
+                                                            self?.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
                                                          })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -515,6 +587,105 @@ class CallState: ObservableObject, Equatable {
             return
         }
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
+    }
+
+    private func handleCatalogUpdate(_ catalog: Catalog,
+                                     controller: MoqCallController,
+                                     publicationFactory: PublicationFactory?,
+                                     codecFactory: CodecFactory) {
+        guard self.currentCatalog != catalog else { return }
+        self.currentCatalog = catalog
+        self.logger.debug("Received catalog update")
+
+        // Build new namespace set from catalog tracks.
+        var newNamespaces: Set<NamespacePrefix> = []
+        for track in catalog.tracks {
+            guard let namespace = track.namespace else {
+                self.logger.error("Missing namespace for catalog track")
+                continue
+            }
+            var tuples = namespace.tuples
+            _ = tuples.popLast()
+            newNamespaces.insert(NamespacePrefix(tuples.map { Data($0.utf8) }))
+        }
+
+        let oldNamespaces = Set(self.nabNamespaceHandlers.keys)
+
+        // Remove stale namespace handlers and their subscriptions.
+        for prefix in oldNamespaces.subtracting(newNamespaces) {
+            if let handler = self.nabNamespaceHandlers.removeValue(forKey: prefix) {
+                do {
+                    try controller.unsubscribeNamespace(handler)
+                    self.logger.info("[nab] Unsubscribed namespace: \(prefix)")
+                } catch {
+                    self.logger.error("[nab] Failed to unsubscribe namespace: \(error.localizedDescription)")
+                }
+            }
+            // Tear down individual subscriptions created under this namespace.
+            if let entries = self.nabSubscriptionsByNamespace.removeValue(forKey: prefix) {
+                for entry in entries {
+                    do {
+                        try controller.unsubscribe(entry.sourceId, ftn: entry.ftn)
+                        self.logger.info("[nab] Removed subscription: \(entry.ftn) from set \(entry.sourceId)")
+                    } catch {
+                        self.logger.error("[nab] Failed to remove subscription \(entry.ftn): \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+
+        // Add new namespace handlers.
+        for prefix in newNamespaces.subtracting(oldNamespaces) {
+            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                          maxTracksSelected: .init(self.demoMaxTracksSelected),
+                                          maxTracksDeselected: .init(self.demoMaxTracksDeselected),
+                                          maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
+            let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
+                                                     trackFilter: filter) { [weak self] status, errorCode, namespacePrefix in
+                self?.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
+            }
+            do {
+                try controller.subscribeNamespace(handler)
+                self.nabNamespaceHandlers[prefix] = handler
+                self.logger.info("[nab] Subscribed namespace: \(prefix)")
+            } catch {
+                self.logger.error("[nab] Failed to subscribe namespace: \(error.localizedDescription)")
+            }
+        }
+
+        // Diff publications.
+        if let publicationFactory {
+            let newPubs = catalog.toPublications(localParticipantId: "publisher_\(self.config.email)")
+            let newPubKeys = Set(newPubs.map { $0.sourceID })
+            let oldPubKeys = Set(self.nabPublications.keys)
+
+            // Remove stale publications.
+            for key in oldPubKeys.subtracting(newPubKeys) {
+                if let ftns = self.nabPublications.removeValue(forKey: key) {
+                    for ftn in ftns {
+                        do {
+                            try controller.unpublish(ftn)
+                            self.logger.info("[nab] Unpublished: \(key)")
+                        } catch {
+                            self.logger.error("[nab] Failed to unpublish \(key): \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
+
+            // Add new publications.
+            for publication in newPubs where !oldPubKeys.contains(publication.sourceID) {
+                do {
+                    let created = try controller.publish(details: publication,
+                                                         factory: publicationFactory,
+                                                         codecFactory: codecFactory)
+                    self.nabPublications[publication.sourceID] = created.map { $0.0 }
+                    self.logger.info("[nab] Published: \(publication.sourceID)")
+                } catch {
+                    self.logger.error("[nab] Failed to publish \(publication.sourceID): \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private func makeCallController(overrideNamespace: [String]?) -> MoqCallController {
@@ -597,11 +768,20 @@ class CallState: ObservableObject, Equatable {
             self.logger.error("Error while stopping media: \(error)")
         }
 
+        if let catalogSubscription = self.catalogSubscription {
+            try? controller?.unsubscribe(catalogSubscription)
+            self.catalogSubscription = nil
+        }
+
         do {
             try controller?.disconnect()
         } catch {
             self.logger.error("Error while leaving call: \(error)")
         }
+        self.currentCatalog = nil
+        self.nabNamespaceHandlers.removeAll()
+        self.nabSubscriptionsByNamespace.removeAll()
+        self.nabPublications.removeAll()
 
         self.switchLatencyMeasurement = nil
         self.activityTransitionMeasurement = nil
@@ -742,6 +922,23 @@ class CallState: ObservableObject, Equatable {
                                                         expiresMs: attributes.expiresMs,
                                                         filterType: .latestObject,
                                                         forward: 1, // TODO: Forward?
+                                                        newGroupRequestId: attributes.newGroupRequestId,
+                                                        isPublisherInitiated: true,
+                                                        startGroupId: attributes.startGroupId,
+                                                        startObjectId: attributes.startObjectId,
+                                                        trackAlias: attributes.trackAlias,
+                                                        dynamicGroups: attributes.dynamicGroups)
+            return .accept(responseAttributes, subscription)
+        }
+
+        if self.nab {
+            let subscription = self.nabCreateHandler(fullTrackName: track)
+            let responseAttributes = QPublishAttributes(priority: attributes.priority,
+                                                        groupOrder: attributes.groupOrder,
+                                                        deliveryTimeoutMs: attributes.deliveryTimeoutMs,
+                                                        expiresMs: attributes.expiresMs,
+                                                        filterType: .latestObject,
+                                                        forward: 1,
                                                         newGroupRequestId: attributes.newGroupRequestId,
                                                         isPublisherInitiated: true,
                                                         startGroupId: attributes.startGroupId,
@@ -909,6 +1106,151 @@ extension CallState {
         } catch {
             self.logger.error("[demo] Failed to create subscription in CreateHandler: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    /// Create a subscription handler for an accepted NAB track, using the catalog for quality profile.
+    func nabCreateHandler(fullTrackName: FullTrackName) -> Subscription? {
+        guard let factory = self.subscriptionFactory,
+              let controller = self.controller,
+              let relayId = controller.serverId else { return nil }
+        let endpointId = self.config.email
+
+        let namespace = fullTrackName.nameSpace.compactMap { String(data: $0, encoding: .utf8) }
+
+        // NAB namespace: {domain}-nab-v1-{codec}-{resolution?}-{participantId}
+        guard namespace.count >= 5 else {
+            self.logger.warning("[nab] Unexpected namespace format: \(fullTrackName)")
+            return nil
+        }
+        let remoteClientId = namespace.last!
+
+        // Derive the namespace prefix (without participant ID) for tracking.
+        let prefixTuples = Array(namespace.dropLast())
+        let namespacePrefix = NamespacePrefix(prefixTuples.map { Data($0.utf8) })
+
+        // Match the catalog track by namespace prefix (sans participant).
+        guard let catalogTrack = self.currentCatalog?.tracks.first(where: { track in
+            guard let trackNs = track.namespace else { return false }
+            var trackTuples = trackNs.tuples
+            _ = trackTuples.popLast()
+            return trackTuples == prefixTuples
+        }) else {
+            self.logger.warning("[nab] No catalog track matching namespace prefix: \(prefixTuples)")
+            return nil
+        }
+
+        let profile = catalogTrack.toProfile(namespace: namespace)
+        // Derive the media type from the codec config.
+        let codecConfig = CodecFactoryImpl().makeCodecConfig(from: catalogTrack.qualityProfile, bitrateType: .average)
+        let mediaType: String
+        switch codecConfig {
+        case is VideoCodecConfig: mediaType = "video"
+        case is AudioCodecConfig: mediaType = "audio"
+        default: mediaType = catalogTrack.name ?? "unknown"
+        }
+        let sourceId = "nab_\(remoteClientId)_\(mediaType)"
+        let participantHash = remoteClientId.hashValue
+        let manifestSubscription = ManifestSubscription(
+            mediaType: mediaType,
+            sourceName: catalogTrack.name ?? mediaType,
+            sourceID: sourceId,
+            label: catalogTrack.qualityProfile,
+            participantId: .init(UInt32(abs(participantHash) % Int(UInt32.max))),
+            profileSet: .init(type: mediaType, profiles: [profile]))
+
+        do {
+            let set: SubscriptionSet
+            if let existing = controller.getSubscriptionSet(sourceId) {
+                set = existing
+            } else {
+                set = try factory.create(subscription: manifestSubscription,
+                                         codecFactory: CodecFactoryImpl(),
+                                         endpointId: endpointId,
+                                         relayId: relayId)
+                controller.storeSubscriptionSet(sourceId: sourceId, set: set)
+            }
+
+            // Store this subscription by its prefix.
+            self.nabSubscriptionsByNamespace[namespacePrefix, default: []].append((sourceId: sourceId, ftn: fullTrackName))
+
+            let subscription = try factory.create(set: set,
+                                                  profile: profile,
+                                                  codecFactory: CodecFactoryImpl(),
+                                                  endpointId: endpointId,
+                                                  relayId: relayId,
+                                                  publisherInitiated: true)
+            try set.addHandler(subscription)
+            self.logger.info("[nab] Created \(mediaType) subscription for \(remoteClientId)")
+            return subscription
+        } catch {
+            self.logger.error("[nab] Failed to create subscription: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    /// Update the layout count for the NAB subscribe namespaces.
+    /// Sets the video grid display count and prepares a track filter for when libquicr supports filter updates.
+    func setLayoutCount(_ count: Int?) {
+        self.videoParticipants.maxDisplayCount = count
+
+        // Build the filter we'd apply to the subscribe namespace handlers.
+        // TODO: Apply this to nabNamespaceHandlers once libquicr supports SetFilter.
+        if let count {
+            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                                          maxTracksSelected: UInt64(count),
+                                          maxTracksDeselected: UInt64(self.demoMaxTracksDeselected),
+                                          maxTimeSelected: UInt64(self.demoMaxTimeSelected * 1000))
+            self.logger.info("[nab] Layout count set to \(count), filter ready (maxTracksSelected: \(filter.maxTracksSelected))")
+        } else {
+            self.logger.info("[nab] Layout count cleared (unlimited)")
+        }
+    }
+
+    typealias CatalogUpdate = Result<Catalog, Error>
+    private func setupCatalogTrack(controller: MoqCallController,
+                                   callback: @escaping (CatalogUpdate) -> Void) async throws -> CallbackSubscription {
+        var continued = false
+        return try await withCheckedThrowingContinuation { continuation in
+            do {
+                nonisolated(unsafe) var subscription: CallbackSubscription!
+                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1-catalog-publisher_0XCA1A109--catalog")
+                subscription = try CallbackSubscription(fullTrackName: catalogTrack,
+                                                        endpointId: self.config.email,
+                                                        relayId: self.relayId ?? "Unknown",
+                                                        metricsSubmitter: self.submitter,
+                                                        priority: 128,
+                                                        groupOrder: .originalPublisherOrder,
+                                                        filterType: .latestObject,
+                                                        publisherInitiated: false,
+                                                        deliveryTimeout: nil) { _, data, _, _ in
+                    do {
+                        let catalog = try JSONDecoder().decode(MSF.Catalog.self, from: data)
+                        callback(.success(catalog))
+                        guard continued else {
+                            continued = true
+                            let sub = subscription!
+                            subscription = nil
+                            continuation.resume(returning: sub)
+                            return
+                        }
+                    } catch {
+                        guard continued else {
+                            continued = true
+                            subscription = nil
+                            continuation.resume(throwing: error)
+                            return
+                        }
+                        callback(.failure(error))
+                    }
+                } statusCallback: { [weak self] in self?.logger.info("Catalog status update: \($0)") }
+                try controller.subscribe(subscription)
+            } catch {
+                assert(!continued)
+                guard !continued else { return }
+                continued = true
+                continuation.resume(throwing: error)
+            }
         }
     }
 

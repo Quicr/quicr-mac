@@ -11,26 +11,6 @@ class MultipleCallbackSubscription: Subscription {
     }
     private let callbacks: Mutex<Callbacks> = .init(.init())
 
-    init(profile: Profile,
-         endpointId: String,
-         relayId: String,
-         metricsSubmitter: MetricsSubmitter?,
-         priority: UInt8,
-         groupOrder: QGroupOrder,
-         filterType: QFilterType,
-         publisherInitiated: Bool,
-         statusCallback: @escaping StatusCallback) throws {
-        try super.init(profile: profile,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       metricsSubmitter: metricsSubmitter,
-                       priority: priority,
-                       groupOrder: groupOrder,
-                       filterType: filterType,
-                       publisherInitiated: publisherInitiated,
-                       statusCallback: statusCallback)
-    }
-
     func addCallback(_ callback: @escaping CallbackSubscription.SubscriptionCallback) -> Int {
         self.callbacks.withLock { locked in
             let token = locked.latestToken
@@ -49,7 +29,8 @@ class MultipleCallbackSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         self.callbacks.withLock { locked in
             for callback in locked.callbacks.values {
                 callback(objectHeaders, data, extensions, immutableExtensions)

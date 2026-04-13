@@ -13,21 +13,6 @@
 #import "QPublishTrackHandlerCallbacks.h"
 #import "QCommon.h"
 
-typedef NS_ENUM(uint8_t, QStreamHeaderType) {
-    kSubgroup0NotEndOfGroupNoExtensions = 0x10,
-    kSubgroup0NotEndOfGroupWithExtensions = 0x11,
-    kSubgroupFirstObjectNotEndOfGroupNoExtensions = 0x12,
-    kSubgroupFirstObjectNotEndOfGroupWithExtensions = 0x13,
-    kSubgroupExplicitNotEndOfGroupNoExtensions = 0x14,
-    kSubgroupExplicitNotEndOfGroupWithExtensions = 0x15,
-    kSubgroup0EndOfGroupNoExtensions = 0x18,
-    kSubgroup0EndOfGroupWithExtensions = 0x19,
-    kSubgroupFirstObjectEndOfGroupNoExtensions = 0x1A,
-    kSubgroupFirstObjectEndOfGroupWithExtensions = 0x1B,
-    kSubgroupExplicitEndOfGroupNoExtensions = 0x1C,
-    kSubgroupExplicitEndOfGroupWithExtensions = 0x1D
-};
-
 typedef NS_ENUM(uint8_t, QTrackMode) {
     kDatagram,
     kStream,
@@ -64,7 +49,8 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(QPublishObjectStatus)publishObject: (QObjectHeaders) objectHeaders
                                 data: (NSData* _Nonnull) data
                           extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
-                 immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions;
+                 immutableExtensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) immutableExtensions
+              streamHeaderProperties: (QStreamHeaderProperties* _Nullable) streamHeaderProperties;
 -(QPublishObjectStatus)publishPartialObject: (QObjectHeaders) objectHeaders
                                        data: (NSData* _Nonnull) data
                                  extensions: (NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable) extensions
@@ -78,7 +64,7 @@ typedef NS_ENUM(uint8_t, QPublishObjectStatus) {
 -(void) setDefaultTrackMode: (QTrackMode) trackMode;
 -(QPublishTrackHandlerStatus) getStatus;
 -(bool) canPublish;
--(QStreamHeaderType) getStreamMode;
+-(QStreamHeaderProperties* _Nullable) getStreamMode;
 
 @end
 

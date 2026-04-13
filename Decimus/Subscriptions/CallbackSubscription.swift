@@ -9,7 +9,7 @@ class CallbackSubscription: Subscription {
                                       _ immutableExtensions: HeaderExtensions?) -> Void
     private let callback: SubscriptionCallback
 
-    init(profile: Profile,
+    init(fullTrackName: FullTrackName,
          endpointId: String,
          relayId: String,
          metricsSubmitter: MetricsSubmitter?,
@@ -17,10 +17,11 @@ class CallbackSubscription: Subscription {
          groupOrder: QGroupOrder,
          filterType: QFilterType,
          publisherInitiated: Bool,
+         deliveryTimeout: UInt64?,
          callback: @escaping SubscriptionCallback,
          statusCallback: @escaping StatusCallback) throws {
         self.callback = callback
-        try super.init(profile: profile,
+        try super.init(fullTrackName: fullTrackName,
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: metricsSubmitter,
@@ -28,13 +29,15 @@ class CallbackSubscription: Subscription {
                        groupOrder: groupOrder,
                        filterType: filterType,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: deliveryTimeout,
                        statusCallback: statusCallback)
     }
 
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         self.callback(objectHeaders, data, extensions, immutableExtensions)
     }
 }

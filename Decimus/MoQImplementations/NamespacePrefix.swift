@@ -16,13 +16,6 @@ struct NamespacePrefix: Hashable, CustomStringConvertible {
     }
 
     var description: String {
-        let strings = elements.compactMap { String(data: $0, encoding: .utf8) }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .withoutEscapingSlashes
-        if let encoded = try? encoder.encode(strings),
-           let result = String(data: encoded, encoding: .utf8) {
-            return result
-        }
-        return strings.joined(separator: "/")
+        elements.map { moqEncodeTuple($0) }.joined(separator: "-")
     }
 }

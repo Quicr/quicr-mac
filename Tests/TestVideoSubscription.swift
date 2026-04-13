@@ -22,7 +22,8 @@ extension VideoSubscription {
                                           ttl: ttlPtr),
                                     data: Data([0x01]),
                                     extensions: extensions,
-                                    immutableExtensions: immutableExtensions)
+                                    immutableExtensions: immutableExtensions,
+                                    streamHeaderProperties: nil)
             }
         }
     }
@@ -40,39 +41,39 @@ struct TestVideoSubscription {
                                            callEnded: ({}))
         try await controller.connect()
         let subscription = try VideoSubscription(profile: .init(qualityProfile: "h264,width=1920,height=1080,fps=30,br=2000",
-                                                    expiry: [1],
-                                                    priorities: [1],
-                                                    namespace: ["0"]),
-                                     config: .init(codec: .mock,
-                                                   bitrate: 2000,
-                                                   fps: 30,
-                                                   width: 1920,
-                                                   height: 1080,
-                                                   bitrateType: .average),
-                                     participants: .init(),
-                                     metricsSubmitter: nil,
-                                     videoBehaviour: .freeze,
-                                     granularMetrics: true,
-                                     jitterBufferConfig: .init(),
-                                     simulreceive: .none,
-                                     variances: .init(expectedOccurrences: 0),
-                                     endpointId: "",
-                                     relayId: "",
-                                     participantId: .init(1),
-                                     joinDate: .now,
-                                     activeSpeakerStats: nil,
-                                     controller: controller,
-                                     verbose: true,
-                                     cleanupTime: 1.5,
-                                     subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
-                                                                                 newGroupUpperThreshold: ngThreshold),
-                                                               calculateLatency: false,
-                                                               mediaInterop: false),
-                                     sframeContext: nil,
-                                     wifiScanDetector: nil,
-                                     publisherInitiated: false,
-                                     callback: { callback?($0) },
-                                     statusChanged: ({_ in }))
+                                                                expiry: [1],
+                                                                priorities: [1],
+                                                                namespace: ["0"]),
+                                                 config: .init(codec: .mock,
+                                                               bitrate: 2000,
+                                                               fps: 30,
+                                                               width: 1920,
+                                                               height: 1080,
+                                                               bitrateType: .average),
+                                                 participants: .init(),
+                                                 metricsSubmitter: nil,
+                                                 videoBehaviour: .freeze,
+                                                 granularMetrics: true,
+                                                 jitterBufferConfig: .init(),
+                                                 simulreceive: .none,
+                                                 variances: .init(expectedOccurrences: 0),
+                                                 endpointId: "",
+                                                 relayId: "",
+                                                 participantId: .init(1),
+                                                 joinDate: .now,
+                                                 activeSpeakerStats: nil,
+                                                 controller: controller,
+                                                 verbose: true,
+                                                 cleanupTime: 1.5,
+                                                 subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
+                                                                                             newGroupUpperThreshold: ngThreshold),
+                                                                           calculateLatency: false,
+                                                                           mediaInterop: false),
+                                                 sframeContext: nil,
+                                                 wifiScanDetector: nil,
+                                                 publisherInitiated: false,
+                                                 callback: { callback?($0) },
+                                                 statusChanged: ({_ in }))
         // Simulate the subscribe OK that would set this in production.
         subscription.supportNewGroupRequest(true)
         return subscription
@@ -535,7 +536,8 @@ struct TestVideoSubscription {
                                        ttl: nil),
                                  data: .init([0x01]),
                                  extensions: nil,
-                                 immutableExtensions: loc())
+                                 immutableExtensions: loc(),
+                                 streamHeaderProperties: nil)
         }
 
         // State should remain startup (not transition to running)
@@ -687,6 +689,46 @@ struct TestVideoSubscription {
         #expect(subscription.getCurrentState() == .running)
 
         // Subsequent objects from that group should also be fine.
+        subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Late objects from prior group do not trigger missed IDR")
+    @MainActor
+    func testOutOfOrderGroupDelivery() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeRunningSubscription(mockClient)
+
+        var sequence: UInt64 = 100
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        // Receive some objects from group 0.
+        subscription.mockObject(groupId: 0, objectId: 1, extensions: nil, immutableExtensions: loc())
+        subscription.mockObject(groupId: 0, objectId: 2, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Group 1 IDR arrives before group 0 finishes.
+        subscription.mockObject(groupId: 1, objectId: 0, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Late objects from group 0 arrive — should not trigger missed IDR.
+        subscription.mockObject(groupId: 0, objectId: 3, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+        subscription.mockObject(groupId: 0, objectId: 4, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        // Group 1 continues normally.
         subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
         #expect(subscription.getCurrentState() == .running)
     }

@@ -56,11 +56,8 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private let mediaInterop: Bool
     private let sharedVoiceActivity: SharedVoiceActivityState?
     private let vadRollSubgroup: Bool
+    private var vadTransition = VideoVADTransition()
     private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
-    private var videoActivityValue: AudioActivityValue = .speechEnd
-    private var lastRawActivity: AudioActivityValue = .speechEnd
-    private var activityRiseTime: Date?
-    private let vadRiseThreshold: TimeInterval
     private var currentSubgroupId: UInt64 = 0
     private let rollSubgroup: Atomic<Bool> = .init(false)
 
@@ -318,7 +315,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   mediaInterop: Bool,
                   sharedVoiceActivity: SharedVoiceActivityState? = nil,
                   vadRollSubgroup: Bool = true,
-                  vadRiseThreshold: TimeInterval = 0.3,
                   sink: MoQSink) throws {
         self.profile = profile
         let namespace = profile.namespace.joined()
@@ -349,7 +345,6 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.mediaInterop = mediaInterop
         self.sharedVoiceActivity = sharedVoiceActivity
         self.vadRollSubgroup = vadRollSubgroup
-        self.vadRiseThreshold = vadRiseThreshold
         self.logger.info("Registered H264 publication for namespace \(namespace)")
 
         // Wire to MoQ.
@@ -378,46 +373,18 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         return self.sink.publishObject(headers,
                                        data: data,
                                        extensions: extensions,
-                                       immutableExtensions: immutableExtensions)
+                                       immutableExtensions: immutableExtensions,
+                                       streamHeaderProperties: nil)
     }
 
-    /// Dampened VAD for video: upward transitions require sustained activity
-    /// before we commit (expensive keyframe). Downward transitions act immediately.
-    /// A brief dip back to baseline mid-rise does NOT reset the timer — only a
-    /// genuine drop below the committed level cancels or rolls subgroup.
-    private func updateDampenedVAD(timestamp: Date) -> (rollGroup: Bool, rollSubgroup: Bool) {
-        // Consume latest audio value if available.
-        if let raw = self.sharedVoiceActivity?.consumeActivity() {
-            self.lastRawActivity = raw
+    /// Read the latest SM output and detect transitions.
+    private func consumeVADTransition() -> (rollGroup: Bool, rollSubgroup: Bool) {
+        guard let raw = self.sharedVoiceActivity?.latestActivity() else {
+            return (false, false)
         }
-
-        if self.lastRawActivity < self.videoActivityValue {
-            // Genuine drop below committed level — act immediately.
-            self.logger.debug("VAD - Subgroup (drop)")
-            self.videoActivityValue = self.lastRawActivity
-            self.activityRiseTime = nil
-            self.lastVoiceActivityState.withLock { $0 = self.lastRawActivity }
-            return (false, true)
-        }
-
-        if self.lastRawActivity > self.videoActivityValue {
-            // Above committed level — start or continue the rise timer.
-            if self.activityRiseTime == nil {
-                self.activityRiseTime = timestamp
-            }
-            guard timestamp.timeIntervalSince(self.activityRiseTime!) >= self.vadRiseThreshold else {
-                return (false, false)
-            }
-            self.logger.debug("VAD - Group (sustained rise)")
-            self.videoActivityValue = self.lastRawActivity
-            self.activityRiseTime = nil
-            self.lastVoiceActivityState.withLock { $0 = self.lastRawActivity }
-            return (true, false)
-        }
-
-        // At committed level — if we had a pending rise it was a blip, clear it.
-        self.activityRiseTime = nil
-        return (false, false)
+        let result = self.vadTransition.update(raw)
+        self.lastVoiceActivityState.withLock { $0 = result.value }
+        return (result.rollGroup, result.rollSubgroup)
     }
 
     deinit {
@@ -488,7 +455,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                 return true
             }
 
-            let (rollGroup, rollSubgroup) = self.updateDampenedVAD(timestamp: timestamp)
+            let (rollGroup, rollSubgroup) = self.consumeVADTransition()
             if rollGroup {
                 assert(!rollSubgroup)
                 self.logger.debug("Forcing key frame - VAD rise")
@@ -515,7 +482,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         let pixels: UInt64 = .init(width * height)
         let date: Date? = self.granularMetrics ? timestamp : nil
         let now = Date.now
-        let activityValue: UInt8? = self.granularMetrics ? self.videoActivityValue.rawValue : nil
+        let activityValue: UInt8? = self.granularMetrics ? self.lastVoiceActivityState.get()?.rawValue : nil
         measurement.sentPixels(sent: pixels, timestamp: date)
         if let date = date {
             // TODO: This age is probably useless.

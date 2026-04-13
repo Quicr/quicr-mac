@@ -43,11 +43,13 @@ final class QPublishTrackHandlerSink: NSObject, MoQSink, QPublishTrackHandlerCal
     func publishObject(_ headers: QObjectHeaders,
                        data: Data,
                        extensions: HeaderExtensions?,
-                       immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
+                       immutableExtensions: HeaderExtensions?,
+                       streamHeaderProperties: QStreamHeaderProperties?) -> QPublishObjectStatus {
         self.handler.publishObject(headers,
                                    data: data,
                                    extensions: extensions,
-                                   immutableExtensions: immutableExtensions)
+                                   immutableExtensions: immutableExtensions,
+                                   streamHeaderProperties: streamHeaderProperties)
     }
 
     func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool) {

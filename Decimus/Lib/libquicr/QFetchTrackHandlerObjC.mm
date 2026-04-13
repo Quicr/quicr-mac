@@ -103,7 +103,8 @@ void QFetchTrackHandler::StatusChanged(Status status)
 }
 
 void QFetchTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_headers,
-                                            quicr::BytesSpan data)
+                                            quicr::BytesSpan data,
+                                            std::optional<quicr::messages::StreamHeaderProperties> stream_mode)
 {
     if (_callbacks)
     {
@@ -130,7 +131,8 @@ void QFetchTrackHandler::ObjectReceived(const quicr::ObjectHeaders& object_heade
         const auto immutableExtensions = convertExtensions(object_headers.immutable_extensions);
 
         NSData* nsData = [[NSData alloc] initWithBytesNoCopy:(void*)data.data() length:data.size() deallocator:nil];
-        [_callbacks objectReceived:headers data:nsData extensions: extensions immutableExtensions:immutableExtensions];
+
+        [_callbacks objectReceived:headers data:nsData extensions:extensions immutableExtensions:immutableExtensions streamHeaderProperties:convertStreamHeaderProperties(stream_mode)];
     }
 }
 

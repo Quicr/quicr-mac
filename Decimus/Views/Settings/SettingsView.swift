@@ -70,17 +70,29 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTimeSelectedKey)
     private var demoMaxTimeSelected: TimeInterval = 0.5
 
-    static let demoSpeechStartIntervalKey = "demoSpeechStartInterval"
-    @AppStorage(Self.demoSpeechStartIntervalKey)
-    private var demoSpeechStartInterval: TimeInterval = 0.3
+    static let demoTimeToSpeechStartKey = "demoTimeToSpeechStart"
+    @AppStorage(Self.demoTimeToSpeechStartKey)
+    private var demoTimeToSpeechStart: TimeInterval = 0.15
 
-    static let demoContinuousSpeechIntervalKey = "demoContinuousSpeechInterval"
-    @AppStorage(Self.demoContinuousSpeechIntervalKey)
-    private var demoContinuousSpeechInterval: TimeInterval = 0.3
+    static let demoTimeToContinuousKey = "demoTimeToContinuous"
+    @AppStorage(Self.demoTimeToContinuousKey)
+    private var demoTimeToContinuous: TimeInterval = 0.5
+
+    static let demoTimeToDropStartKey = "demoTimeToDropStart"
+    @AppStorage(Self.demoTimeToDropStartKey)
+    private var demoTimeToDropStart: TimeInterval = 0.25
+
+    static let demoTimeToDropContinuousKey = "demoTimeToDropContinuous"
+    @AppStorage(Self.demoTimeToDropContinuousKey)
+    private var demoTimeToDropContinuous: TimeInterval = 0.6
 
     static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
     @AppStorage(Self.demoVadRollSubgroupKey)
     private var demoVadRollSubgroup: Bool = true
+
+    static let demoVadAggressivenessKey = "demoVadAggressiveness"
+    @AppStorage(Self.demoVadAggressivenessKey)
+    private var demoVadAggressiveness: Int = 3
 
     @State private var overrideError: String?
     @State private var subscribeNamespaceError: String?
@@ -121,9 +133,12 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoSpeechStartIntervalKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoContinuousSpeechIntervalKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToSpeechStartKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToContinuousKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropContinuousKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoVadRollSubgroupKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoVadAggressivenessKey)
                 }
             }
             .buttonStyle(BorderedButtonStyle())
@@ -252,37 +267,62 @@ struct SettingsView: View {
                             .keyboardType(.asciiCapable)
                         #endif
                     }
-                    LabeledContent("Max Tracks Selected") {
-                        TextField("Max Tracks Selected", value: self.$demoMaxTracksSelected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.numberPad)
-                        #endif
+                }
+            }
+            .decimusTextStyle()
+
+            Section("Top-N Filtering") {
+                LabeledContent("Max Tracks Selected") {
+                    TextField("Max Tracks Selected", value: self.$demoMaxTracksSelected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.numberPad)
+                    #endif
+                }
+                LabeledContent("Max Tracks Deselected") {
+                    TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.numberPad)
+                    #endif
+                }
+                LabeledContent("Max Time Selected (s)") {
+                    TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Speech Start (s)") {
+                    TextField("Time to Speech Start (s)", value: self.$demoTimeToSpeechStart, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Continuous (s)") {
+                    TextField("Time to Continuous (s)", value: self.$demoTimeToContinuous, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Drop Start (s)") {
+                    TextField("Time to Drop Start (s)", value: self.$demoTimeToDropStart, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledContent("Time to Drop Continuous (s)") {
+                    TextField("Time to Drop Continuous (s)", value: self.$demoTimeToDropContinuous, format: .number)
+                        #if !os(macOS)
+                        .keyboardType(.decimalPad)
+                    #endif
+                }
+                LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
+                LabeledContent("VAD Aggressiveness") {
+                    Picker("VAD Aggressiveness", selection: self.$demoVadAggressiveness) {
+                        Text("Quality (0)").tag(0)
+                        Text("Low Bitrate (1)").tag(1)
+                        Text("Aggressive (2)").tag(2)
+                        Text("Very Aggressive (3)").tag(3)
                     }
-                    LabeledContent("Max Tracks Deselected") {
-                        TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.numberPad)
-                        #endif
-                    }
-                    LabeledContent("Max Time Selected (s)") {
-                        TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledContent("Speech Start Interval (s)") {
-                        TextField("Speech Start Interval (s)", value: self.$demoSpeechStartInterval, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledContent("Continuous Speech Interval (s)") {
-                        TextField("Continuous Speech Interval (s)", value: self.$demoContinuousSpeechInterval, format: .number)
-                            #if !os(macOS)
-                            .keyboardType(.decimalPad)
-                        #endif
-                    }
-                    LabeledToggle("VAD Roll Subgroup", isOn: self.$demoVadRollSubgroup)
+                    .labelsHidden()
                 }
             }
             .decimusTextStyle()

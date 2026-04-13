@@ -12,7 +12,6 @@ class OpusSubscription: Subscription {
         let mediaInterop: Bool
     }
 
-    private let profile: Profile
     private let engine: DecimusAudioEngine
     private let measurement: OpusSubscriptionMeasurement?
     private let granularMetrics: Bool
@@ -34,7 +33,7 @@ class OpusSubscription: Subscription {
     private let slidingWindowTime: TimeInterval
     private let config: Config
 
-    init(profile: Profile,
+    init(fullTrackName: FullTrackName,
          engine: DecimusAudioEngine,
          submitter: MetricsSubmitter?,
          jitterDepth: TimeInterval,
@@ -52,12 +51,12 @@ class OpusSubscription: Subscription {
          slidingWindowTime: TimeInterval,
          config: Config,
          publisherInitiated: Bool,
+         deliveryTimeout: UInt64?,
          statusChanged: @escaping StatusCallback) throws {
-        self.profile = profile
         self.engine = engine
         self.metricsSubmitter = submitter
         if let submitter = submitter {
-            let measurement = OpusSubscriptionMeasurement(namespace: profile.namespace.joined())
+            let measurement = OpusSubscriptionMeasurement(namespace: "\(fullTrackName)")
             submitter.register(measurement: measurement)
             self.measurement = measurement
         } else {
@@ -86,15 +85,14 @@ class OpusSubscription: Subscription {
                                          playoutBufferTime: self.playoutBufferTime,
                                          slidingWindowTime: self.slidingWindowTime,
                                          adaptive: self.config.adaptive)
-        self.handler = try .init(.init(identifier: self.profile.namespace.joined(),
+        self.handler = try .init(.init(identifier: "\(fullTrackName)",
                                        engine: self.engine,
                                        decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                        measurement: self.measurement,
                                        metricsSubmitter: self.metricsSubmitter,
                                        config: config))
-        let fullTrackName = try profile.getFullTrackName()
         self.fullTrackName = fullTrackName
-        try super.init(profile: profile,
+        try super.init(fullTrackName: fullTrackName,
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: submitter,
@@ -102,6 +100,7 @@ class OpusSubscription: Subscription {
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: deliveryTimeout,
                        statusCallback: statusChanged)
 
         // Make task for cleaning up audio handlers.
@@ -136,7 +135,8 @@ class OpusSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         let now: Ticks = .now
         self.lastUpdateTime.withLock { $0 = now.hostDate }
 
@@ -207,7 +207,7 @@ class OpusSubscription: Subscription {
                                                      playoutBufferTime: self.playoutBufferTime,
                                                      slidingWindowTime: self.slidingWindowTime,
                                                      adaptive: self.config.adaptive)
-                    let handler = try AudioHandler(identifier: self.profile.namespace.joined(),
+                    let handler = try AudioHandler(identifier: "\(self.fullTrackName)",
                                                    engine: self.engine,
                                                    decoder: LibOpusDecoder(format: DecimusAudioEngine.format),
                                                    measurement: self.measurement,

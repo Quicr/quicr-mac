@@ -70,7 +70,8 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
         let status = self.sink.publishObject(headers,
                                              data: data,
                                              extensions: nil,
-                                             immutableExtensions: extensions)
+                                             immutableExtensions: extensions,
+                                             streamHeaderProperties: nil)
         switch status {
         case .ok:
             break

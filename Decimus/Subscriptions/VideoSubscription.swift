@@ -63,7 +63,7 @@ class VideoSubscription: Subscription {
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let paused = Atomic(false)
     private var lastSeenGroup: UInt64?
-    private var lastReceived: QLocationImpl?
+    private var maxGroupSeen: UInt64?
 
     // State machine.
     internal let stateMachine: StateMachine
@@ -234,7 +234,7 @@ class VideoSubscription: Subscription {
         self.joinConfig = subscriptionConfig.joinConfig
         self.sframeContext = sframeContext
         self.stateMachine = .init(.startup, controller: self.controller)
-        try super.init(profile: profile,
+        try super.init(fullTrackName: profile.getFullTrackName(),
                        endpointId: endpointId,
                        relayId: relayId,
                        metricsSubmitter: metricsSubmitter,
@@ -242,6 +242,7 @@ class VideoSubscription: Subscription {
                        groupOrder: .originalPublisherOrder,
                        filterType: .latestObject,
                        publisherInitiated: publisherInitiated,
+                       deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                        statusCallback: statusChanged)
     }
 
@@ -359,7 +360,6 @@ class VideoSubscription: Subscription {
     // swiftlint:disable force_try cyclomatic_complexity
     private func determineState(objectHeaders: QObjectHeaders,
                                 activation: ActivationType,
-                                isDiscontinuity: Bool,
                                 when: Ticks) -> Result {
         func makeSwitchContext() -> SwitchContext {
             .init(activationType: activation,
@@ -372,21 +372,12 @@ class VideoSubscription: Subscription {
             if objectHeaders.objectId == 0 {
                 // IDR received, track the group.
                 self.lastSeenGroup = objectHeaders.groupId
-                if isDiscontinuity {
-                    // Perfect landing — switched and landed right on an IDR.
-                    var ctx = makeSwitchContext()
-                    ctx.joinStrategy = .idr
-                    ctx.joinDecisionTime = when
-                    ctx.joinCompleteTime = when
-                    return .normal(false, switchContext: ctx)
-                }
                 return .normal(false)
             }
-            if objectHeaders.groupId != self.lastSeenGroup {
-                // New group without its IDR — missed it.
+            if objectHeaders.groupId > (self.lastSeenGroup ?? 0) {
+                // Newer group without its IDR — missed it.
                 self.logger.debug("Missed IDR for group \(objectHeaders.groupId)")
-                let ctx = isDiscontinuity ? makeSwitchContext() : nil
-                return self.handleMissedIDR(objectHeaders: objectHeaders, switchContext: ctx)
+                return self.handleMissedIDR(objectHeaders: objectHeaders, switchContext: makeSwitchContext())
             }
             return .normal(false)
         case .fetching:
@@ -462,7 +453,8 @@ class VideoSubscription: Subscription {
     override func objectReceived(_ objectHeaders: QObjectHeaders,
                                  data: Data,
                                  extensions: HeaderExtensions?,
-                                 immutableExtensions: HeaderExtensions?) {
+                                 immutableExtensions: HeaderExtensions?,
+                                 streamHeaderProperties: QStreamHeaderProperties?) {
         // If we're paused, drop this.
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
@@ -510,21 +502,12 @@ class VideoSubscription: Subscription {
             return
         }
 
-        // Discontinuity?
-        let isDiscontinuity: Bool
-        if let last = self.lastReceived,
-           objectHeaders.groupId >= last.group {
-            let continuous = objectHeaders.groupId == last.group
-                && objectHeaders.objectId == last.object + 1
-            isDiscontinuity = !continuous
+        // Track the highest group seen for out-of-order tolerance.
+        if let max = self.maxGroupSeen {
+            self.maxGroupSeen = Swift.max(max, objectHeaders.groupId)
         } else {
-            isDiscontinuity = activation != .existing
+            self.maxGroupSeen = objectHeaders.groupId
         }
-
-        // Track what we received for continuity detection.
-        let new = QLocationImpl(group: objectHeaders.groupId, object: objectHeaders.objectId)
-        assert(self.lastReceived == nil || new > self.lastReceived!)
-        self.lastReceived = new
 
         // Unprotect.
         let unprotected: Data
@@ -557,7 +540,6 @@ class VideoSubscription: Subscription {
         }
         switch self.determineState(objectHeaders: objectHeaders,
                                    activation: activation,
-                                   isDiscontinuity: isDiscontinuity,
                                    when: now) {
         case .drop:
             notify(drop: true)

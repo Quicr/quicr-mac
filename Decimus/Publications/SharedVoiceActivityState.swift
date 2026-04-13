@@ -14,12 +14,9 @@ class SharedVoiceActivityState {
         self.pending.withLock { $0 = value }
     }
 
-    /// Consume state.
-    func consumeActivity() -> AudioActivityValue? {
-        self.pending.withLock { current in
-            let result = current
-            current = nil
-            return result
-        }
+    /// Read the latest posted activity value without clearing it.
+    /// Multiple readers will all see the same value.
+    func latestActivity() -> AudioActivityValue? {
+        self.pending.withLock { $0 }
     }
 }

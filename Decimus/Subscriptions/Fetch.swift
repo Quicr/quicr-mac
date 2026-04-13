@@ -65,7 +65,8 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     func objectReceived(_ objectHeaders: QObjectHeaders,
                         data: Data,
                         extensions: HeaderExtensions?,
-                        immutableExtensions: HeaderExtensions?) {
+                        immutableExtensions: HeaderExtensions?,
+                        streamHeaderProperties: QStreamHeaderProperties?) {
         let endLocation = self.getEndLocation()
         // TODO: Non absolute ranged groups won't complete like this.
         if objectHeaders.groupId == endLocation.group,

@@ -19,7 +19,7 @@ public:
 
     // Callbacks.
     void StatusChanged(Status status) override;
-    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override;
+    void ObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data, std::optional<quicr::messages::StreamHeaderProperties> stream_mode) override;
     void PartialObjectReceived(const quicr::ObjectHeaders& object_headers, quicr::BytesSpan data) override;
     void MetricsSampled(const quicr::SubscribeTrackMetrics& metrics) override;
 

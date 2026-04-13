@@ -34,63 +34,105 @@ private struct LoginForm: View {
     @State private var meetings: [UInt32: String] = [:]
     @State private var showContinuityDevicePicker: Bool = false
 
+    // NAB.
+    @Binding var nab: Bool
+    @AppStorage("previousEmail")
+    private var previousEmail: String?
+    @State private var nabId: UInt32 = 0
+
     var body: some View {
         Form {
             Section {
-                VStack(alignment: .leading) {
-                    Text("Email")
-                    TextField("email", text: self.$email, prompt: Text("example@cisco.com"))
-                        #if canImport(UIKit)
-                        .keyboardType(.emailAddress)
-                        #endif
-                        .textFieldStyle(FormInputStyle())
-                    if self.isLoading {
-                        Spacer()
-                        ProgressView()
-                    }
-                }
-
-                if self.email != "" {
-                    VStack(alignment: .leading) {
-                        if !self.meetings.isEmpty {
-                            HStack {
-                                Spacer()
-                                Text("Meeting")
-                                    .padding(.horizontal)
-                                    .foregroundColor(.white)
-                                Spacer()
-                            }
-                            HStack {
-                                Spacer()
-                                // Ensure the picker will only ever be provided a valid value.
-                                if let confId = self.confId,
-                                   self.meetings.keys.contains(UInt32(confId)) {
-                                    Picker("", selection: self.$confId) {
-                                        ForEach(self.meetings.sorted(by: <), id: \.key) { id, meeting in
-                                            Text(meeting).tag(Int?(Int(id)))
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .labelsHidden()
-                                }
-                                Spacer()
-                            }
-                        } else {
-                            Text("No meetings")
-                                .padding(.horizontal)
-                                .foregroundColor(.white)
+                LabeledToggle("NAB?", isOn: self.$nab)
+                    .onAppear {
+                        if self.nab {
+                            self.nabId = .random(in: 0...UInt32.max)
                         }
                     }
-                }
-                if let confId = self.confId {
+                if self.nab {
+                    Text("You will be participant: \(self.nabId, format: .number.grouping(.never))")
                     HStack {
                         Spacer()
-                        Button("Join Meeting", action: { self.join(conference: UInt32(confId)) })
-                            .disabled(!self.isAllowedJoin ||
-                                        self.email.isEmpty)
-                            .buttonStyle(.borderedProminent)
-                            .tint(.blue)
+
+                        Button("Join NAB Conference", action: {
+                            if self.previousEmail == nil {
+                                self.previousEmail = self.email
+                            }
+                            let formatter = NumberFormatter()
+                            formatter.numberStyle = .decimal
+                            formatter.usesGroupingSeparator = false
+                            guard let result = formatter.string(from: NSNumber(value: self.nabId)) else {
+                                self.logger.error("Bad NAB ID: \(self.nabId)")
+                                return
+                            }
+                            self.email = result
+                            self.join(conference: .max)
+                        })
+                        .buttonStyle(.borderedProminent)
+                        .tint(.blue)
                         Spacer()
+                    }
+                } else {
+                    VStack(alignment: .leading) {
+                        Text("Email")
+                        TextField("email", text: self.$email, prompt: Text("example@cisco.com"))
+                            #if canImport(UIKit)
+                            .keyboardType(.emailAddress)
+                            #endif
+                            .textFieldStyle(FormInputStyle())
+                        if self.isLoading {
+                            Spacer()
+                            ProgressView()
+                        }
+                    }.onAppear {
+                        if let previous = self.previousEmail {
+                            self.email = previous
+                            self.previousEmail = nil
+                        }
+                    }
+                    if self.email != "" {
+                        VStack(alignment: .leading) {
+                            if !self.meetings.isEmpty {
+                                HStack {
+                                    Spacer()
+                                    Text("Meeting")
+                                        .padding(.horizontal)
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                }
+                                HStack {
+                                    Spacer()
+                                    // Ensure the picker will only ever be provided a valid value.
+                                    if let confId = self.confId,
+                                       self.meetings.keys.contains(UInt32(confId)) {
+                                        Picker("", selection: self.$confId) {
+                                            ForEach(self.meetings.sorted(by: <), id: \.key) { id, meeting in
+                                                Text(meeting).tag(Int?(Int(id)))
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                        .labelsHidden()
+                                    }
+                                    Spacer()
+                                }
+                            } else {
+                                Text("No meetings")
+                                    .padding(.horizontal)
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+
+                    if let confId = self.confId {
+                        HStack {
+                            Spacer()
+                            Button("Join Meeting", action: { self.join(conference: UInt32(confId)) })
+                                .disabled(!self.isAllowedJoin ||
+                                            self.email.isEmpty)
+                                .buttonStyle(.borderedProminent)
+                                .tint(.blue)
+                            Spacer()
+                        }
                     }
                 }
             }
@@ -121,15 +163,15 @@ private struct LoginForm: View {
         }
         #if os(tvOS)
         .continuityDevicePicker(isPresented: self.$showContinuityDevicePicker) { device in
-        guard let device = device else {
-        self.logger.info("No continuity device selected")
-        return
-        }
+            guard let device = device else {
+                self.logger.info("No continuity device selected")
+                return
+            }
         }
         .task {
-        self.showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
-        for: .video,
-        position: .unspecified) == nil
+            self.showContinuityDevicePicker = AVCaptureDevice.default(.continuityCamera,
+                                                                      for: .video,
+                                                                      position: .unspecified) == nil
         }
         #endif
     }
@@ -193,6 +235,7 @@ private struct LoginForm: View {
 
 struct CallSetupView: View {
     @Binding var config: CallConfig?
+    @Binding var nab: Bool
     @State private var settingsOpen: Bool = false
 
     var body: some View {
@@ -202,10 +245,10 @@ struct CallSetupView: View {
                     .resizable()
                     .scaledToFill()
                     .edgesIgnoringSafeArea(.top)
-                #if targetEnvironment(macCatalyst) || os(macOS)
-                .frame(maxWidth: .infinity,
-                maxHeight: .infinity,
-                alignment: .center)
+                    #if targetEnvironment(macCatalyst) || os(macOS)
+                    .frame(maxWidth: .infinity,
+                           maxHeight: .infinity,
+                           alignment: .center)
                 #else
                 .frame(width: UIScreen.main.bounds.width,
                 height: UIScreen.main.bounds.height,
@@ -222,9 +265,9 @@ struct CallSetupView: View {
                     Text("Join a meeting")
                         .font(.title)
                         .foregroundColor(.white)
-                    LoginForm(config: self.$config)
-                    #if targetEnvironment(macCatalyst) || os(macOS)
-                    .frame(maxWidth: 350)
+                    LoginForm(config: self.$config, nab: self.$nab)
+                        #if targetEnvironment(macCatalyst) || os(macOS)
+                        .frame(maxWidth: 350)
                     #endif
 
                     NavigationLink(destination: SettingsView()) {
@@ -246,6 +289,6 @@ struct CallSetupView: View {
 
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
-        CallSetupView(config: .constant(.init(address: "")))
+        CallSetupView(config: .constant(.init(address: "")), nab: .constant(false))
     }
 }
