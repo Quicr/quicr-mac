@@ -130,7 +130,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     // Max concurent.
     @AppStorage(SettingsView.demoMaxTracksSelectedKey)
-    private var demoMaxTracksSelected: Int = 3
+    private var demoMaxTracksSelected: Int = 1
 
     // Max deselected means how many subscriptions remain in state, but inactive.
     // For us we basically want this quite high.
@@ -537,8 +537,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                                from: Data(self.subscribeNamespaceAccept.utf8)) {
                 self.subscriptionNamespaceAcceptParsed = NamespacePrefix(acceptNamespace)
                 let handler = QSubscribeNamespaceHandler(namespacePrefix: NamespacePrefix(namespaceTuple),
-                                                         statusChangedCallback: { status, errorCode, namespacePrefix in
-                                                            self.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
+                                                         statusChangedCallback: { [weak self] status, errorCode, namespacePrefix in
+                                                            self?.logger.info("[\(namespacePrefix)] Subscribe namespace status changed: \(status), errorCode: \(errorCode)")
                                                          })
                 do {
                     try controller.subscribeNamespace(handler)
@@ -1240,7 +1240,7 @@ extension CallState {
                         }
                         callback(.failure(error))
                     }
-                } statusCallback: { self.logger.info("Catalog status update: \($0)") }
+                } statusCallback: { [weak self] in self?.logger.info("Catalog status update: \($0)") }
                 try controller.subscribe(subscription)
             } catch {
                 assert(!continued)
