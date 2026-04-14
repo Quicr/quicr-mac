@@ -18,7 +18,7 @@ struct ConfigCallView: View {
     // NAB.
     private static let nabKey = "nabDemo"
     @AppStorage(Self.nabKey)
-    private var nab = false
+    private var nab = true
 
     var body: some View {
         if let config = self.config {

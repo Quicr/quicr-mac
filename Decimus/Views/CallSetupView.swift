@@ -38,17 +38,12 @@ private struct LoginForm: View {
     @Binding var nab: Bool
     @AppStorage("previousEmail")
     private var previousEmail: String?
-    @State private var nabId: UInt32 = 0
+    @State private var nabId: UInt32 = .random(in: 0...UInt32.max)
 
     var body: some View {
         Form {
             Section {
                 LabeledToggle("NAB?", isOn: self.$nab)
-                    .onAppear {
-                        if self.nab {
-                            self.nabId = .random(in: 0...UInt32.max)
-                        }
-                    }
                 if self.nab {
                     Text("You will be participant: \(self.nabId, format: .number.grouping(.never))")
                     HStack {
