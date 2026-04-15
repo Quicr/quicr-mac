@@ -17,7 +17,7 @@ private func getLogColour(_ level: DecimusLogger.LogLevel) -> Color {
 }
 
 struct AlertView: View {
-    @StateObject private var logger = DecimusLogger.shared
+    @State private var logger = DecimusLogger.shared
 
     var body: some View {
         VStack {
