@@ -7,9 +7,9 @@
 #import <Foundation/Foundation.h>
 
 typedef NS_ENUM(uint8_t, QGroupOrder) {
-    kQGroupOrderOriginalPublisherOrder,
-    kQGroupOrderAscending,
-    kQGroupOrderDescending
+    kQGroupOrderOriginalPublisherOrder = 0x00,
+    kQGroupOrderAscending = 0x01,
+    kQGroupOrderDescending = 0x02
 };
 
 typedef NS_ENUM(uint64_t, QFilterType) {
