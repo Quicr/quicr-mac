@@ -17,20 +17,16 @@ struct ManifestServerConfig: Codable, Equatable {
 
 /// Fetches and parses manifest/conference information from a server.
 class ManifestController {
-    /// The shared ``ManifestController``.
-    static let shared = ManifestController()
     private let logger = DecimusLogger(ManifestController.self)
+    private let components: URLComponents
+    private let currentConfig: String
 
-    private var components: URLComponents = .init()
-    private var currentConfig: String = ""
-
-    /// Inject the server's configuration.
-    /// - Parameter config: The new configuration to use.
-    func setServer(config: ManifestServerConfig) {
-        self.components = URLComponents()
-        self.components.scheme = config.scheme
-        self.components.host = config.url
-        self.components.port = config.port
+    init(config: ManifestServerConfig) {
+        var components = URLComponents()
+        components.scheme = config.scheme
+        components.host = config.url
+        components.port = config.port
+        self.components = components
         self.currentConfig = config.config
     }
 
