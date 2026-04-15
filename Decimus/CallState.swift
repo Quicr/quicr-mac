@@ -765,7 +765,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                          overrideNamespace: overrideNamespace,
                          publishReceived: publishReceived) { [weak self] in
                 guard let self = self else { return }
-                DispatchQueue.main.async {
+                Task { @MainActor in
+                    await self.leave()
                     self.onLeave()
                 }
             }
