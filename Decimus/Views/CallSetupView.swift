@@ -37,7 +37,7 @@ private struct LoginForm: View {
     // NAB.
     private static let nabKey = "nabDemo1"
     @AppStorage(Self.nabKey)
-    private var joinType = JoinTypeStorage.activeSpeaker
+    private var joinType = JoinTypeStorage.custom
 
     // NAB.
     @AppStorage("previousEmail")
