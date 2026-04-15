@@ -174,7 +174,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     #endif
 
     // Temp fields for NAB demo.
-    private let nab: Bool
     private var catalogSubscription: CallbackSubscription?
     private var currentCatalog: Catalog?
     private var nabNamespaceHandlers: [NamespacePrefix: QSubscribeNamespaceHandler] = [:]
@@ -182,7 +181,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private var nabPublications: [String: [FullTrackName]] = [:]
 
     init(config: CallConfig, audioStartingGroup: UInt64?, onLeave: @escaping () -> Void) {
-        self.nab = config.conferenceID == .max
         self.config = config
         self.audioStartingGroup = audioStartingGroup
         self.onLeave = onLeave
@@ -197,7 +195,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             let tags: [String: String] = [
                 "relay": config.address,
                 "email": config.email,
-                "conference": self.nab ? "NAB" : "\(config.conferenceID)"
+                "conference": self.getConfName()
             ]
             self.doMetrics(tags)
         }
@@ -215,7 +213,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         if self.recording {
             do {
                 #if canImport(ScreenCaptureKit)
-                let filename = "quicr_\(self.config.email)_\(self.config.conferenceID)_\(Date.now.ISO8601Format())"
+                let filename = "quicr_\(self.config.email)_\(self.getConfName())_\(Date.now.ISO8601Format())"
                 self.appRecorder = try await AppRecorderImpl(filename: filename, display: .init(self.recordDisplay))
                 #endif
             } catch {
@@ -225,11 +223,12 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Fetch the manifest from the conference server.
         let localParticipantId: UInt32
-        if !self.nab {
+        switch self.config.joinType {
+        case .custom(let confId):
             let manifest: Manifest
             do {
                 let mController = ManifestController.shared
-                manifest = try await mController.getManifest(confId: self.config.conferenceID,
+                manifest = try await mController.getManifest(confId: confId,
                                                              email: self.config.email)
             } catch {
                 self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")
@@ -237,7 +236,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             }
             self.currentManifest = manifest
             localParticipantId = manifest.participantId.aggregate
-        } else {
+        default:
             // NAB uses random ID.
             guard let id = UInt32(self.config.email) else {
                 self.logger.error("Bad NAB ID: \(self.config.email)")
@@ -298,7 +297,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Are we doing audio activity?
         let voiceActivity: VoiceActivityDependencies?
-        if self.demoEnabled || self.nab {
+        if self.demoEnabled || self.isNAB() {
             voiceActivity = .init(sharedVoiceActivity: .init(),
                                   timeToSpeechStart: self.demoTimeToSpeechStart,
                                   timeToContinuous: self.demoTimeToContinuous,
@@ -381,7 +380,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
 
         // If we're NAB, we need to subscribe to the catalog track.
-        if self.nab {
+        if self.isNAB() {
             // Clamp displayed videos to the top-N the relay delivers.
             self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
             self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
@@ -459,7 +458,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                         }
                     }
                 }
-            } else if self.nab {
+            } else if self.isNAB() {
                 // NAB: Dynamic catalog updates handled in catalog callback at runtime.
             } else if let manifest = self.currentManifest {
                 // Normal mode: publish and subscribe from manifest.
@@ -589,6 +588,28 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         self.manualActiveSpeaker!.setActiveSpeakers(.init(speakers))
     }
 
+    private func getConfName() -> String {
+        switch self.config.joinType {
+        case .activeSpeaker:
+            "NAB_AS"
+        case .conference:
+            "NAB"
+        case .custom(let confId):
+            "\(confId)"
+        }
+    }
+
+    private func isNAB() -> Bool {
+        switch self.config.joinType {
+        case .activeSpeaker:
+            true
+        case .conference:
+            true
+        case .custom:
+            false
+        }
+    }
+
     private func handleCatalogUpdate(_ catalog: Catalog,
                                      controller: MoqCallController,
                                      publicationFactory: PublicationFactory?,
@@ -636,10 +657,15 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Add new namespace handlers.
         for prefix in newNamespaces.subtracting(oldNamespaces) {
-            let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
-                                          maxTracksSelected: .init(self.demoMaxTracksSelected),
-                                          maxTracksDeselected: .init(self.demoMaxTracksDeselected),
-                                          maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
+            let filter: QTrackFilterObjC? = switch self.config.joinType {
+            case .activeSpeaker:
+                .init(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
+                      maxTracksSelected: .init(self.demoMaxTracksSelected),
+                      maxTracksDeselected: .init(self.demoMaxTracksDeselected),
+                      maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
+            default:
+                nil
+            }
             let handler = QSubscribeNamespaceHandler(namespacePrefix: prefix,
                                                      trackFilter: filter) { [weak self] status, errorCode, namespacePrefix in
                 self?.logger.info("[nab] \(namespacePrefix) Status: \(status) \(errorCode)")
@@ -647,7 +673,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             do {
                 try controller.subscribeNamespace(handler)
                 self.nabNamespaceHandlers[prefix] = handler
-                self.logger.info("[nab] Subscribed namespace: \(prefix)")
+                self.logger.info("[nab] Subscribed namespace: \(prefix) using filter: \(filter)")
             } catch {
                 self.logger.error("[nab] Failed to subscribe namespace: \(error.localizedDescription)")
             }
@@ -929,7 +955,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             return .accept(responseAttributes, subscription)
         }
 
-        if self.nab {
+        if self.isNAB() {
             let subscription = self.nabCreateHandler(fullTrackName: track)
             let responseAttributes = QPublishAttributes(priority: attributes.priority,
                                                         groupOrder: attributes.groupOrder,
