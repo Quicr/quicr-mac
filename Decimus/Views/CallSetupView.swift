@@ -35,21 +35,28 @@ private struct LoginForm: View {
     @State private var showContinuityDevicePicker: Bool = false
 
     // NAB.
-    @Binding var nab: Bool
+    private static let nabKey = "nabDemo1"
+    @AppStorage(Self.nabKey)
+    private var joinType = JoinTypeStorage.activeSpeaker
+
+    // NAB.
     @AppStorage("previousEmail")
     private var previousEmail: String?
-    @State private var nabId: UInt32 = 0
+    @State private var nabId: UInt32 = .random(in: 0...UInt32.max)
 
     var body: some View {
         Form {
             Section {
-                LabeledToggle("NAB?", isOn: self.$nab)
-                    .onAppear {
-                        if self.nab {
-                            self.nabId = .random(in: 0...UInt32.max)
+                VStack(alignment: .leading) {
+                    Text("Conference Type")
+                    Picker("Conference Type", selection: self.$joinType) {
+                        ForEach(JoinTypeStorage.allCases, id: \.self) { type in
+                            Text(type.description).tag(type)
                         }
                     }
-                if self.nab {
+                    .labelsHidden()
+                }
+                if self.joinType == .activeSpeaker || self.joinType == .conference {
                     Text("You will be participant: \(self.nabId, format: .number.grouping(.never))")
                     HStack {
                         Spacer()
@@ -195,9 +202,17 @@ private struct LoginForm: View {
 
     private func join(conference: UInt32) {
         let relay = self.relayConfig.value
+        let joinType: JoinType = switch self.joinType {
+        case .activeSpeaker:
+            .activeSpeaker
+        case .conference:
+            .conference
+        case .custom:
+            .custom(conference)
+        }
         let config = CallConfig(address: relay.address,
                                 email: self.email,
-                                conferenceID: conference)
+                                joinType: joinType)
         self.logger.debug("Setting call config: \(config)")
         self.config = config
     }
@@ -235,7 +250,6 @@ private struct LoginForm: View {
 
 struct CallSetupView: View {
     @Binding var config: CallConfig?
-    @Binding var nab: Bool
     @State private var settingsOpen: Bool = false
 
     var body: some View {
@@ -265,7 +279,7 @@ struct CallSetupView: View {
                     Text("Join a meeting")
                         .font(.title)
                         .foregroundColor(.white)
-                    LoginForm(config: self.$config, nab: self.$nab)
+                    LoginForm(config: self.$config)
                         #if targetEnvironment(macCatalyst) || os(macOS)
                         .frame(maxWidth: 350)
                     #endif
@@ -289,6 +303,6 @@ struct CallSetupView: View {
 
 struct CallSetupView_Previews: PreviewProvider {
     static var previews: some View {
-        CallSetupView(config: .constant(.init(address: "")), nab: .constant(false))
+        CallSetupView(config: .constant(.init(address: "", joinType: .custom(0))))
     }
 }
