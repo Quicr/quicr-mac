@@ -523,10 +523,11 @@ class VideoSubscription: Subscription {
         }
 
         // Check for action & state change.
+        let effectiveExtensions = immutableExtensions ?? extensions
         func notify(drop: Bool) {
             handler.objectReceived(objectHeaders,
                                    data: unprotected,
-                                   extensions: immutableExtensions,
+                                   extensions: effectiveExtensions,
                                    when: now,
                                    cached: false,
                                    drop: drop)
