@@ -132,14 +132,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage(SettingsView.demoMaxTracksSelectedKey)
     private var demoMaxTracksSelected: Int = 1
 
-    // Max deselected means how many subscriptions remain in state, but inactive.
-    // For us we basically want this quite high.
-    @AppStorage(SettingsView.demoMaxTracksDeselectedKey)
-    private var demoMaxTracksDeselected: Int = 10
-
     // Max time before deselecting.
-    @AppStorage(SettingsView.demoMaxTimeSelectedKey)
-    private var demoMaxTimeSelected: TimeInterval = 0.5
+    @AppStorage(SettingsView.demoTimeoutKey)
+    private var demoTimeout: TimeInterval = 0.5
 
     @AppStorage(SettingsView.demoTimeToSpeechStartKey)
     private var demoTimeToSpeechStart: TimeInterval = 0.15
@@ -420,8 +415,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             // Track filter.
             let trackFilter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
                                                maxTracksSelected: UInt64(self.demoMaxTracksSelected),
-                                               maxTracksDeselected: UInt64(self.demoMaxTracksDeselected),
-                                               maxTimeSelected: UInt64(self.demoMaxTimeSelected * 1000))
+                                               timeout: UInt64(self.demoTimeout * 1000))
 
             for (mediaType, prefix) in [("audio", audioPrefix), ("video", videoPrefix)] {
                 let handler = QSubscribeNamespaceHandler(
@@ -661,8 +655,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             case .activeSpeaker:
                 .init(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
                       maxTracksSelected: .init(self.demoMaxTracksSelected),
-                      maxTracksDeselected: .init(self.demoMaxTracksDeselected),
-                      maxTimeSelected: .init(self.demoMaxTimeSelected * 1000))
+                      timeout: .init(self.demoTimeout * 1000))
             default:
                 nil
             }
@@ -1223,8 +1216,7 @@ extension CallState {
         if let count {
             let filter = QTrackFilterObjC(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
                                           maxTracksSelected: UInt64(count),
-                                          maxTracksDeselected: UInt64(self.demoMaxTracksDeselected),
-                                          maxTimeSelected: UInt64(self.demoMaxTimeSelected * 1000))
+                                          timeout: UInt64(self.demoTimeout * 1000))
             self.logger.info("[nab] Layout count set to \(count), filter ready (maxTracksSelected: \(filter.maxTracksSelected))")
         } else {
             self.logger.info("[nab] Layout count cleared (unlimited)")

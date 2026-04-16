@@ -9,12 +9,10 @@
 @interface QTrackFilterObjC : NSObject
 @property (nonatomic, readonly) uint64_t propertyType;
 @property (nonatomic, readonly) uint64_t maxTracksSelected;
-@property (nonatomic, readonly) uint64_t maxTracksDeselected;
-@property (nonatomic, readonly) uint64_t maxTimeSelected;
+@property (nonatomic, readonly) uint64_t timeout;
 - (id _Nonnull)initWithPropertyType:(uint64_t)propertyType
-                   maxTracksSelected:(uint64_t)maxTracksSelected
-                 maxTracksDeselected:(uint64_t)maxTracksDeselected
-                    maxTimeSelected:(uint64_t)maxTimeSelected;
+                  maxTracksSelected:(uint64_t)maxTracksSelected
+                            timeout:(uint64_t)timeout;
 @end
 
 #ifdef __cplusplus
@@ -24,8 +22,7 @@ static quicr::messages::TrackFilter trackFilterConvert(QTrackFilterObjC* _Nonnul
     return {
         .property_type = filter.propertyType,
         .max_tracks_selected = filter.maxTracksSelected,
-        .max_tracks_deselected = filter.maxTracksDeselected,
-        .max_time_selected = filter.maxTimeSelected,
+        .timeout = filter.timeout
     };
 }
 
@@ -33,8 +30,7 @@ static quicr::messages::TrackFilter trackFilterConvert(QTrackFilterObjC* _Nonnul
 static QTrackFilterObjC* _Nonnull trackFilterConvert(const quicr::messages::TrackFilter& filter) {
     return [[QTrackFilterObjC alloc] initWithPropertyType:filter.property_type
                                         maxTracksSelected:filter.max_tracks_selected
-                                      maxTracksDeselected:filter.max_tracks_deselected
-                                         maxTimeSelected:filter.max_time_selected];
+                                                  timeout:filter.timeout];
 }
 #endif
 
