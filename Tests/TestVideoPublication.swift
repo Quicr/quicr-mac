@@ -59,6 +59,7 @@ class FakeH264Publication: H264Publication {
                        keyFrameOnUpdate: keyFrameOnUpdate,
                        sframeContext: nil,
                        mediaInterop: false,
+                       appExtensionMode: .mutable,
                        sink: sink)
     }
 
@@ -75,11 +76,12 @@ class FakeH264Publication: H264Publication {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
+                  appExtensionMode: AppExtensionMode,
                   sharedVoiceActivity: SharedVoiceActivityState?,
                   vadRollSubgroup: Bool,
                   sink: MoQSink) throws {
         // swiftlint:disable:next line_length
-        fatalError("init(profile:config:metricsSubmitter:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:sharedVoiceActivity:vadRollSubgroup:sink:) has not been implemented")
+        fatalError("init(profile:config:metricsSubmitter:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:appExtensionMode:sharedVoiceActivity:vadRollSubgroup:sink:) has not been implemented")
     }
 
     override func publish(groupId: UInt64,

@@ -28,6 +28,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let incrementing: Incrementing
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let appExtensionMode: AppExtensionMode
     private let profile: Profile
     private let voiceActivity: VoiceActivityDependencies?
     private let activityStateMachine: AudioActivityStateMachine?
@@ -47,6 +48,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
          incrementing: Incrementing,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
+         appExtensionMode: AppExtensionMode,
          voiceActivity: VoiceActivityDependencies?,
          sink: MoQSink,
          groupId: UInt64 = UInt64(Date.now.timeIntervalSince1970)) throws {
@@ -66,6 +68,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.incrementing = incrementing
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.appExtensionMode = appExtensionMode
         if let voiceActivity {
             self.activityStateMachine = .init(timeToSpeechStart: voiceActivity.timeToSpeechStart,
                                               timeToContinuous: voiceActivity.timeToContinuous,
@@ -329,7 +332,9 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             }
         }
 
-        return .init(encodedData: encoded, extensions: nil, immutableExtensions: extensions)
+        return .init(encodedData: encoded,
+                     extensions: self.appExtensionMode == .mutable ? extensions : nil,
+                     immutableExtensions: self.appExtensionMode == .immutable ? extensions : nil)
     }
 
     private func getAudioLevel(_ buffer: AVAudioPCMBuffer) throws -> Int {

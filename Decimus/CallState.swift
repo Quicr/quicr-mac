@@ -50,6 +50,19 @@ enum MoQRole: Int, CaseIterable, Identifiable, CustomStringConvertible {
     }
 }
 
+enum AppExtensionMode: Int, CaseIterable, Identifiable, CustomStringConvertible {
+    case mutable
+    case immutable
+
+    var id: Int { self.rawValue }
+    var description: String {
+        switch self {
+        case .mutable: "Mutable"
+        case .immutable: "Immutable"
+        }
+    }
+}
+
 @MainActor
 class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_body_length
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
@@ -104,6 +117,8 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var role = MoQRole.both
     @AppStorage(SettingsView.mediaInteropKey)
     private(set) var mediaInterop = false
+    @AppStorage(SettingsView.appExtensionModeKey)
+    private(set) var appExtensionMode = AppExtensionMode.mutable
     @AppStorage(SettingsView.useOverrideNamespaceKey)
     private(set) var useOverrideNamespace = false
     @AppStorage(SettingsView.overrideNamespaceKey)
@@ -322,6 +337,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                         startingGroup: self.audioStartingGroup,
                                                         sframeContext: self.sendContext,
                                                         mediaInterop: self.mediaInterop,
+                                                        appExtensionMode: self.appExtensionMode,
                                                         overrideNamespace: overrideNamespace,
                                                         useAnnounce: subConfig.useAnnounce,
                                                         voiceActivity: voiceActivity)

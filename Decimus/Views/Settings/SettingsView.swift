@@ -47,6 +47,10 @@ struct SettingsView: View {
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
+    static let appExtensionModeKey = "appExtensionMode"
+    @AppStorage(Self.appExtensionModeKey)
+    private var appExtensionMode: AppExtensionMode = .mutable
+
     // Audio demo settings.
     // TODO: Probably smarten this up a bit.
 
@@ -84,7 +88,7 @@ struct SettingsView: View {
 
     static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
     @AppStorage(Self.demoVadRollSubgroupKey)
-    private var demoVadRollSubgroup: Bool = true
+    private var demoVadRollSubgroup: Bool = false
 
     static let demoVadAggressivenessKey = "demoVadAggressiveness"
     @AppStorage(Self.demoVadAggressivenessKey)
@@ -122,6 +126,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.useOverrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.appExtensionModeKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
@@ -160,6 +165,15 @@ struct SettingsView: View {
                     Picker("MoQ Role", selection: self.$moqRole) {
                         ForEach(MoQRole.allCases) { role in
                             Text(role.description).tag(role)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+                LabeledContent("App Extensions") {
+                    Picker("App Extensions", selection: self.$appExtensionMode) {
+                        ForEach(AppExtensionMode.allCases) { mode in
+                            Text(mode.description).tag(mode)
                         }
                     }
                     .labelsHidden()
