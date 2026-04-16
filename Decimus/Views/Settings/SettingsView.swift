@@ -62,13 +62,9 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTracksSelectedKey)
     private var demoMaxTracksSelected: Int = 1
 
-    static let demoMaxTracksDeselectedKey = "demoMaxTracksDeselected"
-    @AppStorage(Self.demoMaxTracksDeselectedKey)
-    private var demoMaxTracksDeselected: Int = 0
-
-    static let demoMaxTimeSelectedKey = "demoMaxTimeSelected"
-    @AppStorage(Self.demoMaxTimeSelectedKey)
-    private var demoMaxTimeSelected: TimeInterval = 0.5
+    static let demoTimeoutKey = "demoMaxTimeSelected"
+    @AppStorage(Self.demoTimeoutKey)
+    private var demoTimeout: TimeInterval = 0.5
 
     static let demoTimeToSpeechStartKey = "demoTimeToSpeechStart"
     @AppStorage(Self.demoTimeToSpeechStartKey)
@@ -131,8 +127,7 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMeetingIdKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeoutKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToSpeechStartKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToContinuousKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
@@ -278,14 +273,8 @@ struct SettingsView: View {
                         .keyboardType(.numberPad)
                     #endif
                 }
-                LabeledContent("Max Tracks Deselected") {
-                    TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
-                        #if !os(macOS)
-                        .keyboardType(.numberPad)
-                    #endif
-                }
-                LabeledContent("Max Time Selected (s)") {
-                    TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
+                LabeledContent("Timeout (s)") {
+                    TextField("Timeout (s)", value: self.$demoTimeout, format: .number)
                         #if !os(macOS)
                         .keyboardType(.decimalPad)
                     #endif
