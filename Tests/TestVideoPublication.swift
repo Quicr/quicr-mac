@@ -152,6 +152,7 @@ private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Boo
                      keyFrameOnUpdate: false,
                      sframeContext: nil,
                      mediaInterop: false,
+                     appExtensionMode: .mutable,
                      sink: sink)
 }
 
