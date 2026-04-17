@@ -87,8 +87,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private var switchLatencyMeasurement: MeasurementRegistration<SwitchLatencyMeasurement>?
     private var activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
     private var submitter: MetricsSubmitter?
-    private var audioCapture = false
-    private var videoCapture = false
     let onLeave: () -> Void
     var relayId: String?
     private(set) var publicationFactory: PublicationFactory?
@@ -562,14 +560,11 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
         // Start audio media.
         if let engine = self.engine {
+            if make && self.role != .subscriber {
+                engine.setMicrophoneCapture(true)
+            }
             do {
-                if make && self.role != .subscriber {
-                    engine.setMicrophoneCapture(true)
-                }
                 try engine.start()
-                if self.role != .subscriber {
-                    self.audioCapture = true
-                }
             } catch {
                 self.logger.warning("Audio failure. Apple requires us to have an aggregate input AND output device")
             }
@@ -580,7 +575,6 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
            self.role != .subscriber {
             do {
                 try captureManager.startCapturing()
-                self.videoCapture = true
             } catch {
                 self.logger.warning("Camera failure", alert: true)
             }
@@ -788,20 +782,21 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         // Submit all pending metrics.
         await submitter?.submit()
 
+        // Stop all media.
         do {
-            if self.videoCapture {
-                try captureManager?.stopCapturing()
-                self.videoCapture = false
-            }
-            if self.audioCapture {
-                try engine?.stop()
-                self.audioCapture = false
-            }
-            if let recorder = self.appRecorder {
-                try await recorder.stopCapture()
-            }
+            try self.captureManager?.stopCapturing()
         } catch {
-            self.logger.error("Error while stopping media: \(error)")
+            self.logger.error("Error while stopping camera: \(error)")
+        }
+        do {
+            try self.engine?.stop()
+        } catch {
+            self.logger.error("Error while stopping audio: \(error)")
+        }
+        do {
+            try await self.appRecorder?.stopCapture()
+        } catch {
+            self.logger.error("Error while stopping recording: \(error)")
         }
 
         if let catalogSubscription = self.catalogSubscription {
