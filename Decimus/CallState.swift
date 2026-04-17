@@ -391,9 +391,14 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         // If we're NAB, we need to subscribe to the catalog track.
         if self.isNAB() {
             // Clamp displayed videos to the top-N the relay delivers.
-            self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
-            self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
-            self.videoParticipants.startStalenessChecks()
+            switch self.config.joinType {
+            case .activeSpeaker:
+                self.videoParticipants.maxDisplayCount = self.demoMaxTracksSelected
+                self.videoParticipants.stalenessThreshold = subConfig.stalenessThreshold
+                self.videoParticipants.startStalenessChecks()
+            default:
+                break
+            }
             do {
                 self.catalogSubscription = try await self.setupCatalogTrack(controller: controller) { [weak self] result in
                     guard let self else { return }
