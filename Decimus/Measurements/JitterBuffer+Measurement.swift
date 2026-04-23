@@ -1,21 +1,18 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-extension JitterBuffer {
-    actor JitterBufferMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "VideoJitterBuffer"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+import Synchronization
 
-        private var underruns: UInt64 = 0
-        private var reads: UInt64 = 0
-        private var writes: UInt64 = 0
-        private var flushed: UInt64 = 0
-        private var pausedWaitTime = false
+extension JitterBuffer {
+    final class JitterBufferMeasurement: MeasurementBase {
+        private let underruns = Atomic<UInt64>(0)
+        private let reads = Atomic<UInt64>(0)
+        private let writes = Atomic<UInt64>(0)
+        private let flushedCount = Atomic<UInt64>(0)
+        private let pausedWaitTime = Mutex<Bool>(false)
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "VideoJitterBuffer", tags: ["namespace": namespace])
         }
 
         func currentDepth(depth: TimeInterval, target: TimeInterval, adjustment: TimeInterval, timestamp: Date?) {
@@ -31,32 +28,35 @@ extension JitterBuffer {
         }
 
         func underrun(timestamp: Date?) {
-            self.underruns += 1
-            record(field: "underruns", value: self.underruns as AnyObject, timestamp: timestamp)
+            let val = underruns.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "underruns", value: val as AnyObject, timestamp: timestamp)
         }
 
         func write(timestamp: Date?) {
-            self.writes += 1
-            record(field: "writes", value: self.writes as AnyObject, timestamp: timestamp)
+            let val = writes.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "writes", value: val as AnyObject, timestamp: timestamp)
         }
 
         func flushed(count: UInt, timestamp: Date?) {
-            self.flushed += UInt64(count)
-            record(field: "flushed", value: self.flushed as AnyObject, timestamp: timestamp)
+            let val = flushedCount.wrappingAdd(UInt64(count), ordering: .relaxed).newValue
+            record(field: "flushed", value: val as AnyObject, timestamp: timestamp)
         }
 
         func waitTime(value: TimeInterval, timestamp: Date?) {
-            if self.pausedWaitTime && value < 0 {
-                // Don't spam negative times.
-                return
+            let paused = pausedWaitTime.withLock { paused in
+                if paused && value < 0 {
+                    return true
+                }
+                paused = value < 0
+                return false
             }
+            guard !paused else { return }
             record(field: "waitTime", value: value as AnyObject, timestamp: timestamp)
-            self.pausedWaitTime = value < 0
         }
 
         func read(timestamp: Date?) {
-            self.reads += 1
-            record(field: "reads", value: self.reads as AnyObject, timestamp: timestamp)
+            let val = reads.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "reads", value: val as AnyObject, timestamp: timestamp)
         }
     }
 }

@@ -7,7 +7,7 @@ import Synchronization
 class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     private let logger = DecimusLogger(Fetch.self)
     private let verbose: Bool
-    private let quicrMeasurement: MeasurementRegistration<TrackMeasurement>?
+    private let quicrMeasurement: TrackMeasurement?
     private let isCompleteInternal: Atomic<Bool> = .init(false)
 
     /// Create a new fetch handler.
@@ -37,11 +37,12 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
                     partialResult.append(string)
                 }
             }
-            self.quicrMeasurement = .init(measurement: .init(type: .fetch,
-                                                             endpointId: endpointId,
-                                                             relayId: relayId,
-                                                             namespace: namespace),
-                                          submitter: submitter)
+            let measurement = TrackMeasurement(type: .fetch,
+                                               endpointId: endpointId,
+                                               relayId: relayId,
+                                               namespace: namespace)
+            submitter.register(measurement: measurement)
+            self.quicrMeasurement = measurement
         } else {
             self.quicrMeasurement = nil
         }
@@ -86,10 +87,6 @@ class Fetch: QFetchTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
     }
 
     func metricsSampled(_ metrics: QSubscribeTrackMetrics) {
-        if let measurement = self.quicrMeasurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
+        self.quicrMeasurement?.record(metrics)
     }
 }

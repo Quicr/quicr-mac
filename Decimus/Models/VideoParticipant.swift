@@ -186,11 +186,9 @@ class VideoParticipant: Identifiable {
            let renderTime,
            let measurement = self.switchLatencyMeasurement {
             let participantStr = "\(self.participantId.participantId)"
-            Task(priority: .utility) {
-                await measurement.record(context: switchContext,
-                                         renderTime: renderTime,
-                                         participant: participantStr)
-            }
+            measurement.record(context: switchContext,
+                               renderTime: renderTime,
+                               participant: participantStr)
         }
 
         if let endToEndLatency,

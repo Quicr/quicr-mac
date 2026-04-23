@@ -44,7 +44,7 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private var lastSimulreceiveLabel: String?
     private var lastHighlight: FullTrackName?
     private var lastDiscontinous = false
-    private let measurement: MeasurementRegistration<VideoSubscriptionMeasurement>?
+    private let measurement: VideoSubscriptionMeasurement?
     private let variances: VarianceCalculator
     let decodedVariances: VarianceCalculator
     private let subscribeDate: Date
@@ -95,7 +95,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
         self.submitter = metricsSubmitter
         if let submitter = metricsSubmitter {
             let measurement = VideoSubscriptionMeasurement(source: self.subscription.sourceID)
-            self.measurement = .init(measurement: measurement, submitter: submitter)
+            submitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -512,13 +513,11 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                 }
             }
             let completedReport = report
-            Task(priority: .utility) {
-                do {
-                    try await measurement.measurement.reportSimulreceiveChoice(choices: completedReport,
-                                                                               timestamp: decisionTime!)
-                } catch {
-                    self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
-                }
+            do {
+                try measurement.reportSimulreceiveChoice(choices: completedReport,
+                                                         timestamp: decisionTime!)
+            } catch {
+                self.logger.warning("Failed to report simulreceive metrics: \(error.localizedDescription)")
             }
         }
 
@@ -600,10 +599,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
                         let presentationDate = Date(timeIntervalSince1970: presentationTime)
                         let age = now.timeIntervalSince(presentationDate)
                         if self.granularMetrics,
-                           let measurement = measurement?.measurement {
-                            Task(priority: .utility) {
-                                await measurement.age(age, timestamp: now)
-                            }
+                           let measurement = measurement {
+                            measurement.age(age, timestamp: now)
                         }
                         e2eLatency = age
                     } else {

@@ -11,9 +11,9 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let logger = DecimusLogger(OpusPublication.self)
 
     let sink: MoQSink
-    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
+    private let trackMeasurement: TrackMeasurement?
     private let encoder: LibOpusEncoder
-    private let measurement: MeasurementRegistration<OpusPublicationMeasurement>?
+    private let measurement: OpusPublicationMeasurement?
     private let opusWindowSize: OpusWindowSize
     private let granularMetrics: Bool
     private let engine: DecimusAudioEngine
@@ -32,7 +32,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private let profile: Profile
     private let voiceActivity: VoiceActivityDependencies?
     private let activityStateMachine: AudioActivityStateMachine?
-    private let activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
+    private let activityTransitionMeasurement: ActivityTransitionMeasurement?
     private let vadDetector: FVADDetector?
 
     init(profile: Profile,
@@ -55,10 +55,12 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.engine = engine
         let namespace = profile.namespace.joined()
         if let metricsSubmitter = metricsSubmitter {
-            self.measurement = .init(measurement: OpusPublicationMeasurement(namespace: namespace),
-                                     submitter: metricsSubmitter)
-            self.activityTransitionMeasurement = .init(measurement: .init(),
-                                                       submitter: metricsSubmitter)
+            let measurement = OpusPublicationMeasurement(namespace: namespace)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
+            let activityMeasurement = ActivityTransitionMeasurement()
+            metricsSubmitter.register(measurement: activityMeasurement)
+            self.activityTransitionMeasurement = activityMeasurement
         } else {
             self.measurement = nil
             self.activityTransitionMeasurement = nil
@@ -113,7 +115,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                                endpointId: endpointId,
                                                relayId: relayId,
                                                namespace: namespace)
-            return .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            return measurement
         }()
         self.sink.delegate = self
 
@@ -131,11 +134,8 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
                                          immutableExtensions: data.immutableExtensions)
                         }
                         if self.granularMetrics,
-                           let measurement = self.measurement?.measurement {
-                            let now = Date.now
-                            Task(priority: .utility) {
-                                await measurement.encode(encodePassCount, timestamp: now)
-                            }
+                           let measurement = self.measurement {
+                            measurement.encode(encodePassCount, timestamp: Date.now)
                         }
                     } catch {
                         self.logger.error("Failed encode: \(error)")
@@ -197,9 +197,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     private func publish(data: Data, extensions: HeaderExtensions?, immutableExtensions: HeaderExtensions?) {
         if let measurement = self.measurement {
             let now: Date? = granularMetrics ? .now : nil
-            Task(priority: .utility) {
-                await measurement.measurement.publishedBytes(sentBytes: data.count, timestamp: now)
-            }
+            measurement.publishedBytes(sentBytes: data.count, timestamp: now)
         }
 
         guard self.sink.canPublish else {
@@ -317,18 +315,12 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             try? extensions.setHeader(.audioActivityIndicator(value.rawValue))
             // Store the latest state for others.
             self.voiceActivity!.sharedVoiceActivity.postActivity(value)
-
-            // Report the metric of both current VAD and current state.
+            // Granular activity metric.
             if self.granularMetrics,
-               let measurement = self.measurement?.measurement {
-                let raw = value.rawValue
-                let voiceActive = voiceActive
-                let timestamp = wallClock
-                Task(priority: .utility) {
-                    await measurement.audioActivity(raw,
-                                                    voiceActive: voiceActive,
-                                                    timestamp: timestamp)
-                }
+               let measurement = self.measurement {
+                measurement.audioActivity(value.rawValue,
+                                          voiceActive: voiceActive,
+                                          timestamp: wallClock)
             }
         }
 
@@ -365,10 +357,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
     }
 
     func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
-        if let measurement = self.trackMeasurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
+        self.trackMeasurement?.record(metrics)
     }
 }

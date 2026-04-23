@@ -2,26 +2,19 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
+import Synchronization
 
-/// Measurement actor for activity_transition InfluxDB measurement.
-/// One point emitted per audio activity state transition (after rate-limiting).
-actor ActivityTransitionMeasurement: Measurement {
-    let id = UUID()
-    var name: String = "activity_transition"
-    var fields: Fields = [:]
-    var tags: [String: String] = [:]
+final class ActivityTransitionMeasurement: MeasurementBase {
+    private let sequence = Atomic<UInt64>(0)
 
-    private var sequence: UInt64 = 0
+    init() {
+        super.init(name: "activity_transition")
+    }
 
-    /// Record an activity state transition.
-    /// - Parameters:
-    ///   - participant: The local participant ID string.
-    ///   - direction: "active" or "inactive"
-    ///   - timestamp: When the transition occurred (after AudioActivityStateMachine rate-limiting)
     func record(participant: String, direction: String, timestamp: Date) {
-        self.sequence += 1
+        let val = sequence.wrappingAdd(1, ordering: .relaxed).newValue
         record(field: "sequence",
-               value: self.sequence as AnyObject,
+               value: val as AnyObject,
                timestamp: timestamp,
                tags: ["participant": participant, "direction": direction])
     }

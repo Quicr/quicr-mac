@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
+
 extension Measurement {
     func record(_ prefix: String, values: QMinMaxAvg, time: Date) {
         self.record(field: "\(prefix)_min", value: values.min as AnyObject, timestamp: time)
@@ -10,27 +12,28 @@ extension Measurement {
 }
 
 extension MoqCallController {
-    actor MoqCallControllerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "quic-connection"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-        var setup = false
+    final class MoqCallControllerMeasurement: MeasurementBase {
+        private let mutableTags: Mutex<[String: String]>
+        private let _setup = Atomic<Bool>(false)
+        var setup: Bool { _setup.load(ordering: .relaxed) }
+
+        override var tags: [String: String] {
+            mutableTags.withLock { $0 }
+        }
 
         init(endpointId: String) {
-            self.tags["endpoint_id"] = endpointId
-            self.tags["source"] = "client"
+            let tags = ["endpoint_id": endpointId, "source": "client"]
+            self.mutableTags = Mutex(tags)
+            super.init(name: "quic-connection", tags: tags)
         }
 
         func setRelayId(_ relayId: String) {
-            self.tags["relay_id"] = relayId
-            self.setup = true
+            mutableTags.withLock { $0["relay_id"] = relayId }
+            _setup.store(true, ordering: .relaxed)
         }
 
         func record(_ metrics: QConnectionMetrics) {
-            // TODO: Use the proper sampled time.
             let time = Date.now
-            // swiftlint:disable line_length
             self.record("rtt_us", values: metrics.quic.rtt_us, time: time)
             self.record(field: "tx_lost_pkts", value: metrics.quic.tx_lost_pkts as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_lost", value: metrics.quic.tx_dgram_lost as AnyObject, timestamp: time)
@@ -51,7 +54,6 @@ extension MoqCallController {
             self.record(field: "tx_dgram_ack", value: metrics.quic.tx_dgram_ack as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_spurious", value: metrics.quic.tx_dgram_spurious as AnyObject, timestamp: time)
             self.record(field: "tx_dgram_drops", value: metrics.quic.tx_dgram_drops as AnyObject, timestamp: time)
-            // swiftlint:enable line_length
         }
     }
 }

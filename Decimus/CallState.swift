@@ -83,9 +83,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var textPublication: TextPublication?
     let config: CallConfig
     private var appMetricTimer: Task<(), Error>?
-    private var measurement: MeasurementRegistration<_Measurement>?
-    private var switchLatencyMeasurement: MeasurementRegistration<SwitchLatencyMeasurement>?
-    private var activityTransitionMeasurement: MeasurementRegistration<ActivityTransitionMeasurement>?
+    private var measurement: _Measurement?
+    private var switchLatencyMeasurement: SwitchLatencyMeasurement?
+    private var activityTransitionMeasurement: ActivityTransitionMeasurement?
     private var submitter: MetricsSubmitter?
     let onLeave: () -> Void
     var relayId: String?
@@ -364,7 +364,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                                                           sframeContext: self.receiveContext,
                                                           calculateLatency: self.showLabels,
                                                           mediaInterop: self.mediaInterop,
-                                                          switchLatencyMeasurement: self.switchLatencyMeasurement?.measurement)
+                                                          switchLatencyMeasurement: self.switchLatencyMeasurement)
         } else {
             subscriptionFactory = nil
         }
@@ -854,11 +854,14 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             self.activeSpeakerStats = .init(influx)
         }
         let measurement = _Measurement()
-        self.measurement = .init(measurement: measurement, submitter: influx)
+        influx.register(measurement: measurement)
+        self.measurement = measurement
         let switchLatency = SwitchLatencyMeasurement()
-        self.switchLatencyMeasurement = .init(measurement: switchLatency, submitter: influx)
+        influx.register(measurement: switchLatency)
+        self.switchLatencyMeasurement = switchLatency
         let activityTransition = ActivityTransitionMeasurement()
-        self.activityTransitionMeasurement = .init(measurement: activityTransition, submitter: influx)
+        influx.register(measurement: activityTransition)
+        self.activityTransitionMeasurement = activityTransition
         if influxConfig.value.realtime {
             // Application metrics timer.
             self.appMetricTimer = .init(priority: .utility) { [weak self] in
@@ -867,7 +870,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
                     if let self = self {
                         duration = TimeInterval(self.influxConfig.value.intervalSecs)
                         let usage = try cpuUsage()
-                        await self.measurement?.measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                        self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
                         await self.submitter?.submit()
                     } else {
                         return
@@ -1320,11 +1323,10 @@ extension CallState {
 
 // Metrics.
 extension CallState {
-    private actor _Measurement: Measurement {
-        let id = UUID()
-        var name: String = "ApplicationMetrics"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+    private final class _Measurement: MeasurementBase {
+        init() {
+            super.init(name: "ApplicationMetrics")
+        }
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)

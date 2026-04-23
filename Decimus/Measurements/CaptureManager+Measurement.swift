@@ -1,24 +1,25 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-extension CaptureManager {
-    actor CaptureManagerMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "CaptureManager"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
+import Synchronization
 
-        private var capturedFrames: UInt64 = 0
-        private var dropped: UInt64 = 0
+extension CaptureManager {
+    final class CaptureManagerMeasurement: MeasurementBase {
+        private let capturedFrames = Atomic<UInt64>(0)
+        private let dropped = Atomic<UInt64>(0)
+
+        init() {
+            super.init(name: "CaptureManager")
+        }
 
         func droppedFrame(timestamp: Date?) {
-            self.dropped += 1
-            record(field: "droppedFrames", value: self.dropped as AnyObject, timestamp: timestamp)
+            let val = dropped.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "droppedFrames", value: val as AnyObject, timestamp: timestamp)
         }
 
         func capturedFrame(frameTimestamp: TimeInterval, metricsTimestamp: Date?) {
-            self.capturedFrames += 1
-            record(field: "capturedFrames", value: self.capturedFrames as AnyObject, timestamp: metricsTimestamp)
+            let val = capturedFrames.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "capturedFrames", value: val as AnyObject, timestamp: metricsTimestamp)
             if let metricsTimestamp = metricsTimestamp {
                 record(field: "timestamp", value: frameTimestamp as AnyObject, timestamp: metricsTimestamp)
             }

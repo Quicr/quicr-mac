@@ -48,7 +48,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     private let logger: DecimusLogger
     private var decoder: VTDecoder?
     private let participants: VideoParticipants
-    private let measurement: MeasurementRegistration<VideoHandlerMeasurement>?
+    private let measurement: VideoHandlerMeasurement?
     private var lastGroup: UInt64?
     private var lastObject: UInt64?
     private let namegate = SequentialObjectBlockingNameGate()
@@ -153,7 +153,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.participants = participants
         if let metricsSubmitter = metricsSubmitter {
             let measurement = VideoHandler.VideoHandlerMeasurement(namespace: "\(self.fullTrackName)")
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -217,10 +218,8 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     let age = now.timeIntervalSince(presentationDate)
                     endToEndLatency = age
                     if self.granularMetrics,
-                       let measurement = self.measurement?.measurement {
-                        Task(priority: .utility) {
-                            await measurement.decodedAge(age: age, timestamp: now)
-                        }
+                       let measurement = self.measurement {
+                        measurement.decodedAge(age: age, timestamp: now)
                     }
                 } else {
                     endToEndLatency = nil
@@ -428,11 +427,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 }
             }
 
-            if let measurement = self.measurement?.measurement,
+            if let measurement = self.measurement,
                self.granularMetrics {
-                Task(priority: .utility) {
-                    await measurement.timestamp(timestamp: presentationInterval, when: when.hostDate, cached: cached)
-                }
+                measurement.timestamp(timestamp: presentationInterval, when: when.hostDate, cached: cached)
             }
 
             let publishTimestamp: Date?
@@ -440,12 +437,10 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                case .publishTimestamp(let extracted) = publishTimestampDate {
                 publishTimestamp = extracted
                 if self.granularMetrics,
-                   let measurement = self.measurement?.measurement {
+                   let measurement = self.measurement {
                     let now = when.hostDate
                     let traversal = now.timeIntervalSince(extracted)
-                    Task(priority: .utility) {
-                        await measurement.moqTraversalTime(time: traversal, metricsTimestamp: now)
-                    }
+                    measurement.moqTraversalTime(time: traversal, metricsTimestamp: now)
                 }
             } else {
                 publishTimestamp = nil
@@ -558,19 +553,17 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         // Metrics.
         if let measurement = self.measurement {
             let now: Date? = self.granularMetrics ? details.when.hostDate : nil
-            Task(priority: .utility) {
-                if let now = now,
-                   let presentationTime = frame.samples.first?.presentationTimeStamp {
-                    let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
-                    let age = now.timeIntervalSince(presentationDate)
-                    await measurement.measurement.age(age: age, timestamp: now, cached: details.cached)
-                }
-                await measurement.measurement.receivedFrame(timestamp: now,
-                                                            idr: frame.objectId == 0,
-                                                            cached: details.cached)
-                let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
-                await measurement.measurement.receivedBytes(received: bytes, timestamp: now, cached: details.cached)
+            if let now = now,
+               let presentationTime = frame.samples.first?.presentationTimeStamp {
+                let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                let age = now.timeIntervalSince(presentationDate)
+                measurement.age(age: age, timestamp: now, cached: details.cached)
             }
+            measurement.receivedFrame(timestamp: now,
+                                      idr: frame.objectId == 0,
+                                      cached: details.cached)
+            let bytes = frame.samples.reduce(into: 0) { $0 += $1.totalSampleSize }
+            measurement.receivedBytes(received: bytes, timestamp: now, cached: details.cached)
         }
     }
 
@@ -749,11 +742,9 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                     // Attempt to dequeue a frame.
                     if let item: DecimusVideoFrameJitterItem = self.jitterBuffer!.read(from: now.hostDate) {
                         if self.granularMetrics,
-                           let measurement = self.measurement?.measurement,
+                           let measurement = self.measurement,
                            let time = self.calculateWaitTime(item: item, from: now) {
-                            Task(priority: .utility) {
-                                await measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
-                            }
+                            measurement.frameDelay(delay: -time, metricsTimestamp: now.hostDate)
                         }
 
                         // Because of ordering and FETCH, it's possible the sample
@@ -854,14 +845,12 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 }
                 try decoder!.write(sampleBuffer)
                 if self.granularMetrics,
-                   let measurement = self.measurement?.measurement {
+                   let measurement = self.measurement {
                     let written = Date.now
                     let presentationTime = sampleBuffer.presentationTimeStamp
-                    Task(priority: .utility) {
-                        let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
-                        let age = written.timeIntervalSince(presentationDate)
-                        await measurement.writeDecoder(age: age, timestamp: written)
-                    }
+                    let presentationDate = Date(timeIntervalSince1970: presentationTime.seconds)
+                    let age = written.timeIntervalSince(presentationDate)
+                    measurement.writeDecoder(age: age, timestamp: written)
                 }
             }
         }
@@ -877,9 +866,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         if let measurement = self.measurement,
            self.jitterBufferConfig.mode != .layer {
             let now: Date? = self.granularMetrics ? from : nil
-            Task(priority: .utility) {
-                await measurement.measurement.decodedFrame(timestamp: now)
-            }
+            measurement.decodedFrame(timestamp: now)
         }
 
         if self.jitterBufferConfig.mode != .layer {
@@ -909,9 +896,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 if self.granularMetrics,
                    let measurement = self.measurement {
                     let timestamp = sample.presentationTimeStamp.seconds
-                    Task(priority: .background) {
-                        await measurement.measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
-                    }
+                    measurement.enqueuedFrame(frameTimestamp: timestamp, metricsTimestamp: from)
                 }
             } catch {
                 self.logger.error("Could not enqueue sample: \(error)")

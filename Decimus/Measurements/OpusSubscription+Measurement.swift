@@ -2,38 +2,33 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import AVFAudio
+import Synchronization
 
 extension OpusSubscription {
-    actor OpusSubscriptionMeasurement: Measurement {
-        let id = UUID()
-        var name: String = "OpusSubscription"
-        var fields: Fields = [:]
-        var tags: [String: String] = [:]
-
-        private var frames: UInt64 = 0
-        private var bytes: UInt64 = 0
-        private var missing: UInt64 = 0
-        private var callbacks: UInt64 = 0
-        private var dropped: UInt64 = 0
-        private var playoutFull: UInt64 = 0
+    final class OpusSubscriptionMeasurement: MeasurementBase {
+        private let frames = Atomic<UInt64>(0)
+        private let bytes = Atomic<UInt64>(0)
+        private let missing = Atomic<UInt64>(0)
+        private let dropped = Atomic<UInt64>(0)
+        private let playoutFullCount = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
-            tags["namespace"] = namespace
+            super.init(name: "OpusSubscription", tags: ["namespace": namespace])
         }
 
         func receivedFrames(received: AVAudioFrameCount, timestamp: Date?) {
-            self.frames += UInt64(received)
-            record(field: "receivedFrames", value: self.frames as AnyObject, timestamp: timestamp)
+            let val = frames.wrappingAdd(UInt64(received), ordering: .relaxed).newValue
+            record(field: "receivedFrames", value: val as AnyObject, timestamp: timestamp)
         }
 
         func receivedBytes(received: UInt, timestamp: Date?) {
-            self.bytes += UInt64(received)
-            record(field: "receivedBytes", value: self.bytes as AnyObject, timestamp: timestamp)
+            let val = bytes.wrappingAdd(UInt64(received), ordering: .relaxed).newValue
+            record(field: "receivedBytes", value: val as AnyObject, timestamp: timestamp)
         }
 
         func missingSeq(missingCount: UInt64, timestamp: Date?) {
-            self.missing += missingCount
-            record(field: "missingSeqs", value: self.missing as AnyObject, timestamp: timestamp)
+            let val = missing.wrappingAdd(missingCount, ordering: .relaxed).newValue
+            record(field: "missingSeqs", value: val as AnyObject, timestamp: timestamp)
         }
 
         func framesUnderrun(underrun: UInt64, timestamp: Date?) {
@@ -61,8 +56,8 @@ extension OpusSubscription {
         }
 
         func droppedFrames(dropped: Int, timestamp: Date?) {
-            self.dropped += UInt64(dropped)
-            record(field: "dropped", value: self.dropped as AnyObject, timestamp: timestamp)
+            let val = self.dropped.wrappingAdd(UInt64(dropped), ordering: .relaxed).newValue
+            record(field: "dropped", value: val as AnyObject, timestamp: timestamp)
         }
 
         func depth(depthMs: Int, timestamp: Date) {
@@ -74,8 +69,8 @@ extension OpusSubscription {
         }
 
         func playoutFull(timestamp: Date?) {
-            self.playoutFull += 1
-            record(field: "playoutFull", value: self.playoutFull as AnyObject, timestamp: timestamp)
+            let val = playoutFullCount.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "playoutFull", value: val as AnyObject, timestamp: timestamp)
         }
     }
 }

@@ -78,7 +78,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let queue: DispatchQueue = .init(label: "com.cisco.quicr.Decimus.CaptureManager", qos: .userInteractive)
     private let notifier: NotificationCenter = .default
     private var observer: NSObjectProtocol?
-    private let measurement: MeasurementRegistration<CaptureManagerMeasurement>?
+    private let measurement: CaptureManagerMeasurement?
     private let granularMetrics: Bool
     private let warmupTime: TimeInterval = 0.75
     private var pressureObservations: [AVCaptureDevice: NSObjectProtocol] = [:]
@@ -101,7 +101,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         self.granularMetrics = granularMetrics
         if let metricsSubmitter = metricsSubmitter {
             let measurement = CaptureManager.CaptureManagerMeasurement()
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -408,12 +409,8 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let absoluteTimestamp = self.bootDate.addingTimeInterval(sampleBuffer.presentationTimeStamp.seconds)
 
         // Metrics.
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
-                                                            metricsTimestamp: self.granularMetrics ? now : nil)
-            }
-        }
+        self.measurement?.capturedFrame(frameTimestamp: absoluteTimestamp.timeIntervalSince1970,
+                                        metricsTimestamp: self.granularMetrics ? now : nil)
 
         // Pass on frame to listeners.
         let cameraFrameListeners = getDelegate(output: output)
@@ -435,9 +432,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         self.logger.warning("\(String(describing: reason))")
         guard let measurement = self.measurement else { return }
         let now: Date? = self.granularMetrics ? Date.now : nil
-        Task(priority: .utility) {
-            await measurement.measurement.droppedFrame(timestamp: now)
-        }
+        measurement.droppedFrame(timestamp: now)
     }
 
     private func recordPressureState(_ device: AVCaptureDevice) {
@@ -481,12 +476,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
         // Record pressure state as a metric.
-        if let measurement = measurement?.measurement {
-            let now = Date.now
-            Task(priority: .utility) {
-                await measurement.pressureStateChanged(level: level, metricsTimestamp: now)
-            }
-        }
+        self.measurement?.pressureStateChanged(level: level, metricsTimestamp: Date.now)
         #endif
     }
 }

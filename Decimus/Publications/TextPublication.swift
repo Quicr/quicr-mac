@@ -8,7 +8,7 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
     private let logger: DecimusLogger
     private let sframeContext: SendSFrameContext?
     let sink: MoQSink
-    private let trackMeasurement: MeasurementRegistration<TrackMeasurement>?
+    private let trackMeasurement: TrackMeasurement?
 
     private var currentGroupId: UInt64
     private var currentObjectId: UInt64 = 0
@@ -35,7 +35,8 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
                                                endpointId: endpointId,
                                                relayId: relayId,
                                                namespace: profile.namespace.joined())
-            return .init(measurement: measurement, submitter: submitter)
+            submitter.register(measurement: measurement)
+            return measurement
         }()
         self.sink.delegate = self
     }
@@ -95,10 +96,6 @@ class TextPublication: PublicationInstance, MoQSinkDelegate {
     }
 
     func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
-        if let measurement = self.trackMeasurement?.measurement {
-            Task(priority: .utility) {
-                await measurement.record(metrics)
-            }
-        }
+        self.trackMeasurement?.record(metrics)
     }
 }

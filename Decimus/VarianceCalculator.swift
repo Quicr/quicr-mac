@@ -8,7 +8,7 @@ class VarianceCalculator {
     private let variances: Mutex<[TimeInterval: [Date]]> = .init([:])
     private let varianceMaxCount: Int
     private let expectedOccurrences: Int
-    private let measurement: MeasurementRegistration<VarianceCalculatorMeasurement>?
+    private let measurement: VarianceCalculatorMeasurement?
 
     /// Create a new calculator.
     /// - Parameter expectedOccurences The number of occurences after which a calculation will be completed.
@@ -26,7 +26,8 @@ class VarianceCalculator {
                 throw "Source & stage needed for metrics"
             }
             let measurement = VarianceCalculatorMeasurement(source: source, stage: stage)
-            self.measurement = .init(measurement: measurement, submitter: submitter)
+            submitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -72,11 +73,7 @@ class VarianceCalculator {
             newest = max(newest, date)
         }
         let variance = newest.timeIntervalSince(oldest)
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.reportVariance(variance: variance, timestamp: now, count: times.count)
-            }
-        }
+        self.measurement?.reportVariance(variance: variance, timestamp: now, count: times.count)
         return variance
     }
 }

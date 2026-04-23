@@ -51,7 +51,7 @@ class JitterBuffer {
     private let baseTargetDepthUs: Atomic<UInt64>
     private let adjustmentTargetDepthUs: Atomic<UInt64>
     private var buffer: CMBufferQueue
-    private let measurement: MeasurementRegistration<JitterBufferMeasurement>?
+    private let measurement: JitterBufferMeasurement?
     private let playingFromStart: Bool
     private let play: Atomic<Bool>
     private let lastSequenceRead = Atomic<UInt64>(0)
@@ -86,7 +86,8 @@ class JitterBuffer {
         self.buffer = try .init(capacity: capacity, handlers: handlers)
         if let metricsSubmitter = metricsSubmitter {
             let measurement = JitterBufferMeasurement(namespace: identifier)
-            self.measurement = .init(measurement: measurement, submitter: metricsSubmitter)
+            metricsSubmitter.register(measurement: measurement)
+            self.measurement = measurement
         } else {
             self.measurement = nil
         }
@@ -164,11 +165,7 @@ class JitterBuffer {
         }
 
         // Metrics.
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.write(timestamp: from)
-            }
-        }
+        self.measurement?.write(timestamp: from)
     }
 
     /// Attempt to read a frame from the front of the buffer.
@@ -241,11 +238,7 @@ class JitterBuffer {
                            offset: HostTimeOffset) -> TimeInterval {
         let targetDate = self.getPlayoutDate(item: item, offset: offset)
         let waitTime = targetDate.timeIntervalSince(from)
-        if let measurement = self.measurement {
-            Task(priority: .utility) {
-                await measurement.measurement.waitTime(value: waitTime, timestamp: from.hostDate)
-            }
-        }
+        self.measurement?.waitTime(value: waitTime, timestamp: from.hostDate)
         return waitTime
     }
 
@@ -272,17 +265,16 @@ class JitterBuffer {
                     self.currentDepth = depth!
                     self.baseTargetDepth = baseTargetDepth
                     self.currentAdjustmentDepth = currentAdjustmentDepth
-
                 }
-                await measurement.measurement.currentDepth(depth: depth!,
-                                                           target: baseTargetDepth,
-                                                           adjustment: currentAdjustmentDepth,
-                                                           timestamp: when)
-                if underrun {
-                    await measurement.measurement.underrun(timestamp: when)
-                } else {
-                    await measurement.measurement.read(timestamp: when)
-                }
+            }
+            measurement.currentDepth(depth: depth!,
+                                     target: baseTargetDepth,
+                                     adjustment: currentAdjustmentDepth,
+                                     timestamp: when)
+            if underrun {
+                measurement.underrun(timestamp: when)
+            } else {
+                measurement.read(timestamp: when)
             }
         }
     }
