@@ -44,6 +44,7 @@ class PublicationFactoryImpl: PublicationFactory {
     private let startingGroup: UInt64?
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let appExtensionMode: AppExtensionMode
     private let overrideNamespace: [String]?
     private let useAnnounce: Bool
     private let voiceActivity: VoiceActivityDependencies?
@@ -62,6 +63,7 @@ class PublicationFactoryImpl: PublicationFactory {
          startingGroup: UInt64?,
          sframeContext: SendSFrameContext?,
          mediaInterop: Bool,
+         appExtensionMode: AppExtensionMode,
          overrideNamespace: [String]?,
          useAnnounce: Bool,
          voiceActivity: VoiceActivityDependencies?) {
@@ -79,6 +81,7 @@ class PublicationFactoryImpl: PublicationFactory {
         self.startingGroup = startingGroup
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.appExtensionMode = appExtensionMode
         self.overrideNamespace = overrideNamespace
         self.useAnnounce = useAnnounce
         self.voiceActivity = voiceActivity
@@ -177,6 +180,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   keyFrameOnUpdate: self.keyFrameOnUpdate,
                                                   sframeContext: self.sframeContext,
                                                   mediaInterop: self.mediaInterop,
+                                                  appExtensionMode: self.appExtensionMode,
                                                   sharedVoiceActivity: self.voiceActivity?.sharedVoiceActivity,
                                                   vadRollSubgroup: self.voiceActivity?.vadRollSubgroup ?? false,
                                                   sink: sink)
@@ -206,6 +210,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                        incrementing: .group,
                                        sframeContext: self.sframeContext,
                                        mediaInterop: self.mediaInterop,
+                                       appExtensionMode: self.appExtensionMode,
                                        voiceActivity: self.voiceActivity,
                                        sink: sink)
         case .text:

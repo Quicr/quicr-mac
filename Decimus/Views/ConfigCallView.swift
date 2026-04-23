@@ -4,6 +4,26 @@
 import CryptoKit
 import SwiftUI
 
+enum JoinType {
+    case activeSpeaker
+    case conference
+    case custom(UInt32)
+}
+
+enum JoinTypeStorage: Int, CaseIterable, CustomStringConvertible {
+    case activeSpeaker
+    case conference
+    case custom
+
+    var description: String {
+        switch self {
+        case .activeSpeaker: "Active Speaker"
+        case .conference: "Conference"
+        case .custom: "Custom"
+        }
+    }
+}
+
 struct ConfigCallView: View {
     private enum _State: Equatable {
         case notConnected
@@ -14,11 +34,6 @@ struct ConfigCallView: View {
     @State private var state: _State = .notConnected
     @State private var config: CallConfig?
     private let logger = DecimusLogger(ConfigCallView.self)
-
-    // NAB.
-    private static let nabKey = "nabDemo"
-    @AppStorage(Self.nabKey)
-    private var nab = false
 
     var body: some View {
         if let config = self.config {
@@ -62,7 +77,7 @@ struct ConfigCallView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
         } else {
-            CallSetupView(config: self.$config, nab: self.$nab)
+            CallSetupView(config: self.$config)
                 #if !os(tvOS) && !os(macOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif

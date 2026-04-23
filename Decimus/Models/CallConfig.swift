@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Configuration for joining a call.
-struct CallConfig: Hashable {
+struct CallConfig {
     /// Address of the server.
     var address: String
     /// Email address of the user joining the call
     var email: String = ""
-    /// Conference ID to join
-    var conferenceID: UInt32 = 0
+    /// The join type.
+    var joinType: JoinType
 }
