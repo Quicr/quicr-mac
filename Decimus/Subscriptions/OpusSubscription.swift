@@ -143,7 +143,7 @@ class OpusSubscription: Subscription {
         // Metrics.
         let date: Date? = self.granularMetrics ? now.hostDate : nil
 
-        guard let immutableExtensions else {
+        guard let effectiveExtensions = immutableExtensions ?? extensions else {
             self.logger.warning("Missing expected extensions")
             return
         }
@@ -151,7 +151,7 @@ class OpusSubscription: Subscription {
         let sequence: UInt64
         let timestamp: Date
         do {
-            let (seq, time) = try self.parseExtensionHeaders(immutableExtensions)
+            let (seq, time) = try self.parseExtensionHeaders(effectiveExtensions)
             sequence = seq ?? objectHeaders.groupId
             timestamp = time
         } catch {
@@ -161,7 +161,7 @@ class OpusSubscription: Subscription {
 
         // Active speaker metric.
         if let activeSpeakerStats = self.activeSpeakerStats,
-           let participantId = try? immutableExtensions.getHeader(.participantId),
+           let participantId = try? effectiveExtensions.getHeader(.participantId),
            case .participantId(let id) = participantId {
             Task(priority: .utility) {
                 await activeSpeakerStats.audioDetected(id, when: now.hostDate)

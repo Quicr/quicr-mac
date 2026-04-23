@@ -6,14 +6,12 @@
 @implementation QTrackFilterObjC
 
 - (id _Nonnull)initWithPropertyType:(uint64_t)propertyType
-                   maxTracksSelected:(uint64_t)maxTracksSelected
-                 maxTracksDeselected:(uint64_t)maxTracksDeselected
-                    maxTimeSelected:(uint64_t)maxTimeSelected {
+                  maxTracksSelected:(uint64_t)maxTracksSelected
+                            timeout:(uint64_t)timeout {
     self = [super init];
     _propertyType = propertyType;
     _maxTracksSelected = maxTracksSelected;
-    _maxTracksDeselected = maxTracksDeselected;
-    _maxTimeSelected = maxTimeSelected;
+    _timeout = timeout;
     return self;
 }
 

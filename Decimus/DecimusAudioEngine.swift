@@ -241,9 +241,9 @@ class DecimusAudioEngine {
         stopped = false
     }
 
-    /// Stop the audio engine running. It is an error to call this when already stopped.
+    /// Stop the audio engine running.
     func stop() throws {
-        guard engine.isRunning else { throw "Not running" }
+        guard engine.isRunning else { return }
         engine.stop()
         #if !os(macOS)
         try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)

@@ -47,6 +47,10 @@ struct SettingsView: View {
     @AppStorage(Self.moqRoleKey)
     private var moqRole: MoQRole = .both
 
+    static let appExtensionModeKey = "appExtensionMode"
+    @AppStorage(Self.appExtensionModeKey)
+    private var appExtensionMode: AppExtensionMode = .mutable
+
     // Audio demo settings.
     // TODO: Probably smarten this up a bit.
 
@@ -62,13 +66,9 @@ struct SettingsView: View {
     @AppStorage(Self.demoMaxTracksSelectedKey)
     private var demoMaxTracksSelected: Int = 1
 
-    static let demoMaxTracksDeselectedKey = "demoMaxTracksDeselected"
-    @AppStorage(Self.demoMaxTracksDeselectedKey)
-    private var demoMaxTracksDeselected: Int = 0
-
-    static let demoMaxTimeSelectedKey = "demoMaxTimeSelected"
-    @AppStorage(Self.demoMaxTimeSelectedKey)
-    private var demoMaxTimeSelected: TimeInterval = 0.5
+    static let demoTimeoutKey = "demoMaxTimeSelected"
+    @AppStorage(Self.demoTimeoutKey)
+    private var demoTimeout: TimeInterval = 0.5
 
     static let demoTimeToSpeechStartKey = "demoTimeToSpeechStart"
     @AppStorage(Self.demoTimeToSpeechStartKey)
@@ -88,7 +88,7 @@ struct SettingsView: View {
 
     static let demoVadRollSubgroupKey = "demoVadRollSubgroup"
     @AppStorage(Self.demoVadRollSubgroupKey)
-    private var demoVadRollSubgroup: Bool = true
+    private var demoVadRollSubgroup: Bool = false
 
     static let demoVadAggressivenessKey = "demoVadAggressiveness"
     @AppStorage(Self.demoVadAggressivenessKey)
@@ -126,13 +126,13 @@ struct SettingsView: View {
                     UserDefaults.standard.removeObject(forKey: SettingsView.useOverrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.overrideNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.moqRoleKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.appExtensionModeKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.subscribeNamespaceAcceptKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoEnabledKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMeetingIdKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksSelectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTracksDeselectedKey)
-                    UserDefaults.standard.removeObject(forKey: SettingsView.demoMaxTimeSelectedKey)
+                    UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeoutKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToSpeechStartKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToContinuousKey)
                     UserDefaults.standard.removeObject(forKey: SettingsView.demoTimeToDropStartKey)
@@ -165,6 +165,15 @@ struct SettingsView: View {
                     Picker("MoQ Role", selection: self.$moqRole) {
                         ForEach(MoQRole.allCases) { role in
                             Text(role.description).tag(role)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                }
+                LabeledContent("App Extensions") {
+                    Picker("App Extensions", selection: self.$appExtensionMode) {
+                        ForEach(AppExtensionMode.allCases) { mode in
+                            Text(mode.description).tag(mode)
                         }
                     }
                     .labelsHidden()
@@ -278,14 +287,8 @@ struct SettingsView: View {
                         .keyboardType(.numberPad)
                     #endif
                 }
-                LabeledContent("Max Tracks Deselected") {
-                    TextField("Max Tracks Deselected", value: self.$demoMaxTracksDeselected, format: .number)
-                        #if !os(macOS)
-                        .keyboardType(.numberPad)
-                    #endif
-                }
-                LabeledContent("Max Time Selected (s)") {
-                    TextField("Max Time Selected (s)", value: self.$demoMaxTimeSelected, format: .number)
+                LabeledContent("Timeout (s)") {
+                    TextField("Timeout (s)", value: self.$demoTimeout, format: .number)
                         #if !os(macOS)
                         .keyboardType(.decimalPad)
                     #endif

@@ -130,11 +130,16 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
         assert(Thread.isMainThread)
+        defer {
+            self.namespaceHandlers.removeAll()
+            self.publications.removeAll()
+            self.subscriptions.removeAll()
+        }
+        guard self.connected else { return }
         for (_, handler) in self.namespaceHandlers {
             guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else { continue }
             self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
         }
-        self.namespaceHandlers.removeAll()
         for publication in self.publications {
             try self.unpublish(publication.key)
         }
@@ -146,8 +151,6 @@ class MoqCallController: QClientCallbacks {
             throw MoqCallControllerError.connectionFailure(status)
         }
         self.logger.info("[MoqCallController] Disconnected")
-        self.publications.removeAll()
-        self.subscriptions.removeAll()
     }
 
     // MARK: Pub/Sub Modification APIs.

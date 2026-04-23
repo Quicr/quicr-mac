@@ -15,7 +15,10 @@
                          endLocation: (id<QFetchEndLocation> _Nonnull) end_location
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    const auto order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    std::optional<quicr::messages::GroupOrder> order;
+    if (groupOrder != kQGroupOrderOriginalPublisherOrder) {
+        order = static_cast<quicr::messages::GroupOrder>(groupOrder);
+    }
     const quicr::messages::Location startLocation = {
         .group = start_location.group,
         .object = start_location.object
@@ -53,7 +56,9 @@
 
 -(QGroupOrder) getGroupOrder {
     assert(handlerPtr);
-    return static_cast<QGroupOrder>(handlerPtr->GetGroupOrder());
+    const auto order = handlerPtr->GetGroupOrder();
+    if (!order.has_value()) return kQGroupOrderOriginalPublisherOrder;
+    return static_cast<QGroupOrder>(*order);
 }
 
 -(QFilterType) getFilterType {
@@ -86,7 +91,7 @@
 
 QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
                                        std::uint8_t priority,
-                                       quicr::messages::GroupOrder group_order,
+                                       std::optional<quicr::messages::GroupOrder> group_order,
                                        const quicr::messages::Location& start_location,
                                        const quicr::messages::FetchEndLocation& end_location) : quicr::FetchTrackHandler(full_track_name,
                                                                                                         priority,

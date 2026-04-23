@@ -164,12 +164,9 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Stop capturing media.
     /// - Throws: ``CaptureManagerError/mainThread``. Must be called on the main thread.
-    /// ``CaptureManagerError/badSessionState`` if already stopped.
     func stopCapturing() throws {
         guard Thread.isMainThread else { throw CaptureManagerError.mainThread }
-        guard session.isRunning else {
-            throw CaptureManagerError.badSessionState
-        }
+        guard self.session.isRunning else { return }
         self.session.stopRunning()
     }
 

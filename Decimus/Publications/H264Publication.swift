@@ -54,6 +54,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
     private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
+    private let appExtensionMode: AppExtensionMode
     private let sharedVoiceActivity: SharedVoiceActivityState?
     private let vadRollSubgroup: Bool
     private var vadTransition = VideoVADTransition()
@@ -259,14 +260,16 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
             if publication.granularMetrics {
                 try extensions.setHeader(.publishTimestamp(.now))
             }
+            let mutableExt = publication.appExtensionMode == .mutable ? extensions : nil
+            let immutableExt = publication.appExtensionMode == .immutable ? extensions : nil
             return (publication.publish(groupId: thisGroupId,
                                         subgroupId: thisSubgroupId,
                                         objectId: thisObjectId,
                                         data: protected,
                                         priority: &priority,
                                         ttl: &ttl,
-                                        extensions: nil,
-                                        immutableExtensions: extensions),
+                                        extensions: mutableExt,
+                                        immutableExtensions: immutableExt),
                     protected.count)
         }
         switch status.0 {
@@ -313,6 +316,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
                   keyFrameOnUpdate: Bool,
                   sframeContext: SendSFrameContext?,
                   mediaInterop: Bool,
+                  appExtensionMode: AppExtensionMode,
                   sharedVoiceActivity: SharedVoiceActivityState? = nil,
                   vadRollSubgroup: Bool = true,
                   sink: MoQSink) throws {
@@ -343,6 +347,7 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.keyFrameOnUpdate = keyFrameOnUpdate
         self.sframeContext = sframeContext
         self.mediaInterop = mediaInterop
+        self.appExtensionMode = appExtensionMode
         self.sharedVoiceActivity = sharedVoiceActivity
         self.vadRollSubgroup = vadRollSubgroup
         self.logger.info("Registered H264 publication for namespace \(namespace)")
