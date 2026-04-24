@@ -3,10 +3,10 @@
 
 /// A subscription that provides received objects via a callback.
 class CallbackSubscription: Subscription {
-    typealias SubscriptionCallback = (_ headers: QObjectHeaders,
-                                      _ data: Data,
-                                      _ extensions: HeaderExtensions?,
-                                      _ immutableExtensions: HeaderExtensions?) -> Void
+    typealias SubscriptionCallback = @Sendable (_ headers: QObjectHeaders,
+                                                _ data: Data,
+                                                _ extensions: HeaderExtensions?,
+                                                _ immutableExtensions: HeaderExtensions?) -> Void
     private let callback: SubscriptionCallback
 
     init(fullTrackName: FullTrackName,

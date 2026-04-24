@@ -24,8 +24,8 @@ extension QSubscribeTrackHandlerStatus: Equatable, CaseIterable {
 }
 
 /// Base implementation for a track handler, handling generic metrics and callbacks.
-class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks {
-    typealias StatusCallback = (QSubscribeTrackHandlerStatus) -> Void
+class Subscription: QSubscribeTrackHandlerObjC, QSubscribeTrackHandlerCallbacks, @unchecked Sendable {
+    typealias StatusCallback = @Sendable (QSubscribeTrackHandlerStatus) -> Void
     private let quicrMeasurement: TrackMeasurement?
     private let logger = DecimusLogger(Subscription.self)
     private let statusCallback: StatusCallback?

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Subscription set for handling active speaker audio arriving on multiple tracks.
-class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet {
+class ActiveSpeakerSubscriptionSet: ObservableSubscriptionSet, @unchecked Sendable {
     // Dependencies.
     private let logger = DecimusLogger(ActiveSpeakerSubscriptionSet.self)
     private let engine: DecimusAudioEngine

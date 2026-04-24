@@ -49,12 +49,14 @@ struct ObservableSubscriptionSetDetails: View {
                         if let subscription = handlers[manifestFtn] {
                             if let subscription = subscription as? VideoSubscription {
                                 if let videoHandler = subscription.handler.get(),
-                                   let buffer = videoHandler.jitterBuffer {
+                                   let buffer = videoHandler.jitterBuffer,
+                                   let currentDepth = buffer.currentDepth,
+                                   let baseTargetDepth = buffer.baseTargetDepth {
                                     HStack {
                                         Text("Current:")
                                         Spacer()
                                         HStack {
-                                            Text(buffer.currentDepth * 1000,
+                                            Text(currentDepth * 1000,
                                                  format: .number.precision(.fractionLength(2)))
                                             Text("ms")
                                         }
@@ -63,7 +65,7 @@ struct ObservableSubscriptionSetDetails: View {
                                         Text("Target:")
                                         Spacer()
                                         HStack {
-                                            Text(buffer.baseTargetDepth * 1000,
+                                            Text(baseTargetDepth * 1000,
                                                  format: .number.precision(.fractionLength(2)))
                                             Text("ms")
                                         }
