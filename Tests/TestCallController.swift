@@ -200,7 +200,7 @@ final class TestCallController: XCTestCase {
 
         // Display notification.
         private let callbacks = Mutex<DisplayCallbacks>(.init())
-        func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
+        func registerDisplayCallback(_ callback: @escaping DisplayCallback) {
             self.callbacks.store(callback)
         }
         func unregisterDisplayCallback(_ token: Int) {
