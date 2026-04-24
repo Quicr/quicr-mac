@@ -23,7 +23,7 @@ private struct LoginForm: View {
     @AppStorage(RelaySettingsView.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
-    @AppStorage("manifestConfig")
+    @AppStorage(ManifestSettingsView.defaultsKey)
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     @AppStorage("confId")
