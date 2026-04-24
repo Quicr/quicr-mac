@@ -79,7 +79,7 @@ func moqDecodeTuple(_ string: Substring) throws -> Data {
 }
 
 /// A MoQ full track name identifies a track within a namespace.
-class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible {
+final class FullTrackName: QFullTrackName, Hashable, CustomStringConvertible, Sendable {
     /// Serialized representation per MoQ encoding (RFC Section 1.5).
     var description: String {
         let nsPart = nameSpace.map { moqEncodeTuple($0) }.joined(separator: "-")

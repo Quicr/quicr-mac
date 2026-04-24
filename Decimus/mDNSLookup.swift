@@ -11,9 +11,8 @@ enum MDNSError: Error {
     case failed
 }
 
-class MDNSLookup {
+struct MDNSLookup: Sendable {
     private let logger = DecimusLogger(MDNSLookup.self)
-    private var continuation: CheckedContinuation<Set<NWBrowser.Result>, Error>?
     private let type: String
     init(_ type: String) {
         self.type = type

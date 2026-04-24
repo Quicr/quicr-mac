@@ -23,7 +23,7 @@ private struct LoginForm: View {
     @AppStorage(RelaySettingsView.defaultsKey)
     private var relayConfig: AppStorageWrapper<RelayConfig> = .init(value: .init())
 
-    @AppStorage("manifestConfig")
+    @AppStorage(ManifestSettingsView.defaultsKey)
     private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
 
     @AppStorage("confId")
@@ -186,10 +186,9 @@ private struct LoginForm: View {
     private func fetchManifest() async {
         self.isAllowedJoin = false
         self.isLoading = true
-        ManifestController.shared.setServer(config: self.manifestConfig.value)
-
+        let controller = ManifestController(config: self.manifestConfig.value)
         do {
-            self.meetings = try await ManifestController.shared.getConferences(for: self.email)
+            self.meetings = try await controller.getConferences(for: self.email)
                 .reduce(into: [:]) { $0[$1.id] = $1.title }
         } catch {
             self.logger.error("Failed to fetch manifest: \(error.localizedDescription)")

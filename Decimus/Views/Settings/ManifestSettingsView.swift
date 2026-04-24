@@ -76,7 +76,6 @@ struct ManifestSettingsView: View {
             self.configs = await getConfigs()
         }
         .onChange(of: self.manifestConfig.value) {
-            ManifestController.shared.setServer(config: self.manifestConfig.value)
             Task {
                 self.configs = await self.getConfigs()
             }
@@ -84,10 +83,11 @@ struct ManifestSettingsView: View {
     }
 
     private func getConfigs() async -> [String] {
+        let controller = ManifestController(config: self.manifestConfig.value)
         self.showProgressView = true
         defer { self.showProgressView = false }
         do {
-            let configs = try await ManifestController.shared.getConfigs()
+            let configs = try await controller.getConfigs()
             self.error = nil
             let sorted = configs.sorted { $0.configProfile < $1.configProfile }
             return sorted.reduce(into: [], { $0.append($1.configProfile) })

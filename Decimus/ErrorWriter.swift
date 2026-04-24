@@ -4,12 +4,12 @@
 import os
 
 /// Application logger.
-class DecimusLogger {
+struct DecimusLogger: Sendable {
     private let logger: Logger
     private let category: String
 
     /// Possible log level.
-    enum LogLevel: UInt8 {
+    enum LogLevel: UInt8, Sendable {
         /// An error, always presented to the user.
         case error
         /// A warning, optionally presented to the user.
@@ -21,7 +21,7 @@ class DecimusLogger {
     }
 
     /// A log message and metadata.
-    struct DecimusLogEntry: Identifiable {
+    struct DecimusLogEntry: Identifiable, Sendable {
         /// Unique identifier for this log message.
         let id = UUID()
         /// The date the associated event occurred.
@@ -35,11 +35,14 @@ class DecimusLogger {
     }
 
     /// SwiftUI holder for log messages.
-    class ObservableLogs: ObservableObject {
-        @Published var alerts: [DecimusLogEntry] = []
+    @Observable
+    @MainActor
+    final class ObservableLogs {
+        var alerts: [DecimusLogEntry] = []
     }
 
     /// Shared app-wide log holder.
+    @MainActor
     static let shared = ObservableLogs()
     private let prefix: String?
 
@@ -69,12 +72,10 @@ class DecimusLogger {
         self.logger.log(level: OSLogType(level), "\(msg, privacy: .public)")
         guard alert else { return }
         let now = Date.now
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            guard !Self.shared.alerts.contains(where: { $0.message == msg }) else {
-                return
-            }
-            Self.shared.alerts.append(.init(date: now, category: self.category, level: level, message: msg))
+        let category = self.category
+        Task { @MainActor in
+            guard !Self.shared.alerts.contains(where: { $0.message == msg }) else { return }
+            Self.shared.alerts.append(.init(date: now, category: category, level: level, message: msg))
         }
     }
 

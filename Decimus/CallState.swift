@@ -167,6 +167,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     @AppStorage(SettingsView.demoVadAggressivenessKey)
     private var demoVadAggressiveness: Int = 3
 
+    @AppStorage(ManifestSettingsView.defaultsKey)
+    private var manifestConfig: AppStorageWrapper<ManifestServerConfig> = .init(value: .init())
+
     // The handlers for the demo subscribe namespace.
     private var demoNamespaceHandlers: [QSubscribeNamespaceHandler] = []
 
@@ -235,7 +238,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         case .custom(let confId):
             let manifest: Manifest
             do {
-                let mController = ManifestController.shared
+                let mController = ManifestController(config: self.manifestConfig.value)
                 manifest = try await mController.getManifest(confId: confId,
                                                              email: self.config.email)
             } catch {
