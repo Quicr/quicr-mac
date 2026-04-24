@@ -4,14 +4,12 @@
 import SwiftUI
 import AVFoundation
 
-class PreviewUIView: VideoUIView, FrameListener {
-    let queue: DispatchQueue
-    let device: AVCaptureDevice
-    let codec: VideoCodecConfig? = nil
+class PreviewUIView: VideoUIView {
     let captureManager: CaptureManager
+    private let device: AVCaptureDevice
+    private(set) lazy var frameListener = PreviewFrameListener(device: self.device, view: self)
 
     init(device: AVCaptureDevice, captureManager: CaptureManager, frame: CGRect) {
-        self.queue = .global(qos: .default)
         self.device = device
         self.captureManager = captureManager
         super.init(frame: frame)
@@ -21,12 +19,30 @@ class PreviewUIView: VideoUIView, FrameListener {
         fatalError("init(coder:) has not been implemented")
     }
 
+    fileprivate func enqueue(_ sampleBuffer: CMSampleBuffer) {
+        guard let layer = self.layer as? AVSampleBufferDisplayLayer else {
+            fatalError()
+        }
+        layer.sampleBufferRenderer.enqueue(sampleBuffer)
+    }
+}
+
+final class PreviewFrameListener: FrameListener {
+    let queue: DispatchQueue = .main
+    let device: AVCaptureDevice
+    let codec: VideoCodecConfig? = nil
+    private weak var view: PreviewUIView?
+
+    init(device: AVCaptureDevice, view: PreviewUIView) {
+        self.device = device
+        self.view = view
+    }
+
     func onFrame(_ sampleBuffer: CMSampleBuffer, timestamp: Date) {
-        DispatchQueue.main.async {
-            guard let layer = self.layer as? AVSampleBufferDisplayLayer else {
-                fatalError()
-            }
-            layer.enqueue(sampleBuffer)
+        let view = self.view
+        nonisolated(unsafe) let sampleBuffer = sampleBuffer
+        MainActor.assumeIsolated {
+            view?.enqueue(sampleBuffer)
         }
     }
 }
@@ -47,7 +63,7 @@ struct PreviewView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> PreviewUIView {
         do {
-            try captureManager.addInput(self.view)
+            try captureManager.addInput(self.view.frameListener)
         } catch {
             self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
         }
@@ -59,7 +75,7 @@ struct PreviewView: NSViewRepresentable {
     static func dismantleNSView(_ nsView: PreviewUIView, coordinator: ()) {
         let logger = DecimusLogger(PreviewView.self)
         do {
-            try nsView.captureManager.removeInput(listener: nsView)
+            try nsView.captureManager.removeInput(listener: nsView.frameListener)
         } catch {
             logger.error("Failed to remove input for preview: \(error.localizedDescription)")
         }
@@ -80,7 +96,7 @@ struct PreviewView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PreviewUIView {
         do {
-            try captureManager.addInput(self.view)
+            try captureManager.addInput(self.view.frameListener)
         } catch {
             self.logger.error("Failed to add input for preview: \(error.localizedDescription)")
         }
@@ -93,7 +109,7 @@ struct PreviewView: UIViewRepresentable {
     static func dismantleUIView(_ uiView: PreviewUIView, coordinator: Self.Coordinator) {
         let logger = DecimusLogger(PreviewView.self)
         do {
-            try uiView.captureManager.removeInput(listener: uiView)
+            try uiView.captureManager.removeInput(listener: uiView.frameListener)
         } catch {
             logger.error("Failed to remove input for preview: \(error.localizedDescription)")
         }
