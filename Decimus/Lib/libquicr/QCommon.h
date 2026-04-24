@@ -59,8 +59,8 @@ typedef struct QObjectHeaders {
     const uint64_t objectId;
     const uint64_t payloadLength;
     const QObjectStatus status;
-    const uint8_t* priority;
-    const uint16_t* ttl;
+    const uint8_t* _Nullable priority;
+    const uint16_t* _Nullable ttl;
 } QObjectHeaders;
 
 #ifdef __cplusplus
