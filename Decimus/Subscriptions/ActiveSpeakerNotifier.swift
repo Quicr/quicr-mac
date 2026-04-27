@@ -75,6 +75,8 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         }
     }
 
+    // FIXME: Annotation workaround Swift bug in <6.3 (swift#87462).
+    @_optimize(none)
     isolated deinit {
         guard let callbackToken else { return }
         self.notifier.unregisterActiveSpeakerCallback(callbackToken)
