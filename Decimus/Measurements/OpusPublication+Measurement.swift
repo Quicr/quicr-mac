@@ -4,12 +4,15 @@
 import Synchronization
 
 extension OpusPublication {
-    final class OpusPublicationMeasurement: MeasurementBase {
+    final class OpusPublicationMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "OpusPublication"
+        let tags: [String: String]
         private let frames = Atomic<UInt64>(0)
         private let bytes = Atomic<UInt64>(0)
 
         init(namespace: String) {
-            super.init(name: "OpusPublication", tags: ["namespace": namespace])
+            self.tags = ["namespace": namespace]
         }
 
         func publishedBytes(sentBytes: Int, timestamp: Date?) {

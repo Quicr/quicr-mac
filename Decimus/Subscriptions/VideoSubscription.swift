@@ -8,7 +8,7 @@ import Synchronization
 /// Holds an object for decoding & rendering.
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
-class VideoSubscription: Subscription {
+class VideoSubscription: Subscription, @unchecked Sendable {
     struct JoinConfig<T: Codable>: Codable {
         var fetchUpperThreshold: T
         var newGroupUpperThreshold: T
@@ -461,7 +461,6 @@ class VideoSubscription: Subscription {
 
         // Record the time this arrived.
         let now = Ticks.now
-        let previousUpdateTime = self.lastUpdateTime.load(ordering: .acquiring)
         self.lastUpdateTime.store(now, ordering: .releasing)
 
         // Per-frame logging.

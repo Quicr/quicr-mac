@@ -36,10 +36,10 @@ class CoreWLANWiFiScanNotifier: WiFiScanNotifier, CWEventDelegate {
     }
 }
 
-final class WiFiCacheEventMeasurement: MeasurementBase {
-    init() {
-        super.init(name: "WiFi Scan")
-    }
+final class WiFiCacheEventMeasurement: MetricsMeasurement {
+    let storage = MeasurementStorage()
+    let name = "WiFi Scan"
+    let tags: [String: String] = [:]
 
     func updated(timestamp: Date) {
         self.record(field: "Updated", value: 1, timestamp: timestamp)

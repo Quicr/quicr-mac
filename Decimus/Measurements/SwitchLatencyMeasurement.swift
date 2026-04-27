@@ -3,10 +3,10 @@
 
 import Foundation
 
-final class SwitchLatencyMeasurement: MeasurementBase {
-    init() {
-        super.init(name: "switch_latency")
-    }
+final class SwitchLatencyMeasurement: MetricsMeasurement {
+    let storage = MeasurementStorage()
+    let name = "switch_latency"
+    let tags: [String: String] = [:]
 
     func record(context: SwitchContext, renderTime: Date, participant: String) {
         guard let joinStrategy = context.joinStrategy,

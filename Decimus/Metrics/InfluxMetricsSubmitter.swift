@@ -7,9 +7,9 @@ import Synchronization
 
 final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
     private class WeakMeasurement {
-        weak var measurement: (any Measurement)?
+        weak var measurement: (any MetricsMeasurement)?
         let id: UUID
-        init (_ measurement: any Measurement) {
+        init (_ measurement: any MetricsMeasurement) {
             self.measurement = measurement
             self.id = measurement.id
         }
@@ -30,7 +30,7 @@ final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
         self.tags = tags
     }
 
-    func register(measurement: Measurement) {
+    func register(measurement: MetricsMeasurement) {
         measurements.withLock { dict in
             let updated = dict.updateValue(.init(measurement), forKey: measurement.id)
             assert(updated == nil)

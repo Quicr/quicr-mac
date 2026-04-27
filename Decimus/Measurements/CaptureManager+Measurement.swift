@@ -4,13 +4,12 @@
 import Synchronization
 
 extension CaptureManager {
-    final class CaptureManagerMeasurement: MeasurementBase {
+    final class CaptureManagerMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "CaptureManager"
+        let tags: [String: String] = [:]
         private let capturedFrames = Atomic<UInt64>(0)
         private let dropped = Atomic<UInt64>(0)
-
-        init() {
-            super.init(name: "CaptureManager")
-        }
 
         func droppedFrame(timestamp: Date?) {
             let val = dropped.wrappingAdd(1, ordering: .relaxed).newValue

@@ -4,7 +4,10 @@
 import Synchronization
 
 extension JitterBuffer {
-    final class JitterBufferMeasurement: MeasurementBase {
+    final class JitterBufferMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "VideoJitterBuffer"
+        let tags: [String: String]
         private let underruns = Atomic<UInt64>(0)
         private let reads = Atomic<UInt64>(0)
         private let writes = Atomic<UInt64>(0)
@@ -12,7 +15,7 @@ extension JitterBuffer {
         private let pausedWaitTime = Mutex<Bool>(false)
 
         init(namespace: QuicrNamespace) {
-            super.init(name: "VideoJitterBuffer", tags: ["namespace": namespace])
+            self.tags = ["namespace": namespace]
         }
 
         func currentDepth(depth: TimeInterval, target: TimeInterval, adjustment: TimeInterval, timestamp: Date?) {

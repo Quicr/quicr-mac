@@ -12,50 +12,45 @@ struct Point {
 
 typealias Fields = [Date?: [Point]]
 
-protocol Measurement: AnyObject, Sendable {
-    var id: UUID { get }
-    var name: String { get }
-    var tags: [String: String] { get }
-    func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]?)
-    func record(field: String, value: Double, timestamp: Date?, tags: [String: String]?)
-    func drain() -> Fields
-}
-
-extension Measurement {
-    func record(field: String, value: AnyObject, timestamp: Date?) {
-        record(field: field, value: value, timestamp: timestamp, tags: nil)
-    }
-
-    func record(field: String, value: Double, timestamp: Date?) {
-        record(field: field, value: value, timestamp: timestamp, tags: nil)
-    }
-}
-
-/// Base class for all measurements. Provides Mutex-backed storage for fields.
-/// Subclasses provide `name`, `tags`, and domain-specific convenience methods.
-/// Mutable counters in subclasses should use Atomic<UInt64> rather than stored vars.
-class MeasurementBase: @unchecked Sendable, Measurement {
+/// Mutex-backed storage shared by every Measurement. Holding this by composition
+/// (rather than inheriting from a base class) lets concrete measurements be `final`
+/// and get real `Sendable` conformance, with @unchecked localised here where
+/// `AnyObject` field values force it.
+final class MeasurementStorage: Sendable {
     let id = UUID()
-    let name: String
-    private let _tags: [String: String]
-    var tags: [String: String] { _tags }
+    private let fields = Mutex<Fields>([:])
 
-    private let storage = Mutex<Fields>([:])
-
-    init(name: String, tags: [String: String] = [:]) {
-        self.name = name
-        self._tags = tags
-    }
-
-    func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]? = nil) {
-        storage.withLock { fields in
-            if fields[timestamp] == nil { fields[timestamp] = [] }
-            fields[timestamp]!.append(.init(fieldName: field, value: value, tags: tags))
+    func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]?) {
+        self.fields.withLock { f in
+            if f[timestamp] == nil { f[timestamp] = [] }
+            f[timestamp]!.append(.init(fieldName: field, value: value, tags: tags))
         }
     }
 
-    // Existing behaviour preserved: adds .ulpOfOne to integer-valued doubles
-    // to force InfluxDB float field typing.
+    func drain() -> Fields {
+        self.fields.withLock { f in
+            let r = f
+            f.removeAll(keepingCapacity: true)
+            return r
+        }
+    }
+}
+
+protocol MetricsMeasurement: AnyObject, Sendable {
+    var storage: MeasurementStorage { get }
+    var name: String { get }
+    var tags: [String: String] { get }
+}
+
+extension MetricsMeasurement {
+    var id: UUID { self.storage.id }
+
+    func record(field: String, value: AnyObject, timestamp: Date?, tags: [String: String]? = nil) {
+        self.storage.record(field: field, value: value, timestamp: timestamp, tags: tags)
+    }
+
+    /// Existing behaviour preserved: adds `.ulpOfOne` to integer-valued doubles to
+    /// force InfluxDB float field typing.
     func record(field: String, value: Double, timestamp: Date?, tags: [String: String]? = nil) {
         let floatValue: TimeInterval
         if value == 0 || Int(exactly: value) != nil {
@@ -63,14 +58,8 @@ class MeasurementBase: @unchecked Sendable, Measurement {
         } else {
             floatValue = value
         }
-        record(field: field, value: floatValue as AnyObject, timestamp: timestamp, tags: tags)
+        self.record(field: field, value: floatValue as AnyObject, timestamp: timestamp, tags: tags)
     }
 
-    func drain() -> Fields {
-        storage.withLock { fields in
-            let result = fields
-            fields.removeAll(keepingCapacity: true)
-            return result
-        }
-    }
+    func drain() -> Fields { self.storage.drain() }
 }

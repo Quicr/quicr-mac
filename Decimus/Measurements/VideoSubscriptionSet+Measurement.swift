@@ -11,9 +11,13 @@ extension VideoSubscriptionSet {
         let displayed: Bool
     }
 
-    final class VideoSubscriptionMeasurement: MeasurementBase {
+    final class VideoSubscriptionMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "VideoSubscription"
+        let tags: [String: String]
+
         init(source: SourceIDType) {
-            super.init(name: "VideoSubscription", tags: ["sourceId": source])
+            self.tags = ["sourceId": source]
         }
 
         func reportSimulreceiveChoice(choices: [SimulreceiveChoiceReport], timestamp: Date) throws {

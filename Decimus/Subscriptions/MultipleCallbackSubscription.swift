@@ -4,7 +4,7 @@
 import Synchronization
 
 /// A subscription that provides received objects via a callback.
-class MultipleCallbackSubscription: Subscription {
+class MultipleCallbackSubscription: Subscription, @unchecked Sendable {
     struct Callbacks: ~Copyable {
         var callbacks: [Int: CallbackSubscription.SubscriptionCallback] = [:]
         var latestToken = 0

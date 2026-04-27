@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension ActiveSpeakerStats {
-    final class ActiveSpeakerStatsMeasurement: MeasurementBase {
-        init() {
-            super.init(name: "ActiveSpeaker")
-        }
+    final class ActiveSpeakerStatsMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "ActiveSpeaker"
+        let tags: [String: String] = [:]
 
         func record(identifier: ParticipantId, timestamp: Date, event: CurrentState) {
             record(field: "events",

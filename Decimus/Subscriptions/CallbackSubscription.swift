@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// A subscription that provides received objects via a callback.
-class CallbackSubscription: Subscription {
+class CallbackSubscription: Subscription, @unchecked Sendable {
     typealias SubscriptionCallback = @Sendable (_ headers: QObjectHeaders,
                                                 _ data: Data,
                                                 _ extensions: HeaderExtensions?,

@@ -4,13 +4,16 @@
 import Synchronization
 
 extension VideoHandler {
-    final class VideoHandlerMeasurement: MeasurementBase {
+    final class VideoHandlerMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "VideoHandler"
+        let tags: [String: String]
         private let frames = Atomic<UInt64>(0)
         private let bytes = Atomic<UInt64>(0)
         private let decoded = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
-            super.init(name: "VideoHandler", tags: ["namespace": namespace])
+            self.tags = ["namespace": namespace]
         }
 
         func timestamp(timestamp: TimeInterval, when: Date, cached: Bool) {

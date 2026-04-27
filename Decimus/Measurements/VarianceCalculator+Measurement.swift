@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 extension VarianceCalculator {
-    final class VarianceCalculatorMeasurement: MeasurementBase {
+    final class VarianceCalculatorMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "VarianceCalculator"
+        let tags: [String: String]
+
         init(source: String, stage: String) {
-            super.init(name: "VarianceCalculator", tags: ["sourceId": source, "stage": stage])
+            self.tags = ["sourceId": source, "stage": stage]
         }
 
         func reportVariance(variance: TimeInterval, timestamp: Date, count: Int) {

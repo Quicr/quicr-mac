@@ -3,7 +3,7 @@
 
 import Synchronization
 
-extension Measurement {
+extension MetricsMeasurement {
     func record(_ prefix: String, values: QMinMaxAvg, time: Date) {
         self.record(field: "\(prefix)_min", value: values.min as AnyObject, timestamp: time)
         self.record(field: "\(prefix)_max", value: values.max as AnyObject, timestamp: time)
@@ -12,19 +12,19 @@ extension Measurement {
 }
 
 extension MoqCallController {
-    final class MoqCallControllerMeasurement: MeasurementBase {
+    final class MoqCallControllerMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "quic-connection"
         private let mutableTags: Mutex<[String: String]>
         private let _setup = Atomic<Bool>(false)
         var setup: Bool { _setup.load(ordering: .relaxed) }
 
-        override var tags: [String: String] {
+        var tags: [String: String] {
             mutableTags.withLock { $0 }
         }
 
         init(endpointId: String) {
-            let tags = ["endpoint_id": endpointId, "source": "client"]
-            self.mutableTags = Mutex(tags)
-            super.init(name: "quic-connection", tags: tags)
+            self.mutableTags = Mutex(["endpoint_id": endpointId, "source": "client"])
         }
 
         func setRelayId(_ relayId: String) {
