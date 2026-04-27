@@ -104,7 +104,7 @@ class DecimusAudioEngine {
         #if os(tvOS)
         options = []
         #else
-        options = [.defaultToSpeaker, .allowBluetooth, .mixWithOthers]
+        options = [.defaultToSpeaker, .allowBluetoothHFP, .mixWithOthers]
         #endif
         try session.setCategory(.playAndRecord,
                                 mode: .videoChat,

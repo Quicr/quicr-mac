@@ -6,6 +6,9 @@ import CoreMedia
 import Observation
 import Synchronization
 
+// CMBufferQueue is thread-safe.
+extension CMBufferQueue: @retroactive @unchecked Sendable {}
+
 // swiftlint:disable force_cast
 
 /// Possible errors thrown by ``JitterBuffer``
@@ -17,7 +20,7 @@ enum JitterBufferError: Error {
 
 /// A very simplified jitter buffer designed to contain compressed frames in order.
 @Observable
-class JitterBuffer {
+final class JitterBuffer: Sendable {
 
     /// Jiitter buffer configuration.
     struct Config: Codable {
@@ -50,7 +53,7 @@ class JitterBuffer {
 
     private let baseTargetDepthUs: Atomic<UInt64>
     private let adjustmentTargetDepthUs: Atomic<UInt64>
-    private var buffer: CMBufferQueue
+    private let buffer: CMBufferQueue
     private let measurement: JitterBufferMeasurement?
     private let playingFromStart: Bool
     private let play: Atomic<Bool>
@@ -58,9 +61,12 @@ class JitterBuffer {
     private let lastSequenceSet = Atomic<Bool>(false)
 
     // Observables.
-    private(set) var currentDepth: TimeInterval = 0
-    private(set) var baseTargetDepth: TimeInterval
-    private(set) var currentAdjustmentDepth: TimeInterval
+    @MainActor
+    private(set) var currentDepth: TimeInterval?
+    @MainActor
+    private(set) var baseTargetDepth: TimeInterval?
+    @MainActor
+    private(set) var currentAdjustmentDepth: TimeInterval?
 
     protocol JitterItem: AnyObject {
         var sequenceNumber: UInt64 { get }
@@ -92,11 +98,15 @@ class JitterBuffer {
             self.measurement = nil
         }
         self.baseTargetDepthUs = .init(.init(minDepth * microsecondsPerSecond))
-        self.baseTargetDepth = minDepth
-        self.currentAdjustmentDepth = 0
         self.adjustmentTargetDepthUs = .init(0)
         self.playingFromStart = playingFromStart
         self.play = .init(playingFromStart)
+        if self.measurement != nil {
+            Task(priority: .utility) { @MainActor in
+                self.baseTargetDepth = minDepth
+                self.currentAdjustmentDepth = 0
+            }
+        }
     }
 
     /// Set the buffer's target base depth.
@@ -260,12 +270,10 @@ class JitterBuffer {
             let baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
             let currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
             // swiftlint:enable line_length
-            Task(priority: .utility) {
-                await MainActor.run {
-                    self.currentDepth = depth!
-                    self.baseTargetDepth = baseTargetDepth
-                    self.currentAdjustmentDepth = currentAdjustmentDepth
-                }
+            Task(priority: .utility) { @MainActor in
+                self.currentDepth = depth!
+                self.baseTargetDepth = baseTargetDepth
+                self.currentAdjustmentDepth = currentAdjustmentDepth
             }
             measurement.currentDepth(depth: depth!,
                                      target: baseTargetDepth,

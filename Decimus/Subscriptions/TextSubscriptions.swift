@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
+
 /// A received text message.
-struct TextMessage: Identifiable {
-    enum Author {
+struct TextMessage: Identifiable, Sendable {
+    enum Author: Sendable {
         case me
         case participant(ParticipantId?)
     }
@@ -20,11 +22,11 @@ struct TextMessage: Identifiable {
 
 /// A subscription manager for text messages.
 @Observable
-class TextSubscriptions {
+final class TextSubscriptions: Sendable {
     /// The list of received text messages.
-    var messages: [TextMessage] = []
+    @MainActor var messages: [TextMessage] = []
     private let logger = DecimusLogger(TextSubscriptions.self)
-    private var registrations: [MultipleCallbackSubscription: Int] = [:]
+    private let registrations = Mutex<[MultipleCallbackSubscription: Int]>([:])
     private let sframeContext: SFrameContext?
 
     init(sframeContext: SFrameContext?) {
@@ -37,7 +39,7 @@ class TextSubscriptions {
         let token = subscription.addCallback { [weak self] in
             self?.callback(headers: $0, data: $1, extensions: $2, immutableExtensions: $3)
         }
-        self.registrations[subscription] = token
+        self.registrations.withLock { $0[subscription] = token }
     }
 
     private func callback(headers: QObjectHeaders,
@@ -72,12 +74,16 @@ class TextSubscriptions {
         }
         let message = TextMessage(author: .participant(participantId), message: text, dateReceived: .now)
         self.logger.debug("Received text message from \(String(describing: message.author)): \(message.message)")
-        self.messages.append(message)
+        Task { @MainActor [weak self] in
+            self?.messages.append(message)
+        }
     }
 
     deinit {
-        for (subscription, token) in self.registrations {
-            subscription.removeCallback(token)
+        self.registrations.withLock { registrations in
+            for (subscription, token) in registrations {
+                subscription.removeCallback(token)
+            }
         }
     }
 }

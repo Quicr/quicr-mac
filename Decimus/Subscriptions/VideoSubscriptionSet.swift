@@ -663,8 +663,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
     private let displayCallbacks = Mutex<DisplayCallbacks>(.init())
     private let mediaState = Mutex<MediaState>(.subscribed)
 
-    func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int {
-        return self.displayCallbacks.store(callback)
+    func registerDisplayCallback(_ callback: @escaping DisplayCallback) {
+        self.displayCallbacks.store(callback)
     }
 
     func unregisterDisplayCallback(_ token: Int) {

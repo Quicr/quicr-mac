@@ -5,7 +5,7 @@
 /// containing one or more actual track subscriptions.
 /// Implementing this interface with >1 handler is useful when data streams
 /// across multiple subscribe handlers need to be compared or collated.
-protocol SubscriptionSet: AnyObject {
+protocol SubscriptionSet: AnyObject, Sendable {
     /// Identifier for this subscription set.
     var sourceId: SourceIDType { get }
     var participantId: ParticipantId { get }
@@ -40,10 +40,10 @@ protocol SubscriptionSet: AnyObject {
 import Synchronization
 
 @Observable
-class ObservableSubscriptionSet: SubscriptionSet {
+class ObservableSubscriptionSet: SubscriptionSet, @unchecked Sendable {
     let sourceId: SourceIDType
     let participantId: ParticipantId
-    private(set) var observedLiveSubscriptions: Set<FullTrackName> = []
+    @MainActor private(set) var observedLiveSubscriptions: Set<FullTrackName> = []
     private let handlers = Mutex<[FullTrackName: Subscription]>([:])
 
     init(sourceId: SourceIDType, participantId: ParticipantId) {
@@ -57,18 +57,14 @@ class ObservableSubscriptionSet: SubscriptionSet {
     }
 
     private func dispatchAdd(for ftn: FullTrackName) {
-        Task(priority: .utility) {
-            await MainActor.run {
-                self.observedLiveSubscriptions.insert(ftn)
-            }
+        Task(priority: .utility) { @MainActor in
+            self.observedLiveSubscriptions.insert(ftn)
         }
     }
 
     private func dispatchRemove(for ftn: FullTrackName) {
-        Task(priority: .utility) {
-            await MainActor.run {
-                self.observedLiveSubscriptions.remove(ftn)
-            }
+        Task(priority: .utility) { @MainActor in
+            self.observedLiveSubscriptions.remove(ftn)
         }
     }
 

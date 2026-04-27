@@ -10,7 +10,7 @@ import Synchronization
 import Network
 import MSF
 
-class SFrameContext {
+final class SFrameContext: Sendable {
     let mutex: Mutex<MLS>
 
     init(_ sframe: MLS) {
@@ -18,7 +18,7 @@ class SFrameContext {
     }
 }
 
-class SendSFrameContext {
+final class SendSFrameContext: Sendable {
     let context: SFrameContext
     let senderId: MLS.SenderID
     let currentEpoch: MLS.EpochID
@@ -1246,47 +1246,43 @@ extension CallState {
     }
 
     typealias CatalogUpdate = Result<Catalog, Error>
+    typealias CatalogCallback = @Sendable (CatalogUpdate) -> Void
     private func setupCatalogTrack(controller: MoqCallController,
-                                   callback: @escaping (CatalogUpdate) -> Void) async throws -> CallbackSubscription {
-        var continued = false
+                                   callback: @escaping CatalogCallback) async throws -> CallbackSubscription {
         return try await withCheckedThrowingContinuation { continuation in
+            let pending = Mutex<CallbackSubscription?>(nil)
             do {
-                nonisolated(unsafe) var subscription: CallbackSubscription!
-                let catalogTrack = try FullTrackName(serialized: "cisco.2ewebex.2ecom-nab-v1-catalog-publisher_0XCA1A109--catalog")
-                subscription = try CallbackSubscription(fullTrackName: catalogTrack,
-                                                        endpointId: self.config.email,
-                                                        relayId: self.relayId ?? "Unknown",
-                                                        metricsSubmitter: self.submitter,
-                                                        priority: 128,
-                                                        groupOrder: .originalPublisherOrder,
-                                                        filterType: .latestObject,
-                                                        publisherInitiated: false,
-                                                        deliveryTimeout: nil) { _, data, _, _ in
+                let catalogTrack = try FullTrackName(
+                    serialized: "cisco.2ewebex.2ecom-nab-v1-catalog-publisher_0XCA1A109--catalog")
+                let subscription = try CallbackSubscription(
+                    fullTrackName: catalogTrack,
+                    endpointId: self.config.email,
+                    relayId: self.relayId ?? "Unknown",
+                    metricsSubmitter: self.submitter,
+                    priority: 128,
+                    groupOrder: .originalPublisherOrder,
+                    filterType: .latestObject,
+                    publisherInitiated: false,
+                    deliveryTimeout: nil
+                ) { _, data, _, _ in
                     do {
                         let catalog = try JSONDecoder().decode(MSF.Catalog.self, from: data)
                         callback(.success(catalog))
-                        guard continued else {
-                            continued = true
-                            let sub = subscription!
-                            subscription = nil
+                        if let sub = pending.consume() {
                             continuation.resume(returning: sub)
-                            return
                         }
                     } catch {
-                        guard continued else {
-                            continued = true
-                            subscription = nil
+                        if pending.consume() != nil {
                             continuation.resume(throwing: error)
-                            return
+                        } else {
+                            callback(.failure(error))
                         }
-                        callback(.failure(error))
                     }
                 } statusCallback: { [weak self] in self?.logger.info("Catalog status update: \($0)") }
+                pending.withLock { $0 = subscription }
                 try controller.subscribe(subscription)
             } catch {
-                assert(!continued)
-                guard !continued else { return }
-                continued = true
+                pending.clear()
                 continuation.resume(throwing: error)
             }
         }

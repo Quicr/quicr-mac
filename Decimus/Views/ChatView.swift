@@ -71,6 +71,7 @@ struct ChatView: View {
 }
 
 #if DEBUG
+@MainActor
 private func makeSubscriptions() -> TextSubscriptions {
     let subscriptions = TextSubscriptions(sframeContext: nil)
     subscriptions.messages.append(.init(author: .participant(.init(1)),

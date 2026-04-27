@@ -6,7 +6,7 @@ import Synchronization
 
 /// Container for a sliding time window of values
 /// whose validity is determined by age.
-class SlidingTimeWindow<T: Numeric> {
+class SlidingTimeWindow<T: Numeric & Sendable> {
     private let values: Mutex<Deque<(timestamp: Date, value: T)>>
     private let length: TimeInterval
 

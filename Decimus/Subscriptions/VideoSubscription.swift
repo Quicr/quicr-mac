@@ -9,7 +9,6 @@ import Synchronization
 /// Manages lifetime of said renderer.
 /// Forwards data from callbacks.
 class VideoSubscription: Subscription {
-    typealias StatusChanged = (_ status: QSubscribeTrackHandlerStatus) -> Void
     struct JoinConfig<T: Codable>: Codable {
         var fetchUpperThreshold: T
         var newGroupUpperThreshold: T
@@ -187,7 +186,7 @@ class VideoSubscription: Subscription {
          switchLatencyMeasurement: SwitchLatencyMeasurement? = nil,
          publisherInitiated: Bool,
          callback: @escaping ObjectReceivedCallback,
-         statusChanged: @escaping StatusChanged) throws {
+         statusChanged: @escaping StatusCallback) throws {
         self.fullTrackName = try profile.getFullTrackName()
         self.config = config
         self.participants = participants

@@ -11,11 +11,11 @@ enum MediaState {
 
 /// Register interest in display notifications.
 protocol DisplayNotification {
-    typealias DisplayCallback = () -> Void
+    typealias DisplayCallback = @Sendable (_ token: Int) -> Void
     /// Register interest in display events.
-    /// - Parameter callback: Callback to fire on display.
-    /// - Returns Token to be used for unregistering this callback.
-    func registerDisplayCallback(_ callback: @escaping DisplayCallback) -> Int
+    /// - Parameter callback: Callback to fire on display. The token passed in identifies
+    ///   this registration, so the callback can unregister itself.
+    func registerDisplayCallback(_ callback: @escaping DisplayCallback)
 
     /// Unregister a previously registered callback.
     /// - Parameter token: Registration token identifying callback.
@@ -28,18 +28,17 @@ protocol DisplayNotification {
     func fireDisplayCallbacks()
 }
 
-struct DisplayCallbacks {
+struct DisplayCallbacks: Sendable {
     var callbacks: [Int: DisplayNotification.DisplayCallback] = [:]
     var currentToken = 0
 }
 
 extension Mutex<DisplayCallbacks> {
-    func store(_ callback: @escaping DisplayNotification.DisplayCallback) -> Int {
+    func store(_ callback: @escaping DisplayNotification.DisplayCallback) {
         self.withLock { callbacks in
             let thisToken = callbacks.currentToken
             callbacks.callbacks[thisToken] = callback
             callbacks.currentToken += 1
-            return thisToken
         }
     }
 
@@ -48,8 +47,8 @@ extension Mutex<DisplayCallbacks> {
     }
 
     func fire() {
-        for callback in self.get().callbacks {
-            callback.value()
+        for (token, callback) in self.get().callbacks {
+            callback(token)
         }
     }
 }

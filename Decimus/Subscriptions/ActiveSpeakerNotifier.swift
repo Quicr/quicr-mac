@@ -5,7 +5,7 @@ import OrderedCollections
 
 /// Provides a ranked list of active speakers via callback.
 protocol ActiveSpeakerNotifier {
-    typealias ActiveSpeakersChanged = (OrderedSet<ParticipantId>) -> Void
+    typealias ActiveSpeakersChanged = @Sendable (OrderedSet<ParticipantId>) -> Void
     typealias CallbackToken = Int
 
     /// Register a callback to be notified when the active speakers change.
@@ -24,6 +24,7 @@ enum ActiveSpeakerApplyError: Error {
 
 /// Manages the operations associated with active speaker changes.
 @Observable
+@MainActor
 class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
     private let notifier: ActiveSpeakerNotifier
     private var callbackToken: ActiveSpeakerNotifier.CallbackToken?
@@ -68,12 +69,15 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
         self.activeSpeakerStats = activeSpeakerStats
         self.pauseResume = pauseResume
         self.callbackToken = self.notifier.registerActiveSpeakerCallback { [weak self] activeSpeakers in
-            self?.onActiveSpeakersChanged(activeSpeakers)
+            Task { @MainActor in
+                self?.onActiveSpeakersChanged(activeSpeakers)
+            }
         }
     }
 
-    deinit {
-        self.notifier.unregisterActiveSpeakerCallback(self.callbackToken!)
+    isolated deinit {
+        guard let callbackToken else { return }
+        self.notifier.unregisterActiveSpeakerCallback(callbackToken)
     }
 
     /// Set the number of active speakers to consider.
@@ -144,13 +148,18 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
                 }
 
                 // Otherwise, register a callback for when it does go live.
-                var token: Int?
+                let sourceId = manifestSet.sourceID
                 self.logger.debug("[ActiveSpeakers] Register display callback for existing: \(id)")
-                token = existingSet.registerDisplayCallback { [weak self] in
-                    defer { existingSet.unregisterDisplayCallback(token!) }
-                    guard let self = self else { return }
-                    self.logger.debug("[ActiveSpeakers] Existing set just started displaying: \(id)")
-                    self.recheck(real: real, desiredSlots: desiredSlots, when: when)
+                existingSet.registerDisplayCallback { [weak self] token in
+                    let now = Date.now
+                    Task { @MainActor in
+                        guard let self = self else { return }
+                        if let set = self.controller.getSubscriptionSet(sourceId) as? DisplayNotification {
+                            set.unregisterDisplayCallback(token)
+                        }
+                        self.logger.debug("[ActiveSpeakers] Existing set just started displaying: \(id)")
+                        self.recheck(real: real, desiredSlots: desiredSlots, when: now)
+                    }
                 }
 
                 // Done with this set.
@@ -172,14 +181,18 @@ class ActiveSpeakerApply<T> where T: QSubscribeTrackHandlerObjC {
             }
 
             // Register interest in this set displaying.
+            let sourceId = manifestSet.sourceID
             self.logger.debug("[ActiveSpeakers] Register display callback for new subscription: \(id)")
-            var token: Int?
-            token = videoSet.registerDisplayCallback { [weak self] in
-                defer { videoSet.unregisterDisplayCallback(token!) }
-                guard let self = self else { return }
-                self.logger.debug("[ActiveSpeakers] Got display callback for: \(id)")
+            videoSet.registerDisplayCallback { [weak self] token in
                 let now = Date.now
-                self.recheck(real: real, desiredSlots: desiredSlots, when: now)
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if let set = self.controller.getSubscriptionSet(sourceId) as? DisplayNotification {
+                        set.unregisterDisplayCallback(token)
+                    }
+                    self.logger.debug("[ActiveSpeakers] Got display callback for: \(id)")
+                    self.recheck(real: real, desiredSlots: desiredSlots, when: now)
+                }
             }
         }
 
