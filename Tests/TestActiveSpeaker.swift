@@ -222,13 +222,13 @@ struct TestActiveSpeaker {
         var created: [SubscriptionSet] = []
         let factory = MockVideoSubscriptionFactory { created.append($0) }
         let activeSpeakerController: ActiveSpeakerApply<TestCallController.MockSubscription>
-        activeSpeakerController = try .init(notifier: notifier,
-                                            controller: controller,
-                                            videoSubscriptions: manifestSubscriptions,
-                                            factory: factory,
-                                            participantId: ourself,
-                                            activeSpeakerStats: nil,
-                                            pauseResume: pauseResume)
+        activeSpeakerController = try await .init(notifier: notifier,
+                                                  controller: controller,
+                                                  videoSubscriptions: manifestSubscriptions,
+                                                  factory: factory,
+                                                  participantId: ourself,
+                                                  activeSpeakerStats: nil,
+                                                  pauseResume: pauseResume)
 
         // Test state clear.
         #expect(created.isEmpty)
@@ -237,9 +237,10 @@ struct TestActiveSpeaker {
 
         // Mock active speaker change.
         if let clamp = clamp {
-            activeSpeakerController.setClampCount(clamp)
+            await activeSpeakerController.setClampCount(clamp)
         }
         notifier.fire(newSpeakers)
+        await MainActor.run { }
 
         switch clamp {
         case nil:
@@ -267,6 +268,7 @@ struct TestActiveSpeaker {
             // Mock a frame displaying from 3.
             let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
             three.fireDisplayCallbacks()
+            await MainActor.run { }
 
             if pauseResume {
                 // Should now have paused 2.
@@ -294,6 +296,7 @@ struct TestActiveSpeaker {
                 // Mock a frame displaying from 3.
                 let three = created[0] as! VideoSubscriptionSet // swiftlint:disable:this force_cast
                 three.fireDisplayCallbacks()
+                await MainActor.run { }
 
                 // Now 2 should have gone away.
                 if pauseResume {
@@ -435,19 +438,20 @@ struct TestActiveSpeaker {
         // Setup active speaker controller with pauseResume enabled.
         let notifier = MockActiveSpeakerNotifier()
         created = []
-        let activeSpeakerController = try ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
-                                                                                                  controller: controller,
-                                                                                                  videoSubscriptions: manifestSubscriptions,
-                                                                                                  factory: factory,
-                                                                                                  participantId: .init(4),
-                                                                                                  activeSpeakerStats: nil,
-                                                                                                  pauseResume: true)
+        let activeSpeakerController = try await ActiveSpeakerApply<TestCallController.MockSubscription>(notifier: notifier,
+                                                                                                        controller: controller,
+                                                                                                        videoSubscriptions: manifestSubscriptions,
+                                                                                                        factory: factory,
+                                                                                                        participantId: .init(4),
+                                                                                                        activeSpeakerStats: nil,
+                                                                                                        pauseResume: true)
 
         // First speaker change: [1, 3] - should subscribe to 3, eventually pause 2.
         let speakerOne = ParticipantId(1)
         let speakerTwo = ParticipantId(2)
         let speakerThree = ParticipantId(3)
         notifier.fire([speakerOne, speakerThree])
+        await MainActor.run { }
 
         // 3 should be subscribed.
         #expect(created.count == 1)
@@ -458,6 +462,7 @@ struct TestActiveSpeaker {
 
         // 3 starts displaying.
         setThree.fireDisplayCallbacks()
+        await MainActor.run { }
 
         // Now 2 should be paused.
         #expect(setTwo.isPaused)
@@ -465,6 +470,7 @@ struct TestActiveSpeaker {
 
         // Second speaker change: [1, 2] - should resume 2, eventually pause 3.
         notifier.fire([speakerOne, speakerTwo])
+        await MainActor.run { }
 
         // 2 should be resumed.
         #expect(!setTwo.isPaused)
@@ -474,6 +480,7 @@ struct TestActiveSpeaker {
 
         // 2 starts displaying again.
         setTwo.fireDisplayCallbacks()
+        await MainActor.run { }
 
         // Now 3 should be paused.
         #expect(setThree.isPaused)
