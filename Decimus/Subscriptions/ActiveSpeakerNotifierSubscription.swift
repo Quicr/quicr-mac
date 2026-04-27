@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 class ActiveSpeakerNotifierSubscription: Subscription,
-                                         ActiveSpeakerNotifier {
+                                         ActiveSpeakerNotifier,
+                                         @unchecked Sendable {
     private var callbacks: [CallbackToken: ActiveSpeakersChanged] = [:]
     private var token: CallbackToken = 0
     private let logger = DecimusLogger(ActiveSpeakerNotifierSubscription.self)

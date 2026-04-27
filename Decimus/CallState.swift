@@ -1244,10 +1244,10 @@ extension CallState {
 
 // Metrics.
 extension CallState {
-    private final class _Measurement: MeasurementBase {
-        init() {
-            super.init(name: "ApplicationMetrics")
-        }
+    private final class _Measurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "ApplicationMetrics"
+        let tags: [String: String] = [:]
 
         func recordCpuUsage(cpuUsage: Double, timestamp: Date?) {
             record(field: "cpuUsage", value: cpuUsage as AnyObject, timestamp: timestamp)

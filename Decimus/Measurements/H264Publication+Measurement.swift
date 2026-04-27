@@ -4,13 +4,16 @@
 import Synchronization
 
 extension H264Publication {
-    final class VideoPublicationMeasurement: MeasurementBase {
+    final class VideoPublicationMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "VideoPublication"
+        let tags: [String: String]
         private let bytes = Atomic<UInt64>(0)
         private let pixels = Atomic<UInt64>(0)
         private let publishedFrames = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
-            super.init(name: "VideoPublication", tags: ["namespace": namespace])
+            self.tags = ["namespace": namespace]
         }
 
         func sentFrame(bytes: UInt64, timestamp: TimeInterval, age: TimeInterval?, metricsTimestamp: Date?) {

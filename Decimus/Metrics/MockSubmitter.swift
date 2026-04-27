@@ -2,6 +2,6 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 final class MockSubmitter: MetricsSubmitter {
-    func register(measurement: Measurement) { }
+    func register(measurement: MetricsMeasurement) { }
     func submit() { }
 }

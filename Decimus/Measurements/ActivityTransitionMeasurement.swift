@@ -4,12 +4,11 @@
 import Foundation
 import Synchronization
 
-final class ActivityTransitionMeasurement: MeasurementBase {
+final class ActivityTransitionMeasurement: MetricsMeasurement {
+    let storage = MeasurementStorage()
+    let name = "activity_transition"
+    let tags: [String: String] = [:]
     private let sequence = Atomic<UInt64>(0)
-
-    init() {
-        super.init(name: "activity_transition")
-    }
 
     func record(participant: String, direction: String, timestamp: Date) {
         let val = sequence.wrappingAdd(1, ordering: .relaxed).newValue

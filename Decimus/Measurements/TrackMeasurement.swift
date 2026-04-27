@@ -1,12 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-final class TrackMeasurement: MeasurementBase {
+final class TrackMeasurement: MetricsMeasurement {
     enum PubSub {
         case publish
         case subscribe
         case fetch
     }
+
+    let storage = MeasurementStorage()
+    let name = "quic-dataFlow"
+    let tags: [String: String]
 
     init(type: PubSub, endpointId: String, relayId: String, namespace: String) {
         var tags: [String: String] = [:]
@@ -22,7 +26,7 @@ final class TrackMeasurement: MeasurementBase {
         tags["relay_id"] = relayId
         tags["source"] = "client"
         tags["namespace"] = namespace
-        super.init(name: "quic-dataFlow", tags: tags)
+        self.tags = tags
     }
 
     func record(_ metrics: QPublishTrackMetrics) {

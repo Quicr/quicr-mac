@@ -46,9 +46,13 @@ class RFC3550Jitter {
     }
 }
 
-final class RFC3550JitterMeasurement: MeasurementBase {
+final class RFC3550JitterMeasurement: MetricsMeasurement {
+    let storage = MeasurementStorage()
+    let name = "RFC3550"
+    let tags: [String: String]
+
     init(namespace: QuicrNamespace) {
-        super.init(name: "RFC3550", tags: ["namespace": namespace])
+        self.tags = ["namespace": namespace]
     }
 
     func jitter(jitter: TimeInterval, smoothed: TimeInterval, date: Date) {

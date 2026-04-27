@@ -17,7 +17,7 @@ struct AvailableImage {
     let discontinous: Bool
 }
 
-class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
+class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification, @unchecked Sendable {
     private let logger = DecimusLogger(VideoSubscriptionSet.self)
 
     private let subscription: ManifestSubscription

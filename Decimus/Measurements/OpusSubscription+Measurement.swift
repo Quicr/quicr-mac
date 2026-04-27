@@ -5,7 +5,10 @@ import AVFAudio
 import Synchronization
 
 extension OpusSubscription {
-    final class OpusSubscriptionMeasurement: MeasurementBase {
+    final class OpusSubscriptionMeasurement: MetricsMeasurement {
+        let storage = MeasurementStorage()
+        let name = "OpusSubscription"
+        let tags: [String: String]
         private let frames = Atomic<UInt64>(0)
         private let bytes = Atomic<UInt64>(0)
         private let missing = Atomic<UInt64>(0)
@@ -13,7 +16,7 @@ extension OpusSubscription {
         private let playoutFullCount = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
-            super.init(name: "OpusSubscription", tags: ["namespace": namespace])
+            self.tags = ["namespace": namespace]
         }
 
         func receivedFrames(received: AVAudioFrameCount, timestamp: Date?) {

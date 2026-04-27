@@ -4,7 +4,7 @@
 import SFrame
 import Synchronization
 
-class OpusSubscription: Subscription {
+class OpusSubscription: Subscription, @unchecked Sendable {
     private let logger = DecimusLogger(OpusSubscription.self)
 
     struct Config {
