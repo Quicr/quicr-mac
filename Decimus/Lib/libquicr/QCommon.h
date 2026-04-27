@@ -66,6 +66,7 @@ typedef struct QObjectHeaders {
 #ifdef __cplusplus
 #include <quicr/detail/messages.h>
 
+[[maybe_unused]]
 static QStreamHeaderProperties* _Nullable convertStreamHeaderProperties(const std::optional<quicr::messages::StreamHeaderProperties>& props) {
     if (!props.has_value()) return nil;
     return [[QStreamHeaderProperties alloc] initWithExtensions:props->extensions
@@ -74,6 +75,7 @@ static QStreamHeaderProperties* _Nullable convertStreamHeaderProperties(const st
                                               defaultPriority:props->default_priority];
 }
 
+[[maybe_unused]]
 static quicr::messages::StreamHeaderProperties convertStreamHeaderProperties(QStreamHeaderProperties* _Nonnull props) {
     return quicr::messages::StreamHeaderProperties {
         props.extensions,
@@ -83,7 +85,8 @@ static quicr::messages::StreamHeaderProperties convertStreamHeaderProperties(QSt
     };
 }
 
-static NSMutableDictionary<NSNumber*, NSArray<NSData*>*>* convertExtensions(const std::optional<quicr::Extensions>& extensions) {
+[[maybe_unused]]
+static NSMutableDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable convertExtensions(const std::optional<quicr::Extensions>& extensions) {
     if (!extensions.has_value()) {
         return nil;
     }

@@ -42,7 +42,7 @@ struct DisplayPicker: View {
                 LabeledContent("Display") {
                     Picker("Display", selection: self.$selectedDisplay) {
                         ForEach(self.displays) { display in
-                            Text("\(display)").tag(display)
+                            Text(verbatim: display.description).tag(display)
                         }
                     }
                     .pickerStyle(.segmented)

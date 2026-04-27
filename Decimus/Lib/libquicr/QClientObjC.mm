@@ -32,7 +32,7 @@ static quicr::TransportConfig convert(TransportConfig config) {
     };
 }
 
-static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attributes) {
+[[maybe_unused]] static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attributes) {
     quicr::messages::SubscribeAttributes converted{};
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;

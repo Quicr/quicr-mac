@@ -81,9 +81,9 @@ actor ActiveSpeakerStats {
                 let now = Date.now
                 if let self = self {
                     for participant in await self.participants {
-                        await self.measurement?.record(identifier: participant.key,
-                                                       timestamp: now,
-                                                       event: participant.value.currentState)
+                        self.measurement?.record(identifier: participant.key,
+                                                 timestamp: now,
+                                                 event: participant.value.currentState)
                     }
                 }
                 try? await Task.sleep(for: .seconds(1))
@@ -183,7 +183,6 @@ actor ActiveSpeakerStats {
         self.participants.removeValue(forKey: identifier)
     }
 
-    // swiftlint:disable cyclomatic_complexity function_body_length
     private func stateTransition(identifier: Identifier,
                                  from: CurrentState?,
                                  to: CurrentState,
@@ -240,5 +239,4 @@ actor ActiveSpeakerStats {
                                  event: result)
         return result
     }
-    // swiftlint:enable cyclomatic_complexity function_body_length
 }

@@ -266,10 +266,8 @@ final class JitterBuffer: Sendable {
 
     private func doReadMetrics(_ depth: TimeInterval?, underrun: Bool, when: Date) {
         if let measurement = self.measurement {
-            // swiftlint:disable line_length
             let baseTargetDepth = TimeInterval(self.baseTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
             let currentAdjustmentDepth = TimeInterval(self.adjustmentTargetDepthUs.load(ordering: .relaxed)) / microsecondsPerSecond
-            // swiftlint:enable line_length
             Task(priority: .utility) { @MainActor in
                 self.currentDepth = depth!
                 self.baseTargetDepth = baseTargetDepth

@@ -65,7 +65,6 @@ extension HeaderExtensions {
         }
     }
 
-    // swiftlint:disable:next cyclomatic_complexity
     func getHeader(_ extensionKey: MediaTypeHeaderExtensionValue) throws -> MediaTypeHeaderExtension? {
         guard let dataArray = self[extensionKey.rawValue], let data = dataArray.first else {
             return nil

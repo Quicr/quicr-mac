@@ -141,7 +141,7 @@ class CaptureManager: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             throw CaptureManagerError.badSessionState
         }
         assert(observer == nil)
-        observer = notifier.addObserver(forName: .AVCaptureSessionRuntimeError,
+        observer = notifier.addObserver(forName: AVCaptureSession.runtimeErrorNotification,
                                         object: nil,
                                         queue: nil,
                                         using: onStartFailure)

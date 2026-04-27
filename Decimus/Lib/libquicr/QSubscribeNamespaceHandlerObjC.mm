@@ -5,6 +5,7 @@
 #import "QSubscribeNamespaceHandlerObjC.h"
 #import "QTrackFilter.h"
 
+[[maybe_unused]]
 static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
 {
     QPublishAttributes converted;

@@ -30,7 +30,7 @@ typedef NS_ENUM(uint8_t, QPublishNamespaceStatus) {
 
 typedef struct QServerSetupAttributes {
     uint64_t moqt_version;
-    const char* server_id;
+    const char* _Nonnull server_id;
 } QServerSetupAttributes;
 
 typedef struct QQuicConnectionMetrics {
@@ -64,7 +64,7 @@ typedef struct QConnectionMetrics {
 @protocol QClientCallbacks
 - (void) statusChanged: (QClientStatus) status;
 - (void) serverSetupReceived: (QServerSetupAttributes) serverSetupAttributes;
-- (void) publishNamespaceStatusChanged: (NSData*) track_namespace status: (QPublishNamespaceStatus) status;
+- (void) publishNamespaceStatusChanged: (NSData* _Nonnull) track_namespace status: (QPublishNamespaceStatus) status;
 - (void) metricsSampled: (QConnectionMetrics) metrics;
 - (void) publishReceived: (uint64_t) connectionHandle
                requestId: (uint64_t) requestId

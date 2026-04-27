@@ -31,7 +31,7 @@ class RFC3550Jitter {
             return
         }
 
-        var d = transit - lastTransit // swiftlint:disable:this identifier_name
+        var d = transit - lastTransit
         self.transit = transit
         if d < 0 {
             d = -d
