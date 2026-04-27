@@ -16,7 +16,6 @@ protocol VideoEncoder {
     func setCallback(_ callback: @escaping EncodedCallback, userData: UnsafeRawPointer?)
 }
 
-// swiftlint:disable type_body_length
 class VTEncoder: VideoEncoder {
     enum VTEncoderError: Error {
         case unsupportedCodec(CodecType)
@@ -240,7 +239,6 @@ class VTEncoder: VideoEncoder {
         self.userData = userData
     }
 
-    // swiftlint:disable function_body_length
     func encoded(frameRefCon: UnsafeMutableRawPointer?,
                  status: OSStatus,
                  flags: VTEncodeInfoFlags,
@@ -292,7 +290,6 @@ class VTEncoder: VideoEncoder {
             self.logger.warning("Received encoded frame but consumer callback unset")
         }
     }
-    // swiftlint:enable function_body_length
 
     private func prependTimestampSEI(fps: UInt8,
                                      bufferAllocator: BufferAllocator) {
@@ -394,7 +391,6 @@ class VTEncoder: VideoEncoder {
         ]
     }
 }
-// swiftlint:enable type_body_length
 
 extension Swift.String: Foundation.LocalizedError {
     public var errorDescription: String? { return self }

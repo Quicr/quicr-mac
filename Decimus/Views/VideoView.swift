@@ -87,7 +87,7 @@ struct VideoView: UIViewRepresentable {
             throw VideoError.invalidLayer
         }
 
-        layer.flush()
+        layer.sampleBufferRenderer.flush()
 
         do {
             try layer.controlTimebase?.setTime(.zero)
@@ -102,13 +102,13 @@ struct VideoView: UIViewRepresentable {
             throw VideoError.invalidLayer
         }
 
-        guard layer.status != .failed else {
-            layer.flush()
+        guard layer.sampleBufferRenderer.status != .failed else {
+            layer.sampleBufferRenderer.flush()
             throw VideoError.layerFailed
         }
 
         layer.transform = transform ?? CATransform3DIdentity
-        layer.enqueue(sampleBuffer)
+        layer.sampleBufferRenderer.enqueue(sampleBuffer)
     }
 
     func makeUIView(context: Context) -> VideoUIView {

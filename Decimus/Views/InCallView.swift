@@ -162,7 +162,7 @@ struct InCallView: View {
                                 LabeledContent("Layout") {
                                     Picker("Layout", selection: self.$layout) {
                                         ForEach(VideoLayout.allCases, id: \.self) { layout in
-                                            Text("\(layout)")
+                                            Text(verbatim: "\(layout)")
                                         }
                                     }
                                     .labelsHidden()

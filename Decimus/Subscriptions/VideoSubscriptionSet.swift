@@ -456,7 +456,8 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             //                }
             //
             //                let newValue = pauseCandidateCount.value + 1
-            //                self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width), now: \(newValue)/\(self.pauseMissThreshold)")
+            //                self.logger.warning("Incremented pause count for: \(pauseCandidate.config.width),
+            //                                    now: \(newValue)/\(self.pauseMissThreshold)")
             //                if newValue >= self.pauseMissThreshold {
             //                    // Pause this subscription.
             //                    self.logger.warning("Pausing subscription: \(pauseCandidate.config.width)")
@@ -476,7 +477,9 @@ class VideoSubscriptionSet: ObservableSubscriptionSet, DisplayNotification {
             throw "Missing video hanler for namespace: \(selected.fullTrackName)"
         }
 
-        let qualitySkip = (wouldStepDown && self.qualityMisses < self.qualityMissThreshold) || (wouldStepUp && self.qualityHits < self.config.qualityHitThreshold) || continuingCurrentQuality
+        let stepDown = wouldStepDown && self.qualityMisses < self.qualityMissThreshold
+        let stepUp = wouldStepUp && self.qualityHits < self.config.qualityHitThreshold
+        let qualitySkip = stepDown || stepUp || continuingCurrentQuality
         if let measurement = self.measurement,
            self.granularMetrics {
             var report: [VideoSubscriptionSet.SimulreceiveChoiceReport] = []

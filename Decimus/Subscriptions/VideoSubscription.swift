@@ -96,7 +96,6 @@ class VideoSubscription: Subscription {
             self.state.get()
         }
 
-        // swiftlint:disable:next cyclomatic_complexity
         func transition(to newState: State) throws {
             try self.state.withLock { state in
                 var valid: Bool {
@@ -354,9 +353,7 @@ class VideoSubscription: Subscription {
             return .drop
         }
     }
-    // swiftlint:enable force_try
 
-    // swiftlint:disable force_try cyclomatic_complexity
     private func determineState(objectHeaders: QObjectHeaders,
                                 activation: ActivationType,
                                 when: Ticks) -> Result {
@@ -430,7 +427,7 @@ class VideoSubscription: Subscription {
             return .normal(true, switchContext: ctx)
         }
         }
-        // swiftlint:enable force_try cyclomatic_complexity
+        // swiftlint:enable force_try
 
         // Override playout to true if we cleaned up.
         let action = getAction

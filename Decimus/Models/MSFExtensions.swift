@@ -52,7 +52,7 @@ extension MSF.Catalog {
             tuples.append(localParticipantId)
 
             let key = tuples.joined()
-            let mediaType = track.name ?? "unknown"
+            let mediaType = track.name
 
             if publications[key] == nil {
                 publications[key] = .init(mediaType: mediaType,

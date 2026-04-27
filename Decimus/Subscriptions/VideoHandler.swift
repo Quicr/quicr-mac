@@ -537,7 +537,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
                 self.lastFps = resolvedFps
                 self.lastDimensions = format.dimensions
                 DispatchQueue.main.async {
-                    let namespace = "\(self.fullTrackName)"
                     self.description = self.labelFromSample(format: format,
                                                             fps: resolvedFps,
                                                             participantId: self.participantId)

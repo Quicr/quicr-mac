@@ -18,6 +18,7 @@
 #ifdef __cplusplus
 #include <quicr/detail/ctrl_message_types.h>
 
+[[maybe_unused]]
 static quicr::messages::TrackFilter trackFilterConvert(QTrackFilterObjC* _Nonnull filter) {
     return {
         .property_type = filter.propertyType,

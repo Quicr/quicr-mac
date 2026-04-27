@@ -158,8 +158,6 @@ class PublicationFactoryImpl: PublicationFactory {
                                         emitStartCodes: false,
                                         keyFrameInterval: self.keyFrameInterval)
 
-            let defaultPriority = try profile.getPriority(index: 0)
-            let defaultTTL = try profile.getTTL(index: 0)
             let sink = QPublishTrackHandlerSink(
                 fullTrackName: try profile.getFullTrackName(),
                 trackMode: self.reliability.video ? .stream : .datagram,
