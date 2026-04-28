@@ -4,10 +4,10 @@
 import Foundation
 
 /// Protocol describing MoQ subscribe-namespace capability.
-protocol MoQSubscribeNamespaceHandler: AnyObject {
-    typealias StatusCallback = (_ status: QSubscribeNamespaceHandlerStatus,
-                                _ errorCode: QSubscribeNamespaceErrorCode,
-                                _ namespacePrefix: NamespacePrefix) -> Void
+protocol MoQSubscribeNamespaceHandler: AnyObject, Sendable {
+    typealias StatusCallback = @Sendable (_ status: QSubscribeNamespaceHandlerStatus,
+                                          _ errorCode: QSubscribeNamespaceErrorCode,
+                                          _ namespacePrefix: NamespacePrefix) -> Void
 
     /// Callback invoked when the subscribe-namespace status changes.
     var statusChangedCallback: StatusCallback { get }

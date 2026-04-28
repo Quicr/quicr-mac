@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2023 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
+import Synchronization
+
 /// Possible errors raised by MoqCallController.
 enum MoqCallControllerError: Error {
     /// Unexpected status during connection.
@@ -35,9 +37,6 @@ struct ClientConfig {
     let metricsSampleMs: UInt64
 }
 
-// TODO: Threading here needs to be checked.
-// TODO: Possibly this can be an actor with non-isolated callbacks.
-
 enum PublishResponse {
     case reject
     case accept(QPublishAttributes, Subscription?)
@@ -45,10 +44,10 @@ enum PublishResponse {
 
 /// Decimus' interface to [`libquicr`](https://quicr.github.io/libquicr), managing
 /// publish and subscribe track implementations and their creation from a manifest entry.
-class MoqCallController: QClientCallbacks {
-    typealias PublishReceivedCallback = (_ tfn: QFullTrackName,
-                                         _ attributes: QPublishAttributes,
-                                         _ subNsHandler: (any MoQSubscribeNamespaceHandler)?) -> PublishResponse
+final class MoqCallController: QClientCallbacks, Sendable {
+    typealias PublishReceivedCallback = @Sendable (_ tfn: QFullTrackName,
+                                                   _ attributes: QPublishAttributes,
+                                                   _ subNsHandler: (any MoQSubscribeNamespaceHandler)?) -> PublishResponse
 
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
@@ -58,17 +57,25 @@ class MoqCallController: QClientCallbacks {
     // State.
     private let client: MoqClient
     private let endpointUri: String
-    private var connectionContinuation: CheckedContinuation<Void, Error>?
-    private var publications: [FullTrackName: any PublicationInstance] = [:]
-    private var subscriptions: [SourceIDType: SubscriptionSet] = [:]
-    private var namespaceHandlers: [NamespacePrefix: any MoQSubscribeNamespaceHandler] = [:]
-    private var connected = false
-    private let callEnded: (() -> Void)?
+    private let callEnded: (@Sendable () -> Void)?
     private let overrideNamespace: [String]?
     private let publishReceivedCallback: PublishReceivedCallback?
 
+    /// Mutable state.
+    private struct State: Sendable {
+        var connectionContinuation: CheckedContinuation<Void, Error>?
+        var publications: [FullTrackName: any PublicationInstance] = [:]
+        var subscriptions: [SourceIDType: SubscriptionSet] = [:]
+        var namespaceHandlers: [NamespacePrefix: any MoQSubscribeNamespaceHandler] = [:]
+        var connected = false
+        var serverId: String?
+    }
+    private let state = Mutex<State>(.init())
+
     /// The identifier of the connected server, or nil if not connected.
-    public private(set) var serverId: String?
+    public var serverId: String? {
+        self.state.withLock { $0.serverId }
+    }
 
     /// Create a new controller.
     /// - Parameters:
@@ -81,7 +88,7 @@ class MoqCallController: QClientCallbacks {
          submitter: MetricsSubmitter?,
          overrideNamespace: [String]? = nil,
          publishReceived: PublishReceivedCallback? = nil,
-         callEnded: (() -> Void)?) {
+         callEnded: (@Sendable () -> Void)?) {
         self.endpointUri = endpointUri
         self.client = client
         self.metricsSubmitter = submitter
@@ -106,7 +113,7 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` when an unexpected status is returned.
     func connect() async throws {
         try await withCheckedThrowingContinuation(function: "CONNECT") { continuation in
-            self.connectionContinuation = continuation
+            self.state.withLock { $0.connectionContinuation = continuation }
             let status = self.client.connect()
             self.logger.debug("[MoqCallController] Connect => \(status)")
             switch status {
@@ -115,13 +122,20 @@ class MoqCallController: QClientCallbacks {
             case .clientPendingServerSetup:
                 break
             case .ready:
-                self.connected = true
-                continuation.resume()
+                self.state.withLock { state in
+                    state.connected = true
+                    let tcs = state.connectionContinuation
+                    state.connectionContinuation = nil
+                    return tcs
+                }?.resume()
             default:
-                if let connectionContinuation = self.connectionContinuation {
-                    self.connected = false
-                    connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(status))
-                }
+                // Something bad happened.
+                self.state.withLock { state in
+                    state.connected = false
+                    let tcs = state.connectionContinuation
+                    state.connectionContinuation = nil
+                    return tcs
+                }?.resume(throwing: MoqCallControllerError.connectionFailure(status))
             }
         }
     }
@@ -129,22 +143,29 @@ class MoqCallController: QClientCallbacks {
     /// Disconnect from the relay.
     /// - Throws: ``MoqCallControllerError/connectionFailure(_:)`` with unexpected status.
     func disconnect() throws {
-        assert(Thread.isMainThread)
-        defer {
-            self.namespaceHandlers.removeAll()
-            self.publications.removeAll()
-            self.subscriptions.removeAll()
+        let state = self.state.withLock { state in
+            let copy = state
+            state.namespaceHandlers.removeAll()
+            state.publications.removeAll()
+            state.subscriptions.removeAll()
+            state.connected = false
+            return copy
         }
-        guard self.connected else { return }
-        for (_, handler) in self.namespaceHandlers {
+        guard state.connected else { return }
+        for (_, handler) in state.namespaceHandlers {
             guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else { continue }
             self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
         }
-        for publication in self.publications {
-            try self.unpublish(publication.key)
+        for (_, publication) in state.publications {
+            guard let libquicrHandler = publication.sink as? QPublishTrackHandlerSink else {
+                throw "Type mismatch"
+            }
+            self.client.unpublishTrack(withHandler: libquicrHandler.handler)
         }
-        for set in self.subscriptions {
-            try self.unsubscribeToSet(set.key)
+        for (_, set) in state.subscriptions {
+            for (_, handler) in set.getHandlers() {
+                self.client.unsubscribeTrack(withHandler: handler)
+            }
         }
         let status = self.client.disconnect()
         guard status == .disconnecting else {
@@ -158,7 +179,7 @@ class MoqCallController: QClientCallbacks {
     /// Return the list of actively managed publications.
     /// - Returns: List of active publication instances.
     public func getPublications() -> [any PublicationInstance] {
-        Array(self.publications.values)
+        self.state.withLock { Array($0.publications.values) }
     }
 
     /// Setup a publication for a track.
@@ -170,16 +191,26 @@ class MoqCallController: QClientCallbacks {
     public func publish(details: ManifestPublication,
                         factory: PublicationFactory,
                         codecFactory: CodecFactory) throws -> [(FullTrackName, any PublicationInstance)] {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let (connected, serverId) = self.state.withLock { ($0.connected, $0.serverId) }
+        guard connected else { throw MoqCallControllerError.notConnected }
         let created = try factory.create(publication: details,
                                          codecFactory: codecFactory,
                                          endpointId: self.endpointUri,
-                                         relayId: self.serverId!)
-        for (namespace, publication) in created {
-            self.publications[namespace] = publication
-            guard let libquicrHandler = publication.sink as? QPublishTrackHandlerSink else {
+                                         relayId: serverId!)
+        // Type check.
+        for (_, publication) in created {
+            guard publication.sink is QPublishTrackHandlerSink else {
                 throw "Type mismatch"
             }
+        }
+        self.state.withLock { state in
+            for (namespace, publication) in created {
+                state.publications[namespace] = publication
+            }
+        }
+        for (_, publication) in created {
+            // swiftlint:disable:next force_cast
+            let libquicrHandler = publication.sink as! QPublishTrackHandlerSink
             self.client.publishTrack(withHandler: libquicrHandler.handler)
         }
         return created
@@ -190,8 +221,11 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     /// ``MoqCallControllerError/publicationNotFound`` if the track name does not match a publication.
     public func unpublish(_ fullTrackName: FullTrackName) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
-        guard let publication = self.publications.removeValue(forKey: fullTrackName) else {
+        let publication = try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+            return state.publications.removeValue(forKey: fullTrackName)
+        }
+        guard let publication else {
             throw MoqCallControllerError.publicationNotFound
         }
         guard let libquicrHandler = publication.sink as? QPublishTrackHandlerSink else {
@@ -201,12 +235,16 @@ class MoqCallController: QClientCallbacks {
     }
 
     public func fetch(_ fetch: Fetch) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+        }
         self.client.fetchTrack(withHandler: fetch)
     }
 
     public func cancelFetch(_ fetch: Fetch) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+        }
         self.client.cancelFetchTrack(withHandler: fetch)
     }
 
@@ -214,18 +252,18 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter sourceID: SourceID to lookup on.
     /// - Returns: The matching set, if any.
     public func getSubscriptionSet(_ sourceID: SourceIDType) -> SubscriptionSet? {
-        self.subscriptions[sourceID]
+        self.state.withLock { $0.subscriptions[sourceID] }
     }
 
     /// Store a subscription set externally created (e.g. by namespace handler CreateHandler).
     public func storeSubscriptionSet(sourceId: SourceIDType, set: SubscriptionSet) {
-        self.subscriptions[sourceId] = set
+        self.state.withLock { $0.subscriptions[sourceId] = set }
     }
 
     /// Get all managed subscription sets.
     /// - Returns: List of all sets.
     public func getSubscriptionSets() -> [SubscriptionSet] {
-        Array(self.subscriptions.values)
+        self.state.withLock { Array($0.subscriptions.values) }
     }
 
     /// Get all active subscriptions in the given set.
@@ -252,11 +290,12 @@ class MoqCallController: QClientCallbacks {
     public func subscribeToSet(details: ManifestSubscription,
                                factory: SubscriptionFactory,
                                subscribeType: SubscribeType) throws -> SubscriptionSet {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let (connected, serverId) = self.state.withLock { ($0.connected, $0.serverId) }
+        guard connected else { throw MoqCallControllerError.notConnected }
         let set = try factory.create(subscription: details,
                                      codecFactory: CodecFactoryImpl(),
                                      endpointId: self.endpointUri,
-                                     relayId: self.serverId!)
+                                     relayId: serverId!)
 
         // Determine what to do.
         let pubDetails: PublisherInitiatedDetails?
@@ -299,7 +338,7 @@ class MoqCallController: QClientCallbacks {
                 }
             }
         }
-        self.subscriptions[details.sourceID] = set
+        self.state.withLock { $0.subscriptions[details.sourceID] = set }
         return set
     }
 
@@ -319,12 +358,13 @@ class MoqCallController: QClientCallbacks {
                    profile: Profile,
                    factory: SubscriptionFactory,
                    publisherInitiated: PublisherInitiatedDetails?) throws -> Subscription {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        let (connected, serverId) = self.state.withLock { ($0.connected, $0.serverId) }
+        guard connected else { throw MoqCallControllerError.notConnected }
         let subscription = try factory.create(set: set,
                                               profile: profile,
                                               codecFactory: CodecFactoryImpl(),
                                               endpointId: self.endpointUri,
-                                              relayId: self.serverId!,
+                                              relayId: serverId!,
                                               publisherInitiated: publisherInitiated != nil)
         if let publisherInitiated {
             subscription.setReceivedTrackAlias(publisherInitiated.trackAlias)
@@ -339,7 +379,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter handler: The handler to subscribe.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     func subscribe(_ handler: Subscription) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+        }
         self.client.subscribeTrack(withHandler: handler)
     }
 
@@ -347,7 +389,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter handler: The handler to unsubscribe.
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     func unsubscribe(_ handler: Subscription) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+        }
         self.client.unsubscribeTrack(withHandler: handler)
     }
 
@@ -356,9 +400,12 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     /// ``MoqCallControllerError/subscriptionSetNotFound`` if source ID does not match a set.
     public func unsubscribeToSet(_ sourceID: SourceIDType) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
-        guard let subscription = self.subscriptions.removeValue(forKey: sourceID) else {
-            throw MoqCallControllerError.subscriptionSetNotFound
+        let subscription = try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+            guard let sub = state.subscriptions.removeValue(forKey: sourceID) else {
+                throw MoqCallControllerError.subscriptionSetNotFound
+            }
+            return sub
         }
         for (_, handler) in subscription.getHandlers() {
             self.client.unsubscribeTrack(withHandler: handler)
@@ -370,9 +417,12 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter ftn: The full track name to unsubscribe.
     /// - Throws: ``MoqCallControllerError`` if the set or track is not found.
     public func unsubscribe(_ source: SourceIDType, ftn: FullTrackName) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
-        guard let set = self.subscriptions[source] else {
-            throw MoqCallControllerError.subscriptionSetNotFound
+        let set = try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+            guard let found = state.subscriptions[source] else {
+                throw MoqCallControllerError.subscriptionSetNotFound
+            }
+            return found
         }
         guard let handler = set.removeHandler(ftn) else {
             throw MoqCallControllerError.subscriptionNotFound
@@ -382,50 +432,69 @@ class MoqCallController: QClientCallbacks {
 
     // MARK: Callbacks.
 
+    private enum StatusAction {
+        case none
+        case callEnded
+        case resume(CheckedContinuation<Void, Error>, Error?)
+    }
+
     /// quicr::Client callback for status change.
     /// - Parameter status: The new status.
     func statusChanged(_ status: QClientStatus) {
         self.logger.info("[MoqCallController] Status changed: \(status)")
-        switch status {
-        case .ready:
-            // TODO: Fix this up.
-            guard let connection = self.connectionContinuation else {
-                print("Got ready when we already had ready!?")
-                return
+
+        let action: StatusAction = self.state.withLock { state in
+            switch status {
+            case .ready:
+                guard let cont = state.connectionContinuation else {
+                    self.logger.warning("Got ready when we already had ready!?")
+                    return .none
+                }
+                state.connectionContinuation = nil
+                guard state.serverId != nil else {
+                    self.logger.error("Missing expected Server Setup on ready")
+                    return .resume(cont, MoqCallControllerError.missingSetup)
+                }
+                state.connected = true
+                return .resume(cont, nil)
+            case .notReady:
+                guard let cont = state.connectionContinuation else {
+                    self.logger.error("Missing expected continuation")
+                    return .none
+                }
+                state.connectionContinuation = nil
+                state.connected = false
+                return .resume(cont, MoqCallControllerError.connectionFailure(.notReady))
+            case .clientConnecting:
+                return .none
+            case .clientPendingServerSetup:
+                assert(state.connectionContinuation != nil)
+                return .none
+            case .clientNotConnected:
+                state.connected = false
+                guard let cont = state.connectionContinuation else {
+                    self.logger.error("Disconnected from relay")
+                    return .callEnded
+                }
+                state.connectionContinuation = nil
+                return .resume(cont, MoqCallControllerError.connectionFailure(.clientNotConnected))
+            default:
+                self.logger.warning("Unhandled status change: \(status)")
+                return .none
             }
-            guard self.serverId != nil else {
-                self.logger.error("Missing expected Server Setup on ready")
-                connection.resume(throwing: MoqCallControllerError.missingSetup)
-                self.connectionContinuation = nil
-                return
-            }
-            self.connectionContinuation = nil
-            self.connected = true
-            connection.resume()
-        case .notReady:
-            guard let connectionContinuation = self.connectionContinuation else {
-                self.logger.error("Missing expected continuation")
-                return
-            }
-            self.connectionContinuation = nil
-            self.connected = false
-            connectionContinuation.resume(throwing: MoqCallControllerError.connectionFailure(.notReady))
-        case .clientConnecting:
+        }
+
+        switch action {
+        case .none:
             break
-        case .clientPendingServerSetup:
-            assert(self.connectionContinuation != nil)
-        case .clientNotConnected:
-            self.connected = false
-            guard let connection = self.connectionContinuation else {
-                self.logger.error("Disconnected from relay")
-                self.callEnded?()
-                return
+        case .callEnded:
+            self.callEnded?()
+        case .resume(let cont, let error):
+            if let error {
+                cont.resume(throwing: error)
+            } else {
+                cont.resume()
             }
-            self.connectionContinuation = nil
-            connection.resume(throwing: MoqCallControllerError.connectionFailure(.clientNotConnected))
-            return
-        default:
-            self.logger.warning("Unhandled status change: \(status)")
         }
     }
 
@@ -435,7 +504,7 @@ class MoqCallController: QClientCallbacks {
         let serverId = String(cString: setup.server_id)
         self.measurement?.setRelayId(serverId)
         self.logger.debug("Got server setup received message from: \(serverId)")
-        self.serverId = serverId
+        self.state.withLock { $0.serverId = serverId }
     }
 
     /// quicr::Client publish namespace status changed in response to a publishNamespace()
@@ -462,7 +531,9 @@ class MoqCallController: QClientCallbacks {
     /// - Parameter participantId: The participant ID to query on.
     /// - Returns: List of subscription sets.
     func getSubscriptionsByParticipant(_ participantId: ParticipantId) throws -> [SubscriptionSet] {
-        self.subscriptions.values.filter { $0.participantId == participantId }
+        self.state.withLock { state in
+            state.subscriptions.values.filter { $0.participantId == participantId }
+        }
     }
 
     /// Publish received (subscribe namespace).
@@ -471,8 +542,9 @@ class MoqCallController: QClientCallbacks {
                          tfn: any QFullTrackName,
                          attributes: QPublishAttributes,
                          subNsHandler: QSubscribeNamespaceHandlerObjC?) {
+        let ftn = FullTrackName(tfn)
         let handler: (any MoQSubscribeNamespaceHandler)? = if let subNsHandler {
-            self.namespaceHandlers[NamespacePrefix(subNsHandler.getNamespacePrefix())]
+            self.state.withLock { $0.namespaceHandlers[NamespacePrefix(subNsHandler.getNamespacePrefix())] }
         } else {
             nil
         }
@@ -482,14 +554,14 @@ class MoqCallController: QClientCallbacks {
             self.resolvePublish(connectionHandle: connectionHandle,
                                 requestId: requestId,
                                 attributes: attributes,
-                                tfn: .init(tfn),
+                                tfn: ftn,
                                 response: .init(ok: false),
                                 handler: nil)
             return
         }
 
         // Callback provides response.
-        let response = callback(tfn, attributes, handler)
+        let response = callback(ftn, attributes, handler)
         let qResponse: QPublishResponse
         let subscription: Subscription?
         let responseAttributes: QPublishAttributes
@@ -506,7 +578,7 @@ class MoqCallController: QClientCallbacks {
         self.resolvePublish(connectionHandle: connectionHandle,
                             requestId: requestId,
                             attributes: responseAttributes,
-                            tfn: .init(tfn),
+                            tfn: ftn,
                             response: qResponse,
                             handler: subscription)
     }
@@ -530,11 +602,13 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     /// ``MoqCallControllerError/unsupportedHandler`` if handler implementation is unsupported.
     func subscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
         guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
             throw MoqCallControllerError.unsupportedHandler
         }
-        self.namespaceHandlers[handler.namespacePrefix] = handler
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+            state.namespaceHandlers[handler.namespacePrefix] = handler
+        }
         self.client.subscribeNamespace(withHandler: libquicrHandler.handler)
     }
 
@@ -543,11 +617,13 @@ class MoqCallController: QClientCallbacks {
     /// - Throws: ``MoqCallControllerError/notConnected`` if not connected.
     /// ``MoqCallControllerError/unsupportedHandler`` if handler implementation is unsupported.
     func unsubscribeNamespace(_ handler: any MoQSubscribeNamespaceHandler) throws {
-        guard self.connected else { throw MoqCallControllerError.notConnected }
         guard let libquicrHandler = handler as? QSubscribeNamespaceHandler else {
             throw MoqCallControllerError.unsupportedHandler
         }
-        self.namespaceHandlers.removeValue(forKey: handler.namespacePrefix)
+        try self.state.withLock { state in
+            guard state.connected else { throw MoqCallControllerError.notConnected }
+            state.namespaceHandlers.removeValue(forKey: handler.namespacePrefix)
+        }
         self.client.unsubscribeNamespace(withHandler: libquicrHandler.handler)
     }
 }

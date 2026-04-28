@@ -14,6 +14,7 @@
 #import "QTrackFilter.h"
 #import "QSubscribeNamespaceHandlerCallbacks.h"
 
+NS_SWIFT_SENDABLE
 @interface QSubscribeNamespaceHandlerObjC : NSObject
 {
 #ifdef __cplusplus

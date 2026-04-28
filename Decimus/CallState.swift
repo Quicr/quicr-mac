@@ -63,7 +63,6 @@ enum AppExtensionMode: Int, CaseIterable, Identifiable, CustomStringConvertible 
     }
 }
 
-@MainActor
 class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_body_length
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
         false
@@ -77,7 +76,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
     private(set) var manualActiveSpeaker: ManualActiveSpeaker?
     private(set) var captureManager: CaptureManager?
     private(set) var activeSpeakerStats: ActiveSpeakerStats?
-    private(set) var videoParticipants = VideoParticipants()
+    @MainActor private(set) var videoParticipants = VideoParticipants()
     private(set) var currentManifest: Manifest?
     private(set) var textSubscriptions: TextSubscriptions?
     private(set) var textPublication: TextPublication?
@@ -219,6 +218,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
     }
 
+    @MainActor
     func join(make: Bool = true) async -> Bool { // swiftlint:disable:this function_body_length cyclomatic_complexity
         // Recording.
         if self.recording {
@@ -785,6 +785,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
     }
 
+    @MainActor
     func leave() async {
         self.videoParticipants.stopStalenessChecks()
 
@@ -1152,6 +1153,7 @@ extension CallState {
 
     /// Update the layout count for the NAB subscribe namespaces.
     /// Sets the video grid display count and prepares a track filter for when libquicr supports filter updates.
+    @MainActor
     func setLayoutCount(_ count: Int?) {
         self.videoParticipants.maxDisplayCount = count
 
