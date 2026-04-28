@@ -50,7 +50,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     let timeDiff = TimeDiff()
 
     private let logger: DecimusLogger
-    private var decoder: VTDecoder?
+    private let decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: VideoHandlerMeasurement?
     private var lastGroup: UInt64?
@@ -118,6 +118,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         let calculateLatency: Bool
         /// True to use MoQ MI
         let mediaInterop: Bool
+        /// Max number of decoded frames to buffer.
+        let decodeBufferSize: Int
     }
 
     /// Create a new video handler.
@@ -176,6 +178,20 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
+        if jitterBufferConfig.mode != .layer {
+            // Create the decoder.
+            self.decoder = .init(config: self.config, decodeBufferSize: handlerConfig.decodeBufferSize)
+        } else {
+            self.decoder = nil
+        }
+        if let decoder = self.decoder {
+            Task(priority: .high) { [weak self] in
+                for await sample in decoder.decoded {
+                    guard let self else { return }
+                    self.handleDecodedSample(sample)
+                }
+            }
+        }
         self.spikeToken = self.detector?.registerNotifyCallback { [weak self] in
             guard let self = self else { return }
             self.predictable = true
@@ -205,60 +221,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             }
         } else {
             self.participant.clear()
-        }
-
-        if jitterBufferConfig.mode != .layer {
-            // Create the decoder.
-            self.decoder = .init(config: self.config) { [weak self] sample in
-                guard let self = self else { return }
-
-                // Calculate / report E2E latency.
-                let endToEndLatency: TimeInterval?
-                let now = Date.now
-                if self.handlerConfig.calculateLatency {
-                    let presentationTime = sample.presentationTimeStamp.seconds
-                    let presentationDate = Date(timeIntervalSince1970: presentationTime)
-                    let age = now.timeIntervalSince(presentationDate)
-                    endToEndLatency = age
-                    if self.granularMetrics,
-                       let measurement = self.measurement {
-                        measurement.decodedAge(age: age, timestamp: now)
-                    }
-                } else {
-                    endToEndLatency = nil
-                }
-
-                if simulreceive != .none {
-                    _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
-                                                            now: now)
-                    self.lastDecodedImage.withLock { $0 = .init(image: sample,
-                                                                fps: UInt(self.config.fps),
-                                                                discontinous: sample.discontinous) }
-                }
-
-                // Consume pending switch context and record decode time.
-                let switchCtx = self.pendingSwitchContext.withLock { ctx in
-                    guard var captured = ctx else { return SwitchContext?.none }
-                    captured.decodeTime = now
-                    ctx = nil
-                    return captured
-                }
-
-                if let participant = self.participant.get() {
-                    // Enqueue for rendering.
-                    do {
-                        try self.enqueueSample(sample: sample,
-                                               orientation: self.orientation,
-                                               verticalMirror: self.verticalMirror,
-                                               from: now,
-                                               participant: participant,
-                                               endToEndLatency: endToEndLatency,
-                                               switchContext: switchCtx)
-                    } catch {
-                        self.logger.error("Failed to enqueue decoded sample: \(error)")
-                    }
-                }
-            }
         }
     }
 
@@ -1040,6 +1002,55 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                      fps: sei?.timestamp?.fps,
                      orientation: sei?.orientation?.orientation,
                      verticalMirror: sei?.orientation?.verticalMirror)
+    }
+
+    private func handleDecodedSample(_ sample: CMSampleBuffer) {
+        // Calculate / report E2E latency.
+        let endToEndLatency: TimeInterval?
+        let now = Date.now
+        if self.handlerConfig.calculateLatency {
+            let presentationTime = sample.presentationTimeStamp.seconds
+            let presentationDate = Date(timeIntervalSince1970: presentationTime)
+            let age = now.timeIntervalSince(presentationDate)
+            endToEndLatency = age
+            if self.granularMetrics,
+               let measurement = self.measurement {
+                measurement.decodedAge(age: age, timestamp: now)
+            }
+        } else {
+            endToEndLatency = nil
+        }
+
+        if self.simulreceive != .none {
+            _ = self.variances.calculateSetVariance(timestamp: sample.presentationTimeStamp.seconds,
+                                                    now: now)
+            self.lastDecodedImage.withLock { $0 = .init(image: sample,
+                                                        fps: UInt(self.config.fps),
+                                                        discontinous: sample.discontinous) }
+        }
+
+        // Consume pending switch context and record decode time.
+        let switchCtx = self.pendingSwitchContext.withLock { ctx in
+            guard var captured = ctx else { return SwitchContext?.none }
+            captured.decodeTime = now
+            ctx = nil
+            return captured
+        }
+
+        if let participant = self.participant.get() {
+            // Enqueue for rendering.
+            do {
+                try self.enqueueSample(sample: sample,
+                                       orientation: self.orientation,
+                                       verticalMirror: self.verticalMirror,
+                                       from: now,
+                                       participant: participant,
+                                       endToEndLatency: endToEndLatency,
+                                       switchContext: switchCtx)
+            } catch {
+                self.logger.error("Failed to enqueue decoded sample: \(error)")
+            }
+        }
     }
 
     #if DEBUG

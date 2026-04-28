@@ -48,6 +48,12 @@ struct SubscriptionSettingsView: View {
             }
             LabeledToggle("Adaptive Jitter Buffer",
                           isOn: self.$subscriptionConfig.value.videoJitterBuffer.adaptive)
+            LabeledContent("Decoder max queue size") {
+                TextField("Decoder max queue size",
+                          value: self.$subscriptionConfig.value.decoderQueueSize,
+                          format: .number)
+                    .labelsHidden()
+            }
             LabeledToggle("Experimental WiFi Adaptation",
                           isOn: self.$subscriptionConfig.value.videoJitterBuffer.spikePrediction)
             LabeledToggle("New Audio Buffer",

@@ -22,6 +22,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         let calculateLatency: Bool
         /// True for media interop mode.
         let mediaInterop: Bool
+        /// Max decode queue size.
+        let decodeQueueSize: Int
     }
 
     private let fullTrackName: FullTrackName
@@ -210,7 +212,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.switchLatencyMeasurement = switchLatencyMeasurement
         self.logger = .init(VideoSubscription.self, prefix: "\(self.fullTrackName)")
         let handlerConfig = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
-                                                mediaInterop: self.subscriptionConfig.mediaInterop)
+                                                mediaInterop: self.subscriptionConfig.mediaInterop,
+                                                decodeBufferSize: self.subscriptionConfig.decodeQueueSize)
         let handler = try VideoHandler(fullTrackName: fullTrackName,
                                        config: config,
                                        participants: participants,
@@ -558,7 +561,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                 return (existing, .existing)
             }
             let config = VideoHandler.Config(calculateLatency: self.subscriptionConfig.calculateLatency,
-                                             mediaInterop: self.subscriptionConfig.mediaInterop)
+                                             mediaInterop: self.subscriptionConfig.mediaInterop,
+                                             decodeBufferSize: self.subscriptionConfig.decodeQueueSize)
             let newHandler = try VideoHandler(fullTrackName: self.fullTrackName,
                                               config: self.config,
                                               participants: self.participants,
