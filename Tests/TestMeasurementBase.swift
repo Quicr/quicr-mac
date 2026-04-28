@@ -4,10 +4,10 @@
 @testable import QuicR
 import Testing
 
-private final class TestMeasurement: MeasurementBase {
-    init() {
-        super.init(name: "Test", tags: ["key": "value"])
-    }
+private final class TestMeasurement: MetricsMeasurement {
+    let storage = MeasurementStorage()
+    let name = "Test"
+    let tags: [String: String] = ["key": "value"]
 }
 
 @Suite
