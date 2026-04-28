@@ -68,6 +68,7 @@ final class VTDecoder: Sendable {
                 // We need to recreate the decoder because of a format change.
                 self.logger.info("Recreating due to format change")
                 self.close(session)
+                locked = nil
                 locked = try self.makeDecoder(format: format)
                 retry = true
             case .zero:
