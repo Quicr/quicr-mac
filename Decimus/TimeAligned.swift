@@ -3,11 +3,12 @@
 
 import Synchronization
 
-class TimeAlignable {
-    var jitterBuffer: JitterBuffer?
-    let timeDiff = TimeDiff()
-    private let logger = DecimusLogger(TimeAlignable.self)
+protocol TimeAlignable {
+    var jitterBuffer: JitterBuffer? { get }
+    var timeDiff: TimeDiff { get }
+}
 
+extension TimeAlignable {
     /// Calculates the time until the next frame would be expected, or nil if there is no next frame.
     /// - Parameter from: The time to calculate from.
     /// - Returns Time to wait in seconds, if any.
@@ -20,7 +21,6 @@ class TimeAlignable {
     func calculateWaitTime(item: JitterBuffer.JitterItem, from: Ticks) -> TimeInterval? {
         guard let jitterBuffer = self.jitterBuffer else {
             assert(false)
-            self.logger.error("App misconfiguration, please report this")
             return nil
         }
         guard let diff = self.timeDiff.getTimeDiff() else { return nil }
