@@ -39,11 +39,15 @@ struct ObjectReceived {
 typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
 /// Handles decoding, jitter, and rendering of a video stream.
-class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disable:this type_body_length
+final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // swiftlint:disable:this type_body_length
     /// The current configuration in use.
     let config: VideoCodecConfig
     /// The full track name identifiying this stream.
     let fullTrackName: FullTrackName
+
+    private let _jitterBuffer = Mutex<JitterBuffer?>(nil)
+    var jitterBuffer: JitterBuffer? { self._jitterBuffer.get() }
+    let timeDiff = TimeDiff()
 
     private let logger: DecimusLogger
     private var decoder: VTDecoder?
@@ -172,7 +176,6 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         self.targetJitterDepth = self.jitterBufferConfig.minDepth
         self.jitterCalculation = .init(identifier: "\(self.fullTrackName)",
                                        submitter: metricsSubmitter)
-        super.init()
         self.spikeToken = self.detector?.registerNotifyCallback { [weak self] in
             guard let self = self else { return }
             self.predictable = true
@@ -496,13 +499,15 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
     /// - Parameter details: Details about the received object.
     private func submitEncodedData(_ frame: DecimusVideoFrame, details: ObjectReceived) throws {
         // Do we need to create a jitter buffer?
-        if self.jitterBuffer == nil,
-           self.jitterBufferConfig.mode != .layer,
-           self.jitterBufferConfig.mode != .none {
-            // Create the video jitter buffer.
-            try self.createJitterBuffer(frame: frame)
-            assert(self.dequeueTask == nil)
-            createDequeueTask()
+        try self._jitterBuffer.withLock { jitterBuffer in
+            if jitterBuffer == nil,
+               self.jitterBufferConfig.mode != .layer,
+               self.jitterBufferConfig.mode != .none {
+                // Create the video jitter buffer.
+                jitterBuffer = try self.createJitterBuffer(frame: frame)
+                assert(self.dequeueTask == nil)
+                createDequeueTask()
+            }
         }
 
         // Do we need to copy the frame data?
@@ -641,7 +646,7 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
         jitterBuffer.setTargetAdjustment(adjustment)
     }
 
-    private func createJitterBuffer(frame: DecimusVideoFrame) throws {
+    private func createJitterBuffer(frame: DecimusVideoFrame) throws -> JitterBuffer {
         let remoteFPS: UInt16
         if let fps = frame.fps {
             remoteFPS = UInt16(fps)
@@ -695,13 +700,13 @@ class VideoHandler: TimeAlignable, CustomStringConvertible { // swiftlint:disabl
             }
         }
         // swiftlint:enable force_cast
-        self.jitterBuffer = try .init(identifier: "\(self.fullTrackName)",
-                                      metricsSubmitter: self.metricsSubmitter,
-                                      minDepth: self.jitterBufferConfig.minDepth,
-                                      capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
-                                      handlers: handlers,
-                                      playingFromStart: false)
         self.duration = duration
+        return try .init(identifier: "\(self.fullTrackName)",
+                         metricsSubmitter: self.metricsSubmitter,
+                         minDepth: self.jitterBufferConfig.minDepth,
+                         capacity: Int(floor(self.jitterBufferConfig.capacity / duration)),
+                         handlers: handlers,
+                         playingFromStart: false)
     }
 
     private func createDequeueTask() {

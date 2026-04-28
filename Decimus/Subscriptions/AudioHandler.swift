@@ -54,6 +54,8 @@ class AudioHandler: TimeAlignable {
     private let config: Config
     private let playing: Atomic<Bool> = .init(false)
     private let jitterCalculation: RFC3550Jitter
+    var jitterBuffer: JitterBuffer?
+    let timeDiff = TimeDiff()
 
     private var silenceDetectionBuffer: UnsafeMutableBufferPointer<Float32>?
 
@@ -91,7 +93,6 @@ class AudioHandler: TimeAlignable {
         self.config = config
         self.metricsSubmitter = metricsSubmitter
         self.jitterCalculation = .init(identifier: identifier, submitter: metricsSubmitter)
-        super.init()
         if !self.config.useNewJitterBuffer {
             // Create the jitter buffer.
             let opusPacketSize = self.asbd.pointee.mSampleRate * config.opusWindowSize.rawValue
