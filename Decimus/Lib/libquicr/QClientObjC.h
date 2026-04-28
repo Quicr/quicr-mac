@@ -38,6 +38,7 @@ typedef struct QPublishResponse {
     bool ok;
 } QPublishResponse;
 
+NS_SWIFT_SENDABLE
 @protocol MoqClient
 - (QClientStatus)connect;
 - (QClientStatus)disconnect;
@@ -61,6 +62,7 @@ typedef struct QPublishResponse {
                handler: (QSubscribeTrackHandlerObjC* _Nullable) handler;
 @end
 
+NS_SWIFT_SENDABLE
 @interface QClientObjC : NSObject<MoqClient>
 {
 #ifdef __cplusplus
