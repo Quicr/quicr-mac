@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import VideoToolbox
+import Synchronization
 
 /// Provides hardware accelerated decoding.
-class VTDecoder {
-    typealias DecodedFrameCallback = (CMSampleBuffer) -> Void
+final class VTDecoder: Sendable {
+    typealias DecodedFrameCallback = @Sendable (CMSampleBuffer) -> Void
     private let logger = DecimusLogger(VTDecoder.self)
 
     // Members.
-    private var currentFormat: CMFormatDescription?
-    private var session: VTDecompressionSession?
+    private let session: Mutex<VTDecompressionSession?> = .init(nil)
     private let callback: DecodedFrameCallback
 
     /// Stored codec config. Can be updated.
-    private var config: VideoCodecConfig
+    private let config: VideoCodecConfig
 
     init(config: VideoCodecConfig, callback: @escaping DecodedFrameCallback) {
         self.config = config
@@ -22,7 +22,13 @@ class VTDecoder {
     }
 
     deinit {
-        guard let session = self.session else { return }
+        self.session.withLock { session in
+            guard let session else { return }
+            self.close(session)
+        }
+    }
+
+    private func close(_ session: VTDecompressionSession) {
         let flush = VTDecompressionSessionWaitForAsynchronousFrames(session)
         if flush != .zero {
             self.logger.warning("VTDecoder failed to flush frames: \(flush)", alert: true)
@@ -36,31 +42,42 @@ class VTDecoder {
             throw "Sample missing format"
         }
 
-        // Make the decoder if not already.
-        if session == nil {
-            session = try makeDecoder(format: format)
+        var retry = false
+        try self.session.withLock { locked in
+            // Make the decoder if not already.
+            let session: VTDecompressionSession
+            if let locked {
+                session = locked
+            } else {
+                session = try self.makeDecoder(format: format)
+                locked = session
+            }
+
+            // Pass sample to decoder.
+            var inputFlags: VTDecodeFrameFlags = .init()
+            inputFlags.insert(._EnableAsynchronousDecompression)
+            var outputFlags: VTDecodeInfoFlags = .init()
+            let decodeError = VTDecompressionSessionDecodeFrame(session,
+                                                                sampleBuffer: sample,
+                                                                flags: inputFlags,
+                                                                infoFlagsOut: &outputFlags,
+                                                                outputHandler: self.frameCallback)
+
+            switch decodeError {
+            case kVTFormatDescriptionChangeNotSupportedErr:
+                // We need to recreate the decoder because of a format change.
+                self.logger.info("Recreating due to format change")
+                self.close(session)
+                locked = try self.makeDecoder(format: format)
+                retry = true
+            case .zero:
+                break
+            default:
+                throw OSStatusError(error: decodeError, message: "Failed to decode frame")
+            }
         }
-
-        // Pass sample to decoder.
-        var inputFlags: VTDecodeFrameFlags = .init()
-        inputFlags.insert(._EnableAsynchronousDecompression)
-        var outputFlags: VTDecodeInfoFlags = .init()
-        let decodeError = VTDecompressionSessionDecodeFrame(session!,
-                                                            sampleBuffer: sample,
-                                                            flags: inputFlags,
-                                                            infoFlagsOut: &outputFlags,
-                                                            outputHandler: self.frameCallback)
-
-        switch decodeError {
-        case kVTFormatDescriptionChangeNotSupportedErr:
-            // We need to recreate the decoder because of a format change.
-            self.logger.info("Recreating due to format change")
-            session = try makeDecoder(format: format)
-            try write(sample)
-        case .zero:
-            break
-        default:
-            throw OSStatusError(error: decodeError, message: "Failed to decode frame")
+        if retry {
+            try self.write(sample)
         }
     }
 
@@ -93,7 +110,6 @@ class VTDecoder {
         guard error == .zero else {
             throw OSStatusError(error: error, message: "Failed to create VTDecompressionSession")
         }
-        self.currentFormat = format
 
         // Configure for realtime.
         VTSessionSetProperty(session!, key: kVTDecompressionPropertyKey_RealTime, value: kCFBooleanTrue)

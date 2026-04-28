@@ -9,7 +9,7 @@ import Numerics
 extension HostTimeOffset: @retroactive Equatable {
     public static func == (lhs: HostTimeOffset, rhs: HostTimeOffset) -> Bool {
         lhs.senderTimestamp == rhs.senderTimestamp &&
-        lhs.receiverHostTime == rhs.receiverHostTime
+            lhs.receiverHostTime == rhs.receiverHostTime
     }
 }
 
@@ -45,8 +45,11 @@ struct TestTimeDiff {
 
 private let minDepth: TimeInterval = 0.2
 struct TestTimeAlignable {
-    private class TimeAlignableImpl: TimeAlignable {
-        override init() {
+    private final class TimeAlignableImpl: TimeAlignable {
+        let jitterBuffer: JitterBuffer?
+        let timeDiff = TimeDiff()
+
+        init() {
             let handlers = CMBufferQueue.Handlers { builder in
                 builder.compare { _, _ in
                     .compareLessThan
@@ -67,7 +70,6 @@ struct TestTimeAlignable {
                     true
                 }
             }
-            super.init()
             self.jitterBuffer = try? .init(identifier: "Test",
                                            metricsSubmitter: nil,
                                            minDepth: minDepth,
