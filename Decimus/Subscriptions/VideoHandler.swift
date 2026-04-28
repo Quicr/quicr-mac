@@ -58,6 +58,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
+    private var decodeTask: Task<(), Never>?
     private var dequeueTask: Task<(), Never>?
     private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: JitterBuffer.Config
@@ -185,8 +186,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
             self.decoder = nil
         }
         if let decoder = self.decoder {
-            Task(priority: .high) { [weak self] in
-                for await sample in decoder.decoded {
+            let decoded = decoder.decoded
+            self.decodeTask = Task(priority: .high) { [weak self] in
+                for await sample in decoded {
                     guard let self else { return }
                     self.handleDecodedSample(sample)
                 }
@@ -225,6 +227,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
 
     deinit {
+        self.decodeTask?.cancel()
         self.dequeueTask?.cancel()
         if let spikeToken = self.spikeToken {
             self.detector!.removeNotifyCallback(token: spikeToken)
