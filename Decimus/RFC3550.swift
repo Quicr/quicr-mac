@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Calculates interarrival jitter according to RFC 3550.
-class RFC3550Jitter {
-    private var transit: TimeInterval?
+final class RFC3550Jitter: Sendable {
+    private nonisolated(unsafe) var transit: TimeInterval?
     /// Current jitter value.
-    private(set) var jitter: TimeInterval = 0
+    private(set) nonisolated(unsafe) var jitter: TimeInterval = 0
     /// Exponentially smoothed value.
-    private(set) var smoothed: TimeInterval = 0
+    private(set) nonisolated(unsafe) var smoothed: TimeInterval = 0
     private let measurement: RFC3550JitterMeasurement?
 
     /// Alpha for exponential smoothing.
@@ -23,6 +23,7 @@ class RFC3550Jitter {
         self.measurement = measurement
     }
 
+    /// Record an arrival timestamp. This must only be called from 1 concurrency context.
     func record(timestamp: TimeInterval, arrival: Date) {
         // Calculation.
         let transit = arrival.timeIntervalSince1970 - timestamp

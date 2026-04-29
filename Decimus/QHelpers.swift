@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /// Provides handling of names.
-protocol NameGate {
+protocol NameGate: Sendable {
     func handle(groupId: UInt64, objectId: UInt64, lastGroup: UInt64?, lastObject: UInt64?) -> Bool
 }
 
 /// A NameGate that allows anything.
-class AllowAllNameGate: NameGate {
+final class AllowAllNameGate: NameGate {
     func handle(groupId: UInt64, objectId: UInt64, lastGroup: UInt64?, lastObject: UInt64?) -> Bool {
         true
     }
 }
 
 /// A NameGate that only allows sequential object inside a group, and incrementing groups when their object == 0.
-class SequentialObjectBlockingNameGate: NameGate {
+final class SequentialObjectBlockingNameGate: NameGate {
     func handle(groupId: UInt64, objectId: UInt64, lastGroup: UInt64?, lastObject: UInt64?) -> Bool {
         // 0th object of a newer group can always be written.
         if (lastGroup == nil || groupId > lastGroup!) && objectId == 0 {

@@ -4,7 +4,7 @@
 import Synchronization
 
 /// Calculate the variance between a set of timestamped events and their time of occurance.
-class VarianceCalculator {
+final class VarianceCalculator: Sendable {
     private let variances: Mutex<[TimeInterval: [Date]]> = .init([:])
     private let varianceMaxCount: Int
     private let expectedOccurrences: Int

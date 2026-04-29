@@ -13,14 +13,14 @@ struct Prediction {
     let spikeId: Int
 }
 
-protocol WiFiScanDetector {
+protocol WiFiScanDetector: Sendable {
     func registerNotifyCallback(_ callback: @escaping () -> Void) -> Int
     func removeNotifyCallback(token: Int)
     func addIntervalMeasurement(interval: TimeInterval, identifier: String, timestamp: Date)
     func predictNextScan(from: Date) -> Prediction
 }
 
-class MockWiFiScanDetector: WiFiScanDetector {
+final class MockWiFiScanDetector: WiFiScanDetector {
     func registerNotifyCallback(_ callback: @escaping () -> Void) -> Int { 0 }
     func removeNotifyCallback(token: Int) {}
     func addIntervalMeasurement(interval: TimeInterval, identifier: String, timestamp: Date) {}
