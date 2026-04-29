@@ -53,14 +53,9 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let decoder: VTDecoder?
     private let participants: VideoParticipants
     private let measurement: VideoHandlerMeasurement?
-    private var lastGroup: UInt64?
-    private var lastObject: UInt64?
     private let namegate = SequentialObjectBlockingNameGate()
     private let videoBehaviour: VideoBehaviour
     private let granularMetrics: Bool
-    private var decodeTask: Task<(), Never>?
-    private var dequeueTask: Task<(), Never>?
-    private var dequeueBehaviour: VideoDequeuer?
     private let jitterBufferConfig: JitterBuffer.Config
     var orientation: DecimusVideoRotation? {
         let result = atomicOrientation.load(ordering: .acquiring)
@@ -72,14 +67,23 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let atomicOrientation = Atomic<UInt8>(0)
     private let atomicMirror = Atomic<Bool>(false)
     private let currentFormats = Mutex<[UInt64: CMFormatDescription]>([:])
-    private var startTimeSet = false
+    @MainActor private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
     let lastDecodedImage = Mutex<AvailableImage?>(nil)
-    private var lastFps: UInt16?
-    private var lastDimensions: CMVideoDimensions?
 
-    private var duration: TimeInterval? = 0
+    // All these are thread safe in practise.
+    private nonisolated(unsafe) var lastGroup: UInt64?
+    private nonisolated(unsafe) var lastObject: UInt64?
+    private nonisolated(unsafe) var decodeTask: Task<(), Never>?
+    private nonisolated(unsafe) var dequeueTask: Task<(), Never>?
+    private nonisolated(unsafe) var dequeueBehaviour: VideoDequeuer?
+    private nonisolated(unsafe) var lastFps: UInt16?
+    private nonisolated(unsafe) var lastDimensions: CMVideoDimensions?
+    private nonisolated(unsafe) var duration: TimeInterval? = 0
+    private nonisolated(unsafe) var lastReceived: Ticks?
+    nonisolated(unsafe) var description = "VideoHandler"
+
     private let variances: VarianceCalculator
 
     private struct Callbacks {
@@ -88,7 +92,6 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     }
     private let callbacks = Mutex<Callbacks>(.init())
 
-    var description = "VideoHandler"
     private let participantId: ParticipantId
     private let activeSpeakerStats: ActiveSpeakerStats?
     private let participant = Mutex<VideoParticipant?>(nil)
@@ -96,22 +99,20 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let handlerConfig: Config
     private let detector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
-    private var lastReceived: Ticks?
     private let jitterCalculation: RFC3550Jitter
 
     // Wi-Fi scan jitter buffer ramping state.
     enum RampState {
         case none, up(Date), spike(Date), down(Date)
     }
-    private var targetJitterDepth: TimeInterval
-    private var rampState = RampState.none
+    private nonisolated(unsafe) var targetJitterDepth: TimeInterval
+    private nonisolated(unsafe) var rampState = RampState.none
     private let spikeDepth: TimeInterval = 0.200 // 200ms fallback
     private let rampDuration: TimeInterval = 1.0  // 1s
-    private var predictable = false  // Don't predict if we can't
-    private var lastSpikeDetectionTime: Date?  // Track when we last detected elevated latency
-    private var spikeToken: Int?
-    private var lastSpikeRespondedTo: Int?
-    private var currentSpikeLength: TimeInterval?
+    private let predictable = Atomic<Bool>(false) // Don't predict if we can't
+    private nonisolated(unsafe) var spikeToken: Int?
+    private nonisolated(unsafe) var lastSpikeRespondedTo: Int?
+    private nonisolated(unsafe) var currentSpikeLength: TimeInterval?
 
     /// Configuration for the handler.
     struct Config {
@@ -135,7 +136,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     ///     - simulreceive: The mode to operate in if any sibling streams are present.
     ///     - handlerConfig: Configuration for this handler.
     /// - Throws: Simulreceive cannot be used with a jitter buffer mode of `layer`.
-    init(fullTrackName: FullTrackName, // swiftlint:disable:this function_body_length
+    init(fullTrackName: FullTrackName,
          config: VideoCodecConfig,
          participants: VideoParticipants,
          metricsSubmitter: MetricsSubmitter?,
@@ -196,7 +197,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
         self.spikeToken = self.detector?.registerNotifyCallback { [weak self] in
             guard let self = self else { return }
-            self.predictable = true
+            self.predictable.store(true, ordering: .releasing)
         }
         if self.simulreceive != .enable {
             Task {
@@ -541,7 +542,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                                timestamp: Date) {
         // Wait until we're in a position to predict.
         guard let jitterBuffer = self.jitterBuffer,
-              self.predictable else { return }
+              self.predictable.load(ordering: .acquiring) else { return }
 
         let timeToScan = prediction.timeToScan
         let predictedMagnitude = prediction.predictedMagnitude
@@ -848,7 +849,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
 
         // Enqueue the sample on the main thread.
-        DispatchQueue.main.async {
+        Task { @MainActor in
             do {
                 // Set the layer's start time to the first sample's timestamp minus the target depth.
                 if !self.startTimeSet {
@@ -873,10 +874,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
         }
     }
 
+    @MainActor
     private func setLayerStartTime(layer: AVSampleBufferDisplayLayer, time: CMTime) throws {
-        guard Thread.isMainThread else {
-            throw "Should be called from the main thread"
-        }
         let timebase = try CMTimebase(sourceClock: .hostTimeClock)
         let startTime: CMTime
         if self.jitterBufferConfig.mode == .layer {
@@ -893,7 +892,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
 
     private func flushDisplayLayer() {
         guard let participant = self.participant.get() else { return }
-        DispatchQueue.main.async {
+        Task { @MainActor in
             do {
                 try participant.view.flush()
             } catch {
