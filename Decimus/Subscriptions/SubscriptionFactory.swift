@@ -105,6 +105,8 @@ struct SubscriptionConfig: Codable {
     var joinConfig: VideoSubscription.JoinConfig<TimeInterval>
     /// True to use announce flow for publications.
     var useAnnounce: Bool
+    /// Max size of decoder queue before frames dropped.
+    var decoderQueueSize: Int
 
     /// Create with default settings.
     init() {
@@ -141,6 +143,7 @@ struct SubscriptionConfig: Codable {
         self.stalenessThreshold = 0.3
         self.joinConfig = .init(fetchUpperThreshold: 1, newGroupUpperThreshold: 4)
         self.useAnnounce = false
+        self.decoderQueueSize = 2
     }
 }
 
@@ -373,7 +376,8 @@ class SubscriptionFactoryImpl: SubscriptionFactory {
                                          cleanupTime: subConfig.cleanupTime,
                                          subscriptionConfig: .init(joinConfig: joinConfig,
                                                                    calculateLatency: self.calculateLatency,
-                                                                   mediaInterop: self.mediaInterop),
+                                                                   mediaInterop: self.mediaInterop,
+                                                                   decodeQueueSize: subConfig.decoderQueueSize),
                                          sframeContext: self.sframeContext,
                                          wifiScanDetector: self.wifiScanDetector,
                                          switchLatencyMeasurement: self.switchLatencyMeasurement,

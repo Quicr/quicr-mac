@@ -4,24 +4,27 @@
 import VideoToolbox
 import Synchronization
 
+// FIXME: Consider CMReadySampleBuffer in 26.0 to avoid this.
+extension CMSampleBuffer: @retroactive @unchecked Sendable { }
+
 /// Provides hardware accelerated decoding.
 final class VTDecoder: Sendable {
     typealias DecodedFrameCallback = @Sendable (CMSampleBuffer) -> Void
     private let logger = DecimusLogger(VTDecoder.self)
 
     // Members.
+    let decoded: AsyncStream<CMSampleBuffer>
+    private let continuation: AsyncStream<CMSampleBuffer>.Continuation
     private let session: Mutex<VTDecompressionSession?> = .init(nil)
-    private let callback: DecodedFrameCallback
-
-    /// Stored codec config. Can be updated.
     private let config: VideoCodecConfig
 
-    init(config: VideoCodecConfig, callback: @escaping DecodedFrameCallback) {
+    init(config: VideoCodecConfig, decodeBufferSize: Int) {
         self.config = config
-        self.callback = callback
+        (self.decoded, self.continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(decodeBufferSize))
     }
 
     deinit {
+        self.continuation.finish()
         self.session.withLock { session in
             guard let session else { return }
             self.close(session)
@@ -135,7 +138,13 @@ final class VTDecoder: Sendable {
                                                    sampleTiming: .init(duration: duration,
                                                                        presentationTimeStamp: presentation,
                                                                        decodeTimeStamp: .invalid))
-            callback(sample)
+            let result = self.continuation.yield(sample)
+            switch result {
+            case .dropped:
+                self.logger.warning("Decoder queue backpressure, dropped frame")
+            default:
+                break
+            }
         } catch {
             self.logger.error("Couldn't create CMSampleBuffer: \(error)")
         }
