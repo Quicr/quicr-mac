@@ -1,22 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 Cisco Systems
 // SPDX-License-Identifier: BSD-2-Clause
 
-/// Delegate protocol for receiving status and metrics callbacks from a MoQSink.
-/// Publications conform to this protocol to receive notifications from the underlying MoQ stack.
-protocol MoQSinkDelegate: AnyObject {
-    /// Called when the publish track handler status changes.
-    /// - Parameter status: The new status.
-    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus)
-
-    /// Called when metrics are sampled from the underlying transport.
-    /// - Parameter metrics: The sampled metrics.
-    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics)
-}
-
 /// Protocol describing MoQ publish capability.
-protocol MoQSink: AnyObject {
-    /// The delegate to receive status and metrics callbacks.
-    var delegate: MoQSinkDelegate? { get set }
+protocol MoQSink: AnyObject, Sendable {
+    typealias OnStatus = @Sendable (QPublishTrackHandlerStatus) -> Void
+    typealias OnMetrics = @Sendable (QPublishTrackMetrics) -> Void
 
     /// The full track name for this sink.
     var fullTrackName: FullTrackName { get }
@@ -26,6 +14,12 @@ protocol MoQSink: AnyObject {
 
     /// Whether the sink is ready to publish objects.
     var canPublish: Bool { get }
+
+    /// Install the status and metrics callbacks and begin delivering them.
+    /// Callbacks fire on the underlying transport thread.
+    /// - Parameter onStatus: Status callback.
+    /// - Parameter onMetrics: Metrics callback.
+    func setCallbacks(onStatus: @escaping OnStatus, onMetrics: @escaping OnMetrics)
 
     /// Publish a complete object.
     /// - Parameters:

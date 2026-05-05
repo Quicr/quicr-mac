@@ -25,135 +25,90 @@ private class MockEncoder: VideoEncoder {
     }
 }
 
-class FakeH264Publication: H264Publication {
-    typealias PublishCallback = (_ groupId: UInt64,
-                                 _ objectId: UInt64) -> Void
-    private let publishNotify: PublishCallback
-    var mockCanPublish: Bool = false
-    private var currentStatus: QPublishTrackHandlerStatus = .notConnected
+/// Test double for ``MoQSink`` — lets tests drive status and observe publish calls.
+final class MockSink: MoQSink, @unchecked Sendable {
+    typealias PublishCallback = (_ groupId: UInt64, _ objectId: UInt64) -> Void
 
-    required init(profile: Profile,
-                  config: VideoCodecConfig,
-                  metricsSubmitter: (any MetricsSubmitter)?,
-                  granularMetrics: Bool,
-                  encoder: any VideoEncoder,
-                  device: AVCaptureDevice,
-                  endpointId: String,
-                  relayId: String,
-                  stagger: Bool,
-                  verbose: Bool,
-                  keyFrameOnUpdate: Bool,
-                  notify: @escaping PublishCallback,
-                  sink: MoQSink) throws {
-        self.publishNotify = notify
-        try super.init(profile: profile,
-                       config: config,
-                       metricsSubmitter: metricsSubmitter,
-                       granularMetrics: granularMetrics,
-                       encoder: encoder,
-                       device: device,
-                       endpointId: endpointId,
-                       relayId: relayId,
-                       stagger: stagger,
-                       verbose: verbose,
-                       keyFrameOnUpdate: keyFrameOnUpdate,
-                       sframeContext: nil,
-                       mediaInterop: false,
-                       appExtensionMode: .mutable,
-                       sink: sink)
+    let fullTrackName: FullTrackName
+    var mockCanPublish = false
+    var onPublish: PublishCallback?
+    private var onStatus: (@Sendable (QPublishTrackHandlerStatus) -> Void)?
+
+    private var mockStatus: QPublishTrackHandlerStatus = .notConnected
+    var status: QPublishTrackHandlerStatus { self.mockStatus }
+    var canPublish: Bool { self.mockCanPublish }
+
+    init(fullTrackName: FullTrackName) {
+        self.fullTrackName = fullTrackName
     }
 
-    required init(profile: Profile,
-                  config: VideoCodecConfig,
-                  metricsSubmitter: (any MetricsSubmitter)?,
-                  granularMetrics: Bool,
-                  encoder: any VideoEncoder,
-                  device: AVCaptureDevice,
-                  endpointId: String,
-                  relayId: String,
-                  stagger: Bool,
-                  verbose: Bool,
-                  keyFrameOnUpdate: Bool,
-                  sframeContext: SendSFrameContext?,
-                  mediaInterop: Bool,
-                  appExtensionMode: AppExtensionMode,
-                  sharedVoiceActivity: SharedVoiceActivityState?,
-                  vadRollSubgroup: Bool,
-                  sink: MoQSink) throws {
-        // swiftlint:disable:next line_length
-        fatalError("init(profile:config:metricsSubmitter:granularMetrics:encoder:device:endpointId:relayId:stagger:verbose:keyFrameOnUpdate:sframeContext:mediaInterop:appExtensionMode:sharedVoiceActivity:vadRollSubgroup:sink:) has not been implemented")
+    func setCallbacks(onStatus: @escaping @Sendable (QPublishTrackHandlerStatus) -> Void,
+                      onMetrics: @escaping @Sendable (QPublishTrackMetrics) -> Void) {
+        self.onStatus = onStatus
     }
 
-    override func publish(groupId: UInt64,
-                          subgroupId: UInt64,
-                          objectId: UInt64,
-                          data: Data,
-                          priority: UnsafePointer<UInt8>?,
-                          ttl: UnsafePointer<UInt16>?,
-                          extensions: HeaderExtensions?,
-                          immutableExtensions: HeaderExtensions?) -> QPublishObjectStatus {
-        self.publishNotify(groupId, objectId)
-        return super.publish(groupId: groupId,
-                             subgroupId: subgroupId,
-                             objectId: objectId,
-                             data: data,
-                             priority: priority,
-                             ttl: ttl,
-                             extensions: extensions,
-                             immutableExtensions: immutableExtensions)
+    /// Deliver a status to the installed publication callback.
+    func fireStatus(_ status: QPublishTrackHandlerStatus) {
+        self.mockStatus = status
+        self.onStatus?(status)
     }
 
-    override func canPublish() -> Bool {
-        self.mockCanPublish
+    func publishObject(_ headers: QObjectHeaders,
+                       data: Data,
+                       extensions: HeaderExtensions?,
+                       immutableExtensions: HeaderExtensions?,
+                       streamHeaderProperties: QStreamHeaderProperties?) -> QPublishObjectStatus {
+        self.onPublish?(headers.groupId, headers.objectId)
+        return .ok
     }
 
-    override func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
-        super.sinkStatusChanged(status)
-        self.currentStatus = status
-    }
+    func endSubgroup(groupId: UInt64, subgroupId: UInt64, completed: Bool) {}
 }
 
 enum TestError: Error {
     case noCamera
 }
 
-private func makePublication(_ encoder: MockEncoder, height: Int32, stagger: Bool) throws -> H264Publication {
+private func makeProfile() -> Profile {
+    Profile(qualityProfile: "",
+            expiry: [1, 2],
+            priorities: [1, 2],
+            namespace: [""])
+}
+
+private func makeConfig(height: Int32) -> VideoCodecConfig {
+    VideoCodecConfig(codec: .h264,
+                     bitrate: 1_000_000,
+                     fps: 30,
+                     width: 1920,
+                     height: height,
+                     bitrateType: .average)
+}
+
+private func makePublication(encoder: MockEncoder,
+                             sink: MoQSink,
+                             height: Int32 = 1920,
+                             stagger: Bool = false,
+                             keyFrameOnUpdate: Bool = false) throws -> H264Publication {
     guard let device = AVCaptureDevice.systemPreferredCamera else {
         throw TestError.noCamera
     }
-
-    // Publications should be delayed by their height in ms.
-    let config = VideoCodecConfig(codec: .h264,
-                                  bitrate: 1_000_000,
-                                  fps: 30,
-                                  width: 1920,
-                                  height: height,
-                                  bitrateType: .average)
-
-    let profile = Profile(qualityProfile: "",
-                          expiry: [1, 2],
-                          priorities: [1, 2],
-                          namespace: [""])
-    let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                        trackMode: .stream,
-                                        defaultPriority: 1,
-                                        defaultTTL: 1,
-                                        )
-    return try .init(profile: profile,
-                     config: config,
-                     metricsSubmitter: nil,
-                     granularMetrics: false,
-                     encoder: encoder,
-                     device: device,
-                     endpointId: "",
-                     relayId: "",
-                     stagger: stagger,
-                     verbose: true,
-                     keyFrameOnUpdate: false,
-                     sframeContext: nil,
-                     mediaInterop: false,
-                     appExtensionMode: .mutable,
-                     sink: sink)
+    let profile = makeProfile()
+    return try H264Publication(profile: profile,
+                               config: makeConfig(height: height),
+                               metricsSubmitter: nil,
+                               granularMetrics: false,
+                               encoder: encoder,
+                               device: device,
+                               endpointId: "",
+                               relayId: "",
+                               stagger: stagger,
+                               verbose: true,
+                               keyFrameOnUpdate: keyFrameOnUpdate,
+                               sframeContext: nil,
+                               mediaInterop: false,
+                               appExtensionMode: .mutable,
+                               sink: sink)
 }
 
 final class TestVideoPublication: XCTestCase {
@@ -161,13 +116,21 @@ final class TestVideoPublication: XCTestCase {
         var shouldFire = false
         let mockEncoder = MockEncoder { _, _, _ in
             guard shouldFire else {
-                XCTFail()
+                XCTFail("Encoder fired before stagger delay elapsed")
                 return
             }
         }
 
         let height: Int32 = 1080
-        guard let publication = try? makePublication(mockEncoder, height: height, stagger: true) else {
+        let sink = MockSink(fullTrackName: try makeProfile().getFullTrackName())
+        sink.mockCanPublish = true
+        let publication: H264Publication
+        do {
+            publication = try makePublication(encoder: mockEncoder,
+                                              sink: sink,
+                                              height: height,
+                                              stagger: true)
+        } catch TestError.noCamera {
             _ = XCTSkip("Can't test without a camera")
             return
         }
@@ -198,40 +161,16 @@ final class TestVideoPublication: XCTestCase {
 @Suite struct VideoPublicationTests {
     @Test("Only encode when canPublish is true")
     func testEncodeWithCanPublish() async throws {
-        guard let device = AVCaptureDevice.systemPreferredCamera else {
-            _ = XCTSkip("Can't test without a camera")
-            return
-        }
         try await confirmation(expectedCount: 2) { confirmation in
             let encoder = MockEncoder { _, _, _ in confirmation() }
-            let config = VideoCodecConfig(codec: .h264,
-                                          bitrate: 1_000_000,
-                                          fps: 30,
-                                          width: 1920,
-                                          height: 1920,
-                                          bitrateType: .average)
-            let profile = Profile(qualityProfile: "",
-                                  expiry: [1, 2],
-                                  priorities: [1, 2],
-                                  namespace: [""])
-            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                                trackMode: .stream,
-                                                defaultPriority: 1,
-                                                defaultTTL: 1,
-                                                )
-            let publication = try FakeH264Publication(profile: profile,
-                                                      config: config,
-                                                      metricsSubmitter: nil,
-                                                      granularMetrics: false,
-                                                      encoder: encoder,
-                                                      device: device,
-                                                      endpointId: "",
-                                                      relayId: "",
-                                                      stagger: false,
-                                                      verbose: false,
-                                                      keyFrameOnUpdate: false,
-                                                      notify: ({_, _ in }),
-                                                      sink: sink)
+            let sink = MockSink(fullTrackName: try makeProfile().getFullTrackName())
+            let publication: H264Publication
+            do {
+                publication = try makePublication(encoder: encoder, sink: sink)
+            } catch TestError.noCamera {
+                _ = XCTSkip("Can't test without a camera")
+                return
+            }
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 1,
@@ -239,10 +178,10 @@ final class TestVideoPublication: XCTestCase {
                                             sampleSizes: [])
             let startDate = Date.now
             // When canPublish is false, onFrame should not encode
-            publication.mockCanPublish = false
+            sink.mockCanPublish = false
             publication.onFrame(sample, timestamp: startDate)
             // When canPublish is true, onFrame should encode (confirmation #1)
-            publication.mockCanPublish = true
+            sink.mockCanPublish = true
             publication.onFrame(sample, timestamp: startDate)
             // Still true, should encode again (confirmation #2)
             publication.onFrame(sample, timestamp: startDate)
@@ -260,10 +199,6 @@ final class TestVideoPublication: XCTestCase {
     }
 
     func testKeyFrame(_ toSet: QPublishTrackHandlerStatus) async throws {
-        guard let device = AVCaptureDevice.systemPreferredCamera else {
-            _ = XCTSkip("Can't test without a camera")
-            return
-        }
         var status: QPublishTrackHandlerStatus?
         try await confirmation(expectedCount: 3) { confirmation in
             let encoder = MockEncoder { _, _, keyFrame in
@@ -271,45 +206,28 @@ final class TestVideoPublication: XCTestCase {
                 confirmation()
             }
 
-            // Publications should be delayed by their height in ms.
-            let config = VideoCodecConfig(codec: .h264,
-                                          bitrate: 1_000_000,
-                                          fps: 30,
-                                          width: 1920,
-                                          height: 1920,
-                                          bitrateType: .average)
             var lastObjectId: UInt64?
-            let profile = Profile(qualityProfile: "",
-                                  expiry: [1, 2],
-                                  priorities: [1, 2],
-                                  namespace: [""])
-            let sink = QPublishTrackHandlerSink(fullTrackName: try profile.getFullTrackName(),
-                                                trackMode: .stream,
-                                                defaultPriority: 1,
-                                                defaultTTL: 1,
-                                                )
-            let publication = try FakeH264Publication(profile: profile,
-                                                      config: config,
-                                                      metricsSubmitter: nil,
-                                                      granularMetrics: false,
-                                                      encoder: encoder,
-                                                      device: device,
-                                                      endpointId: "",
-                                                      relayId: "",
-                                                      stagger: false,
-                                                      verbose: true,
-                                                      keyFrameOnUpdate: true,
-                                                      notify: { _, objectId in
-                                                        // When this is a key frame, object ID should be 0.
-                                                        if status == toSet {
-                                                            #expect(lastObjectId != 0)
-                                                            #expect(objectId == 0)
-                                                        }
-                                                        lastObjectId = objectId
-                                                      },
-                                                      sink: sink)
+            let sink = MockSink(fullTrackName: try makeProfile().getFullTrackName())
+            sink.onPublish = { _, objectId in
+                // When this is a key frame, object ID should be 0.
+                if status == toSet {
+                    #expect(lastObjectId != 0)
+                    #expect(objectId == 0)
+                }
+                lastObjectId = objectId
+            }
             // Enable publishing for all frames in this test
-            publication.mockCanPublish = true
+            sink.mockCanPublish = true
+
+            let publication: H264Publication
+            do {
+                publication = try makePublication(encoder: encoder,
+                                                  sink: sink,
+                                                  keyFrameOnUpdate: true)
+            } catch TestError.noCamera {
+                _ = XCTSkip("Can't test without a camera")
+                return
+            }
 
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
@@ -318,17 +236,17 @@ final class TestVideoPublication: XCTestCase {
                                             sampleSizes: [])
             // pframe.
             status = .ok
-            publication.sinkStatusChanged(status!)
+            sink.fireStatus(status!)
             publication.onFrame(sample, timestamp: .now)
 
             // key frame.
             status = toSet
-            publication.sinkStatusChanged(status!)
+            sink.fireStatus(status!)
             publication.onFrame(sample, timestamp: .now)
 
             // pframe.
             status = .ok
-            publication.sinkStatusChanged(status!)
+            sink.fireStatus(status!)
             publication.onFrame(sample, timestamp: .now)
         }
     }

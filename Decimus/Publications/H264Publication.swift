@@ -16,7 +16,7 @@ enum H264PublicationError: LocalizedError {
     }
 }
 
-class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
+final class H264Publication: FrameListener, PublicationInstance {
     private let logger = DecimusLogger(H264Publication.self)
 
     /// The MoQ sink for publishing objects.
@@ -354,10 +354,12 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
 
         // Wire to MoQ.
         self.sink = sink
-        self.sink.delegate = self
 
         let userData = Unmanaged.passUnretained(self).toOpaque()
         self.encoder.setCallback(onEncodedData, userData: userData)
+        self.sink.setCallbacks(
+            onStatus: { [weak self] status in self?.handleStatus(status) },
+            onMetrics: { [weak self] metrics in self?.trackMeasurement?.record(metrics) })
     }
 
     internal func publish(groupId: UInt64,
@@ -396,15 +398,11 @@ class H264Publication: MoQSinkDelegate, FrameListener, PublicationInstance {
         self.logger.debug("Deinit")
     }
 
-    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
+    private func handleStatus(_ status: QPublishTrackHandlerStatus) {
         self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
         if (status == .subscriptionUpdated && self.keyFrameOnUpdate) || status == .newGroupRequested {
             self.generateKeyFrame.store(true, ordering: .releasing)
         }
-    }
-
-    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
-        self.trackMeasurement?.record(metrics)
     }
 
     /// This callback fires when a video frame arrives.
