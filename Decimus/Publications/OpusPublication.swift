@@ -7,7 +7,7 @@ import CoreAudio
 import Accelerate
 import Synchronization
 
-class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
+final class OpusPublication: AudioPublication, PublicationInstance {
     private let logger = DecimusLogger(OpusPublication.self)
 
     let sink: MoQSink
@@ -108,7 +108,6 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         self.currentGroupId = groupId
         self.profile = profile
         self.voiceActivity = voiceActivity
-        self.sink = sink
         self.trackMeasurement = {
             guard let metricsSubmitter = metricsSubmitter else { return nil }
             let measurement = TrackMeasurement(type: .publish,
@@ -118,7 +117,7 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
             metricsSubmitter.register(measurement: measurement)
             return measurement
         }()
-        self.sink.delegate = self
+        self.sink = sink
 
         // Setup encode job.
         self.encodeTask = .init(priority: .userInitiated) { [weak self] in
@@ -148,6 +147,16 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         }
 
         self.logger.info("Registered OPUS publication for namespace \(namespace)")
+        self.sink.setCallbacks(
+            onStatus: { [weak self] status in
+                guard let self else { return }
+                let prefix = (try? self.profile.getFullTrackName().description) ?? ""
+                self.logger.info("[\(prefix)] Status changed to: \(status)")
+            },
+            onMetrics: { [weak self] metrics in
+                guard let self else { return }
+                self.trackMeasurement?.record(metrics)
+            })
     }
 
     deinit {
@@ -350,13 +359,5 @@ class OpusPublication: AudioPublication, MoQSinkDelegate, PublicationInstance {
         decibel = min(decibel, maxAudioLevel)
         decibel = max(decibel, minAudioLevel)
         return Int(decibel.rounded())
-    }
-
-    func sinkStatusChanged(_ status: QPublishTrackHandlerStatus) {
-        self.logger.info("[\(self.profile.namespace.joined())] Status changed to: \(status)")
-    }
-
-    func sinkMetricsSampled(_ metrics: QPublishTrackMetrics) {
-        self.trackMeasurement?.record(metrics)
     }
 }

@@ -8,23 +8,18 @@
 
 @implementation QPublishTrackHandlerObjC : NSObject
 
--(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl
+-(id) initWithFullTrackName: (id<QFullTrackName>) full_track_name trackMode: (QTrackMode) track_mode defaultPriority: (uint8_t) priority defaultTTL: (uint32_t) ttl callbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
     quicr::TrackMode moqTrackMode = (quicr::TrackMode)track_mode;
     handlerPtr = std::make_shared<QPublishTrackHandler>(fullTrackName, moqTrackMode, priority, ttl);
+    handlerPtr->SetCallbacks(callbacks);
     return self;
 }
 
 -(id<QFullTrackName>) getFullTrackName {
     assert(handlerPtr);
     return ftnConvert(handlerPtr->GetFullTrackName());
-}
-
--(void) setCallbacks: (id<QPublishTrackHandlerCallbacks>) callbacks
-{
-    assert(handlerPtr);
-    handlerPtr->SetCallbacks(callbacks);
 }
 
 std::optional<quicr::Extensions> from(NSDictionary<NSNumber*, NSArray<NSData*>*>* _Nullable extensions) {
@@ -165,9 +160,11 @@ QPublishTrackHandler::QPublishTrackHandler(const quicr::FullTrackName& full_trac
 
 void QPublishTrackHandler::StatusChanged(Status status)
 {
-    if (_callbacks)
-    {
-        [_callbacks statusChanged: static_cast<QPublishTrackHandlerStatus>(status)];
+    @autoreleasepool {
+        if (_callbacks)
+        {
+            [_callbacks statusChanged: static_cast<QPublishTrackHandlerStatus>(status)];
+        }
     }
 }
 
@@ -191,10 +188,12 @@ static QPublishTrackMetrics convert(const quicr::PublishTrackMetrics& metrics)
 
 void QPublishTrackHandler::MetricsSampled(const quicr::PublishTrackMetrics& metrics)
 {
-    if (_callbacks)
-    {
-        const QPublishTrackMetrics converted = convert(metrics);
-        [_callbacks metricsSampled: converted];
+    @autoreleasepool {
+        if (_callbacks)
+        {
+            const QPublishTrackMetrics converted = convert(metrics);
+            [_callbacks metricsSampled: converted];
+        }
     }
 }
 

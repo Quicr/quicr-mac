@@ -8,7 +8,7 @@ enum Incrementing {
 }
 
 /// Common interface for all publication types backed by a ``MoQSink``.
-protocol PublicationInstance: AnyObject {
+protocol PublicationInstance: AnyObject, Sendable {
     /// Sink responsible for publishing media objects.
     var sink: MoQSink { get }
 }

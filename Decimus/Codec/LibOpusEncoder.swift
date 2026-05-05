@@ -20,14 +20,22 @@ enum OpusWindowSize: TimeInterval, Codable, CaseIterable, Identifiable, CustomSt
     var description: String { self.rawValue.description }
 }
 
-class LibOpusEncoder {
+final class LibOpusEncoder: Sendable {
     private let logger = DecimusLogger(LibOpusEncoder.self)
 
-    private let encoder: Opus.Encoder
-    private let encodeQueue: DispatchQueue = .init(label: "opus-encode", qos: .userInteractive)
-
-    // Data holder.
-    private var encoded: UnsafeMutableRawBufferPointer
+    struct State: ~Copyable {
+        let encoder: Opus.Encoder
+        var encoded: UnsafeMutableRawBufferPointer
+        init(encoder: Opus.Encoder, byteCount: Int) {
+            self.encoder = encoder
+            self.encoded = .allocate(byteCount: byteCount,
+                                     alignment: MemoryLayout<UInt8>.alignment)
+        }
+        deinit {
+            self.encoded.deallocate()
+        }
+    }
+    private nonisolated(unsafe) var state: State
 
     // Audio format.
     private let desiredWindowSize: OpusWindowSize
@@ -40,10 +48,10 @@ class LibOpusEncoder {
         self.format = format
         self.desiredWindowSize = desiredWindowSize
         let appMode: Opus.Application = desiredWindowSize.rawValue < 0.01 ? .restrictedLowDelay : .voip
-        try encoder = .init(format: format, application: appMode)
+        let encoder = try Opus.Encoder(format: format, application: appMode)
         let framesPerWindow: Int = .init(desiredWindowSize.rawValue * format.sampleRate)
         let windowBytes: Int = framesPerWindow * Int(format.streamDescription.pointee.mBytesPerFrame)
-        encoded = .allocate(byteCount: windowBytes, alignment: MemoryLayout<UInt8>.alignment)
+        self.state = .init(encoder: encoder, byteCount: windowBytes)
         _ = try encoder.ctl(request: OPUS_SET_BITRATE_REQUEST, args: [bitrate])
 
         // Enable DTX for VAD when using SILK layer (voip mode).
@@ -55,20 +63,19 @@ class LibOpusEncoder {
         }
     }
 
-    deinit {
-        encoded.deallocate()
-    }
-
     /// Whether the encoder detects voice activity in the most recently encoded frame, if supported.
     var voiceActive: Bool? {
         guard self.dtxSupported else { return nil }
         var inDtx: Int32 = 0
         withUnsafeMutablePointer(to: &inDtx) { ptr in
-            _ = try? encoder.ctl(request: OPUS_GET_IN_DTX_REQUEST, args: [ptr])
+            _ = try? self.state.encoder.ctl(request: OPUS_GET_IN_DTX_REQUEST, args: [ptr])
         }
         return inDtx == 0
     }
 
+    /// Encode PCM to opus.
+    /// Must be called from a single thread.
+    /// Data is only valid until the next write call.
     func write(data: AVAudioPCMBuffer) throws -> Data {
         // Ensure we're using the format we started with.
         guard self.format == data.format else {
@@ -80,7 +87,9 @@ class LibOpusEncoder {
             throw OpusEncodeError.badWindowSize
         }
 
-        let encodeCount = try encoder.encode(data, to: self.encoded)
-        return .init(bytesNoCopy: self.encoded.baseAddress!, count: encodeCount, deallocator: .none)
+        let encodeCount = try self.state.encoder.encode(data, to: self.state.encoded)
+        return .init(bytesNoCopy: self.state.encoded.baseAddress!,
+                     count: encodeCount,
+                     deallocator: .none)
     }
 }
