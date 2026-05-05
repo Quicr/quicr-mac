@@ -63,6 +63,7 @@ enum AppExtensionMode: Int, CaseIterable, Identifiable, CustomStringConvertible 
     }
 }
 
+@MainActor
 class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_body_length
     nonisolated static func == (lhs: CallState, rhs: CallState) -> Bool {
         false
@@ -767,9 +768,9 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             }
             let publishReceived: MoqCallController.PublishReceivedCallback = { [weak self] tfn, attributes, subNsHandler in
                 guard let self = self else { return .reject }
-                return self.publishReceived(track: .init(tfn),
-                                            attributes: attributes,
-                                            subNsHandler: subNsHandler)
+                return await self.publishReceived(track: .init(tfn),
+                                                  attributes: attributes,
+                                                  subNsHandler: subNsHandler)
             }
             return .init(endpointUri: endpointId,
                          client: client,
