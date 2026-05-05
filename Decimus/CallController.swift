@@ -47,7 +47,7 @@ enum PublishResponse {
 final class MoqCallController: QClientCallbacks, Sendable {
     typealias PublishReceivedCallback = @Sendable (_ tfn: QFullTrackName,
                                                    _ attributes: QPublishAttributes,
-                                                   _ subNsHandler: (any MoQSubscribeNamespaceHandler)?) -> PublishResponse
+                                                   _ subNsHandler: (any MoQSubscribeNamespaceHandler)?) async -> PublishResponse
 
     // Dependencies.
     private let metricsSubmitter: MetricsSubmitter?
@@ -561,26 +561,28 @@ final class MoqCallController: QClientCallbacks, Sendable {
         }
 
         // Callback provides response.
-        let response = callback(ftn, attributes, handler)
-        let qResponse: QPublishResponse
-        let subscription: Subscription?
-        let responseAttributes: QPublishAttributes
-        switch response {
-        case .accept(let newAttributes, let newSubscription):
-            responseAttributes = newAttributes
-            subscription = newSubscription
-            qResponse = .init(ok: true)
-        case .reject:
-            responseAttributes = attributes
-            subscription = nil
-            qResponse = .init(ok: false)
+        Task {
+            let response = await callback(ftn, attributes, handler)
+            let qResponse: QPublishResponse
+            let subscription: Subscription?
+            let responseAttributes: QPublishAttributes
+            switch response {
+            case .accept(let newAttributes, let newSubscription):
+                responseAttributes = newAttributes
+                subscription = newSubscription
+                qResponse = .init(ok: true)
+            case .reject:
+                responseAttributes = attributes
+                subscription = nil
+                qResponse = .init(ok: false)
+            }
+            self.resolvePublish(connectionHandle: connectionHandle,
+                                requestId: requestId,
+                                attributes: responseAttributes,
+                                tfn: ftn,
+                                response: qResponse,
+                                handler: subscription)
         }
-        self.resolvePublish(connectionHandle: connectionHandle,
-                            requestId: requestId,
-                            attributes: responseAttributes,
-                            tfn: ftn,
-                            response: qResponse,
-                            handler: subscription)
     }
 
     private func resolvePublish(connectionHandle: UInt64,
