@@ -161,16 +161,11 @@ final class TestVideoPublication: XCTestCase {
 @Suite struct VideoPublicationTests {
     @Test("Only encode when canPublish is true")
     func testEncodeWithCanPublish() async throws {
+        guard AVCaptureDevice.systemPreferredCamera != nil else { return }
         try await confirmation(expectedCount: 2) { confirmation in
             let encoder = MockEncoder { _, _, _ in confirmation() }
             let sink = MockSink(fullTrackName: try makeProfile().getFullTrackName())
-            let publication: H264Publication
-            do {
-                publication = try makePublication(encoder: encoder, sink: sink)
-            } catch TestError.noCamera {
-                _ = XCTSkip("Can't test without a camera")
-                return
-            }
+            let publication = try makePublication(encoder: encoder, sink: sink)
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
                                             numSamples: 1,
@@ -199,6 +194,7 @@ final class TestVideoPublication: XCTestCase {
     }
 
     func testKeyFrame(_ toSet: QPublishTrackHandlerStatus) async throws {
+        guard AVCaptureDevice.systemPreferredCamera != nil else { return }
         var status: QPublishTrackHandlerStatus?
         try await confirmation(expectedCount: 3) { confirmation in
             let encoder = MockEncoder { _, _, keyFrame in
@@ -219,15 +215,9 @@ final class TestVideoPublication: XCTestCase {
             // Enable publishing for all frames in this test
             sink.mockCanPublish = true
 
-            let publication: H264Publication
-            do {
-                publication = try makePublication(encoder: encoder,
+            let publication = try makePublication(encoder: encoder,
                                                   sink: sink,
                                                   keyFrameOnUpdate: true)
-            } catch TestError.noCamera {
-                _ = XCTSkip("Can't test without a camera")
-                return
-            }
 
             let sample = try CMSampleBuffer(dataBuffer: nil,
                                             formatDescription: nil,
