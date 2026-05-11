@@ -3,7 +3,7 @@
 
 import Synchronization
 
-class SharedVoiceActivityState {
+final class SharedVoiceActivityState: Sendable {
     private let pending: Mutex<AudioActivityValue?>
 
     init() {
