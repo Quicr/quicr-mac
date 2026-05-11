@@ -17,7 +17,7 @@ enum TimestampSeiField {
     case fps
 }
 
-protocol ApplicationSeiData {
+protocol ApplicationSeiData: Sendable {
     var orientationSei: [UInt8] { get }
     func getOrientationOffset(_ field: OrientationSeiField) -> Int
 

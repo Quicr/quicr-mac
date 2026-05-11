@@ -153,10 +153,16 @@ class PublicationFactoryImpl: PublicationFactory {
                 device = preferred
             }
             #endif
-            let encoder = try VTEncoder(config: config,
-                                        verticalMirror: device.position == .front,
-                                        emitStartCodes: false,
-                                        keyFrameInterval: self.keyFrameInterval)
+            let verticalMirror = device.position == .front
+            let keyFrameInterval = self.keyFrameInterval
+            let encoderFactory: VideoEncoderFactory = { callback, userData in
+                try VTEncoder(config: config,
+                              verticalMirror: verticalMirror,
+                              emitStartCodes: false,
+                              keyFrameInterval: keyFrameInterval,
+                              callback: callback,
+                              userData: userData)
+            }
 
             let sink = QPublishTrackHandlerSink(
                 fullTrackName: try profile.getFullTrackName(),
@@ -169,7 +175,7 @@ class PublicationFactoryImpl: PublicationFactory {
                                                   config: config,
                                                   metricsSubmitter: metricsSubmitter,
                                                   granularMetrics: self.granularMetrics,
-                                                  encoder: encoder,
+                                                  encoderFactory: encoderFactory,
                                                   device: device,
                                                   endpointId: endpointId,
                                                   relayId: relayId,
