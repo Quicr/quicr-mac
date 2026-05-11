@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import Synchronization
 
 enum H264PublicationError: LocalizedError {
@@ -37,10 +37,11 @@ final class H264Publication: FrameListener, PublicationInstance {
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
-    private var encoder: VideoEncoder!
+    // Safe as long as encoder construction doesn't callback into here,
+    // which would make no sense.
+    private nonisolated(unsafe) var encoder: VideoEncoder!
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
-    private var frameRate: Float64?
     private var startTime: Date?
     private var currentGroupId: UInt64?
     private var currentObjectId: UInt64 = 0
