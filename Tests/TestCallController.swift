@@ -472,8 +472,8 @@ final class TestCallController: XCTestCase {
         let tfn = try FullTrackName(namespace: ["test", "namespace", "track"], name: "video")
 
         // Track what the publishReceived callback receives.
-        var receivedTfn: FullTrackName?
-        var receivedHandler: (any MoQSubscribeNamespaceHandler)?
+        let received = Mutex<(tfn: FullTrackName?, handler: (any MoQSubscribeNamespaceHandler)?)>((nil, nil))
+        let callbackFired = expectation(description: "publishReceived callback fired")
 
         let client = MockClient(
             publish: { _ in },
@@ -488,8 +488,8 @@ final class TestCallController: XCTestCase {
             client: client,
             submitter: nil,
             publishReceived: { callbackTfn, _, subNsHandler in
-                receivedTfn = FullTrackName(callbackTfn)
-                receivedHandler = subNsHandler
+                received.withLock { $0 = (FullTrackName(callbackTfn), subNsHandler) }
+                callbackFired.fulfill()
                 return .reject
             },
             callEnded: {})
@@ -509,14 +509,17 @@ final class TestCallController: XCTestCase {
                                           attributes: attrs,
                                           subNsHandler: nsHandler.handler)
 
+        await fulfillment(of: [callbackFired], timeout: 1)
+
         // The callback should have resolved to the Swift protocol handler.
-        XCTAssertTrue(receivedHandler === nsHandler)
-        XCTAssertEqual(receivedTfn, tfn)
+        let result = received.withLock { $0 }
+        XCTAssertTrue(result.handler === nsHandler)
+        XCTAssertEqual(result.tfn, tfn)
     }
 
     func testPublishReceivedNilHandler() async throws {
-        var receivedHandler: (any MoQSubscribeNamespaceHandler)?
-        var callbackInvoked = false
+        let receivedHandler = Mutex<(any MoQSubscribeNamespaceHandler)?>(nil)
+        let callbackFired = expectation(description: "publishReceived callback fired")
 
         let client = MockClient(
             publish: { _ in },
@@ -531,8 +534,8 @@ final class TestCallController: XCTestCase {
             client: client,
             submitter: nil,
             publishReceived: { _, _, subNsHandler in
-                callbackInvoked = true
-                receivedHandler = subNsHandler
+                receivedHandler.withLock { $0 = subNsHandler }
+                callbackFired.fulfill()
                 return .reject
             },
             callEnded: {})
@@ -545,8 +548,8 @@ final class TestCallController: XCTestCase {
                                           attributes: QPublishAttributes(),
                                           subNsHandler: nil)
 
-        XCTAssertTrue(callbackInvoked)
-        XCTAssertNil(receivedHandler)
+        await fulfillment(of: [callbackFired], timeout: 1)
+        XCTAssertNil(receivedHandler.withLock { $0 })
     }
 
     func testAssertFtnEquality() throws {
