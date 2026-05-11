@@ -38,13 +38,11 @@ final class H264Publication: FrameListener, PublicationInstance {
     let queue: DispatchQueue
 
     // Safe as long as encoder construction doesn't callback into here,
-    // which would make no sense.
+    // which would make no sense anyway.
     private nonisolated(unsafe) var encoder: VideoEncoder!
+
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
-    private var startTime: Date?
-    private var currentGroupId: UInt64?
-    private var currentObjectId: UInt64 = 0
     private let generateKeyFrame = Atomic(false)
     private let stagger: Bool
     private let publishFailure = Atomic(false)
@@ -52,16 +50,25 @@ final class H264Publication: FrameListener, PublicationInstance {
     private let keyFrameOnUpdate: Bool
     private let startCode: [UInt8] = [ 0x00, 0x00, 0x00, 0x01 ]
     private let emitStartCodes = false
-    private var sequence: UInt64 = 0
     private let sframeContext: SendSFrameContext?
     private let mediaInterop: Bool
     private let appExtensionMode: AppExtensionMode
     private let sharedVoiceActivity: SharedVoiceActivityState?
     private let vadRollSubgroup: Bool
-    private var vadTransition = VideoVADTransition()
     private let lastVoiceActivityState: Mutex<AudioActivityValue?> = .init(nil)
-    private var currentSubgroupId: UInt64 = 0
     private let rollSubgroup: Atomic<Bool> = .init(false)
+
+    // Capture callback members.
+    // These all touched only serially from the callback, so don't need protecting.
+    private nonisolated(unsafe) var startTime: Date?
+    private nonisolated(unsafe) var vadTransition = VideoVADTransition()
+
+    // Encode callback members.
+    // These all touched only serially from the callback, so don't need protecting.
+    private nonisolated(unsafe) var currentSubgroupId: UInt64 = 0
+    private nonisolated(unsafe) var sequence: UInt64 = 0
+    private nonisolated(unsafe) var currentGroupId: UInt64?
+    private nonisolated(unsafe) var currentObjectId: UInt64 = 0
 
     // Encoded frames arrive in this callback.
     private let onEncodedData: VTEncoder.EncodedCallback = { presentationDate, sample, userData in
