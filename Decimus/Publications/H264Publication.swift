@@ -37,7 +37,7 @@ final class H264Publication: FrameListener, PublicationInstance {
     let device: AVCaptureDevice
     let queue: DispatchQueue
 
-    private var encoder: VideoEncoder
+    private var encoder: VideoEncoder!
     private let granularMetrics: Bool
     let codec: VideoCodecConfig?
     private var frameRate: Float64?
@@ -307,7 +307,7 @@ final class H264Publication: FrameListener, PublicationInstance {
                   config: VideoCodecConfig,
                   metricsSubmitter: MetricsSubmitter?,
                   granularMetrics: Bool,
-                  encoder: VideoEncoder,
+                  encoderFactory: VideoEncoderFactory,
                   device: AVCaptureDevice,
                   endpointId: String,
                   relayId: String,
@@ -340,7 +340,6 @@ final class H264Publication: FrameListener, PublicationInstance {
         }
         self.queue = .init(label: "com.cisco.quicr.decimus.\(namespace)",
                            target: .global(qos: .userInteractive))
-        self.encoder = encoder
         self.device = device
         self.stagger = stagger
         self.verbose = verbose
@@ -356,7 +355,7 @@ final class H264Publication: FrameListener, PublicationInstance {
         self.sink = sink
 
         let userData = Unmanaged.passUnretained(self).toOpaque()
-        self.encoder.setCallback(onEncodedData, userData: userData)
+        self.encoder = try encoderFactory(onEncodedData, userData)
         self.sink.setCallbacks(
             onStatus: { [weak self] status in self?.handleStatus(status) },
             onMetrics: { [weak self] metrics in self?.trackMeasurement?.record(metrics) })
@@ -408,16 +407,6 @@ final class H264Publication: FrameListener, PublicationInstance {
     /// This callback fires when a video frame arrives.
     func onFrame(_ sampleBuffer: CMSampleBuffer,
                  timestamp: Date) {
-        // Configure FPS.
-        let maxRate = self.device.activeFormat.videoSupportedFrameRateRanges.first?.maxFrameRate
-        if self.encoder.frameRate == nil {
-            self.encoder.frameRate = maxRate
-        } else {
-            if self.encoder.frameRate != maxRate {
-                self.logger.warning("Frame rate mismatch? Had: \(String(describing: self.encoder.frameRate)), got: \(String(describing: maxRate))")
-            }
-        }
-
         // If we're not in a state to be publishing, don't go any further.
         guard self.canPublish() else {
             self.logger.debug("Didn't encode due to publication status: \(self.getStatus())")

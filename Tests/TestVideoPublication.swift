@@ -7,9 +7,8 @@ import CoreMedia
 import AVFoundation
 import Testing
 
-private class MockEncoder: VideoEncoder {
-    var frameRate: Float64?
-    typealias WriteCallback = (_ sample: CMSampleBuffer, _ timestamp: Date, _ forceKeyFrame: Bool) -> Void
+private final class MockEncoder: VideoEncoder, @unchecked Sendable {
+    typealias WriteCallback = @Sendable (_ sample: CMSampleBuffer, _ timestamp: Date, _ forceKeyFrame: Bool) -> Void
     private let callback: WriteCallback
 
     init(_ writeCallback: @escaping WriteCallback) {
@@ -18,10 +17,6 @@ private class MockEncoder: VideoEncoder {
 
     func write(sample: CMSampleBuffer, timestamp: Date, forceKeyFrame: Bool) throws {
         self.callback(sample, timestamp, forceKeyFrame)
-    }
-
-    func setCallback(_ callback: @escaping EncodedCallback, userData: UnsafeRawPointer?) {
-        // NOOP.
     }
 }
 
@@ -98,7 +93,7 @@ private func makePublication(encoder: MockEncoder,
                                config: makeConfig(height: height),
                                metricsSubmitter: nil,
                                granularMetrics: false,
-                               encoder: encoder,
+                               encoderFactory: { _, _ in encoder },
                                device: device,
                                endpointId: "",
                                relayId: "",
