@@ -1647,7 +1647,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/dependencies/libquicr/src",
 					"$(PROJECT_DIR)/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/spdlog/**",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",
@@ -1727,7 +1727,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/dependencies/libquicr/src",
 					"$(PROJECT_DIR)/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/spdlog/**",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",

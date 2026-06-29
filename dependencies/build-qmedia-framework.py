@@ -56,6 +56,7 @@ def build(current_directory: str, platform: Platform, cmake_path: str, build_num
         "-B",
         build_dir,
         "-DCMAKE_FRAMEWORK=TRUE",
+        f"-DCPM_SOURCE_CACHE={current_directory}/cpm-cache",
         f"-DPLATFORM={platform.cmake_platform}",
         "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         "-DDEPLOYMENT_TARGET=15.0",

@@ -1,5 +1,6 @@
 # WxQ Specific ignores.
 dependencies/build-*/
+dependencies/cpm-cache/
 dependencies/quicr.xcframework
 dependencies/clibjitter.xcframework
 

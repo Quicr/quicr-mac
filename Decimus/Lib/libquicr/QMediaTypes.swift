@@ -37,6 +37,8 @@ extension QPublishObjectStatus: CustomStringConvertible {
             return "previousObjectTruncated"
         case .paused:
             return "paused"
+        case .pendingPublishOk:
+            return "pendingPublishOk"
         @unknown default:
             assert(false, "All QPublishObjectStatus cases MUST be mapped")
             return "unknown default"
@@ -53,6 +55,10 @@ extension QPublishTrackHandlerStatus: CustomStringConvertible {
             return "announceNotAuthorized"
         case .noSubscribers:
             return "noSubscribers"
+        case .unsubscribed:
+            return "unsubscribed"
+        case .doneByFin:
+            return "doneByFin"
         case .notAnnounced:
             return "notAnnounced"
         case .notConnected:
