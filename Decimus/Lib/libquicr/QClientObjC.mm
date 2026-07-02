@@ -309,7 +309,7 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
     _callbacks = callbacks;
 }
 
-void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
+void QClient::PublishReceived(const std::uint64_t connection_handle,
                               const std::uint64_t request_id,
                               const quicr::messages::PublishAttributes& publish_attributes,
                               std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler)

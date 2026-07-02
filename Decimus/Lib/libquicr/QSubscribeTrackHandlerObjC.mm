@@ -116,7 +116,7 @@
 // C++
 
 QSubscribeTrackHandler::QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                                               quicr::messages::ObjectPriority priority,
+                                               std::uint8_t priority,
                                                std::optional<quicr::messages::GroupOrder> group_order,
                                                const std::optional<JoiningFetch>& joining_fetch,
                                                bool publisher_initiated): quicr::SubscribeTrackHandler(full_track_name,
