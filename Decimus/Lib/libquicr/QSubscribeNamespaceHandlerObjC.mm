@@ -5,23 +5,10 @@
 #import "QSubscribeNamespaceHandlerObjC.h"
 #import "QTrackFilter.h"
 
-[[maybe_unused]]
-static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
-{
-    QPublishAttributes converted;
-    converted.priority = attributes.priority;
-    converted.forward = attributes.forward;
-    converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.groupOrder = attributes.group_order.has_value() ? static_cast<QGroupOrder>(*attributes.group_order) : kQGroupOrderOriginalPublisherOrder;
-    converted.isPublisherInitiated = attributes.is_publisher_initiated;
-    converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
-    converted.trackAlias = attributes.track_alias;
-    return converted;
-}
-
 QSubscribeNamespaceHandler::QSubscribeNamespaceHandler(const quicr::TrackNamespace& prefix,
                                                        const std::optional<quicr::messages::Filter>& filter)
   : quicr::SubscribeNamespaceHandler(prefix,
+                                     quicr::SubscribeNamespaceHandler::Mode::kTracks,
                                      filter.value_or(std::monostate{}))
 {
 }

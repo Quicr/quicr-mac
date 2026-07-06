@@ -12,7 +12,7 @@ class QSubscribeTrackHandler : public quicr::SubscribeTrackHandler
 {
 public:
     QSubscribeTrackHandler(const quicr::FullTrackName& full_track_name,
-                           quicr::messages::ObjectPriority priority,
+                           std::uint8_t priority,
                            std::optional<quicr::messages::GroupOrder> group_order,
                            const std::optional<JoiningFetch>& joining_fetch = std::nullopt,
                            bool publisher_initiated = false);

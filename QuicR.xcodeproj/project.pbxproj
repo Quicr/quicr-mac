@@ -148,7 +148,6 @@
 		9BBFF99D2DE751390093EA8E /* QLocation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9BBFF99C2DE751380093EA8E /* QLocation.mm */; };
 		9BC070D52D2D3A8B00FE5B0E /* Subscription.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC070D42D2D3A8700FE5B0E /* Subscription.swift */; };
 		9BC53C9A2BFDEC7800BB39C6 /* TestVideoPublication.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */; };
-		AA00000000000001DEADBEEF /* TestMeasurementBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000002DEADBEEF /* TestMeasurementBase.swift */; };
 		9BC53C9C2BFE075300BB39C6 /* VarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */; };
 		9BC53C9E2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */; };
 		9BC53CA02BFE151700BB39C6 /* TestVarianceCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */; };
@@ -181,6 +180,7 @@
 		9BF30F732F853365004D1ECA /* QCommon.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BF30F722F853365004D1ECA /* QCommon.m */; };
 		9BF31E122F3E1AC400A97E5C /* PublicationInstance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF31E132F3E1AC400A97E5C /* PublicationInstance.swift */; };
 		A1B2C3D42F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */; };
+		AA00000000000001DEADBEEF /* TestMeasurementBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000002DEADBEEF /* TestMeasurementBase.swift */; };
 		C846BBF77F11749F7A281C5D /* resample_48khz.c in Sources */ = {isa = PBXBuildFile; fileRef = 2CB401E36AE21B4ECB2FA9AA /* resample_48khz.c */; };
 		D7D156392AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm in Sources */ = {isa = PBXBuildFile; fileRef = D7D156382AD73DE600B4E4F2 /* EncodedFrameBufferAllocator.mm */; };
 		D93D36E9E8C84C1037532E21 /* division_operations.c in Sources */ = {isa = PBXBuildFile; fileRef = ED03C25A748DF48E13133AF9 /* division_operations.c */; };
@@ -421,7 +421,6 @@
 		9BBFF99C2DE751380093EA8E /* QLocation.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QLocation.mm; sourceTree = "<group>"; };
 		9BC070D42D2D3A8700FE5B0E /* Subscription.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Subscription.swift; sourceTree = "<group>"; };
 		9BC53C992BFDEC7800BB39C6 /* TestVideoPublication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVideoPublication.swift; sourceTree = "<group>"; };
-		AA00000000000002DEADBEEF /* TestMeasurementBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementBase.swift; sourceTree = "<group>"; };
 		9BC53C9B2BFE075300BB39C6 /* VarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VarianceCalculator.swift; sourceTree = "<group>"; };
 		9BC53C9D2BFE0AA000BB39C6 /* VarianceCalculator+Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarianceCalculator+Measurement.swift"; sourceTree = "<group>"; };
 		9BC53C9F2BFE151700BB39C6 /* TestVarianceCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestVarianceCalculator.swift; sourceTree = "<group>"; };
@@ -460,6 +459,7 @@
 		A1B2C3D62F50000100AA1101 /* QSubscribeNamespaceHandler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandler.h; sourceTree = "<group>"; };
 		A1B2C3D72F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QSubscribeNamespaceHandlerObjC.h; sourceTree = "<group>"; };
 		A1B2C3D82F50000100AA1101 /* QSubscribeNamespaceHandlerObjC.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QSubscribeNamespaceHandlerObjC.mm; sourceTree = "<group>"; };
+		AA00000000000002DEADBEEF /* TestMeasurementBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestMeasurementBase.swift; sourceTree = "<group>"; };
 		B54AB57D964D11659C8C84E7 /* get_scaling_square.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = get_scaling_square.c; sourceTree = "<group>"; };
 		C48F68299B97B123CC0EF038 /* vad_filterbank.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vad_filterbank.c; sourceTree = "<group>"; };
 		D786194A2A28FD9200EC0556 /* Decimus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Decimus-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -1647,7 +1647,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/dependencies/libquicr/src",
 					"$(PROJECT_DIR)/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/spdlog/**",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",
@@ -1658,6 +1658,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/timeq/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;
@@ -1726,7 +1727,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/dependencies/libquicr/src",
 					"$(PROJECT_DIR)/dependencies/libquicr/include",
-					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/spdlog/include",
+					"$(PROJECT_DIR)/dependencies/cpm-cache/spdlog/**",
 					"$(PROJECT_DIR)/dependencies/libjitter/include",
 					"$(PROJECT_DIR)/dependencies/libjitter/dependencies/logger/include/",
 					"$(PROJECT_DIR)/dependencies/build-catalyst-x86-libquicr/include",
@@ -1737,6 +1738,7 @@
 					"$(PROJECT_DIR)/dependencies/build-tvossim-libquicr/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/include",
 					"$(PROJECT_DIR)/dependencies/libfvad/src",
+					"$(PROJECT_DIR)/dependencies/libquicr/dependencies/timeq/include/",
 				);
 				INFOPLIST_FILE = Decimus/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuicR;

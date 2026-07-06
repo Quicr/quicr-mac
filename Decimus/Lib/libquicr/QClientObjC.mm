@@ -47,26 +47,43 @@ static quicr::TransportConfig convert(TransportConfig config) {
 }
 
 static quicr::messages::PublishAttributes convert(QPublishAttributes attributes, id<QFullTrackName> _Nonnull fullTrackName) {
-    quicr::messages::PublishAttributes converted{};
-    converted.dynamic_groups = attributes.dynamicGroups;
-    converted.track_alias = attributes.trackAlias;
-    converted.track_full_name = ftnConvert(fullTrackName);
-    converted.priority = attributes.priority;
-    converted.forward = attributes.forward;
-    converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
-    converted.filter = std::monostate{};
-    if (attributes.groupOrder != kQGroupOrderOriginalPublisherOrder) {
-        converted.group_order = static_cast<quicr::messages::GroupOrder>(attributes.groupOrder);
-    }
-    converted.is_publisher_initiated = attributes.isPublisherInitiated;
-    converted.new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt;
-    return converted;
+    return quicr::messages::PublishAttributes {
+        .track_full_name = ftnConvert(fullTrackName),
+        .track_alias = attributes.trackAlias,
+        .auth_tokens = {},
+        .expires = attributes.expiresMs != 0 ? std::make_optional(attributes.expiresMs) : std::nullopt,
+        .largest_object = std::nullopt,
+        .forward = attributes.forward != 0,
+        .default_publisher_group_order = attributes.groupOrder == kQGroupOrderOriginalPublisherOrder
+            ? quicr::messages::GroupOrder::kAscending
+            : static_cast<quicr::messages::GroupOrder>(attributes.groupOrder),
+        .dynamic_groups = attributes.dynamicGroups,
+        .default_publisher_priority = attributes.priority,
+        .max_cache_duration = std::nullopt,
+        .delivery_timeout = attributes.deliveryTimeoutMs != 0 ? std::make_optional(attributes.deliveryTimeoutMs) : std::nullopt,
+        .track_properties = {},
+    };
 }
 
-static quicr::PublishResponse convert(QPublishResponse response) {
-    quicr::PublishResponse converted{};
-    converted.reason_code = response.ok ? quicr::PublishResponse::ReasonCode::kOk : quicr::PublishResponse::ReasonCode::kInternalError;
-    return converted;
+static quicr::messages::PublishOkAttributes convertOk(QPublishAttributes attributes) {
+    return quicr::messages::PublishOkAttributes {
+        .subscriber_priority = attributes.priority,
+        .group_order = attributes.groupOrder == kQGroupOrderOriginalPublisherOrder
+            ? std::nullopt
+            : std::make_optional(static_cast<quicr::messages::GroupOrder>(attributes.groupOrder)),
+        .filter = std::monostate{},
+        .forward = attributes.forward != 0,
+        .subgroup_delivery_timeout = std::nullopt,
+        .object_delivery_timeout = std::nullopt,
+        .new_group_request_id = attributes.newGroupRequestId != 0 ? std::make_optional(attributes.newGroupRequestId) : std::nullopt,
+    };
+}
+
+static quicr::PublishResponse convert(QPublishResponse response, QPublishAttributes attributes) {
+    return quicr::PublishResponse {
+        .reason_code = response.ok ? quicr::PublishResponse::ReasonCode::kOk : quicr::PublishResponse::ReasonCode::kInternalError,
+        .attributes = convertOk(attributes),
+    };
 }
 
 @implementation QClientObjC : NSObject
@@ -85,15 +102,15 @@ static quicr::PublishResponse convert(QPublishResponse response) {
 -(QClientStatus)connect
 {
     assert(qClientPtr);
-    auto status = qClientPtr->Connect();
+    auto status = qClientPtr->Start();
     return static_cast<QClientStatus>(status);
 }
 
 -(QClientStatus) disconnect
 {
     assert(qClientPtr);
-    auto status = qClientPtr->Disconnect();
-    return static_cast<QClientStatus>(status);
+    qClientPtr->Stop();
+    return kQClientStatusDisconnecting;
 }
 
 -(void)publishTrackWithHandler: (QPublishTrackHandlerObjC*) trackHandler
@@ -206,7 +223,7 @@ static quicr::PublishResponse convert(QPublishResponse response) {
     qClientPtr->ResolvePublish(connectionHandle,
                                requestId,
                                convert(attributes, tfn),
-                               convert(response),
+                               convert(response, attributes),
                                std::static_pointer_cast<quicr::SubscribeTrackHandler>(handler ? handler->handlerPtr : nullptr));
 }
 
@@ -234,13 +251,13 @@ static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metric
 
 static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
 {
-    QPublishAttributes converted;
-    converted.priority = attributes.priority;
+    QPublishAttributes converted{};
+    converted.priority = attributes.default_publisher_priority;
     converted.forward = attributes.forward;
-    converted.deliveryTimeoutMs = attributes.delivery_timeout.count();
-    converted.groupOrder = attributes.group_order.has_value() ? static_cast<QGroupOrder>(*attributes.group_order) : kQGroupOrderOriginalPublisherOrder;
-    converted.isPublisherInitiated = attributes.is_publisher_initiated;
-    converted.newGroupRequestId = attributes.new_group_request_id.has_value() ? attributes.new_group_request_id.value() : 0;
+    converted.deliveryTimeoutMs = attributes.delivery_timeout.value_or(0);
+    converted.groupOrder = static_cast<QGroupOrder>(attributes.default_publisher_group_order);
+    converted.isPublisherInitiated = true;
+    converted.newGroupRequestId = 0;
     converted.trackAlias = attributes.track_alias;
     converted.dynamicGroups = attributes.dynamic_groups;
     return converted;
@@ -292,7 +309,7 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
     _callbacks = callbacks;
 }
 
-void QClient::PublishReceived(const quicr::ConnectionHandle connection_handle,
+void QClient::PublishReceived(const std::uint64_t connection_handle,
                               const std::uint64_t request_id,
                               const quicr::messages::PublishAttributes& publish_attributes,
                               std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler)

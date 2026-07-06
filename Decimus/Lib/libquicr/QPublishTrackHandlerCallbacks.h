@@ -10,6 +10,8 @@ typedef NS_ENUM(uint8_t, QPublishTrackHandlerStatus) {
     kQPublishTrackHandlerStatusPendingAnnounceResponse,
     kQPublishTrackHandlerStatusAnnounceNotAuthorized,
     kQPublishTrackHandlerStatusNoSubscribers,
+    kQPublishTrackHandlerStatusUnsubscribed,
+    kQPublishTrackHandlerStatusDoneByFin,
     kQPublishTrackHandlerStatusSendingUnannounce,
     kQPublishTrackHandlerStatusSubscriptionUpdated,
     kQPublishTrackHandlerStatusNewGroupRequested,
