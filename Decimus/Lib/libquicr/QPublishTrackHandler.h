@@ -4,7 +4,7 @@
 #ifndef QPublishTrackHandler_h
 #define QPublishTrackHandler_h
 
-#include "quicr/publish_track_handler.h"
+#include "quicr/handlers/publish_track_handler.h"
 #include "quicr/track_name.h"
 
 #import "QPublishTrackHandlerCallbacks.h"

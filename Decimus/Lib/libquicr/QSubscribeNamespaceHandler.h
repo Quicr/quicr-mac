@@ -4,8 +4,8 @@
 #ifndef QSubscribeNamespaceHandler_h
 #define QSubscribeNamespaceHandler_h
 
-#include "quicr/subscribe_namespace_handler.h"
-#include "quicr/detail/attributes.h"
+#include "quicr/attributes.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
 #import "QSubscribeNamespaceHandlerCallbacks.h"
 
 @class QSubscribeNamespaceHandlerObjC;

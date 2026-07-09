@@ -20,7 +20,7 @@ public:
     void MetricsSampled(const quicr::ConnectionMetrics& metrics) override;
     void PublishReceived(unsigned long long,
                          unsigned long long,
-                         const quicr::messages::PublishAttributes&,
+                         const quicr::PublishAttributes&,
                          std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler) override;
 
 

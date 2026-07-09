@@ -64,7 +64,7 @@ typedef struct QObjectHeaders {
 } QObjectHeaders;
 
 #ifdef __cplusplus
-#include <quicr/detail/messages.h>
+#include <quicr/messages/messages.h>
 
 [[maybe_unused]]
 static QStreamHeaderProperties* _Nullable convertStreamHeaderProperties(const std::optional<quicr::messages::StreamHeaderProperties>& props) {
