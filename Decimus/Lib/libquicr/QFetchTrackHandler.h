@@ -4,7 +4,7 @@
 #ifndef QFetchTrackHandler_h
 #define QFetchTrackHandler_h
 
-#include "quicr/fetch_track_handler.h"
+#include "quicr/handlers/fetch_track_handler.h"
 #include "quicr/track_name.h"
 #import "QSubscribeTrackHandlerCallbacks.h"
 

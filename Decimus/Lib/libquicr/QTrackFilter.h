@@ -16,7 +16,7 @@
 @end
 
 #ifdef __cplusplus
-#include <quicr/detail/ctrl_message_types.h>
+#include <quicr/messages/ctrl_message_types.h>
 
 [[maybe_unused]]
 static quicr::messages::TrackFilter trackFilterConvert(QTrackFilterObjC* _Nonnull filter) {

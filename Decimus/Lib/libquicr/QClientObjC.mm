@@ -8,7 +8,7 @@
 #include <iostream>
 #include <map>
 #include "TransportConfig.h"
-#include "quicr/subscribe_namespace_handler.h"
+#include "quicr/handlers/subscribe_namespace_handler.h"
 
 static quicr::TransportConfig convert(TransportConfig config) {
     return {
@@ -32,8 +32,8 @@ static quicr::TransportConfig convert(TransportConfig config) {
     };
 }
 
-[[maybe_unused]] static quicr::messages::SubscribeAttributes convert(QSubscribeAttributes attributes) {
-    quicr::messages::SubscribeAttributes converted{};
+[[maybe_unused]] static quicr::SubscribeAttributes convert(QSubscribeAttributes attributes) {
+    quicr::SubscribeAttributes converted{};
     converted.priority = attributes.priority;
     converted.forward = attributes.forward;
     converted.delivery_timeout = std::chrono::milliseconds(attributes.deliveryTimeoutMs);
@@ -46,8 +46,8 @@ static quicr::TransportConfig convert(TransportConfig config) {
     return converted;
 }
 
-static quicr::messages::PublishAttributes convert(QPublishAttributes attributes, id<QFullTrackName> _Nonnull fullTrackName) {
-    return quicr::messages::PublishAttributes {
+static quicr::PublishAttributes convert(QPublishAttributes attributes, id<QFullTrackName> _Nonnull fullTrackName) {
+    return quicr::PublishAttributes {
         .track_full_name = ftnConvert(fullTrackName),
         .track_alias = attributes.trackAlias,
         .auth_tokens = {},
@@ -65,8 +65,8 @@ static quicr::messages::PublishAttributes convert(QPublishAttributes attributes,
     };
 }
 
-static quicr::messages::PublishOkAttributes convertOk(QPublishAttributes attributes) {
-    return quicr::messages::PublishOkAttributes {
+static quicr::PublishOkAttributes convertOk(QPublishAttributes attributes) {
+    return quicr::PublishOkAttributes {
         .subscriber_priority = attributes.priority,
         .group_order = attributes.groupOrder == kQGroupOrderOriginalPublisherOrder
             ? std::nullopt
@@ -249,7 +249,7 @@ static QQuicConnectionMetrics convert(const quicr::QuicConnectionMetrics& metric
     return converted;
 }
 
-static QPublishAttributes convert(const quicr::messages::PublishAttributes& attributes)
+static QPublishAttributes convert(const quicr::PublishAttributes& attributes)
 {
     QPublishAttributes converted{};
     converted.priority = attributes.default_publisher_priority;
@@ -311,7 +311,7 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
 
 void QClient::PublishReceived(const std::uint64_t connection_handle,
                               const std::uint64_t request_id,
-                              const quicr::messages::PublishAttributes& publish_attributes,
+                              const quicr::PublishAttributes& publish_attributes,
                               std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler)
 {
     if (_callbacks) {
