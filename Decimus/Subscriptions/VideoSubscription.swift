@@ -58,7 +58,6 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let controller: MoqCallController
     private var fetch: Fetch?
     private var fetched = false
-    private let postCleanup = Atomic(false)
     private let sframeContext: SFrameContext?
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
@@ -278,7 +277,6 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             self.token = 0
         }
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
-        self.postCleanup.store(true, ordering: .releasing)
     }
 
     /// What should happen to a video object based on state.
@@ -431,21 +429,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
         }
         // swiftlint:enable force_try
-
-        // Override playout to true if we cleaned up.
-        let action = getAction
-        var start: Bool {
-            switch action {
-            case .normal(let start, _):
-                guard !start else { return false }
-                return self.postCleanup.compareExchange(expected: true,
-                                                        desired: false,
-                                                        ordering: .acquiringAndReleasing).exchanged
-            default:
-                return false
-            }
-        }
-        return start ? .normal(true) : action
+        return getAction
     }
 
     // swiftlint:disable:next function_body_length cyclomatic_complexity
@@ -664,7 +648,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         // Pass.
         handler.objectReceived(headers,
                                data: unprotected,
-                               extensions: immutableExtensions,
+                               extensions: immutableExtensions ?? extensions,
                                when: .now,
                                cached: true,
                                drop: false)

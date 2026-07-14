@@ -34,7 +34,9 @@ struct TestVideoSubscription {
     private func makeSubscription(_ mockClient: MockClient,
                                   fetchThreshold: UInt64,
                                   ngThreshold: UInt64,
-                                  callback: ObjectReceivedCallback? = nil) async throws -> VideoSubscription {
+                                  callback: ObjectReceivedCallback? = nil,
+                                  jitterBufferConfig: JitterBuffer.Config = .init(),
+                                  cleanupTime: TimeInterval = 1.5) async throws -> VideoSubscription {
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -54,7 +56,7 @@ struct TestVideoSubscription {
                                                  metricsSubmitter: nil,
                                                  videoBehaviour: .freeze,
                                                  granularMetrics: true,
-                                                 jitterBufferConfig: .init(),
+                                                 jitterBufferConfig: jitterBufferConfig,
                                                  simulreceive: .none,
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
@@ -64,7 +66,7 @@ struct TestVideoSubscription {
                                                  activeSpeakerStats: nil,
                                                  controller: controller,
                                                  verbose: true,
-                                                 cleanupTime: 1.5,
+                                                 cleanupTime: cleanupTime,
                                                  subscriptionConfig: .init(joinConfig: .init(fetchUpperThreshold: fetchThreshold,
                                                                                              newGroupUpperThreshold: ngThreshold),
                                                                            calculateLatency: false,
@@ -149,6 +151,62 @@ struct TestVideoSubscription {
             #expect(Bool(false), "Expected fetching state, got \(subscription.getCurrentState())")
         }
         #expect(fetch != nil)
+    }
+
+    @Test("Cleanup fetch waits for a decodable GOP")
+    @MainActor
+    func testCleanupFetchWaitsForGOP() async throws {
+        var fetchCancelled = false
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in },
+                                    fetchCancel: { _ in fetchCancelled = true })
+        var jitterBufferConfig = JitterBuffer.Config()
+        jitterBufferConfig.mode = .interval
+        jitterBufferConfig.minDepth = 0
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           jitterBufferConfig: jitterBufferConfig,
+                                                           cleanupTime: 0.2)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        for _ in 0..<100 where subscription.handler.get() != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try #require(subscription.handler.get() == nil)
+
+        // Cleanup recreated the handler. An early P-frame starts FETCH but must not release playout.
+        subscription.mockObject(groupId: 1, objectId: 1, immutableExtensions: loc())
+        try await Task.sleep(for: .milliseconds(75))
+        guard case .fetching = subscription.getCurrentState() else {
+            Issue.record("Expected fetching state, got \(subscription.getCurrentState())")
+            return
+        }
+        let recreatedHandler = subscription.handler.get()
+        let fetchingHandler = try #require(recreatedHandler)
+        let queuedPFrame: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
+        #expect(queuedPFrame?.frame.objectId == 1)
+        #expect(!fetchCancelled)
+
+        // A newer live GOP is also a valid release: cancel FETCH and play through any decodable prefix.
+        subscription.mockObject(groupId: 2, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+        #expect(fetchCancelled)
+        try await Task.sleep(for: .milliseconds(75))
+        let queuedAfterRelease: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
+        #expect(queuedAfterRelease == nil)
     }
 
     @Test("Test middle of group")

@@ -727,8 +727,8 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                             frame = item.frame
                         } else {
                             guard let format = self.currentFormats.withLock({ $0[item.frame.groupId] }) else {
-                                self.logger.error("[\(item.frame.groupId):\(item.frame.objectId)] Unable to decode, no format for frame")
-                                return
+                                self.logger.warning("[\(item.frame.groupId):\(item.frame.objectId)] Dropping frame with no format")
+                                continue
                             }
                             do {
                                 frame = try self.regen(item.frame, format: format)
