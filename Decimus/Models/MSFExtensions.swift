@@ -19,6 +19,15 @@ extension MSF.Track {
         return parts.joined(separator: ",")
     }
 
+    /// The media type this track carries, derived from its codec.
+    var mediaType: String {
+        switch CodecFactoryImpl().makeCodecConfig(from: self.qualityProfile, bitrateType: .average) {
+        case is VideoCodecConfig: ManifestMediaTypes.video.rawValue
+        case is AudioCodecConfig: ManifestMediaTypes.audio.rawValue
+        default: self.name
+        }
+    }
+
     /// Convert this track to a manifest `Profile`, using the given namespace and name.
     func toProfile(namespace: [String]) -> Profile {
         .init(qualityProfile: self.qualityProfile,

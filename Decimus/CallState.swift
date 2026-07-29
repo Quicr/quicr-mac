@@ -633,7 +633,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         self.logger.debug("Received catalog update")
 
         // Build new namespace set from catalog tracks.
-        var newNamespaces: Set<NamespacePrefix> = []
+        var newNamespaces: [NamespacePrefix: MSF.Track] = [:]
         for track in catalog.tracks {
             guard let namespace = track.namespace else {
                 self.logger.error("Missing namespace for catalog track")
@@ -641,13 +641,14 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             }
             var tuples = namespace.tuples
             _ = tuples.popLast()
-            newNamespaces.insert(NamespacePrefix(tuples.map { Data($0.utf8) }))
+            newNamespaces[.init(tuples.map { Data($0.utf8) })] = track
         }
 
+        let newPrefixes = Set(newNamespaces.keys)
         let oldNamespaces = Set(self.nabNamespaceHandlers.keys)
 
         // Remove stale namespace handlers and their subscriptions.
-        for prefix in oldNamespaces.subtracting(newNamespaces) {
+        for prefix in oldNamespaces.subtracting(newPrefixes) {
             if let handler = self.nabNamespaceHandlers.removeValue(forKey: prefix) {
                 do {
                     try controller.unsubscribeNamespace(handler)
@@ -670,9 +671,10 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         }
 
         // Add new namespace handlers.
-        for prefix in newNamespaces.subtracting(oldNamespaces) {
+        for prefix in newPrefixes.subtracting(oldNamespaces) {
+            let isVideo = newNamespaces[prefix]?.mediaType == ManifestMediaTypes.video.rawValue
             let filter: QTrackFilterObjC? = switch self.config.joinType {
-            case .activeSpeaker:
+            case .activeSpeaker where isVideo:
                 .init(propertyType: AppHeadersRegistry.audioActivityIndicator.rawValue,
                       maxTracksSelected: .init(self.demoMaxTracksSelected),
                       timeout: .init(self.demoTimeout * 1000))
@@ -1104,14 +1106,7 @@ extension CallState {
         }
 
         let profile = catalogTrack.toProfile(namespace: namespace)
-        // Derive the media type from the codec config.
-        let codecConfig = CodecFactoryImpl().makeCodecConfig(from: catalogTrack.qualityProfile, bitrateType: .average)
-        let mediaType: String
-        switch codecConfig {
-        case is VideoCodecConfig: mediaType = "video"
-        case is AudioCodecConfig: mediaType = "audio"
-        default: mediaType = catalogTrack.name
-        }
+        let mediaType = catalogTrack.mediaType
         let sourceId = "nab_\(remoteClientId)_\(mediaType)"
         let participantHash = remoteClientId.hashValue
         let manifestSubscription = ManifestSubscription(
