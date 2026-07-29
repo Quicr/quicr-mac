@@ -82,6 +82,7 @@ static quicr::messages::StreamHeaderProperties convertStreamHeaderProperties(QSt
         static_cast<quicr::messages::SubgroupIdType>(props.subgroupIdMode),
         props.endOfGroup,
         props.defaultPriority,
+        true,
     };
 }
 

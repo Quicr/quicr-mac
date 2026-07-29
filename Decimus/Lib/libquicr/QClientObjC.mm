@@ -93,8 +93,8 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     quicr::ClientConfig moqConfig;
     moqConfig.connect_uri = std::string(config.connectUri);
     moqConfig.endpoint_id = std::string(config.endpointId);
-    moqConfig.metrics_sample_ms = config.metricsSampleMs;
     moqConfig.transport_config = convert(config.transportConfig);
+    moqConfig.transport_config.metrics_sample_ms = config.metricsSampleMs;
     qClientPtr = QClient::Create(moqConfig);
     return self;
 }
