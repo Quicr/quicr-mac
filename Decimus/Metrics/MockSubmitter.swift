@@ -4,4 +4,5 @@
 final class MockSubmitter: MetricsSubmitter {
     func register(measurement: MetricsMeasurement) { }
     func submit() { }
+    func submitInBackground() { }
 }

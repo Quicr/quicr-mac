@@ -790,10 +790,12 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
 
     @MainActor
     func leave() async {
-        self.videoParticipants.stopStalenessChecks()
-
         // Submit all pending metrics.
-        await submitter?.submit()
+        self.appMetricTimer?.cancel()
+        self.appMetricTimer = nil
+        self.submitter?.submitInBackground()
+
+        self.videoParticipants.stopStalenessChecks()
 
         // Stop all media.
         do {
@@ -872,17 +874,12 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
         self.activityTransitionMeasurement = activityTransition
         if influxConfig.value.realtime {
             // Application metrics timer.
-            self.appMetricTimer = .init(priority: .utility) { [weak self] in
+            let duration = TimeInterval(influxConfig.value.intervalSecs)
+            self.appMetricTimer = .init(priority: .utility) {
                 while !Task.isCancelled {
-                    let duration: TimeInterval
-                    if let self = self {
-                        duration = TimeInterval(self.influxConfig.value.intervalSecs)
-                        let usage = try cpuUsage()
-                        self.measurement?.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
-                        await self.submitter?.submit()
-                    } else {
-                        return
-                    }
+                    let usage = try cpuUsage()
+                    measurement.recordCpuUsage(cpuUsage: usage, timestamp: Date.now)
+                    await influx.submit()
                     try? await Task.sleep(for: .seconds(duration), tolerance: .seconds(duration), clock: .continuous)
                 }
             }

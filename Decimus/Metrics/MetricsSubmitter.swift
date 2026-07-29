@@ -4,4 +4,5 @@
 protocol MetricsSubmitter: AnyObject, Sendable {
     func register(measurement: MetricsMeasurement)
     func submit() async
+    func submitInBackground()
 }

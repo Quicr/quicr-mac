@@ -70,4 +70,19 @@ struct TestMeasurementBase {
         // Final drain should get whatever remains — no crash = success.
         _ = measurement.drain()
     }
+
+    @Test func backgroundSubmitDrainsSynchronously() {
+        let measurement = TestMeasurement()
+        var config = InfluxConfig()
+        config.url = "http://127.0.0.1:1"
+        config.bucket = "test"
+        config.org = "test"
+        let submitter = InfluxMetricsSubmitter(token: "", config: config, tags: [:])
+        submitter.register(measurement: measurement)
+        measurement.record(field: "counter", value: Int64(42) as AnyObject, timestamp: nil)
+
+        submitter.submitInBackground()
+
+        #expect(measurement.drain().isEmpty)
+    }
 }

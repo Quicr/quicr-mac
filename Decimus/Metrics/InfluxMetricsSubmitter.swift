@@ -42,6 +42,19 @@ final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
     }
 
     func submit() async {
+        await self.write(points: self.drainPoints())
+    }
+
+    func submitInBackground() {
+        let points = self.drainPoints()
+        guard !points.isEmpty else { return }
+
+        Task(priority: .utility) {
+            await self.write(points: points)
+        }
+    }
+
+    private func drainPoints() -> [InfluxDBClient.Point] {
         // Snapshot measurements under lock, then release.
         let snapshot: [UUID: WeakMeasurement] = measurements.withLock { $0 }
 
@@ -89,6 +102,10 @@ final class InfluxMetricsSubmitter: @unchecked Sendable, MetricsSubmitter {
             }
         }
 
+        return points
+    }
+
+    private func write(points: [InfluxDBClient.Point]) async {
         guard !points.isEmpty else { return }
 
         do {
