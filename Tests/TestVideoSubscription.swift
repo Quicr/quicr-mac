@@ -31,12 +31,16 @@ extension VideoSubscription {
 
 struct TestVideoSubscription {
     @MainActor
-    private func makeSubscription(_ mockClient: MockClient,
-                                  fetchThreshold: UInt64,
-                                  ngThreshold: UInt64,
-                                  callback: ObjectReceivedCallback? = nil,
-                                  jitterBufferConfig: JitterBuffer.Config = .init(),
-                                  cleanupTime: TimeInterval = 1.5) async throws -> VideoSubscription {
+    func makeSubscription(_ mockClient: MockClient,
+                          fetchThreshold: UInt64,
+                          ngThreshold: UInt64,
+                          callback: ObjectReceivedCallback? = nil,
+                          jitterBufferConfig: JitterBuffer.Config = .init(),
+                          cleanupTime: TimeInterval = 1.5,
+                          participants: VideoParticipants? = nil,
+                          activeSpeakerStats: ActiveSpeakerStats? = nil,
+                          simulreceive: SimulreceiveMode = .none) async throws -> VideoSubscription {
+        let participants = participants ?? .init()
         let controller = MoqCallController(endpointUri: "",
                                            client: mockClient,
                                            submitter: nil,
@@ -52,18 +56,18 @@ struct TestVideoSubscription {
                                                                width: 1920,
                                                                height: 1080,
                                                                bitrateType: .average),
-                                                 participants: .init(),
+                                                 participants: participants,
                                                  metricsSubmitter: nil,
                                                  videoBehaviour: .freeze,
                                                  granularMetrics: true,
                                                  jitterBufferConfig: jitterBufferConfig,
-                                                 simulreceive: .none,
+                                                 simulreceive: simulreceive,
                                                  variances: .init(expectedOccurrences: 0),
                                                  endpointId: "",
                                                  relayId: "",
                                                  participantId: .init(1),
                                                  joinDate: .now,
-                                                 activeSpeakerStats: nil,
+                                                 activeSpeakerStats: activeSpeakerStats,
                                                  controller: controller,
                                                  verbose: true,
                                                  cleanupTime: cleanupTime,
@@ -93,6 +97,113 @@ struct TestVideoSubscription {
                                     fetchCancel: {_ in})
         let subscription = try await self.makeSubscription(mockClient, fetchThreshold: 0, ngThreshold: 0)
         subscription.metricsSampled(.init())
+    }
+
+    @Test("Cleanup removes the retained handler's participant")
+    @MainActor
+    func testCleanupRemovesRetainedHandlerParticipant() async throws {
+        let participants = VideoParticipants()
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           cleanupTime: 0.05,
+                                                           participants: participants)
+        let handler = subscription.handler.get()
+        let retainedHandler = try #require(handler)
+        for _ in 0..<100 where participants.participants.compactMap(\.value).isEmpty {
+            await Task.yield()
+        }
+        try #require(!participants.participants.compactMap(\.value).isEmpty)
+
+        subscription.mockObject(groupId: 0, objectId: 0)
+        for _ in 0..<100 where subscription.handler.get() != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(subscription.handler.get() == nil)
+        for _ in 0..<100 where !participants.participants.compactMap(\.value).isEmpty {
+            await Task.yield()
+        }
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+        _ = retainedHandler
+    }
+
+    @Test("Stopped subscription ignores late object delivery")
+    @MainActor
+    func testStoppedSubscriptionIgnoresLateObject() async throws {
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0)
+
+        subscription.stop()
+        #expect(subscription.handler.get() == nil)
+
+        subscription.mockObject(groupId: 0, objectId: 0)
+
+        #expect(subscription.handler.get() == nil)
+    }
+
+    @Test("Non-simulreceive receipt metrics preserve the first dropped sample")
+    @MainActor
+    func testHandlerReceiptMetricsPreserveFirstDrop() async throws {
+        let participants = VideoParticipants()
+        let activeSpeakerStats = ActiveSpeakerStats(nil)
+        let mockClient = MockClient(publish: {_ in},
+                                    unpublish: {_ in},
+                                    subscribe: {_ in},
+                                    unsubscribe: {_ in},
+                                    fetch: {_ in},
+                                    fetchCancel: {_ in})
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: 0,
+                                                           ngThreshold: 0,
+                                                           participants: participants,
+                                                           activeSpeakerStats: activeSpeakerStats)
+        let currentHandler = subscription.handler.get()
+        let handler = try #require(currentHandler)
+        for _ in 0..<100 where participants.participants.compactMap(\.value).isEmpty {
+            await Task.yield()
+        }
+        try #require(!participants.participants.compactMap(\.value).isEmpty)
+
+        let base = Ticks.now
+        let first = base + TimeInterval(1).ticks
+        var latest = base
+        for index in 1...100 {
+            latest = base + TimeInterval(index).ticks
+            handler.objectReceived(.init(groupId: 0,
+                                         subgroupId: 0,
+                                         objectId: UInt64(index),
+                                         payloadLength: 0,
+                                         status: .available,
+                                         priority: nil,
+                                         ttl: nil),
+                                   data: .init(),
+                                   extensions: nil,
+                                   when: latest,
+                                   cached: false,
+                                   drop: true)
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        await activeSpeakerStats.dataReceived(.init(1), when: latest.hostDate)
+        let result = try await activeSpeakerStats.imageEnqueued(.init(1),
+                                                                when: latest.hostDate)
+        #expect(result.dropped == first.hostDate)
     }
 
     let fetchThreshold: UInt64 = 10

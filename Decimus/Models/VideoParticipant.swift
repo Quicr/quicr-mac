@@ -3,10 +3,10 @@
 
 import QuartzCore
 import CoreMedia
+import Synchronization
 
 enum ParticipantError: Error {
     case alreadyExists
-    case notFound
 }
 
 /// Represents a visible video display.
@@ -27,7 +27,6 @@ class VideoParticipant: Identifiable {
     var display = false
     /// Last time a frame was enqueued.
     var lastEnqueueTime: Date?
-    private let videoParticipants: VideoParticipants
     private let logger = DecimusLogger(VideoParticipant.self)
 
     // Active speaker statistics.
@@ -76,7 +75,7 @@ class VideoParticipant: Identifiable {
         }
     }
     let latencies: Latencies?
-    private var averagingTask: Task<(), Never>?
+    private nonisolated(unsafe) var averagingTask: Task<(), Never>?
 
     /// Configuration for the participant view.
     struct Config {
@@ -92,7 +91,6 @@ class VideoParticipant: Identifiable {
     /// - Parameter id: Namespace or source ID.
     /// - Parameter startDate: Join date of the call, for statistics.
     /// - Parameter subscribeDate: Subscribe date of the call, for statistics.
-    /// - Parameter videoParticipants: The holder to register against.
     /// - Parameter participantId: The participant ID of this participant.
     /// - Parameter activeSpeakerStats: Stats/metrics object.
     /// - Parameter config: The configuration.
@@ -100,17 +98,15 @@ class VideoParticipant: Identifiable {
     init(id: SourceIDType,
          startDate: Date,
          subscribeDate: Date,
-         videoParticipants: VideoParticipants,
          participantId: ParticipantId,
          activeSpeakerStats: ActiveSpeakerStats?,
          config: Config,
-         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) throws {
+         switchLatencyMeasurement: SwitchLatencyMeasurement? = nil) {
         self.id = id
         self.label = id
         self.highlight = false
         self.startDate = startDate
         self.subscribeDate = subscribeDate
-        self.videoParticipants = videoParticipants
         self.participantId = participantId
         self.activeSpeakerStats = activeSpeakerStats
         self.switchLatencyMeasurement = switchLatencyMeasurement
@@ -128,7 +124,6 @@ class VideoParticipant: Identifiable {
         } else {
             self.latencies = nil
         }
-        try self.videoParticipants.add(self)
     }
 
     func received(_ details: ObjectReceived) {
@@ -146,11 +141,12 @@ class VideoParticipant: Identifiable {
         }
 
         guard let stats = self.activeSpeakerStats else { return }
+        let participantId = self.participantId
         Task { @MainActor in
             if details.usable {
-                await stats.dataReceived(self.participantId, when: details.when.hostDate)
+                await stats.dataReceived(participantId, when: details.when.hostDate)
             } else {
-                await stats.dataDropped(self.participantId, when: details.when.hostDate)
+                await stats.dataDropped(participantId, when: details.when.hostDate)
             }
         }
     }
@@ -163,11 +159,13 @@ class VideoParticipant: Identifiable {
                  renderTime: Date? = nil) throws {
         // Stats.
         if let stats = self.activeSpeakerStats {
-            Task { @MainActor in
-                guard let record = try? await stats.imageEnqueued(self.participantId, when: when) else {
-                    self.logger.warning("[\(self.id)] Failed to record enqueue image")
+            let participantId = self.participantId
+            Task { @MainActor [weak self] in
+                guard let record = try? await stats.imageEnqueued(participantId, when: when) else {
+                    self?.logger.warning("[\(participantId)] Failed to record enqueue image")
                     return
                 }
+                guard let self else { return }
                 if let detected = record.detected {
                     self.fromDetected = record.enqueued.timeIntervalSince(detected)
                 }
@@ -203,18 +201,45 @@ class VideoParticipant: Identifiable {
     }
 
     deinit {
+        self.averagingTask?.cancel()
         self.logger.debug("[\(self.id)] Deinit")
-        Task { [id, weak videoParticipants, logger] in
-            guard let videoParticipants = videoParticipants else { return }
-            await MainActor.run { [weak videoParticipants] in
-                guard let videoParticipants = videoParticipants else { return }
-                do {
-                    try videoParticipants.removeParticipant(identifier: id)
-                } catch {
-                    logger.warning("[\(id)] Failed to remove participant")
-                }
-            }
+    }
+}
+
+/// Owns one participant's registration in the visible participant collection.
+@MainActor
+final class VideoParticipantRegistration {
+    nonisolated let participant: VideoParticipant
+
+    private nonisolated let active = Mutex(true)
+    private weak var participants: VideoParticipants?
+
+    fileprivate init(participant: VideoParticipant, participants: VideoParticipants) {
+        self.participant = participant
+        self.participants = participants
+    }
+
+    nonisolated var isActive: Bool {
+        self.active.get()
+    }
+
+    /// Prevent new work from using the participant.
+    nonisolated func invalidate() {
+        self.active.withLock { $0 = false }
+    }
+
+    /// Perform work only while this registration remains active.
+    func withParticipant<Result>(_ body: (VideoParticipant) throws -> Result) rethrows -> Result? {
+        try self.active.withLock { active in
+            guard active else { return nil }
+            return try body(self.participant)
         }
+    }
+
+    /// Remove the participant from the collection. Safe to call repeatedly.
+    func remove() {
+        self.invalidate()
+        self.participants?.remove(self)
     }
 }
 
@@ -229,6 +254,17 @@ class VideoParticipants {
         }
     }
 
+    private class Entry {
+        let participant: Weak<VideoParticipant>
+        let registration: Weak<VideoParticipantRegistration>
+
+        init(participant: VideoParticipant,
+             registration: VideoParticipantRegistration) {
+            self.participant = .init(participant)
+            self.registration = .init(registration)
+        }
+    }
+
     private let logger = DecimusLogger(VideoParticipants.self)
 
     /// How long without a frame before hiding a participant.
@@ -238,9 +274,18 @@ class VideoParticipants {
     var maxDisplayCount: Int?
 
     /// All tracked participants by identifier.
-    private var weakParticipants: [SourceIDType: Weak<VideoParticipant>] = [:]
-    var participants: [Weak<VideoParticipant>] { Array(self.weakParticipants.values) }
+    private var weakParticipants: [SourceIDType: Entry] = [:]
+    var participants: [Weak<VideoParticipant>] {
+        self.weakParticipants.values.map(\.participant)
+    }
     private var stalenessTask: Task<Void, Never>?
+
+    /// Perform work on participants whose registrations are still active.
+    func forEachParticipant(_ body: (VideoParticipant) -> Void) {
+        for entry in self.weakParticipants.values {
+            entry.registration.value?.withParticipant(body)
+        }
+    }
 
     /// Remove stale participants if we can replace them with live ones.
     func startStalenessChecks() {
@@ -250,17 +295,22 @@ class VideoParticipants {
                 guard let self else { return }
                 try? await Task.sleep(for: .seconds(self.stalenessThreshold / 2))
                 let now = Date.now
-                let all = self.weakParticipants.values.compactMap { $0.value }
-                let displayed = all.filter { $0.display }
-                let freshCount = displayed.filter { participant in
-                    participant.lastEnqueueTime.map { now.timeIntervalSince($0) <= self.stalenessThreshold } ?? false
+                let registrations = self.weakParticipants.values.compactMap(\.registration.value)
+                    .filter(\.isActive)
+                let displayed = registrations.filter { $0.participant.display }
+                let freshCount = displayed.filter { registration in
+                    registration.participant.lastEnqueueTime.map {
+                        now.timeIntervalSince($0) <= self.stalenessThreshold
+                    } ?? false
                 }.count
                 let target = self.maxDisplayCount ?? displayed.count
                 guard freshCount >= target else { continue }
-                for participant in displayed {
-                    if let last = participant.lastEnqueueTime,
-                       now.timeIntervalSince(last) > self.stalenessThreshold {
-                        participant.display = false
+                for registration in displayed {
+                    registration.withParticipant { participant in
+                        if let last = participant.lastEnqueueTime,
+                           now.timeIntervalSince(last) > self.stalenessThreshold {
+                            participant.display = false
+                        }
                     }
                 }
             }
@@ -273,24 +323,28 @@ class VideoParticipants {
         self.stalenessTask = nil
     }
 
-    /// Add a participant.
+    /// Register a participant.
     /// - Parameter videoParticipant: The participant to add.
+    /// - Returns: The registration that owns the participant's collection membership.
     /// - Throws: ``ParticipantError.alreadyExists`` if the participant has already been added.
-    fileprivate func add(_ videoParticipant: VideoParticipant) throws {
-        if self.weakParticipants[videoParticipant.id] != nil {
+    func register(_ videoParticipant: VideoParticipant) throws -> VideoParticipantRegistration {
+        if let existing = self.weakParticipants[videoParticipant.id]?.registration.value,
+           existing.isActive {
             throw ParticipantError.alreadyExists
         }
-        self.weakParticipants[videoParticipant.id] = .init(videoParticipant)
+        let registration = VideoParticipantRegistration(participant: videoParticipant,
+                                                        participants: self)
+        self.weakParticipants[videoParticipant.id] = .init(participant: videoParticipant,
+                                                           registration: registration)
         self.logger.debug("[\(videoParticipant.id)] Added participant")
+        return registration
     }
 
-    /// Remove a participant view.
-    /// - Parameter identifier: The identifier for the target view to remove.
-    /// - Throws: ``ParticipantError.notFound`` if the participant is not found.
-    fileprivate func removeParticipant(identifier: SourceIDType) throws {
-        guard self.weakParticipants.removeValue(forKey: identifier) != nil else {
-            throw ParticipantError.notFound
-        }
-        self.logger.debug("[\(identifier)] Removed participant")
+    /// Remove a participant if it is still the registered instance for its identifier.
+    fileprivate func remove(_ registration: VideoParticipantRegistration) {
+        let participant = registration.participant
+        guard self.weakParticipants[participant.id]?.registration.value === registration else { return }
+        self.weakParticipants.removeValue(forKey: participant.id)
+        self.logger.debug("[\(participant.id)] Removed participant")
     }
 }

@@ -150,6 +150,195 @@ struct VideoSubscriptionSetTests {
     static let futureTimestamp = Self.now.hostDate.addingTimeInterval(10).timeIntervalSince1970
 
     @MainActor
+    private func makeSimulreceiveSet(participants: VideoParticipants,
+                                     calculateLatency: Bool = false) throws -> VideoSubscriptionSet {
+        try VideoSubscriptionSet(subscription: .init(mediaType: "",
+                                                     sourceName: "",
+                                                     sourceID: "participant",
+                                                     label: "",
+                                                     participantId: .init(1),
+                                                     profileSet: .init(type: "",
+                                                                       profiles: [.init(qualityProfile: "",
+                                                                                        expiry: nil,
+                                                                                        priorities: nil,
+                                                                                        namespace: ["participant"])])),
+                                 participants: participants,
+                                 metricsSubmitter: nil,
+                                 videoBehaviour: .freeze,
+                                 granularMetrics: true,
+                                 jitterBufferConfig: .init(),
+                                 simulreceive: .enable,
+                                 qualityMissThreshold: 1,
+                                 pauseMissThreshold: 1,
+                                 pauseResume: false,
+                                 endpointId: "",
+                                 relayId: "",
+                                 codecFactory: MockCodecFactory(),
+                                 joinDate: .now,
+                                 activeSpeakerStats: nil,
+                                 cleanupTime: 10,
+                                 slidingWindowTime: 10,
+                                 config: .init(calculateLatency: calculateLatency,
+                                               qualityHitThreshold: 1))
+    }
+
+    @MainActor
+    private func makeVideoSubscription(participants: VideoParticipants) async throws -> VideoSubscription {
+        let client = MockClient(publish: { _ in },
+                                unpublish: { _ in },
+                                subscribe: { _ in },
+                                unsubscribe: { _ in },
+                                fetch: { _ in },
+                                fetchCancel: { _ in })
+        return try await TestVideoSubscription().makeSubscription(client,
+                                                                  fetchThreshold: 0,
+                                                                  ngThreshold: 0,
+                                                                  participants: participants,
+                                                                  simulreceive: .enable)
+    }
+
+    @MainActor
+    @Test("Burst receipt metrics preserve each latency sample")
+    func testBurstReceiptMetricsPreserveSamples() async throws {
+        let participants = VideoParticipants()
+        let set = try self.makeSimulreceiveSet(participants: participants,
+                                               calculateLatency: true)
+        let subscription = try await self.makeVideoSubscription(participants: participants)
+        let fullTrackName = FullTrackName(subscription.getFullTrackName())
+        try set.addHandler(subscription)
+        for index in 1...100 {
+            set.receivedObject(fullTrackName,
+                               details: .init(timestamp: TimeInterval(index),
+                                              when: .now,
+                                              cached: false,
+                                              headers: .init(groupId: 0,
+                                                             subgroupId: 0,
+                                                             objectId: UInt64(index),
+                                                             payloadLength: 0,
+                                                             status: .available,
+                                                             priority: nil,
+                                                             ttl: nil),
+                                              usable: true,
+                                              publishTimestamp: nil))
+        }
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+
+        let participant = try #require(participants.participants.compactMap(\.value).first)
+        let receive = try #require(participant.latencies?.receive)
+        #expect(receive.slidingWindow.get(from: .now).count == 100)
+    }
+
+    @MainActor
+    @Test("Removing last handler prevents queued participant recreation")
+    func testRemovingLastHandlerPreventsQueuedParticipantRecreation() async throws {
+        let participants = VideoParticipants()
+        let set = try self.makeSimulreceiveSet(participants: participants)
+        let subscription = try await self.makeVideoSubscription(participants: participants)
+        let fullTrackName = FullTrackName(subscription.getFullTrackName())
+        try set.addHandler(subscription)
+        let currentHandler = subscription.handler.get()
+        let retainedHandler = try #require(currentHandler)
+        let details = ObjectReceived(timestamp: nil,
+                                     when: .now,
+                                     cached: false,
+                                     headers: .init(groupId: 0,
+                                                    subgroupId: 0,
+                                                    objectId: 0,
+                                                    payloadLength: 0,
+                                                    status: .available,
+                                                    priority: nil,
+                                                    ttl: nil),
+                                     usable: true,
+                                     publishTimestamp: nil)
+
+        set.receivedObject(fullTrackName, details: details)
+        let removed = set.removeHandler(fullTrackName)
+        #expect(removed === subscription)
+        let handlerAfterRemoval = subscription.handler.get()
+        #expect(handlerAfterRemoval == nil)
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+
+        let replacement = try await self.makeVideoSubscription(participants: participants)
+        try set.addHandler(replacement)
+        set.receivedObject(fullTrackName, details: details)
+        for _ in 0..<20 {
+            await Task.yield()
+        }
+
+        #expect(!participants.participants.compactMap(\.value).isEmpty)
+        _ = retainedHandler
+    }
+
+    @MainActor
+    @Test("Released participant can be replaced immediately")
+    func testReleasedParticipantCanBeReplacedImmediately() throws {
+        let participants = VideoParticipants()
+        var participant: VideoParticipant? = .init(id: "participant",
+                                                   startDate: .now,
+                                                   subscribeDate: .now,
+                                                   participantId: .init(1),
+                                                   activeSpeakerStats: nil,
+                                                   config: .init(calculateLatency: false,
+                                                                 slidingWindowTime: 1))
+        var registration: VideoParticipantRegistration? = try participants.register(participant!)
+
+        participant = nil
+        #expect(participants.participants.compactMap(\.value).count == 1)
+        registration = nil
+
+        #expect(participants.participants.compactMap(\.value).isEmpty)
+        let replacement = VideoParticipant(id: "participant",
+                                           startDate: .now,
+                                           subscribeDate: .now,
+                                           participantId: .init(1),
+                                           activeSpeakerStats: nil,
+                                           config: .init(calculateLatency: false,
+                                                         slidingWindowTime: 1))
+        registration = try participants.register(replacement)
+        #expect(participants.participants.compactMap(\.value).first === replacement)
+        _ = registration
+    }
+
+    @MainActor
+    @Test("Invalidated registration cannot touch or remove its replacement")
+    func testInvalidatedRegistrationCannotTouchOrRemoveReplacement() throws {
+        let participants = VideoParticipants()
+        let participant = VideoParticipant(id: "participant",
+                                           startDate: .now,
+                                           subscribeDate: .now,
+                                           participantId: .init(1),
+                                           activeSpeakerStats: nil,
+                                           config: .init(calculateLatency: false,
+                                                         slidingWindowTime: 1))
+        let registration = try participants.register(participant)
+        registration.invalidate()
+        var touched = false
+        registration.withParticipant { _ in
+            touched = true
+        }
+        let replacement = VideoParticipant(id: "participant",
+                                           startDate: .now,
+                                           subscribeDate: .now,
+                                           participantId: .init(1),
+                                           activeSpeakerStats: nil,
+                                           config: .init(calculateLatency: false,
+                                                         slidingWindowTime: 1))
+        let replacementRegistration = try participants.register(replacement)
+
+        registration.remove()
+
+        #expect(!touched)
+        #expect(participants.participants.compactMap(\.value).first === replacement)
+        _ = replacementRegistration
+    }
+
+    @MainActor
     @Test("Test Timestamp Diff", arguments: [Self.now.hostDate.timeIntervalSince1970,
                                              Self.pastTimestamp,
                                              Self.futureTimestamp])

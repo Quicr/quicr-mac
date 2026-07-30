@@ -62,6 +62,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     private let wifiScanDetector: WiFiScanDetector?
     private let switchLatencyMeasurement: SwitchLatencyMeasurement?
     private let paused = Atomic(false)
+    private let stopped = Atomic(false)
     private var lastSeenGroup: UInt64?
     private var maxGroupSeen: UInt64?
 
@@ -259,6 +260,7 @@ class VideoSubscription: Subscription, @unchecked Sendable {
     }
 
     deinit {
+        self.cleanupTask?.cancel()
         self.logger.debug("Deinit")
     }
 
@@ -281,13 +283,28 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         self.logger.info("Resumed")
     }
 
-    private func cleanup() {
+    /// Stop the renderer owned by this subscription.
+    func stop() {
+        let exchange = self.stopped.compareExchange(expected: false,
+                                                    desired: true,
+                                                    ordering: .acquiringAndReleasing)
+        guard exchange.exchanged else { return }
+        self.cleanupTask?.cancel()
+        self.stopHandler()
+    }
+
+    private func stopHandler() {
         self.handler.withLock { lockedHandler in
             guard let handler = lockedHandler else { return }
+            handler.stop()
             lockedHandler = nil
             handler.unregisterCallback(self.token)
             self.token = 0
         }
+    }
+
+    private func cleanup() {
+        self.stopHandler()
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
     }
 
@@ -464,6 +481,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                  extensions: HeaderExtensions?,
                                  immutableExtensions: HeaderExtensions?,
                                  streamHeaderProperties: QStreamHeaderProperties?) {
+        guard !self.stopped.load(ordering: .acquiring) else { return }
+
         // If we're paused, drop this.
         guard !self.paused.load(ordering: .acquiring) else {
             if self.verbose {
@@ -504,7 +523,8 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         let handler: VideoHandler
         let activation: ActivationType
         do {
-            (handler, activation) = try self.getCreateHandler()
+            guard let created = try self.getCreateHandler() else { return }
+            (handler, activation) = created
         } catch {
             self.logger.error("Failed to recreate video handler: \(error.localizedDescription)")
             return
@@ -565,8 +585,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         }
     }
 
-    private func getCreateHandler() throws -> (handler: VideoHandler, activation: ActivationType) {
+    private func getCreateHandler() throws -> (handler: VideoHandler, activation: ActivationType)? {
         try self.handler.withLock { lockedHandler in
+            guard !self.stopped.load(ordering: .acquiring) else { return nil }
             if let existing = lockedHandler {
                 return (existing, .existing)
             }
