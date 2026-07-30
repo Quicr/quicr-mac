@@ -85,4 +85,49 @@ struct TestMeasurementBase {
 
         #expect(measurement.drain().isEmpty)
     }
+
+    @Test func fieldsWithMatchingTimestampAndTagsProduceOneInfluxPoint() throws {
+        let timestamp = Date(timeIntervalSince1970: 1)
+        let fields: Fields = [
+            timestamp: [
+                .init(fieldName: "first", value: Int64(1) as AnyObject, tags: ["source": "camera"]),
+                .init(fieldName: "second", value: Int64(2) as AnyObject, tags: ["source": "camera"])
+            ]
+        ]
+
+        let points = InfluxMetricsSubmitter.makePoints(fields: fields,
+                                                       name: "Test",
+                                                       measurementTags: ["measurement": "tag"],
+                                                       baseTags: ["base": "tag"])
+
+        #expect(points.count == 1)
+        let protocolLine = try points.first?.toLineProtocol()
+        let line = try #require(protocolLine)
+        #expect(line == "Test,base=tag,measurement=tag,source=camera first=1i,second=2i 1000000000")
+    }
+
+    @Test func fieldsWithDifferentTagsProduceSeparateInfluxPoints() throws {
+        let timestamp = Date(timeIntervalSince1970: 1)
+        let fields: Fields = [
+            timestamp: [
+                .init(fieldName: "age", value: Int64(1) as AnyObject, tags: ["source": "camera"]),
+                .init(fieldName: "age", value: Int64(2) as AnyObject, tags: ["source": "screen"])
+            ]
+        ]
+
+        let points = InfluxMetricsSubmitter.makePoints(fields: fields,
+                                                       name: "Test",
+                                                       measurementTags: [:],
+                                                       baseTags: [:])
+        let lines = try points.map { point in
+            let protocolLine = try point.toLineProtocol()
+            return try #require(protocolLine)
+        }
+
+        #expect(points.count == 2)
+        #expect(Set(lines) == [
+            "Test,source=camera age=1i 1000000000",
+            "Test,source=screen age=2i 1000000000"
+        ])
+    }
 }
