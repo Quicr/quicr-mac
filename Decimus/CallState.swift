@@ -759,7 +759,7 @@ class CallState: ObservableObject, Equatable { // swiftlint:disable:this type_bo
             let config = ClientConfig(connectUri: self.config.address,
                                       endpointUri: endpointId,
                                       transportConfig: tConfig,
-                                      metricsSampleMs: 0)
+                                      metricsSampleMs: 5000)
             let client = config.connectUri.withCString { connectUri in
                 config.endpointUri.withCString { endpointId in
                     QClientObjC(config: .init(connectUri: connectUri,
