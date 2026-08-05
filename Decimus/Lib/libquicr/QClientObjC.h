@@ -6,6 +6,7 @@
 
 #ifdef __cplusplus
 #include "QClient.h"
+#include <quicr/session_manager.h>
 #include <memory>
 #endif
 
@@ -50,7 +51,6 @@ NS_SWIFT_SENDABLE
 - (void)unsubscribeTrackWithHandler:(QSubscribeTrackHandlerObjC * _Nonnull)handler;
 - (void)fetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
 - (void)cancelFetchTrackWithHandler:(QFetchTrackHandlerObjC * _Nonnull)handler;
-- (QPublishNamespaceStatus)getPublishNamespaceStatus:(NSData * _Nonnull)trackNamespace;
 - (void)setCallbacks:(id <QClientCallbacks> _Nonnull)callbacks;
 - (void)subscribeNamespaceWithHandler:(QSubscribeNamespaceHandlerObjC * _Nonnull)handler;
 - (void)unsubscribeNamespaceWithHandler:(QSubscribeNamespaceHandlerObjC * _Nonnull)handler;
@@ -66,7 +66,9 @@ NS_SWIFT_SENDABLE
 @interface QClientObjC : NSObject<MoqClient>
 {
 #ifdef __cplusplus
-   std::shared_ptr<QClient> qClientPtr;
+    quicr::ClientConfig qClientConfig;
+    quicr::SessionManager qSessionMgr;
+    std::shared_ptr<QClient> qClientPtr;
 #endif
 }
 

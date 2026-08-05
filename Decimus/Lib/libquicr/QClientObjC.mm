@@ -90,26 +90,35 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
 
 -(id)initWithConfig: (QClientConfig) config
 {
-    quicr::ClientConfig moqConfig;
-    moqConfig.connect_uri = std::string(config.connectUri);
-    moqConfig.endpoint_id = std::string(config.endpointId);
-    moqConfig.transport_config = convert(config.transportConfig);
-    moqConfig.transport_config.metrics_sample_ms = config.metricsSampleMs;
-    qClientPtr = QClient::Create(moqConfig);
+    qClientConfig.connect_uri = std::string(config.connectUri);
+    qClientConfig.endpoint_id = std::string(config.endpointId);
+    qClientConfig.transport_config = convert(config.transportConfig);
+    qClientConfig.transport_config.metrics_sample_ms = config.metricsSampleMs;
+
     return self;
 }
 
 -(QClientStatus)connect
 {
+    assert(!qClientPtr);
+
+    auto [_, session] = qSessionMgr.AddTransport(qClientConfig, QClient::Create);
+
+    assert(session.lock());
+
+    qClientPtr = std::static_pointer_cast<QClient>(session.lock());
+
     assert(qClientPtr);
-    auto status = qClientPtr->Start();
-    return static_cast<QClientStatus>(status);
+
+    return static_cast<QClientStatus>(qClientPtr->GetStatus());
 }
 
 -(QClientStatus) disconnect
 {
     assert(qClientPtr);
-    qClientPtr->Stop();
+    qClientPtr->Disconnect();
+    qClientPtr.reset();
+
     return kQClientStatusDisconnecting;
 }
 
@@ -118,8 +127,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::PublishTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->PublishTrack(handler);
+        qSessionMgr.AddHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -128,8 +136,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::PublishTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->UnpublishTrack(handler);
+        qSessionMgr.RemoveHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -138,8 +145,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::SubscribeTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->SubscribeTrack(handler);
+        qSessionMgr.AddHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -148,8 +154,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::SubscribeTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->UnsubscribeTrack(handler);
+        qSessionMgr.RemoveHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -158,8 +163,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::FetchTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->FetchTrack(handler);
+        qSessionMgr.AddHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -168,8 +172,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     assert(qClientPtr);
     if (trackHandler->handlerPtr)
     {
-        auto handler = std::static_pointer_cast<quicr::FetchTrackHandler>(trackHandler->handlerPtr);
-        qClientPtr->CancelFetchTrack(handler);
+        qSessionMgr.RemoveHandler(qClientPtr, trackHandler->handlerPtr);
     }
 }
 
@@ -191,25 +194,18 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
     qClientPtr->SetCallbacks(callbacks);
 }
 
--(QPublishNamespaceStatus) getPublishNamespaceStatus: (QTrackNamespace) trackNamespace
-{
-    assert(qClientPtr);
-    auto status = qClientPtr->GetPublishNamespaceStatus(nsConvert(trackNamespace));
-    return static_cast<QPublishNamespaceStatus>(status);
-}
-
 -(void) subscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
 {
     assert(qClientPtr);
     assert(handler->handlerPtr);
-    qClientPtr->SubscribeNamespace(handler->handlerPtr);
+    qSessionMgr.AddHandler(qClientPtr, handler->handlerPtr);
 }
 
 -(void) unsubscribeNamespaceWithHandler: (QSubscribeNamespaceHandlerObjC*) handler
 {
     assert(qClientPtr);
     assert(handler->handlerPtr);
-    qClientPtr->UnsubscribeNamespace(handler->handlerPtr);
+    qSessionMgr.RemoveHandler(qClientPtr, handler->handlerPtr);
 }
 
 -(void) resolvePublish: (uint64_t) connectionHandle
@@ -220,8 +216,7 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
                handler: (QSubscribeTrackHandlerObjC* _Nullable) handler {
     assert(qClientPtr);
     
-    qClientPtr->ResolvePublish(connectionHandle,
-                               requestId,
+    qClientPtr->ResolvePublish(requestId,
                                convert(attributes, tfn),
                                convert(response, attributes),
                                std::static_pointer_cast<quicr::SubscribeTrackHandler>(handler ? handler->handlerPtr : nullptr));
@@ -229,11 +224,18 @@ static quicr::PublishResponse convert(QPublishResponse response, QPublishAttribu
 
 // C++
 
-std::shared_ptr<QClient> QClient::Create(quicr::ClientConfig config) {
-    return std::shared_ptr<QClient>(new QClient(config));
+std::shared_ptr<QClient> QClient::Create(quicr::ClientConfig config,
+                                         std::shared_ptr<quicr::Transport> transport,
+                                         std::shared_ptr<quicr::Connection> connection,
+                                         std::shared_ptr<timeq::tick_service> tick_service) {
+    return std::shared_ptr<QClient>(new QClient(config, std::move(transport), std::move(connection), std::move(tick_service)));
 }
 
-QClient::QClient(quicr::ClientConfig config) : quicr::Client(config)
+QClient::QClient(quicr::ClientConfig config,
+                 std::shared_ptr<quicr::Transport> transport,
+                 std::shared_ptr<quicr::Connection> connection,
+                 std::shared_ptr<timeq::tick_service> tick_service)
+    : quicr::Session(config, std::move(transport), std::move(connection), std::move(tick_service))
 {
 }
 
@@ -309,8 +311,7 @@ void QClient::SetCallbacks(id<QClientCallbacks> callbacks)
     _callbacks = callbacks;
 }
 
-void QClient::PublishReceived(const std::uint64_t connection_handle,
-                              const std::uint64_t request_id,
+void QClient::PublishReceived(const std::uint64_t request_id,
                               const quicr::PublishAttributes& publish_attributes,
                               std::weak_ptr<quicr::SubscribeNamespaceHandler> sub_ns_handler)
 {
@@ -322,7 +323,7 @@ void QClient::PublishReceived(const std::uint64_t connection_handle,
                 auto* qHandler = static_cast<QSubscribeNamespaceHandler*>(locked.get());
                 objcHandler = qHandler->GetObjCWrapper();
             }
-            [_callbacks publishReceived: connection_handle
+            [_callbacks publishReceived: 0
                               requestId:request_id
                                     tfn:ftnConvert(publish_attributes.track_full_name)
                              attributes:convert(publish_attributes)
