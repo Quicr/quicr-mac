@@ -40,7 +40,8 @@ class AudioHandler: TimeAlignable {
     private let asbd: UnsafeMutablePointer<AudioStreamBasicDescription>
     private var node: AVAudioSourceNode?
     private var oldJitterBuffer: QJitterBuffer?
-    private var playoutBuffer: CircularBuffer?
+    private var playoutBufferWriter: CircularBuffer.Writer?
+    private var playoutBufferReader: CircularBuffer.Reader?
     private let measurement: OpusSubscription.OpusSubscriptionMeasurement?
     private let underrun = Atomic<UInt64>(0)
     private let callbacks = Atomic<UInt64>(0)
@@ -114,6 +115,8 @@ class AudioHandler: TimeAlignable {
     }
 
     deinit {
+        self.dequeueTask?.cancel()
+
         // Remove the audio playout.
         do {
             try engine.removePlayer(identifier: self.identifier)
@@ -179,8 +182,10 @@ class AudioHandler: TimeAlignable {
         let playoutLength = UInt32(format.sampleRate *
                                     Double(format.streamDescription.pointee.mBytesPerFrame) *
                                     self.config.jitterMax)
-        self.playoutBuffer = try .init(length: playoutLength,
-                                       format: self.asbd.pointee)
+        let playoutBuffer = try CircularBuffer.makeSPSC(length: playoutLength,
+                                                        format: self.asbd.pointee)
+        self.playoutBufferWriter = playoutBuffer.writer
+        self.playoutBufferReader = playoutBuffer.reader
         let slidingWindowLength: TimeInterval = self.config.slidingWindowTime
         let capacity = Int(slidingWindowLength * (1.0 / self.config.opusWindowSize.rawValue))
         self.timeAligner = .init(windowLength: slidingWindowLength,
@@ -311,7 +316,8 @@ class AudioHandler: TimeAlignable {
         assert(buffer.mDataByteSize == numFrames * self.asbd.pointee.mBytesPerFrame)
 
         var copiedFrames = 0
-        if let playoutBuffer = self.playoutBuffer {
+        if let playoutBuffer = self.playoutBufferReader {
+            playoutBuffer.processClearRequest()
             // Dequeue audio from the playout buffer, catching up where late if possible.
             var currentDestination = data.pointee
             var currentDestinationSamples = numFrames
@@ -607,11 +613,17 @@ class AudioHandler: TimeAlignable {
                                           clock: .continuous)
                 }
 
+                let item: AudioJitterItem
+                let now: Ticks
+                let playoutBuffer: CircularBuffer.Writer
+                let clearGeneration: UInt64?
+
                 // Regain our strong reference after sleeping.
                 if let self = self {
                     // Attempt to dequeue an opus packet.
-                    let now = Ticks.now
-                    guard let item: AudioJitterItem  = self.jitterBuffer!.read(from: now.hostDate) else { continue }
+                    now = Ticks.now
+                    guard let readItem: AudioJitterItem = self.jitterBuffer!.read(from: now.hostDate) else { continue }
+                    item = readItem
 
                     // Record the actual delay (difference between when this should
                     // be presented, and now).
@@ -624,8 +636,30 @@ class AudioHandler: TimeAlignable {
                         }
                     }
 
-                    // Decode, conceal, enqueue for playout.
-                    self.checkForDiscontinuity(item, window: windowSize, when: now.hostDate)
+                    guard let writer = self.playoutBufferWriter else {
+                        self.logger.error("Missing playout buffer")
+                        continue
+                    }
+                    playoutBuffer = writer
+
+                    // Conceal or prepare a large-gap recovery before releasing the handler.
+                    clearGeneration = self.checkForDiscontinuity(item,
+                                                                 window: windowSize,
+                                                                 when: now.hostDate,
+                                                                 lastUsedSequence: self.lastUsedSequence,
+                                                                 playoutBuffer: writer)
+                } else {
+                    return
+                }
+
+                // Do not retain the handler while rendering is stopped or delayed.
+                if let clearGeneration,
+                   !(await playoutBuffer.waitForClearAcknowledgement(clearGeneration)) {
+                    continue
+                }
+
+                // Regain the handler only after the reader has cleared stale PCM.
+                if let self = self {
                     self.decode(item, when: now.hostDate)
                 }
             }
@@ -666,11 +700,11 @@ class AudioHandler: TimeAlignable {
                                        mFlags: .hostTimeValid,
                                        mReserved: 0)
         do {
-            guard let playoutBuffer = self.playoutBuffer else {
+            guard let playoutBuffer = self.playoutBufferWriter else {
                 self.logger.error("Missing playout buffer")
                 return
             }
-            let depth = playoutBuffer.peek().frames
+            let depth = playoutBuffer.depthFrames
             if self.granularMetrics,
                let measurement = self.measurement {
                 let depthMs = TimeInterval(depth) / 48000 * 1000
@@ -679,36 +713,39 @@ class AudioHandler: TimeAlignable {
             try playoutBuffer.enqueue(buffer: &decoded.mutableAudioBufferList.pointee,
                                       timestamp: &timestamp,
                                       frames: nil)
+        } catch CircularBufferError.clearPending {
+            // Expected after a large discontinuity, until the render callback clears the gap.
+            self.logger.debug("Dropped decoded audio pending playout buffer clear")
         } catch {
             self.logger.warning("Failed to enqueue decoded audio to playout buffer: \(error.localizedDescription)")
             self.measurement?.playoutFull(timestamp: self.granularMetrics ? when : nil)
         }
     }
 
-    private func checkForDiscontinuity(_ item: AudioJitterItem, window: OpusWindowSize, when: Date) {
+    func checkForDiscontinuity(_ item: JitterBuffer.JitterItem,
+                               window: OpusWindowSize,
+                               when: Date,
+                               lastUsedSequence: UInt64?,
+                               playoutBuffer: CircularBuffer.Writer) -> UInt64? {
         // Check for discontinuity.
         guard var lastUsedSequence,
               item.sequenceNumber > lastUsedSequence,
               item.sequenceNumber != lastUsedSequence + 1 else {
-            return
+            return nil
         }
 
         // Are we within the generation threshold?
         let packetsToGenerate = item.sequenceNumber - lastUsedSequence - 1
         guard packetsToGenerate <= self.config.maxPlcThreshold else {
             self.logger.warning("Discontinuity too large: \(packetsToGenerate)")
-            self.playoutBuffer?.clear()
+            let clearGeneration = playoutBuffer.requestClear()
             do {
                 try self.decoder.reset()
             } catch {
                 self.logger.warning("Couldn't reset decoder: \(error.localizedDescription)")
             }
-            do {
-                try self.jitterBuffer?.clear()
-            } catch {
-                self.logger.warning("Couldn't clear jitter buffer: \(error.localizedDescription)")
-            }
-            return
+
+            return clearGeneration
         }
 
         // Generate PLC.
@@ -717,7 +754,7 @@ class AudioHandler: TimeAlignable {
         // Enqueue for playout.
         guard let diff = self.timeDiff.getTimeDiff() else {
             self.logger.error("Missing timing info, cannot use this audio")
-            return
+            return nil
         }
         let itemDate = self.jitterBuffer!.getPlayoutDate(item: item, offset: diff)
         for packet in 0..<packetsToGenerate {
@@ -737,9 +774,11 @@ class AudioHandler: TimeAlignable {
                                                mFlags: .hostTimeValid,
                                                mReserved: 0)
                 do {
-                    try self.playoutBuffer?.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
-                                                    timestamp: &timestamp,
-                                                    frames: nil)
+                    try playoutBuffer.enqueue(buffer: &plc.mutableAudioBufferList.pointee,
+                                              timestamp: &timestamp,
+                                              frames: nil)
+                } catch CircularBufferError.clearPending {
+                    self.logger.debug("Dropped PLC data pending playout buffer clear")
                 } catch {
                     self.logger.warning("Couldn't enqueue PLC data: \(error.localizedDescription)")
                     self.measurement?.playoutFull(timestamp: self.granularMetrics ? when : nil)
@@ -748,5 +787,6 @@ class AudioHandler: TimeAlignable {
                 self.logger.error("Failure generating PLC: \(error.localizedDescription)")
             }
         }
+        return nil
     }
 }
