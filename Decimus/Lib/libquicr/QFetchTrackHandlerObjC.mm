@@ -15,10 +15,9 @@
                          endLocation: (id<QFetchEndLocation> _Nonnull) end_location
 {
     quicr::FullTrackName fullTrackName = ftnConvert(full_track_name);
-    std::optional<quicr::messages::GroupOrder> order;
-    if (groupOrder != kQGroupOrderOriginalPublisherOrder) {
-        order = static_cast<quicr::messages::GroupOrder>(groupOrder);
-    }
+    const auto order = groupOrder == kQGroupOrderOriginalPublisherOrder
+        ? quicr::messages::GroupOrder::kAscending
+        : static_cast<quicr::messages::GroupOrder>(groupOrder);
     const quicr::messages::Location startLocation = {
         .group = start_location.group,
         .object = start_location.object
@@ -32,9 +31,9 @@
     }
     handlerPtr = std::make_shared<QFetchTrackHandler>(fullTrackName,
                                                       priority,
-                                                      order,
                                                       startLocation,
-                                                      endLocation);
+                                                      endLocation,
+                                                      order);
     return self;
 }
 
@@ -91,13 +90,13 @@
 
 QFetchTrackHandler::QFetchTrackHandler(const quicr::FullTrackName& full_track_name,
                                        std::uint8_t priority,
-                                       std::optional<quicr::messages::GroupOrder> group_order,
                                        const quicr::messages::Location& start_location,
-                                       const quicr::messages::FetchEndLocation& end_location) : quicr::FetchTrackHandler(full_track_name,
-                                                                                                        priority,
-                                                                                                        group_order,
-                                                                                                        start_location,
-                                                                                                        end_location) {}
+                                       const quicr::messages::FetchEndLocation& end_location,
+                                       quicr::messages::GroupOrder group_order) : quicr::FetchTrackHandler(full_track_name,
+                                                                                                           priority,
+                                                                                                           start_location,
+                                                                                                           end_location,
+                                                                                                           group_order) {}
 
 void QFetchTrackHandler::StatusChanged(Status status)
 {
