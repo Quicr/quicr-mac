@@ -204,7 +204,11 @@ struct TestVideoSubscription {
         subscription.mockObject(groupId: 2, objectId: 0, immutableExtensions: loc())
         #expect(subscription.getCurrentState() == .running)
         #expect(fetchCancelled)
-        try await Task.sleep(for: .milliseconds(75))
+        for _ in 0..<100 {
+            let queued: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
+            guard queued != nil else { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
         let queuedAfterRelease: DecimusVideoFrameJitterItem? = fetchingHandler.jitterBuffer?.peek()
         #expect(queuedAfterRelease == nil)
     }
