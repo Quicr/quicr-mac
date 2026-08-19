@@ -14,6 +14,8 @@ extension OpusSubscription {
         private let missing = Atomic<UInt64>(0)
         private let dropped = Atomic<UInt64>(0)
         private let playoutFullCount = Atomic<UInt64>(0)
+        private let playoutClearDroppedCount = Atomic<UInt64>(0)
+        private let playoutClearDelayedCount = Atomic<UInt64>(0)
 
         init(namespace: QuicrNamespace) {
             self.tags = ["namespace": namespace]
@@ -74,6 +76,18 @@ extension OpusSubscription {
         func playoutFull(timestamp: Date?) {
             let val = playoutFullCount.wrappingAdd(1, ordering: .relaxed).newValue
             record(field: "playoutFull", value: val as AnyObject, timestamp: timestamp)
+        }
+
+        /// Audio discarded because the playout buffer was awaiting a clear.
+        func playoutClearDropped(timestamp: Date?) {
+            let val = playoutClearDroppedCount.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "playoutClearDropped", value: val as AnyObject, timestamp: timestamp)
+        }
+
+        /// A requested playout clear the renderer did not perform within the diagnostic threshold.
+        func playoutClearDelayed(timestamp: Date?) {
+            let val = playoutClearDelayedCount.wrappingAdd(1, ordering: .relaxed).newValue
+            record(field: "playoutClearDelayed", value: val as AnyObject, timestamp: timestamp)
         }
     }
 }
