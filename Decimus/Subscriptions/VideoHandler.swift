@@ -38,6 +38,9 @@ struct ObjectReceived {
 /// - Parameter details: The details of the object received.
 typealias ObjectReceivedCallback = (_ details: ObjectReceived) -> Void
 
+/// A discontinuity occurred.
+typealias DiscontinuityCallback = @Sendable (_ groupId: UInt64, _ objectId: UInt64) -> Void
+
 /// Handles decoding, jitter, and rendering of a video stream.
 final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // swiftlint:disable:this type_body_length
     /// The current configuration in use.
@@ -67,6 +70,7 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     private let atomicOrientation = Atomic<UInt8>(0)
     private let atomicMirror = Atomic<Bool>(false)
     private let currentFormats = Mutex<[UInt64: CMFormatDescription]>([:])
+    private let discontinuityCallback = Mutex<DiscontinuityCallback?>(nil)
     @MainActor private var startTimeSet = false
     private let metricsSubmitter: MetricsSubmitter?
     private let simulreceive: SimulreceiveMode
@@ -251,6 +255,10 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
     /// - Parameter token: Token from a ``registerCallback(_:)`` call.
     func unregisterCallback(_ token: Int) {
         _ = self.callbacks.withLock { $0.callbacks.removeValue(forKey: token) }
+    }
+
+    func setDiscontinuityCallback(_ callback: @escaping DiscontinuityCallback) {
+        self.discontinuityCallback.withLock { $0 = callback }
     }
 
     // MARK: Callbacks.
@@ -777,8 +785,11 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                                          lastGroup: self.lastGroup,
                                          lastObject: self.lastObject)
         guard gateResult || self.videoBehaviour != .freeze else {
-            // If there's a discontinuity and we want to freeze, we're done.
+            // If there's a discontinuity and we want to freeze, notify, done.
             self.logger.warning("Discontinuity. Got: (\(groupId), \(objectId)), had: (\(String(describing: self.lastGroup)), \(String(describing: self.lastObject)))")
+            if self.isForwardDiscontinuity(groupId: groupId, objectId: objectId) {
+                self.discontinuityCallback.get()?(groupId, objectId)
+            }
             return
         }
 
@@ -824,6 +835,14 @@ final class VideoHandler: TimeAlignable, CustomStringConvertible, Sendable { // 
                 }
             }
         }
+    }
+
+    private func isForwardDiscontinuity(groupId: UInt64, objectId: UInt64) -> Bool {
+        guard let lastGroup = self.lastGroup else { return objectId != 0 }
+        guard groupId == lastGroup else { return groupId > lastGroup }
+        guard let lastObject = self.lastObject,
+              objectId > lastObject else { return false }
+        return (objectId - lastObject) > 1
     }
 
     private func enqueueSample(sample: CMSampleBuffer,
