@@ -97,6 +97,14 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             self.state.get()
         }
 
+        func waitForNewGroupIfRunning(_ requested: Bool) -> Bool {
+            self.state.withLock { state in
+                guard state == .running else { return false }
+                state = .waitingForNewGroup(requested)
+                return true
+            }
+        }
+
         func transition(to newState: State) throws {
             try self.state.withLock { state in
                 var valid: Bool {
@@ -244,6 +252,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                        publisherInitiated: publisherInitiated,
                        deliveryTimeout: UInt64(profile.expiry?.first ?? 0),
                        statusCallback: statusChanged)
+        handler.setDiscontinuityCallback { [weak self, weak handler] groupId, objectId in
+            guard let handler else { return }
+            self?.handleDiscontinuity(from: handler, groupId: groupId, objectId: objectId)
+        }
     }
 
     deinit {
@@ -277,6 +289,18 @@ class VideoSubscription: Subscription, @unchecked Sendable {
             self.token = 0
         }
         try! self.stateMachine.transition(to: .startup) // swiftlint:disable:this force_try
+    }
+
+    private func handleDiscontinuity(from: VideoHandler, groupId: UInt64, objectId: UInt64) {
+        let requested = self.isNewGroupRequestSupported()
+        let accepted = self.handler.withLock { currentHandler in
+            guard currentHandler === from else { return false }
+            return self.stateMachine.waitForNewGroupIfRunning(requested)
+        }
+        guard accepted else { return }
+        if requested {
+            self.requestNewGroup()
+        }
     }
 
     /// What should happen to a video object based on state.
@@ -368,7 +392,9 @@ class VideoSubscription: Subscription, @unchecked Sendable {
         case .running:
             if objectHeaders.objectId == 0 {
                 // IDR received, track the group.
-                self.lastSeenGroup = objectHeaders.groupId
+                if self.lastSeenGroup.map({ objectHeaders.groupId >= $0 }) ?? true {
+                    self.lastSeenGroup = objectHeaders.groupId
+                }
                 return .normal(false)
             }
             if objectHeaders.groupId > (self.lastSeenGroup ?? 0) {
@@ -563,6 +589,10 @@ class VideoSubscription: Subscription, @unchecked Sendable {
                                               handlerConfig: config,
                                               wifiDetector: self.wifiScanDetector,
                                               switchLatencyMeasurement: self.switchLatencyMeasurement)
+            newHandler.setDiscontinuityCallback { [weak self, weak newHandler] groupId, objectId in
+                guard let newHandler else { return }
+                self?.handleDiscontinuity(from: newHandler, groupId: groupId, objectId: objectId)
+            }
             self.token = newHandler.registerCallback(self.callback)
             let activation: ActivationType = self.handlerCreatedOnce ? .reactivation : .newSubscription
             self.handlerCreatedOnce = true

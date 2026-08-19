@@ -700,6 +700,99 @@ struct TestVideoSubscription {
         #expect(fetch == nil)
     }
 
+    @Test("Handler requests new group after a same-group discontinuity")
+    @MainActor
+    func testHandlerDiscontinuityRequestsNewGroup() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           cleanupTime: 60)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        subscription.mockObject(groupId: 0, objectId: 2, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .waitingForNewGroup(true))
+
+        // Further P-frames remain dropped without starting another recovery.
+        subscription.mockObject(groupId: 0, objectId: 3, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .waitingForNewGroup(true))
+
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Old handler can't start recovery on new handler")
+    @MainActor
+    func testCleanedUpHandlerCannotStartRecovery() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold,
+                                                           cleanupTime: 0.2)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        let originalHandler = subscription.handler.get()
+        let cleanedUpHandler = try #require(originalHandler)
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        for _ in 0..<100 where subscription.handler.get() != nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let handlerAfterCleanup = subscription.handler.get()
+        #expect(handlerAfterCleanup == nil)
+
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+
+        let priority: UInt8 = 0
+        let ttl: UInt16 = 0
+        withUnsafePointer(to: priority) { priorityPtr in
+            withUnsafePointer(to: ttl) { ttlPtr in
+                cleanedUpHandler.objectReceived(.init(groupId: 0,
+                                                      subgroupId: 0,
+                                                      objectId: 2,
+                                                      payloadLength: 0,
+                                                      status: .available,
+                                                      priority: priorityPtr,
+                                                      ttl: ttlPtr),
+                                                data: Data([0x01]),
+                                                extensions: loc(),
+                                                when: .now,
+                                                cached: false,
+                                                drop: false)
+            }
+        }
+        #expect(subscription.getCurrentState() == .running)
+    }
+
     @Test("Same group objects while running do not trigger missed IDR")
     @MainActor
     func testSameGroupNoMissedIDR() async throws {
@@ -793,6 +886,36 @@ struct TestVideoSubscription {
 
         // Group 1 continues normally.
         subscription.mockObject(groupId: 1, objectId: 1, extensions: nil, immutableExtensions: loc())
+        #expect(subscription.getCurrentState() == .running)
+    }
+
+    @Test("Late prior-group IDR does not regress current group")
+    @MainActor
+    func testLatePriorGroupIDRDoesNotRegressCurrentGroup() async throws {
+        let mockClient = MockClient(publish: { _ in },
+                                    unpublish: { _ in },
+                                    subscribe: { _ in },
+                                    unsubscribe: { _ in },
+                                    fetch: { _ in #expect(Bool(false), "Should not fetch") },
+                                    fetchCancel: { _ in })
+        let subscription = try await self.makeSubscription(mockClient,
+                                                           fetchThreshold: fetchThreshold,
+                                                           ngThreshold: ngThreshold)
+
+        var sequence: UInt64 = 0
+        func loc() -> HeaderExtensions {
+            sequence += 1
+            var extensions = HeaderExtensions()
+            try? extensions.setHeader(.sequenceNumber(sequence))
+            try? extensions.setHeader(.captureTimestamp(.now))
+            return extensions
+        }
+
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 1, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 0, objectId: 0, immutableExtensions: loc())
+        subscription.mockObject(groupId: 1, objectId: 1, immutableExtensions: loc())
+
         #expect(subscription.getCurrentState() == .running)
     }
 }
